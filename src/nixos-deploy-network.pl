@@ -87,12 +87,33 @@ sub startMachines {
 
         $machine->{ipv6} = $ipv6;
     }
+
+    # So now that we know the hostnames / IP addresses of all
+    # machines, generate a Nix expression containing the physical
+    # network configuration that can be stacked on top of the
+    # user-supplied network configuration.
+    my $hosts = "";
+    foreach my $machine (@machines) {
+        $hosts .= "$machine->{ipv6} $machine->{name}\\n";
+    }
+    
+    open STATE, ">state.nix" or die;
+    print STATE "{\n";
+    foreach my $machine (@machines) {
+        print STATE "  $machine->{name} = { config, pkgs, ... }:\n";
+        print STATE "    {\n";
+        print STATE "      key = \"physical-$machine->{name}\";\n"; # !!! shouldn't be needed
+        print STATE "      networking.extraHosts = \"$hosts\";\n";
+        print STATE "    };\n";
+    }
+    print STATE "}\n";
+    close STATE;
 }
 
 
 sub buildConfigs {
     print STDERR "building all machine configurations...\n";
-    $outPath = `nix-build ./eval-machine-info.nix --arg networkExprs '[ $networkExpr ]' -A machines`;
+    $outPath = `nix-build ./eval-machine-info.nix --arg networkExprs '[ $networkExpr ./state.nix ]' -A machines`;
     die "unable to build all machine configurations" unless $? == 0;
     chomp $outPath;
 }
