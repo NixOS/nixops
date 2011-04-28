@@ -102,15 +102,23 @@ sub copyClosures {
     # !!! Should copy closures in parallel.
     foreach my $machine (@machines) {
         print STDERR "copying closure to machine ‘$machine->{name}’...\n";
-        my $systemPath = readlink "$outPath/$machine->{name}/system" or die;
-        system "nix-copy-closure --gzip --to root\@$machine->{ipv6} $systemPath";
+        my $toplevel = readlink "$outPath/$machine->{name}" or die;
+        $machine->{toplevel} = $toplevel;
+        system "nix-copy-closure --gzip --to root\@$machine->{ipv6} $toplevel";
         die "unable to copy closure to machine ‘$machine->{name}’" unless $? == 0;
     }
 }
 
 
 sub activateConfigs {
-    # TODO
+    foreach my $machine (@machines) {
+        print STDERR "activating new configuration on machine ‘$machine->{name}’...\n";
+        system "ssh -o StrictHostKeyChecking=no root\@$machine->{ipv6} nix-env -p /nix/var/nix/profiles/system --set $machine->{toplevel} \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
+        if ($? != 0) {
+            # !!! do a rollback
+            die "unable to activate new configuration on machine ‘$machine->{name}’";
+        }
+    }
 }
 
 

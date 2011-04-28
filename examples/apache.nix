@@ -4,10 +4,8 @@ let
     { config, pkgs, ... }:
 
     {
-      services.openssh.enable = true;
-
       services.httpd.enable = true;
-      services.httpd.adminAddr = "foo@example.org";
+      services.httpd.adminAddr = "e.dolstra@tudelft.nl";
       services.httpd.documentRoot = "${pkgs.valgrind}/share/doc/valgrind/html";
     };
 
