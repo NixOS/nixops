@@ -42,7 +42,7 @@ sub processArgs {
 
 sub evalMachineInfo {
     my $machineInfoXML =
-        `nix-instantiate --eval-only --xml --strict ./eval-machine-info.nix --argstr networkExpr $networkExpr -A machineInfo`;
+        `nix-instantiate --eval-only --xml --strict ./eval-machine-info.nix --arg networkExprs '[ $networkExpr ]' -A machineInfo`;
     die "evaluation of $networkExpr failed" unless $? == 0;
     
     #print $machineInfoXML, "\n";
@@ -92,7 +92,7 @@ sub startMachines {
 
 sub buildConfigs {
     print STDERR "building all machine configurations...\n";
-    $outPath = `nix-build ./eval-machine-info.nix --argstr networkExpr $networkExpr -A machines`;
+    $outPath = `nix-build ./eval-machine-info.nix --arg networkExprs '[ $networkExpr ]' -A machines`;
     die "unable to build all machine configurations" unless $? == 0;
     chomp $outPath;
 }

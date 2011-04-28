@@ -1,7 +1,7 @@
 { nixpkgs ? builtins.getEnv "NIXPKGS_ALL"
 , nixos ? builtins.getEnv "NIXOS"
 , system ? builtins.currentSystem
-, networkExpr
+, networkExprs
 }:
 
 with import "${nixos}/lib/testing.nix" { inherit nixpkgs system; };
@@ -10,19 +10,21 @@ with lib;
 
 rec {
 
-  network = import networkExpr;
+  networks = map (networkExpr: import networkExpr) networkExprs;
 
+  network = zipAttrs networks;
+  
   nodes =
     listToAttrs (map (configurationName:
       let
-        configuration = getAttr configurationName network;
+        modules = getAttr configurationName network;
       in
       { name = configurationName;
         value = import "${nixos}/lib/eval-config.nix" {
           inherit nixpkgs;
           modules =
-            [ configuration
-              # Slurp in the required configuration for machines in the adhoc cloud.
+            modules ++
+            [ # Slurp in the required configuration for machines in the adhoc cloud.
               /home/eelco/Dev/configurations/tud/cloud/cloud-vm.nix
               # Provide a default hostname and deployment target equal
               # to the attribute name of the machine in the model.
