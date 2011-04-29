@@ -102,7 +102,6 @@ sub startMachines {
     foreach my $machine (@machines) {
         print STATE "  $machine->{name} = { config, pkgs, ... }:\n";
         print STATE "    {\n";
-        print STATE "      key = \"physical-$machine->{name}\";\n"; # !!! shouldn't be needed
         print STATE "      networking.extraHosts = \"$hosts\";\n";
         print STATE "    };\n";
     }
