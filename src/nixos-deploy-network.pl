@@ -128,7 +128,7 @@ sub startMachines {
     # user-supplied network configuration.
     my $hosts = "";
     foreach my $machine (@machines) {
-        $hosts .= "$machine->{ipv6} $machine->{name}\\n";
+        $hosts .= "$machine->{ipv6} $machine->{name}\\n" if defined $machine->{ipv6};
     }
     
     open STATE, ">state.nix" or die;
