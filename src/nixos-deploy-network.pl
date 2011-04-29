@@ -5,7 +5,7 @@ use XML::LibXML;
 
 binmode(STDERR, ":utf8");
 
-my $networkExpr;
+my @networkExprs;
 my @machines = ();
 my $outPath;
 
@@ -38,15 +38,15 @@ sub main {
 
 
 sub processArgs {
-    $networkExpr = $ARGV[0];
-    die unless defined $networkExpr;
+    @networkExprs = @ARGV;
+    die unless scalar @networkExprs > 0;
 }
 
 
 sub evalMachineInfo {
     my $machineInfoXML =
-        `nix-instantiate --eval-only --xml --strict ./eval-machine-info.nix --arg networkExprs '[ $networkExpr ]' -A machineInfo`;
-    die "evaluation of $networkExpr failed" unless $? == 0;
+        `nix-instantiate --eval-only --xml --strict ./eval-machine-info.nix --arg networkExprs '[ @networkExprs ]' -A machineInfo`;
+    die "evaluation of @networkExprs failed" unless $? == 0;
     
     #print $machineInfoXML, "\n";
 
@@ -146,7 +146,7 @@ sub startMachines {
 
 sub buildConfigs {
     print STDERR "building all machine configurations...\n";
-    $outPath = `nix-build ./eval-machine-info.nix --arg networkExprs '[ $networkExpr ./state.nix ]' -A machines`;
+    $outPath = `nix-build ./eval-machine-info.nix --arg networkExprs '[ @networkExprs ./state.nix ]' -A machines`;
     die "unable to build all machine configurations" unless $? == 0;
     chomp $outPath;
 }
