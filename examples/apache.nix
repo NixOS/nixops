@@ -7,6 +7,9 @@ let
       services.httpd.enable = true;
       services.httpd.adminAddr = "e.dolstra@tudelft.nl";
       services.httpd.documentRoot = "${pkgs.valgrind}/share/doc/valgrind/html";
+
+      deployment.targetEnv = "adhoc";
+      deployment.adhoc.controller = "root@stan.nixos.org";
     };
 
 in
@@ -45,6 +48,9 @@ in
           # For testing; don't want to wait forever for dead backend servers.
           ProxyTimeout      5
         '';
+        
+      deployment.targetEnv = "adhoc";
+      deployment.adhoc.controller = "root@stan.nixos.org";
     };
 
   backend1 = backend;

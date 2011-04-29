@@ -1,6 +1,9 @@
 #! /var/run/current-system/sw/bin/perl -w
 
+use utf8;
 use XML::LibXML;
+
+binmode(STDERR, ":utf8");
 
 my $networkExpr;
 my @machines = ();
@@ -48,10 +51,27 @@ sub evalMachineInfo {
     #print $machineInfoXML, "\n";
 
     my $dom = XML::LibXML->load_xml(string => $machineInfoXML);
-    foreach my $m ($dom->findnodes('/expr/list/string')) {
-        my $name = $m->findvalue('./@value');
+    foreach my $m ($dom->findnodes('/expr/attrs/attr')) {
+        my $name = $m->findvalue('./@name') || die;
         #print STDERR "got machine ‘$name’\n";
-        push @machines, { name => $name };
+        my $targetEnv = $m->findvalue('./attrs/attr[@name = "targetEnv"]/string/@value') || die;
+        my $info =
+            { name => $name
+            , targetEnv => $targetEnv
+            };
+        if ($targetEnv eq "none") {
+            $info->{targetHost} =
+                $m->findvalue('./attrs/attr[@name = "targetHost"]/string/@value') || die;
+        } elsif ($targetEnv eq "adhoc") {
+            $info->{adhoc} =
+                { controller => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "controller"]/string/@value') || die
+                , startVMCommand => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "startVMCommand"]/string/@value') || die
+                , queryVMCommand => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "queryVMCommand"]/string/@value') || die
+                };
+        } else {
+            die "machine ‘$name’ has an unknown target environment type ‘$targetEnv’";
+        }
+        push @machines, $info;
     }
 }
 
@@ -62,32 +82,46 @@ sub readState {
 
 sub startMachines {
     foreach my $machine (@machines) {
-        print STDERR "checking whether VM ‘$machine->{name}’ exists...\n";
-
-        my $ipv6 = `ssh root\@stan.nixos.org query-vm $machine->{name} 2> /dev/null`;
-        die "unable to query VM state: $?" unless $? == 0 || $? == 256;
-
-        if ($? == 256) {
-            print STDERR "starting missing VM ‘$machine->{name}’...\n";
-            system "ssh root\@stan.nixos.org create-vm $machine->{name}";
-            die "unable to start VM: $?" unless $? == 0;
-
-            $ipv6 = `ssh root\@stan.nixos.org query-vm $machine->{name} 2> /dev/null`;
-            die "unable to query VM state: $?" unless $? == 0;
+        
+        if ($machine->{targetEnv} eq "none") {
+            # Nothing to do here.
         }
+        
+        elsif ($machine->{targetEnv} eq "adhoc") {
+        
+            print STDERR "checking whether VM ‘$machine->{name}’ exists...\n";
 
-        chomp $ipv6;
+            my $ipv6 = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{queryVMCommand} $machine->{name} 2> /dev/null`;
+            die "unable to query VM state: $?" unless $? == 0 || $? == 256;
 
-        print STDERR "IPv6 address is $ipv6\n";
+            if ($? == 256) {
+                print STDERR "starting missing VM ‘$machine->{name}’...\n";
+                system "ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{createVMCommand} $machine->{name}";
+                die "unable to start VM: $?" unless $? == 0;
 
-        print STDERR "checking whether VM ‘$machine->{name}’ is reachable via SSH...\n";
+                $ipv6 = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{queryVMCommand} $machine->{name} 2> /dev/null`;
+                die "unable to query VM state: $?" unless $? == 0;
+            }
 
-        system "ssh -o StrictHostKeyChecking=no root\@$ipv6 true < /dev/null 2> /dev/null";
-        die "cannot SSH to VM: $?" unless $? == 0;
+            chomp $ipv6;
 
-        $machine->{ipv6} = $ipv6;
+            print STDERR "IPv6 address is $ipv6\n";
+
+            print STDERR "checking whether VM ‘$machine->{name}’ is reachable via SSH...\n";
+
+            system "ssh -o StrictHostKeyChecking=no root\@$ipv6 true < /dev/null 2> /dev/null";
+            die "cannot SSH to VM: $?" unless $? == 0;
+
+            $machine->{ipv6} = $ipv6;
+        }
     }
 
+    # Figure out how we're gonna SSH to each machine.  Prefer IPv6
+    # addresses over hostnames.
+    foreach my $machine (@machines) {
+        $machine->{sshName} = $machine->{ipv6} || $machine->{targetHost} || die "don't know how to reach ‘$machine->{name}’";
+    }
+    
     # So now that we know the hostnames / IP addresses of all
     # machines, generate a Nix expression containing the physical
     # network configuration that can be stacked on top of the
@@ -124,7 +158,7 @@ sub copyClosures {
         print STDERR "copying closure to machine ‘$machine->{name}’...\n";
         my $toplevel = readlink "$outPath/$machine->{name}" or die;
         $machine->{toplevel} = $toplevel;
-        system "nix-copy-closure --gzip --to root\@$machine->{ipv6} $toplevel";
+        system "nix-copy-closure --gzip --to root\@$machine->{sshName} $toplevel";
         die "unable to copy closure to machine ‘$machine->{name}’" unless $? == 0;
     }
 }
@@ -133,7 +167,7 @@ sub copyClosures {
 sub activateConfigs {
     foreach my $machine (@machines) {
         print STDERR "activating new configuration on machine ‘$machine->{name}’...\n";
-        system "ssh -o StrictHostKeyChecking=no root\@$machine->{ipv6} nix-env -p /nix/var/nix/profiles/system --set $machine->{toplevel} \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
+        system "ssh -o StrictHostKeyChecking=no root\@$machine->{sshName} nix-env -p /nix/var/nix/profiles/system --set $machine->{toplevel} \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
         if ($? != 0) {
             # !!! do a rollback
             die "unable to activate new configuration on machine ‘$machine->{name}’";

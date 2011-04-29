@@ -29,9 +29,10 @@ rec {
               # Provide a default hostname and deployment target equal
               # to the attribute name of the machine in the model.
               { key = "set-default-hostname";
-                networking.hostName = pkgs.lib.mkOverride 900 configurationName;
-                deployment.targetHost = pkgs.lib.mkOverride 900 configurationName;
-                networking.firewall.enable = pkgs.lib.mkOverride 900 false; # hack, think about this later
+                networking.hostName = mkOverride 900 configurationName;
+                deployment.targetHost = mkOverride 900 configurationName;
+                networking.firewall.enable = mkOverride 900 false; # hack, think about this later
+                environment.checkConfigurationOptions = false; # should only do this in phase 1
               }
             ];
           extraArgs = { inherit nodes; };
@@ -39,12 +40,19 @@ rec {
       }
     ) (attrNames network));
 
-  machineInfo = builtins.attrNames nodes;
-  
+  # Phase 1: evaluate only the deployment attributes.
+  machineInfo =
+    flip mapAttrs nodes (n: v:
+      { inherit (v.config.deployment) targetEnv targetHost;
+        adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
+      }
+    );
+
+  # Phase 2: build complete machine configurations.  
   machines = runCommand "vms" {}
     ''
       mkdir -p $out
-      ${toString (lib.attrValues (lib.mapAttrs (n: v: ''
+      ${toString (attrValues (mapAttrs (n: v: ''
         ln -s ${v.config.system.build.toplevel} $out/${n}
       '') nodes))}
     '';
