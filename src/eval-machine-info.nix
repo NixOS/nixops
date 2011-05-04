@@ -1,5 +1,5 @@
 { nixpkgs ? builtins.getEnv "NIXPKGS_ALL"
-, nixos ? builtins.getEnv "NIXOS"
+, nixos ? if builtins.getEnv "NIXOS" == "" then /etc/nixos/nixos else builtins.getEnv "NIXOS"
 , system ? builtins.currentSystem
 , networkExprs
 }:
