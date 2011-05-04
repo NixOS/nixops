@@ -4,12 +4,17 @@ use utf8;
 use XML::LibXML;
 use Cwd;
 use File::Basename;
+use JSON;
 
 binmode(STDERR, ":utf8");
 
+# !!! Cleanly separate $state->{machines} (the deployment state) and
+# @machines (the deployment specification).
+            
 my @networkExprs;
 my @machines = ();
 my $outPath;
+my $state;
 
 my $myDir = dirname(Cwd::abs_path($0));
 
@@ -69,7 +74,7 @@ sub evalMachineInfo {
         } elsif ($targetEnv eq "adhoc") {
             $info->{adhoc} =
                 { controller => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "controller"]/string/@value') || die
-                , startVMCommand => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "startVMCommand"]/string/@value') || die
+                , createVMCommand => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "createVMCommand"]/string/@value') || die
                 , queryVMCommand => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "queryVMCommand"]/string/@value') || die
                 };
         } else {
@@ -81,11 +86,39 @@ sub evalMachineInfo {
 
 
 sub readState {
+    local $/;
+    open(my $fh, '<', './state.json') or die "$!";
+    $state = decode_json <$fh>;
+}
+
+
+sub writeState {
+    open(my $fh, '>', './state.json.new') or die "$!";
+    print $fh encode_json($state);
 }
 
 
 sub startMachines {
     foreach my $machine (@machines) {
+
+        my $prevMachine = $state->{machines}->{$machine->{name}};
+        
+        if (defined $prevMachine) {
+            # So we already created/used a machine in a previous
+            # execution.  If it matches the current deployment
+            # parameters, we're done; otherwise, we have to kill the
+            # old machine (if permitted) and create a new one.
+            if ($machine->{targetEnv} eq $prevMachine->{targetEnv}) {
+                # !!! Also check that parameters like the EC2 are the
+                # same.
+                $machine->{ipv6} = $prevMachine->{ipv6}; # !!! hack
+                print STDERR "machine ‘$machine->{name}’ already exists\n";
+                next;
+            }
+            # !!! Handle killing cloud VMs, etc.  When killing a VM,
+            # make sure it's not marked as precious.
+            die "machine ‘$machine->{name}’ was previously created with incompatible deployment parameters\n";
+        }
         
         if ($machine->{targetEnv} eq "none") {
             # Nothing to do here.
@@ -93,33 +126,40 @@ sub startMachines {
         
         elsif ($machine->{targetEnv} eq "adhoc") {
         
-            print STDERR "checking whether VM ‘$machine->{name}’ exists...\n";
+            print STDERR "starting missing VM ‘$machine->{name}’...\n";
+            my $vmId = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{createVMCommand}`;
+            die "unable to start VM: $?" unless $? == 0;
+            chomp $vmId;
 
-            my $ipv6 = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{queryVMCommand} $machine->{name} 2> /dev/null`;
-            die "unable to query VM state: $?" unless $? == 0 || $? == 256;
+            $machine->{vmId} = $vmId;
 
-            if ($? == 256) {
-                print STDERR "starting missing VM ‘$machine->{name}’...\n";
-                system "ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{createVMCommand} $machine->{name}";
-                die "unable to start VM: $?" unless $? == 0;
-
-                $ipv6 = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{queryVMCommand} $machine->{name} 2> /dev/null`;
-                die "unable to query VM state: $?" unless $? == 0;
-            }
+            $ipv6 = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{queryVMCommand} $machine->{vmId} 2> /dev/null`;
+            die "unable to query VM state: $?" unless $? == 0;
 
             chomp $ipv6;
-
+            $machine->{ipv6} = $ipv6;
             print STDERR "IPv6 address is $ipv6\n";
 
+            $state->{machines}->{$machine->{name}} =
+                { targetEnv => $machine->{targetEnv}
+                , vmId => $machine->{vmId}
+                , ipv6 => $machine->{ipv6}
+                };
+
+            writeState;
+            
             print STDERR "checking whether VM ‘$machine->{name}’ is reachable via SSH...\n";
 
             system "ssh -o StrictHostKeyChecking=no root\@$ipv6 true < /dev/null 2> /dev/null";
             die "cannot SSH to VM: $?" unless $? == 0;
 
-            $machine->{ipv6} = $ipv6;
         }
     }
 
+    # !!! Kill all machines in $state that no longer exist in $machines.
+
+    writeState;
+            
     # Figure out how we're gonna SSH to each machine.  Prefer IPv6
     # addresses over hostnames.
     foreach my $machine (@machines) {
