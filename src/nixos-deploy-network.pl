@@ -15,6 +15,7 @@ my @networkExprs;
 my @machines = ();
 my $outPath;
 my $state;
+my $stateFile = "./state.json";
 
 my $myDir = dirname(Cwd::abs_path($0));
 
@@ -87,14 +88,20 @@ sub evalMachineInfo {
 
 sub readState {
     local $/;
-    open(my $fh, '<', './state.json') or die "$!";
-    $state = decode_json <$fh>;
+    if (-e $stateFile) {
+        open(my $fh, '<', $stateFile) or die "$!";
+        $state = decode_json <$fh>;
+    } else {
+        $state = { machines => {} };
+    }
 }
 
 
 sub writeState {
-    open(my $fh, '>', './state.json.new') or die "$!";
+    open(my $fh, '>', "$stateFile.new") or die "$!";
     print $fh encode_json($state);
+    close $fh;
+    rename "$stateFile.new", $stateFile or die;
 }
 
 
