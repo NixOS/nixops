@@ -182,11 +182,14 @@ sub startMachines {
         $hosts .= "$machine->{ipv6} $machine->{name}\\n" if defined $machine->{ipv6};
     }
     
-    open STATE, ">state.nix" or die;
+    open STATE, ">physical.nix" or die;
     print STATE "{\n";
     foreach my $machine (@machines) {
         print STATE "  $machine->{name} = { config, pkgs, ... }:\n";
         print STATE "    {\n";
+        if ($machine->{targetEnv} eq "adhoc") {
+            print STATE "      require = [ $myDir/adhoc-cloud-vm.nix ];\n";
+        }
         print STATE "      networking.extraHosts = \"$hosts\";\n";
         print STATE "    };\n";
     }
@@ -197,7 +200,7 @@ sub startMachines {
 
 sub buildConfigs {
     print STDERR "building all machine configurations...\n";
-    $outPath = `nix-build $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ./state.nix ]' -A machines`;
+    $outPath = `nix-build $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ./physical.nix ]' -A machines`;
     die "unable to build all machine configurations" unless $? == 0;
     chomp $outPath;
 }

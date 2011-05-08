@@ -16,7 +16,6 @@ with pkgs.lib;
   swapDevices = [ { label = "swap"; } ];
 
   networking.hostName = mkOverride 950 "";
-  networking.firewall.enable = mkOverride 950 true;
 
   services.openssh.enable = true;
 

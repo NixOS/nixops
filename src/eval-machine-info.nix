@@ -24,14 +24,11 @@ rec {
           inherit nixpkgs;
           modules =
             modules ++
-            [ # Slurp in the required configuration for machines in the adhoc cloud.
-              /home/eelco/Dev/configurations/tud/cloud/cloud-vm.nix
-              # Provide a default hostname and deployment target equal
+            [ # Provide a default hostname and deployment target equal
               # to the attribute name of the machine in the model.
               { key = "set-default-hostname";
                 networking.hostName = mkOverride 900 configurationName;
                 deployment.targetHost = mkOverride 900 configurationName;
-                networking.firewall.enable = mkOverride 900 false; # hack, think about this later
                 environment.checkConfigurationOptions = false; # should only do this in phase 1
               }
             ];
