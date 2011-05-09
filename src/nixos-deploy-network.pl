@@ -39,8 +39,8 @@ my $myDir = dirname(Cwd::abs_path($0));
 
 
 sub opInfo {
-    evalMachineInfo();
-    readState();
+    eval { evalMachineInfo(); }; warn $@ if $@;
+    eval { readState(); }; warn $@ if $@;
 
     my @lines;
     foreach my $name (uniq (sort (keys %{$spec->{machines}}, keys %{$state->{machines}}))) {

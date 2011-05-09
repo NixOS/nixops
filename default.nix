@@ -17,6 +17,6 @@ stdenv.mkDerivation {
       cp *.nix $out/bin/ # urgh
 
       wrapProgram $out/bin/nixos-deploy-network \
-        --set PERL5LIB $PERL5LIB       
+        --set PERL5LIB $PERL5LIB
     '';
 }
