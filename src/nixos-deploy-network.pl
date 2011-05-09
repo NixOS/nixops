@@ -1,5 +1,6 @@
 #! /var/run/current-system/sw/bin/perl -w
 
+use strict;
 use utf8;
 use XML::LibXML;
 use Cwd;
@@ -8,13 +9,24 @@ use JSON;
 
 binmode(STDERR, ":utf8");
 
-# !!! Cleanly separate $state->{machines} (the deployment state) and
-# @machines (the deployment specification).
-            
 my @networkExprs;
-my @machines = ();
-my $outPath;
+
+# The deployment specification, obtained by evaluating the Nix
+# expressions specified by the user.  $spec->{machines} is a mapping
+# from machine names (i.e. attribute names in the input) to a hash
+# containing the desired deployment characteristics of the
+# corresponding machine.  E.g., $spec->{machines}->{foo}->{targetEnv}
+# contains the target environment type of machine ‘foo’ (e.g., ‘ec2’).
+my $spec;
+
+# The current deployment state, containing information about
+# previously created or initialised (virtual) machines.  In
+# particular, $state->{machines} is a mapping from machine names to a
+# hash containing info about the corresponding machine, such as its IP
+# address.  E.g., $state->{machines}->{foo}->{ipv6} contains the IPv6
+# address of machine ‘foo’.
 my $state;
+
 my $stateFile = "./state.json";
 
 my $myDir = dirname(Cwd::abs_path($0));
@@ -35,11 +47,11 @@ sub main {
     startMachines();
 
     # Evaluate and build each machine configuration locally.
-    buildConfigs();
+    my $outPath = buildConfigs();
 
     # Copy the closures of each machine configuration to the
     # corresponding target machine.
-    copyClosures();
+    copyClosures($outPath);
 
     # Activate the new configuration on each machine, and do a
     # rollback if any fails.
@@ -81,7 +93,7 @@ sub evalMachineInfo {
         } else {
             die "machine ‘$name’ has an unknown target environment type ‘$targetEnv’";
         }
-        push @machines, $info;
+        $spec->{machines}->{$name} = $info;
     }
 }
 
@@ -106,9 +118,9 @@ sub writeState {
 
 
 sub startMachines {
-    foreach my $machine (@machines) {
-
-        my $prevMachine = $state->{machines}->{$machine->{name}};
+    foreach my $name (keys %{$spec->{machines}}) {
+        my $machine = $spec->{machines}->{$name};
+        my $prevMachine = $state->{machines}->{$name};
         
         if (defined $prevMachine) {
             # So we already created/used a machine in a previous
@@ -118,13 +130,12 @@ sub startMachines {
             if ($machine->{targetEnv} eq $prevMachine->{targetEnv}) {
                 # !!! Also check that parameters like the EC2 are the
                 # same.
-                $machine->{ipv6} = $prevMachine->{ipv6}; # !!! hack
-                print STDERR "machine ‘$machine->{name}’ already exists\n";
+                print STDERR "machine ‘$name’ already exists\n";
                 next;
             }
             # !!! Handle killing cloud VMs, etc.  When killing a VM,
             # make sure it's not marked as precious.
-            die "machine ‘$machine->{name}’ was previously created with incompatible deployment parameters\n";
+            die "machine ‘$name’ was previously created with incompatible deployment parameters\n";
         }
         
         if ($machine->{targetEnv} eq "none") {
@@ -133,29 +144,28 @@ sub startMachines {
         
         elsif ($machine->{targetEnv} eq "adhoc") {
         
-            print STDERR "starting missing VM ‘$machine->{name}’...\n";
+            print STDERR "starting missing VM ‘$name’...\n";
             my $vmId = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{createVMCommand}`;
             die "unable to start VM: $?" unless $? == 0;
             chomp $vmId;
 
-            $machine->{vmId} = $vmId;
-
-            $ipv6 = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{queryVMCommand} $machine->{vmId} 2> /dev/null`;
+            my $ipv6 = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{queryVMCommand} $vmId 2> /dev/null`;
             die "unable to query VM state: $?" unless $? == 0;
-
             chomp $ipv6;
-            $machine->{ipv6} = $ipv6;
             print STDERR "IPv6 address is $ipv6\n";
 
-            $state->{machines}->{$machine->{name}} =
+            $state->{machines}->{$name} =
                 { targetEnv => $machine->{targetEnv}
-                , vmId => $machine->{vmId}
-                , ipv6 => $machine->{ipv6}
+                , vmId => $vmId
+                , ipv6 => $ipv6
+                , # Need to remember these so that we know how to kill
+                  # the VM later, among other things.
+                  adhoc => $machine->{adhoc}
                 };
 
             writeState;
             
-            print STDERR "checking whether VM ‘$machine->{name}’ is reachable via SSH...\n";
+            print STDERR "checking whether VM ‘$name’ is reachable via SSH...\n";
 
             system "ssh -o StrictHostKeyChecking=no root\@$ipv6 true < /dev/null 2> /dev/null";
             die "cannot SSH to VM: $?" unless $? == 0;
@@ -168,9 +178,9 @@ sub startMachines {
     writeState;
             
     # Figure out how we're gonna SSH to each machine.  Prefer IPv6
-    # addresses over hostnames.
-    foreach my $machine (@machines) {
-        $machine->{sshName} = $machine->{ipv6} || $machine->{targetHost} || die "don't know how to reach ‘$machine->{name}’";
+    # addresses over hostnames.while
+    while (my ($name, $machine) = each %{$state->{machines}}) {
+        $machine->{sshName} = $machine->{ipv6} || $machine->{targetHost} || die "don't know how to reach ‘$name’";
     }
     
     # So now that we know the hostnames / IP addresses of all
@@ -178,14 +188,14 @@ sub startMachines {
     # network configuration that can be stacked on top of the
     # user-supplied network configuration.
     my $hosts = "";
-    foreach my $machine (@machines) {
-        $hosts .= "$machine->{ipv6} $machine->{name}\\n" if defined $machine->{ipv6};
+    while (my ($name, $machine) = each %{$state->{machines}}) {
+        $hosts .= "$machine->{ipv6} $name\\n" if defined $machine->{ipv6};
     }
     
     open STATE, ">physical.nix" or die;
     print STATE "{\n";
-    foreach my $machine (@machines) {
-        print STATE "  $machine->{name} = { config, pkgs, ... }:\n";
+    while (my ($name, $machine) = each %{$state->{machines}}) {
+        print STATE "  $name = { config, pkgs, ... }:\n";
         print STATE "    {\n";
         if ($machine->{targetEnv} eq "adhoc") {
             print STATE "      require = [ $myDir/adhoc-cloud-vm.nix ];\n";
@@ -200,31 +210,33 @@ sub startMachines {
 
 sub buildConfigs {
     print STDERR "building all machine configurations...\n";
-    $outPath = `nix-build $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ./physical.nix ]' -A machines`;
+    my $outPath = `nix-build $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ./physical.nix ]' -A machines`;
     die "unable to build all machine configurations" unless $? == 0;
     chomp $outPath;
+    return $outPath;
 }
 
 
 sub copyClosures {
+    my ($outPath) = @_;
     # !!! Should copy closures in parallel.
-    foreach my $machine (@machines) {
-        print STDERR "copying closure to machine ‘$machine->{name}’...\n";
-        my $toplevel = readlink "$outPath/$machine->{name}" or die;
+    while (my ($name, $machine) = each %{$state->{machines}}) {
+        print STDERR "copying closure to machine ‘$name’...\n";
+        my $toplevel = readlink "$outPath/$name" or die;
         $machine->{toplevel} = $toplevel;
         system "nix-copy-closure --gzip --to root\@$machine->{sshName} $toplevel";
-        die "unable to copy closure to machine ‘$machine->{name}’" unless $? == 0;
+        die "unable to copy closure to machine ‘$name’" unless $? == 0;
     }
 }
 
 
 sub activateConfigs {
-    foreach my $machine (@machines) {
-        print STDERR "activating new configuration on machine ‘$machine->{name}’...\n";
+    while (my ($name, $machine) = each %{$state->{machines}}) {
+        print STDERR "activating new configuration on machine ‘$name’...\n";
         system "ssh -o StrictHostKeyChecking=no root\@$machine->{sshName} nix-env -p /nix/var/nix/profiles/system --set $machine->{toplevel} \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
         if ($? != 0) {
             # !!! do a rollback
-            die "unable to activate new configuration on machine ‘$machine->{name}’";
+            die "unable to activate new configuration on machine ‘$name’";
         }
     }
 }

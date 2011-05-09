@@ -3,7 +3,7 @@ with import (builtins.getEnv "NIXPKGS") {};
 stdenv.mkDerivation {
   name = "nixos-deploy-network";
 
-  src = ./src;
+  src = lib.cleanSource ./src;
 
   buildInputs = [ perl makeWrapper perlPackages.XMLLibXML perlPackages.JSON ];
 
