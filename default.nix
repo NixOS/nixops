@@ -5,13 +5,15 @@ stdenv.mkDerivation {
 
   src = lib.cleanSource ./src;
 
-  buildInputs = [ perl makeWrapper perlPackages.XMLLibXML perlPackages.JSON ];
+  buildInputs =
+    [ perl makeWrapper perlPackages.XMLLibXML perlPackages.JSON
+      perlPackages.TextTable perlPackages.ListMoreUtils
+    ];
 
   installPhase = 
     ''
       mkdir -p $out/bin
       cp nixos-deploy-network.pl $out/bin/nixos-deploy-network
-      chmod u+x $out/bin/nixos-deploy-network
       cp *.nix $out/bin/ # urgh
 
       wrapProgram $out/bin/nixos-deploy-network \

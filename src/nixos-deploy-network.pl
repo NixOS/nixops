@@ -6,6 +6,12 @@ use XML::LibXML;
 use Cwd;
 use File::Basename;
 use JSON;
+use Getopt::Long qw(:config auto_version);
+use Text::Table;
+use List::MoreUtils qw(uniq);
+
+$main::VERSION = "0.1";
+
 
 binmode(STDERR, ":utf8");
 
@@ -32,10 +38,39 @@ my $stateFile = "./state.json";
 my $myDir = dirname(Cwd::abs_path($0));
 
 
-sub main {
-    # Parse the command line.
-    processArgs();
-    
+sub opInfo {
+    evalMachineInfo();
+    readState();
+
+    my @lines;
+    foreach my $name (uniq (sort (keys %{$spec->{machines}}, keys %{$state->{machines}}))) {
+        my $m = $spec->{machines}->{$name};
+        my $r = $state->{machines}->{$name};
+        push @lines,
+            [ $name
+            , defined $m ? (defined $r ? "Up" : "New") : "Obsolete"
+            , $m->{targetEnv} || $r->{targetEnv}
+            , $r->{vmId}
+            , $r->{ipv6}
+            ];
+    }
+
+    my $table = Text::Table->new(
+        { title => "Name", align => "left" }, \ " | ",
+        { title => "Status", align => "left" }, \ " | ",
+        { title => "Type", align => "left" }, \ " | ",
+        { title => "VM Id", align => "left" }, \ " | ",
+        { title => "IPv6", align => "left" },
+        );
+    $table->load(@lines);
+
+    print $table->title;
+    print $table->rule('-', '+');
+    print $table->body;
+}
+
+
+sub opDeploy {
     # Evaluate the user's network specification to determine machine
     # names and the desired deployment characteristics.
     evalMachineInfo();
@@ -59,9 +94,18 @@ sub main {
 }
 
 
-sub processArgs {
+sub main {
+    my $op = \&opDeploy;
+    
+    exit 1 unless GetOptions(
+        "state=s" => \$stateFile,
+        "info" => sub { $op = \&opInfo; }
+        );
+    
     @networkExprs = @ARGV;
     die unless scalar @networkExprs > 0;
+
+    &$op();
 }
 
 
