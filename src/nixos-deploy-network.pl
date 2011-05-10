@@ -37,6 +37,10 @@ my $stateFile = "./state.json";
 
 my $myDir = dirname(Cwd::abs_path($0));
 
+# Whether to kill previously created VMs that no longer appear in the
+# specification.
+my $killObsolete = 0;
+
 
 # ‘--info’ shows the current deployment specification and state.
 sub opInfo {
@@ -110,7 +114,8 @@ sub main {
     
     exit 1 unless GetOptions(
         "state=s" => \$stateFile,
-        "info" => sub { $op = \&opInfo; }
+        "info" => sub { $op = \&opInfo; },
+        "kill-obsolete!" => \$killObsolete,
         );
     
     @networkExprs = @ARGV;
@@ -142,6 +147,7 @@ sub evalMachineInfo {
             $info->{adhoc} =
                 { controller => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "controller"]/string/@value') || die
                 , createVMCommand => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "createVMCommand"]/string/@value') || die
+                , destroyVMCommand => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "destroyVMCommand"]/string/@value') || die
                 , queryVMCommand => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "queryVMCommand"]/string/@value') || die
                 };
         } else {
@@ -171,6 +177,31 @@ sub writeState {
 }
 
 
+sub killMachine {
+    my ($name, $machine) = @_;
+    
+    if ($machine->{targetEnv} eq "none") {
+        print STDERR "removing obsolete machine ‘$name’ from the deployment state...\n";
+        # !!! Maybe we actually want to reconfigure the machine in
+        # some way to ensure that it's no longer providing any
+        # services (except SSH so that the machine can be used in a
+        # future configuration).
+    }
+
+    elsif ($machine->{targetEnv} eq "adhoc") {
+        print STDERR "killing VM ‘$name’...\n";
+        system "ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{destroyVMCommand} $machine->{vmId}";
+        warn "unable to kill VM: $?" unless $? == 0;
+    }
+
+    else {
+        die "don't know how to kill machine ‘$name’";
+    }
+
+    delete $state->{machines}->{$name};
+}
+
+
 sub startMachines {
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $spec->{machines}->{$name};
@@ -184,7 +215,7 @@ sub startMachines {
             if ($machine->{targetEnv} eq $prevMachine->{targetEnv}) {
                 # !!! Also check that parameters like the EC2 are the
                 # same.
-                print STDERR "machine ‘$name’ already exists\n";
+                #print STDERR "machine ‘$name’ already exists\n";
                 delete $prevMachine->{obsolete}; # might be an obsolete VM that became active again
                 next;
             }
@@ -228,16 +259,21 @@ sub startMachines {
         }
     }
 
+    writeState; # !!! needed?
+    
     # Kill all VMs in $state that no longer exist in $spec.
     foreach my $name (keys %{$state->{machines}}) {
         next if defined $spec->{machines}->{$name};
         my $machine = $state->{machines}->{$name};
-        print STDERR "killing machine ‘$name’...\n";
         $machine->{obsolete} = 1;
+        if ($killObsolete) {
+            killMachine($name, $machine);
+        } else {
+            print STDERR "warning: VM ‘$name’ is obsolete; use ‘--kill-obsolete’ to get rid of it\n";
+        }
+        writeState;
     }
     
-    writeState;
-            
     # Figure out how we're gonna SSH to each machine.  Prefer IPv6
     # addresses over hostnames.while
     while (my ($name, $machine) = each %{$state->{machines}}) {
