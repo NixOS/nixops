@@ -231,7 +231,7 @@ sub startMachines {
         elsif ($machine->{targetEnv} eq "adhoc") {
         
             print STDERR "starting missing VM ‘$name’...\n";
-            my $vmId = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{createVMCommand}`;
+            my $vmId = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{createVMCommand} $ENV{USER}-$name`;
             die "unable to start VM: $?" unless $? == 0;
             chomp $vmId;
 
