@@ -109,12 +109,26 @@ sub opDeploy {
 }
 
 
+# ‘--destroy’ destroys all VMs listed in the deployment state record,
+# i.e., the entire network previously deployed by
+# nixos-deploy-network.
+sub opDestroy {
+    readState();
+    
+    foreach my $name (keys %{$state->{machines}}) {
+        my $machine = $state->{machines}->{$name};
+        killMachine($name, $machine);
+    }
+}
+
+
 sub main {
     my $op = \&opDeploy;
     
     exit 1 unless GetOptions(
         "state=s" => \$stateFile,
         "info" => sub { $op = \&opInfo; },
+        "destroy" => sub { $op = \&opDestroy; },
         "kill-obsolete!" => \$killObsolete,
         );
     
@@ -199,6 +213,7 @@ sub killMachine {
     }
 
     delete $state->{machines}->{$name};
+    writeState;
 }
 
 
@@ -265,13 +280,13 @@ sub startMachines {
     foreach my $name (keys %{$state->{machines}}) {
         next if defined $spec->{machines}->{$name};
         my $machine = $state->{machines}->{$name};
-        $machine->{obsolete} = 1;
         if ($killObsolete) {
             killMachine($name, $machine);
         } else {
             print STDERR "warning: VM ‘$name’ is obsolete; use ‘--kill-obsolete’ to get rid of it\n";
+            $machine->{obsolete} = 1;
+            writeState;
         }
-        writeState;
     }
     
     # Figure out how we're gonna SSH to each machine.  Prefer IPv6
