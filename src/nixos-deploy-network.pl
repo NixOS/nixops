@@ -38,6 +38,7 @@ my $stateFile = "./state.json";
 my $myDir = dirname(Cwd::abs_path($0));
 
 
+# ‘--info’ shows the current deployment specification and state.
 sub opInfo {
     eval { evalMachineInfo(); }; warn $@ if $@;
     eval { readState(); }; warn $@ if $@;
@@ -46,9 +47,19 @@ sub opInfo {
     foreach my $name (uniq (sort (keys %{$spec->{machines}}, keys %{$state->{machines}}))) {
         my $m = $spec->{machines}->{$name};
         my $r = $state->{machines}->{$name};
+        my $status =
+            defined $m
+            ? (defined $r
+               ? (defined $r->{vmsPath}
+                  ? ($r->{vmsPath} eq $state->{vmsPath}
+                     ? "Up"
+                     : "Incomplete")
+                  : "Started")
+               : "New")
+            : "Obsolete";
         push @lines,
             [ $name
-            , defined $m ? (defined $r ? "Up" : "New") : "Obsolete"
+            , $status
             , $m->{targetEnv} || $r->{targetEnv}
             , $r->{vmId}
             , $r->{ipv6}
@@ -82,15 +93,15 @@ sub opDeploy {
     startMachines();
 
     # Evaluate and build each machine configuration locally.
-    my $outPath = buildConfigs();
+    my $vmsPath = buildConfigs();
 
     # Copy the closures of each machine configuration to the
     # corresponding target machine.
-    copyClosures($outPath);
+    copyClosures($vmsPath);
 
     # Activate the new configuration on each machine, and do a
     # rollback if any fails.
-    activateConfigs();
+    activateConfigs($vmsPath);
 }
 
 
@@ -103,7 +114,6 @@ sub main {
         );
     
     @networkExprs = @ARGV;
-    die unless scalar @networkExprs > 0;
 
     &$op();
 }
@@ -175,6 +185,7 @@ sub startMachines {
                 # !!! Also check that parameters like the EC2 are the
                 # same.
                 print STDERR "machine ‘$name’ already exists\n";
+                delete $prevMachine->{obsolete}; # might be an obsolete VM that became active again
                 next;
             }
             # !!! Handle killing cloud VMs, etc.  When killing a VM,
@@ -217,8 +228,14 @@ sub startMachines {
         }
     }
 
-    # !!! Kill all machines in $state that no longer exist in $machines.
-
+    # Kill all VMs in $state that no longer exist in $spec.
+    foreach my $name (keys %{$state->{machines}}) {
+        next if defined $spec->{machines}->{$name};
+        my $machine = $state->{machines}->{$name};
+        print STDERR "killing machine ‘$name’...\n";
+        $machine->{obsolete} = 1;
+    }
+    
     writeState;
             
     # Figure out how we're gonna SSH to each machine.  Prefer IPv6
@@ -232,13 +249,15 @@ sub startMachines {
     # network configuration that can be stacked on top of the
     # user-supplied network configuration.
     my $hosts = "";
-    while (my ($name, $machine) = each %{$state->{machines}}) {
+    foreach my $name (keys %{$spec->{machines}}) {
+        my $machine = $state->{machines}->{$name};
         $hosts .= "$machine->{ipv6} $name\\n" if defined $machine->{ipv6};
     }
     
     open STATE, ">physical.nix" or die;
     print STATE "{\n";
-    while (my ($name, $machine) = each %{$state->{machines}}) {
+    foreach my $name (keys %{$spec->{machines}}) {
+        my $machine = $state->{machines}->{$name};
         print STATE "  $name = { config, pkgs, ... }:\n";
         print STATE "    {\n";
         if ($machine->{targetEnv} eq "adhoc") {
@@ -254,20 +273,21 @@ sub startMachines {
 
 sub buildConfigs {
     print STDERR "building all machine configurations...\n";
-    my $outPath = `nix-build $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ./physical.nix ]' -A machines`;
+    my $vmsPath = `nix-build $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ./physical.nix ]' -A machines`;
     die "unable to build all machine configurations" unless $? == 0;
-    chomp $outPath;
-    return $outPath;
+    chomp $vmsPath;
+    return $vmsPath;
 }
 
 
 sub copyClosures {
-    my ($outPath) = @_;
+    my ($vmsPath) = @_;
     # !!! Should copy closures in parallel.
-    while (my ($name, $machine) = each %{$state->{machines}}) {
+    foreach my $name (keys %{$spec->{machines}}) {
         print STDERR "copying closure to machine ‘$name’...\n";
-        my $toplevel = readlink "$outPath/$name" or die;
-        $machine->{toplevel} = $toplevel;
+        my $machine = $state->{machines}->{$name};
+        my $toplevel = readlink "$vmsPath/$name" or die;
+        $machine->{lastCopied} = $toplevel; # !!! rewrite state file?
         system "nix-copy-closure --gzip --to root\@$machine->{sshName} $toplevel";
         die "unable to copy closure to machine ‘$name’" unless $? == 0;
     }
@@ -275,13 +295,27 @@ sub copyClosures {
 
 
 sub activateConfigs {
-    while (my ($name, $machine) = each %{$state->{machines}}) {
+    my ($vmsPath) = @_;
+
+    # Store the store path to the VMs in the deployment state.  This
+    # allows ‘--info’ to show whether machines have an outdated
+    # configuration.
+    $state->{vmsPath} = $vmsPath;
+
+    foreach my $name (keys %{$spec->{machines}}) {
         print STDERR "activating new configuration on machine ‘$name’...\n";
-        system "ssh -o StrictHostKeyChecking=no root\@$machine->{sshName} nix-env -p /nix/var/nix/profiles/system --set $machine->{toplevel} \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
+        my $machine = $state->{machines}->{$name};
+
+        my $toplevel = readlink "$vmsPath/$name" or die;
+        system "ssh -o StrictHostKeyChecking=no root\@$machine->{sshName} nix-env -p /nix/var/nix/profiles/system --set $toplevel \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
         if ($? != 0) {
             # !!! do a rollback
             die "unable to activate new configuration on machine ‘$name’";
         }
+
+        $machine->{vmsPath} = $vmsPath;
+        $machine->{toplevel} = $toplevel;
+        writeState;
     }
 }
 
