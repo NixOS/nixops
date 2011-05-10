@@ -85,6 +85,26 @@ sub opInfo {
 }
 
 
+# ‘--check’ checks whether every machine is reachable via SSH.  It
+# also prints the load on every machine.
+sub opCheck {
+    readState();
+    
+    foreach my $name (sort (keys %{$state->{machines}})) {
+        my $machine = $state->{machines}->{$name};
+        print STDERR "$name... ";
+
+        my $load = `ssh -o StrictHostKeyChecking=no root\@$machine->{sshName} cat /proc/loadavg 2>/dev/null`;
+        if ($? == 0) {
+            my @load = split / /, $load;
+            print STDERR "ok [$load[0] $load[1] $load[2]]\n";
+        } else {
+            print STDERR "fail\n";
+        }
+    }
+}
+
+
 sub opDeploy {
     # Evaluate the user's network specification to determine machine
     # names and the desired deployment characteristics.
@@ -128,6 +148,7 @@ sub main {
     exit 1 unless GetOptions(
         "state=s" => \$stateFile,
         "info" => sub { $op = \&opInfo; },
+        "check" => sub { $op = \&opCheck; },
         "destroy" => sub { $op = \&opDestroy; },
         "kill-obsolete!" => \$killObsolete,
         );
@@ -290,7 +311,7 @@ sub startMachines {
     }
     
     # Figure out how we're gonna SSH to each machine.  Prefer IPv6
-    # addresses over hostnames.while
+    # addresses over hostnames.
     while (my ($name, $machine) = each %{$state->{machines}}) {
         $machine->{sshName} = $machine->{ipv6} || $machine->{targetHost} || die "don't know how to reach ‘$name’";
     }
