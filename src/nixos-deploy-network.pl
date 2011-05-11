@@ -109,6 +109,7 @@ sub opCheck {
     
     foreach my $name (sort (keys %{$state->{machines}})) {
         my $machine = $state->{machines}->{$name};
+        next if $machine->{obsolete};
         print STDERR "$name... ";
 
         my $load = `ssh -o StrictHostKeyChecking=no root\@$machine->{sshName} cat /proc/loadavg 2>/dev/null`;
