@@ -261,11 +261,25 @@ sub startMachines {
         }
         
         if ($machine->{targetEnv} eq "none") {
-            # Nothing to do here.
+            # Not much to do here.
+
+            print STDERR "checking whether machine ‘$name’ is reachable via SSH...\n";
+
+            # !!! should use sshName.
+            system "ssh -o StrictHostKeyChecking=no root\@$machine->{targetHost} true < /dev/null 2> /dev/null";
+            die "cannot SSH to machine: $?" unless $? == 0;
+
+            $state->{machines}->{$name} =
+                { targetEnv => $machine->{targetEnv}
+                , targetHost => $machine->{targetHost}
+                , timeRegistered => time()
+                };
+            
+            writeState;
         }
         
         elsif ($machine->{targetEnv} eq "adhoc") {
-        
+
             print STDERR "starting missing VM ‘$name’...\n";
             my $vmId = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{createVMCommand} $ENV{USER}-$name`;
             die "unable to start VM: $?" unless $? == 0;
@@ -280,6 +294,7 @@ sub startMachines {
                 { targetEnv => $machine->{targetEnv}
                 , vmId => $vmId
                 , ipv6 => $ipv6
+                , timeCreated => time()
                 , # Need to remember these so that we know how to kill
                   # the VM later, among other things.
                   adhoc => $machine->{adhoc}
