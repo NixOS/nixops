@@ -46,7 +46,8 @@ rec {
     );
 
   # Phase 2: build complete machine configurations.  
-  machines = runCommand "vms" {}
+  machines = runCommand "vms"
+    { preferLocalBuild = true; }
     ''
       mkdir -p $out
       ${toString (attrValues (mapAttrs (n: v: ''
