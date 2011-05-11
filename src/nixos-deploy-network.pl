@@ -6,7 +6,7 @@ use XML::LibXML;
 use Cwd;
 use File::Basename;
 use JSON;
-use Getopt::Long qw(:config auto_version);
+use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version);
 use Text::Table;
 use List::MoreUtils qw(uniq);
 
@@ -40,6 +40,23 @@ my $myDir = dirname(Cwd::abs_path($0));
 # Whether to kill previously created VMs that no longer appear in the
 # specification.
 my $killObsolete = 0;
+
+
+sub main {
+    my $op = \&opDeploy;
+    
+    exit 1 unless GetOptions(
+        "state|s=s" => \$stateFile,
+        "info|i" => sub { $op = \&opInfo; },
+        "check|c" => sub { $op = \&opCheck; },
+        "destroy" => sub { $op = \&opDestroy; },
+        "kill-obsolete|k!" => \$killObsolete,
+        );
+    
+    @networkExprs = @ARGV;
+
+    &$op();
+}
 
 
 # ‘--info’ shows the current deployment specification and state.
@@ -139,23 +156,6 @@ sub opDestroy {
         my $machine = $state->{machines}->{$name};
         killMachine($name, $machine);
     }
-}
-
-
-sub main {
-    my $op = \&opDeploy;
-    
-    exit 1 unless GetOptions(
-        "state=s" => \$stateFile,
-        "info" => sub { $op = \&opInfo; },
-        "check" => sub { $op = \&opCheck; },
-        "destroy" => sub { $op = \&opDestroy; },
-        "kill-obsolete!" => \$killObsolete,
-        );
-    
-    @networkExprs = @ARGV;
-
-    &$op();
 }
 
 
