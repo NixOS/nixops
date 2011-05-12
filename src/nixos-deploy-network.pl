@@ -9,6 +9,7 @@ use JSON;
 use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version);
 use Text::Table;
 use List::MoreUtils qw(uniq);
+use Net::Amazon::EC2;
 
 $main::VERSION = "0.1";
 
@@ -33,7 +34,7 @@ my $spec;
 # address of machine ‘foo’.
 my $state;
 
-my $stateFile = "./state.json";
+my $stateFile;
 
 my $myDir = dirname(Cwd::abs_path($0));
 
@@ -83,7 +84,7 @@ sub opInfo {
             , $status
             , $m->{targetEnv} || $r->{targetEnv}
             , $r->{vmId}
-            , $r->{ipv6}
+            , $r->{ipv6} || $r->{ipv4}
             ];
     }
 
@@ -92,7 +93,7 @@ sub opInfo {
         { title => "Status", align => "left" }, \ " | ",
         { title => "Type", align => "left" }, \ " | ",
         { title => "VM Id", align => "left" }, \ " | ",
-        { title => "IPv6", align => "left" },
+        { title => "IP address", align => "left" },
         );
     $table->load(@lines);
 
@@ -162,7 +163,7 @@ sub opDestroy {
 
 sub evalMachineInfo {
     my $machineInfoXML =
-        `nix-instantiate --eval-only --xml --strict $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ]' -A machineInfo`;
+        `nix-instantiate --eval-only --xml --strict --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ]' -A machineInfo`;
     die "evaluation of @networkExprs failed" unless $? == 0;
     
     #print $machineInfoXML, "\n";
@@ -186,6 +187,13 @@ sub evalMachineInfo {
                 , destroyVMCommand => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "destroyVMCommand"]/string/@value') || die
                 , queryVMCommand => $m->findvalue('./attrs/attr[@name = "adhoc"]/attrs/attr[@name = "queryVMCommand"]/string/@value') || die
                 };
+        } elsif ($targetEnv eq "ec2") {
+            $info->{ec2} =
+                { controller => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "controller"]/string/@value') || die
+                , ami => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "ami"]/string/@value') || die
+                , instanceType => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "instanceType"]/string/@value') || die
+                , keyPair => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "keyPair"]/string/@value') || die
+                };
         } else {
             die "machine ‘$name’ has an unknown target environment type ‘$targetEnv’";
         }
@@ -196,7 +204,7 @@ sub evalMachineInfo {
 
 sub readState {
     local $/;
-    if (-e $stateFile) {
+    if (defined $stateFile && -e $stateFile) {
         open(my $fh, '<', $stateFile) or die "$!";
         $state = decode_json <$fh>;
     } else {
@@ -206,10 +214,23 @@ sub readState {
 
 
 sub writeState {
+    die "state file not set; please use ‘--state’\n" unless defined $stateFile;
     open(my $fh, '>', "$stateFile.new") or die "$!";
     print $fh encode_json($state);
     close $fh;
     rename "$stateFile.new", $stateFile or die;
+}
+
+
+sub openEC2 {
+    my ($name, $machine) = @_;
+    return Net::Amazon::EC2->new
+        ( AWSAccessKeyId => ($ENV{'AWS_ACCESS_KEY_ID'} || die "please set \$AWS_ACCESS_KEY_ID\n")
+        , SecretAccessKey => ($ENV{'AWS_SECRET_ACCESS_KEY'} || die "please set \$AWS_SECRET_ACCESS_KEY\n")
+        , # !!! This assumes that all machines have the same controller/zone.
+          base_url => $machine->{ec2}->{controller}
+        #, debug => 1
+        );
 }
 
 
@@ -227,7 +248,16 @@ sub killMachine {
     elsif ($machine->{targetEnv} eq "adhoc") {
         print STDERR "killing VM ‘$name’...\n";
         system "ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{destroyVMCommand} $machine->{vmId}";
-        warn "unable to kill VM: $?" unless $? == 0;
+        die "unable to kill VM: $?" unless $? == 0;
+    }
+
+    elsif ($machine->{targetEnv} eq "ec2") {
+        print STDERR "killing VM ‘$name’ (EC2 instance ‘$machine->{vmId}’)...\n";
+        my $ec2 = openEC2($name, $machine);
+        my $res = $ec2->terminate_instances(InstanceId => $machine->{vmId});
+        die "could not terminate EC2 instance: “" . @{$res->errors}[0]->message . "”\n"
+            unless ref $res eq "ARRAY";
+        # !!! Check the state change? Wait until the machine has shut down?
     }
 
     else {
@@ -280,8 +310,8 @@ sub startMachines {
         }
         
         elsif ($machine->{targetEnv} eq "adhoc") {
-
             print STDERR "starting missing VM ‘$name’...\n";
+            
             my $vmId = `ssh $machine->{adhoc}->{controller} $machine->{adhoc}->{createVMCommand} $ENV{USER}-$name`;
             die "unable to start VM: $?" unless $? == 0;
             chomp $vmId;
@@ -307,7 +337,74 @@ sub startMachines {
 
             system "ssh -o StrictHostKeyChecking=no root\@$ipv6 true < /dev/null 2> /dev/null";
             die "cannot SSH to VM: $?" unless $? == 0;
+        }
 
+        elsif ($machine->{targetEnv} eq "ec2") {
+            print STDERR "starting missing VM ‘$name’ on EC2 cloud ‘$machine->{ec2}->{controller}’...\n";
+
+            my $ec2 = openEC2($name, $machine);
+
+            my $reservation = $ec2->run_instances
+                ( ImageId => $machine->{ec2}->{ami}
+                , InstanceType => $machine->{ec2}->{instanceType}
+                , KeyName => $machine->{ec2}->{keyPair}
+                , MinCount => 1
+                , MaxCount => 1
+                );
+
+            die "could not create EC2 instance: “" . @{$reservation->errors}[0]->message . "”\n"
+                if $reservation->isa('Net::Amazon::EC2::Errors');
+
+            my $instance = @{$reservation->instances_set}[0];
+            my $vmId = $instance->instance_id;
+
+            print STDERR
+                "got reservation ‘", $reservation->reservation_id,
+                "’, instance ‘$vmId’\n";
+
+            # !!! We should already update the state record to
+            # remember that we started an instance.
+
+            # Wait until the machine has an IP address.  (It may not
+            # have finished booting, but later down we wait for the
+            # SSH port to open.)
+            print STDERR "waiting for IP address... ";
+            my $n = 0;
+            while (1) {
+                my $state = $instance->instance_state->name;
+                print STDERR "[$state] ";
+                die "EC2 instance ‘$vmId’ didn't start; it went to state ‘$state’\n"
+                    if $state ne "pending" && $state ne "running";
+                last if defined $instance->ip_address;
+                sleep 5;
+                my $reservations = $ec2->describe_instances(InstanceId => $vmId);
+                die "could not query EC2 instance: “" . @{$reservations->errors}[0]->message . "”\n"
+                    if ref $reservations ne "ARRAY";
+                $instance = @{@{$reservations}[0]->instances_set}[0];
+            }
+            print STDERR "\n";
+
+            my $ipv4 = $instance->ip_address;
+            print STDERR "got IP address ‘$ipv4’\n";
+                
+            $state->{machines}->{$name} =
+                { targetEnv => $machine->{targetEnv}
+                , vmId => $vmId
+                , ipv4 => $ipv4
+                , reservation => $reservation->reservation_id
+                , privateIpv4 => $instance->private_ip_address
+                , dnsName => $instance->dns_name
+                , privateDnsName => $instance->private_dns_name
+                , timeCreated => time()
+                , ec2 => $machine->{ec2}
+                };
+
+            writeState;
+            
+            print STDERR "checking whether VM ‘$name’ is reachable via SSH...\n";
+
+            system "ssh -o StrictHostKeyChecking=no root\@$ipv4 true < /dev/null 2> /dev/null";
+            die "cannot SSH to VM: $?" unless $? == 0;
         }
     }
 
@@ -329,7 +426,7 @@ sub startMachines {
     # Figure out how we're gonna SSH to each machine.  Prefer IPv6
     # addresses over hostnames.
     while (my ($name, $machine) = each %{$state->{machines}}) {
-        $machine->{sshName} = $machine->{ipv6} || $machine->{targetHost} || die "don't know how to reach ‘$name’";
+        $machine->{sshName} = $machine->{ipv6} || $machine->{ipv4} || $machine->{targetHost} || die "don't know how to reach ‘$name’";
     }
     
     # So now that we know the hostnames / IP addresses of all
@@ -340,16 +437,19 @@ sub startMachines {
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $state->{machines}->{$name};
         $hosts .= "$machine->{ipv6} $name\\n" if defined $machine->{ipv6};
+        $hosts .= "$machine->{ipv4} $name\\n" if defined $machine->{ipv4};
     }
     
     open STATE, ">physical.nix" or die;
     print STATE "{\n";
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $state->{machines}->{$name};
-        print STATE "  $name = { config, pkgs, ... }:\n";
+        print STATE "  $name = { config, pkgs, modulesPath, ... }:\n";
         print STATE "    {\n";
         if ($machine->{targetEnv} eq "adhoc") {
             print STATE "      require = [ $myDir/adhoc-cloud-vm.nix ];\n";
+        } elsif ($machine->{targetEnv} eq "ec2") {
+            print STATE "      require = [ \"\${modulesPath}/virtualisation/amazon-config.nix\" ];\n";
         }
         print STATE "      networking.extraHosts = \"$hosts\";\n";
         print STATE "    };\n";
@@ -361,7 +461,7 @@ sub startMachines {
 
 sub buildConfigs {
     print STDERR "building all machine configurations...\n";
-    my $vmsPath = `nix-build $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ./physical.nix ]' -A machines`;
+    my $vmsPath = `nix-build --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ./physical.nix ]' -A machines`;
     die "unable to build all machine configurations" unless $? == 0;
     chomp $vmsPath;
     return $vmsPath;
