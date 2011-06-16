@@ -377,7 +377,8 @@ sub startMachines {
                 my $state = $instance->instance_state->name;
                 print STDERR "[$state] ";
                 die "EC2 instance ‘$vmId’ didn't start; it went to state ‘$state’\n"
-                    if $state ne "pending" && $state ne "running";
+                    if $state ne "pending" && $state ne "running" &&
+                       $state ne "scheduling" && $state ne "launching";
                 last if defined $instance->ip_address;
                 sleep 5;
                 my $reservations = $ec2->describe_instances(InstanceId => $vmId);
