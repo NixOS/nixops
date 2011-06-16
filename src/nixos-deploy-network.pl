@@ -44,15 +44,18 @@ my $killObsolete = 0;
 
 
 sub main {
-    my $op = \&opDeploy;
+    my $op;
     
     exit 1 unless GetOptions(
         "state|s=s" => \$stateFile,
         "info|i" => sub { $op = \&opInfo; },
         "check|c" => sub { $op = \&opCheck; },
         "destroy" => sub { $op = \&opDestroy; },
+        "deploy" => sub { $op = \&opDeploy; },
         "kill-obsolete|k!" => \$killObsolete,
         );
+
+    die "$0: You must specify an operation.\n" unless defined $op;
     
     @networkExprs = @ARGV;
 
