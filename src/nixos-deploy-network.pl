@@ -192,7 +192,8 @@ sub evalMachineInfo {
                 };
         } elsif ($targetEnv eq "ec2") {
             $info->{ec2} =
-                { controller => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "controller"]/string/@value') || die
+                { type => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "type"]/string/@value') || die
+                , controller => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "controller"]/string/@value') || die
                 , ami => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "ami"]/string/@value') || die
                 , instanceType => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "instanceType"]/string/@value') || die
                 , keyPair => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "keyPair"]/string/@value') || die
@@ -453,7 +454,13 @@ sub startMachines {
         if ($machine->{targetEnv} eq "adhoc") {
             print STATE "      require = [ $myDir/adhoc-cloud-vm.nix ];\n";
         } elsif ($machine->{targetEnv} eq "ec2") {
-            print STATE "      require = [ \"\${modulesPath}/virtualisation/amazon-config.nix\" ];\n";
+            if ($machine->{ec2}->{type} eq "ec2") {
+                print STATE "      require = [ \"\${modulesPath}/virtualisation/amazon-config.nix\" ];\n";
+            } elsif ($machine->{ec2}->{type} eq "nova") {
+                print STATE "      require = [ \"\${modulesPath}/virtualisation/nova-image.nix\" ];\n";
+            } else {
+                die "machine ‘$name’ has unknown EC2 type ‘$machine->{ec2}->{type}’\n";
+            }
         }
         print STATE "      networking.extraHosts = \"$hosts\";\n";
         print STATE "    };\n";
