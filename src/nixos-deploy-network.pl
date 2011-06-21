@@ -1,4 +1,4 @@
-#! /var/run/current-system/sw/bin/perl -w
+#! /var/run/current-system/sw/bin/perl -w -I/home/eelco/nixpkgs/Net-Amazon-EC2-0.14/lib
 
 use strict;
 use utf8;
@@ -42,6 +42,8 @@ my $myDir = dirname(Cwd::abs_path($0));
 # specification.
 my $killObsolete = 0;
 
+my $debug = 0;
+
 
 sub main {
     my $op;
@@ -53,6 +55,7 @@ sub main {
         "destroy" => sub { $op = \&opDestroy; },
         "deploy" => sub { $op = \&opDeploy; },
         "kill-obsolete|k!" => \$killObsolete,
+        "debug" => \$debug,
         );
 
     die "$0: You must specify an operation.\n" unless defined $op;
@@ -79,7 +82,9 @@ sub opInfo {
                   ? ($r->{vmsPath} eq $state->{vmsPath}
                      ? "Up"
                      : "Incomplete")
-                  : "Started")
+                  : defined $r->{pinged}
+                     ? "Started"
+                     : "Starting")
                : "New")
             : "Obsolete";
         push @lines,
@@ -106,6 +111,25 @@ sub opInfo {
 }
 
 
+# Figure out how to connect to a machine via SSH.  Use the public IPv6
+# address if available, then the public IPv4 address, and then the
+# host name.
+sub sshName {
+    my ($name, $machine) = @_;
+    return $machine->{ipv6} || $machine->{ipv4} || $machine->{targetHost} || die "don't know how to reach ‘$name’";
+}
+
+
+# Check whether the given machine is reachable via SSH.
+sub pingSSH {
+    my ($name, $machine) = @_;
+    my $sshName = sshName($name, $machine);
+    # !!! fix, just check whether the port is open
+    system "ssh -o StrictHostKeyChecking=no root\@$sshName true < /dev/null 2>/dev/null";
+    return $? == 0;
+}
+
+
 # ‘--check’ checks whether every machine is reachable via SSH.  It
 # also prints the load on every machine.
 sub opCheck {
@@ -116,7 +140,8 @@ sub opCheck {
         next if $machine->{obsolete};
         print STDERR "$name... ";
 
-        my $load = `ssh -o StrictHostKeyChecking=no root\@$machine->{sshName} cat /proc/loadavg 2>/dev/null`;
+        my $sshName = sshName($name, $machine);
+        my $load = `ssh -o StrictHostKeyChecking=no root\@$sshName cat /proc/loadavg 2>/dev/null`;
         if ($? == 0) {
             my @load = split / /, $load;
             print STDERR "ok [$load[0] $load[1] $load[2]]\n";
@@ -229,11 +254,11 @@ sub writeState {
 sub openEC2 {
     my ($name, $machine) = @_;
     return Net::Amazon::EC2->new
-        ( AWSAccessKeyId => ($ENV{'AWS_ACCESS_KEY_ID'} || die "please set \$AWS_ACCESS_KEY_ID\n")
-        , SecretAccessKey => ($ENV{'AWS_SECRET_ACCESS_KEY'} || die "please set \$AWS_SECRET_ACCESS_KEY\n")
+        ( AWSAccessKeyId => ($ENV{'EC2_ACCESS_KEY'} || $ENV{'AWS_ACCESS_KEY_ID'} || die "please set \$EC2_ACCESS_KEY or \$AWS_ACCESS_KEY_ID\n")
+        , SecretAccessKey => ($ENV{'EC2_SECRET_KEY'} || $ENV{'AWS_SECRET_ACCESS_KEY'} || die "please set \$EC2_SECRET_KEY or \$AWS_SECRET_ACCESS_KEY\n")
         , # !!! This assumes that all machines have the same controller/zone.
           base_url => $machine->{ec2}->{controller}
-        #, debug => 1
+        , debug => $debug
         );
 }
 
@@ -297,12 +322,6 @@ sub startMachines {
         
         if ($machine->{targetEnv} eq "none") {
             # Not much to do here.
-
-            print STDERR "checking whether machine ‘$name’ is reachable via SSH...\n";
-
-            # !!! should use sshName.
-            system "ssh -o StrictHostKeyChecking=no root\@$machine->{targetHost} true < /dev/null 2> /dev/null";
-            die "cannot SSH to machine: $?" unless $? == 0;
 
             $state->{machines}->{$name} =
                 { targetEnv => $machine->{targetEnv}
@@ -373,14 +392,13 @@ sub startMachines {
             # have finished booting, but later down we wait for the
             # SSH port to open.)
             print STDERR "waiting for IP address... ";
-            my $n = 0;
             while (1) {
                 my $state = $instance->instance_state->name;
                 print STDERR "[$state] ";
                 die "EC2 instance ‘$vmId’ didn't start; it went to state ‘$state’\n"
                     if $state ne "pending" && $state ne "running" &&
                        $state ne "scheduling" && $state ne "launching";
-                last if defined $instance->ip_address;
+                last if defined $instance->dns_name_v6 || defined $instance->ip_address;
                 sleep 5;
                 my $reservations = $ec2->describe_instances(InstanceId => $vmId);
                 die "could not query EC2 instance: “" . @{$reservations->errors}[0]->message . "”\n"
@@ -389,13 +407,11 @@ sub startMachines {
             }
             print STDERR "\n";
 
-            my $ipv4 = $instance->ip_address;
-            print STDERR "got IP address ‘$ipv4’\n";
-                
             $state->{machines}->{$name} =
                 { targetEnv => $machine->{targetEnv}
                 , vmId => $vmId
-                , ipv4 => $ipv4
+                , ipv4 => $instance->ip_address
+                , ipv6 => $instance->dns_name_v6 # actually its public IPv6 address
                 , reservation => $reservation->reservation_id
                 , privateIpv4 => $instance->private_ip_address
                 , dnsName => $instance->dns_name
@@ -404,12 +420,10 @@ sub startMachines {
                 , ec2 => $machine->{ec2}
                 };
 
-            writeState;
-            
-            print STDERR "checking whether VM ‘$name’ is reachable via SSH...\n";
-
-            system "ssh -o StrictHostKeyChecking=no root\@$ipv4 true < /dev/null 2> /dev/null";
-            die "cannot SSH to VM: $?" unless $? == 0;
+            my $addr = $instance->dns_name_v6 || $instance->ip_address || die "don't know how to reach ‘$name’";
+            print STDERR "started instance with IP address $addr\n";
+                
+            writeState;            
         }
     }
 
@@ -428,10 +442,21 @@ sub startMachines {
         }
     }
     
-    # Figure out how we're gonna SSH to each machine.  Prefer IPv6
-    # addresses over hostnames.
-    while (my ($name, $machine) = each %{$state->{machines}}) {
-        $machine->{sshName} = $machine->{ipv6} || $machine->{ipv4} || $machine->{targetHost} || die "don't know how to reach ‘$name’";
+    foreach my $name (keys %{$spec->{machines}}) {
+        my $machine = $state->{machines}->{$name};
+        unless (defined $machine->{pinged}) {
+            print STDERR "checking whether machine ‘$name’ is reachable via SSH...";
+            my $n = 0;
+            while (1) {
+                last if pingSSH($name, $machine);
+                print STDERR ".";
+                die "machine ‘$name’ cannot be reached via SSH" if $n++ == 40;
+                sleep 5;
+            }
+            print STDERR " yes\n";
+            $machine->{pinged} = 1;
+            writeState;
+        }
     }
     
     # So now that we know the hostnames / IP addresses of all
@@ -441,8 +466,8 @@ sub startMachines {
     my $hosts = "";
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $state->{machines}->{$name};
-        $hosts .= "$machine->{ipv6} $name\\n" if defined $machine->{ipv6};
-        $hosts .= "$machine->{ipv4} $name\\n" if defined $machine->{ipv4};
+        $hosts .= "$machine->{ipv6} $name\\n" if $machine->{ipv6};
+        $hosts .= "$machine->{ipv4} $name\\n" if $machine->{ipv4};
     }
     
     open STATE, ">physical.nix" or die;
@@ -487,7 +512,8 @@ sub copyClosures {
         my $machine = $state->{machines}->{$name};
         my $toplevel = readlink "$vmsPath/$name" or die;
         $machine->{lastCopied} = $toplevel; # !!! rewrite state file?
-        system "nix-copy-closure --gzip --to root\@$machine->{sshName} $toplevel";
+        my $sshName = sshName($name, $machine);
+        system "nix-copy-closure --gzip --to root\@$sshName $toplevel";
         die "unable to copy closure to machine ‘$name’" unless $? == 0;
     }
 }
@@ -506,7 +532,8 @@ sub activateConfigs {
         my $machine = $state->{machines}->{$name};
 
         my $toplevel = readlink "$vmsPath/$name" or die;
-        system "ssh -o StrictHostKeyChecking=no root\@$machine->{sshName} nix-env -p /nix/var/nix/profiles/system --set $toplevel \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
+        my $sshName = sshName($name, $machine);
+        system "ssh -o StrictHostKeyChecking=no root\@$sshName nix-env -p /nix/var/nix/profiles/system --set $toplevel \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
         if ($? != 0) {
             # !!! do a rollback
             die "unable to activate new configuration on machine ‘$name’";
