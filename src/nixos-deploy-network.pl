@@ -284,8 +284,14 @@ sub killMachine {
         print STDERR "killing VM ‘$name’ (EC2 instance ‘$machine->{vmId}’)...\n";
         my $ec2 = openEC2($name, $machine);
         my $res = $ec2->terminate_instances(InstanceId => $machine->{vmId});
-        die "could not terminate EC2 instance: “" . @{$res->errors}[0]->message . "”\n"
-            unless ref $res eq "ARRAY";
+        unless (!defined $res || ref $res eq "ARRAY") {
+            my $error = @{$res->errors}[0];
+            if ($error->code eq "InstanceNotFound") {
+                warn "EC2 instance “$machine->{vmId}” no longer exists, removing\n";
+            } else {
+                die "could not terminate EC2 instance: “" . $error->message . "”\n";
+            }
+        }
         # !!! Check the state change? Wait until the machine has shut down?
     }
 
