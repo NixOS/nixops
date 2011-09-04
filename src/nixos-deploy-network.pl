@@ -191,7 +191,7 @@ sub opDestroy {
 
 sub evalMachineInfo {
     my $machineInfoXML =
-        `nix-instantiate --eval-only --xml --strict --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ]' -A machineInfo`;
+        `nix-instantiate --eval-only --show-trace --xml --strict --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ]' -A machineInfo`;
     die "evaluation of @networkExprs failed" unless $? == 0;
     
     #print $machineInfoXML, "\n";
@@ -473,7 +473,11 @@ sub startMachines {
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $state->{machines}->{$name};
         $hosts .= "$machine->{ipv6} $name\\n" if $machine->{ipv6};
-        $hosts .= "$machine->{ipv4} $name\\n" if $machine->{ipv4};
+        if (defined $machine->{privateIpv4}) {
+            $hosts .= "$machine->{privateIpv4} $name\\n";
+        } else {
+            $hosts .= "$machine->{ipv4} $name\\n" if $machine->{ipv4};
+        }
     }
     
     open STATE, ">physical.nix" or die;
