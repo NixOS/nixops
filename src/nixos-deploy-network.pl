@@ -5,6 +5,7 @@ use utf8;
 use XML::LibXML;
 use Cwd;
 use File::Basename;
+use File::Spec;
 use JSON;
 use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version);
 use Text::Table;
@@ -15,8 +16,6 @@ $main::VERSION = "0.1";
 
 
 binmode(STDERR, ":utf8");
-
-my @networkExprs;
 
 # The deployment specification, obtained by evaluating the Nix
 # expressions specified by the user.  $spec->{machines} is a mapping
@@ -46,10 +45,11 @@ my $debug = 0;
 
 
 sub main {
-    my $op;
+    my $op = \&opDeploy;
     
     exit 1 unless GetOptions(
         "state|s=s" => \$stateFile,
+        "create" => sub { $op = \&opCreate; },
         "info|i" => sub { $op = \&opInfo; },
         "check|c" => sub { $op = \&opCheck; },
         "destroy" => sub { $op = \&opDestroy; },
@@ -60,16 +60,32 @@ sub main {
 
     die "$0: You must specify an operation.\n" unless defined $op;
     
-    @networkExprs = @ARGV;
-
     &$op();
+}
+
+
+sub noArgs {
+    die "$0: unexpected argument(s) ‘@ARGV’\n" if scalar @ARGV;
+}
+
+
+sub opCreate {
+    eval { readState(); }; warn $@ if $@;
+
+    my @networkExprs = @ARGV;
+    die "‘--create’ requires the paths of one or more network specifications\n" if scalar @networkExprs == 0;
+
+    $state->{networkExprs} = [ map { File::Spec->rel2abs($_) } @networkExprs ];
+
+    writeState();
 }
 
 
 # ‘--info’ shows the current deployment specification and state.
 sub opInfo {
-    eval { evalMachineInfo(); }; warn $@ if $@;
+    noArgs;
     eval { readState(); }; warn $@ if $@;
+    eval { evalMachineInfo(); }; warn $@ if $@;
 
     my @lines;
     foreach my $name (uniq (sort (keys %{$spec->{machines}}, keys %{$state->{machines}}))) {
@@ -133,6 +149,7 @@ sub pingSSH {
 # ‘--check’ checks whether every machine is reachable via SSH.  It
 # also prints the load on every machine.
 sub opCheck {
+    noArgs;
     readState();
     
     foreach my $name (sort (keys %{$state->{machines}})) {
@@ -153,12 +170,14 @@ sub opCheck {
 
 
 sub opDeploy {
-    # Evaluate the user's network specification to determine machine
-    # names and the desired deployment characteristics.
-    evalMachineInfo();
+    noArgs;
 
     # Read the state file to obtain info about previously started VMs.
     readState();
+
+    # Evaluate the user's network specification to determine machine
+    # names and the desired deployment characteristics.
+    evalMachineInfo();
 
     # Create missing VMs.
     startMachines();
@@ -180,6 +199,7 @@ sub opDeploy {
 # i.e., the entire network previously deployed by
 # nixos-deploy-network.
 sub opDestroy {
+    noArgs;
     readState();
     
     foreach my $name (keys %{$state->{machines}}) {
@@ -191,8 +211,8 @@ sub opDestroy {
 
 sub evalMachineInfo {
     my $machineInfoXML =
-        `nix-instantiate --eval-only --show-trace --xml --strict --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ]' -A machineInfo`;
-    die "evaluation of @networkExprs failed" unless $? == 0;
+        `nix-instantiate --eval-only --show-trace --xml --strict --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @{$state->{networkExprs}} ]' -A machineInfo`;
+    die "evaluation of @{$state->{networkExprs}} failed" unless $? == 0;
     
     #print $machineInfoXML, "\n";
 
@@ -243,7 +263,7 @@ sub readState {
 
 
 sub writeState {
-    die "state file not set; please use ‘--state’\n" unless defined $stateFile;
+    die "state file not set; please use ‘--state FILENAME.json’\n" unless defined $stateFile;
     open(my $fh, '>', "$stateFile.new") or die "$!";
     print $fh encode_json($state);
     close $fh;
@@ -507,7 +527,7 @@ sub startMachines {
 
 sub buildConfigs {
     print STDERR "building all machine configurations...\n";
-    my $vmsPath = `nix-build --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @networkExprs ./physical.nix ]' -A machines`;
+    my $vmsPath = `nix-build --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @{$state->{networkExprs}} ./physical.nix ]' -A machines`;
     die "unable to build all machine configurations" unless $? == 0;
     chomp $vmsPath;
     return $vmsPath;
