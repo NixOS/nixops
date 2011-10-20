@@ -8,7 +8,7 @@ stdenv.mkDerivation {
   buildInputs =
     [ perl makeWrapper perlPackages.XMLLibXML perlPackages.JSON
       perlPackages.TextTable perlPackages.ListMoreUtils
-      perlPackages.NetAmazonEC2 perlPackages.LWPProtocolHttps
+      perlPackages.NetAmazonEC2
     ];
 
   installPhase = 
