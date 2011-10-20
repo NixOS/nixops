@@ -209,6 +209,8 @@ sub opDestroy {
 
 
 sub evalMachineInfo {
+    die "no network specified; use ‘--create’ to associate a network specification with the state file\n" unless scalar @{$state->{networkExprs} || []};
+
     my $machineInfoXML =
         `nix-instantiate --eval-only --show-trace --xml --strict --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @{$state->{networkExprs}} ]' -A machineInfo`;
     die "evaluation of @{$state->{networkExprs}} failed" unless $? == 0;
@@ -252,7 +254,8 @@ sub evalMachineInfo {
 
 sub readState {
     local $/;
-    if (defined $stateFile && -e $stateFile) {
+    die "no state file specified; use ‘--state FILENAME.json’\n" unless defined $stateFile;
+    if (-e $stateFile) {
         open(my $fh, '<', $stateFile) or die "$!";
         $state = decode_json <$fh>;
     } else {
@@ -262,7 +265,7 @@ sub readState {
 
 
 sub writeState {
-    die "state file not set; please use ‘--state FILENAME.json’\n" unless defined $stateFile;
+    die "no state file specified; use ‘--state FILENAME.json’\n" unless defined $stateFile;
     open(my $fh, '>', "$stateFile.new") or die "$!";
     print $fh encode_json($state);
     close $fh;
