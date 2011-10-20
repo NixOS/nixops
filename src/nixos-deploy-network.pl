@@ -1,4 +1,4 @@
-#! /var/run/current-system/sw/bin/perl -w -I/home/eelco/nixpkgs/Net-Amazon-EC2-0.14/lib
+#! /var/run/current-system/sw/bin/perl -w
 
 use strict;
 use utf8;
