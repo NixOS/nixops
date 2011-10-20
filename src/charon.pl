@@ -196,8 +196,7 @@ sub opDeploy {
 
 
 # ‘--destroy’ destroys all VMs listed in the deployment state record,
-# i.e., the entire network previously deployed by
-# nixos-deploy-network.
+# i.e., the entire network previously deployed by Charon.
 sub opDestroy {
     noArgs;
     readState();

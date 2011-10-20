@@ -1,7 +1,7 @@
 with import <nixpkgs> {};
 
 stdenv.mkDerivation {
-  name = "nixos-deploy-network";
+  name = "charon";
 
   src = lib.cleanSource ./src;
 
@@ -14,10 +14,10 @@ stdenv.mkDerivation {
   installPhase = 
     ''
       mkdir -p $out/bin
-      cp nixos-deploy-network.pl $out/bin/nixos-deploy-network
+      cp charon.pl $out/bin/charon
       cp *.nix $out/bin/ # urgh
 
-      wrapProgram $out/bin/nixos-deploy-network \
+      wrapProgram $out/bin/charon \
         --set PERL5LIB $PERL5LIB
     '';
 }
