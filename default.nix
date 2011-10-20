@@ -1,4 +1,4 @@
-with import (builtins.getEnv "NIXPKGS") {};
+with import <nixpkgs> {};
 
 stdenv.mkDerivation {
   name = "nixos-deploy-network";
@@ -8,7 +8,7 @@ stdenv.mkDerivation {
   buildInputs =
     [ perl makeWrapper perlPackages.XMLLibXML perlPackages.JSON
       perlPackages.TextTable perlPackages.ListMoreUtils
-      perlPackages.NetAmazonEC2
+      perlPackages.NetAmazonEC2 perlPackages.LWPProtocolHttps
     ];
 
   installPhase = 
