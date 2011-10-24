@@ -15,7 +15,7 @@ stdenv.mkDerivation {
     ''
       mkdir -p $out/bin
       cp charon.pl $out/bin/charon
-      cp *.nix $out/bin/ # urgh
+      cp *.nix $out/bin/ # urgh!
 
       wrapProgram $out/bin/charon \
         --set PERL5LIB $PERL5LIB
