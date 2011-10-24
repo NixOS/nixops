@@ -243,6 +243,7 @@ sub evalMachineInfo {
                 , ami => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "ami"]/string/@value') || die
                 , instanceType => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "instanceType"]/string/@value') || die
                 , keyPair => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "keyPair"]/string/@value') || die
+                , securityGroup => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "securityGroup"]/string/@value')
                 };
         } else {
             die "machine ‘$name’ has an unknown target environment type ‘$targetEnv’";
@@ -401,6 +402,7 @@ sub startMachines {
                 , KeyName => $machine->{ec2}->{keyPair}
                 , MinCount => 1
                 , MaxCount => 1
+                , SecurityGroup => $machine->{ec2}->{securityGroup} eq "" ? [] : $machine->{ec2}->{securityGroup}
                 );
 
             die "could not create EC2 instance: “" . @{$reservation->errors}[0]->message . "”\n"
