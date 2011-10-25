@@ -214,7 +214,7 @@ sub evalMachineInfo {
     my $machineInfoXML =
         `nix-instantiate --eval-only --show-trace --xml --strict --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @{$state->{networkExprs}} ]' -A machineInfo`;
     die "evaluation of @{$state->{networkExprs}} failed" unless $? == 0;
-    
+
     #print $machineInfoXML, "\n";
 
     my $dom = XML::LibXML->load_xml(string => $machineInfoXML);
@@ -243,7 +243,7 @@ sub evalMachineInfo {
                 , ami => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "ami"]/string/@value') || die
                 , instanceType => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "instanceType"]/string/@value') || die
                 , keyPair => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "keyPair"]/string/@value') || die
-                , securityGroup => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "securityGroup"]/string/@value')
+                , securityGroups => [ map { $_->findvalue(".") } $m->findnodes('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "securityGroups"]/list/string/@value') ]
                 };
         } else {
             die "machine ‘$name’ has an unknown target environment type ‘$targetEnv’";
@@ -402,7 +402,7 @@ sub startMachines {
                 , KeyName => $machine->{ec2}->{keyPair}
                 , MinCount => 1
                 , MaxCount => 1
-                , SecurityGroup => $machine->{ec2}->{securityGroup} eq "" ? [] : $machine->{ec2}->{securityGroup}
+                , SecurityGroup => $machine->{ec2}->{securityGroups}
                 );
 
             die "could not create EC2 instance: “" . @{$reservation->errors}[0]->message . "”\n"
