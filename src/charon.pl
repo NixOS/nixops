@@ -521,6 +521,12 @@ sub startMachines {
                 die "machine ‘$name’ has unknown EC2 type ‘$machine->{ec2}->{type}’\n";
             }
         }
+        if (defined $machine->{privateIpv4}) {
+          print STATE "      networking.privateIPv4 = \"$machine->{privateIpv4}\";\n";
+        }
+        if (defined $machine->{ipv4}) {
+          print STATE "      networking.publicIPv4 = \"$machine->{ipv4}\";\n";
+        }
         print STATE "      networking.extraHosts = \"$hosts\";\n";
         print STATE "    };\n";
     }
