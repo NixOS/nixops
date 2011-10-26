@@ -11,6 +11,7 @@ use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version
 use Text::Table;
 use List::MoreUtils qw(uniq);
 use Net::Amazon::EC2;
+use File::Slurp;
 
 $main::VERSION = "0.1";
 
@@ -54,6 +55,7 @@ sub main {
         "check|c" => sub { $op = \&opCheck; },
         "destroy" => sub { $op = \&opDestroy; },
         "deploy" => sub { $op = \&opDeploy; },
+        "show-physical" => sub { $op = \&opShowPhysical; },
         "kill-obsolete|k!" => \$killObsolete,
         "debug" => \$debug,
         );
@@ -327,6 +329,53 @@ sub killMachine {
 }
 
 
+# Create the physical network specification module.  It's added to the
+# user's network specification to produce the complete specification
+# that can be built and deployed.
+sub createPhysicalSpec {
+
+    my $hosts = "";
+    foreach my $name (keys %{$spec->{machines}}) {
+        my $machine = $state->{machines}->{$name};
+        $hosts .= "$machine->{ipv6} $name\\n" if $machine->{ipv6};
+        if (defined $machine->{privateIpv4}) {
+            $hosts .= "$machine->{privateIpv4} $name\\n";
+        } else {
+            $hosts .= "$machine->{ipv4} $name\\n" if $machine->{ipv4};
+        }
+    }
+
+    my $physical = "{\n";
+    foreach my $name (keys %{$spec->{machines}}) {
+        my $machine = $state->{machines}->{$name};
+        $physical .= "  $name = { config, pkgs, modulesPath, ... }:\n";
+        $physical .= "    {\n";
+        if ($machine->{targetEnv} eq "adhoc") {
+            $physical .= "      require = [ $myDir/adhoc-cloud-vm.nix ];\n";
+        } elsif ($machine->{targetEnv} eq "ec2") {
+            if ($machine->{ec2}->{type} eq "ec2") {
+                $physical .= "      require = [ \"\${modulesPath}/virtualisation/amazon-config.nix\" ];\n";
+            } elsif ($machine->{ec2}->{type} eq "nova") {
+                $physical .= "      require = [ \"\${modulesPath}/virtualisation/nova-image.nix\" ];\n";
+            } else {
+                die "machine ‘$name’ has unknown EC2 type ‘$machine->{ec2}->{type}’\n";
+            }
+        }
+        if (defined $machine->{privateIpv4}) {
+          $physical .= "      networking.privateIPv4 = \"$machine->{privateIpv4}\";\n";
+        }
+        if (defined $machine->{ipv4}) {
+          $physical .= "      networking.publicIPv4 = \"$machine->{ipv4}\";\n";
+        }
+        $physical .= "      networking.extraHosts = \"$hosts\";\n";
+        $physical .= "    };\n";
+    }
+    $physical .= "}\n";
+
+    return $physical;
+}
+
+
 sub startMachines {
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $spec->{machines}->{$name};
@@ -488,50 +537,12 @@ sub startMachines {
             writeState;
         }
     }
-    
+
     # So now that we know the hostnames / IP addresses of all
-    # machines, generate a Nix expression containing the physical
-    # network configuration that can be stacked on top of the
-    # user-supplied network configuration.
-    my $hosts = "";
-    foreach my $name (keys %{$spec->{machines}}) {
-        my $machine = $state->{machines}->{$name};
-        $hosts .= "$machine->{ipv6} $name\\n" if $machine->{ipv6};
-        if (defined $machine->{privateIpv4}) {
-            $hosts .= "$machine->{privateIpv4} $name\\n";
-        } else {
-            $hosts .= "$machine->{ipv4} $name\\n" if $machine->{ipv4};
-        }
-    }
-    
-    open STATE, ">physical.nix" or die;
-    print STATE "{\n";
-    foreach my $name (keys %{$spec->{machines}}) {
-        my $machine = $state->{machines}->{$name};
-        print STATE "  $name = { config, pkgs, modulesPath, ... }:\n";
-        print STATE "    {\n";
-        if ($machine->{targetEnv} eq "adhoc") {
-            print STATE "      require = [ $myDir/adhoc-cloud-vm.nix ];\n";
-        } elsif ($machine->{targetEnv} eq "ec2") {
-            if ($machine->{ec2}->{type} eq "ec2") {
-                print STATE "      require = [ \"\${modulesPath}/virtualisation/amazon-config.nix\" ];\n";
-            } elsif ($machine->{ec2}->{type} eq "nova") {
-                print STATE "      require = [ \"\${modulesPath}/virtualisation/nova-image.nix\" ];\n";
-            } else {
-                die "machine ‘$name’ has unknown EC2 type ‘$machine->{ec2}->{type}’\n";
-            }
-        }
-        if (defined $machine->{privateIpv4}) {
-          print STATE "      networking.privateIPv4 = \"$machine->{privateIpv4}\";\n";
-        }
-        if (defined $machine->{ipv4}) {
-          print STATE "      networking.publicIPv4 = \"$machine->{ipv4}\";\n";
-        }
-        print STATE "      networking.extraHosts = \"$hosts\";\n";
-        print STATE "    };\n";
-    }
-    print STATE "}\n";
-    close STATE;
+    # machines, we can generate the physical network configuration
+    # that can be stacked on top of the user-supplied network
+    # configuration.
+    write_file("physical.nix", createPhysicalSpec());
 }
 
 
@@ -583,6 +594,14 @@ sub activateConfigs {
         $machine->{toplevel} = $toplevel;
         writeState;
     }
+}
+
+
+sub opShowPhysical {
+    noArgs;
+    readState();
+    evalMachineInfo();
+    print createPhysicalSpec();
 }
 
 
