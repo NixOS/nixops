@@ -6,12 +6,13 @@ use XML::LibXML;
 use Cwd;
 use File::Basename;
 use File::Spec;
+use File::Temp;
+use File::Slurp;
 use JSON;
 use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version);
 use Text::Table;
 use List::MoreUtils qw(uniq);
 use Net::Amazon::EC2;
-use File::Slurp;
 
 $main::VERSION = "0.1";
 
@@ -43,6 +44,8 @@ my $myDir = dirname(Cwd::abs_path($0));
 my $killObsolete = 0;
 
 my $debug = 0;
+
+my $tmpDir = File::Temp::tempdir("charon.XXXXX", CLEANUP => 1, TMPDIR => 1);
 
 
 sub main {
@@ -537,18 +540,19 @@ sub startMachines {
             writeState;
         }
     }
-
-    # So now that we know the hostnames / IP addresses of all
-    # machines, we can generate the physical network configuration
-    # that can be stacked on top of the user-supplied network
-    # configuration.
-    write_file("physical.nix", createPhysicalSpec());
 }
 
 
 sub buildConfigs {
+    # So now that we know the hostnames / IP addresses of all
+    # machines, we can generate the physical network configuration
+    # that can be stacked on top of the user-supplied network
+    # configuration.
+    my $physicalExpr = "$tmpDir/physical.nix";
+    write_file($physicalExpr, createPhysicalSpec());
+    
     print STDERR "building all machine configurations...\n";
-    my $vmsPath = `nix-build --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @{$state->{networkExprs}} ./physical.nix ]' -A machines`;
+    my $vmsPath = `nix-build --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @{$state->{networkExprs}} $physicalExpr ]' -A machines`;
     die "unable to build all machine configurations" unless $? == 0;
     chomp $vmsPath;
     return $vmsPath;
