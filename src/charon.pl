@@ -284,7 +284,7 @@ sub openEC2 {
     return Net::Amazon::EC2->new
         ( AWSAccessKeyId => ($ENV{'EC2_ACCESS_KEY'} || $ENV{'AWS_ACCESS_KEY_ID'} || die "please set \$EC2_ACCESS_KEY or \$AWS_ACCESS_KEY_ID\n")
         , SecretAccessKey => ($ENV{'EC2_SECRET_KEY'} || $ENV{'AWS_SECRET_ACCESS_KEY'} || die "please set \$EC2_SECRET_KEY or \$AWS_SECRET_ACCESS_KEY\n")
-        , # !!! This assumes that all machines have the same controller/zone.
+        , # !!! This assumes that all machines have the same controller/region.
           base_url => $machine->{ec2}->{controller}
         , debug => $debug
         );
@@ -377,10 +377,11 @@ sub createPhysicalSpec {
                 if ($machine->{targetEnv} eq "ec2" &&
                     $machine->{ec2}->{controller} ne $machine2->{ec2}->{controller})
                 {
-                    # The two machines are in different zones, so they
-                    # can't talk directly to each other over their
-                    # private IP.  So create a VPN connection over
-                    # their public IPs to forward the private IPs.
+                    # The two machines are in different regions, so
+                    # they can't talk directly to each other over
+                    # their private IP.  So create a VPN connection
+                    # over their public IPs to forward the private
+                    # IPs.
                     $kernelModules{"tun"} = 1;
 
                     # It's a two-way tunnel, so we only need to start
