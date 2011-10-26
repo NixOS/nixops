@@ -337,6 +337,7 @@ sub killMachine {
 # that can be built and deployed.
 sub createPhysicalSpec {
 
+    # Produce the /etc/hosts file.
     my $hosts = "";
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $state->{machines}->{$name};
@@ -346,13 +347,81 @@ sub createPhysicalSpec {
         } else {
             $hosts .= "$machine->{ipv4} $name\\n" if $machine->{ipv4};
         }
+        if (defined $machine->{ipv4}) {
+            $hosts .= "$machine->{ipv4} $name-public\\n";
+        }
     }
+
+    # Assign globally unique numbers to tun devices to prevent collisions.
+    my $tunNr = 0;
 
     my $physical = "{\n";
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $state->{machines}->{$name};
+
         $physical .= "  $name = { config, pkgs, modulesPath, ... }:\n";
         $physical .= "    {\n";
+
+        my %kernelModules;
+        my $needsPublicKey = 0;
+        my $needsPrivateKey = 0;
+        
+        # Determine whether and how this machine can talk to every
+        # other machine in the network.
+        foreach my $name2 (keys %{$spec->{machines}}) {
+            my $machine2 = $state->{machines}->{$name2};
+            next if $name eq $name2;
+
+            if ($machine->{targetEnv} eq $machine2->{targetEnv}) {
+
+                if ($machine->{targetEnv} eq "ec2" &&
+                    $machine->{ec2}->{controller} ne $machine2->{ec2}->{controller})
+                {
+                    # The two machines are in different zones, so they
+                    # can't talk directly to each other over their
+                    # private IP.  So create a VPN connection over
+                    # their public IPs to forward the private IPs.
+                    $kernelModules{"tun"} = 1;
+
+                    # It's a two-way tunnel, so we only need to start
+                    # it on one machine (for each pair of machines).
+                    # Pick the one that has the higher name
+                    # (lexicographically).  Note that this is the
+                    # reverse order in which machines get activated,
+                    # so the server should be up by the time the
+                    # client starts the connection.
+                    if ($name gt $name2) {
+                        print STDERR "creating tunnel between ‘$name’ and ‘$name2’\n";
+                        my $clientIP = $machine->{privateIpv4} || die;
+                        my $serverIP = $machine2->{privateIpv4} || die;
+                        $physical .= "      jobs.vpn = { path = [ pkgs.nettools ]; startOn = \"started network-interfaces\"; exec = \"\${pkgs.openssh}/bin/ssh -i /root/.ssh/id_vpn -o StrictHostKeyChecking=no -f -x -w $tunNr:$tunNr $name2-public 'ifconfig tun$tunNr $clientIP $serverIP netmask 255.255.255.255; route add $clientIP/32 dev tun$tunNr'\"; daemonType = \"fork\"; postStart = \"ifconfig tun$tunNr $serverIP $clientIP netmask 255.255.255.255; route add $serverIP/32 dev tun$tunNr\"; };\n";
+                        $tunNr++;
+                        $needsPrivateKey = 1;
+                    } else {
+                        $needsPublicKey = 1;
+                    }
+                }
+
+                next;
+            }
+
+            print STDERR "warning: machines ‘$name’ and ‘$name2’ may not be able to talk to each other\n";
+        }
+
+        if (scalar(keys %kernelModules) > 0) {
+            $physical .= "      boot.kernelModules = [ " . join(" ", map { "\"$_\"" } (keys %kernelModules)) . " ];\n";
+        }
+
+        $physical .= "      services.openssh.extraConfig = \"PermitTunnel yes\\n\";\n";
+
+        if ($needsPublicKey) {
+            $physical .= "      system.activationScripts.addAuthorizedKey = \"mkdir -p /root/.ssh -m 700; grep -v DUMMY < /root/.ssh/authorized_keys > /root/.ssh/authorized_keys.tmp; cat \${/home/eelco/Dev/charon/id_tmp.pub} >> /root/.ssh/authorized_keys.tmp; mv /root/.ssh/authorized_keys.tmp /root/.ssh/authorized_keys\";\n";
+        }
+
+        if ($needsPrivateKey) {
+            $physical .= "      system.activationScripts.addPrivateKey = \"mkdir -p /root/.ssh -m 700; cat \${/home/eelco/Dev/charon/id_tmp} > /root/.ssh/id_vpn; chmod 600 /root/.ssh/id_vpn\";\n";
+        }
+
         if ($machine->{targetEnv} eq "adhoc") {
             $physical .= "      require = [ $myDir/adhoc-cloud-vm.nix ];\n";
         } elsif ($machine->{targetEnv} eq "ec2") {
@@ -372,6 +441,7 @@ sub createPhysicalSpec {
         }
         $physical .= "      networking.extraHosts = \"$hosts\";\n";
         $physical .= "    };\n";
+        
     }
     $physical .= "}\n";
 
@@ -380,7 +450,7 @@ sub createPhysicalSpec {
 
 
 sub startMachines {
-    foreach my $name (keys %{$spec->{machines}}) {
+    foreach my $name (sort (keys %{$spec->{machines}})) {
         my $machine = $spec->{machines}->{$name};
         my $prevMachine = $state->{machines}->{$name};
         
@@ -562,7 +632,7 @@ sub buildConfigs {
 sub copyClosures {
     my ($vmsPath) = @_;
     # !!! Should copy closures in parallel.
-    foreach my $name (keys %{$spec->{machines}}) {
+    foreach my $name (sort (keys %{$spec->{machines}})) {
         print STDERR "copying closure to machine ‘$name’...\n";
         my $machine = $state->{machines}->{$name};
         my $toplevel = readlink "$vmsPath/$name" or die;
@@ -582,7 +652,7 @@ sub activateConfigs {
     # configuration.
     $state->{vmsPath} = $vmsPath;
 
-    foreach my $name (keys %{$spec->{machines}}) {
+    foreach my $name (sort (keys %{$spec->{machines}})) {
         print STDERR "activating new configuration on machine ‘$name’...\n";
         my $machine = $state->{machines}->{$name};
 
