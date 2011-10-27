@@ -12,7 +12,6 @@ use JSON;
 use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version);
 use Text::Table;
 use List::MoreUtils qw(uniq);
-use Net::Amazon::EC2;
 
 $main::VERSION = "0.1";
 
@@ -282,6 +281,7 @@ sub writeState {
 
 
 sub openEC2 {
+    require Net::Amazon::EC2;
     my ($name, $machine) = @_;
     return Net::Amazon::EC2->new
         ( AWSAccessKeyId => ($ENV{'EC2_ACCESS_KEY'} || $ENV{'AWS_ACCESS_KEY_ID'} || die "please set \$EC2_ACCESS_KEY or \$AWS_ACCESS_KEY_ID\n")
