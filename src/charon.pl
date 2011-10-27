@@ -108,10 +108,11 @@ sub opInfo {
                      : "Starting")
                : "New")
             : "Obsolete";
+        my $region =  $m->{ec2}->{region} || $r->{ec2}->{region};
         push @lines,
             [ $name
             , $status
-            , $m->{targetEnv} || $r->{targetEnv}
+            , $m->{targetEnv} . (defined $region ? " [$region]" : "")
             , $r->{vmId}
             , $r->{ipv6} || $r->{ipv4}
             ];
@@ -244,6 +245,7 @@ sub evalMachineInfo {
         } elsif ($targetEnv eq "ec2") {
             $info->{ec2} =
                 { type => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "type"]/string/@value') || die
+                , region => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "region"]/string/@value') || die
                 , controller => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "controller"]/string/@value') || die
                 , ami => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "ami"]/string/@value') || die
                 , instanceType => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "instanceType"]/string/@value') || die
