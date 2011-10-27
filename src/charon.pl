@@ -12,6 +12,7 @@ use JSON;
 use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version);
 use Text::Table;
 use List::MoreUtils qw(uniq);
+use Data::UUID;
 
 $main::VERSION = "0.1";
 
@@ -126,6 +127,7 @@ sub opInfo {
         );
     $table->load(@lines);
 
+    print "Network UUID: $state->{uuid}\n\n";
     print $table->title;
     print $table->rule('-', '+');
     print $table->body;
@@ -268,6 +270,7 @@ sub readState {
     } else {
         $state = { machines => {} };
     }
+    $state->{uuid} = lc(new Data::UUID->create_str()) unless defined $state->{uuid};
 }
 
 
@@ -288,6 +291,7 @@ sub openEC2 {
         , SecretAccessKey => ($ENV{'EC2_SECRET_KEY'} || $ENV{'AWS_SECRET_ACCESS_KEY'} || die "please set \$EC2_SECRET_KEY or \$AWS_SECRET_ACCESS_KEY\n")
         , # !!! This assumes that all machines have the same controller/region.
           base_url => $machine->{ec2}->{controller}
+        , version => '2011-01-01' # required for tag support
         , debug => $debug
         );
 }
@@ -542,6 +546,13 @@ sub startMachines {
 
             # !!! We should already update the state record to
             # remember that we started an instance.
+
+            # Tag the instance.
+            $ec2->create_tags
+                ( ResourceId => $vmId
+                , 'Tag.Key' => [ "Name", "CharonNetworkUUID", "CharonMachineName"  ]
+                , 'Tag.Value' => [ "Charon network element [$name]", $state->{uuid}, $name ]
+                );
 
             # Wait until the machine has an IP address.  (It may not
             # have finished booting, but later down we wait for the
