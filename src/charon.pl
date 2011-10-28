@@ -35,6 +35,8 @@ my $spec;
 # address of machine ‘foo’.
 my $state;
 
+my $dirty = 0; # whether the state file should be rewritten
+
 my $stateFile;
 
 my $myDir = dirname(Cwd::abs_path($0));
@@ -280,6 +282,7 @@ sub writeState {
     print $fh encode_json($state);
     close $fh;
     rename "$stateFile.new", $stateFile or die;
+    $dirty = 0;
 }
 
 
@@ -471,6 +474,7 @@ sub startMachines {
                 # same.
                 #print STDERR "machine ‘$name’ already exists\n";
                 delete $prevMachine->{obsolete}; # might be an obsolete VM that became active again
+                $dirty = 1;
                 next;
             }
             # !!! Handle killing cloud VMs, etc.  When killing a VM,
@@ -542,58 +546,21 @@ sub startMachines {
 
             print STDERR
                 "got reservation ‘", $reservation->reservation_id,
-                "’, instance ‘$vmId’\n";
-
-            # !!! We should already update the state record to
-            # remember that we started an instance.
-
-            # Tag the instance.
-            $ec2->create_tags
-                ( ResourceId => $vmId
-                , 'Tag.Key' => [ "Name", "CharonNetworkUUID", "CharonMachineName"  ]
-                , 'Tag.Value' => [ "Charon network element [$name]", $state->{uuid}, $name ]
-                );
-
-            # Wait until the machine has an IP address.  (It may not
-            # have finished booting, but later down we wait for the
-            # SSH port to open.)
-            print STDERR "waiting for IP address... ";
-            while (1) {
-                my $state = $instance->instance_state->name;
-                print STDERR "[$state] ";
-                die "EC2 instance ‘$vmId’ didn't start; it went to state ‘$state’\n"
-                    if $state ne "pending" && $state ne "running" &&
-                       $state ne "scheduling" && $state ne "launching";
-                last if defined $instance->dns_name_v6 || defined $instance->ip_address;
-                sleep 5;
-                my $reservations = $ec2->describe_instances(InstanceId => $vmId);
-                die "could not query EC2 instance: “" . @{$reservations->errors}[0]->message . "”\n"
-                    if ref $reservations ne "ARRAY";
-                $instance = @{@{$reservations}[0]->instances_set}[0];
-            }
-            print STDERR "\n";
+                "’, instance ‘", $instance->instance_id, "’\n";
 
             $state->{machines}->{$name} =
                 { targetEnv => $machine->{targetEnv}
-                , vmId => $vmId
-                , ipv4 => $instance->ip_address
-                , ipv6 => $instance->dns_name_v6 # actually its public IPv6 address
+                , vmId => $instance->instance_id
                 , reservation => $reservation->reservation_id
-                , privateIpv4 => $instance->private_ip_address
-                , dnsName => $instance->dns_name
-                , privateDnsName => $instance->private_dns_name
                 , timeCreated => time()
                 , ec2 => $machine->{ec2}
                 };
 
-            my $addr = $instance->dns_name_v6 || $instance->ip_address || die "don't know how to reach ‘$name’";
-            print STDERR "started instance with IP address $addr\n";
-                
-            writeState;            
+            writeState;
         }
     }
 
-    writeState; # !!! needed?
+    writeState if $dirty;
     
     # Kill all VMs in $state that no longer exist in $spec.
     foreach my $name (keys %{$state->{machines}}) {
@@ -608,6 +575,56 @@ sub startMachines {
         }
     }
     
+    # Some machine may have been started, but we need some information
+    # on them (like IP address) that becomes available later.  So get
+    # that now.
+    foreach my $name (keys %{$spec->{machines}}) {
+        my $machine = $state->{machines}->{$name};
+
+        if ($machine->{targetEnv} eq "ec2") {
+            my $ec2 = openEC2($name, $machine);
+            
+            # Tag the instance.
+            $ec2->create_tags
+                ( ResourceId => $machine->{vmId}
+                , 'Tag.Key' => [ "Name", "CharonNetworkUUID", "CharonMachineName"  ]
+                , 'Tag.Value' => [ "Charon network element [$name]", $state->{uuid}, $name ]
+                );
+
+            # Wait until the machine has an IP address.  (It may not
+            # have finished booting, but later down we wait for the
+            # SSH port to open.)
+            print STDERR "waiting for IP address of ‘$name’... ";
+            my $instance;
+            while (1) {
+                my $reservations = $ec2->describe_instances(InstanceId => $machine->{vmId});
+                die "could not query EC2 instance: “" . @{$reservations->errors}[0]->message . "”\n"
+                    if ref $reservations ne "ARRAY";
+                $instance = @{@{$reservations}[0]->instances_set}[0];
+                my $state = $instance->instance_state->name;
+                print STDERR "[$state] ";
+                die "EC2 instance ‘$machine->{vmId}’ didn't start; it went to state ‘$state’\n"
+                    if $state ne "pending" && $state ne "running" &&
+                       $state ne "scheduling" && $state ne "launching";
+                last if defined $instance->dns_name_v6 || defined $instance->ip_address;
+                sleep 5;
+            }
+            print STDERR "\n";
+
+            $machine->{ipv4} = $instance->ip_address;
+            $machine->{ipv6} = $instance->dns_name_v6; # actually its public IPv6 address
+            $machine->{privateIpv4} = $instance->private_ip_address;
+            $machine->{dnsName} = $instance->dns_name;
+            $machine->{privateDnsName} = $instance->private_dns_name;
+
+            my $addr = $instance->dns_name_v6 || $instance->ip_address || die "don't know how to reach ‘$name’";
+            print STDERR "started instance with IP address $addr\n";
+                
+            writeState;            
+        }        
+    }
+
+    # Wait until the machines are up.
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $state->{machines}->{$name};
         unless (defined $machine->{pinged}) {
