@@ -581,7 +581,7 @@ sub startMachines {
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $state->{machines}->{$name};
 
-        if ($machine->{targetEnv} eq "ec2") {
+        if ($machine->{targetEnv} eq "ec2"  && !$machine->{instanceRunning}) {
             my $ec2 = openEC2($name, $machine);
             
             # Tag the instance.
@@ -616,6 +616,7 @@ sub startMachines {
             $machine->{privateIpv4} = $instance->private_ip_address;
             $machine->{dnsName} = $instance->dns_name;
             $machine->{privateDnsName} = $instance->private_dns_name;
+            $machine->{instanceRunning} = 1;
 
             my $addr = $instance->dns_name_v6 || $instance->ip_address || die "don't know how to reach ‘$name’";
             print STDERR "started instance with IP address $addr\n";
