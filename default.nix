@@ -9,7 +9,8 @@ stdenv.mkDerivation {
     [ perl makeWrapper perlPackages.XMLLibXML perlPackages.JSON
       perlPackages.TextTable perlPackages.ListMoreUtils
       perlPackages.NetAmazonEC2 perlPackages.FileSlurp
-      perlPackages.DataUUID
+      perlPackages.DataUUID perlPackages.SetObject
+      nixUnstable
     ];
 
   installPhase = 

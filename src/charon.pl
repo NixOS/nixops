@@ -13,6 +13,8 @@ use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version
 use Text::Table;
 use List::MoreUtils qw(uniq);
 use Data::UUID;
+use Nix::Store;
+use Set::Object;
 
 $main::VERSION = "0.1";
 
@@ -34,6 +36,9 @@ my $spec;
 # address.  E.g., $state->{machines}->{foo}->{ipv6} contains the IPv6
 # address of machine ‘foo’.
 my $state;
+
+# Known contents of Nix stores on machines.
+my $stores;
 
 my $dirty = 0; # whether the state file should be rewritten
 
@@ -266,13 +271,20 @@ sub evalMachineInfo {
 sub readState {
     local $/;
     die "no state file specified; use ‘--state FILENAME.json’\n" unless defined $stateFile;
+    
     if (-e $stateFile) {
         open(my $fh, '<', $stateFile) or die "$!";
         $state = decode_json <$fh>;
     } else {
         $state = { machines => {} };
     }
+    
     $state->{uuid} = lc(new Data::UUID->create_str()) unless defined $state->{uuid};
+
+    # Convert the "stores" attributes from lists into sets for efficiency.
+    foreach my $name (sort (keys %{$state->{machines}})) {
+        $stores->{$name} = Set::Object->new(@{$state->{machines}->{$name}->{store}});
+    }
 }
 
 
@@ -337,6 +349,7 @@ sub killMachine {
     }
 
     delete $state->{machines}->{$name};
+    delete $stores->{$name};
     writeState;
 }
 
@@ -661,17 +674,110 @@ sub buildConfigs {
 }
 
 
+sub copyPathsBetween {
+    my ($sourceName, $sourceMachine, $targetName, $targetMachine, $paths) = @_;
+    print STDERR "    copying from ‘$sourceName’ to ‘$targetName’...\n";
+
+    my $sourceSshName = sshName($sourceName, $sourceMachine);
+    my $targetSshName = sshName($targetName, $targetMachine);
+
+    # If the machines are in the same cloud (e.g. EC2 region), then
+    # use the source's internal IP address, because that's typically
+    # cheaper.
+    # !!! Generalize.
+    if ($sourceMachine->{targetEnv} eq "ec2" &&
+        $targetMachine->{targetEnv} eq "ec2" &&
+        $sourceMachine->{ec2}->{controller} eq $targetMachine->{ec2}->{controller})
+    {
+        $sourceSshName = $sourceMachine->{privateIpv4} if defined $sourceMachine->{privateIpv4};
+    }
+
+    print STDERR "      i.e. ‘$targetSshName’ will copy from ‘$sourceSshName’\n";
+
+    system("ssh -x -o StrictHostKeyChecking=no root\@$targetSshName 'NIX_SSHOPTS=\"-o StrictHostKeyChecking=no\" nix-copy-closure --gzip --from root\@$sourceSshName " . join(" ", $paths->elements()) . "'");
+    # This is only a warning because we have a fall-back
+    # nix-copy-closure from the distributor machine at the end.
+    warn "warning: unable to copy paths from machine ‘$sourceName’ to ‘$targetName’\n" unless $? == 0;
+}
+
+
 sub copyClosures {
     my ($vmsPath) = @_;
+
     # !!! Should copy closures in parallel.
     foreach my $name (sort (keys %{$spec->{machines}})) {
-        print STDERR "copying closure to machine ‘$name’...\n";
         my $machine = $state->{machines}->{$name};
+        $stores->{$name} = Set::Object->new() unless defined $stores->{$name};
+        
         my $toplevel = readlink "$vmsPath/$name" or die;
-        $machine->{lastCopied} = $toplevel; # !!! rewrite state file?
+        
+        next if $stores->{$name}->has($toplevel);
+            
+        print STDERR "copying closure to machine ‘$name’...\n";
+        
+        my @closure = reverse(topoSortPaths(computeFSClosure(0, 0, $toplevel)));
+
+        print STDERR "  ", scalar @closure, " paths in closure $toplevel\n";
+
+        $stores->{$name} = Set::Object->new() unless defined $stores->{$name};
+
+        # As an optimisation, copy paths from other machines within
+        # the same cloud.  This is typically faster and cheaper (e.g.,
+        # Amazon doesn't charge for transfers within a region).  We do
+        # this in a loop: we select the machine that is cheapest
+        # relative to the target machine and contains the most paths
+        # still needed by the target.  Then we copy those paths.  This
+        # is repeated until there are no paths left that can be
+        # copied.
+        my $pathsRemaining = Set::Object->new(@closure);
+        my $round = 0;
+
+        $pathsRemaining = $pathsRemaining - $stores->{$name};
+
+        while ($pathsRemaining->size() > 0) {
+            print STDERR "  round $round, ", $pathsRemaining->size(), " remaining...\n";
+            $round++;
+
+            my @candidates = ();
+
+            # For each other machine, determine how many of the
+            # remaining paths it already has (the intersection), as
+            # well as the cost factor for copying from that machine to
+            # the target.
+            foreach my $name2 (sort (keys %{$spec->{machines}})) {
+                my $machine2 = $state->{machines}->{$name2};
+                next if $name eq $name2;
+                next unless defined $stores->{$name2};
+                print STDERR "    considering copying from $name2\n";
+                my $intersection = $pathsRemaining * $stores->{$name2};
+                print STDERR "      ", $intersection->size(), " paths in common\n";
+                next if $intersection->size() == 0;
+                push @candidates, { name => $name2, machine => $machine2, intersection => $intersection };
+                # !!! compute a cost factor
+            }
+
+            last if scalar @candidates == 0;
+
+            @candidates = sort { $b->{intersection}->size() <=> $a->{intersection}->size()} @candidates;
+
+            print STDERR "    selected machine $candidates[0]->{name}\n";
+
+            copyPathsBetween($candidates[0]->{name}, $candidates[0]->{machine},
+                             $name, $machine, $candidates[0]->{intersection});
+
+            $pathsRemaining = $pathsRemaining - $candidates[0]->{intersection};
+        }
+
+        print STDERR "    copying from distributor to ‘$name’...\n";
+        
         my $sshName = sshName($name, $machine);
         system "nix-copy-closure --gzip --to root\@$sshName $toplevel";
         die "unable to copy closure to machine ‘$name’" unless $? == 0;
+
+        $stores->{$name}->insert(@closure);
+        
+        $machine->{store} = [ sort { $a cmp $b } $stores->{$name}->elements() ];
+        writeState;
     }
 }
 
