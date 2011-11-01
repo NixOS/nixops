@@ -1,4 +1,5 @@
 {
+  network.name = "Mediawiki network";
 
   webserver = 
     { config, pkgs, ... }:

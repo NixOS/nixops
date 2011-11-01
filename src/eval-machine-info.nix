@@ -35,16 +35,22 @@ rec {
           extraArgs = { inherit nodes; };
         };
       }
-    ) (attrNames network));
+    ) (attrNames (removeAttrs network [ "network" ])));
 
   # Phase 1: evaluate only the deployment attributes.
-  machineInfo =
-    flip mapAttrs nodes (n: v:
-      { inherit (v.config.deployment) targetEnv targetHost;
-        adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
-        ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
-      }
-    );
+  info = {
+  
+    machines =
+      flip mapAttrs nodes (n: v:
+        { inherit (v.config.deployment) targetEnv targetHost;
+          adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
+          ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
+        }
+      );
+
+    network = fold (as: bs: as // bs) {} (network.network or []);
+
+  };
 
   # Phase 2: build complete machine configurations.  
   machines = runCommand "vms"

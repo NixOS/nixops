@@ -134,6 +134,7 @@ sub opInfo {
         );
     $table->load(@lines);
 
+    print "Network name: ", $state->{name} || $spec->{name}, "\n";
     print "Network UUID: $state->{uuid}\n\n";
     print $table->title;
     print $table->rule('-', '+');
@@ -193,6 +194,8 @@ sub opDeploy {
     # names and the desired deployment characteristics.
     evalMachineInfo();
 
+    $state->{name} = $spec->{name};
+
     # Create missing VMs.
     startMachines();
 
@@ -225,14 +228,19 @@ sub opDestroy {
 sub evalMachineInfo {
     die "no network specified; use ‘--create’ to associate a network specification with the state file\n" unless scalar @{$state->{networkExprs} || []};
 
-    my $machineInfoXML =
-        `nix-instantiate --eval-only --show-trace --xml --strict --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @{$state->{networkExprs}} ]' -A machineInfo`;
+    my $infoXML =
+        `nix-instantiate --eval-only --show-trace --xml --strict --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @{$state->{networkExprs}} ]' -A info`;
     die "evaluation of @{$state->{networkExprs}} failed" unless $? == 0;
 
-    #print $machineInfoXML, "\n";
+    my $dom = XML::LibXML->load_xml(string => $infoXML);
+    
+    my ($networkInfo) = $dom->findnodes('/expr/attrs/attr[@name = "network"]');
 
-    my $dom = XML::LibXML->load_xml(string => $machineInfoXML);
-    foreach my $m ($dom->findnodes('/expr/attrs/attr')) {
+    $spec->{name} = $networkInfo->findvalue('./attrs/attr[@name = "name"]/string/@value') || "Unnamed Charon network";
+
+    my ($machineInfo) = $dom->findnodes('/expr/attrs/attr[@name = "machines"]');
+
+    foreach my $m ($machineInfo->findnodes('./attrs/attr')) {
         my $name = $m->findvalue('./@name') || die;
         #print STDERR "got machine ‘$name’\n";
         my $targetEnv = $m->findvalue('./attrs/attr[@name = "targetEnv"]/string/@value') || die;
@@ -594,14 +602,14 @@ sub startMachines {
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $state->{machines}->{$name};
 
-        if ($machine->{targetEnv} eq "ec2"  && !$machine->{instanceRunning}) {
+        if ($machine->{targetEnv} eq "ec2" && !$machine->{instanceRunning}) {
             my $ec2 = openEC2($name, $machine);
             
             # Tag the instance.
             $ec2->create_tags
                 ( ResourceId => $machine->{vmId}
                 , 'Tag.Key' => [ "Name", "CharonNetworkUUID", "CharonMachineName"  ]
-                , 'Tag.Value' => [ "Charon network element [$name]", $state->{uuid}, $name ]
+                , 'Tag.Value' => [ "$state->{name} [$name]", $state->{uuid}, $name ]
                 );
 
             # Wait until the machine has an IP address.  (It may not
