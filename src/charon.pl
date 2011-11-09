@@ -706,9 +706,9 @@ sub startMachines {
             my $addr = $instance->dns_name_v6 || $instance->ip_address || die "don't know how to reach ‘$name’";
             print STDERR "started instance with IP address $addr\n";
                 
-            writeState;
-
             addToKnownHosts $machine;
+            
+            writeState;
         }
     }
 
