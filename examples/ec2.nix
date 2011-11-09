@@ -1,4 +1,5 @@
 {
+  network.name = "Trivial test network";
 
   webserver = 
     { config, pkgs, ... }:

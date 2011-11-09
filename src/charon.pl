@@ -8,6 +8,7 @@ use File::Basename;
 use File::Spec;
 use File::Temp;
 use File::Slurp;
+use File::Path;
 use JSON;
 use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version);
 use Text::Table;
@@ -15,6 +16,7 @@ use List::MoreUtils qw(uniq);
 use Data::UUID;
 use Nix::Store;
 use Set::Object;
+use MIME::Base64;
 
 $main::VERSION = "0.1";
 
@@ -156,7 +158,7 @@ sub pingSSH {
     my ($name, $machine) = @_;
     my $sshName = sshName($name, $machine);
     # !!! fix, just check whether the port is open
-    system "ssh -o StrictHostKeyChecking=no root\@$sshName true < /dev/null 2>/dev/null";
+    system "ssh root\@$sshName true < /dev/null 2>/dev/null";
     return $? == 0;
 }
 
@@ -173,7 +175,7 @@ sub opCheck {
         print STDERR "$name... ";
 
         my $sshName = sshName($name, $machine);
-        my $load = `ssh -o StrictHostKeyChecking=no root\@$sshName cat /proc/loadavg 2>/dev/null`;
+        my $load = `ssh root\@$sshName cat /proc/loadavg 2>/dev/null`;
         if ($? == 0) {
             my @load = split / /, $load;
             print STDERR "ok [$load[0] $load[1] $load[2]]\n";
@@ -480,6 +482,55 @@ sub createPhysicalSpec {
 }
 
 
+# Generate an SSH key pair.
+sub generateKeyPair {
+    # !!! make this thread-safe
+    my $dir = "$tmpDir/ssh-key";
+    mkpath($dir, 0, 0700);
+    system "ssh-keygen -t dsa -f $dir/key -N '' -C 'Charon auto-generated key' > /dev/null";
+    die "cannot generate an SSH key: $?" unless $? == 0;
+    my $private = read_file("$dir/key");
+    unlink "$dir/key" or die;
+    my $public = read_file("$dir/key.pub");
+    chomp $public;
+    unlink "$dir/key.pub" or die;
+    return ($public, $private);
+}
+
+
+# Add a public key to ~/.ssh/known_hosts.  !!! Alternatively, we could
+# just create a per-machine known_hosts file, which might be easier to
+# maintain.
+sub addToKnownHosts {
+    my ($machine) = @_;
+    my $file = "$ENV{HOME}/.ssh/known_hosts";
+    my $contents = "";
+    if (-e $file) { $contents = read_file($file); };
+    
+    my @names = ();
+    push @names, $machine->{dnsName} if defined $machine->{dnsName};
+    push @names, $machine->{ipv4} if defined $machine->{ipv4};
+    push @names, $machine->{ipv6} if defined $machine->{ipv6};
+    
+    my $new = "";
+    foreach my $line (split /\n/, $contents) {
+        $line =~ /^([^ ]*) (.*)$/ or die;
+        my $key = $2;
+        my @left;
+        foreach my $name (split /,/, $1) {
+            push @left, $name unless grep { $_ eq $name } @names;
+        }
+        $new .= join(",", @left) . " " . $key . "\n" if scalar @left > 0;
+    }
+    
+    $new .= join(",", @names) . " " . $machine->{publicHostKey} . "\n";;
+        
+    write_file($file . ".new", $new);
+
+    rename($file . ".new", $file) or die;
+}
+
+
 sub startMachines {
     foreach my $name (sort (keys %{$spec->{machines}})) {
         my $machine = $spec->{machines}->{$name};
@@ -548,6 +599,17 @@ sub startMachines {
         elsif ($machine->{targetEnv} eq "ec2") {
             print STDERR "starting missing VM ‘$name’ on EC2 cloud ‘$machine->{ec2}->{controller}’...\n";
 
+            # Generate the instance's host key and pass it throught
+            # the user data attribute.  We throw away the private key
+            # and put the public key in ~/.ssh/known_hosts.
+            my ($public, $private) = generateKeyPair();
+
+            $private =~ s/\n/\|/g;
+            my $userData = "SSH_HOST_DSA_KEY_PUB:$public\nSSH_HOST_DSA_KEY:$private\n";
+            $private = ""; # get rid of it ASAP
+
+            #print "DATA:\n$userData";
+
             my $ec2 = openEC2($name, $machine);
 
             my $reservation = $ec2->run_instances
@@ -557,6 +619,7 @@ sub startMachines {
                 , MinCount => 1
                 , MaxCount => 1
                 , SecurityGroup => $machine->{ec2}->{securityGroups}
+                , UserData => encode_base64($userData)
                 );
 
             die "could not create EC2 instance: “" . @{$reservation->errors}[0]->message . "”\n"
@@ -575,6 +638,7 @@ sub startMachines {
                 , reservation => $reservation->reservation_id
                 , timeCreated => time()
                 , ec2 => $machine->{ec2}
+                , publicHostKey => $public
                 };
 
             writeState;
@@ -596,9 +660,9 @@ sub startMachines {
         }
     }
     
-    # Some machine may have been started, but we need some information
-    # on them (like IP address) that becomes available later.  So get
-    # that now.
+    # Some machines may have been started, but we need some
+    # information on them (like IP address) that becomes available
+    # later.  So get that now.
     foreach my $name (keys %{$spec->{machines}}) {
         my $machine = $state->{machines}->{$name};
 
@@ -642,8 +706,10 @@ sub startMachines {
             my $addr = $instance->dns_name_v6 || $instance->ip_address || die "don't know how to reach ‘$name’";
             print STDERR "started instance with IP address $addr\n";
                 
-            writeState;            
-        }        
+            writeState;
+
+            addToKnownHosts $machine;
+        }
     }
 
     # Wait until the machines are up.
@@ -702,7 +768,7 @@ sub copyPathsBetween {
 
     print STDERR "      i.e. ‘$targetSshName’ will copy from ‘$sourceSshName’\n";
 
-    system("ssh -x -o StrictHostKeyChecking=no root\@$targetSshName 'NIX_SSHOPTS=\"-o StrictHostKeyChecking=no\" nix-copy-closure --gzip --from root\@$sourceSshName " . join(" ", $paths->elements()) . "'");
+    system("ssh -x -o root\@$targetSshName 'NIX_SSHOPTS=\"-o StrictHostKeyChecking=no\" nix-copy-closure --gzip --from root\@$sourceSshName " . join(" ", $paths->elements()) . "'");
     # This is only a warning because we have a fall-back
     # nix-copy-closure from the distributor machine at the end.
     warn "warning: unable to copy paths from machine ‘$sourceName’ to ‘$targetName’\n" unless $? == 0;
@@ -804,7 +870,7 @@ sub activateConfigs {
 
         my $toplevel = readlink "$vmsPath/$name" or die;
         my $sshName = sshName($name, $machine);
-        system "ssh -o StrictHostKeyChecking=no root\@$sshName nix-env -p /nix/var/nix/profiles/system --set $toplevel \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
+        system "ssh root\@$sshName nix-env -p /nix/var/nix/profiles/system --set $toplevel \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
         if ($? != 0) {
             # !!! do a rollback
             die "unable to activate new configuration on machine ‘$name’";
