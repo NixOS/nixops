@@ -768,7 +768,7 @@ sub copyPathsBetween {
 
     print STDERR "      i.e. ‘$targetSshName’ will copy from ‘$sourceSshName’\n";
 
-    system("ssh -x -o root\@$targetSshName 'NIX_SSHOPTS=\"-o StrictHostKeyChecking=no\" nix-copy-closure --gzip --from root\@$sourceSshName " . join(" ", $paths->elements()) . "'");
+    system("ssh -x root\@$targetSshName 'NIX_SSHOPTS=\"-o StrictHostKeyChecking=no\" nix-copy-closure --gzip --from root\@$sourceSshName " . join(" ", $paths->elements()) . "'");
     # This is only a warning because we have a fall-back
     # nix-copy-closure from the distributor machine at the end.
     warn "warning: unable to copy paths from machine ‘$sourceName’ to ‘$targetName’\n" unless $? == 0;
