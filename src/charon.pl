@@ -10,13 +10,14 @@ use File::Temp;
 use File::Slurp;
 use File::Path;
 use JSON;
-use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version);
+use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version auto_help);
 use Text::Table;
 use List::MoreUtils qw(uniq);
 use Data::UUID;
 use Nix::Store;
 use Set::Object;
 use MIME::Base64;
+use Pod::Usage;
 
 $main::VERSION = "0.1";
 
@@ -61,6 +62,7 @@ sub main {
     my $op = \&opDeploy;
     
     exit 1 unless GetOptions(
+        "help|?" => sub { $op = \&opHelp; },
         "state|s=s" => \$stateFile,
         "create" => sub { $op = \&opCreate; },
         "info|i" => sub { $op = \&opInfo; },
@@ -80,6 +82,11 @@ sub main {
 
 sub noArgs {
     die "$0: unexpected argument(s) ‘@ARGV’\n" if scalar @ARGV;
+}
+
+
+sub opHelp {
+    pod2usage(-exitstatus => 0, -verbose => 1);
 }
 
 
@@ -892,3 +899,32 @@ sub opShowPhysical {
 
 
 main;
+
+
+__END__
+
+=head1 NAME
+
+charon - NixOS network deployment tool
+
+=head1 SYNOPSIS
+
+B<charon> [<operation>] [<options>]
+
+Operations:
+    
+  --deploy              deploy the network configuration (default)
+  --create              create a state file
+  --info                query a state file
+  --check               check the state of the machines in the network
+  --destroy             destroy all virtual machines in the network
+  --help                show a brief help message
+  --version             show Charon's version number
+
+Options:
+
+  -s / --state          path to state file
+  -k / --kill-obsolete  kill obsolete virtual machines
+  --debug               show debug information
+
+=cut
