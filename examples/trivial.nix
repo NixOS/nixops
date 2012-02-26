@@ -5,7 +5,7 @@
     { config, pkgs, ... }:
     
     { services.httpd.enable = true;
-      services.httpd.adminAddr = "e.dolstra@tudelft.nlll";
+      services.httpd.adminAddr = "e.dolstra@tudelft.nl";
 
       # Serve the NixOS homepage.
       services.httpd.documentRoot =
@@ -22,7 +22,6 @@
             ''
               mkdir -p $out
               cp -prvd * $out/
-              cp -prvd ${/home/eelco/Dev/hydra/src/root/static/images} $out/images
             '';
         };
     };
