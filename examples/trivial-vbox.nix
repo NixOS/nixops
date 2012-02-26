@@ -1,0 +1,5 @@
+{
+  machine =
+    { deployment.targetEnv = "virtualbox";
+    };
+}
