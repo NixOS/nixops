@@ -14,7 +14,7 @@ use Getopt::Long qw(:config posix_default gnu_getopt no_ignore_case auto_version
 use Text::Table;
 use List::MoreUtils qw(uniq);
 use Data::UUID;
-use Nix::Store;
+#use Nix::Store;
 use Set::Object;
 use MIME::Base64;
 use Pod::Usage;
