@@ -277,6 +277,8 @@ sub evalMachineInfo {
                 , keyPair => $m->findvalue('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "keyPair"]/string/@value') || die
                 , securityGroups => [ map { $_->findvalue(".") } $m->findnodes('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "securityGroups"]/list/string/@value') ]
                 };
+        } elsif ($targetEnv eq "virtualbox") {
+            # No options yet.
         } else {
             die "machine ‘$name’ has an unknown target environment type ‘$targetEnv’";
         }
@@ -359,6 +361,18 @@ sub killMachine {
             }
         }
         # !!! Check the state change? Wait until the machine has shut down?
+    }
+
+    elsif ($machine->{targetEnv} eq "virtualbox") {
+        print STDERR "killing VM ‘$name’ (VirtualBox machine ‘$machine->{vmId}’)...\n";
+        
+        system "VBoxManage controlvm '$machine->{vmId}' poweroff";
+        #die "unable to power off VirtualBox VM: $?" unless $? == 0;
+
+        sleep 2; # !!! stupid asynchronous commands
+        
+        system "VBoxManage unregistervm --delete '$machine->{vmId}'";
+        die "unable to destroy VirtualBox VM: $?" unless $? == 0;
     }
 
     else {
@@ -472,7 +486,10 @@ sub createPhysicalSpec {
             } else {
                 die "machine ‘$name’ has unknown EC2 type ‘$machine->{ec2}->{type}’\n";
             }
+        } elsif ($machine->{targetEnv} eq "virtualbox") {
+            $physical .= "      require = [ /home/eelco/Dev/nixos/modules/virtualisation/virtualbox-image-charon.nix ];\n";
         }
+        
         if (defined $machine->{privateIpv4}) {
           $physical .= "      networking.privateIPv4 = \"$machine->{privateIpv4}\";\n";
         }
@@ -650,6 +667,23 @@ sub startMachines {
 
             writeState;
         }
+
+        elsif ($machine->{targetEnv} eq "virtualbox") {
+            print STDERR "starting missing VirtualBox VM ‘$name’...\n";
+
+            my $vmId = "charon-$state->{uuid}-$name";
+
+            system "VBoxManage createvm --name '$vmId' --ostype Linux --register";
+            die "unable to create VirtualBox VM: $?" unless $? == 0;
+
+            $state->{machines}->{$name} =
+                { targetEnv => $machine->{targetEnv}
+                , vmId => $vmId
+                , timeCreated => time()
+                };
+
+            writeState;
+        }
     }
 
     writeState if $dirty;
@@ -715,6 +749,60 @@ sub startMachines {
                 
             addToKnownHosts $machine;
             
+            writeState;
+        }
+
+        if ($machine->{targetEnv} eq "virtualbox" && !exists $machine->{disk}) {
+            my $vmDir = "$ENV{'HOME'}/VirtualBox VMs/$machine->{vmId}";
+            die "don't know where VirtualBox is storing its VMs!\n" unless -d $vmDir;
+
+            my $disk = "$vmDir/disk1.vdi";
+
+            system "VBoxManage clonehd '/home/eelco/Dev/nixos/result/disk.vdi' '$disk'";
+            die "unable to copy VirtualBox disk: $?" unless $? == 0;
+            
+            $machine->{disk} = $disk;
+            writeState;
+        }
+
+        if ($machine->{targetEnv} eq "virtualbox" && !$machine->{diskAttached}) {
+            system "VBoxManage storagectl '$machine->{vmId}' --name SATA --add sata --sataportcount 2 --bootable on --hostiocache on";
+            die "unable to create SATA controller on VirtualBox VM: $?" unless $? == 0;
+                
+            system "VBoxManage storageattach '$machine->{vmId}' --storagectl SATA --port 0 --device 0 --type hdd --medium '$machine->{disk}'";
+            die "unable to attach disk to VirtualBox VM: $?" unless $? == 0;
+
+            $machine->{diskAttached} = 1;
+            writeState;
+        }
+
+        if ($machine->{targetEnv} eq "virtualbox" && !$machine->{instanceRunning}) {
+            system("VBoxManage modifyvm '$machine->{vmId}' --memory 512 --vram 10"
+                   . " --nictype1 virtio --nictype2 virtio --nic2 hostonly --hostonlyadapter2 vboxnet0"
+                   . " --nestedpaging off");
+            die "unable to set memory size of VirtualBox VM: $?" unless $? == 0;
+
+            system "VBoxManage startvm '$machine->{vmId}'";
+            die "unable to start VirtualBox VM: $?" unless $? == 0;
+
+            $machine->{instanceRunning} = 1;
+            writeState;
+        }
+
+        if ($machine->{targetEnv} eq "virtualbox" && !$machine->{privateIpv4}) {
+            print STDERR "waiting for IP address of ‘$name’...";
+            while (1) {
+                my $res = `VBoxManage guestproperty get '$machine->{vmId}' /VirtualBox/GuestInfo/Net/1/V4/IP`;
+                if ($? == 0 && $res =~ /Value: (.*)$/) {
+                    my $ip = $1;
+                    print STDERR " $ip\n";
+                    $machine->{privateIpv4} = $ip;
+                    $machine->{ipv4} = $ip;
+                    last;
+                }
+                sleep 5;
+                print STDERR ".";
+            }
             writeState;
         }
     }
