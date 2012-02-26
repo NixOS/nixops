@@ -906,7 +906,9 @@ sub copyClosures {
             
         print STDERR "copying closure to machine ‘$name’...\n";
         
-        my @closure = reverse(topoSortPaths(computeFSClosure(0, 0, $toplevel)));
+        #my @closure = reverse(topoSortPaths(computeFSClosure(0, 0, $toplevel)));
+        my @closure = split / /, `nix-store -qR '$toplevel'`;
+        die "cannot get closure of ‘$toplevel’\n" if $? != 0;
 
         print STDERR "  ", scalar @closure, " paths in closure $toplevel\n";
 
