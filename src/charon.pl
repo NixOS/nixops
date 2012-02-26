@@ -295,7 +295,10 @@ sub evalMachineInfo {
                 , securityGroups => [ map { $_->findvalue(".") } $m->findnodes('./attrs/attr[@name = "ec2"]/attrs/attr[@name = "securityGroups"]/list/string/@value') ]
                 };
         } elsif ($targetEnv eq "virtualbox") {
-            # No options yet.
+            $info->{virtualbox} =
+                { # !!! ‘baseImage’ should be a temporary GC root until we've cloned it.
+                  baseImage => $m->findvalue('./attrs/attr[@name = "virtualbox"]/attrs/attr[@name = "baseImage"]/string/@value') || die
+                };
         } else {
             die "machine ‘$name’ has an unknown target environment type ‘$targetEnv’";
         }
@@ -696,6 +699,7 @@ sub startMachines {
 
             $state->{machines}->{$name} =
                 { targetEnv => $machine->{targetEnv}
+                , baseImage => $machine->{virtualbox}->{baseImage}
                 , vmId => $vmId
                 , timeCreated => time()
                 };
@@ -776,7 +780,7 @@ sub startMachines {
 
             my $disk = "$vmDir/disk1.vdi";
 
-            system "VBoxManage clonehd '/home/eelco/Dev/nixos/result/disk.vdi' '$disk'";
+            system "VBoxManage clonehd '$machine->{baseImage}' '$disk'";
             die "unable to copy VirtualBox disk: $?" unless $? == 0;
             
             $machine->{disk} = $disk;
