@@ -505,6 +505,7 @@ sub createPhysicalSpec {
             }
         } elsif ($machine->{targetEnv} eq "virtualbox") {
             $physical .= "      require = [ <charon/virtualbox-image-charon.nix> ];\n";
+            $physical .= "      nixpkgs.system = pkgs.lib.mkOverride 900 \"x86_64-linux\";\n";
         }
         
         if (defined $machine->{privateIpv4}) {
