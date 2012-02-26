@@ -49,6 +49,10 @@ my $stateFile;
 
 my $myDir = dirname(Cwd::abs_path($0));
 
+my $myNixDir = `echo '<charon>' | nix-instantiate - --eval-only`;
+die "\$NIX_PATH does not include the Charon Nix expressions!\n" unless $myNixDir;
+chomp $myNixDir;
+
 # Whether to kill previously created VMs that no longer appear in the
 # specification.
 my $killObsolete = 0;
@@ -160,12 +164,24 @@ sub sshName {
 }
 
 
+sub sshFlags {
+    my ($name, $machine) = @_;
+    my @flags;
+    if ($machine->{targetEnv} eq "virtualbox") {
+        push @flags, "-o", "StrictHostKeyChecking=no";
+        push @flags, "-i", "$myNixDir/id_charon-virtualbox";
+    }
+    return @flags;
+}
+
+
 # Check whether the given machine is reachable via SSH.
 sub pingSSH {
     my ($name, $machine) = @_;
     my $sshName = sshName($name, $machine);
+    my @sshFlags = sshFlags($name, $machine);
     # !!! fix, just check whether the port is open
-    system "ssh root\@$sshName true < /dev/null 2>/dev/null";
+    system "ssh @sshFlags root\@$sshName true < /dev/null 2>/dev/null";
     return $? == 0;
 }
 
@@ -182,7 +198,8 @@ sub opCheck {
         print STDERR "$name... ";
 
         my $sshName = sshName($name, $machine);
-        my $load = `ssh root\@$sshName cat /proc/loadavg 2>/dev/null`;
+        my @sshFlags = sshFlags($name, $machine);
+        my $load = `ssh @sshFlags root\@$sshName cat /proc/loadavg 2>/dev/null`;
         if ($? == 0) {
             my @load = split / /, $load;
             print STDERR "ok [$load[0] $load[1] $load[2]]\n";
@@ -238,7 +255,7 @@ sub evalMachineInfo {
     die "no network specified; use ‘--create’ to associate a network specification with the state file\n" unless scalar @{$state->{networkExprs} || []};
 
     my $infoXML =
-        `nix-instantiate --eval-only --show-trace --xml --strict --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @{$state->{networkExprs}} ]' -A info`;
+        `nix-instantiate --eval-only --show-trace --xml --strict --show-trace '<charon/eval-machine-info.nix>' --arg networkExprs '[ @{$state->{networkExprs}} ]' -A info`;
     die "evaluation of @{$state->{networkExprs}} failed" unless $? == 0;
 
     my $dom = XML::LibXML->load_xml(string => $infoXML);
@@ -477,7 +494,7 @@ sub createPhysicalSpec {
         }
 
         if ($machine->{targetEnv} eq "adhoc") {
-            $physical .= "      require = [ $myDir/adhoc-cloud-vm.nix ];\n";
+            $physical .= "      require = [ <charon/adhoc-cloud-vm.nix> ];\n";
         } elsif ($machine->{targetEnv} eq "ec2") {
             if ($machine->{ec2}->{type} eq "ec2") {
                 $physical .= "      require = [ \"\${modulesPath}/virtualisation/amazon-config.nix\" ];\n";
@@ -487,7 +504,7 @@ sub createPhysicalSpec {
                 die "machine ‘$name’ has unknown EC2 type ‘$machine->{ec2}->{type}’\n";
             }
         } elsif ($machine->{targetEnv} eq "virtualbox") {
-            $physical .= "      require = [ /home/eelco/Dev/nixos/modules/virtualisation/virtualbox-image-charon.nix ];\n";
+            $physical .= "      require = [ <charon/virtualbox-image-charon.nix> ];\n";
         }
         
         if (defined $machine->{privateIpv4}) {
@@ -836,7 +853,7 @@ sub buildConfigs {
     write_file($physicalExpr, createPhysicalSpec());
     
     print STDERR "building all machine configurations...\n";
-    my $vmsPath = `nix-build --show-trace $myDir/eval-machine-info.nix --arg networkExprs '[ @{$state->{networkExprs}} $physicalExpr ]' -A machines`;
+    my $vmsPath = `nix-build --show-trace '<charon/eval-machine-info.nix>' --arg networkExprs '[ @{$state->{networkExprs}} $physicalExpr ]' -A machines`;
     die "unable to build all machine configurations" unless $? == 0;
     chomp $vmsPath;
     return $vmsPath;
@@ -898,49 +915,52 @@ sub copyClosures {
         # still needed by the target.  Then we copy those paths.  This
         # is repeated until there are no paths left that can be
         # copied.
-        my $pathsRemaining = Set::Object->new(@closure);
-        my $round = 0;
+        if ($machine->{targetEnv} ne "virtualbox") {
+            my $pathsRemaining = Set::Object->new(@closure);
+            my $round = 0;
 
-        $pathsRemaining = $pathsRemaining - $stores->{$name};
+            $pathsRemaining = $pathsRemaining - $stores->{$name};
 
-        while ($pathsRemaining->size() > 0) {
-            print STDERR "  round $round, ", $pathsRemaining->size(), " remaining...\n";
-            $round++;
+            while ($pathsRemaining->size() > 0) {
+                print STDERR "  round $round, ", $pathsRemaining->size(), " remaining...\n";
+                $round++;
 
-            my @candidates = ();
+                my @candidates = ();
 
-            # For each other machine, determine how many of the
-            # remaining paths it already has (the intersection), as
-            # well as the cost factor for copying from that machine to
-            # the target.
-            foreach my $name2 (sort (keys %{$spec->{machines}})) {
-                my $machine2 = $state->{machines}->{$name2};
-                next if $name eq $name2;
-                next unless defined $stores->{$name2};
-                print STDERR "    considering copying from $name2\n";
-                my $intersection = $pathsRemaining * $stores->{$name2};
-                print STDERR "      ", $intersection->size(), " paths in common\n";
-                next if $intersection->size() == 0;
-                push @candidates, { name => $name2, machine => $machine2, intersection => $intersection };
-                # !!! compute a cost factor
+                # For each other machine, determine how many of the
+                # remaining paths it already has (the intersection),
+                # as well as the cost factor for copying from that
+                # machine to the target.
+                foreach my $name2 (sort (keys %{$spec->{machines}})) {
+                    my $machine2 = $state->{machines}->{$name2};
+                    next if $name eq $name2;
+                    next unless defined $stores->{$name2};
+                    print STDERR "    considering copying from $name2\n";
+                    my $intersection = $pathsRemaining * $stores->{$name2};
+                    print STDERR "      ", $intersection->size(), " paths in common\n";
+                    next if $intersection->size() == 0;
+                    push @candidates, { name => $name2, machine => $machine2, intersection => $intersection };
+                    # !!! compute a cost factor
+                }
+
+                last if scalar @candidates == 0;
+
+                @candidates = sort { $b->{intersection}->size() <=> $a->{intersection}->size()} @candidates;
+
+                print STDERR "    selected machine $candidates[0]->{name}\n";
+
+                copyPathsBetween($candidates[0]->{name}, $candidates[0]->{machine},
+                                 $name, $machine, $candidates[0]->{intersection});
+
+                $pathsRemaining = $pathsRemaining - $candidates[0]->{intersection};
             }
-
-            last if scalar @candidates == 0;
-
-            @candidates = sort { $b->{intersection}->size() <=> $a->{intersection}->size()} @candidates;
-
-            print STDERR "    selected machine $candidates[0]->{name}\n";
-
-            copyPathsBetween($candidates[0]->{name}, $candidates[0]->{machine},
-                             $name, $machine, $candidates[0]->{intersection});
-
-            $pathsRemaining = $pathsRemaining - $candidates[0]->{intersection};
         }
 
         print STDERR "    copying from distributor to ‘$name’...\n";
         
         my $sshName = sshName($name, $machine);
-        system "nix-copy-closure --gzip --to root\@$sshName $toplevel";
+        my @sshFlags = sshFlags($name, $machine);
+        system "NIX_SSHOPTS='@sshFlags' nix-copy-closure --gzip --to root\@$sshName $toplevel";
         die "unable to copy closure to machine ‘$name’" unless $? == 0;
 
         $stores->{$name}->insert(@closure);
@@ -965,7 +985,8 @@ sub activateConfigs {
 
         my $toplevel = readlink "$vmsPath/$name" or die;
         my $sshName = sshName($name, $machine);
-        system "ssh root\@$sshName nix-env -p /nix/var/nix/profiles/system --set $toplevel \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
+        my @sshFlags = sshFlags($name, $machine);
+        system "ssh @sshFlags root\@$sshName nix-env -p /nix/var/nix/profiles/system --set $toplevel \\; /nix/var/nix/profiles/system/bin/switch-to-configuration switch";
         if ($? != 0) {
             # !!! do a rollback
             die "unable to activate new configuration on machine ‘$name’";

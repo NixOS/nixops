@@ -3,7 +3,7 @@ with import <nixpkgs> {};
 stdenv.mkDerivation {
   name = "charon";
 
-  src = lib.cleanSource ./src;
+  src = lib.cleanSource ./.;
 
   buildInputs =
     [ perl makeWrapper perlPackages.XMLLibXML perlPackages.JSON
@@ -16,10 +16,13 @@ stdenv.mkDerivation {
   installPhase = 
     ''
       mkdir -p $out/bin
-      cp charon.pl $out/bin/charon
-      cp *.nix $out/bin/ # urgh!
+      cp src/charon.pl $out/bin/charon
+
+      mkdir -p $out/share/nix/charon
+      cp nix/*.nix nix/id* $out/share/nix/charon/ # urgh!
 
       wrapProgram $out/bin/charon \
-        --set PERL5LIB $PERL5LIB
-    '';
+        --set PERL5LIB $PERL5LIB \
+        --prefix NIX_PATH : charon=$out/share/nix/charon
+    ''; # */
 }
