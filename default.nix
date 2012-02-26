@@ -10,7 +10,7 @@ stdenv.mkDerivation {
       perlPackages.TextTable perlPackages.ListMoreUtils
       perlPackages.NetAmazonEC2 perlPackages.FileSlurp
       perlPackages.DataUUID perlPackages.SetObject
-      nixUnstable
+      #nixUnstable
     ];
 
   installPhase = 
