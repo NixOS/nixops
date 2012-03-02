@@ -42,7 +42,10 @@ rec {
         { inherit (v.config.deployment) targetEnv targetHost;
           adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
-          virtualbox = optionalAttrs (v.config.deployment.targetEnv == "virtualbox") v.config.deployment.virtualbox;
+          virtualbox =
+            let cfg = v.config.deployment.virtualbox; in
+            (optionalAttrs (v.config.deployment.targetEnv == "virtualbox") cfg)
+            // { baseImage = if isDerivation cfg.baseImage then "drv" else toString cfg.baseImage; };
         }
       );
 

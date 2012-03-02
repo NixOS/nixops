@@ -296,8 +296,7 @@ sub evalMachineInfo {
                 };
         } elsif ($targetEnv eq "virtualbox") {
             $info->{virtualbox} =
-                { # !!! ‘baseImage’ should be a temporary GC root until we've cloned it.
-                  baseImage => $m->findvalue('./attrs/attr[@name = "virtualbox"]/attrs/attr[@name = "baseImage"]/string/@value') || die
+                { baseImage => $m->findvalue('./attrs/attr[@name = "virtualbox"]/attrs/attr[@name = "baseImage"]/string/@value') || die
                 };
         } else {
             die "machine ‘$name’ has an unknown target environment type ‘$targetEnv’";
@@ -780,7 +779,16 @@ sub startMachines {
 
             my $disk = "$vmDir/disk1.vdi";
 
-            system "VBoxManage clonehd '$machine->{baseImage}' '$disk'";
+            # If the base image is a derivation, build it now.XXX
+            my $baseImage = $machine->{baseImage};
+            if ($baseImage eq "drv") {
+                # !!! ‘baseImage’ should be a temporary GC root until we've cloned it.
+                $baseImage = `nix-build --show-trace '<charon/eval-machine-info.nix>' --arg networkExprs '[ @{$state->{networkExprs}} ]' -A nodes.'$name'.config.deployment.virtualbox.baseImage`;
+                die "unable to build base image" unless $? == 0;
+                chomp $baseImage;
+            }
+
+            system "VBoxManage clonehd '$baseImage' '$disk'";
             die "unable to copy VirtualBox disk: $?" unless $? == 0;
             
             $machine->{disk} = $disk;
