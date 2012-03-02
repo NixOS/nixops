@@ -542,9 +542,10 @@ sub generateKeyPair {
 }
 
 
-# Add a public key to ~/.ssh/known_hosts.  !!! Alternatively, we could
-# just create a per-machine known_hosts file, which might be easier to
-# maintain.
+# Add a machine's public key to ~/.ssh/known_hosts and remove existing
+# entries for the machine's IP address or host name.  !!!
+# Alternatively, we could just create a per-machine known_hosts file,
+# which might be easier to maintain.
 sub addToKnownHosts {
     my ($machine) = @_;
     my $file = "$ENV{HOME}/.ssh/known_hosts";
@@ -567,7 +568,8 @@ sub addToKnownHosts {
         $new .= join(",", @left) . " " . $key . "\n" if scalar @left > 0;
     }
     
-    $new .= join(",", @names) . " " . $machine->{publicHostKey} . "\n";;
+    $new .= join(",", @names) . " " . $machine->{publicHostKey} . "\n"
+        if scalar @names > 0 && exists $machine->{publicHostKey};
         
     write_file($file . ".new", $new);
 
@@ -833,6 +835,7 @@ sub startMachines {
                 sleep 5;
                 print STDERR ".";
             }
+            addToKnownHosts $machine;
             writeState;
         }
     }
