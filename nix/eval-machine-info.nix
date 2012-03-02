@@ -1,10 +1,8 @@
-{ nixpkgs ? <nixpkgs>
-, nixos ? <nixos>
-, system ? builtins.currentSystem
+{ system ? builtins.currentSystem
 , networkExprs
 }:
 
-with import "${nixos}/lib/testing.nix" { inherit nixpkgs system; };
+with import <nixos/lib/testing.nix> { inherit system; };
 with pkgs;
 with lib;
 
@@ -20,8 +18,7 @@ rec {
         modules = getAttr configurationName network;
       in
       { name = configurationName;
-        value = import "${nixos}/lib/eval-config.nix" {
-          inherit nixpkgs;
+        value = import <nixos/lib/eval-config.nix> {
           modules =
             modules ++
             [ # Provide a default hostname and deployment target equal
