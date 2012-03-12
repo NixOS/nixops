@@ -1,5 +1,47 @@
 #! /usr/bin/env python
 
 import charon
+import argparse
 
-print "FOO"
+def op_create():
+    print "creating!", args.nixexprs, args.debug
+
+def op_info():
+    print "showing!"
+
+def op_check():
+    print "checking!"
+
+def op_deploy():
+    print "deploying!"
+
+def op_destroy():
+    print "destroying!"
+
+parser = argparse.ArgumentParser(description='NixOS cloud deployment tool')
+
+parser.add_argument('--state', '-s', required=True, dest='state_file', metavar='FILE', help='path to state file')
+parser.add_argument('--debug', dest='debug', action='store_true', help='enable debug output')
+parser.add_argument('--version', action='version', version='Charon 0.1')
+
+subparsers = parser.add_subparsers(help='sub-command help')
+
+subparser = subparsers.add_parser('create', help='create a state file')
+subparser.set_defaults(op=op_create)
+subparser.add_argument('nixexprs', nargs='+', metavar='NIX-FILE', help='Nix expression(s) defining the network')
+
+subparser = subparsers.add_parser('info', help='show the state of the network')
+subparser.set_defaults(op=op_info)
+
+subparser = subparsers.add_parser('check', help='check the state of the machines in the network')
+subparser.set_defaults(op=op_check)
+
+subparser = subparsers.add_parser('deploy', help='deploy the network configuration')
+subparser.set_defaults(op=op_deploy)
+subparser.add_argument('--kill-obsolete', '-k', dest='kill_obsolete', action='store_true', help='kill obsolete virtual machines')
+
+subparser = subparsers.add_parser('destroy', help='destroy all virtual machines in the network')
+subparser.set_defaults(op=op_destroy)
+
+args = parser.parse_args()
+args.op()
