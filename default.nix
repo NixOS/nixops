@@ -7,5 +7,7 @@ pythonPackages.buildPythonPackage {
 
   doCheck = false;
 
+  pythonPath = [ pythonPackages.prettytable ];
+
   installCommand = "python setup.py install --prefix=$out";
 }

@@ -4,6 +4,7 @@ import json
 import uuid
 import string
 from xml.etree import ElementTree
+import charon.backends
 
 
 class Deployment:
@@ -40,7 +41,9 @@ class Deployment:
     def evaluate(self):
         """Evaluate the Nix expressions belonging to this deployment into a deployment model."""
 
-        expr_path = os.path.dirname(__file__) + "/../nix";
+        expr_path = os.path.dirname(__file__) + "/../../../../share/nix/charon";
+        if not os.path.exists(expr_path):
+            expr_path = os.path.dirname(__file__) + "/../nix";
         
         try:
             xml = subprocess.check_output(
@@ -63,11 +66,11 @@ class Deployment:
         # Extract machine information.
         machines = tree.find("attrs/attr[@name='machines']/attrs")
 
+        self.definitions = {}
+
         for m in machines.findall("attr"):
-            name = m.get("name")
-            target_env = m.find("attrs/attr[@name='targetEnv']/string").get("value")
-            assert name and target_env
-            print "got machine", name, ", type is", target_env
+            defn = charon.backends.create_definition(m)
+            self.definitions[defn.name] = defn
             
 
 class NixEvalError(Exception):

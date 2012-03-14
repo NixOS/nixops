@@ -8,7 +8,6 @@ setup(name='charon',
       author='Eelco Dolstra',
       author_email='eelco.dolstra@logicblox.com',
       scripts=['scripts/charon'],
-      packages=['charon'],
-      package_dir={'charon': 'charon'},
+      packages=['charon', 'charon.backends'],
       data_files=[('share/nix/charon', glob.glob('nix/*.nix') + glob.glob('nix/id*'))],
       )
