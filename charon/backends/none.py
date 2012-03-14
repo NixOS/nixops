@@ -9,6 +9,7 @@ class NoneDefinition(MachineDefinition):
     
     def __init__(self, xml):
         MachineDefinition.__init__(self, xml)
+        self.target_host = xml.find("attrs/attr[@name='targetHost']/string").get("value")
 
     def make_state():
         return MachineState()
@@ -17,13 +18,19 @@ class NoneDefinition(MachineDefinition):
 class NoneState(MachineState):
     """State of a trivial machine."""
 
-    def create():
-        pass
+    @classmethod
+    def get_type(cls):
+        return "none"
+    
+    def __init__(self, name):
+        MachineState.__init__(self, name)
+        
+    def create(self, defn):
+        assert isinstance(defn, NoneDefinition)
+        self.target_host = defn.target_host
 
-    def get_info_from_xml():
-        pass
+    def serialise(self):
+        return {'targetHost': self.target_host}
 
-    def serialise():
-        return {}
-
-
+    def deserialise(self, x):
+        self.target_host = x['targetHost']
