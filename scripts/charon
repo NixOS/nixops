@@ -3,6 +3,7 @@
 from charon import deployment
 import argparse
 import os.path
+import sys
 
 
 def op_create():
@@ -16,6 +17,7 @@ def op_info():
     depl = deployment.Deployment(args.state_file)
     print "state has nix exprs", depl.nix_exprs
     print depl.uuid.hex
+    depl.evaluate()
 
     
 def op_check():
@@ -59,4 +61,7 @@ subparser.set_defaults(op=op_destroy)
 
 # Parse the command line and execute the desired operation.
 args = parser.parse_args()
-args.op()
+try:
+    args.op()
+except deployment.NixEvalError:
+    print >> sys.stderr, "error: evaluation of the deployment model failed"
