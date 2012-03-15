@@ -98,7 +98,7 @@ class Deployment:
             self.definitions[defn.name] = defn
 
 
-    def build_configs(self):
+    def build_configs(self, dry_run=False):
         """Build the machine configurations in the Nix store."""
 
         print >> sys.stderr, "building all machine configurations...";
@@ -108,7 +108,8 @@ class Deployment:
                 ["nix-build", "-I", "charon=" + self.expr_path, "--show-trace",
                  "<charon/eval-machine-info.nix>",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
-                 "-A", "machines", "-o", self.tempdir + "/configs" ]).rstrip()
+                 "-A", "machines", "-o", self.tempdir + "/configs"]
+                + (["--dry-run"] if dry_run else [])).rstrip()
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
 
@@ -156,7 +157,7 @@ class Deployment:
             self.write_state()
 
 
-    def deploy(self):
+    def deploy(self, dry_run=False):
         """Perform the deployment defined by the deployment model."""
 
         self.evaluate()
@@ -164,7 +165,7 @@ class Deployment:
         # Create state objects for all defined machines.
         for m in self.definitions.itervalues():
             if m.name not in self.machines:
-                print >> sys.stderr, "creating new machine ‘{0}’".format(m.name)
+                print >> sys.stderr, "creating new machine ‘{0}’...".format(m.name) # !!! wrong place to say this
                 self.machines[m.name] = charon.backends.create_state(m.get_type(), m.name)
 
         # Determine the set of active machines.  (We can't just delete
@@ -179,16 +180,21 @@ class Deployment:
                 # !!! If kill_obsolete is set, kill the machine.
 
         # Start or update the active machines.  !!! Should do this in parallel.
-        for m in self.active.itervalues():
-            m.create(self.definitions[m.name])
+        if not dry_run:
+            for m in self.active.itervalues():
+                m.create(self.definitions[m.name])
 
         # Build the machine configurations.
+        if dry_run:
+            self.build_configs(dry_run=True)
+            return
+
         self.configs_path = self.build_configs()
 
         # Record configs_path in the state so that the ‘info’ command
         # can show whether machines have an outdated configuration.
         self.write_state()
-            
+        
         # Copy the closures of the machine configurations to the
         # target machines.
         self.copy_closures(self.configs_path)
@@ -197,6 +203,5 @@ class Deployment:
         self.activate_configs(self.configs_path)
 
             
-
 class NixEvalError(Exception):
     pass

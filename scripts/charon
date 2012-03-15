@@ -36,7 +36,7 @@ def op_check():
     
 def op_deploy():
     depl = deployment.Deployment(args.state_file)
-    depl.deploy()
+    depl.deploy(dry_run=args.dry_run)
 
     
 def op_destroy():
@@ -65,6 +65,7 @@ subparser.set_defaults(op=op_check)
 subparser = subparsers.add_parser('deploy', help='deploy the network configuration')
 subparser.set_defaults(op=op_deploy)
 subparser.add_argument('--kill-obsolete', '-k', dest='kill_obsolete', action='store_true', help='kill obsolete virtual machines')
+subparser.add_argument('--dry-run', dest='dry_run', action='store_true', help='show what would be done')
 
 subparser = subparsers.add_parser('destroy', help='destroy all virtual machines in the network')
 subparser.set_defaults(op=op_destroy)
