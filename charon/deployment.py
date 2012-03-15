@@ -157,7 +157,7 @@ class Deployment:
             self.write_state()
 
 
-    def deploy(self, dry_run=False):
+    def deploy(self, dry_run=False, build_only=False):
         """Perform the deployment defined by the deployment model."""
 
         self.evaluate()
@@ -180,7 +180,7 @@ class Deployment:
                 # !!! If kill_obsolete is set, kill the machine.
 
         # Start or update the active machines.  !!! Should do this in parallel.
-        if not dry_run:
+        if not dry_run and not build_only:
             for m in self.active.itervalues():
                 m.create(self.definitions[m.name])
 
@@ -194,6 +194,8 @@ class Deployment:
         # Record configs_path in the state so that the ‘info’ command
         # can show whether machines have an outdated configuration.
         self.write_state()
+
+        if build_only: return
         
         # Copy the closures of the machine configurations to the
         # target machines.
