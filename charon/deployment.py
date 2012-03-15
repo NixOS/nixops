@@ -127,10 +127,11 @@ class Deployment:
             raise Exception("unable to copy closure to machine ‘{0}’".format(m.name))
 
 
-    def copy_closures(self, configs_path):
+    def copy_closures(self, configs_path, include, exclude):
         """Copy the closure of each machine configuration to the corresponding machine."""
 
         for m in self.active.itervalues():
+            if not should_do(m, include, exclude): continue
             print >> sys.stderr, "copying closure to machine ‘{0}’...".format(m.name)
             m.new_toplevel = os.path.realpath(configs_path + "/" + m.name)
             if not os.path.exists(m.new_toplevel):
@@ -138,10 +139,12 @@ class Deployment:
             self.copy_closure(m, m.new_toplevel)
 
 
-    def activate_configs(self, configs_path):
+    def activate_configs(self, configs_path, include, exclude):
         """Activate the new configuration on a machine."""
 
         for m in self.active.itervalues():
+            if not should_do(m, include, exclude): continue
+            
             print >> sys.stderr, "activating new configuration on machine ‘{0}’...".format(m.name)
 
             if subprocess.call(
@@ -157,7 +160,8 @@ class Deployment:
             self.write_state()
 
 
-    def deploy(self, dry_run=False, build_only=False, create_only=False):
+    def deploy(self, dry_run=False, build_only=False, create_only=False,
+               include=[], exclude=[]):
         """Perform the deployment defined by the deployment model."""
 
         self.evaluate()
@@ -177,11 +181,13 @@ class Deployment:
                 self.active[m.name] = m
             else:
                 print >> sys.stderr, "machine ‘{0}’ is obsolete".format(m.name)
+                if not should_do(m, include, exclude): continue
                 # !!! If kill_obsolete is set, kill the machine.
 
         # Start or update the active machines.  !!! Should do this in parallel.
         if not dry_run and not build_only:
             for m in self.active.itervalues():
+                if not should_do(m, include, exclude): continue
                 m.create(self.definitions[m.name])
 
         if create_only: return
@@ -201,11 +207,17 @@ class Deployment:
         
         # Copy the closures of the machine configurations to the
         # target machines.
-        self.copy_closures(self.configs_path)
+        self.copy_closures(self.configs_path, include=include, exclude=exclude)
 
         # Active the configurations.
-        self.activate_configs(self.configs_path)
+        self.activate_configs(self.configs_path, include=include, exclude=exclude)
 
             
 class NixEvalError(Exception):
     pass
+
+
+def should_do(m, include, exclude):
+    if m.name in exclude: return False
+    if include == []: return True
+    return m.name in include
