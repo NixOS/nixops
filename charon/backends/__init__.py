@@ -22,6 +22,15 @@ class MachineState:
 
     def __init__(self, name):
         self.name = name
+
+        # Nix store path of the last global configuration deployed to
+        # this machine.  Used to check whether this machine is up to
+        # date with respect to the global configuration.
+        self.cur_configs_path = None
+
+        # Nix store path of the last machine configuration deployed to
+        # this machine.
+        self.cur_toplevel = None
         
     def create(self, defn):
         """Create or update the machine instance defined by ‘defn’, if appropriate."""
@@ -29,10 +38,17 @@ class MachineState:
 
     def serialise(self):
         """Return a dictionary suitable for representing the on-disk state of this machine."""
-        assert False
+        x = { }
+        if self.cur_configs_path: x['vmsPath'] = self.cur_configs_path
+        if self.cur_toplevel: x['toplevel'] = self.cur_toplevel
+        return x
 
     def deserialise(self, x):
         """Deserialise the state from the given dictionary."""
+        self.cur_configs_path = x.get('vmsPath', None)
+        self.cur_toplevel = x.get('toplevel', None)
+
+    def get_ssh_name(self):
         assert False
 
 

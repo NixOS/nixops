@@ -30,7 +30,13 @@ class NoneState(MachineState):
         self.target_host = defn.target_host
 
     def serialise(self):
-        return {'targetHost': self.target_host}
+        x = MachineState.serialise(self)
+        x.update({'targetHost': self.target_host})
+        return x
 
     def deserialise(self, x):
+        MachineState.deserialise(self, x)
         self.target_host = x['targetHost']
+        
+    def get_ssh_name(self):
+        return self.target_host

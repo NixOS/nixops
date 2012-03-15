@@ -17,6 +17,7 @@ class Deployment:
     def __init__(self, state_file, create=False, nix_exprs=[]):
         self.state_file = state_file
         self.machines = { }
+        self.configs_path = None
         
         self.expr_path = os.path.dirname(__file__) + "/../../../../share/nix/charon"
         if not os.path.exists(self.expr_path):
@@ -42,6 +43,7 @@ class Deployment:
         self.nix_exprs = state['networkExprs']
         self.uuid = uuid.UUID(state['uuid'])
         self.machines = { }
+        self.configs_path = state.get('vmsPath', None)
         for n, v in state['machines'].iteritems():
             self.machines[n] = charon.backends.create_state(v['targetEnv'], n)
             self.machines[n].deserialise(v)
@@ -57,6 +59,7 @@ class Deployment:
         state = {'networkExprs': self.nix_exprs,
                  'uuid': str(self.uuid),
                  'machines': machines}
+        if self.configs_path: state['vmsPath'] = self.configs_path
         tmp = self.state_file + ".tmp"
         f = open(tmp, 'w')
         json.dump(state, f, indent=2)
@@ -119,7 +122,7 @@ class Deployment:
         # version.
 
         if subprocess.call(
-            ["nix-copy-closure", "--gzip", "--to", "root@" + m.name, toplevel]) != 0:
+            ["nix-copy-closure", "--gzip", "--to", "root@" + m.get_ssh_name(), toplevel]) != 0:
             raise Exception("unable to copy closure to machine ‘{0}’".format(m.name))
 
 
@@ -128,10 +131,29 @@ class Deployment:
 
         for m in self.active.itervalues():
             print >> sys.stderr, "copying closure to machine ‘{0}’...".format(m.name)
-            toplevel = os.path.realpath(configs_path + "/" + m.name)
-            if not os.path.exists(toplevel):
+            m.new_toplevel = os.path.realpath(configs_path + "/" + m.name)
+            if not os.path.exists(m.new_toplevel):
                 raise Exception("can't find closure of machine ‘{0}’".format(m.name))
-            self.copy_closure(m, toplevel)
+            self.copy_closure(m, new_toplevel)
+
+
+    def activate_configs(self, configs_path):
+        """Activate the new configuration on a machine."""
+
+        for m in self.active.itervalues():
+            print >> sys.stderr, "activating new configuration on machine ‘{0}’...".format(m.name)
+
+        if subprocess.call(
+            ["ssh", "root@" + m.get_ssh_name(),
+             "nix-env", "-p", "/nix/var/nix/profiles/system", "--set", m.new_toplevel,
+             ";", "/nix/var/nix/profiles/system/bin/switch-to-configuration", "switch"]) != 0:
+            raise Exception("unable to activate new configuration on machine ‘{0}’".format(m.name))
+
+        # Record that we switched this machine to the new
+        # configuration.
+        m.cur_configs_path = configs_path
+        m.cur_toplevel = m.new_toplevel
+        self.write_state()
 
 
     def deploy(self):
@@ -160,14 +182,19 @@ class Deployment:
         for m in self.active.itervalues():
             m.create(self.definitions[m.name])
 
+        # Build the machine configurations.
+        self.configs_path = self.build_configs()
+
+        # Record configs_path in the state so that the ‘info’ command
+        # can show whether machines have an outdated configuration.
         self.write_state()
             
-        # Build the machine configurations.
-        configs_path = self.build_configs()
-
         # Copy the closures of the machine configurations to the
         # target machines.
-        self.copy_closures(configs_path)
+        self.copy_closures(self.configs_path)
+
+        # Active the configurations.
+        self.activate_configs(self.configs_path)
 
             
 

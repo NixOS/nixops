@@ -22,7 +22,11 @@ def op_info():
     for name in set(depl.definitions.keys()) | set(depl.machines.keys()):
         d = depl.definitions.get(name)
         m = depl.machines.get(name)
-        tbl.add_row([name, ("Up" if m else "New") if d else "Obsolete", "", "", ""])
+        tbl.add_row(
+            [name,
+             (("Up" if depl.configs_path == m.cur_configs_path else "Outdated") if m else "New") if d else "Obsolete",
+             "", "", ""
+             ])
     print tbl
 
     
