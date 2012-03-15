@@ -25,7 +25,7 @@ def op_info():
         tbl.add_row(
             [name,
              (("Up" if depl.configs_path == m.cur_configs_path else "Outdated") if m else "New") if d else "Obsolete",
-             "", "", ""
+             m.get_type() if m else d.get_type(), "", ""
              ])
     print tbl
 

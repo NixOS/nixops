@@ -143,17 +143,17 @@ class Deployment:
         for m in self.active.itervalues():
             print >> sys.stderr, "activating new configuration on machine ‘{0}’...".format(m.name)
 
-        if subprocess.call(
-            ["ssh", "root@" + m.get_ssh_name(),
-             "nix-env", "-p", "/nix/var/nix/profiles/system", "--set", m.new_toplevel,
-             ";", "/nix/var/nix/profiles/system/bin/switch-to-configuration", "switch"]) != 0:
-            raise Exception("unable to activate new configuration on machine ‘{0}’".format(m.name))
+            if subprocess.call(
+                ["ssh", "root@" + m.get_ssh_name(),
+                 "nix-env", "-p", "/nix/var/nix/profiles/system", "--set", m.new_toplevel,
+                 ";", "/nix/var/nix/profiles/system/bin/switch-to-configuration", "switch"]) != 0:
+                raise Exception("unable to activate new configuration on machine ‘{0}’".format(m.name))
 
-        # Record that we switched this machine to the new
-        # configuration.
-        m.cur_configs_path = configs_path
-        m.cur_toplevel = m.new_toplevel
-        self.write_state()
+            # Record that we switched this machine to the new
+            # configuration.
+            m.cur_configs_path = configs_path
+            m.cur_toplevel = m.new_toplevel
+            self.write_state()
 
 
     def deploy(self):
