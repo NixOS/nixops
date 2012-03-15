@@ -4,6 +4,9 @@ import subprocess
 import json
 import uuid
 import string
+import tempfile
+import atexit
+import shutil
 from xml.etree import ElementTree
 import charon.backends
 
@@ -28,6 +31,9 @@ class Deployment:
         else:
             self.load_state()
 
+        self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
+        atexit.register(lambda: shutil.rmtree(self.tempdir))
+            
 
     def load_state(self):
         """Read the current deployment state from the state file."""
@@ -95,16 +101,38 @@ class Deployment:
         print >> sys.stderr, "building all machine configurations...";
         
         try:
-            vms_path = subprocess.check_output(
+            configs_path = subprocess.check_output(
                 ["nix-build", "-I", "charon=" + self.expr_path, "--show-trace",
                  "<charon/eval-machine-info.nix>",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
-                 "-A", "machines"]).rstrip()
+                 "-A", "machines", "-o", self.tempdir + "/configs" ]).rstrip()
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
 
-        return vms_path
+        return configs_path
         
+
+    def copy_closure(self, m, toplevel):
+        """Copy a closure to the corresponding machine."""
+        
+        # !!! Implement copying between cloud machines, as in the Perl
+        # version.
+
+        if subprocess.call(
+            ["nix-copy-closure", "--gzip", "--to", "root@" + m.name, toplevel]) != 0:
+            raise Exception("unable to copy closure to machine ‘{0}’".format(m.name))
+
+
+    def copy_closures(self, configs_path):
+        """Copy the closure of each machine configuration to the corresponding machine."""
+
+        for m in self.active.itervalues():
+            print >> sys.stderr, "copying closure to machine ‘{0}’...".format(m.name)
+            toplevel = os.path.realpath(configs_path + "/" + m.name)
+            if not os.path.exists(toplevel):
+                raise Exception("can't find closure of machine ‘{0}’".format(m.name))
+            self.copy_closure(m, toplevel)
+
 
     def deploy(self):
         """Perform the deployment defined by the deployment model."""
@@ -135,7 +163,11 @@ class Deployment:
         self.write_state()
             
         # Build the machine configurations.
-        vms_path = self.build_configs()
+        configs_path = self.build_configs()
+
+        # Copy the closures of the machine configurations to the
+        # target machines.
+        self.copy_closures(configs_path)
 
             
 
