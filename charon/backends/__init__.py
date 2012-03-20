@@ -67,4 +67,4 @@ def create_state(type, name):
     for i in [charon.backends.none.NoneState]:
         if type == i.get_type():
             return i(name)
-    raise Exception("unknown backend type ‘{0}’".format(target_env))
+    raise Exception("unknown backend type ‘{0}’".format(type))
