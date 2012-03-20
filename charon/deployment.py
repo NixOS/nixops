@@ -100,16 +100,34 @@ class Deployment:
             self.definitions[defn.name] = defn
 
 
+    def get_physical_spec(self):
+        """Compute the contents of the Nix expression specifying the computed physical deployment attributes"""
+
+        def for_machine(m):
+            lines = []
+            lines.append("  " + m.name + " = { config, pkgs, ... }: {\n")
+            lines.extend(m.get_physical_spec())
+            lines.append("  };\n")
+            return "".join(lines)
+
+        return "".join(["{\n"] + [for_machine(m) for m in self.active.itervalues()] + ["}\n"])
+            
+
     def build_configs(self, dry_run=False):
         """Build the machine configurations in the Nix store."""
 
-        print >> sys.stderr, "building all machine configurations...";
+        print >> sys.stderr, "building all machine configurations..."
+
+        phys_expr = self.tempdir + "/physical.nix"
+        f = open(phys_expr, "w")
+        f.write(self.get_physical_spec())
+        f.close()
         
         try:
             configs_path = subprocess.check_output(
                 ["nix-build", "-I", "charon=" + self.expr_path, "--show-trace",
                  "<charon/eval-machine-info.nix>",
-                 "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
+                 "--arg", "networkExprs", "[ " + " ".join(self.nix_exprs + [phys_expr]) + " ]",
                  "-A", "machines", "-o", self.tempdir + "/configs"]
                 + (["--dry-run"] if dry_run else [])).rstrip()
         except subprocess.CalledProcessError:
@@ -220,6 +238,13 @@ class Deployment:
         self.activate_configs(self.configs_path, include=include, exclude=exclude)
 
             
+    def destroy_vms(self):
+        """Destroy all current or obsolete VMs."""
+
+        for m in self.machines.values(): # don't use itervalues() here
+            m.destroy()
+        
+
 class NixEvalError(Exception):
     pass
 

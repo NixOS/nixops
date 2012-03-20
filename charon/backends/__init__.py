@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import sys
+
 
 class MachineDefinition:
     """Base class for Charon backend machine definitions."""
@@ -48,9 +50,28 @@ class MachineState:
         self.cur_configs_path = x.get('vmsPath', None)
         self.cur_toplevel = x.get('toplevel', None)
 
+    def destroy(self):
+        """Destroy this machine, if possible."""
+        print >> sys.stderr, "warning: don't know how to destroy machine ‘{0}’".format(self.name)
+
     def get_ssh_name(self):
         assert False
 
+    def get_physical_spec(self):
+        return []
+
+    @property
+    def vm_id(self):
+        return None
+
+    @property
+    def public_ipv4(self):
+        return None
+    
+    @property
+    def private_ipv4(self):
+        return None
+    
 
 import charon.backends.none
 
