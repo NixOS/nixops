@@ -26,8 +26,8 @@ def op_info():
             [name,
              (("Up" if depl.configs_path == m.cur_configs_path else "Outdated") if m else "New") if d else "Obsolete",
              m.get_type() if m else d.get_type(),
-             m.vm_id or "",
-             m.public_ipv4 or m.private_ipv4 or ""
+             m.vm_id or "" if m else "",
+             m.public_ipv4 or m.private_ipv4 or "" if m else ""
              ])
     print tbl
 

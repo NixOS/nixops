@@ -47,7 +47,7 @@ class Deployment:
         self.machines = { }
         self.configs_path = state.get('vmsPath', None)
         for n, v in state['machines'].iteritems():
-            self.machines[n] = charon.backends.create_state(v['targetEnv'], n)
+            self.machines[n] = charon.backends.create_state(self, v['targetEnv'], n)
             self.machines[n].deserialise(v)
         
             
@@ -195,7 +195,7 @@ class Deployment:
         for m in self.definitions.itervalues():
             if m.name not in self.machines:
                 print >> sys.stderr, "creating new machine ‘{0}’...".format(m.name) # !!! wrong place to say this
-                self.machines[m.name] = charon.backends.create_state(m.get_type(), m.name)
+                self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name)
 
         # Determine the set of active machines.  (We can't just delete
         # obsolete machines from ‘self.machines’ because they contain
@@ -243,6 +243,8 @@ class Deployment:
 
         for m in self.machines.values(): # don't use itervalues() here
             m.destroy()
+            del self.machines[m.name]
+            self.write_state()
         
 
 class NixEvalError(Exception):
