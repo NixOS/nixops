@@ -5,6 +5,7 @@ import sys
 import subprocess
 import time
 from charon.backends import MachineDefinition, MachineState
+import charon.known_hosts
 
 
 class VirtualBoxDefinition(MachineDefinition):
@@ -78,12 +79,11 @@ class VirtualBoxState(MachineState):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
         try:
             lines = subprocess.check_output(
-                ["VBoxManage", "showvminfo", "--machinereadable", self._vm_id]).split('\n')
+                ["VBoxManage", "showvminfo", "--machinereadable", self._vm_id]).splitlines()
         except subprocess.CalledProcessError:
             raise Exception("unable to get info on VirtualBox VM ‘{0}’".format(self.name))
         vminfo = {}
         for l in lines:
-            if l == "": continue
             (k, v) = l.split("=", 1)
             vminfo[k] = v
         return vminfo
@@ -177,6 +177,9 @@ class VirtualBoxState(MachineState):
                     raise Exception("unable to get IP address of VirtualBox VM ‘{0}’".format(self.name))
                 time.sleep(1)
                 sys.stderr.write(".")
+
+            charon.known_hosts.remove(self._ipv4)
+            
             self.write()
 
     def destroy(self):
