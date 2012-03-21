@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from charon.backends import MachineDefinition, MachineState
 
 class NoneDefinition(MachineDefinition):
@@ -25,7 +27,7 @@ class NoneState(MachineState):
     def __init__(self, name):
         MachineState.__init__(self, name)
         
-    def create(self, defn):
+    def create(self, defn, check):
         assert isinstance(defn, NoneDefinition)
         self._target_host = defn._target_host
 

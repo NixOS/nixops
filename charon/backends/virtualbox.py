@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import os
 import sys
 import subprocess
@@ -72,7 +74,21 @@ class VirtualBoxState(MachineState):
     def private_ipv4(self):
         return self._ipv4
 
-    def create(self, defn):
+    def _get_vm_info(self):
+        '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
+        try:
+            lines = subprocess.check_output(
+                ["VBoxManage", "showvminfo", "--machinereadable", self._vm_id]).split('\n')
+        except subprocess.CalledProcessError:
+            raise Exception("unable to get info on VirtualBox VM ‘{0}’".format(self.name))
+        vminfo = {}
+        for l in lines:
+            if l == "": continue
+            (k, v) = l.split("=", 1)
+            vminfo[k] = v
+        return vminfo
+
+    def create(self, defn, check):
         if not self._vm_id:
             vm_id = "charon-" + self.name
         
@@ -123,6 +139,15 @@ class VirtualBoxState(MachineState):
             self._disk_attached = True
             self.write()
 
+        if check:
+            vminfo = self._get_vm_info()
+            if vminfo['VMState'] == '"running"':
+                self._started = True
+            else:
+                print >> sys.stderr, "VirtualBox VM ‘{0}’ went down, restarting...".format(self.name)
+                self._started = False
+                self.write()
+
         if not self._started:
             res = subprocess.call(
                 ["VBoxManage", "modifyvm", self._vm_id,
@@ -138,7 +163,7 @@ class VirtualBoxState(MachineState):
             self._started = True
             self.write()
 
-        if not self._ipv4:
+        if not self._ipv4 or check:
             sys.stderr.write("waiting for IP address of ‘{0}’...".format(self.name))
             while True:
                 try:

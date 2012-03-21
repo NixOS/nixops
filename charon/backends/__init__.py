@@ -38,7 +38,7 @@ class MachineState:
     def write(self):
         self.depl.write_state()
         
-    def create(self, defn):
+    def create(self, defn, check):
         """Create or update the machine instance defined by ‘defn’, if appropriate."""
         assert False
 

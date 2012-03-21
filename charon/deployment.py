@@ -186,7 +186,7 @@ class Deployment:
 
 
     def deploy(self, dry_run=False, build_only=False, create_only=False,
-               include=[], exclude=[]):
+               include=[], exclude=[], check=False):
         """Perform the deployment defined by the deployment model."""
 
         self.evaluate()
@@ -213,7 +213,7 @@ class Deployment:
         if not dry_run and not build_only:
             for m in self.active.itervalues():
                 if not should_do(m, include, exclude): continue
-                m.create(self.definitions[m.name])
+                m.create(self.definitions[m.name], check=check)
 
         if create_only: return
 
