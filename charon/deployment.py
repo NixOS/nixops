@@ -142,8 +142,12 @@ class Deployment:
         # !!! Implement copying between cloud machines, as in the Perl
         # version.
 
-        if subprocess.call(
-            ["nix-copy-closure", "--gzip", "--to", "root@" + m.get_ssh_name(), toplevel]) != 0:
+        env = dict(os.environ)
+        env['NIX_SSHOPTS'] = ' '.join(m.get_ssh_flags());
+        res = subprocess.Popen(
+            ["nix-copy-closure", "--gzip", "--to", "root@" + m.get_ssh_name(), toplevel],
+            env=env).wait()
+        if res != 0:
             raise Exception("unable to copy closure to machine ‘{0}’".format(m.name))
 
 
@@ -168,8 +172,9 @@ class Deployment:
             print >> sys.stderr, "activating new configuration on machine ‘{0}’...".format(m.name)
 
             if subprocess.call(
-                ["ssh", "-x", "root@" + m.get_ssh_name(),
-                 # Set the system profile to the new configuration.
+                ["ssh", "-x", "root@" + m.get_ssh_name()]
+                + m.get_ssh_flags() +
+                [# Set the system profile to the new configuration.
                  "nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + ";" +
                  # Run the switch script.  This will also update the
                  # GRUB boot loader.  For performance, skip this step

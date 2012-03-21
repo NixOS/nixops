@@ -64,6 +64,9 @@ class VirtualBoxState(MachineState):
         assert self._ipv4
         return self._ipv4
 
+    def get_ssh_flags(self):
+        return ["-o", "StrictHostKeyChecking=no"]
+
     def get_physical_spec(self):
         return ["    require = [ <charon/virtualbox-image-charon.nix> ];\n"]
     
