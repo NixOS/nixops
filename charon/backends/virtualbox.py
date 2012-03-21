@@ -4,6 +4,8 @@ import os
 import sys
 import subprocess
 import time
+import shutil
+import stat
 from charon.backends import MachineDefinition, MachineState
 import charon.known_hosts
 
@@ -65,7 +67,11 @@ class VirtualBoxState(MachineState):
         return self._ipv4
 
     def get_ssh_flags(self):
-        return ["-o", "StrictHostKeyChecking=no"]
+        copy = self.depl.tempdir + "/id_charon-virtualbox"
+        if not os.path.exists(copy):
+            shutil.copy(self.depl.expr_path + "/id_charon-virtualbox", copy)
+            os.chmod(copy, stat.S_IRUSR | stat.S_IWUSR)
+        return ["-o", "StrictHostKeyChecking=no", "-i", copy]
 
     def get_physical_spec(self):
         return ["    require = [ <charon/virtualbox-image-charon.nix> ];\n"]
