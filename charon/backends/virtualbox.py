@@ -99,7 +99,7 @@ class VirtualBoxState(MachineState):
 
     def create(self, defn, check):
         if not self._vm_id:
-            vm_id = "charon-" + self.name
+            vm_id = "charon-{0}-{1}".format(self.depl.uuid, self.name)
         
             res = subprocess.call(["VBoxManage", "createvm", "--name", vm_id, "--ostype", "Linux", "--register"])
             if res != 0: raise Exception("unable to create VirtualBox VM ‘{0}’".format(self.name))
