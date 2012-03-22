@@ -100,3 +100,6 @@ try:
     args.op()
 except deployment.NixEvalError:
     print >> sys.stderr, "error: evaluation of the deployment model failed"
+except Exception as e:
+    if args.debug: raise
+    print >> sys.stderr, "error:", e
