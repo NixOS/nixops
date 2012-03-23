@@ -19,6 +19,7 @@ def op_info():
     depl.evaluate()
 
     print "Network UUID:", depl.uuid
+    print "Network description:", depl.description
     print
 
     tbl = PrettyTable(["Name", "Status", "Type", "VM Id", "IP address"])

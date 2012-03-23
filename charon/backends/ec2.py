@@ -53,21 +53,23 @@ class EC2State(MachineState):
         self._instance_id = None
         self._public_ipv4 = None
         self._private_ipv4 = None
+        self._tagged = False
         
         
     def serialise(self):
         x = MachineState.serialise(self)
         
-        if self._region: x.update({'region': self._region})
-        if self._controller: x.update({'controller': self._controller})
-        if self._ami: x.update({'ami': self._ami})
-        if self._instance_type: x.update({'instanceType': self._instance_type})
-        if self._key_pair: x.update({'keyPair': self._key_pair})
-        if self._security_groups: x.update({'securityGroups': self._security_groups})
+        if self._region: x['region'] = self._region
+        if self._controller: x['controller'] = self._controller
+        if self._ami: x['ami'] = self._ami
+        if self._instance_type: x['instanceType'] = self._instance_type
+        if self._key_pair: x['keyPair'] = self._key_pair
+        if self._security_groups: x['securityGroups'] = self._security_groups
         
-        if self._instance_id: x.update({'vmId': self._instance_id})
-        if self._public_ipv4: x.update({'ipv4': self._public_ipv4})
-        if self._private_ipv4: x.update({'privateIpv4': self._private_ipv4})
+        if self._instance_id: x['vmId'] = self._instance_id
+        if self._public_ipv4: x['ipv4'] = self._public_ipv4
+        if self._private_ipv4: x['privateIpv4'] = self._private_ipv4
+        if self._tagged: x['tagged'] = self._tagged
         
         return x
 
@@ -85,6 +87,7 @@ class EC2State(MachineState):
         self._instance_id = x.get('vmId', None)
         self._public_ipv4 = x.get('ipv4', None)
         self._private_ipv4 = x.get('privateIpv4', None)
+        self._tagged = x.get('tagged', False)
 
         
     def get_ssh_name(self):
@@ -156,7 +159,17 @@ class EC2State(MachineState):
             self._security_groups = defn.security_groups
             self.write()
 
-        if not self._private_ipv4:
+        if not self._tagged:
+            self.connect()
+            self._conn.create_tags(
+                [self._instance_id],
+                {'Name': "{0} [{1}]".format(self.depl.description, self.name),
+                 'CharonNetworkUUID': str(self.depl.uuid),
+                 'CharonMachineName': self.name})
+            self._tagged = True
+            self.write()
+
+        if not self._private_ipv4 or check:
             instance = None
             sys.stderr.write("waiting for IP address of ‘{0}’... ".format(self.name))
             while True:

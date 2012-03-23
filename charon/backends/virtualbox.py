@@ -44,11 +44,11 @@ class VirtualBoxState(MachineState):
         
     def serialise(self):
         x = MachineState.serialise(self)
-        if self._vm_id: x.update({'vmId': self._vm_id})
-        if self._ipv4: x.update({'privateIpv4': self._ipv4})
-        if self._disk: x.update({'disk': self._disk})
-        x.update({'diskAttached': self._disk_attached})
-        x.update({'started': self._started})
+        if self._vm_id: x['vmId'] = self._vm_id
+        if self._ipv4: x['privateIpv4'] = self._ipv4
+        if self._disk: x['disk'] = self._disk
+        x['diskAttached'] = self._disk_attached
+        x['started'] = self._started
         return x
 
     def deserialise(self, x):

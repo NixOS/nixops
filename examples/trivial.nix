@@ -1,5 +1,5 @@
 {
-  network.name = "Trivial test network";
+  network.description = "Trivial test network";
 
   machine =
     { config, pkgs, ... }:

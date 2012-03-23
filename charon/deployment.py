@@ -20,6 +20,7 @@ class Deployment:
         self.state_file = state_file
         self.machines = { }
         self.configs_path = None
+        self.description = "Unnamed Charon network"
         
         self.expr_path = os.path.dirname(__file__) + "/../../../../share/nix/charon"
         if not os.path.exists(self.expr_path):
@@ -44,6 +45,7 @@ class Deployment:
         state = json.load(f)
         self.nix_exprs = state['networkExprs']
         self.uuid = uuid.UUID(state['uuid'])
+        self.description = state.get('description', self.description)
         self.machines = { }
         self.configs_path = state.get('vmsPath', None)
         for n, v in state['machines'].iteritems():
@@ -60,6 +62,7 @@ class Deployment:
             machines[m.name] = x
         state = {'networkExprs': self.nix_exprs,
                  'uuid': str(self.uuid),
+                 'description': self.description,
                  'machines': machines}
         if self.configs_path: state['vmsPath'] = self.configs_path
         tmp = self.state_file + ".tmp"
@@ -89,8 +92,8 @@ class Deployment:
         # Extract global deployment attributes.
         info = tree.find("attrs/attr[@name='network']")
         assert info != None
-        elem = info.find("attrs/attr[@name='name']/string")
-        self.name = elem.get("value") if elem != None else ""
+        elem = info.find("attrs/attr[@name='description']/string")
+        if elem != None: self.description = elem.get("value")
 
         # Extract machine information.
         machines = tree.find("attrs/attr[@name='machines']/attrs")

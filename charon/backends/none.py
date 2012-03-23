@@ -33,7 +33,7 @@ class NoneState(MachineState):
 
     def serialise(self):
         x = MachineState.serialise(self)
-        x.update({'targetHost': self._target_host})
+        x['targetHost'] = self._target_host
         return x
 
     def deserialise(self, x):
