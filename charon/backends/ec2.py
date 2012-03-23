@@ -159,7 +159,7 @@ class EC2State(MachineState):
             self._security_groups = defn.security_groups
             self.write()
 
-        if not self._tagged:
+        if not self._tagged or check:
             self.connect()
             self._conn.create_tags(
                 [self._instance_id],
