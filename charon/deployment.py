@@ -199,7 +199,6 @@ class Deployment:
         # Create state objects for all defined machines.
         for m in self.definitions.itervalues():
             if m.name not in self.machines:
-                print >> sys.stderr, "creating new machine ‘{0}’...".format(m.name) # !!! wrong place to say this
                 self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name)
 
         # Determine the set of active machines.  (We can't just delete

@@ -42,9 +42,6 @@ class VirtualBoxState(MachineState):
         self._disk_attached = False
         self._started = False
         
-    def create(self, defn):
-        assert isinstance(defn, VirtualBoxDefinition)
-
     def serialise(self):
         x = MachineState.serialise(self)
         if self._vm_id: x.update({'vmId': self._vm_id})
@@ -98,7 +95,11 @@ class VirtualBoxState(MachineState):
         return vminfo
 
     def create(self, defn, check):
+        assert isinstance(defn, VirtualBoxDefinition)
+        
         if not self._vm_id:
+            print >> sys.stderr, "creating VirtualBox VM ‘{0}’...".format(self.name)
+            
             vm_id = "charon-{0}-{1}".format(self.depl.uuid, self.name)
         
             res = subprocess.call(["VBoxManage", "createvm", "--name", vm_id, "--ostype", "Linux", "--register"])
@@ -192,6 +193,8 @@ class VirtualBoxState(MachineState):
             self.write()
 
     def destroy(self):
+        print >> sys.stderr, "destroying VirtualBox VM ‘{0}’...".format(self.name)
+        
         subprocess.call(["VBoxManage", "controlvm", self._vm_id, "poweroff"])
 
         # !!! Stupid asynchronous commands.  Should wait here until

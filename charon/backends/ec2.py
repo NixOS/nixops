@@ -1,0 +1,180 @@
+# -*- coding: utf-8 -*-
+
+import os
+import sys
+import time
+import boto.ec2
+from charon.backends import MachineDefinition, MachineState
+import charon.known_hosts
+
+
+class EC2Definition(MachineDefinition):
+    """Definition of an EC2 machine."""
+
+    @classmethod
+    def get_type(cls):
+        return "ec2"
+    
+    def __init__(self, xml):
+        MachineDefinition.__init__(self, xml)
+        x = xml.find("attrs/attr[@name='ec2']/attrs")
+        assert x is not None
+        self.type = x.find("attr[@name='type']/string").get("value")
+        self.region = x.find("attr[@name='region']/string").get("value")
+        self.controller = x.find("attr[@name='controller']/string").get("value")
+        self.ami = x.find("attr[@name='ami']/string").get("value")
+        self.instance_type = x.find("attr[@name='instanceType']/string").get("value")
+        self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
+        self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
+
+    def make_state():
+        return MachineState()
+
+
+class EC2State(MachineState):
+    """State of an EC2 machine."""
+
+    @classmethod
+    def get_type(cls):
+        return "ec2"
+    
+    def __init__(self, depl, name):
+        MachineState.__init__(self, depl, name)
+
+        self._conn = None
+        
+        self._region = None
+        self._controller = None
+        self._ami = None
+        self._instance_type = None
+        self._key_pair = None
+        self._security_groups = None
+        
+        self._instance_id = None
+        self._public_ipv4 = None
+        self._private_ipv4 = None
+        
+        
+    def serialise(self):
+        x = MachineState.serialise(self)
+        
+        if self._region: x.update({'region': self._region})
+        if self._controller: x.update({'controller': self._controller})
+        if self._ami: x.update({'ami': self._ami})
+        if self._instance_type: x.update({'instanceType': self._instance_type})
+        if self._key_pair: x.update({'keyPair': self._key_pair})
+        if self._security_groups: x.update({'securityGroups': self._security_groups})
+        
+        if self._instance_id: x.update({'vmId': self._instance_id})
+        if self._public_ipv4: x.update({'ipv4': self._public_ipv4})
+        if self._private_ipv4: x.update({'privateIpv4': self._private_ipv4})
+        
+        return x
+
+    
+    def deserialise(self, x):
+        MachineState.deserialise(self, x)
+        
+        self._region = x.get('region', None)
+        self._controller = x.get('controller', None)
+        self._ami = x.get('ami', None)
+        self._instance_type = x.get('instanceType', None)
+        self._key_pair = x.get('keyPair', None)
+        self._security_groups = x.get('securityGroups', None)
+        
+        self._instance_id = x.get('vmId', None)
+        self._public_ipv4 = x.get('ipv4', None)
+        self._private_ipv4 = x.get('privateIpv4', None)
+
+        
+    def get_ssh_name(self):
+        assert self._public_ipv4
+        return self._public_ipv4
+
+    def get_physical_spec(self):
+        return ["    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];\n"]
+    
+    @property
+    def vm_id(self):
+        return self._instance_id
+
+    @property
+    def public_ipv4(self):
+        return self._public_ipv4
+
+    @property
+    def private_ipv4(self):
+        return self._private_ipv4
+
+    
+    def connect(self):
+        if self._conn: return
+        assert self._region
+        access_key_id = os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
+        if not access_key_id:
+            raise Exception("please set $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
+        secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
+        if not secret_access_key:
+            raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY")
+        self._conn = boto.ec2.connect_to_region(
+            region_name=self._region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+
+        
+    def get_instance_by_id(self, instanceid):
+        """Get instance object by instance id."""
+        self.connect()
+        reservations = self._conn.get_all_instances([instanceid])
+        return reservations[0].instances[0]
+
+    
+    def create(self, defn, check):
+        assert isinstance(defn, EC2Definition)
+        assert defn.type == "ec2"
+
+        if not self._instance_id:
+            print >> sys.stderr, "creating EC2 instance ‘{0}’ (AMI ‘{1}’, type ‘{2}’, region ‘{3}’)...".format(
+                self.name, defn.ami, defn.instance_type, defn.region)
+
+            self._region = defn.region
+            self.connect()
+
+            reservation = self._conn.run_instances(
+                image_id = defn.ami,
+                instance_type = defn.instance_type,
+                key_name = defn.key_pair,
+                security_groups = defn.security_groups)
+
+            assert len(reservation.instances) == 1
+
+            instance = reservation.instances[0]
+
+            self._instance_id = instance.id
+            self._controller = defn.controller
+            self._ami = defn.ami
+            self._instance_type = defn.instance_type
+            self._key_pair = defn.key_pair
+            self._security_groups = defn.security_groups
+            self.write()
+
+        if not self._private_ipv4:
+            instance = None
+            sys.stderr.write("waiting for IP address of ‘{0}’... ".format(self.name))
+            while True:
+                instance = self.get_instance_by_id(self._instance_id)
+                sys.stderr.write("[{0}] ".format(instance.state))
+                if instance.private_ip_address: break
+                time.sleep(3)
+            sys.stderr.write("{0} / {1}\n".format(instance.ip_address, instance.private_ip_address))
+
+            self._private_ipv4 = instance.private_ip_address
+            self._public_ipv4 = instance.ip_address
+            self.write()
+
+
+    def destroy(self):
+        print >> sys.stderr, "destroying EC2 instance ‘{0}’...".format(self.name)
+
+        self.connect()
+
+        instance = self.get_instance_by_id(self._instance_id)
+        instance.terminate()
