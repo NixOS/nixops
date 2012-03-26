@@ -9,8 +9,8 @@ class NoneDefinition(MachineDefinition):
     def get_type(cls):
         return "none"
     
-    def __init__(self, depl, xml):
-        MachineDefinition.__init__(self, depl, xml)
+    def __init__(self, xml):
+        MachineDefinition.__init__(self, xml)
         self._target_host = xml.find("attrs/attr[@name='targetHost']/string").get("value")
 
     def make_state():
@@ -24,8 +24,8 @@ class NoneState(MachineState):
     def get_type(cls):
         return "none"
     
-    def __init__(self, name):
-        MachineState.__init__(self, name)
+    def __init__(self, depl, name):
+        MachineState.__init__(self, depl, name)
         
     def create(self, defn, check):
         assert isinstance(defn, NoneDefinition)
