@@ -2,7 +2,7 @@ import os
 import sys
 
 
-def remove(ip_address):
+def _rewrite(ip_address, public_host_key):
     path = os.path.expanduser("~/.ssh/known_hosts")
     if not os.path.isfile(path): return
     
@@ -17,8 +17,19 @@ def remove(ip_address):
 
     new = [ l for l in [ rewrite(l) for l in contents.splitlines() ] if l is not None ]
 
+    if public_host_key:
+        new.append(ip_address + " " + public_host_key)
+
     tmp = path + ".tmp"
     f = open(tmp, 'w')
     f.write('\n'.join(new + [""]))
     f.close()
     os.rename(tmp, path)
+
+
+def remove(ip_address):
+    _rewrite(ip_address, None)
+
+
+def add(ip_address, public_host_key):
+    _rewrite(ip_address, public_host_key)

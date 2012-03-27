@@ -25,6 +25,7 @@ class MachineState:
     def __init__(self, depl, name):
         self.name = name
         self.depl = depl
+        self.created = False
 
         # Nix store path of the last global configuration deployed to
         # this machine.  Used to check whether this machine is up to

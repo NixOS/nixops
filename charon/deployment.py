@@ -57,6 +57,7 @@ class Deployment:
         """Write the current deployment state to the state file in JSON format."""
         machines = {}
         for m in self.machines.itervalues():
+            if not m.created: continue
             x = m.serialise()
             x["targetEnv"] = m.get_type()
             machines[m.name] = x
@@ -224,6 +225,7 @@ class Deployment:
         if not dry_run and not build_only:
             for m in self.active.itervalues():
                 if not should_do(m, include, exclude): continue
+                m.created = True
                 m.create(self.definitions[m.name], check=check)
 
         if create_only: return

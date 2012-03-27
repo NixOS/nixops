@@ -3,6 +3,8 @@
 import os
 import sys
 import time
+import subprocess
+import shutil
 import boto.ec2
 from charon.backends import MachineDefinition, MachineState
 import charon.known_hosts
@@ -55,6 +57,7 @@ class EC2State(MachineState):
         self._public_ipv4 = None
         self._private_ipv4 = None
         self._tagged = False
+        self._public_host_key = False
         
         
     def serialise(self):
@@ -72,6 +75,7 @@ class EC2State(MachineState):
         if self._public_ipv4: x['ipv4'] = self._public_ipv4
         if self._private_ipv4: x['privateIpv4'] = self._private_ipv4
         if self._tagged: x['tagged'] = self._tagged
+        if self._public_host_key: x['publicHostKey'] = self._public_host_key
         
         return x
 
@@ -91,6 +95,7 @@ class EC2State(MachineState):
         self._public_ipv4 = x.get('ipv4', None)
         self._private_ipv4 = x.get('privateIpv4', None)
         self._tagged = x.get('tagged', False)
+        self._public_host_key = x.get('publicHostKey', None)
 
         
     def get_ssh_name(self):
@@ -132,6 +137,20 @@ class EC2State(MachineState):
         reservations = self._conn.get_all_instances([instanceid])
         return reservations[0].instances[0]
 
+
+    def _create_key_pair(self):
+        key_dir = self.depl.tempdir + "/ssh-key-" + self.name
+        os.mkdir(key_dir, 0700)
+        fnull = open(os.devnull, 'w')
+        res = subprocess.call(["ssh-keygen", "-t", "dsa", "-f", key_dir + "/key", "-N", '', "-C", "Charon auto-generated key"],
+                              stdout=fnull)
+        fnull.close()
+        if res != 0: raise Exception("unable to generate an SSH key")
+        f = open(key_dir + "/key"); private = f.read(); f.close()
+        f = open(key_dir + "/key.pub"); public = f.read().rstrip(); f.close()
+        shutil.rmtree(key_dir)
+        return (private, public)
+
     
     def create(self, defn, check):
         assert isinstance(defn, EC2Definition)
@@ -144,11 +163,16 @@ class EC2State(MachineState):
             self._region = defn.region
             self.connect()
 
+            (private, public) = self._create_key_pair()
+
+            user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"));
+
             reservation = self._conn.run_instances(
-                image_id = defn.ami,
-                instance_type = defn.instance_type,
-                key_name = defn.key_pair,
-                security_groups = defn.security_groups)
+                image_id=defn.ami,
+                instance_type=defn.instance_type,
+                key_name=defn.key_pair,
+                security_groups=defn.security_groups,
+                user_data=user_data)
 
             assert len(reservation.instances) == 1
 
@@ -161,6 +185,8 @@ class EC2State(MachineState):
             self._key_pair = defn.key_pair
             self._security_groups = defn.security_groups
             self._zone = instance.placement
+            self._public_host_key = public
+            
             self.write()
 
         if not self._tagged or check:
@@ -183,6 +209,8 @@ class EC2State(MachineState):
                 time.sleep(3)
             sys.stderr.write("{0} / {1}\n".format(instance.ip_address, instance.private_ip_address))
 
+            charon.known_hosts.add(instance.ip_address, self._public_host_key)
+            
             self._private_ipv4 = instance.private_ip_address
             self._public_ipv4 = instance.ip_address
             self.write()
@@ -190,8 +218,6 @@ class EC2State(MachineState):
 
     def destroy(self):
         print >> sys.stderr, "destroying EC2 instance ‘{0}’...".format(self.name)
-
-        self.connect()
 
         instance = self.get_instance_by_id(self._instance_id)
         instance.terminate()
