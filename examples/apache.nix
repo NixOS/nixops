@@ -34,8 +34,8 @@ in
 
           <Proxy balancer://cluster>
             Allow from all
-            BalancerMember http://${nodes.backend1.config.networking.privateIPv4} retry=0
-            BalancerMember http://${nodes.backend2.config.networking.privateIPv4} retry=0
+            BalancerMember http://backend1 retry=0
+            BalancerMember http://backend2 retry=0
           </Proxy>
 
           ProxyStatus       full

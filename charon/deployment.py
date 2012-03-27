@@ -115,6 +115,11 @@ class Deployment:
             if private_ipv4: lines.append('    networking.privateIPv4 = "{0}";\n'.format(private_ipv4))
             public_ipv4 = m.public_ipv4
             if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";\n'.format(public_ipv4))
+            hosts = []
+            for m2 in self.active.itervalues():
+                ip = m.address_to(m2)
+                if ip: hosts.append("{0} {1}".format(ip, m2.name))
+            lines.append('    networking.extraHosts = "{0}\\n";\n'.format('\\n'.join(hosts)))
             lines.append("  };\n")
             return "".join(lines)
 

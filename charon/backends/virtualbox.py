@@ -82,6 +82,7 @@ class VirtualBoxState(MachineState):
     def private_ipv4(self):
         return self._ipv4
 
+    
     def _get_vm_info(self):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
         try:
@@ -95,6 +96,7 @@ class VirtualBoxState(MachineState):
             vminfo[k] = v
         return vminfo
 
+    
     def create(self, defn, check):
         assert isinstance(defn, VirtualBoxDefinition)
         
@@ -193,6 +195,7 @@ class VirtualBoxState(MachineState):
             
             self.write()
 
+            
     def destroy(self):
         print >> sys.stderr, "destroying VirtualBox VM ‘{0}’...".format(self.name)
         

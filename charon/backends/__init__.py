@@ -79,7 +79,13 @@ class MachineState:
     @property
     def private_ipv4(self):
         return None
-    
+
+    def address_to(self, m):
+        """Return the IP address to be used to access machone "m" from this machine."""
+        ip = m.public_ipv4
+        if ip: return ip
+        return None
+
 
 import charon.backends.none
 import charon.backends.virtualbox

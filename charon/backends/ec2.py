@@ -118,6 +118,13 @@ class EC2State(MachineState):
         return self._private_ipv4
 
     
+    def address_to(self, m):
+        if isinstance(m, EC2State):
+            if self._region == m._region:
+                return m._private_ipv4
+        return MachineState.address_to(self, m)
+
+    
     def connect(self):
         if self._conn: return
         assert self._region
