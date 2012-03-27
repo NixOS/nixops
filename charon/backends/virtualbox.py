@@ -71,7 +71,8 @@ class VirtualBoxState(MachineState):
         return ["-o", "StrictHostKeyChecking=no", "-i", copy]
 
     def get_physical_spec(self):
-        return ["    require = [ <charon/virtualbox-image-charon.nix> ];\n"]
+        return ["    require = [ <charon/virtualbox-image-charon.nix> ];\n",
+                '    nixpkgs.system = pkgs.lib.mkOverride 900 "x86_64-linux";\n']
     
     @property
     def vm_id(self):

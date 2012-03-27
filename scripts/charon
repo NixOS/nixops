@@ -31,7 +31,7 @@ def op_info():
         tbl.add_row(
             [name,
              (("Up" if depl.configs_path == m.cur_configs_path else "Outdated") if m else "New") if d else "Obsolete",
-             m.get_type() if m else d.get_type() + (" [{0}]".format(d.region) if d and d.region else ""),
+             (m.get_type() if m else d.get_type()) + (" [{0}]".format(d.region) if d and d.region else ""),
              m.vm_id or "" if m else "",
              m.public_ipv4 or m.private_ipv4 or "" if m else ""
              ])

@@ -8,5 +8,5 @@
       deployment.ec2.securityGroups = [ "eelco-test" ];
     };
     
-  backend2.deployment.ec2.region = "us-west-1";
+  backend2.deployment.ec2.region = "us-east-1";
 }

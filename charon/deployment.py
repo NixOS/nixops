@@ -110,6 +110,10 @@ class Deployment:
             lines = []
             lines.append("  " + m.name + " = { config, pkgs, ... }: {\n")
             lines.extend(m.get_physical_spec())
+            private_ipv4 = m.private_ipv4
+            if private_ipv4: lines.append('    networking.privateIPv4 = "{0}";\n'.format(private_ipv4))
+            public_ipv4 = m.public_ipv4
+            if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";\n'.format(public_ipv4))
             lines.append("  };\n")
             return "".join(lines)
 

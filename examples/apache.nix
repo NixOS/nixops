@@ -12,6 +12,7 @@ let
 in
 
 {
+  network.description = "Load balancer test";
 
   proxy =
     { config, pkgs, nodes, ... }:
