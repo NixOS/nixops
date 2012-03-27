@@ -109,19 +109,21 @@ class Deployment:
 
         def for_machine(m):
             lines = []
-            lines.append("  " + m.name + " = { config, pkgs, ... }: {\n")
-            lines.extend(m.get_physical_spec())
+            lines.append("  " + m.name + " = { config, pkgs, ... }: {")
+            lines.extend(m.get_physical_spec(self.active))
             private_ipv4 = m.private_ipv4
-            if private_ipv4: lines.append('    networking.privateIPv4 = "{0}";\n'.format(private_ipv4))
+            if private_ipv4: lines.append('    networking.privateIPv4 = "{0}";'.format(private_ipv4))
             public_ipv4 = m.public_ipv4
-            if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";\n'.format(public_ipv4))
+            if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";'.format(public_ipv4))
             hosts = []
             for m2 in self.active.itervalues():
+                if m == m2: continue
                 ip = m.address_to(m2)
                 if ip: hosts.append("{0} {1}".format(ip, m2.name))
-            lines.append('    networking.extraHosts = "{0}\\n";\n'.format('\\n'.join(hosts)))
+            lines.append('    networking.extraHosts = "{0}\\n";'.format('\\n'.join(hosts)))
+            lines.append('    boot.kernelModules = [ "tun" ];')
             lines.append("  };\n")
-            return "".join(lines)
+            return "\n".join(lines)
 
         return "".join(["{\n"] + [for_machine(m) for m in self.active.itervalues()] + ["}\n"])
             
@@ -184,7 +186,7 @@ class Deployment:
             
             print >> sys.stderr, "activating new configuration on machine ‘{0}’...".format(m.name)
 
-            if subprocess.call(
+            res = subprocess.call(
                 ["ssh", "-x", "root@" + m.get_ssh_name()]
                 + m.get_ssh_flags() +
                 [# Set the system profile to the new configuration.
@@ -193,8 +195,8 @@ class Deployment:
                  # GRUB boot loader.  For performance, skip this step
                  # if the new config is already current.
                  "cur=$(readlink /var/run/current-system); " +
-                 'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi"]) != 0:
-                raise Exception("unable to activate new configuration on machine ‘{0}’".format(m.name))
+                 'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi"])
+            if res != 0: raise Exception("unable to activate new configuration on machine ‘{0}’".format(m.name))
 
             # Record that we switched this machine to the new
             # configuration.

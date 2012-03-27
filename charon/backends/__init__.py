@@ -65,7 +65,7 @@ class MachineState:
     def get_ssh_flags(self):
         return []
 
-    def get_physical_spec(self):
+    def get_physical_spec(self, machines):
         return []
 
     @property

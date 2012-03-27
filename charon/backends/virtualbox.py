@@ -70,9 +70,9 @@ class VirtualBoxState(MachineState):
             os.chmod(copy, stat.S_IRUSR | stat.S_IWUSR)
         return ["-o", "StrictHostKeyChecking=no", "-i", copy]
 
-    def get_physical_spec(self):
-        return ["    require = [ <charon/virtualbox-image-charon.nix> ];\n",
-                '    nixpkgs.system = pkgs.lib.mkOverride 900 "x86_64-linux";\n']
+    def get_physical_spec(self, machines):
+        return ['    require = [ <charon/virtualbox-image-charon.nix> ];',
+                '    nixpkgs.system = pkgs.lib.mkOverride 900 "x86_64-linux";']
     
     @property
     def vm_id(self):

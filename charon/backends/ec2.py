@@ -58,6 +58,7 @@ class EC2State(MachineState):
         self._private_ipv4 = None
         self._tagged = False
         self._public_host_key = False
+        self._public_vpn_key = False
         
         
     def serialise(self):
@@ -76,6 +77,7 @@ class EC2State(MachineState):
         if self._private_ipv4: x['privateIpv4'] = self._private_ipv4
         if self._tagged: x['tagged'] = self._tagged
         if self._public_host_key: x['publicHostKey'] = self._public_host_key
+        if self._public_vpn_key: x['publicVpnKey'] = self._public_vpn_key
         
         return x
 
@@ -95,15 +97,46 @@ class EC2State(MachineState):
         self._public_ipv4 = x.get('ipv4', None)
         self._private_ipv4 = x.get('privateIpv4', None)
         self._tagged = x.get('tagged', False)
+        self._vpn_key_set = x.get('vpnKeySet', False)
         self._public_host_key = x.get('publicHostKey', None)
+        self._public_vpn_key = x.get('publicVpnKey', None)
 
         
     def get_ssh_name(self):
         assert self._public_ipv4
         return self._public_ipv4
 
-    def get_physical_spec(self):
-        return ["    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];\n"]
+    def get_physical_spec(self, machines):
+        lines = ['    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];',
+                 '    services.openssh.extraConfig = "PermitTunnel yes\\n";']
+        authorized_keys = []
+        tun = 0
+        for m in machines.itervalues():
+            tun = tun + 1
+            if self != m and isinstance(m, EC2State) and self._region != m._region:
+                # The two machines are in different regions, so they
+                # can't talk directly to each other over their private
+                # IP.  So create a VPN connection over their public
+                # IPs to forward the private IPs.
+                if self.name > m.name:
+                    # Since it's a two-way tunnel, we only need to
+                    # start it on one machine (for each pair of
+                    # machines).  Pick the one that has the higher
+                    # name (lexicographically).
+                    lines.append('    jobs."vpn-to-{0}" = {{'.format(m.name))
+                    lines.append('      startOn = "started network-interfaces";')
+                    lines.append('      path = [ pkgs.nettools pkgs.openssh ];')
+                    lines.append('      daemonType = "fork";')
+                    lines.append('      exec = "ssh -i /root/.ssh/id_vpn -o StrictHostKeyChecking=no -f -x -w {0}:{0} {4} \'ifconfig tun{0} {2} {3} netmask 255.255.255.255; route add {2}/32 dev tun{0}\'";'
+                                 .format(tun, m.name, self._private_ipv4, m._private_ipv4, m._public_ipv4))
+                    lines.append('      postStart = "ifconfig tun{0} {2} {1} netmask 255.255.255.255; route add {2}/32 dev tun{0}";'
+                                 .format(tun, self._private_ipv4, m._private_ipv4))
+                    lines.append('    };')
+                else:
+                    # The other side just needs an authorized_keys entry.
+                    authorized_keys.append('"' + m._public_vpn_key + '"')
+        lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys)))
+        return lines
     
     @property
     def vm_id(self):
@@ -120,8 +153,7 @@ class EC2State(MachineState):
     
     def address_to(self, m):
         if isinstance(m, EC2State):
-            if self._region == m._region:
-                return m._private_ipv4
+            return m._private_ipv4
         return MachineState.address_to(self, m)
 
     
@@ -172,7 +204,7 @@ class EC2State(MachineState):
 
             (private, public) = self._create_key_pair()
 
-            user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"));
+            user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"))
 
             reservation = self._conn.run_instances(
                 image_id=defn.ami,
@@ -220,6 +252,23 @@ class EC2State(MachineState):
             
             self._private_ipv4 = instance.private_ip_address
             self._public_ipv4 = instance.ip_address
+            self.write()
+
+        # !!! Wait until the machine is reachable via SSH.
+            
+        if not self._public_vpn_key:
+            (private, public) = self._create_key_pair()
+            f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
+            f.write(private)
+            f.seek(0)
+            res = subprocess.call(
+                ["ssh", "-x", "root@" + self.get_ssh_name()]
+                + self.get_ssh_flags() +
+                ["umask 077 && mkdir -p /root/.ssh && cat > /root/.ssh/id_vpn"],
+                stdin=f)
+            f.close()
+            if res != 0: raise Exception("unable to upload VPN key to ‘{0}’".format(self.name))
+            self._public_vpn_key = public
             self.write()
 
 
