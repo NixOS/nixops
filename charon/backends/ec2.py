@@ -44,6 +44,7 @@ class EC2State(MachineState):
         self._conn = None
         
         self._region = None
+        self._zone = None
         self._controller = None
         self._ami = None
         self._instance_type = None
@@ -60,6 +61,7 @@ class EC2State(MachineState):
         x = MachineState.serialise(self)
         
         if self._region: x['region'] = self._region
+        if self._zone: x['zone'] = self._zone
         if self._controller: x['controller'] = self._controller
         if self._ami: x['ami'] = self._ami
         if self._instance_type: x['instanceType'] = self._instance_type
@@ -78,6 +80,7 @@ class EC2State(MachineState):
         MachineState.deserialise(self, x)
         
         self._region = x.get('region', None)
+        self._zone = x.get('zone', None)
         self._controller = x.get('controller', None)
         self._ami = x.get('ami', None)
         self._instance_type = x.get('instanceType', None)
@@ -157,6 +160,7 @@ class EC2State(MachineState):
             self._instance_type = defn.instance_type
             self._key_pair = defn.key_pair
             self._security_groups = defn.security_groups
+            self._zone = instance.placement
             self.write()
 
         if not self._tagged or check:
