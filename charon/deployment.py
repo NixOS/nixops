@@ -234,6 +234,7 @@ class Deployment:
                 if not should_do(m, include, exclude): continue
                 m.created = True
                 m.create(self.definitions[m.name], check=check)
+                m.wait_for_ssh(check=check)
 
         if create_only: return
 

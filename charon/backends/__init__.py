@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import time
+import subprocess
 
 
 class MachineDefinition:
@@ -26,6 +28,7 @@ class MachineState:
         self.name = name
         self.depl = depl
         self.created = False
+        self._ssh_pinged = False
 
         # Nix store path of the last global configuration deployed to
         # this machine.  Used to check whether this machine is up to
@@ -48,12 +51,14 @@ class MachineState:
         x = { }
         if self.cur_configs_path: x['vmsPath'] = self.cur_configs_path
         if self.cur_toplevel: x['toplevel'] = self.cur_toplevel
+        if self._ssh_pinged: x['sshPinged'] = self._ssh_pinged
         return x
 
     def deserialise(self, x):
         """Deserialise the state from the given dictionary."""
         self.cur_configs_path = x.get('vmsPath', None)
         self.cur_toplevel = x.get('toplevel', None)
+        self._ssh_pinged = x.get('sshPinged', False)
 
     def destroy(self):
         """Destroy this machine, if possible."""
@@ -88,6 +93,19 @@ class MachineState:
         ip = m.public_ipv4
         if ip: return ip
         return None
+
+    def wait_for_ssh(self, check=False):
+        """Wait until the SSH port is open on this machine."""
+        if self._ssh_pinged and not check: return
+        sys.stderr.write("waiting for SSH on ‘{0}’...".format(self.name))
+        while True:
+            res = subprocess.call(["nc", "-z", self.get_ssh_name(), "22", "-w", "1"])
+            if res == 0: break
+            time.sleep(1)
+            sys.stderr.write(".")
+        sys.stderr.write("\n")
+        self._ssh_pinged = True
+        self.write()
 
 
 import charon.backends.none

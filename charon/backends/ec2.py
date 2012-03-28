@@ -259,7 +259,7 @@ class EC2State(MachineState):
             self._public_ipv4 = instance.ip_address
             self.write()
 
-        # !!! Wait until the machine is reachable via SSH.
+        self.wait_for_ssh(check=check)
             
         if not self._public_vpn_key:
             (private, public) = self._create_key_pair()
