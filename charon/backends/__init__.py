@@ -29,6 +29,7 @@ class MachineState:
         self.depl = depl
         self.created = False
         self._ssh_pinged = False
+        self._ssh_pinged_this_time = False
 
         # Nix store path of the last global configuration deployed to
         # this machine.  Used to check whether this machine is up to
@@ -96,7 +97,7 @@ class MachineState:
 
     def wait_for_ssh(self, check=False):
         """Wait until the SSH port is open on this machine."""
-        if self._ssh_pinged and not check: return
+        if self._ssh_pinged and (not check or self._ssh_pinged_this_time): return
         sys.stderr.write("waiting for SSH on ‘{0}’...".format(self.name))
         while True:
             res = subprocess.call(["nc", "-z", self.get_ssh_name(), "22", "-w", "1"])
@@ -105,6 +106,7 @@ class MachineState:
             sys.stderr.write(".")
         sys.stderr.write("\n")
         self._ssh_pinged = True
+        self._ssh_pinged_this_time = True
         self.write()
 
 
