@@ -83,6 +83,12 @@ class VirtualBoxState(MachineState):
         return self._ipv4
 
     
+    def address_to(self, m):
+        if isinstance(m, VirtualBoxState):
+            return m._ipv4
+        return MachineState.address_to(self, m)
+
+    
     def _get_vm_info(self):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
         try:
