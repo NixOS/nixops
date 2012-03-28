@@ -118,6 +118,11 @@ try:
     args.op()
 except deployment.NixEvalError:
     print >> sys.stderr, "error: evaluation of the deployment model failed"
+    sys.exit(1)
+except KeyboardInterrupt:
+    print >> sys.stderr, "error: interrupted"
+    sys.exit(1)
 except Exception as e:
     if args.debug or str(e) == "": raise
     print >> sys.stderr, "error:", str(e)
+    sys.exit(1)
