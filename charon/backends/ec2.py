@@ -28,6 +28,7 @@ class EC2Definition(MachineDefinition):
         self.instance_type = x.find("attr[@name='instanceType']/string").get("value")
         self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
+        self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
 
     def make_state():
         return MachineState()
@@ -58,7 +59,7 @@ class EC2State(MachineState):
         self._instance_id = None
         self._public_ipv4 = None
         self._private_ipv4 = None
-        self._tagged = False
+        self._tags = {}
         self._public_host_key = False
         self._public_vpn_key = False
         
@@ -77,7 +78,7 @@ class EC2State(MachineState):
         if self._instance_id: x['vmId'] = self._instance_id
         if self._public_ipv4: x['ipv4'] = self._public_ipv4
         if self._private_ipv4: x['privateIpv4'] = self._private_ipv4
-        if self._tagged: x['tagged'] = self._tagged
+        if self._tags: x['tags'] = self._tags
         if self._public_host_key: x['publicHostKey'] = self._public_host_key
         if self._public_vpn_key: x['publicVpnKey'] = self._public_vpn_key
         
@@ -98,7 +99,7 @@ class EC2State(MachineState):
         self._instance_id = x.get('vmId', None)
         self._public_ipv4 = x.get('ipv4', None)
         self._private_ipv4 = x.get('privateIpv4', None)
-        self._tagged = x.get('tagged', False)
+        self._tags = x.get('tags', {})
         self._vpn_key_set = x.get('vpnKeySet', False)
         self._public_host_key = x.get('publicHostKey', None)
         self._public_vpn_key = x.get('publicVpnKey', None)
@@ -244,14 +245,16 @@ class EC2State(MachineState):
             
             self.write()
 
-        if not self._tagged or check:
+        # Reapply tags if they have changed.
+        tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
+        tags.update(defn.tags)
+        tags['CharonNetworkUUID'] = str(self.depl.uuid)
+        tags['CharonMachineName'] = self.name
+        if check or self._tags != tags:
             self.connect()
-            self._conn.create_tags(
-                [self._instance_id],
-                {'Name': "{0} [{1}]".format(self.depl.description, self.name),
-                 'CharonNetworkUUID': str(self.depl.uuid),
-                 'CharonMachineName': self.name})
-            self._tagged = True
+            self._conn.create_tags([self._instance_id], tags)
+            # TODO: remove obsolete tags?
+            self._tags = tags
             self.write()
 
         if not self._private_ipv4 or check:
