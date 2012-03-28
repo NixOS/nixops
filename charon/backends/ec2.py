@@ -42,9 +42,11 @@ class EC2State(MachineState):
     
     def __init__(self, depl, name):
         MachineState.__init__(self, depl, name)
-
         self._conn = None
-        
+        self._reset_state()
+
+
+    def _reset_state(self):
         self._region = None
         self._zone = None
         self._controller = None
@@ -140,7 +142,7 @@ class EC2State(MachineState):
     
     def show_type(self):
         s = MachineState.show_type(self)
-        if m._zone or m._region: s = "{0} [{1}]".format(s, m._zone or m._region)
+        if self._zone or self._region: s = "{0} [{1}]".format(s, self._zone or self._region)
         return s
 
     @property
@@ -200,6 +202,15 @@ class EC2State(MachineState):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
 
+        if self._instance_id and check:
+            # Check whether the instance hasn't been killed behind our backs.
+            self.connect()
+            instance = self.get_instance_by_id(self._instance_id)
+            if instance.state in {"shutting-down", "terminated"}:
+                print >> sys.stderr, "EC2 instance for ‘{0}’ went away (state ‘{1}’), will recreate".format(self.name, instance.state)
+                self._reset_state()
+                self.write()
+            
         if not self._instance_id:
             print >> sys.stderr, "creating EC2 instance ‘{0}’ (AMI ‘{1}’, type ‘{2}’, region ‘{3}’)...".format(
                 self.name, defn.ami, defn.instance_type, defn.region)
@@ -249,6 +260,8 @@ class EC2State(MachineState):
             while True:
                 instance = self.get_instance_by_id(self._instance_id)
                 sys.stderr.write("[{0}] ".format(instance.state))
+                if instance.state not in {"pending", "running", "scheduling", "launching"}:
+                    raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self._instance_id, instance.state))
                 if instance.private_ip_address: break
                 time.sleep(3)
             sys.stderr.write("{0} / {1}\n".format(instance.ip_address, instance.private_ip_address))
