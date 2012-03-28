@@ -138,6 +138,11 @@ class EC2State(MachineState):
         lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys)))
         return lines
     
+    def show_type(self):
+        s = MachineState.show_type(self)
+        if m._zone or m._region: s = "{0} [{1}]".format(s, m._zone or m._region)
+        return s
+
     @property
     def vm_id(self):
         return self._instance_id

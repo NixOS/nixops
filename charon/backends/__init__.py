@@ -68,6 +68,9 @@ class MachineState:
     def get_physical_spec(self, machines):
         return []
 
+    def show_type(self):
+        return self.get_type()
+
     @property
     def vm_id(self):
         return None
