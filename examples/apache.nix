@@ -2,11 +2,7 @@ let
 
   backend = 
     { config, pkgs, ... }:
-
-    {
-      services.httpd.enable = true;
-      services.httpd.adminAddr = "e.dolstra@tudelft.nl";
-      services.httpd.documentRoot = "${pkgs.valgrind}/share/doc/valgrind/html";
+    { require = [ ./nix-homepage.nix ];
     };
 
 in
@@ -17,7 +13,7 @@ in
   proxy =
     { config, pkgs, nodes, ... }:
 
-    {
+    { 
       services.httpd.enable = true;
       services.httpd.adminAddr = "e.dolstra@tudelft.nl";
       services.httpd.extraModules = ["proxy_balancer"];
@@ -50,5 +46,4 @@ in
 
   backend1 = backend;
   backend2 = backend;
-  
 }
