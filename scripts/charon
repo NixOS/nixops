@@ -39,7 +39,17 @@ def op_info():
 
     
 def op_check():
-    print "checking!"
+    depl = deployment.Deployment(args.state_file)
+    fnull = open(os.devnull, 'w')
+    for m in depl.machines.itervalues():
+        sys.stderr.write("{0}... ".format(m.name))
+        try:
+            avg = subprocess.check_output(
+                ["ssh", "-v", "root@" + m.get_ssh_name()] + m.get_ssh_flags() + ["cat /proc/loadavg"],
+                stderr=fnull).rstrip().split(' ')
+            sys.stderr.write("ok [{0} {1} {2}]\n".format(avg[0], avg[1], avg[2]))
+        except subprocess.CalledProcessError:
+            sys.stderr.write("fail\n")
 
     
 def op_deploy():
