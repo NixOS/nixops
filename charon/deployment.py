@@ -50,6 +50,7 @@ class Deployment:
         self.configs_path = state.get('vmsPath', None)
         for n, v in state['machines'].iteritems():
             self.machines[n] = charon.backends.create_state(self, v['targetEnv'], n)
+            self.machines[n].created = True
             self.machines[n].deserialise(v)
         
             
