@@ -4,7 +4,14 @@ pythonPackages.buildPythonPackage {
   name = "charon";
   namePrefix = "";
 
-  src = lib.cleanSource ./.;
+  src = ./.;
+
+  buildInputs = [ git ];
+
+  postUnpack = ''
+    # Clean up when building from a working tree.
+    (cd $sourceRoot && (git ls-files -o | xargs -r rm -v))
+  '';
 
   doCheck = false;
 
