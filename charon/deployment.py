@@ -9,8 +9,10 @@ import string
 import tempfile
 import atexit
 import shutil
+import threading
 from xml.etree import ElementTree
 import charon.backends
+import charon.parallel
 
 
 class Deployment:
@@ -22,6 +24,8 @@ class Deployment:
         self.configs_path = None
         self.description = "Unnamed Charon network"
         
+        self._state_lock = threading.Lock()
+            
         self.expr_path = os.path.dirname(__file__) + "/../../../../share/nix/charon"
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
@@ -37,7 +41,7 @@ class Deployment:
 
         self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
         atexit.register(lambda: shutil.rmtree(self.tempdir))
-            
+
 
     def load_state(self):
         """Read the current deployment state from the state file."""
@@ -56,22 +60,23 @@ class Deployment:
             
     def write_state(self):
         """Write the current deployment state to the state file in JSON format."""
-        machines = {}
-        for m in self.machines.itervalues():
-            if not m.created: continue
-            x = m.serialise()
-            x["targetEnv"] = m.get_type()
-            machines[m.name] = x
-        state = {'networkExprs': self.nix_exprs,
-                 'uuid': str(self.uuid),
-                 'description': self.description,
-                 'machines': machines}
-        if self.configs_path: state['vmsPath'] = self.configs_path
-        tmp = self.state_file + ".tmp"
-        f = open(tmp, 'w')
-        json.dump(state, f, indent=2)
-        f.close()
-        os.rename(tmp, self.state_file)
+        with self._state_lock:
+            machines = {}
+            for m in self.machines.itervalues():
+                if not m.created: continue
+                x = m.serialise()
+                x["targetEnv"] = m.get_type()
+                machines[m.name] = x
+            state = {'networkExprs': self.nix_exprs,
+                     'uuid': str(self.uuid),
+                     'description': self.description,
+                     'machines': machines}
+            if self.configs_path: state['vmsPath'] = self.configs_path
+            tmp = self.state_file + ".tmp"
+            f = open(tmp, 'w')
+            json.dump(state, f, indent=2)
+            f.close()
+            os.rename(tmp, self.state_file)
 
 
     def evaluate(self):
@@ -170,22 +175,24 @@ class Deployment:
     def copy_closures(self, configs_path, include, exclude):
         """Copy the closure of each machine configuration to the corresponding machine."""
 
-        for m in self.active.itervalues():
-            if not should_do(m, include, exclude): continue
-            print >> sys.stderr, "copying closure to machine ‘{0}’...".format(m.name)
+        def worker(m):
+            if not should_do(m, include, exclude): return
+            sys.stderr.write("copying closure to machine ‘{0}’...\n".format(m.name))
             m.new_toplevel = os.path.realpath(configs_path + "/" + m.name)
             if not os.path.exists(m.new_toplevel):
                 raise Exception("can't find closure of machine ‘{0}’".format(m.name))
             self.copy_closure(m, m.new_toplevel)
 
+        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+            
 
     def activate_configs(self, configs_path, include, exclude):
         """Activate the new configuration on a machine."""
 
-        for m in self.active.itervalues():
-            if not should_do(m, include, exclude): continue
+        def worker(m):
+            if not should_do(m, include, exclude): return
             
-            print >> sys.stderr, "activating new configuration on machine ‘{0}’...".format(m.name)
+            sys.stderr.write("activating new configuration on machine ‘{0}’...\n".format(m.name))
 
             res = subprocess.call(
                 ["ssh", "-x", "root@" + m.get_ssh_name()]
@@ -205,6 +212,8 @@ class Deployment:
             m.cur_toplevel = m.new_toplevel
             self.write_state()
 
+        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+            
 
     def deploy(self, dry_run=False, build_only=False, create_only=False,
                include=[], exclude=[], check=False):
@@ -231,11 +240,12 @@ class Deployment:
 
         # Start or update the active machines.  !!! Should do this in parallel.
         if not dry_run and not build_only:
-            for m in self.active.itervalues():
-                if not should_do(m, include, exclude): continue
+            def worker(m):
+                if not should_do(m, include, exclude): return
                 m.created = True
                 m.create(self.definitions[m.name], check=check)
                 m.wait_for_ssh(check=check)
+            charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
 
         if create_only: return
 

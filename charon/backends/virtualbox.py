@@ -132,7 +132,7 @@ class VirtualBoxState(MachineState):
                          "<charon/eval-machine-info.nix>",
                          "--arg", "networkExprs", "[ " + " ".join(self.depl.nix_exprs) + " ]",
                          "-A", "nodes." + self.name + ".config.deployment.virtualbox.baseImage",
-                         "-o", self.depl.tempdir + "/vbox-image"]).rstrip()
+                         "-o", "{0}/vbox-image-{1}".format(self.depl.tempdir, self.name)]).rstrip()
                 except subprocess.CalledProcessError:
                     raise Exception("unable to build base image")
 
