@@ -67,42 +67,45 @@ class EC2State(MachineState):
     def serialise(self):
         x = MachineState.serialise(self)
         
-        if self._region: x['region'] = self._region
-        if self._zone: x['zone'] = self._zone
-        if self._controller: x['controller'] = self._controller
-        if self._ami: x['ami'] = self._ami
-        if self._instance_type: x['instanceType'] = self._instance_type
-        if self._key_pair: x['keyPair'] = self._key_pair
-        if self._security_groups: x['securityGroups'] = self._security_groups
-        
         if self._instance_id: x['vmId'] = self._instance_id
         if self._public_ipv4: x['ipv4'] = self._public_ipv4
         if self._private_ipv4: x['privateIpv4'] = self._private_ipv4
-        if self._tags: x['tags'] = self._tags
-        if self._public_host_key: x['publicHostKey'] = self._public_host_key
-        if self._public_vpn_key: x['publicVpnKey'] = self._public_vpn_key
+
+        y = {}
+        if self._region: y['region'] = self._region
+        if self._zone: y['zone'] = self._zone
+        if self._controller: y['controller'] = self._controller
+        if self._ami: y['ami'] = self._ami
+        if self._instance_type: y['instanceType'] = self._instance_type
+        if self._key_pair: y['keyPair'] = self._key_pair
+        if self._security_groups: y['securityGroups'] = self._security_groups
+        if self._tags: y['tags'] = self._tags
+        if self._public_host_key: y['publicHostKey'] = self._public_host_key
+        if self._public_vpn_key: y['publicVpnKey'] = self._public_vpn_key
+        x['ec2'] = y
         
         return x
 
     
     def deserialise(self, x):
         MachineState.deserialise(self, x)
-        
-        self._region = x.get('region', None)
-        self._zone = x.get('zone', None)
-        self._controller = x.get('controller', None)
-        self._ami = x.get('ami', None)
-        self._instance_type = x.get('instanceType', None)
-        self._key_pair = x.get('keyPair', None)
-        self._security_groups = x.get('securityGroups', None)
-        
+
         self._instance_id = x.get('vmId', None)
         self._public_ipv4 = x.get('ipv4', None)
         self._private_ipv4 = x.get('privateIpv4', None)
-        self._tags = x.get('tags', {})
-        self._vpn_key_set = x.get('vpnKeySet', False)
-        self._public_host_key = x.get('publicHostKey', None)
-        self._public_vpn_key = x.get('publicVpnKey', None)
+        
+        y = x.get('ec2')
+        self._region = y.get('region', None)
+        self._zone = y.get('zone', None)
+        self._controller = y.get('controller', None)
+        self._ami = y.get('ami', None)
+        self._instance_type = y.get('instanceType', None)
+        self._key_pair = y.get('keyPair', None)
+        self._security_groups = y.get('securityGroups', None)
+        self._tags = y.get('tags', {})
+        self._public_host_key = y.get('publicHostKey', None)
+        self._vpn_key_set = y.get('vpnKeySet', False)
+        self._public_vpn_key = y.get('publicVpnKey', None)
 
         
     def get_ssh_name(self):

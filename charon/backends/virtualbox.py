@@ -46,18 +46,24 @@ class VirtualBoxState(MachineState):
         x = MachineState.serialise(self)
         if self._vm_id: x['vmId'] = self._vm_id
         if self._ipv4: x['privateIpv4'] = self._ipv4
-        if self._disk: x['disk'] = self._disk
-        x['diskAttached'] = self._disk_attached
-        x['started'] = self._started
+
+        y = {}
+        if self._disk: y['disk'] = self._disk
+        y['diskAttached'] = self._disk_attached
+        y['started'] = self._started
+        x['virtualbox'] = y
+        
         return x
 
     def deserialise(self, x):
         MachineState.deserialise(self, x)
         self._vm_id = x.get('vmId', None)
         self._ipv4 = x.get('privateIpv4', None)
-        self._disk = x.get('disk', None)
-        self._disk_attached = x.get('diskAttached', False)
-        self._started = x.get('started', False)
+
+        y = x.get('virtualbox')
+        self._disk = y.get('disk', None)
+        self._disk_attached = y.get('diskAttached', False)
+        self._started = y.get('started', False)
 
     def get_ssh_name(self):
         assert self._ipv4
