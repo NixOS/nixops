@@ -21,9 +21,9 @@ def run_tasks(nr_workers, tasks, worker_fun):
                 break
             n = n + 1
             try:
-                result_queue.put((worker_fun(t), None))
+                result_queue.put((worker_fun(t), None, None))
             except Exception as e:
-                result_queue.put((None, e))
+                result_queue.put((None, e, sys.exc_info()[2]))
         #sys.stderr.write("thread {0} did {1} tasks\n".format(threading.current_thread(), n))
         
     threads = []
@@ -35,8 +35,9 @@ def run_tasks(nr_workers, tasks, worker_fun):
 
     results = []
     while len(results) < n:
-        (res, exc) = result_queue.get()
-        if exc: raise exc
+        (res, exc, tb) = result_queue.get()
+        if exc:
+            raise exc, None, tb
         results.append(res)
         
     for thr in threads:
