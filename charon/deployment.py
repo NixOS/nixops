@@ -21,6 +21,8 @@ class Deployment:
     def __init__(self, state_file, create=False, nix_exprs=[]):
         self.state_file = state_file
         self.machines = { }
+        self._machine_state = { }
+        self.active = { }
         self.configs_path = None
         self.description = "Unnamed Charon network"
         
@@ -51,32 +53,39 @@ class Deployment:
         self.uuid = uuid.UUID(state['uuid'])
         self.description = state.get('description', self.description)
         self.machines = { }
+        self._machine_state = { }
         self.configs_path = state.get('vmsPath', None)
         for n, v in state['machines'].iteritems():
             self.machines[n] = charon.backends.create_state(self, v['targetEnv'], n)
-            self.machines[n].created = True
             self.machines[n].deserialise(v)
+            self._machine_state[n] = v
         
             
     def write_state(self):
         """Write the current deployment state to the state file in JSON format."""
+        state = {'networkExprs': self.nix_exprs,
+                 'uuid': str(self.uuid),
+                 'description': self.description,
+                 'machines': self._machine_state}
+        if self.configs_path: state['vmsPath'] = self.configs_path
+        tmp = self.state_file + ".tmp"
+        f = open(tmp, 'w')
+        json.dump(state, f, indent=2)
+        f.close()
+        os.rename(tmp, self.state_file)
+
+
+    def update_machine_state(self, m):
         with self._state_lock:
-            machines = {}
-            for m in self.machines.itervalues():
-                if not m.created: continue
-                x = m.serialise()
-                x["targetEnv"] = m.get_type()
-                machines[m.name] = x
-            state = {'networkExprs': self.nix_exprs,
-                     'uuid': str(self.uuid),
-                     'description': self.description,
-                     'machines': machines}
-            if self.configs_path: state['vmsPath'] = self.configs_path
-            tmp = self.state_file + ".tmp"
-            f = open(tmp, 'w')
-            json.dump(state, f, indent=2)
-            f.close()
-            os.rename(tmp, self.state_file)
+            self._machine_state[m.name] = m.serialise()
+            self.write_state()
+
+
+    def delete_machine(self, m):
+        del self.machines[m.name]
+        if m.name in self._machine_state: del self._machine_state[m.name]
+        if m.name in self.active: del self.active[m.name]
+        self.write_state()
 
 
     def evaluate(self):
@@ -242,7 +251,6 @@ class Deployment:
         if not dry_run and not build_only:
             def worker(m):
                 if not should_do(m, include, exclude): return
-                m.created = True
                 m.create(self.definitions[m.name], check=check)
                 m.wait_for_ssh(check=check)
             charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
@@ -275,9 +283,8 @@ class Deployment:
 
         for m in self.machines.values(): # don't use itervalues() here
             m.destroy()
-            del self.machines[m.name]
-            self.write_state()
-        
+            self.delete_machine(m)
+
 
 class NixEvalError(Exception):
     pass

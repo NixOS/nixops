@@ -41,7 +41,7 @@ class MachineState:
         self.cur_toplevel = None
 
     def write(self):
-        self.depl.write_state()
+        self.depl.update_machine_state(self)
         
     def create(self, defn, check):
         """Create or update the machine instance defined by ‘defn’, if appropriate."""
@@ -49,7 +49,7 @@ class MachineState:
 
     def serialise(self):
         """Return a dictionary suitable for representing the on-disk state of this machine."""
-        x = { }
+        x = {'targetEnv': self.get_type()}
         if self.cur_configs_path: x['vmsPath'] = self.cur_configs_path
         if self.cur_toplevel: x['toplevel'] = self.cur_toplevel
         if self._ssh_pinged: x['sshPinged'] = self._ssh_pinged
