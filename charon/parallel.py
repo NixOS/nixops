@@ -33,7 +33,12 @@ def run_tasks(nr_workers, tasks, worker_fun):
 
     results = []
     while len(results) < nr_tasks:
-        (res, exc, tb) = result_queue.get()
+        try:
+            # Use a timeout to allow keyboard interrupts to be
+            # processed.  The actual timeout value doesn't matter.
+            (res, exc, tb) = result_queue.get(True, 1000)
+        except Queue.Empty:
+            continue
         if exc:
             raise exc, None, tb
         results.append(res)
