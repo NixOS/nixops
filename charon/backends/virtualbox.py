@@ -183,6 +183,10 @@ class VirtualBoxState(MachineState):
                  "--nestedpaging", "off"])
             if res != 0: raise Exception("unable to modify VirtualBox VM ‘{0}’".format(self.name))
 
+            res = subprocess.call(
+                ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP", ''])
+            if res != 0: raise Exception("unable to clear IP address of VirtualBox VM ‘{0}’".format(self.name))
+            
             res = subprocess.call(["VBoxManage", "startvm", self._vm_id])
             if res != 0: raise Exception("unable to start VirtualBox VM ‘{0}’".format(self.name))
 
