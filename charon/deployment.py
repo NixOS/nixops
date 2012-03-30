@@ -219,7 +219,7 @@ class Deployment:
             # configuration.
             m.cur_configs_path = configs_path
             m.cur_toplevel = m.new_toplevel
-            self.write_state()
+            self.update_machine_state(m)
 
         charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
             
