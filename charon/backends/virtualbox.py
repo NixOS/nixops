@@ -97,16 +97,29 @@ class VirtualBoxState(MachineState):
     
     def _get_vm_info(self):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
-        try:
-            lines = subprocess.check_output(
-                ["VBoxManage", "showvminfo", "--machinereadable", self._vm_id]).splitlines()
-        except subprocess.CalledProcessError:
+        p = subprocess.Popen(
+            ["VBoxManage", "showvminfo", "--machinereadable", self._vm_id],
+            stdout=subprocess.PIPE)
+        lines = p.communicate()[0].splitlines()
+        p.wait()
+        # We ignore the exit code, because it may be 1 while the VM is
+        # shutting down (even though the necessary info is returned on
+        # stdout).
+        if len(lines) == 0:
             raise Exception("unable to get info on VirtualBox VM ‘{0}’".format(self.name))
         vminfo = {}
         for l in lines:
             (k, v) = l.split("=", 1)
             vminfo[k] = v
         return vminfo
+
+
+    def _get_vm_state(self):
+        '''Return the state ("running", etc.) of a VM.'''
+        vminfo = self._get_vm_info()
+        if 'VMState' not in vminfo:
+            raise Exception("unable to get state of VirtualBox VM ‘{0}’".format(self.name))
+        return vminfo['VMState'].replace('"', '')
 
     
     def create(self, defn, check):
@@ -166,8 +179,7 @@ class VirtualBoxState(MachineState):
             self.write()
 
         if check:
-            vminfo = self._get_vm_info()
-            if vminfo['VMState'] == '"running"':
+            if self._get_vm_state() == 'running':
                 self._started = True
             else:
                 print >> sys.stderr, "VirtualBox VM ‘{0}’ went down, restarting...".format(self.name)
@@ -215,12 +227,14 @@ class VirtualBoxState(MachineState):
             
     def destroy(self):
         print >> sys.stderr, "destroying VirtualBox VM ‘{0}’...".format(self.name)
-        
-        subprocess.call(["VBoxManage", "controlvm", self._vm_id, "poweroff"])
 
-        # !!! Stupid asynchronous commands.  Should wait here until
-        # the VM is shut down.
-        time.sleep(2)
+        if self._get_vm_state() == 'running':
+            subprocess.call(["VBoxManage", "controlvm", self._vm_id, "poweroff"])
+
+        while self._get_vm_state() not in ['poweroff', 'aborted']:
+            time.sleep(1)
+
+        time.sleep(1) # hack to work around "machine locked" errors
 
         res = subprocess.call(["VBoxManage", "unregistervm", "--delete", self._vm_id])
         if res != 0: raise Exception("unable to unregister VirtualBox VM ‘{0}’".format(self.name))
