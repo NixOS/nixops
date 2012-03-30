@@ -7,10 +7,8 @@ def run_tasks(nr_workers, tasks, worker_fun):
     task_queue = Queue.Queue()
     result_queue = Queue.Queue()
 
-    #nr_workers = 1
-
-    n = 0
-    for t in tasks: task_queue.put(t); n = n + 1
+    nr_tasks = 0
+    for t in tasks: task_queue.put(t); nr_tasks = nr_tasks + 1
 
     def thread_fun():
         n = 0
@@ -34,7 +32,7 @@ def run_tasks(nr_workers, tasks, worker_fun):
         threads.append(thr)
 
     results = []
-    while len(results) < n:
+    while len(results) < nr_tasks:
         (res, exc, tb) = result_queue.get()
         if exc:
             raise exc, None, tb
