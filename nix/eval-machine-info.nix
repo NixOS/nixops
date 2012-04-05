@@ -57,12 +57,15 @@ rec {
   };
 
   # Phase 2: build complete machine configurations.  
-  machines = runCommand "vms"
-    { preferLocalBuild = true; }
-    ''
-      mkdir -p $out
-      ${toString (attrValues (mapAttrs (n: v: ''
-        ln -s ${v.config.system.build.toplevel} $out/${n}
-      '') nodes))}
-    '';
+  machines = { names }:
+    let nodes' = filterAttrs (n: v: elem n names) nodes; in 
+    runCommand "vms"
+      { preferLocalBuild = true; }
+      ''
+        mkdir -p $out
+        ${toString (attrValues (mapAttrs (n: v: ''
+          ln -s ${v.config.system.build.toplevel} $out/${n}
+        '') nodes'))}
+      '';
+
 }

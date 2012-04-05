@@ -20,22 +20,39 @@ def op_info():
     depl = deployment.Deployment(args.state_file)
     depl.evaluate()
 
-    print "Network UUID:", depl.uuid
-    print "Network description:", depl.description
-    print
+    def state(d, m):
+        return (("Up" if depl.configs_path == m.cur_configs_path else "Outdated") if m else "New") if d else "Obsolete"
 
-    tbl = PrettyTable(["Name", "Status", "Type", "VM Id", "IP address"])
-    for name in set(depl.definitions.keys()) | set(depl.machines.keys()):
-        d = depl.definitions.get(name)
-        m = depl.machines.get(name)
-        tbl.add_row(
-            [name,
-             (("Up" if depl.configs_path == m.cur_configs_path else "Outdated") if m else "New") if d else "Obsolete",
-             m.show_type() if m else (d.get_type() + (" [{0}]".format(d.region) if hasattr(d, 'region') and d.region else "")),
-             m.vm_id or "" if m else "",
-             m.public_ipv4 or m.private_ipv4 or "" if m else ""
-             ])
-    print tbl
+    if args.plain:
+        for name in set(depl.definitions.keys()) | set(depl.machines.keys()):
+            d = depl.definitions.get(name)
+            m = depl.machines.get(name)
+            print "{0}\t{1}\t{2}\t{3}\t{4}\t{5}".format(
+                name,
+                state(d, m).lower(),
+                m.show_type() if m else d.get_type(),
+                m.vm_id or "" if m else "",
+                m.public_ipv4 or "",
+                m.private_ipv4 or "")
+
+    else:
+        print "Network UUID:", depl.uuid
+        print "Network description:", depl.description
+        print
+
+        tbl = PrettyTable(["Name", "Status", "Type", "VM Id", "IP address"])
+        for name in set(depl.definitions.keys()) | set(depl.machines.keys()):
+            d = depl.definitions.get(name)
+            m = depl.machines.get(name)
+            tbl.add_row(
+                [name,
+                 state(d, m),
+                 m.show_type() if m else (d.get_type() + (" [{0}]".format(d.region) if hasattr(d, 'region') and d.region else "")),
+                 m.vm_id or "" if m else "",
+                 m.public_ipv4 or m.private_ipv4 or "" if m else ""
+                 ])
+            
+        print tbl
 
     
 def op_check():
@@ -110,6 +127,7 @@ subparser.add_argument('nix_exprs', nargs='+', metavar='NIX-FILE', help='Nix exp
 
 subparser = subparsers.add_parser('info', help='show the state of the network')
 subparser.set_defaults(op=op_info)
+subparser.add_argument('--plain',  dest='plain', action='store_true', help='do not pretty-print the output')
 
 subparser = subparsers.add_parser('check', help='check the state of the machines in the network')
 subparser.set_defaults(op=op_check)

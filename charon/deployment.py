@@ -143,7 +143,7 @@ class Deployment:
         return "".join(["{\n"] + [for_machine(m) for m in self.active.itervalues()] + ["}\n"])
             
 
-    def build_configs(self, dry_run=False):
+    def build_configs(self, include, exclude, dry_run=False):
         """Build the machine configurations in the Nix store."""
 
         print >> sys.stderr, "building all machine configurations..."
@@ -152,12 +152,15 @@ class Deployment:
         f = open(phys_expr, "w")
         f.write(self.get_physical_spec())
         f.close()
+
+        names = ['"' + m.name + '"' for m in self.active.itervalues() if should_do(m, include, exclude)]
         
         try:
             configs_path = subprocess.check_output(
                 ["nix-build", "-I", "charon=" + self.expr_path, "--show-trace",
                  "<charon/eval-machine-info.nix>",
                  "--arg", "networkExprs", "[ " + " ".join(self.nix_exprs + [phys_expr]) + " ]",
+                 "--arg", "names", "[ " + " ".join(names) + " ]",
                  "-A", "machines", "-o", self.tempdir + "/configs"]
                 + (["--dry-run"] if dry_run else [])).rstrip()
         except subprocess.CalledProcessError:
@@ -259,10 +262,10 @@ class Deployment:
 
         # Build the machine configurations.
         if dry_run:
-            self.build_configs(dry_run=True)
+            self.build_configs(dry_run=True, include=include, exclude=exclude)
             return
 
-        self.configs_path = self.build_configs()
+        self.configs_path = self.build_configs(include=include, exclude=exclude)
 
         # Record configs_path in the state so that the ‘info’ command
         # can show whether machines have an outdated configuration.
