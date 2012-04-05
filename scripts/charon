@@ -80,11 +80,25 @@ def op_ssh():
     res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + args.args)
     sys.exit(res)
 
+def scp_loc(ssh_name, remote, loc):
+    return "root@{0}:{1}".format(ssh_name, loc) if remote else loc
+
+def op_scp():
+    depl = deployment.Deployment(args.state_file)
+    m = depl.machines.get(args.machine)
+    if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
+    ssh_name = m.get_ssh_name()
+    from_loc = scp_loc(ssh_name, args.scp_from, args.source)
+    to_loc = scp_loc(ssh_name, args.scp_to, args.destination)
+    print >> sys.stderr, "scp {0} -> {1}".format(ssh_name, from_loc, to_loc)
+    res = subprocess.call([ "scp", "-r", from_loc, to_loc])
+    sys.exit(res)
+
 
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool')
 
-parser.add_argument('--state', '-s', required=True, dest='state_file', metavar='FILE', help='path to state file')
+parser.add_argument('--state', '-s', dest='state_file', metavar='FILE', default="network.json", help='path to state file')
 parser.add_argument('--debug', dest='debug', action='store_true', help='enable debug output')
 parser.add_argument('--version', action='version', version='Charon 0.1')
 
@@ -120,6 +134,14 @@ subparser = subparsers.add_parser('ssh', help='login on the specified machine vi
 subparser.set_defaults(op=op_ssh)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
 subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
+
+subparser = subparsers.add_parser('scp', help='copy files to or from the specified machine via scp')
+subparser.set_defaults(op=op_scp)
+subparser.add_argument('--from', dest='scp_from', action='store_true', help='copy a file from specified machine')
+subparser.add_argument('--to', dest='scp_to', action='store_true', help='copy a file to specified machine')
+subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
+subparser.add_argument('source', metavar='SOURCE', help='source file location')
+subparser.add_argument('destination', metavar='DEST', help='destination file location')
 
 
 # Parse the command line and execute the desired operation.
