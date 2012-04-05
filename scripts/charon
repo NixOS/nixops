@@ -115,7 +115,8 @@ def op_scp():
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool')
 
-parser.add_argument('--state', '-s', dest='state_file', metavar='FILE', default="network.json", help='path to state file')
+parser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
+                    default=os.environ.get("CHARON_STATE", "network.json"), help='path to state file')
 parser.add_argument('--debug', dest='debug', action='store_true', help='enable debug output')
 parser.add_argument('--version', action='version', version='Charon 0.1')
 
