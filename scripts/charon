@@ -1,0 +1,179 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+from charon import deployment
+from prettytable import PrettyTable
+import argparse
+import os.path
+import sys
+import subprocess
+
+
+def op_create():
+    depl = deployment.Deployment(
+        args.state_file, create=True,
+        nix_exprs=[os.path.abspath(x) for x in args.nix_exprs])
+    depl.write_state()
+
+    
+def op_info():
+    depl = deployment.Deployment(args.state_file)
+    depl.evaluate()
+
+    def state(d, m):
+        return (("Up" if depl.configs_path == m.cur_configs_path else "Outdated") if m else "New") if d else "Obsolete"
+
+    if args.plain:
+        for name in set(depl.definitions.keys()) | set(depl.machines.keys()):
+            d = depl.definitions.get(name)
+            m = depl.machines.get(name)
+            print "{0}\t{1}\t{2}\t{3}\t{4}\t{5}".format(
+                name,
+                state(d, m).lower(),
+                m.show_type() if m else d.get_type(),
+                m.vm_id or "" if m else "",
+                m.public_ipv4 or "",
+                m.private_ipv4 or "")
+
+    else:
+        print "Network UUID:", depl.uuid
+        print "Network description:", depl.description
+        print
+
+        tbl = PrettyTable(["Name", "Status", "Type", "VM Id", "IP address"])
+        for name in set(depl.definitions.keys()) | set(depl.machines.keys()):
+            d = depl.definitions.get(name)
+            m = depl.machines.get(name)
+            tbl.add_row(
+                [name,
+                 state(d, m),
+                 m.show_type() if m else (d.get_type() + (" [{0}]".format(d.region) if hasattr(d, 'region') and d.region else "")),
+                 m.vm_id or "" if m else "",
+                 m.public_ipv4 or m.private_ipv4 or "" if m else ""
+                 ])
+            
+        print tbl
+
+    
+def op_check():
+    depl = deployment.Deployment(args.state_file)
+    fnull = open(os.devnull, 'w')
+    for m in depl.machines.itervalues():
+        sys.stderr.write("{0}... ".format(m.name))
+        try:
+            avg = subprocess.check_output(
+                ["ssh", "-v", "root@" + m.get_ssh_name()] + m.get_ssh_flags() + ["cat /proc/loadavg"],
+                stderr=fnull).rstrip().split(' ')
+            sys.stderr.write("ok [{0} {1} {2}]\n".format(avg[0], avg[1], avg[2]))
+        except subprocess.CalledProcessError:
+            sys.stderr.write("fail\n")
+
+    
+def op_deploy():
+    depl = deployment.Deployment(args.state_file)
+    depl.deploy(dry_run=args.dry_run, build_only=args.build_only, create_only=args.create_only,
+                include=args.include or [], exclude=args.exclude or [],
+                check=args.check)
+
+
+def op_destroy():
+    depl = deployment.Deployment(args.state_file)
+    depl.destroy_vms()
+
+
+def op_show_physical():
+    depl = deployment.Deployment(args.state_file)
+    depl.evaluate()
+    depl.active = {n: depl.machines[n] for n in depl.machines if n in depl.definitions}
+    print depl.get_physical_spec()
+
+
+def op_ssh():
+    depl = deployment.Deployment(args.state_file)
+    m = depl.machines.get(args.machine)
+    if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
+    ssh_name = m.get_ssh_name()
+    print >> sys.stderr, "connecting to {0}...".format(ssh_name)
+    res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + args.args)
+    sys.exit(res)
+
+def scp_loc(ssh_name, remote, loc):
+    return "root@{0}:{1}".format(ssh_name, loc) if remote else loc
+
+def op_scp():
+    depl = deployment.Deployment(args.state_file)
+    m = depl.machines.get(args.machine)
+    if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
+    ssh_name = m.get_ssh_name()
+    from_loc = scp_loc(ssh_name, args.scp_from, args.source)
+    to_loc = scp_loc(ssh_name, args.scp_to, args.destination)
+    print >> sys.stderr, "scp {0} -> {1}".format(ssh_name, from_loc, to_loc)
+    res = subprocess.call([ "scp", "-r", from_loc, to_loc])
+    sys.exit(res)
+
+
+# Set up the parser.
+parser = argparse.ArgumentParser(description='NixOS cloud deployment tool')
+
+parser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
+                    default=os.environ.get("CHARON_STATE", "network.json"), help='path to state file')
+parser.add_argument('--debug', dest='debug', action='store_true', help='enable debug output')
+parser.add_argument('--version', action='version', version='Charon 0.1')
+
+subparsers = parser.add_subparsers(help='sub-command help')
+
+subparser = subparsers.add_parser('create', help='create a state file')
+subparser.set_defaults(op=op_create)
+subparser.add_argument('nix_exprs', nargs='+', metavar='NIX-FILE', help='Nix expression(s) defining the network')
+
+subparser = subparsers.add_parser('info', help='show the state of the network')
+subparser.set_defaults(op=op_info)
+subparser.add_argument('--plain',  dest='plain', action='store_true', help='do not pretty-print the output')
+
+subparser = subparsers.add_parser('check', help='check the state of the machines in the network')
+subparser.set_defaults(op=op_check)
+
+subparser = subparsers.add_parser('deploy', help='deploy the network configuration')
+subparser.set_defaults(op=op_deploy)
+subparser.add_argument('--kill-obsolete', '-k', dest='kill_obsolete', action='store_true', help='kill obsolete virtual machines')
+subparser.add_argument('--dry-run', dest='dry_run', action='store_true', help='show what would be done')
+subparser.add_argument('--build-only', dest='build_only', action='store_true', help='build only; do not perform deployment actions')
+subparser.add_argument('--create-only', dest='create_only', action='store_true', help='exit after creating missing machines')
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform deployment actions on the specified machines only')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform deployment actions on the specified machines')
+subparser.add_argument('--check', dest='check', action='store_true', help='do not assume that the recorded state is correct')
+
+subparser = subparsers.add_parser('destroy', help='destroy all virtual machines in the network')
+subparser.set_defaults(op=op_destroy)
+
+subparser = subparsers.add_parser('show-physical', help='print the physical network expression')
+subparser.set_defaults(op=op_show_physical)
+
+subparser = subparsers.add_parser('ssh', help='login on the specified machine via SSH')
+subparser.set_defaults(op=op_ssh)
+subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
+subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
+
+subparser = subparsers.add_parser('scp', help='copy files to or from the specified machine via scp')
+subparser.set_defaults(op=op_scp)
+subparser.add_argument('--from', dest='scp_from', action='store_true', help='copy a file from specified machine')
+subparser.add_argument('--to', dest='scp_to', action='store_true', help='copy a file to specified machine')
+subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
+subparser.add_argument('source', metavar='SOURCE', help='source file location')
+subparser.add_argument('destination', metavar='DEST', help='destination file location')
+
+
+# Parse the command line and execute the desired operation.
+args = parser.parse_args()
+try:
+    args.op()
+except deployment.NixEvalError:
+    print >> sys.stderr, "error: evaluation of the deployment model failed"
+    sys.exit(1)
+except KeyboardInterrupt:
+    print >> sys.stderr, "error: interrupted"
+    sys.exit(1)
+except Exception as e:
+    if args.debug or str(e) == "": raise
+    print >> sys.stderr, "error:", str(e)
+    sys.exit(1)

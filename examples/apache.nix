@@ -2,21 +2,18 @@ let
 
   backend = 
     { config, pkgs, ... }:
-
-    {
-      services.httpd.enable = true;
-      services.httpd.adminAddr = "e.dolstra@tudelft.nl";
-      services.httpd.documentRoot = "${pkgs.valgrind}/share/doc/valgrind/html";
+    { require = [ ./nix-homepage.nix ];
     };
 
 in
 
 {
+  network.description = "Load balancer test";
 
   proxy =
     { config, pkgs, nodes, ... }:
 
-    {
+    { 
       services.httpd.enable = true;
       services.httpd.adminAddr = "e.dolstra@tudelft.nl";
       services.httpd.extraModules = ["proxy_balancer"];
@@ -33,8 +30,8 @@ in
 
           <Proxy balancer://cluster>
             Allow from all
-            BalancerMember http://${nodes.backend1.config.networking.privateIPv4} retry=0
-            BalancerMember http://${nodes.backend2.config.networking.privateIPv4} retry=0
+            BalancerMember http://backend1 retry=0
+            BalancerMember http://backend2 retry=0
           </Proxy>
 
           ProxyStatus       full
@@ -49,5 +46,4 @@ in
 
   backend1 = backend;
   backend2 = backend;
-  
 }

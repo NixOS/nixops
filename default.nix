@@ -1,28 +1,21 @@
 with import <nixpkgs> {};
 
-stdenv.mkDerivation {
+pythonPackages.buildPythonPackage {
   name = "charon";
+  namePrefix = "";
 
-  src = lib.cleanSource ./.;
+  src = ./.;
 
-  buildInputs =
-    [ perl makeWrapper perlPackages.XMLLibXML perlPackages.JSON
-      perlPackages.TextTable perlPackages.ListMoreUtils
-      perlPackages.NetAmazonEC2 perlPackages.FileSlurp
-      perlPackages.DataUUID perlPackages.SetObject
-      #nixUnstable
-    ];
+  buildInputs = [ git ];
 
-  installPhase = 
-    ''
-      mkdir -p $out/bin
-      cp src/charon.pl $out/bin/charon
+  postUnpack = ''
+    # Clean up when building from a working tree.
+    (cd $sourceRoot && (git ls-files -o | xargs -r rm -v))
+  '';
 
-      mkdir -p $out/share/nix/charon
-      cp nix/*.nix nix/id* $out/share/nix/charon/ # urgh!
+  doCheck = false;
 
-      wrapProgram $out/bin/charon \
-        --set PERL5LIB $PERL5LIB \
-        --prefix NIX_PATH : charon=$out/share/nix/charon
-    ''; # */
+  pythonPath = [ pythonPackages.prettytable pythonPackages.boto ];
+
+  installCommand = "python setup.py install --prefix=$out";
 }

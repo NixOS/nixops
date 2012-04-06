@@ -1,5 +1,5 @@
 {
-  network.name = "NixOS terminal server";
+  network.description = "NixOS terminal server";
 
   machine = 
     { config, pkgs, modulesPath, ... }:

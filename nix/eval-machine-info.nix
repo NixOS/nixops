@@ -11,28 +11,31 @@ rec {
   networks = map (networkExpr: import networkExpr) networkExprs;
 
   network = zipAttrs networks;
+
+  defaults = network.defaults or [];
   
   nodes =
-    listToAttrs (map (configurationName:
+    listToAttrs (map (machineName:
       let
-        modules = getAttr configurationName network;
+        modules = getAttr machineName network;
       in
-      { name = configurationName;
+      { name = machineName;
         value = import <nixos/lib/eval-config.nix> {
           modules =
             modules ++
+            defaults ++
             [ # Provide a default hostname and deployment target equal
               # to the attribute name of the machine in the model.
               { key = "set-default-hostname";
-                networking.hostName = mkOverride 900 configurationName;
-                deployment.targetHost = mkOverride 900 configurationName;
+                networking.hostName = mkOverride 900 machineName;
+                deployment.targetHost = mkOverride 900 machineName;
                 environment.checkConfigurationOptions = false; # should only do this in phase 1
               }
             ];
           extraArgs = { inherit nodes; };
         };
       }
-    ) (attrNames (removeAttrs network [ "network" ])));
+    ) (attrNames (removeAttrs network [ "network" "defaults" ])));
 
   # Phase 1: evaluate only the deployment attributes.
   info = {
@@ -54,12 +57,15 @@ rec {
   };
 
   # Phase 2: build complete machine configurations.  
-  machines = runCommand "vms"
-    { preferLocalBuild = true; }
-    ''
-      mkdir -p $out
-      ${toString (attrValues (mapAttrs (n: v: ''
-        ln -s ${v.config.system.build.toplevel} $out/${n}
-      '') nodes))}
-    '';
+  machines = { names }:
+    let nodes' = filterAttrs (n: v: elem n names) nodes; in 
+    runCommand "vms"
+      { preferLocalBuild = true; }
+      ''
+        mkdir -p $out
+        ${toString (attrValues (mapAttrs (n: v: ''
+          ln -s ${v.config.system.build.toplevel} $out/${n}
+        '') nodes'))}
+      '';
+
 }

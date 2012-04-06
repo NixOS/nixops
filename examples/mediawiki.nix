@@ -1,5 +1,5 @@
 {
-  network.name = "Mediawiki network";
+  network.description = "Mediawiki network";
 
   webserver = 
     { config, pkgs, ... }:
