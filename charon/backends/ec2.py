@@ -207,14 +207,24 @@ class EC2State(MachineState):
         assert defn.type == "ec2"
 
         if self._instance_id and check:
-            # Check whether the instance hasn't been killed behind our backs.
+            # Check whether the instance hasn't been killed behind our
+            # backs.  Restart stopped instances.
             self.connect()
             instance = self.get_instance_by_id(self._instance_id)
             if instance.state in {"shutting-down", "terminated"}:
                 print >> sys.stderr, "EC2 instance for ‘{0}’ went away (state ‘{1}’), will recreate".format(self.name, instance.state)
                 self._reset_state()
                 self.write()
-            
+            elif instance.state == "stopped":
+                print >> sys.stderr, "EC2 instance for ‘{0}’ was stopped, restarting...".format(self.name)
+
+                # When we restart, we'll probably get a new IP.  So forget the current one.
+                self._public_ipv4 = None
+                self._private_ipv4 = None
+                self.write()
+
+                instance.start()
+                
         if not self._instance_id:
             print >> sys.stderr, "creating EC2 instance ‘{0}’ (AMI ‘{1}’, type ‘{2}’, region ‘{3}’)...".format(
                 self.name, defn.ami, defn.instance_type, defn.region)
