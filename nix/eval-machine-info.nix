@@ -24,9 +24,11 @@ rec {
           modules =
             modules ++
             defaults ++
-            [ # Provide a default hostname and deployment target equal
-              # to the attribute name of the machine in the model.
-              { key = "set-default-hostname";
+            [ { key = "charon-stuff";
+                # Make Charon's deployment.* options available.
+                require = [ ./options.nix ];
+                # Provide a default hostname and deployment target equal
+                # to the attribute name of the machine in the model.
                 networking.hostName = mkOverride 900 machineName;
                 deployment.targetHost = mkOverride 900 machineName;
                 environment.checkConfigurationOptions = false; # should only do this in phase 1
