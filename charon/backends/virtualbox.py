@@ -22,6 +22,7 @@ class VirtualBoxDefinition(MachineDefinition):
         x = xml.find("attrs/attr[@name='virtualbox']/attrs")
         assert x is not None
         self._base_image = x.find("attr[@name='baseImage']/string").get("value")
+        self._memory_size = x.find("attr[@name='memorySize']/int").get("value")
 
     def make_state():
         return MachineState()
@@ -189,7 +190,7 @@ class VirtualBoxState(MachineState):
         if not self._started:
             res = subprocess.call(
                 ["VBoxManage", "modifyvm", self._vm_id,
-                 "--memory", "512", "--vram", "10",
+                 "--memory", defn._memory_size, "--vram", "10",
                  "--nictype1", "virtio", "--nictype2", "virtio",
                  "--nic2", "hostonly", "--hostonlyadapter2", "vboxnet0",
                  "--nestedpaging", "off"])

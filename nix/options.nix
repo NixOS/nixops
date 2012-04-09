@@ -178,6 +178,14 @@ let cfg = config.deployment; in
       '';
     };
 
+    deployment.virtualbox.memorySize = mkOption {
+      default = 512;
+      example = 512;
+      description = ''
+        Memory size (M) of virtual machine.
+      '';
+    };
+
     # Computed options useful for referring to other machines in
     # network specifications.
 
