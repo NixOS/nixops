@@ -13,20 +13,21 @@ let cfg = config.deployment; in
       type = types.uniq types.string;
       description = ''
         This option specifies the type of the environment in which the
-        machine is to be deployed by
-        <command>nixos-deploy-network</command>.  Currently, it can
-        have the following values. <literal>"none"</literal> means
+        machine is to be deployed by Charon.  Currently, it can have
+        the following values. <literal>"none"</literal> means
         deploying to a pre-existing physical or virtual NixOS machine,
         reachable via SSH under the hostname or IP address specified
         in <option>deployment.targetHost</option>.
-        <literal>"ec2"</literal> means that a virtual machine should be
-        instantiated in an Amazon EC2-compatible cloud environment
+        <literal>"ec2"</literal> means that a virtual machine should
+        be instantiated in an Amazon EC2-compatible cloud environment
         (see <option>deployment.ec2.*</option>).
-        <literal>"adhoc-cloud"</literal> means that a virtual machine
-        should be instantiated by executing certain commands via SSH
-        on a cloud controller machine (see
-        <option>deployment.adhoc.*</option>).  This is primarily
-        useful for debugging <command>nixos-deploy-network</command>.
+        <literal>"virtualbox"</literal> causes a VirtualBox VM to be
+        created on your machine.  (This requires VirtualBox to be
+        configured on your system.)  <literal>"adhoc-cloud"</literal>
+        means that a virtual machine should be instantiated by
+        executing certain commands via SSH on a cloud controller
+        machine (see <option>deployment.adhoc.*</option>).  This is
+        primarily useful for debugging Charon.
       '';
     };
 
@@ -34,9 +35,8 @@ let cfg = config.deployment; in
       default = config.networking.hostName;
       type = types.uniq types.string;
       description = ''
-        This option specifies a hostname or IP address which can be
-        used by <command>nixos-deploy-network</command> to execute
-        remote deployment operations.
+        This option specifies the hostname or IP address to be used by
+        Charon to execute remote deployment operations.
       '';
     };
 
@@ -133,9 +133,9 @@ let cfg = config.deployment; in
       example = "cloud.example.org";
       type = types.uniq types.string;
       description = ''
-        Hostname or IP addres of the machine to which
-        <command>nixos-deploy-network</command> should connect (via
-        SSH) to execute commands to start VMs or query their status.
+        Hostname or IP addres of the machine to which Charon should
+        connect (via SSH) to execute commands to start VMs or query
+        their status.
       '';
     };
 
