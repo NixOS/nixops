@@ -29,6 +29,7 @@ class EC2Definition(MachineDefinition):
         self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
+        self.block_device_mapping = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
 
     def make_state():
         return MachineState()
@@ -60,6 +61,7 @@ class EC2State(MachineState):
         self._public_ipv4 = None
         self._private_ipv4 = None
         self._tags = {}
+        self._block_device_mapping = {}
         self._public_host_key = False
         self._public_vpn_key = False
         
@@ -80,6 +82,7 @@ class EC2State(MachineState):
         if self._key_pair: y['keyPair'] = self._key_pair
         if self._security_groups: y['securityGroups'] = self._security_groups
         if self._tags: y['tags'] = self._tags
+        if self._block_device_mapping: y['blockDeviceMapping'] = self._block_device_mapping
         if self._public_host_key: y['publicHostKey'] = self._public_host_key
         if self._public_vpn_key: y['publicVpnKey'] = self._public_vpn_key
         x['ec2'] = y
@@ -103,6 +106,7 @@ class EC2State(MachineState):
         self._key_pair = y.get('keyPair', None)
         self._security_groups = y.get('securityGroups', None)
         self._tags = y.get('tags', {})
+        self._block_device_mapping = y.get('blockDeviceMapping', {})
         self._public_host_key = y.get('publicHostKey', None)
         self._vpn_key_set = y.get('vpnKeySet', False)
         self._public_vpn_key = y.get('publicVpnKey', None)
@@ -236,11 +240,20 @@ class EC2State(MachineState):
 
             user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"))
 
+            devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
+            for k, v in defn.block_device_mapping.iteritems():
+                if v.startswith("ephemeral"):
+                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v)
+                else:
+                    raise Exception("device mapping ‘{0}’ not (yet) supported".format(v))
+
+            # !!! Should use client_token to ensure idempotency.
             reservation = self._conn.run_instances(
                 image_id=defn.ami,
                 instance_type=defn.instance_type,
                 key_name=defn.key_pair,
                 security_groups=defn.security_groups,
+                block_device_map=devmap,
                 user_data=user_data)
 
             assert len(reservation.instances) == 1
@@ -255,6 +268,7 @@ class EC2State(MachineState):
             self._security_groups = defn.security_groups
             self._zone = instance.placement
             self._public_host_key = public
+            self._block_device_mapping = defn.block_device_mapping
             
             self.write()
 

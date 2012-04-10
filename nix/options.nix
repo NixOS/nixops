@@ -127,6 +127,15 @@ let cfg = config.deployment; in
       '';
     };
 
+    deployment.ec2.blockDeviceMapping = mkOption {
+      default = { };
+      example = { "/dev/sdb" = "ephemeral0"; "/dev/sdc" = "ephemeral1"; };
+      type = types.attrsOf types.string;
+      description = ''
+        Block device mapping.  Currently only supports ephemeral devices.
+      '';
+    };
+
     # Ad hoc cloud options.
 
     deployment.adhoc.controller = mkOption {
@@ -227,6 +236,23 @@ let cfg = config.deployment; in
         # !!! Doesn't work, not lazy enough.
         # throw "I don't know an AMI for region ‘${cfg.ec2.region}’ and platform type ‘${config.nixpkgs.system}’"
         "");
+
+      # Specify an explicit default mapping of the ephemeral devices
+      # to make sure they're available in EBS-based instances.
+      # Based on http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/InstanceStorage.html.
+      blockDeviceMapping = mkDefault (
+        let t = cfg.ec2.instanceType; in
+        if t == "m1.small" || t == "c1.medium" then
+          { "/dev/sda2" = "ephemeral0"; }
+        else if t == "m1.medium" || t == "m2.xlarge" || t == "m2.2xlarge" then
+          { "/dev/sdb" = "ephemeral0"; }
+        else if t == "m1.large" || t == "m2.4xlarge" || t == "cc1.4xlarge" || t == "cg1.4xlarge" then
+          { "/dev/sdb" = "ephemeral0"; "/dev/sdc" = "ephemeral1"; }
+        else if t == "m1.xlarge" || t == "c1.xlarge" || t == "cc2.8xlarge" then
+          { "/dev/sdb" = "ephemeral0"; "/dev/sdc" = "ephemeral1"; "/dev/sdd" = "ephemeral2"; "/dev/sde" = "ephemeral3"; }
+        else
+          { }
+      );
         
     };
 
