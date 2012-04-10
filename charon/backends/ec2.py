@@ -150,7 +150,7 @@ class EC2State(MachineState):
     
     def show_type(self):
         s = MachineState.show_type(self)
-        if self._zone or self._region: s = "{0} [{1}]".format(s, self._zone or self._region)
+        if self._zone or self._region: s = "{0} [{1}; {2}]".format(s, self._zone or self._region, self._instance_type)
         return s
 
     @property
