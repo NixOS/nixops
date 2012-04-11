@@ -337,21 +337,18 @@ class EC2State(MachineState):
             if k not in defn.block_device_mapping:
                 print >> sys.stderr, "detaching device ‘{0}’ from EC2 machine ‘{1}’...".format(v, self.name)
                 self.connect()
-                subprocess.call(
-                    ["ssh", "-x", "root@" + self.get_ssh_name()]
-                    + self.get_ssh_flags() +
-                    ["umount", "-l", _sd_to_xvd(k)])
-                if v.startswith("vol-"):
-                    volume = self._get_volume_by_id(v)
-                    print volume.attachment_state()
-                    print volume.attach_data.instance_id
-                    if volume.attachment_state() == 'attached' and volume.attach_data.instance_id == self._instance_id:
-                        if not self._conn.detach_volume(v, instance_id=self._instance_id, device=k):
-                            raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v, self.name))
-                        # FIXME: Wait until the volume is actually detached.
-                    del self._block_device_mapping[k]
-                else:
-                    raise Exception("detaching device mapping ‘{0}’ is not (yet) supported".format(v))
+                volumes = self._conn.get_all_volumes([], filters={'attachment.instance-id': self._instance_id, 'attachment.device': k})
+                assert len(volumes) <= 1
+                if len(volumes) == 1:
+                    subprocess.call(
+                        ["ssh", "-x", "root@" + self.get_ssh_name()]
+                        + self.get_ssh_flags() +
+                        ["umount", "-l", _sd_to_xvd(k)])
+                    if not self._conn.detach_volume(volumes[0].id, instance_id=self._instance_id, device=k):
+                        raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v, self.name))
+                    # FIXME: Wait until the volume is actually detached.
+                del self._block_device_mapping[k]
+                self.write()
 
         # Generate an SSH key for ad hoc VPN links between EC2
         # machines, and upload the private half.
