@@ -130,7 +130,7 @@ let cfg = config.deployment; in
 
     deployment.ec2.blockDeviceMapping = mkOption {
       default = { };
-      example = { "/dev/sdb".disk = "ephemeral0"; "/dev/sdg".disk = "vol-d04895b8"; };
+      example = { "/dev/xvdb".disk = "ephemeral0"; "/dev/xvdg".disk = "vol-d04895b8"; };
       type = types.attrsOf types.optionSet;
       description = ''
         Block device mapping.  Currently only supports ephemeral devices.
@@ -264,13 +264,13 @@ let cfg = config.deployment; in
       blockDeviceMapping = 
         let t = cfg.ec2.instanceType; in
         if t == "m1.small" || t == "c1.medium" then
-          { "/dev/sda2".disk = "ephemeral0"; }
+          { "/dev/xvda2".disk = "ephemeral0"; }
         else if t == "m1.medium" || t == "m2.xlarge" || t == "m2.2xlarge" then
-          { "/dev/sdb".disk = "ephemeral0"; }
+          { "/dev/xvdb".disk = "ephemeral0"; }
         else if t == "m1.large" || t == "m2.4xlarge" || t == "cc1.4xlarge" || t == "cg1.4xlarge" then
-          { "/dev/sdb".disk = "ephemeral0"; "/dev/sdc".disk = "ephemeral1"; }
+          { "/dev/xvdb".disk = "ephemeral0"; "/dev/xvdc".disk = "ephemeral1"; }
         else if t == "m1.xlarge" || t == "c1.xlarge" || t == "cc2.8xlarge" then
-          { "/dev/sdb".disk = "ephemeral0"; "/dev/sdc".disk = "ephemeral1"; "/dev/sdd".disk = "ephemeral2"; "/dev/sde".disk = "ephemeral3"; }
+          { "/dev/xvdb".disk = "ephemeral0"; "/dev/xvdc".disk = "ephemeral1"; "/dev/xvdd".disk = "ephemeral2"; "/dev/xvde".disk = "ephemeral3"; }
         else
           { };
         

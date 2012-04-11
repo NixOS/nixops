@@ -29,8 +29,7 @@ class EC2Definition(MachineDefinition):
         self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
-        self.block_device_mapping = {k.get("name"): k.find("attrs/attr[@name='disk']/string").get("value") for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
-        print self.block_device_mapping
+        self.block_device_mapping = {_xvd_to_sd(k.get("name")): k.find("attrs/attr[@name='disk']/string").get("value") for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
 
     def make_state():
         return MachineState()
@@ -378,6 +377,9 @@ class EC2State(MachineState):
         instance = self._get_instance_by_id(self._instance_id)
         instance.terminate()
 
+
+def _xvd_to_sd(dev):
+    return dev.replace("/dev/xvd", "/dev/sd")
 
 def _sd_to_xvd(dev):
     return dev.replace("/dev/sd", "/dev/xvd")
