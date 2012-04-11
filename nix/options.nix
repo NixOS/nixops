@@ -40,6 +40,7 @@ let cfg = config.deployment; in
       '';
     };
 
+    
     # EC2/Nova/Eucalyptus-specific options.
 
     deployment.ec2.type = mkOption {
@@ -129,13 +130,32 @@ let cfg = config.deployment; in
 
     deployment.ec2.blockDeviceMapping = mkOption {
       default = { };
-      example = { "/dev/sdb" = "ephemeral0"; "/dev/sdc" = "ephemeral1"; };
-      type = types.attrsOf types.string;
+      example = { "/dev/sdb".disk = "ephemeral0"; "/dev/sdg".disk = "vol-d04895b8"; };
+      type = types.attrsOf types.optionSet;
       description = ''
         Block device mapping.  Currently only supports ephemeral devices.
       '';
+
+      options = {
+      
+        disk = mkOption {
+          default = "";
+          example = "vol-d04895b8";
+          type = types.uniq types.string;
+          description = ''
+            EC2 identifier of the disk to be mounted.  This can be an
+            ephemeral disk (e.g. <literal>ephemeral0</literal>), a
+            snapshot ID (e.g. <literal>snap-1cbda474</literal>) or a
+            volume ID (e.g. <literal>vol-d04895b8</literal>).  Leave
+            empty to create an EBS volume automatically.
+          '';
+        };
+        
+      };
+      
     };
 
+    
     # Ad hoc cloud options.
 
     deployment.adhoc.controller = mkOption {
@@ -176,6 +196,7 @@ let cfg = config.deployment; in
       '';
     };
 
+    
     # VirtualBox options.
 
     deployment.virtualbox.baseImage = mkOption {
@@ -240,19 +261,18 @@ let cfg = config.deployment; in
       # Specify an explicit default mapping of the ephemeral devices
       # to make sure they're available in EBS-based instances.
       # Based on http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/InstanceStorage.html.
-      blockDeviceMapping = mkDefault (
+      blockDeviceMapping = 
         let t = cfg.ec2.instanceType; in
         if t == "m1.small" || t == "c1.medium" then
-          { "/dev/sda2" = "ephemeral0"; }
+          { "/dev/sda2".disk = "ephemeral0"; }
         else if t == "m1.medium" || t == "m2.xlarge" || t == "m2.2xlarge" then
-          { "/dev/sdb" = "ephemeral0"; }
+          { "/dev/sdb".disk = "ephemeral0"; }
         else if t == "m1.large" || t == "m2.4xlarge" || t == "cc1.4xlarge" || t == "cg1.4xlarge" then
-          { "/dev/sdb" = "ephemeral0"; "/dev/sdc" = "ephemeral1"; }
+          { "/dev/sdb".disk = "ephemeral0"; "/dev/sdc".disk = "ephemeral1"; }
         else if t == "m1.xlarge" || t == "c1.xlarge" || t == "cc2.8xlarge" then
-          { "/dev/sdb" = "ephemeral0"; "/dev/sdc" = "ephemeral1"; "/dev/sdd" = "ephemeral2"; "/dev/sde" = "ephemeral3"; }
+          { "/dev/sdb".disk = "ephemeral0"; "/dev/sdc".disk = "ephemeral1"; "/dev/sdd".disk = "ephemeral2"; "/dev/sde".disk = "ephemeral3"; }
         else
-          { }
-      );
+          { };
         
     };
 

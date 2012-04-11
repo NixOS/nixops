@@ -16,7 +16,7 @@ class EC2Definition(MachineDefinition):
     @classmethod
     def get_type(cls):
         return "ec2"
-    
+
     def __init__(self, xml):
         MachineDefinition.__init__(self, xml)
         x = xml.find("attrs/attr[@name='ec2']/attrs")
@@ -29,7 +29,8 @@ class EC2Definition(MachineDefinition):
         self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
-        self.block_device_mapping = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
+        self.block_device_mapping = {k.get("name"): k.find("attrs/attr[@name='disk']/string").get("value") for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
+        print self.block_device_mapping
 
     def make_state():
         return MachineState()
@@ -241,13 +242,21 @@ class EC2State(MachineState):
             user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"))
 
             devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
+            devs_mapped = {}
             for k, v in defn.block_device_mapping.iteritems():
                 if v.startswith("ephemeral"):
                     devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v)
+                    self._block_device_mapping[k] = v
+                elif v.startswith("snap-"):
+                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=v, delete_on_termination=True)
+                    self._block_device_mapping[k] = v
+                elif v.startswith("vol-"):
+                    # Volumes cannot be attached at boot time, so attach it later.
+                    pass
                 else:
                     raise Exception("device mapping ‘{0}’ not (yet) supported".format(v))
 
-            # !!! Should use client_token to ensure idempotency.
+            # FIXME: Should use client_token to ensure idempotency.
             reservation = self._conn.run_instances(
                 image_id=defn.ami,
                 instance_type=defn.instance_type,
@@ -268,7 +277,6 @@ class EC2State(MachineState):
             self._security_groups = defn.security_groups
             self._zone = instance.placement
             self._public_host_key = public
-            self._block_device_mapping = defn.block_device_mapping
             
             self.write()
 
@@ -303,7 +311,21 @@ class EC2State(MachineState):
             self.write()
 
         self.wait_for_ssh(check=check)
-            
+
+        # Attach missing volumes / snapshots.
+        for k, v in defn.block_device_mapping.iteritems():
+            if k not in self._block_device_mapping:
+                print >> sys.stderr, "attaching device ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v, self.name, k)
+                self.connect()
+                if v.startswith("vol-"):
+                    self._conn.attach_volume(v, self._instance_id, k)
+                    self._block_device_mapping[k] = v
+                    self.write()
+                else:
+                    raise Exception("adding device mapping ‘{0}’ to a running instance is not (yet) supported".format(v))
+
+        # Generate an SSH key for ad hoc VPN links between EC2
+        # machines, and upload the private half.
         if not self._public_vpn_key:
             (private, public) = self._create_key_pair()
             f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
