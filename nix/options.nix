@@ -151,6 +151,23 @@ let cfg = config.deployment; in
           '';
         };
         
+        size = mkOption {
+          default = 0;
+          type = types.uniq types.int;
+          description = ''
+            Filesystem size (in gigabytes) for automatically created
+            EBS volumes.
+          '';
+        };
+
+        fsType = mkOption {
+          default = "ext4";
+          type = types.uniq types.string;
+          description = ''
+            Filesystem type for automatically created EBS volumes.
+          '';
+        };
+        
       };
       
     };

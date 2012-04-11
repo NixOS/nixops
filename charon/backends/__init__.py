@@ -109,6 +109,13 @@ class MachineState:
         self._ssh_pinged_this_time = True
         self.write()
 
+    def run_command(self, command):
+        """Execute a command on the machine via SSH."""
+        return subprocess.call(
+            ["ssh", "-x", "root@" + self.get_ssh_name()]
+            + self.get_ssh_flags() +
+            [command])
+
 
 import charon.backends.none
 import charon.backends.virtualbox

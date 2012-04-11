@@ -29,7 +29,12 @@ class EC2Definition(MachineDefinition):
         self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
-        self.block_device_mapping = {_xvd_to_sd(k.get("name")): k.find("attrs/attr[@name='disk']/string").get("value") for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
+        def f(xml):
+            return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
+                    'size': int(xml.find("attrs/attr[@name='size']/int").get("value")),
+                    'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value")}
+        self.block_device_mapping = {_xvd_to_sd(k.get("name")): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
+        print self.block_device_mapping
 
     def make_state():
         return MachineState()
@@ -254,25 +259,30 @@ class EC2State(MachineState):
             devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
             devs_mapped = {}
             for k, v in defn.block_device_mapping.iteritems():
-                if v.startswith("ephemeral"):
-                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v)
+                if v['disk'] == '':
+                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(size=v['size'], delete_on_termination=True)
+                    v['needsInit'] = True
                     self._block_device_mapping[k] = v
-                elif v.startswith("snap-"):
-                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=v, delete_on_termination=True)
+                elif v['disk'].startswith("ephemeral"):
+                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v['disk'])
                     self._block_device_mapping[k] = v
-                elif v.startswith("vol-"):
+                elif v['disk'].startswith("snap-"):
+                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=v['disk'], delete_on_termination=True)
+                    self._block_device_mapping[k] = v
+                elif v['disk'].startswith("vol-"):
                     # Volumes cannot be attached at boot time, so
                     # attach it later.  But make note of the placement
                     # zone of the volume.
-                    volume = self._get_volume_by_id(v)
+                    volume = self._get_volume_by_id(v['disk'])
                     if not zone:
                         print >> sys.stderr, "starting EC2 instance ‘{0}’ in zone ‘{1}’ due to volume ‘{2}’".format(
-                            self.name, volume.zone, v)
+                            self.name, volume.zone, v['disk'])
                         zone = volume.zone
                     elif zone != volume.zone:
-                        raise Exception("unable to start EC2 instance ‘{0}’ in zone ‘{1}’ because volume ‘{2}’ is in zone ‘{3}’".format(self.name, zone, v, volume.zone))
+                        raise Exception("unable to start EC2 instance ‘{0}’ in zone ‘{1}’ because volume ‘{2}’ is in zone ‘{3}’"
+                                        .format(self.name, zone, v['disk'], volume.zone))
                 else:
-                    raise Exception("device mapping ‘{0}’ not (yet) supported".format(v))
+                    raise Exception("device mapping ‘{0}’ not (yet) supported".format(v['disk']))
 
             # FIXME: Should use client_token to ensure idempotency.
             reservation = self._conn.run_instances(
@@ -334,19 +344,19 @@ class EC2State(MachineState):
         # Attach missing volumes / snapshots.
         for k, v in defn.block_device_mapping.iteritems():
             if k not in self._block_device_mapping:
-                print >> sys.stderr, "attaching device ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v, self.name, k)
+                print >> sys.stderr, "attaching device ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['disk'], self.name, k)
                 self.connect()
-                if v.startswith("vol-"):
-                    self._conn.attach_volume(v, self._instance_id, k)
+                if v['disk'].startswith("vol-"):
+                    self._conn.attach_volume(v['disk'], self._instance_id, k)
                     self._block_device_mapping[k] = v
                     self.write()
                 else:
-                    raise Exception("adding device mapping ‘{0}’ to a running instance is not (yet) supported".format(v))
+                    raise Exception("adding device mapping ‘{0}’ to a running instance is not (yet) supported".format(v['disk']))
 
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self._block_device_mapping.items():
             if k not in defn.block_device_mapping:
-                print >> sys.stderr, "detaching device ‘{0}’ from EC2 machine ‘{1}’...".format(v, self.name)
+                print >> sys.stderr, "detaching device ‘{0}’ from EC2 machine ‘{1}’...".format(v['disk'], self.name)
                 self.connect()
                 volumes = self._conn.get_all_volumes([], filters={'attachment.instance-id': self._instance_id, 'attachment.device': k})
                 assert len(volumes) <= 1
@@ -356,9 +366,18 @@ class EC2State(MachineState):
                         + self.get_ssh_flags() +
                         ["umount", "-l", _sd_to_xvd(k)])
                     if not self._conn.detach_volume(volumes[0].id, instance_id=self._instance_id, device=k):
-                        raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v, self.name))
+                        raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
                     # FIXME: Wait until the volume is actually detached.
                 del self._block_device_mapping[k]
+                self.write()
+
+        # Format volumes that need it.
+        for k, v in self._block_device_mapping.items():
+            if v.get('needsInit', None) == 1:
+                print >> sys.stderr, "formatting device ‘{0}’ on EC2 machine ‘{1}’...".format(k, self.name)
+                if self.run_command("mkfs.{0} {1}".format(v['fsType'], _sd_to_xvd(k))) != 0:
+                    raise Exception("unable to format device ‘{0}’ on EC2 machine ‘{1}’".format(k, self.name))
+                del v['needsInit']
                 self.write()
 
         # Generate an SSH key for ad hoc VPN links between EC2
