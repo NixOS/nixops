@@ -269,7 +269,10 @@ let cfg = config.deployment; in
             '';
         in if config.nixpkgs.system == "x86_64-linux" then
           unpack "r33382-x86_64" "16irymms7vs4l3cllbpfl572269dwmlc7zficzf0r05bx7l0jsax"
-        else throw "Unsupported VirtualBox system type!"
+        else
+          # !!! Stupid lack of laziness
+          # throw "Unsupported VirtualBox system type!"
+          ""
       );
     
     };
