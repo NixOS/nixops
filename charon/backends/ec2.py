@@ -249,6 +249,8 @@ class EC2State(MachineState):
 
             user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"))
 
+            zone = None
+
             devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
             devs_mapped = {}
             for k, v in defn.block_device_mapping.iteritems():
@@ -259,8 +261,16 @@ class EC2State(MachineState):
                     devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=v, delete_on_termination=True)
                     self._block_device_mapping[k] = v
                 elif v.startswith("vol-"):
-                    # Volumes cannot be attached at boot time, so attach it later.
-                    pass
+                    # Volumes cannot be attached at boot time, so
+                    # attach it later.  But make note of the placement
+                    # zone of the volume.
+                    volume = self._get_volume_by_id(v)
+                    if not zone:
+                        print >> sys.stderr, "starting EC2 instance ‘{0}’ in zone ‘{1}’ due to volume ‘{2}’".format(
+                            self.name, volume.zone, v)
+                        zone = volume.zone
+                    elif zone != volume.zone:
+                        raise Exception("unable to start EC2 instance ‘{0}’ in zone ‘{1}’ because volume ‘{2}’ is in zone ‘{3}’".format(self.name, zone, v, volume.zone))
                 else:
                     raise Exception("device mapping ‘{0}’ not (yet) supported".format(v))
 
@@ -268,6 +278,7 @@ class EC2State(MachineState):
             reservation = self._conn.run_instances(
                 image_id=defn.ami,
                 instance_type=defn.instance_type,
+                placement=zone,
                 key_name=defn.key_pair,
                 security_groups=defn.security_groups,
                 block_device_map=devmap,
