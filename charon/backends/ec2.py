@@ -186,11 +186,20 @@ class EC2State(MachineState):
             region_name=self._region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
         
-    def get_instance_by_id(self, instanceid):
+    def _get_instance_by_id(self, instance_id):
         """Get instance object by instance id."""
         self.connect()
-        reservations = self._conn.get_all_instances([instanceid])
+        reservations = self._conn.get_all_instances([instance_id])
         return reservations[0].instances[0]
+
+
+    def _get_volume_by_id(self, volume_id):
+        """Get instance object by instance id."""
+        self.connect()
+        volumes = self._conn.get_all_volumes([volume_id])
+        if len(volumes) != 1:
+            raise Exception("unable to find volume ‘{0}’".format(volume_id))
+        return volumes[0]
 
 
     def _create_key_pair(self):
@@ -215,7 +224,7 @@ class EC2State(MachineState):
             # Check whether the instance hasn't been killed behind our
             # backs.  Restart stopped instances.
             self.connect()
-            instance = self.get_instance_by_id(self._instance_id)
+            instance = self._get_instance_by_id(self._instance_id)
             if instance.state in {"shutting-down", "terminated"}:
                 print >> sys.stderr, "EC2 instance for ‘{0}’ went away (state ‘{1}’), will recreate".format(self.name, instance.state)
                 self._reset_state()
@@ -296,7 +305,7 @@ class EC2State(MachineState):
             instance = None
             sys.stderr.write("waiting for IP address of ‘{0}’... ".format(self.name))
             while True:
-                instance = self.get_instance_by_id(self._instance_id)
+                instance = self._get_instance_by_id(self._instance_id)
                 sys.stderr.write("[{0}] ".format(instance.state))
                 if instance.state not in {"pending", "running", "scheduling", "launching"}:
                     raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self._instance_id, instance.state))
@@ -324,6 +333,27 @@ class EC2State(MachineState):
                 else:
                     raise Exception("adding device mapping ‘{0}’ to a running instance is not (yet) supported".format(v))
 
+        # Detach volumes that are no longer in the deployment spec.
+        for k, v in self._block_device_mapping.items():
+            if k not in defn.block_device_mapping:
+                print >> sys.stderr, "detaching device ‘{0}’ from EC2 machine ‘{1}’...".format(v, self.name)
+                self.connect()
+                subprocess.call(
+                    ["ssh", "-x", "root@" + self.get_ssh_name()]
+                    + self.get_ssh_flags() +
+                    ["umount", "-l", _sd_to_xvd(k)])
+                if v.startswith("vol-"):
+                    volume = self._get_volume_by_id(v)
+                    print volume.attachment_state()
+                    print volume.attach_data.instance_id
+                    if volume.attachment_state() == 'attached' and volume.attach_data.instance_id == self._instance_id:
+                        if not self._conn.detach_volume(v, instance_id=self._instance_id, device=k):
+                            raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v, self.name))
+                        # FIXME: Wait until the volume is actually detached.
+                    del self._block_device_mapping[k]
+                else:
+                    raise Exception("detaching device mapping ‘{0}’ is not (yet) supported".format(v))
+
         # Generate an SSH key for ad hoc VPN links between EC2
         # machines, and upload the private half.
         if not self._public_vpn_key:
@@ -345,5 +375,9 @@ class EC2State(MachineState):
     def destroy(self):
         print >> sys.stderr, "destroying EC2 instance ‘{0}’...".format(self.name)
 
-        instance = self.get_instance_by_id(self._instance_id)
+        instance = self._get_instance_by_id(self._instance_id)
         instance.terminate()
+
+
+def _sd_to_xvd(dev):
+    return dev.replace("/dev/sd", "/dev/xvd")
