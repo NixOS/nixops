@@ -8,6 +8,7 @@ import shutil
 import boto.ec2
 from charon.backends import MachineDefinition, MachineState
 import charon.known_hosts
+import charon.util
 
 
 class EC2Definition(MachineDefinition):
@@ -34,7 +35,6 @@ class EC2Definition(MachineDefinition):
                     'size': int(xml.find("attrs/attr[@name='size']/int").get("value")),
                     'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value")}
         self.block_device_mapping = {_xvd_to_sd(k.get("name")): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
-        print self.block_device_mapping
 
     def make_state():
         return MachineState()
@@ -69,6 +69,7 @@ class EC2State(MachineState):
         self._block_device_mapping = {}
         self._public_host_key = False
         self._public_vpn_key = False
+        self._root_device_type = None
         
         
     def serialise(self):
@@ -90,6 +91,7 @@ class EC2State(MachineState):
         if self._block_device_mapping: y['blockDeviceMapping'] = self._block_device_mapping
         if self._public_host_key: y['publicHostKey'] = self._public_host_key
         if self._public_vpn_key: y['publicVpnKey'] = self._public_vpn_key
+        if self._root_device_type: y['rootDeviceType'] = self._root_device_type
         x['ec2'] = y
         
         return x
@@ -115,6 +117,7 @@ class EC2State(MachineState):
         self._public_host_key = y.get('publicHostKey', None)
         self._vpn_key_set = y.get('vpnKeySet', False)
         self._public_vpn_key = y.get('publicVpnKey', None)
+        self._root_device_type = y.get('rootDeviceType', None)
 
         
     def get_ssh_name(self):
@@ -224,9 +227,9 @@ class EC2State(MachineState):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
 
+        # Check whether the instance hasn't been killed behind our
+        # backs.  Restart stopped instances.
         if self._instance_id and check:
-            # Check whether the instance hasn't been killed behind our
-            # backs.  Restart stopped instances.
             self.connect()
             instance = self._get_instance_by_id(self._instance_id)
             if instance.state in {"shutting-down", "terminated"}:
@@ -242,13 +245,17 @@ class EC2State(MachineState):
                 self.write()
 
                 instance.start()
-                
+
+        # Start the instance.
         if not self._instance_id:
             print >> sys.stderr, "creating EC2 instance ‘{0}’ (AMI ‘{1}’, type ‘{2}’, region ‘{3}’)...".format(
                 self.name, defn.ami, defn.instance_type, defn.region)
 
             self._region = defn.region
             self.connect()
+
+            # Figure out whether this AMI is EBS-backed.
+            ami = self._conn.get_all_images([defn.ami])[0]
 
             (private, public) = self._create_key_pair()
 
@@ -260,9 +267,11 @@ class EC2State(MachineState):
             devs_mapped = {}
             for k, v in defn.block_device_mapping.iteritems():
                 if v['disk'] == '':
-                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(size=v['size'], delete_on_termination=True)
-                    v['needsInit'] = True
-                    self._block_device_mapping[k] = v
+                    if ami.root_device_type == "ebs":
+                        devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(size=v['size'], delete_on_termination=True)
+                        v['needsInit'] = True
+                        self._block_device_mapping[k] = v
+                    # Otherwise, it's instance store backed, and we'll create the volume later.
                 elif v['disk'].startswith("ephemeral"):
                     devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v['disk'])
                     self._block_device_mapping[k] = v
@@ -285,8 +294,7 @@ class EC2State(MachineState):
                     raise Exception("device mapping ‘{0}’ not (yet) supported".format(v['disk']))
 
             # FIXME: Should use client_token to ensure idempotency.
-            reservation = self._conn.run_instances(
-                image_id=defn.ami,
+            reservation = ami.run(
                 instance_type=defn.instance_type,
                 placement=zone,
                 key_name=defn.key_pair,
@@ -306,14 +314,15 @@ class EC2State(MachineState):
             self._security_groups = defn.security_groups
             self._zone = instance.placement
             self._public_host_key = public
+            self._root_device_type = ami.root_device_type
             
             self.write()
 
         # Reapply tags if they have changed.
+        common_tags = {'CharonNetworkUUID': str(self.depl.uuid), 'CharonMachineName': self.name}
         tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
         tags.update(defn.tags)
-        tags['CharonNetworkUUID'] = str(self.depl.uuid)
-        tags['CharonMachineName'] = self.name
+        tags.update(common_tags)
         if check or self._tags != tags:
             self.connect()
             self._conn.create_tags([self._instance_id], tags)
@@ -321,16 +330,17 @@ class EC2State(MachineState):
             self._tags = tags
             self.write()
 
+        # Wait for the IP address.
         if not self._private_ipv4 or check:
-            instance = None
+            instance = self._get_instance_by_id(self._instance_id)
             sys.stderr.write("waiting for IP address of ‘{0}’... ".format(self.name))
             while True:
-                instance = self._get_instance_by_id(self._instance_id)
                 sys.stderr.write("[{0}] ".format(instance.state))
                 if instance.state not in {"pending", "running", "scheduling", "launching"}:
                     raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self._instance_id, instance.state))
                 if instance.private_ip_address: break
                 time.sleep(3)
+                instance.update()
             sys.stderr.write("{0} / {1}\n".format(instance.ip_address, instance.private_ip_address))
 
             charon.known_hosts.add(instance.ip_address, self._public_host_key)
@@ -339,12 +349,27 @@ class EC2State(MachineState):
             self._public_ipv4 = instance.ip_address
             self.write()
 
+        # Wait until the instance is reachable via SSH.
         self.wait_for_ssh(check=check)
 
-        # Attach missing volumes / snapshots.
+        # Create missing volumes.
+        # FIXME: support snapshots.
+        for k, v in defn.block_device_mapping.iteritems():
+            if k not in self._block_device_mapping and v['disk'] == '':
+                print >> sys.stderr, "creating {0} GiB volume for EC2 machine ‘{1}’...".format(v['size'], self.name)
+                self.connect()
+                volume = self._conn.create_volume(size=v['size'], zone=self._zone)
+                v['needsInit'] = True
+                v['deleteOnTermination'] = True
+                v['needsAttach'] = True
+                v['volumeId'] = volume.id
+                self._block_device_mapping[k] = v
+                self.write()
+
+        # Attach missing volumes.
         for k, v in defn.block_device_mapping.iteritems():
             if k not in self._block_device_mapping:
-                print >> sys.stderr, "attaching device ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['disk'], self.name, k)
+                print >> sys.stderr, "attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['disk'], self.name, k)
                 self.connect()
                 if v['disk'].startswith("vol-"):
                     self._conn.attach_volume(v['disk'], self._instance_id, k)
@@ -353,21 +378,42 @@ class EC2State(MachineState):
                 else:
                     raise Exception("adding device mapping ‘{0}’ to a running instance is not (yet) supported".format(v['disk']))
 
+        for k, v in self._block_device_mapping.items():
+            if v.get('needsAttach', False):
+                print >> sys.stderr, "attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['volumeId'], self.name, k)
+                self.connect()
+
+                volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, k)}
+                volume_tags.update(common_tags)
+                self._conn.create_tags([v['volumeId']], volume_tags)
+                
+                volume = self._get_volume_by_id(v['volumeId'])
+                if volume.volume_state() == "available":
+                    self._conn.attach_volume(v['volumeId'], self._instance_id, k)
+                # Wait until the device is visible in the instance.
+                def check_dev():
+                    res = self.run_command("test -e {0}".format(_sd_to_xvd(k)), check=False)
+                    return res == 0
+                charon.util.check_wait(check_dev)
+                del v['needsAttach']
+                self.write()
+                
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self._block_device_mapping.items():
             if k not in defn.block_device_mapping:
-                print >> sys.stderr, "detaching device ‘{0}’ from EC2 machine ‘{1}’...".format(v['disk'], self.name)
+                print >> sys.stderr, "detaching device ‘{0}’ from EC2 machine ‘{1}’...".format(k, self.name)
                 self.connect()
                 volumes = self._conn.get_all_volumes([], filters={'attachment.instance-id': self._instance_id, 'attachment.device': k})
                 assert len(volumes) <= 1
                 if len(volumes) == 1:
-                    subprocess.call(
-                        ["ssh", "-x", "root@" + self.get_ssh_name()]
-                        + self.get_ssh_flags() +
-                        ["umount", "-l", _sd_to_xvd(k)])
+                    self.run_command("umount -l {0}".format(_sd_to_xvd(k)), check=False)
                     if not self._conn.detach_volume(volumes[0].id, instance_id=self._instance_id, device=k):
                         raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
                     # FIXME: Wait until the volume is actually detached.
+                    
+                if v.get('deleteOnTermination', False):
+                    self._delete_volume(v['volumeId'])
+                
                 del self._block_device_mapping[k]
                 self.write()
 
@@ -375,8 +421,7 @@ class EC2State(MachineState):
         for k, v in self._block_device_mapping.items():
             if v.get('needsInit', None) == 1:
                 print >> sys.stderr, "formatting device ‘{0}’ on EC2 machine ‘{1}’...".format(k, self.name)
-                if self.run_command("mkfs.{0} {1}".format(v['fsType'], _sd_to_xvd(k))) != 0:
-                    raise Exception("unable to format device ‘{0}’ on EC2 machine ‘{1}’".format(k, self.name))
+                self.run_command("mkfs.{0} {1}".format(v['fsType'], _sd_to_xvd(k)))
                 del v['needsInit']
                 self.write()
 
@@ -387,6 +432,7 @@ class EC2State(MachineState):
             f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
             f.write(private)
             f.seek(0)
+            # FIXME: use run_command
             res = subprocess.call(
                 ["ssh", "-x", "root@" + self.get_ssh_name()]
                 + self.get_ssh_flags() +
@@ -398,11 +444,35 @@ class EC2State(MachineState):
             self.write()
 
 
+    def _delete_volume(self, volume_id):
+        sys.stderr.write("destroying EC2 volume ‘{0}’...\n".format(volume_id))
+        try:
+            volume = self._get_volume_by_id(volume_id)
+            charon.util.check_wait(lambda: volume.update() == 'available')
+            volume.delete()
+        except boto.exception.EC2ResponseError as e:
+            # Ignore volumes that have disappeared already.
+            if e.error_code != "InvalidVolume.NotFound": raise
+
+
     def destroy(self):
-        print >> sys.stderr, "destroying EC2 instance ‘{0}’...".format(self.name)
+        sys.stderr.write("destroying EC2 instance ‘{0}’... ".format(self.name))
 
         instance = self._get_instance_by_id(self._instance_id)
-        instance.terminate()
+        instance.terminate()        
+
+        # Wait until it's really terminated.
+        while True:
+            sys.stderr.write("[{0}] ".format(instance.state))
+            if instance.state == "terminated": break
+            time.sleep(3)
+            instance.update()
+        sys.stderr.write("\n")
+
+        # Destroy volumes created for this instance.
+        for k, v in self._block_device_mapping.items():
+            if v.get('deleteOnTermination', False):
+                self._delete_volume(self, v['volumeId'])
 
 
 def _xvd_to_sd(dev):
