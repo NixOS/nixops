@@ -193,10 +193,13 @@ class EC2State(MachineState):
             region_name=self._region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
         
-    def _get_instance_by_id(self, instance_id):
+    def _get_instance_by_id(self, instance_id, allow_missing=False):
         """Get instance object by instance id."""
         self.connect()
         reservations = self._conn.get_all_instances([instance_id])
+        if len(reservations) == 0:
+            if allow_missing: return None
+            raise Exception("EC2 instance ‘{0}’ disappeared!".format(instance_id))
         return reservations[0].instances[0]
 
 
@@ -231,9 +234,9 @@ class EC2State(MachineState):
         # backs.  Restart stopped instances.
         if self._instance_id and check:
             self.connect()
-            instance = self._get_instance_by_id(self._instance_id)
-            if instance.state in {"shutting-down", "terminated"}:
-                print >> sys.stderr, "EC2 instance for ‘{0}’ went away (state ‘{1}’), will recreate".format(self.name, instance.state)
+            instance = self._get_instance_by_id(self._instance_id, allow_missing=True)
+            if instance is None or instance.state in {"shutting-down", "terminated"}:
+                print >> sys.stderr, "EC2 instance for ‘{0}’ went away (state ‘{1}’), will recreate".format(self.name, instance.state if instance else "gone")
                 self._reset_state()
                 self.write()
             elif instance.state == "stopped":
