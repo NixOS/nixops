@@ -472,7 +472,7 @@ class EC2State(MachineState):
         # Destroy volumes created for this instance.
         for k, v in self._block_device_mapping.items():
             if v.get('deleteOnTermination', False):
-                self._delete_volume(self, v['volumeId'])
+                self._delete_volume(v['volumeId'])
 
 
 def _xvd_to_sd(dev):
