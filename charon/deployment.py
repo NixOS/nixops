@@ -206,16 +206,15 @@ class Deployment:
             
             sys.stderr.write("activating new configuration on machine ‘{0}’...\n".format(m.name))
 
-            res = subprocess.call(
-                ["ssh", "-x", "root@" + m.get_ssh_name()]
-                + m.get_ssh_flags() +
-                [# Set the system profile to the new configuration.
-                 "nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + ";" +
-                 # Run the switch script.  This will also update the
-                 # GRUB boot loader.  For performance, skip this step
-                 # if the new config is already current.
-                 "cur=$(readlink /var/run/current-system); " +
-                 'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi"])
+            res = m.run_command(
+                # Set the system profile to the new configuration.
+                "set -e; nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + ";" +
+                # Run the switch script.  This will also update the
+                # GRUB boot loader.  For performance, skip this step
+                # if the new config is already current.
+                "cur=$(readlink /var/run/current-system); " +
+                'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi",
+                check=False)
             if res != 0: raise Exception("unable to activate new configuration on machine ‘{0}’".format(m.name))
 
             # Record that we switched this machine to the new
