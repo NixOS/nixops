@@ -37,7 +37,7 @@ class Deployment:
                 self.load_state()
             else:
                 self.uuid = uuid.uuid1()
-            self.nix_exprs = nix_exprs
+            self.nix_exprs = [os.path.abspath(x) for x in nix_exprs]
         else:
             self.load_state()
 

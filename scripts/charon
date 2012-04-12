@@ -4,15 +4,13 @@
 from charon import deployment
 from prettytable import PrettyTable
 import argparse
-import os.path
+import os
 import sys
 import subprocess
 
 
 def op_create():
-    depl = deployment.Deployment(
-        args.state_file, create=True,
-        nix_exprs=[os.path.abspath(x) for x in args.nix_exprs])
+    depl = deployment.Deployment(args.state_file, create=True, nix_exprs=args.nix_exprs)
     depl.write_state()
 
     
@@ -97,8 +95,10 @@ def op_ssh():
     res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + args.args)
     sys.exit(res)
 
+    
 def scp_loc(ssh_name, remote, loc):
     return "root@{0}:{1}".format(ssh_name, loc) if remote else loc
+
 
 def op_scp():
     depl = deployment.Deployment(args.state_file)
