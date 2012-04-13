@@ -2,7 +2,45 @@
 
 with pkgs.lib;
 
-let cfg = config.deployment; in
+let
+
+  cfg = config.deployment;
+
+  ec2DiskOptions = {
+      
+    disk = mkOption {
+      default = "";
+      example = "vol-d04895b8";
+      type = types.uniq types.string;
+      description = ''
+        EC2 identifier of the disk to be mounted.  This can be an
+        ephemeral disk (e.g. <literal>ephemeral0</literal>), a
+        snapshot ID (e.g. <literal>snap-1cbda474</literal>) or a
+        volume ID (e.g. <literal>vol-d04895b8</literal>).  Leave
+        empty to create an EBS volume automatically.
+      '';
+    };
+
+    size = mkOption {
+      default = 0;
+      type = types.uniq types.int;
+      description = ''
+        Filesystem size (in gigabytes) for automatically created
+        EBS volumes.
+      '';
+    };
+
+    fsType = mkOption {
+      default = "ext4";
+      type = types.uniq types.string;
+      description = ''
+        Filesystem type for automatically created EBS volumes.
+      '';
+    };
+
+  };
+
+in
 
 {
   options = {
@@ -144,44 +182,27 @@ let cfg = config.deployment; in
       default = { };
       example = { "/dev/xvdb".disk = "ephemeral0"; "/dev/xvdg".disk = "vol-d04895b8"; };
       type = types.attrsOf types.optionSet;
+      options = ec2DiskOptions;
       description = ''
         Block device mapping.  Currently only supports ephemeral devices.
       '';
+    };
 
+    
+    fileSystems = mkOption {
       options = {
-      
-        disk = mkOption {
-          default = "";
-          example = "vol-d04895b8";
-          type = types.uniq types.string;
+        ec2 = mkOption {
+          default = null;
+          type = types.uniq (types.nullOr types.optionSet);
+          options = ec2DiskOptions;
           description = ''
-            EC2 identifier of the disk to be mounted.  This can be an
-            ephemeral disk (e.g. <literal>ephemeral0</literal>), a
-            snapshot ID (e.g. <literal>snap-1cbda474</literal>) or a
-            volume ID (e.g. <literal>vol-d04895b8</literal>).  Leave
-            empty to create an EBS volume automatically.
+            EC2 disk to be attached to this mount point.  This is
+            shorthand for defining a separate
+            <option>deployment.ec2.blockDeviceMapping</option>
+            attribute.
           '';
         };
-        
-        size = mkOption {
-          default = 0;
-          type = types.uniq types.int;
-          description = ''
-            Filesystem size (in gigabytes) for automatically created
-            EBS volumes.
-          '';
-        };
-
-        fsType = mkOption {
-          default = "ext4";
-          type = types.uniq types.string;
-          description = ''
-            Filesystem type for automatically created EBS volumes.
-          '';
-        };
-        
       };
-      
     };
 
     
@@ -287,6 +308,14 @@ let cfg = config.deployment; in
         # !!! Doesn't work, not lazy enough.
         #throw "I don't know an AMI for region ‘${cfg.ec2.region}’ and platform type ‘${config.nixpkgs.system}’"
         "");
+
+      blockDeviceMapping = listToAttrs
+        (map (fs: nameValuePair fs.device
+          { disk = fs.ec2.disk;
+            size = fs.ec2.size;
+            fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
+          })
+         (filter (fs: fs.ec2 != null) config.fileSystems));
 
     };
 
