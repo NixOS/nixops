@@ -3,7 +3,7 @@ import sys
 import threading
 
 
-# Allow only one thread to rewrite known_hosts at a time.  TODO:co use a
+# Allow only one thread to rewrite known_hosts at a time.  TODO: use a
 # file lock.
 lock = threading.Lock()
 
