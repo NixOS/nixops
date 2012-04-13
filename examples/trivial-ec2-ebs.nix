@@ -1,0 +1,30 @@
+{
+  machine =
+    { deployment.targetEnv = "ec2";
+      deployment.ec2.region = "eu-west-1";
+      deployment.ec2.instanceType = "m1.small";
+      deployment.ec2.keyPair = "eelco";
+      deployment.ec2.securityGroups = [ "eelco-test" ];
+      deployment.ec2.ebsBoot = true;
+      
+      fileSystems =
+        [ # Mount a 1 GiB EBS volume on /data.  It's created and
+          # formatted when the machine is deployed, and destroyed when
+          # the machine is destroyed.
+          { mountPoint = "/data";
+            autocreate = true;
+            fsType = "ext3"; # default is "ext4"
+            device = "/dev/xvdf";
+            ec2.size = 1;
+          }
+          # Or to mount an existing volume or snapshot:
+          /*
+          { mountPoint = "/data2";
+            autocreate = true;
+            device = "/dev/xvdg";
+            ec2.disk = "snap-b82666d1"; # or "vol-5aa77f32"
+          }
+          */
+        ];
+    };
+}
