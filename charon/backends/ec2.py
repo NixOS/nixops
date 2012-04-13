@@ -2,6 +2,7 @@
 
 import os
 import sys
+import re
 import time
 import subprocess
 import shutil
@@ -269,6 +270,8 @@ class EC2State(MachineState):
             devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
             devs_mapped = {}
             for k, v in defn.block_device_mapping.iteritems():
+                if re.match("/dev/sd[a-e]", k) and not v['disk'].startswith("ephemeral"):
+                    raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(_sd_to_xvd(k)))
                 if v['disk'] == '':
                     if ami.root_device_type == "ebs":
                         devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(size=v['size'], delete_on_termination=True)
@@ -372,7 +375,7 @@ class EC2State(MachineState):
         # Attach missing volumes.
         for k, v in defn.block_device_mapping.iteritems():
             if k not in self._block_device_mapping:
-                print >> sys.stderr, "attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['disk'], self.name, k)
+                print >> sys.stderr, "attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['disk'], self.name, _sd_to_xvd(k))
                 self.connect()
                 if v['disk'].startswith("vol-"):
                     self._conn.attach_volume(v['disk'], self._instance_id, k)
@@ -383,10 +386,10 @@ class EC2State(MachineState):
 
         for k, v in self._block_device_mapping.items():
             if v.get('needsAttach', False):
-                print >> sys.stderr, "attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['volumeId'], self.name, k)
+                print >> sys.stderr, "attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['volumeId'], self.name, _sd_to_xvd(k))
                 self.connect()
 
-                volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, k)}
+                volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
                 volume_tags.update(common_tags)
                 self._conn.create_tags([v['volumeId']], volume_tags)
                 
@@ -404,7 +407,7 @@ class EC2State(MachineState):
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self._block_device_mapping.items():
             if k not in defn.block_device_mapping:
-                print >> sys.stderr, "detaching device ‘{0}’ from EC2 machine ‘{1}’...".format(k, self.name)
+                print >> sys.stderr, "detaching device ‘{0}’ from EC2 machine ‘{1}’...".format(_sd_to_xvd(k), self.name)
                 self.connect()
                 volumes = self._conn.get_all_volumes([], filters={'attachment.instance-id': self._instance_id, 'attachment.device': k})
                 assert len(volumes) <= 1
@@ -423,7 +426,7 @@ class EC2State(MachineState):
         # Format volumes that need it.
         for k, v in self._block_device_mapping.items():
             if v.get('needsInit', None) == 1:
-                print >> sys.stderr, "formatting device ‘{0}’ on EC2 machine ‘{1}’...".format(k, self.name)
+                print >> sys.stderr, "formatting device ‘{0}’ on EC2 machine ‘{1}’...".format(_sd_to_xvd(k), self.name)
                 self.run_command("mkfs.{0} {1}".format(v['fsType'], _sd_to_xvd(k)))
                 del v['needsInit']
                 self.write()
