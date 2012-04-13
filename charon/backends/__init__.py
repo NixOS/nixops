@@ -109,15 +109,16 @@ class MachineState:
         self._ssh_pinged_this_time = True
         self.write()
 
-    def run_command(self, command, check=True):
+    def run_command(self, command, check=True, capture_stdout=False):
         """Execute a command on the machine via SSH."""
-        res = subprocess.call(
-            ["ssh", "-x", "root@" + self.get_ssh_name()]
-            + self.get_ssh_flags() +
-            [command])
-        if check and res != 0:
-            raise Exception("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
-        return res
+        cmdline = ["ssh", "-x", "root@" + self.get_ssh_name()] + self.get_ssh_flags() + [command];
+        if capture_stdout:
+            return subprocess.check_output(cmdline)
+        else:
+            res = subprocess.call(cmdline)
+            if check and res != 0:
+                raise Exception("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
+            return res
 
 
 import charon.backends.none
