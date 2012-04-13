@@ -48,7 +48,7 @@ def op_info():
                  m.show_type() if m else (d.get_type() + (" [{0}]".format(d.region) if hasattr(d, 'region') and d.region else "")),
                  m.vm_id or "" if m else "",
                  m.public_ipv4 or m.private_ipv4 or "" if m else ""
-                 ])
+                ])
             
         print tbl
 
