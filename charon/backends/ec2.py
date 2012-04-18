@@ -27,6 +27,7 @@ class EC2Definition(MachineDefinition):
         self.region = x.find("attr[@name='region']/string").get("value")
         self.controller = x.find("attr[@name='controller']/string").get("value")
         self.ami = x.find("attr[@name='ami']/string").get("value")
+        if self.ami == "": raise Exception("no AMI defined for EC2 machine ‘{0}’".format(self.name))
         self.instance_type = x.find("attr[@name='instanceType']/string").get("value")
         self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
