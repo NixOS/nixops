@@ -35,7 +35,8 @@ class EC2Definition(MachineDefinition):
         def f(xml):
             return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
                     'size': int(xml.find("attrs/attr[@name='size']/int").get("value")),
-                    'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value")}
+                    'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value"),
+                    'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true"}
         self.block_device_mapping = {_xvd_to_sd(k.get("name")): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
 
     def make_state():
@@ -275,7 +276,8 @@ class EC2State(MachineState):
                     raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(_sd_to_xvd(k)))
                 if v['disk'] == '':
                     if ami.root_device_type == "ebs":
-                        devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(size=v['size'], delete_on_termination=True)
+                        devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(
+                            size=v['size'], delete_on_termination=v['deleteOnTermination'])
                         v['needsInit'] = True
                         self._block_device_mapping[k] = v
                     # Otherwise, it's instance store backed, and we'll create the volume later.
@@ -367,7 +369,11 @@ class EC2State(MachineState):
                 self.connect()
                 volume = self._conn.create_volume(size=v['size'], zone=self._zone)
                 v['needsInit'] = True
-                v['deleteOnTermination'] = True
+                # The flag charonDeleteOnTermination denotes that on
+                # instance termination, we have to delete the volume
+                # ourselves.  For volumes created at instance creation
+                # time, EC2 will do it for us.
+                v['charonDeleteOnTermination'] = v['deleteOnTermination']
                 v['needsAttach'] = True
                 v['volumeId'] = volume.id
                 self._block_device_mapping[k] = v
@@ -404,6 +410,8 @@ class EC2State(MachineState):
                 charon.util.check_wait(check_dev)
                 del v['needsAttach']
                 self.write()
+
+        # FIXME: process changes to the deleteOnTermination flag.
                 
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self._block_device_mapping.items():
@@ -418,7 +426,7 @@ class EC2State(MachineState):
                         raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
                     # FIXME: Wait until the volume is actually detached.
                     
-                if v.get('deleteOnTermination', False):
+                if v.get('charonDeleteOnTermination', False):
                     self._delete_volume(v['volumeId'])
                 
                 del self._block_device_mapping[k]
@@ -478,7 +486,7 @@ class EC2State(MachineState):
 
         # Destroy volumes created for this instance.
         for k, v in self._block_device_mapping.items():
-            if v.get('deleteOnTermination', False):
+            if v.get('charonDeleteOnTermination', False):
                 self._delete_volume(v['volumeId'])
 
 

@@ -6,36 +6,52 @@ let
 
   cfg = config.deployment;
 
-  ec2DiskOptions = {
+  ec2DiskOptions = { config, ... }: {
+  
+    options = {
       
-    disk = mkOption {
-      default = "";
-      example = "vol-d04895b8";
-      type = types.uniq types.string;
-      description = ''
-        EC2 identifier of the disk to be mounted.  This can be an
-        ephemeral disk (e.g. <literal>ephemeral0</literal>), a
-        snapshot ID (e.g. <literal>snap-1cbda474</literal>) or a
-        volume ID (e.g. <literal>vol-d04895b8</literal>).  Leave
-        empty to create an EBS volume automatically.
-      '';
+      disk = mkOption {
+        default = "";
+        example = "vol-d04895b8";
+        type = types.uniq types.string;
+        description = ''
+          EC2 identifier of the disk to be mounted.  This can be an
+          ephemeral disk (e.g. <literal>ephemeral0</literal>), a
+          snapshot ID (e.g. <literal>snap-1cbda474</literal>) or a
+          volume ID (e.g. <literal>vol-d04895b8</literal>).  Leave
+          empty to create an EBS volume automatically.
+        '';
+      };
+
+      size = mkOption {
+        default = 0;
+        type = types.uniq types.int;
+        description = ''
+          Filesystem size (in gigabytes) for automatically created
+          EBS volumes.
+        '';
+      };
+
+      fsType = mkOption {
+        default = "ext4";
+        type = types.uniq types.string;
+        description = ''
+          Filesystem type for automatically created EBS volumes.
+        '';
+      };
+
+      deleteOnTermination = mkOption {
+        type = types.bool;
+        description = ''
+          For automatically created EBS volumes, determines whether the
+          volume should be deleted on instance termination.
+        '';
+      };
+
     };
 
-    size = mkOption {
-      default = 0;
-      type = types.uniq types.int;
-      description = ''
-        Filesystem size (in gigabytes) for automatically created
-        EBS volumes.
-      '';
-    };
-
-    fsType = mkOption {
-      default = "ext4";
-      type = types.uniq types.string;
-      description = ''
-        Filesystem type for automatically created EBS volumes.
-      '';
+    config = {
+      deleteOnTermination = mkDefault (config.disk == "");
     };
 
   };
