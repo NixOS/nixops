@@ -41,6 +41,7 @@ let
   };
 
   isEc2Hvm = (cfg.ec2.instanceType == "cc1.4xlarge" || cfg.ec2.instanceType == "cc2.8xlarge");
+  
 in
 
 {
@@ -295,6 +296,9 @@ in
   config = {
   
     boot.loader.grub.extraPerEntryConfig = mkIf isEc2Hvm "root (hd0)";
+
+    # Workaround: the evaluation of blockDeviceMapping requires fileSystems to be defined.
+    fileSystems = [];
 
     deployment.ec2 = mkIf (cfg.ec2.region != "") {
     
