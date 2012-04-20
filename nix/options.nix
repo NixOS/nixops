@@ -311,7 +311,7 @@ in
 
   config = {
   
-    boot.loader.grub.extraPerEntryConfig = mkIf isEc2Hvm "root (hd0)";
+    boot.loader.grub.extraPerEntryConfig = mkIf isEc2Hvm ( mkOverride 10 "root (hd0,0)" );
 
     # Workaround: the evaluation of blockDeviceMapping requires fileSystems to be defined.
     fileSystems = [];
