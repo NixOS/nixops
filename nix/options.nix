@@ -195,6 +195,20 @@ in
       '';
     };
 
+    deployment.ec2.privateKey = mkOption {
+      default = "";
+      example = "/home/alice/.ssh/id_rsa-my-keypair";
+      type = types.uniq types.string;
+      description = ''
+        Path of the SSH private key file corresponding with
+        <option>deployment.ec2.keyPair</option>.  Charon will use this
+        private key if set; otherwise, the key must be findable by SSH
+        through its normal mechanisms (e.g. it should be listed in
+        <filename>~/.ssh/config</filename> or added to the
+        <command>ssh-agent</command>).
+      '';
+    };
+
     deployment.ec2.securityGroups = mkOption {
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];

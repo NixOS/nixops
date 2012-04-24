@@ -31,6 +31,7 @@ class EC2Definition(MachineDefinition):
         if self.ami == "": raise Exception("no AMI defined for EC2 machine ‘{0}’".format(self.name))
         self.instance_type = x.find("attr[@name='instanceType']/string").get("value")
         self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
+        self.private_key = x.find("attr[@name='privateKey']/string").get("value")
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
         def f(xml):
@@ -66,6 +67,7 @@ class EC2State(MachineState):
         self._ami = None
         self._instance_type = None
         self._key_pair = None
+        self._private_key = None
         self._security_groups = None
         
         self._instance_id = None
@@ -94,6 +96,7 @@ class EC2State(MachineState):
         if self._ami: y['ami'] = self._ami
         if self._instance_type: y['instanceType'] = self._instance_type
         if self._key_pair: y['keyPair'] = self._key_pair
+        if self._private_key: y['privateKey'] = self._private_key
         if self._security_groups: y['securityGroups'] = self._security_groups
         if self._tags: y['tags'] = self._tags
         if self._block_device_mapping: y['blockDeviceMapping'] = self._block_device_mapping
@@ -121,6 +124,7 @@ class EC2State(MachineState):
         self._ami = y.get('ami', None)
         self._instance_type = y.get('instanceType', None)
         self._key_pair = y.get('keyPair', None)
+        self._private_key = y.get('privateKey', None)
         self._security_groups = y.get('securityGroups', None)
         self._tags = y.get('tags', {})
         self._block_device_mapping = y.get('blockDeviceMapping', {})
@@ -136,6 +140,11 @@ class EC2State(MachineState):
             raise Exception("EC2 machine ‘{0}’ does not have a public IPv4 address (yet)".format(self.name))
         return self._public_ipv4
 
+    
+    def get_ssh_flags(self):
+        return ["-i", self._private_key] if self._private_key else []
+
+    
     def get_physical_spec(self, machines):
         lines = ['    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];',
                  '    services.openssh.extraConfig = "PermitTunnel yes\\n";']
@@ -167,20 +176,24 @@ class EC2State(MachineState):
                     authorized_keys.append('"' + m._public_vpn_key + '"')
         lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys)))
         return lines
+
     
     def show_type(self):
         s = MachineState.show_type(self)
         if self._zone or self._region: s = "{0} [{1}; {2}]".format(s, self._zone or self._region, self._instance_type)
         return s
 
+    
     @property
     def vm_id(self):
         return self._instance_id
 
+    
     @property
     def public_ipv4(self):
         return self._public_ipv4
 
+    
     @property
     def private_ipv4(self):
         return self._private_ipv4
@@ -261,6 +274,8 @@ class EC2State(MachineState):
             self._access_key_id = defn.access_key_id or os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
             if not self._access_key_id:
                 raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
+
+        self._private_key = defn.private_key or None
         
         # Check whether the instance hasn't been killed behind our
         # backs.  Restart stopped instances.

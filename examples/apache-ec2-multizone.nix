@@ -5,6 +5,7 @@ let
       deployment.targetEnv = "ec2";
       deployment.ec2.region = "us-east-1"; 
       deployment.ec2.instanceType = "m1.small";
+      deployment.ec2.privateKey = "/home/eelco/.ec2/logicblox/id_rsa-eelco-logicblox-us-east-1";
     };
 
   configEU =
