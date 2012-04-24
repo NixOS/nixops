@@ -38,6 +38,7 @@ class EC2Definition(MachineDefinition):
                     'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value"),
                     'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true"}
         self.block_device_mapping = {_xvd_to_sd(k.get("name")): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
+        self.elastic_ipv4 = x.find("attr[@name='elasticIPv4']/string").get("value")
 
     def make_state():
         return MachineState()
@@ -68,6 +69,7 @@ class EC2State(MachineState):
         self._instance_id = None
         self._public_ipv4 = None
         self._private_ipv4 = None
+        self._elastic_ipv4 = None
         self._tags = {}
         self._block_device_mapping = {}
         self._public_host_key = False
@@ -95,6 +97,7 @@ class EC2State(MachineState):
         if self._public_host_key: y['publicHostKey'] = self._public_host_key
         if self._public_vpn_key: y['publicVpnKey'] = self._public_vpn_key
         if self._root_device_type: y['rootDeviceType'] = self._root_device_type
+        if self._elastic_ipv4: y['elasticIPv4'] = self._elastic_ipv4
         x['ec2'] = y
         
         return x
@@ -121,10 +124,12 @@ class EC2State(MachineState):
         self._vpn_key_set = y.get('vpnKeySet', False)
         self._public_vpn_key = y.get('publicVpnKey', None)
         self._root_device_type = y.get('rootDeviceType', None)
+        self._elastic_ipv4 = y.get('elasticIPv4', None)
 
         
     def get_ssh_name(self):
-        assert self._public_ipv4
+        if not self._public_ipv4:
+            raise Exception("EC2 machine ‘{0}’ does not have a public IPv4 address (yet)".format(self.name))
         return self._public_ipv4
 
     def get_physical_spec(self, machines):
@@ -339,15 +344,34 @@ class EC2State(MachineState):
             self._tags = tags
             self.write()
 
+        # Assign or release an elastic IP address, if given.
+        if (self._elastic_ipv4 or "") != defn.elastic_ipv4:
+            self.connect()
+            if defn.elastic_ipv4 != "":
+                print >> sys.stderr, "associating IP address ‘{0}’ with EC2 machine ‘{1}’...".format(
+                    defn.elastic_ipv4, self.name)
+                self._conn.associate_address(instance_id=self._instance_id, public_ip=defn.elastic_ipv4)
+                self._elastic_ipv4 = defn.elastic_ipv4
+                self._public_ipv4 = defn.elastic_ipv4
+                self._ssh_pinged = False
+                charon.known_hosts.add(defn.elastic_ipv4, self._public_host_key)
+            else:
+                print >> sys.stderr, "disassociating IP address ‘{0}’ from EC2 machine ‘{1}’...".format(
+                    self._elastic_ipv4, self.name)
+                self._conn.disassociate_address(public_ip=self._elastic_ipv4)
+                self._elastic_ipv4 = None
+                self._public_ipv4 = None
+            self.write()
+
         # Wait for the IP address.
-        if not self._private_ipv4 or check:
+        if not self._public_ipv4 or check:
             instance = self._get_instance_by_id(self._instance_id)
             sys.stderr.write("waiting for IP address of ‘{0}’... ".format(self.name))
             while True:
                 sys.stderr.write("[{0}] ".format(instance.state))
                 if instance.state not in {"pending", "running", "scheduling", "launching"}:
                     raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self._instance_id, instance.state))
-                if instance.private_ip_address: break
+                if instance.ip_address: break
                 time.sleep(3)
                 instance.update()
             sys.stderr.write("{0} / {1}\n".format(instance.ip_address, instance.private_ip_address))
@@ -356,6 +380,7 @@ class EC2State(MachineState):
             
             self._private_ipv4 = instance.private_ip_address
             self._public_ipv4 = instance.ip_address
+            self._ssh_pinged = False
             self.write()
 
         # Wait until the instance is reachable via SSH.
@@ -471,7 +496,7 @@ class EC2State(MachineState):
 
 
     def destroy(self):
-        sys.stderr.write("destroying EC2 instance ‘{0}’... ".format(self.name))
+        sys.stderr.write("destroying EC2 machine ‘{0}’... ".format(self.name))
 
         instance = self._get_instance_by_id(self._instance_id)
         instance.terminate()        

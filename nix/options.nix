@@ -206,7 +206,15 @@ in
       '';
     };
 
-    
+    deployment.ec2.elasticIPv4 = mkOption {
+      default = "";
+      example = "203.0.113.123";
+      type = types.uniq types.string;
+      description = ''
+        Elastic IPv4 address to be associated with this machine.
+      '';
+    };
+
     fileSystems = mkOption {
       options = {
         ec2 = mkOption {
