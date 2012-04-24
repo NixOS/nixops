@@ -23,6 +23,7 @@ class EC2Definition(MachineDefinition):
         MachineDefinition.__init__(self, xml)
         x = xml.find("attrs/attr[@name='ec2']/attrs")
         assert x is not None
+        self.access_key_id = x.find("attr[@name='accessKeyId']/string").get("value")
         self.type = x.find("attr[@name='type']/string").get("value")
         self.region = x.find("attr[@name='region']/string").get("value")
         self.controller = x.find("attr[@name='controller']/string").get("value")
@@ -54,6 +55,7 @@ class EC2State(MachineState):
     def __init__(self, depl, name):
         MachineState.__init__(self, depl, name)
         self._conn = None
+        self._access_key_id = None
         self._reset_state()
 
 
@@ -85,6 +87,7 @@ class EC2State(MachineState):
         if self._private_ipv4: x['privateIpv4'] = self._private_ipv4
 
         y = {}
+        if self._access_key_id: y['accessKeyId'] = self._access_key_id
         if self._region: y['region'] = self._region
         if self._zone: y['zone'] = self._zone
         if self._controller: y['controller'] = self._controller
@@ -111,6 +114,7 @@ class EC2State(MachineState):
         self._private_ipv4 = x.get('privateIpv4', None)
         
         y = x.get('ec2')
+        self._access_key_id = y.get('accessKeyId', None)
         self._region = y.get('region', None)
         self._zone = y.get('zone', None)
         self._controller = y.get('controller', None)
@@ -191,14 +195,28 @@ class EC2State(MachineState):
     def connect(self):
         if self._conn: return
         assert self._region
-        access_key_id = os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
-        if not access_key_id:
-            raise Exception("please set $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
+
+        # Get the secret access key from the environment or from ~/.ec2-keys.
         secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
+        path = os.path.expanduser("~/.ec2-keys")
+        if os.path.isfile(path):
+            f = open(path, 'r')
+            contents = f.read()
+            f.close()
+            for l in contents.splitlines():
+                l = l.split("#")[0] # drop comments
+                w = l.split()
+                if len(w) < 2: continue
+                if w[0] == self._access_key_id:
+                    secret_access_key = w[1]
+                    break
+            
         if not secret_access_key:
-            raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY")
+            raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/ec2-keys"
+                            .format(self._access_key_id))
+
         self._conn = boto.ec2.connect_to_region(
-            region_name=self._region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+            region_name=self._region, aws_access_key_id=self._access_key_id, aws_secret_access_key=secret_access_key)
 
         
     def _get_instance_by_id(self, instance_id, allow_missing=False):
@@ -238,17 +256,23 @@ class EC2State(MachineState):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
 
+        # Figure out the access key.
+        if not self._access_key_id:
+            self._access_key_id = defn.access_key_id or os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
+            if not self._access_key_id:
+                raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
+        
         # Check whether the instance hasn't been killed behind our
         # backs.  Restart stopped instances.
         if self._instance_id and check:
             self.connect()
             instance = self._get_instance_by_id(self._instance_id, allow_missing=True)
             if instance is None or instance.state in {"shutting-down", "terminated"}:
-                print >> sys.stderr, "EC2 instance for ‘{0}’ went away (state ‘{1}’), will recreate".format(self.name, instance.state if instance else "gone")
+                self.log("EC2 instance for ‘{0}’ went away (state ‘{1}’), will recreate".format(self.name, instance.state if instance else "gone"))
                 self._reset_state()
                 self.write()
             elif instance.state == "stopped":
-                print >> sys.stderr, "EC2 instance for ‘{0}’ was stopped, restarting...".format(self.name)
+                self.log("EC2 instance for ‘{0}’ was stopped, restarting...".format(self.name))
 
                 # When we restart, we'll probably get a new IP.  So forget the current one.
                 self._public_ipv4 = None
@@ -259,8 +283,8 @@ class EC2State(MachineState):
 
         # Start the instance.
         if not self._instance_id:
-            print >> sys.stderr, "creating EC2 instance ‘{0}’ (AMI ‘{1}’, type ‘{2}’, region ‘{3}’)...".format(
-                self.name, defn.ami, defn.instance_type, defn.region)
+            self.log("creating EC2 instance ‘{0}’ (AMI ‘{1}’, type ‘{2}’, region ‘{3}’)...".format(
+                self.name, defn.ami, defn.instance_type, defn.region))
 
             self._region = defn.region
             self.connect()
@@ -298,8 +322,8 @@ class EC2State(MachineState):
                     # zone of the volume.
                     volume = self._get_volume_by_id(v['disk'])
                     if not zone:
-                        print >> sys.stderr, "starting EC2 instance ‘{0}’ in zone ‘{1}’ due to volume ‘{2}’".format(
-                            self.name, volume.zone, v['disk'])
+                        self.log("starting EC2 instance ‘{0}’ in zone ‘{1}’ due to volume ‘{2}’".format(
+                            self.name, volume.zone, v['disk']))
                         zone = volume.zone
                     elif zone != volume.zone:
                         raise Exception("unable to start EC2 instance ‘{0}’ in zone ‘{1}’ because volume ‘{2}’ is in zone ‘{3}’"
@@ -348,16 +372,16 @@ class EC2State(MachineState):
         if (self._elastic_ipv4 or "") != defn.elastic_ipv4:
             self.connect()
             if defn.elastic_ipv4 != "":
-                print >> sys.stderr, "associating IP address ‘{0}’ with EC2 machine ‘{1}’...".format(
-                    defn.elastic_ipv4, self.name)
+                self.log("associating IP address ‘{0}’ with EC2 machine ‘{1}’...".format(
+                    defn.elastic_ipv4, self.name))
                 self._conn.associate_address(instance_id=self._instance_id, public_ip=defn.elastic_ipv4)
                 self._elastic_ipv4 = defn.elastic_ipv4
                 self._public_ipv4 = defn.elastic_ipv4
                 self._ssh_pinged = False
                 charon.known_hosts.add(defn.elastic_ipv4, self._public_host_key)
             else:
-                print >> sys.stderr, "disassociating IP address ‘{0}’ from EC2 machine ‘{1}’...".format(
-                    self._elastic_ipv4, self.name)
+                self.log("disassociating IP address ‘{0}’ from EC2 machine ‘{1}’...".format(
+                    self._elastic_ipv4, self.name))
                 self._conn.disassociate_address(public_ip=self._elastic_ipv4)
                 self._elastic_ipv4 = None
                 self._public_ipv4 = None
@@ -390,7 +414,7 @@ class EC2State(MachineState):
         # FIXME: support snapshots.
         for k, v in defn.block_device_mapping.iteritems():
             if k not in self._block_device_mapping and v['disk'] == '':
-                print >> sys.stderr, "creating {0} GiB volume for EC2 machine ‘{1}’...".format(v['size'], self.name)
+                self.log("creating {0} GiB volume for EC2 machine ‘{1}’...".format(v['size'], self.name))
                 self.connect()
                 volume = self._conn.create_volume(size=v['size'], zone=self._zone)
                 v['needsInit'] = True
@@ -407,7 +431,7 @@ class EC2State(MachineState):
         # Attach missing volumes.
         for k, v in defn.block_device_mapping.iteritems():
             if k not in self._block_device_mapping:
-                print >> sys.stderr, "attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['disk'], self.name, _sd_to_xvd(k))
+                self.log("attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['disk'], self.name, _sd_to_xvd(k)))
                 self.connect()
                 if v['disk'].startswith("vol-"):
                     self._conn.attach_volume(v['disk'], self._instance_id, k)
@@ -418,7 +442,7 @@ class EC2State(MachineState):
 
         for k, v in self._block_device_mapping.items():
             if v.get('needsAttach', False):
-                print >> sys.stderr, "attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['volumeId'], self.name, _sd_to_xvd(k))
+                self.log("attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['volumeId'], self.name, _sd_to_xvd(k)))
                 self.connect()
 
                 volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
@@ -441,7 +465,7 @@ class EC2State(MachineState):
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self._block_device_mapping.items():
             if k not in defn.block_device_mapping:
-                print >> sys.stderr, "detaching device ‘{0}’ from EC2 machine ‘{1}’...".format(_sd_to_xvd(k), self.name)
+                self.log("detaching device ‘{0}’ from EC2 machine ‘{1}’...".format(_sd_to_xvd(k), self.name))
                 self.connect()
                 volumes = self._conn.get_all_volumes([], filters={'attachment.instance-id': self._instance_id, 'attachment.device': k})
                 assert len(volumes) <= 1
@@ -460,7 +484,7 @@ class EC2State(MachineState):
         # Format volumes that need it.
         for k, v in self._block_device_mapping.items():
             if v.get('needsInit', None) == 1:
-                print >> sys.stderr, "formatting device ‘{0}’ on EC2 machine ‘{1}’...".format(_sd_to_xvd(k), self.name)
+                self.log("formatting device ‘{0}’ on EC2 machine ‘{1}’...".format(_sd_to_xvd(k), self.name))
                 self.run_command("mkfs.{0} {1}".format(v['fsType'], _sd_to_xvd(k)))
                 del v['needsInit']
                 self.write()
@@ -485,7 +509,7 @@ class EC2State(MachineState):
 
 
     def _delete_volume(self, volume_id):
-        sys.stderr.write("destroying EC2 volume ‘{0}’...\n".format(volume_id))
+        self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
         try:
             volume = self._get_volume_by_id(volume_id)
             charon.util.check_wait(lambda: volume.update() == 'available')

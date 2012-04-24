@@ -99,6 +99,26 @@ in
     
     # EC2/Nova/Eucalyptus-specific options.
 
+    deployment.ec2.accessKeyId = mkOption {
+      default = "";
+      example = "AKIAIEMEJZVMPOHZWKZQ";
+      type = types.uniq types.string;
+      description = ''
+        The AWS Access Key ID.  If left empty, it defaults to the
+        contents of the environment variables
+        <envar>EC2_ACCESS_KEY</envar> or
+        <envar>AWS_ACCESS_KEY_ID</envar> (in that order).  The
+        corresponding Secret Access Key is not specified in the
+        deployment model, but looked up in the file
+        <filename>~/.ec2-keys</filename>, which should specify, on
+        each line, an Access Key ID followed by the corresponding
+        Secret Access Key.  If it does not appear in that file, the
+        environment variables environment variables
+        <envar>EC2_SECRET_KEY</envar> or
+        <envar>AWS_SECRET_ACCESS_KEY</envar> are used.
+      '';
+    };
+
     deployment.ec2.type = mkOption {
       default = "ec2";
       example = "nova";

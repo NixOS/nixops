@@ -40,6 +40,9 @@ class MachineState:
         # this machine.
         self.cur_toplevel = None
 
+    def log(self, msg):
+        sys.stderr.write(msg + "\n")
+
     def write(self):
         self.depl.update_machine_state(self)
         
