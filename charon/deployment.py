@@ -280,10 +280,11 @@ class Deployment:
         self.activate_configs(self.configs_path, include=include, exclude=exclude)
 
             
-    def destroy_vms(self):
+    def destroy_vms(self, include=[], exclude=[]):
         """Destroy all current or obsolete VMs."""
 
         for m in self.machines.values(): # don't use itervalues() here
+            if not should_do(m, include, exclude): continue
             m.destroy()
             self.delete_machine(m)
 

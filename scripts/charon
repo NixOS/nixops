@@ -76,7 +76,7 @@ def op_deploy():
 
 def op_destroy():
     depl = deployment.Deployment(args.state_file)
-    depl.destroy_vms()
+    depl.destroy_vms(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_show_physical():
@@ -145,6 +145,8 @@ subparser.add_argument('--check', dest='check', action='store_true', help='do no
 
 subparser = subparsers.add_parser('destroy', help='destroy all virtual machines in the network')
 subparser.set_defaults(op=op_destroy)
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='destroy only the specified machines')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='destroy all except the specified machines')
 
 subparser = subparsers.add_parser('show-physical', help='print the physical network expression')
 subparser.set_defaults(op=op_show_physical)
