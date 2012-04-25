@@ -21,8 +21,9 @@ class VirtualBoxDefinition(MachineDefinition):
         MachineDefinition.__init__(self, xml)
         x = xml.find("attrs/attr[@name='virtualbox']/attrs")
         assert x is not None
-        self._base_image = x.find("attr[@name='baseImage']/string").get("value")
-        self._memory_size = x.find("attr[@name='memorySize']/int").get("value")
+        self.base_image = x.find("attr[@name='baseImage']/string").get("value")
+        self.memory_size = x.find("attr[@name='memorySize']/int").get("value")
+        self.headless = x.find("attr[@name='headless']/bool").get("value") == "true"
 
     def make_state():
         return MachineState()
@@ -145,7 +146,7 @@ class VirtualBoxState(MachineState):
 
             disk = vm_dir + "/disk1.vdi"
 
-            base_image = defn._base_image
+            base_image = defn.base_image
             if base_image == "drv":
                 try:
                     base_image = subprocess.check_output(
@@ -190,7 +191,7 @@ class VirtualBoxState(MachineState):
         if not self._started:
             res = subprocess.call(
                 ["VBoxManage", "modifyvm", self._vm_id,
-                 "--memory", defn._memory_size, "--vram", "10",
+                 "--memory", defn.memory_size, "--vram", "10",
                  "--nictype1", "virtio", "--nictype2", "virtio",
                  "--nic2", "hostonly", "--hostonlyadapter2", "vboxnet0",
                  "--nestedpaging", "off"])
@@ -199,8 +200,8 @@ class VirtualBoxState(MachineState):
             res = subprocess.call(
                 ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP", ''])
             if res != 0: raise Exception("unable to clear IP address of VirtualBox VM ‘{0}’".format(self.name))
-            
-            res = subprocess.call(["VBoxManage", "startvm", self._vm_id])
+
+            res = subprocess.call(["VBoxManage", "startvm", self._vm_id] + (["--type", "headless"] if defn.headless else []))
             if res != 0: raise Exception("unable to start VirtualBox VM ‘{0}’".format(self.name))
 
             self._started = True

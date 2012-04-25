@@ -320,12 +320,21 @@ in
 
     deployment.virtualbox.memorySize = mkOption {
       default = 512;
-      example = 512;
+      type = types.int;
       description = ''
         Memory size (M) of virtual machine.
       '';
     };
 
+    deployment.virtualbox.headless = mkOption {
+      default = false;
+      description = ''
+        If set, the VirtualBox instance is started in headless mode,
+        i.e., without a visible display on the host's desktop.
+      '';
+    };
+
+    
     # Computed options useful for referring to other machines in
     # network specifications.
 
