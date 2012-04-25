@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
+import os
 import sys
 import time
+import shutil
 import subprocess
 
 
@@ -123,7 +125,20 @@ class MachineState:
                 raise Exception("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
             return res
 
+    def _create_key_pair(self):
+        key_dir = self.depl.tempdir + "/ssh-key-" + self.name
+        os.mkdir(key_dir, 0700)
+        fnull = open(os.devnull, 'w')
+        res = subprocess.call(["ssh-keygen", "-t", "dsa", "-f", key_dir + "/key", "-N", '', "-C", "Charon auto-generated key"],
+                              stdout=fnull)
+        fnull.close()
+        if res != 0: raise Exception("unable to generate an SSH key")
+        f = open(key_dir + "/key"); private = f.read(); f.close()
+        f = open(key_dir + "/key.pub"); public = f.read().rstrip(); f.close()
+        shutil.rmtree(key_dir)
+        return (private, public)
 
+    
 import charon.backends.none
 import charon.backends.virtualbox
 import charon.backends.ec2

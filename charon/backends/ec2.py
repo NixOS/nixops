@@ -251,20 +251,6 @@ class EC2State(MachineState):
         return volumes[0]
 
 
-    def _create_key_pair(self):
-        key_dir = self.depl.tempdir + "/ssh-key-" + self.name
-        os.mkdir(key_dir, 0700)
-        fnull = open(os.devnull, 'w')
-        res = subprocess.call(["ssh-keygen", "-t", "dsa", "-f", key_dir + "/key", "-N", '', "-C", "Charon auto-generated key"],
-                              stdout=fnull)
-        fnull.close()
-        if res != 0: raise Exception("unable to generate an SSH key")
-        f = open(key_dir + "/key"); private = f.read(); f.close()
-        f = open(key_dir + "/key.pub"); public = f.read().rstrip(); f.close()
-        shutil.rmtree(key_dir)
-        return (private, public)
-
-    
     def create(self, defn, check):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"

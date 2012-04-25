@@ -43,6 +43,8 @@ class VirtualBoxState(MachineState):
         self._disk = None
         self._disk_attached = False
         self._started = False
+        self._client_private_key = None
+        self._client_public_key = None
         
     def serialise(self):
         x = MachineState.serialise(self)
@@ -51,6 +53,8 @@ class VirtualBoxState(MachineState):
 
         y = {}
         if self._disk: y['disk'] = self._disk
+        if self._client_private_key: y['clientPrivateKey'] = self._client_private_key
+        if self._client_public_key: y['clientPublicKey'] = self._client_public_key
         y['diskAttached'] = self._disk_attached
         y['started'] = self._started
         x['virtualbox'] = y
@@ -65,6 +69,8 @@ class VirtualBoxState(MachineState):
         y = x.get('virtualbox')
         self._disk = y.get('disk', None)
         self._disk_attached = y.get('diskAttached', False)
+        self._client_private_key = y.get('clientPrivateKey', None)
+        self._client_public_key = y.get('clientPublicKey', None)
         self._started = y.get('started', False)
 
     def get_ssh_name(self):
@@ -72,11 +78,11 @@ class VirtualBoxState(MachineState):
         return self._ipv4
 
     def get_ssh_flags(self):
-        copy = self.depl.tempdir + "/id_charon-virtualbox"
-        if not os.path.exists(copy):
-            shutil.copy(self.depl.expr_path + "/id_charon-virtualbox", copy)
-            os.chmod(copy, stat.S_IRUSR | stat.S_IWUSR)
-        return ["-o", "StrictHostKeyChecking=no", "-i", copy]
+        key_file = "{0}/id_charon-{1}".format(self.depl.tempdir, self.name)
+        if not os.path.exists(key_file):
+            with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0600), "w") as f:
+                f.write(self._client_private_key)
+        return ["-o", "StrictHostKeyChecking=no", "-i", key_file]
 
     def get_physical_spec(self, machines):
         return ['    require = [ <charon/virtualbox-image-charon.nix> ];',
@@ -188,6 +194,9 @@ class VirtualBoxState(MachineState):
                 self._started = False
                 self.write()
 
+        if not self._client_private_key:
+            (self._client_private_key, self._client_public_key) = self._create_key_pair()
+
         if not self._started:
             res = subprocess.call(
                 ["VBoxManage", "modifyvm", self._vm_id,
@@ -200,6 +209,10 @@ class VirtualBoxState(MachineState):
             res = subprocess.call(
                 ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP", ''])
             if res != 0: raise Exception("unable to clear IP address of VirtualBox VM ‘{0}’".format(self.name))
+
+            res = subprocess.call(
+                ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Charon/ClientPublicKey", self._client_public_key])
+            if res != 0: raise Exception("unable to client key of VirtualBox VM ‘{0}’".format(self.name))
 
             res = subprocess.call(["VBoxManage", "startvm", self._vm_id] + (["--type", "headless"] if defn.headless else []))
             if res != 0: raise Exception("unable to start VirtualBox VM ‘{0}’".format(self.name))
