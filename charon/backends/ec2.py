@@ -357,6 +357,17 @@ class EC2State(MachineState):
             
             self.write()
 
+            # There is a short time window during which EC2 doesn't
+            # know the instance ID yet.  So wait until it does.
+            while True:
+                try:
+                    instance = self._get_instance_by_id(self._instance_id)
+                    break
+                except boto.exception.EC2ResponseError as e:
+                    if e.error_code != "InvalidInstanceID.NotFound": raise
+                self.log("EC2 instance ‘{0}’ not known yet, waiting...".format(self._instance_id))
+                time.sleep(3)
+
         # Reapply tags if they have changed.
         common_tags = {'CharonNetworkUUID': str(self.depl.uuid), 'CharonMachineName': self.name}
         tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
