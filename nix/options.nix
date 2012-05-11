@@ -407,7 +407,7 @@ in
               }} > $out
             '';
         in if config.nixpkgs.system == "x86_64-linux" then
-          unpack "r33382-x86_64" "16irymms7vs4l3cllbpfl572269dwmlc7zficzf0r05bx7l0jsax"
+          unpack "0.1pre33926-33924-x86_64" "0c9857e3955bb5af273375e85c0a62a50323ccfaef0a29b5eb7f1539077c1c40"
         else
           # !!! Stupid lack of laziness
           # throw "Unsupported VirtualBox system type!"
