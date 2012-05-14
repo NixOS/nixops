@@ -10,6 +10,9 @@ import tempfile
 import atexit
 import shutil
 import threading
+import fcntl
+import exceptions
+import errno
 from xml.etree import ElementTree
 import charon.backends
 import charon.parallel
@@ -18,7 +21,7 @@ import charon.parallel
 class Deployment:
     """Charon top-level deployment manager."""
 
-    def __init__(self, state_file, create=False, nix_exprs=[]):
+    def __init__(self, state_file, create=False, nix_exprs=[], lock=True):
         self.state_file = state_file
         self.machines = { }
         self._machine_state = { }
@@ -31,6 +34,15 @@ class Deployment:
         self.expr_path = os.path.dirname(__file__) + "/../../../../share/nix/charon"
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
+
+        if lock:
+            self._state_file_lock = open(self.state_file + ".lock", "w+")
+            try:
+                fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except exceptions.IOError as e:
+                if e.errno != errno.EAGAIN: raise
+                sys.stderr.write("waiting for exclusive lock on ‘{0}’...\n".format(self.state_file))
+                fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX)
 
         if create:
             if os.path.exists(self.state_file):

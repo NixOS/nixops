@@ -15,7 +15,7 @@ def op_create():
 
     
 def op_info():
-    depl = deployment.Deployment(args.state_file)
+    depl = deployment.Deployment(args.state_file, lock=False)
     depl.evaluate()
 
     def state(d, m):
@@ -54,7 +54,7 @@ def op_info():
 
     
 def op_check():
-    depl = deployment.Deployment(args.state_file)
+    depl = deployment.Deployment(args.state_file, lock=False)
     fnull = open(os.devnull, 'w')
     for m in depl.machines.itervalues():
         sys.stderr.write("{0}... ".format(m.name))
@@ -80,14 +80,14 @@ def op_destroy():
 
 
 def op_show_physical():
-    depl = deployment.Deployment(args.state_file)
+    depl = deployment.Deployment(args.state_file, lock=False)
     depl.evaluate()
     depl.active = {n: depl.machines[n] for n in depl.machines if n in depl.definitions}
     print depl.get_physical_spec()
 
 
 def op_ssh():
-    depl = deployment.Deployment(args.state_file)
+    depl = deployment.Deployment(args.state_file, lock=False)
     m = depl.machines.get(args.machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
     ssh_name = m.get_ssh_name()
@@ -101,7 +101,7 @@ def scp_loc(ssh_name, remote, loc):
 
 
 def op_scp():
-    depl = deployment.Deployment(args.state_file)
+    depl = deployment.Deployment(args.state_file, lock=False)
     m = depl.machines.get(args.machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
     ssh_name = m.get_ssh_name()
