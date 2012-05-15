@@ -408,7 +408,7 @@ in
         if cfg.ec2.region == "eu-west-1" && config.nixpkgs.system == "x86_64-linux" &&  cfg.ec2.ebsBoot then "ami-2b665d5f" else
         if cfg.ec2.region == "eu-west-1" && config.nixpkgs.system == "i686-linux"   && !cfg.ec2.ebsBoot then "ami-dd90a9a9" else
         if cfg.ec2.region == "us-east-1" && config.nixpkgs.system == "x86_64-linux" && !cfg.ec2.ebsBoot then "ami-d9409fb0" else
-        if cfg.ec2.region == "us-east-1" && config.nixpkgs.system == "x86_64-linux" &&  cfg.ec2.ebsBoot then "ami-54a8733d" else
+        if cfg.ec2.region == "us-east-1" && config.nixpkgs.system == "x86_64-linux" &&  cfg.ec2.ebsBoot then "ami-70e24519" else
         if cfg.ec2.region == "us-west-1" && config.nixpkgs.system == "x86_64-linux" && !cfg.ec2.ebsBoot then "ami-4996ce0c" else
         # !!! Doesn't work, not lazy enough.
         #throw "I don't know an AMI for region ‘${cfg.ec2.region}’ and platform type ‘${config.nixpkgs.system}’"
