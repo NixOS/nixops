@@ -38,7 +38,9 @@ class EC2Definition(MachineDefinition):
             return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
                     'size': int(xml.find("attrs/attr[@name='size']/int").get("value")),
                     'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value"),
-                    'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true"}
+                    'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true",
+                    'encrypt': xml.find("attrs/attr[@name='encrypt']/bool").get("value") == "true",
+                    'passphrase': xml.find("attrs/attr[@name='passphrase']/string").get("value")}
         self.block_device_mapping = {_xvd_to_sd(k.get("name")): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
         self.elastic_ipv4 = x.find("attr[@name='elasticIPv4']/string").get("value")
 
@@ -496,8 +498,23 @@ class EC2State(MachineState):
         # Format volumes that need it.
         for k, v in self._block_device_mapping.items():
             if v.get('needsInit', None) == 1:
-                self.log("formatting device ‘{0}’ on EC2 machine ‘{1}’...".format(_sd_to_xvd(k), self.name))
-                self.run_command("mkfs.{0} {1}".format(v['fsType'], _sd_to_xvd(k)))
+                device = _sd_to_xvd(k)
+                
+                if v.get('encrypt', False) == 1:
+                    self.log("initialising encryption on device ‘{0}’ on EC2 machine ‘{1}’...".format(device, self.name))
+                    p = "/nix/store/7jj85k5yqx0bmaghibl5j29r8lxf2fxn-cryptsetup-1.4.2"
+                    self.copy_closure_to(p)
+                    passphrase = v.get('passphrase', "")
+                    assert passphrase != ""
+                    self.run_command("{1}/sbin/cryptsetup luksFormat {0} -".format(device, p),
+                                     stdin_string=passphrase)
+                    devname = device.replace("/dev/", "")
+                    self.run_command("{2}/sbin/cryptsetup luksOpen {0} {1}".format(device, devname, p),
+                                     stdin_string=passphrase)
+                    device = "/dev/mapper/{0}".format(devname)
+                    
+                self.log("formatting device ‘{0}’ on EC2 machine ‘{1}’...".format(device, self.name))
+                self.run_command("mkfs.{0} {1}".format(v['fsType'], device))
                 del v['needsInit']
                 self.write()
 

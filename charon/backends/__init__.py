@@ -114,13 +114,22 @@ class MachineState:
         self._ssh_pinged_this_time = True
         self.write()
 
-    def run_command(self, command, check=True, capture_stdout=False):
+    def run_command(self, command, check=True, capture_stdout=False, stdin_string=None):
         """Execute a command on the machine via SSH."""
         cmdline = ["ssh", "-x", "root@" + self.get_ssh_name()] + self.get_ssh_flags() + [command];
         if capture_stdout:
             return subprocess.check_output(cmdline)
         else:
-            res = subprocess.call(cmdline)
+            stdin = None
+            if stdin_string != None:
+                # Ugly, should pipe it in.
+                tempfile = self.depl.tempdir + "/ssh-stdin-" + self.name
+                # !!! set permission
+                with open(tempfile, "w+") as f:
+                    f.write(stdin_string)
+                stdin = open(tempfile)
+            res = subprocess.call(cmdline, stdin=stdin)
+            if stdin != None: stdin.close()
             if check and res != 0:
                 raise Exception("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
             return res
@@ -138,7 +147,21 @@ class MachineState:
         shutil.rmtree(key_dir)
         return (private, public)
 
-    
+    def copy_closure_to(self, path):
+        """Copy a closure to this machine."""
+        
+        # !!! Implement copying between cloud machines, as in the Perl
+        # version.
+
+        env = dict(os.environ)
+        env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags());
+        res = subprocess.Popen(
+            ["nix-copy-closure", "--gzip", "--to", "root@" + self.get_ssh_name(), path],
+            env=env).wait()
+        if res != 0:
+            raise Exception("unable to copy closure to machine ‘{0}’".format(self.name))
+
+
 import charon.backends.none
 import charon.backends.virtualbox
 import charon.backends.ec2

@@ -48,6 +48,29 @@ let
         '';
       };
 
+      encrypt = mkOption {
+        default = false;
+        type = types.bool;
+        description = ''
+          Whether the EBS volume should be encrypted using LUKS.
+        '';
+      };
+
+      passphrase = mkOption {
+        default = "";
+        type = types.uniq types.string;
+        description = ''
+          The passphrase (key file) used to decrypt the key to access
+          the device.  If left empty, a passphrase is generated
+          automatically; this passphrase is lost when you destroy the
+          machine or remove the volume, unless you copy it from
+          Charon's state file.  Note that the passphrase is stored in
+          the Nix store of the instance, so an attacker who gains
+          access to the EBS volume or instance store that contains the
+          Nix store can subsequently decrypt the encrypted volume.
+        '';
+      };
+
     };
 
     config = {
@@ -57,6 +80,12 @@ let
   };
 
   isEc2Hvm = (cfg.ec2.instanceType == "cc1.4xlarge" || cfg.ec2.instanceType == "cc2.8xlarge");
+
+  # Map "/dev/mapper/xvdX" to "/dev/xvdX".
+  dmToDevice = dev:
+    if builtins.substring 0 12 dev == "/dev/mapper/"
+    then "/dev/" + builtins.substring 12 100 dev
+    else dev;
   
 in
 
@@ -386,9 +415,8 @@ in
         "");
 
       blockDeviceMapping = listToAttrs
-        (map (fs: nameValuePair fs.device
-          { disk = fs.ec2.disk;
-            size = fs.ec2.size;
+        (map (fs: nameValuePair (dmToDevice fs.device)
+          { inherit (fs.ec2) disk size deleteOnTermination encrypt passphrase;
             fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
           })
          (filter (fs: fs.ec2 != null) config.fileSystems));

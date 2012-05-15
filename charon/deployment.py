@@ -181,21 +181,6 @@ class Deployment:
         return configs_path
         
 
-    def copy_closure(self, m, toplevel):
-        """Copy a closure to the corresponding machine."""
-        
-        # !!! Implement copying between cloud machines, as in the Perl
-        # version.
-
-        env = dict(os.environ)
-        env['NIX_SSHOPTS'] = ' '.join(m.get_ssh_flags());
-        res = subprocess.Popen(
-            ["nix-copy-closure", "--gzip", "--to", "root@" + m.get_ssh_name(), toplevel],
-            env=env).wait()
-        if res != 0:
-            raise Exception("unable to copy closure to machine ‘{0}’".format(m.name))
-
-
     def copy_closures(self, configs_path, include, exclude):
         """Copy the closure of each machine configuration to the corresponding machine."""
 
@@ -205,7 +190,7 @@ class Deployment:
             m.new_toplevel = os.path.realpath(configs_path + "/" + m.name)
             if not os.path.exists(m.new_toplevel):
                 raise Exception("can't find closure of machine ‘{0}’".format(m.name))
-            self.copy_closure(m, m.new_toplevel)
+            m.copy_closure_to(m.new_toplevel)
 
         charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
             
