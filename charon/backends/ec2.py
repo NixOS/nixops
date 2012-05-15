@@ -479,7 +479,7 @@ class EC2State(MachineState):
         # Get the volume IDs of automatically created volumes (because
         # it's good to have these in the state file).
         for k, v in self._block_device_mapping.items():
-            if not hasattr(v, 'volumeId'):
+            if not 'volumeId' in v:
                 self.connect()
                 volumes = self._conn.get_all_volumes(
                     filters={'attachment.instance-id': self._instance_id,
