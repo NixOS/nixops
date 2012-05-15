@@ -487,7 +487,7 @@ class EC2State(MachineState):
                         raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
                     # FIXME: Wait until the volume is actually detached.
                     
-                if v.get('charonDeleteOnTermination', False):
+                if v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
                     self._delete_volume(v['volumeId'])
                 
                 del self._block_device_mapping[k]
