@@ -475,6 +475,19 @@ class EC2State(MachineState):
                 self.write()
 
         # FIXME: process changes to the deleteOnTermination flag.
+
+        # Get the volume IDs of automatically created volumes (because
+        # it's good to have these in the state file).
+        for k, v in self._block_device_mapping.items():
+            if not hasattr(v, 'volumeId'):
+                self.connect()
+                volumes = self._conn.get_all_volumes(
+                    filters={'attachment.instance-id': self._instance_id,
+                             'attachment.device': k})
+                if len(volumes) != 1:
+                    raise Exception("unable to find volume attached to ‘{0}’ on EC2 machine ‘{1}’".format(k, self.name))
+                v['volumeId'] = volumes[0].id
+                self.write()
                 
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self._block_device_mapping.items():
