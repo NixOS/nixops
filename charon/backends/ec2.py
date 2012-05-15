@@ -496,8 +496,15 @@ class EC2State(MachineState):
                 self.connect()
                 volumes = self._conn.get_all_volumes([], filters={'attachment.instance-id': self._instance_id, 'attachment.device': k})
                 assert len(volumes) <= 1
+                
                 if len(volumes) == 1:
-                    self.run_command("umount -l {0}".format(_sd_to_xvd(k)), check=False)
+                    device = _sd_to_xvd(k)
+                    if v.get('encrypt', False):
+                        dm = device.replace("/dev/", "/dev/mapper/")
+                        self.run_command("umount -l {0}".format(dm), check=False)
+                        self.run_command("cryptsetup luksClose {0}".format(device.replace("/dev/", "")), check=False)
+                    else:
+                        self.run_command("umount -l {0}".format(device), check=False)
                     if not self._conn.detach_volume(volumes[0].id, instance_id=self._instance_id, device=k):
                         raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
                     # FIXME: Wait until the volume is actually detached.
@@ -510,10 +517,10 @@ class EC2State(MachineState):
 
         # Format volumes that need it.
         for k, v in self._block_device_mapping.items():
-            if v.get('needsInit', None) == 1:
+            if v.get('needsInit', False):
                 device = _sd_to_xvd(k)
                 
-                if v.get('encrypt', False) == 1:
+                if v.get('encrypt', False):
                     self.log("initialising encryption on device ‘{0}’ on EC2 machine ‘{1}’...".format(device, self.name))
                     passphrase = v.get('passphrase', "")
                     assert passphrase != ""
