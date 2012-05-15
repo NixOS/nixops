@@ -4,7 +4,9 @@ import os
 import sys
 import time
 import shutil
+import atexit
 import subprocess
+import charon.deployment
 
 
 class MachineDefinition:
@@ -32,6 +34,8 @@ class MachineState:
         self.created = False
         self._ssh_pinged = False
         self._ssh_pinged_this_time = False
+        self._ssh_master_started = False
+        self._ssh_master_opts = []
 
         # Nix store path of the last global configuration deployed to
         # this machine.  Used to check whether this machine is up to
@@ -114,9 +118,34 @@ class MachineState:
         self._ssh_pinged_this_time = True
         self.write()
 
+    def _open_ssh_master(self):
+        """Start an SSH master connection to speed up subsequent SSH sessions."""
+        if self._ssh_master_started: return
+
+        # Start the master.
+        control_socket = self.depl.tempdir + "/ssh-master-" + self.name
+        res = subprocess.call(
+            ["ssh", "-x", "root@" + self.get_ssh_name(), "-S", control_socket,
+             "-M", "-N", "-f"]
+            + self.get_ssh_flags())
+        if res != 0: 
+            raise Exception("unable to start SSH master connection to ‘{0}’".format(self.name))
+
+        # Kill the master on exit.
+        atexit.register(
+            lambda: 
+            subprocess.call(
+                ["ssh", "root@" + self.get_ssh_name(),
+                 "-S", control_socket, "-O", "exit"], stderr=charon.deployment.devnull)
+            )
+        
+        self._ssh_master_opts = ["-S", control_socket]
+        self._ssh_master_started = True
+
     def run_command(self, command, check=True, capture_stdout=False, stdin_string=None):
         """Execute a command on the machine via SSH."""
-        cmdline = ["ssh", "-x", "root@" + self.get_ssh_name()] + self.get_ssh_flags() + [command];
+        self._open_ssh_master()
+        cmdline = ["ssh", "-x", "root@" + self.get_ssh_name()] + self._ssh_master_opts + self.get_ssh_flags() + [command];
         if capture_stdout:
             return subprocess.check_output(cmdline)
         else:
