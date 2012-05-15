@@ -502,14 +502,12 @@ class EC2State(MachineState):
                 
                 if v.get('encrypt', False) == 1:
                     self.log("initialising encryption on device ‘{0}’ on EC2 machine ‘{1}’...".format(device, self.name))
-                    p = "/nix/store/7jj85k5yqx0bmaghibl5j29r8lxf2fxn-cryptsetup-1.4.2"
-                    self.copy_closure_to(p)
                     passphrase = v.get('passphrase', "")
                     assert passphrase != ""
-                    self.run_command("{1}/sbin/cryptsetup luksFormat {0} -".format(device, p),
+                    self.run_command("cryptsetup luksFormat {0} -".format(device),
                                      stdin_string=passphrase)
                     devname = device.replace("/dev/", "")
-                    self.run_command("{2}/sbin/cryptsetup luksOpen {0} {1}".format(device, devname, p),
+                    self.run_command("cryptsetup luksOpen {0} {1}".format(device, devname),
                                      stdin_string=passphrase)
                     device = "/dev/mapper/{0}".format(devname)
                     
