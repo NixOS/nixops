@@ -310,6 +310,7 @@ in
             ${concatStrings (attrValues (flip mapAttrs cfg.blockDeviceMapping (name: dev:
               # FIXME: The key file should be marked as private once
               # https://github.com/NixOS/nix/issues/8 is fixed.
+              assert dev.passphrase != "";
               let keyFile = pkgs.writeText "luks-key" dev.passphrase; in
               optionalString dev.encrypt ''
                 if [ -e "${name}" ]; then
@@ -323,10 +324,16 @@ in
                     cryptsetup luksFormat "${name}" --key-file=${keyFile}
                   fi
 
+                fi
+
+                base="$(basename "${name}")"
+                if [ ! -e "/dev/mapper/$base" ]; then
+                
                   # Activate the LUKS device.
-                  cryptsetup luksOpen "${name}" "$(basename "${name}")" --key-file=${keyFile}
+                  cryptsetup luksOpen "${name}" "$base" --key-file=${keyFile}
 
                 fi
+
               '')))}
           '';
       };

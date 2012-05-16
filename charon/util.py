@@ -2,9 +2,10 @@
 
 import sys
 import time
+import base64
 
 def check_wait(test, initial=10, factor=1, max_tries=60):
-    """Call function ‘test’ periodically until it returns True or a timeout occurs ."""
+    """Call function ‘test’ periodically until it returns True or a timeout occurs."""
     wait = initial
     tries = 0
     while tries < max_tries and not test():
@@ -14,3 +15,10 @@ def check_wait(test, initial=10, factor=1, max_tries=60):
         if tries == max_tries:
             raise Exception("operation timed out")
     return True
+
+def generate_random_string(length=256):
+    """Generate a base-64 encoded cryptographically strong random string."""
+    f = open("/dev/urandom", "r")
+    s = f.read(length)
+    assert len(s) == length
+    return base64.b64encode(s)

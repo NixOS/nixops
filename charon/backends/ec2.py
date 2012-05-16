@@ -177,6 +177,12 @@ class EC2State(MachineState):
                     # The other side just needs an authorized_keys entry.
                     authorized_keys.append('"' + m._public_vpn_key + '"')
         lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys)))
+
+        for k, v in self._block_device_mapping.items():
+            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "":
+                lines.append('    deployment.ec2.blockDeviceMapping."{0}".passphrase = pkgs.lib.mkOverride 10 "{1}";'
+                             .format(_sd_to_xvd(k), v['generatedKey']))
+        
         return lines
 
     
@@ -511,6 +517,12 @@ class EC2State(MachineState):
                     self._delete_volume(v['volumeId'])
                 
                 del self._block_device_mapping[k]
+                self.write()
+
+        # Auto-generate LUKS keys if the model didn't specify one.
+        for k, v in self._block_device_mapping.items():
+            if v.get('encrypt', False) and v.get('passphrase', "") == "":
+                v['generatedKey'] = charon.util.generate_random_string(length=256)
                 self.write()
 
         # Generate an SSH key for ad hoc VPN links between EC2
