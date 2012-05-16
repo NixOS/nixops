@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import os
 import sys
 import time
 import base64
+
+devnull = open(os.devnull, 'rw')
 
 def check_wait(test, initial=10, factor=1, max_tries=60):
     """Call function ‘test’ periodically until it returns True or a timeout occurs."""
@@ -22,3 +25,7 @@ def generate_random_string(length=256):
     s = f.read(length)
     assert len(s) == length
     return base64.b64encode(s)
+
+
+
+

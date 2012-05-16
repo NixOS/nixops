@@ -6,7 +6,7 @@ import time
 import shutil
 import atexit
 import subprocess
-import charon.deployment
+import charon.util
 
 
 class MachineDefinition:
@@ -136,7 +136,7 @@ class MachineState:
             lambda: 
             subprocess.call(
                 ["ssh", "root@" + self.get_ssh_name(),
-                 "-S", control_socket, "-O", "exit"], stderr=charon.deployment.devnull)
+                 "-S", control_socket, "-O", "exit"], stderr=charon.util.devnull)
             )
         
         self._ssh_master_opts = ["-S", control_socket]
@@ -166,10 +166,8 @@ class MachineState:
     def _create_key_pair(self):
         key_dir = self.depl.tempdir + "/ssh-key-" + self.name
         os.mkdir(key_dir, 0700)
-        fnull = open(os.devnull, 'w')
         res = subprocess.call(["ssh-keygen", "-t", "dsa", "-f", key_dir + "/key", "-N", '', "-C", "Charon auto-generated key"],
-                              stdout=fnull)
-        fnull.close()
+                              stdout=charon.util.devnull)
         if res != 0: raise Exception("unable to generate an SSH key")
         f = open(key_dir + "/key"); private = f.read(); f.close()
         f = open(key_dir + "/key.pub"); public = f.read().rstrip(); f.close()

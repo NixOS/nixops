@@ -294,6 +294,3 @@ def should_do(m, include, exclude):
     if m.name in exclude: return False
     if include == []: return True
     return m.name in include
-
-
-devnull = open(os.devnull, 'w')
