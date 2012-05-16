@@ -298,6 +298,39 @@ in
         })
        (filter (fs: fs.ec2 != null) config.fileSystems));
 
+    jobs."init-luks" =
+      { task = true;
+
+        startOn = "starting mountall";
+
+        path = [ pkgs.cryptsetup pkgs.utillinux ];
+
+        script =
+          ''
+            ${concatStrings (attrValues (flip mapAttrs cfg.blockDeviceMapping (name: dev:
+              # FIXME: The key file should be marked as private once
+              # https://github.com/NixOS/nix/issues/8 is fixed.
+              let keyFile = pkgs.writeText "luks-key" dev.passphrase; in
+              optionalString dev.encrypt ''
+                if [ -e "${name}" ]; then
+                
+                  # Do LUKS formatting if the device is empty.  FIXME:
+                  # this check is kinda dangerous.  For EC2 we could
+                  # just check if the first sector is empty.
+                  type=$(blkid -p -s TYPE -o value "${name}" || true)
+                  if [ -z "$type" ]; then
+                    echo "initialising encryption on device ‘${name}’..."
+                    cryptsetup luksFormat "${name}" --key-file=${keyFile}
+                  fi
+
+                  # Activate the LUKS device.
+                  cryptsetup luksOpen "${name}" "$(basename "${name}")" --key-file=${keyFile}
+
+                fi
+              '')))}
+          '';
+      };
+
   };
 
 }

@@ -310,7 +310,6 @@ class EC2State(MachineState):
                     if ami.root_device_type == "ebs":
                         devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(
                             size=v['size'], delete_on_termination=v['deleteOnTermination'])
-                        v['needsInit'] = True
                         self._block_device_mapping[k] = v
                     # Otherwise, it's instance store backed, and we'll create the volume later.
                 elif v['disk'].startswith("ephemeral"):
@@ -431,7 +430,6 @@ class EC2State(MachineState):
                 self.log("creating {0} GiB volume for EC2 machine ‘{1}’...".format(v['size'], self.name))
                 self.connect()
                 volume = self._conn.create_volume(size=v['size'], zone=self._zone)
-                v['needsInit'] = True
                 # The flag charonDeleteOnTermination denotes that on
                 # instance termination, we have to delete the volume
                 # ourselves.  For volumes created at instance creation
@@ -513,25 +511,6 @@ class EC2State(MachineState):
                     self._delete_volume(v['volumeId'])
                 
                 del self._block_device_mapping[k]
-                self.write()
-
-        # Format volumes that need it.
-        for k, v in self._block_device_mapping.items():
-            if v.get('needsInit', False):
-                device = _sd_to_xvd(k)
-                
-                if v.get('encrypt', False):
-                    self.log("initialising encryption on device ‘{0}’ on EC2 machine ‘{1}’...".format(device, self.name))
-                    passphrase = v.get('passphrase', "")
-                    assert passphrase != ""
-                    self.run_command("cryptsetup luksFormat {0} -".format(device),
-                                     stdin_string=passphrase)
-                    devname = device.replace("/dev/", "")
-                    self.run_command("cryptsetup luksOpen {0} {1}".format(device, devname),
-                                     stdin_string=passphrase)
-                    device = "/dev/mapper/{0}".format(devname)
-                    
-                del v['needsInit']
                 self.write()
 
         # Generate an SSH key for ad hoc VPN links between EC2
