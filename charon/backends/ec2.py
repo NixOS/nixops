@@ -521,7 +521,7 @@ class EC2State(MachineState):
 
         # Auto-generate LUKS keys if the model didn't specify one.
         for k, v in self._block_device_mapping.items():
-            if v.get('encrypt', False) and v.get('passphrase', "") == "":
+            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") == "":
                 v['generatedKey'] = charon.util.generate_random_string(length=256)
                 self.write()
 
