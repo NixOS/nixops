@@ -12,12 +12,14 @@
           # the machine is destroyed.
           { mountPoint = "/data";
             autocreate = true;
-            fsType = "ext3"; # default is "ext4"
+            autoFormat = true;
+            fsType = "btrfs"; # default is "ext4"
             device = "/dev/mapper/xvdf";
             ec2.size = 1;
             ec2.encrypt = true;
             ec2.passphrase = "fubar";
           }
+
           # Or to mount an existing volume or snapshot:
           /*
           { mountPoint = "/data2";

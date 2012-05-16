@@ -531,8 +531,6 @@ class EC2State(MachineState):
                                      stdin_string=passphrase)
                     device = "/dev/mapper/{0}".format(devname)
                     
-                self.log("formatting device ‘{0}’ on EC2 machine ‘{1}’...".format(device, self.name))
-                self.run_command("mkfs.{0} {1}".format(v['fsType'], device))
                 del v['needsInit']
                 self.write()
 
