@@ -94,10 +94,11 @@ class Deployment:
 
 
     def delete_machine(self, m):
-        del self.machines[m.name]
-        if m.name in self._machine_state: del self._machine_state[m.name]
-        if m.name in self.active: del self.active[m.name]
-        self.write_state()
+        with self._state_lock:
+            del self.machines[m.name]
+            if m.name in self._machine_state: del self._machine_state[m.name]
+            if m.name in self.active: del self.active[m.name]
+            self.write_state()
 
 
     def evaluate(self):
@@ -280,11 +281,13 @@ class Deployment:
     def destroy_vms(self, include=[], exclude=[]):
         """Destroy all current or obsolete VMs."""
 
-        for m in self.machines.values(): # don't use itervalues() here
-            if not should_do(m, include, exclude): continue
+        def worker(m):
+            if not should_do(m, include, exclude): return
             m.destroy()
             self.delete_machine(m)
 
+        charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.values(), worker_fun=worker)
+            
 
 class NixEvalError(Exception):
     pass
