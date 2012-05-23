@@ -1,7 +1,9 @@
+{ version ? "0" }:
+
 with import <nixpkgs> {};
 
 pythonPackages.buildPythonPackage {
-  name = "charon";
+  name = "charon-${version}";
   namePrefix = "";
 
   src = ./.;
