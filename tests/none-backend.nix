@@ -14,13 +14,16 @@ let
         network.description = "Testing";
 
         target1 =
-          { require =
+          { # Ugly - this reproduces the build-vms.nix config.
+            require =
               [ <nixos/modules/virtualisation/qemu-vm.nix>
                 <nixos/modules/testing/test-instrumentation.nix>
               ];
             deployment.targetEnv = "none";
             services.nixosManual.enable = false;
             boot.loader.grub.enable = false;
+            # Should Charon fill in extraHosts for the "none" backend?
+            networking.extraHosts = "192.168.1.3 target2\n";
           };
 
         target2 = target1;
@@ -28,7 +31,7 @@ let
     '';
 
   # Logical Charon model.
-  logical = n: pkgs.writeText "logical.nix"
+  logical = n: pkgs.writeText "logical-${toString n}.nix"
     ''
       { network.description = "Testing";
 
@@ -39,9 +42,21 @@ let
             ${optionalString (n == 1) ''
               environment.systemPackages = [ pkgs.vim ];
             ''}
-            ${optionalString (n == 2) ''
+            ${optionalString (n == 2 || n == 3) ''
               services.httpd.enable = true;
               services.httpd.adminAddr = "e.dolstra@tudelft.nl";
+            ''}
+            ${optionalString (n == 3) ''
+              services.httpd.extraModules = ["proxy_balancer"];
+              services.httpd.extraConfig =
+                "
+                  <Proxy balancer://cluster>
+                    Allow from all
+                    BalancerMember http://target2 retry=0
+                  </Proxy>
+                  ProxyPass        /foo/ balancer://cluster/
+                  ProxyPassReverse /foo/ balancer://cluster/
+                ";
             ''}
           };
 
@@ -49,6 +64,10 @@ let
           { config, pkgs, ... }:
           { services.openssh.enable = true;
             users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
+            ${optionalString (n == 3) ''
+              services.httpd.enable = true;
+              services.httpd.adminAddr = "e.dolstra@tudelft.nl";
+            ''}
           };
       }
     '';
@@ -134,12 +153,22 @@ in
         $coordinator->succeed("${env} charon check");
       };
 
-      # Do another deployment.
+      # Deploy Apache, remove vim.
       subtest "deploy-2", sub {
         $coordinator->succeed("cp ${logical 2} logical.nix");
         $coordinator->succeed("${env} charon deploy");
         $target1->fail("vim --version >&2");
-        $target1->succeed("curl --fail -v http://target1/ >&2");
+        $coordinator->succeed("curl --fail -v http://target1/ >&2");
+        $coordinator->fail("curl --fail -v http://target1/foo >&2");
+      };
+      
+      # Deploy an Apache proxy to target1 and a backend to target2.
+      subtest "deploy-3", sub {
+        $coordinator->succeed("cp ${logical 3} logical.nix");
+        $coordinator->succeed("${env} charon deploy");
+        $target1->waitForJob("httpd");
+        $coordinator->succeed("curl --fail -v http://target2/ >&2");
+        $coordinator->succeed("curl --fail -v http://target1/foo/ >&2");
       };
       
     '';
