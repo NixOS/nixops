@@ -37,4 +37,9 @@ rec {
     version = tarball.version;
   };
 
+  tests.none_backend = (import ./tests/none-backend.nix {
+    charon = build;
+    system = "x86_64-linux";
+  }).test;
+
 }
