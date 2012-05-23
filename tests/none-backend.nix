@@ -1,6 +1,7 @@
 { system, charon }:
 
 with import <nixos/lib/testing.nix> { inherit system; };
+with pkgs.lib;
 
 makeTest ({ pkgs, ... }:
 
@@ -9,7 +10,8 @@ let
   # Physical Charon model.
   physical = pkgs.writeText "physical.nix"
     ''
-      { network.description = "Testing";
+      rec {
+        network.description = "Testing";
 
         target1 =
           { require =
@@ -17,31 +19,37 @@ let
                 <nixos/modules/testing/test-instrumentation.nix>
               ];
             deployment.targetEnv = "none";
-            deployment.targetHost = "target1";
             services.nixosManual.enable = false;
             boot.loader.grub.enable = false;
           };
-      
+
+        target2 = target1;
       }
     '';
 
   # Logical Charon model.
-  logical = pkgs.writeText "physical.nix"
+  logical = n: pkgs.writeText "logical.nix"
     ''
       { network.description = "Testing";
 
         target1 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
-            environment.systemPackages = [ pkgs.vim ];
+            users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
+            ${optionalString (n == 1) ''
+              environment.systemPackages = [ pkgs.vim ];
+            ''}
+            ${optionalString (n == 2) ''
+              services.httpd.enable = true;
+              services.httpd.adminAddr = "e.dolstra@tudelft.nl";
+            ''}
           };
 
-        /*      
         target2 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
+            users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
           };
-        */
       }
     '';
 
@@ -54,7 +62,7 @@ in
   nodes =
     { coordinator =
         { config, pkgs, ... }:
-        { environment.systemPackages = [ charon pkgs.stdenv pkgs.vim ];
+        { environment.systemPackages = [ charon pkgs.stdenv pkgs.vim pkgs.apacheHttpd ];
           virtualisation.writableStore = true;
         };
 
@@ -84,6 +92,7 @@ in
       # Test ssh connectivity
       $coordinator->succeed("mkdir -m 0700 -p ~/.ssh; cp ${./id_test} ~/.ssh/id_dsa; chmod 600 ~/.ssh/id_dsa");
       $coordinator->succeed("ssh -o StrictHostKeyChecking=no -v target1 ls / >&2");
+      $coordinator->succeed("ssh -o StrictHostKeyChecking=no -v target2 ls / >&2");
 
       # Test some trivial commands.
       subtest "trivia", sub {
@@ -92,7 +101,10 @@ in
       };
 
       # Set up the state file.
-      $coordinator->succeed("charon create ${logical} ${physical}");
+      $coordinator->succeed("cp ${physical} physical.nix");
+      $coordinator->succeed("cp ${logical 1} logical.nix");
+      $coordinator->succeed("cp ${./id_test.pub} id_test.pub");
+      $coordinator->succeed("charon create ./physical.nix ./logical.nix");
 
       # Test ‘charon info’.
       subtest "info-before", sub {
@@ -100,7 +112,7 @@ in
       };
       
       # Do a deployment.
-      subtest "deploy", sub {
+      subtest "deploy-1", sub {
         $target1->fail("vim --version");
         $coordinator->succeed("${env} charon deploy --build-only");
         $coordinator->succeed("${env} charon deploy");
@@ -121,6 +133,15 @@ in
       subtest "check", sub {
         $coordinator->succeed("${env} charon check");
       };
+
+      # Do another deployment.
+      subtest "deploy-2", sub {
+        $coordinator->succeed("cp ${logical 2} logical.nix");
+        $coordinator->succeed("${env} charon deploy");
+        $target1->fail("vim --version >&2");
+        $target1->succeed("curl --fail -v http://target1/ >&2");
+      };
+      
     '';
   
 })
