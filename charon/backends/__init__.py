@@ -36,6 +36,7 @@ class MachineState:
         self._ssh_pinged_this_time = False
         self._ssh_master_started = False
         self._ssh_master_opts = []
+        self.index = None
 
         # Nix store path of the last global configuration deployed to
         # this machine.  Used to check whether this machine is up to
@@ -62,6 +63,7 @@ class MachineState:
         if self.cur_configs_path: x['vmsPath'] = self.cur_configs_path
         if self.cur_toplevel: x['toplevel'] = self.cur_toplevel
         if self._ssh_pinged: x['sshPinged'] = self._ssh_pinged
+        if self.index != None: x['index'] = self.index
         return x
 
     def deserialise(self, x):
@@ -69,6 +71,7 @@ class MachineState:
         self.cur_configs_path = x.get('vmsPath', None)
         self.cur_toplevel = x.get('toplevel', None)
         self._ssh_pinged = x.get('sshPinged', False)
+        self._index = x.get('index', None)
 
     def destroy(self):
         """Destroy this machine, if possible."""

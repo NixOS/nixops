@@ -222,6 +222,14 @@ class Deployment:
             self.update_machine_state(m)
 
         charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+
+
+    def _get_free_machine_index(self):
+        index = 0
+        for m in self.machines.itervalues():
+            if m.index != None and m.index <= index:
+                index = m.index + 1
+        return index
             
 
     def deploy(self, dry_run=False, build_only=False, create_only=False,
@@ -247,6 +255,11 @@ class Deployment:
                 if not should_do(m, include, exclude): continue
                 # !!! If kill_obsolete is set, kill the machine.
 
+        # Assign each machine an index if it doesn't have one.
+        for m in self.active.itervalues():
+            if m.index == None:
+                m.index = self._get_free_machine_index()
+                
         # Start or update the active machines.  !!! Should do this in parallel.
         if not dry_run and not build_only:
             def worker(m):
