@@ -10,7 +10,7 @@ in
 
 {
 
-  imports = [ ./ec2.nix ];
+  imports = [ ./ec2.nix ./ssh-tunnel.nix ];
   
   
   options = {
@@ -45,6 +45,21 @@ in
       description = ''
         This option specifies the hostname or IP address to be used by
         Charon to execute remote deployment operations.
+      '';
+    };
+
+    deployment.encryptedLinksTo = mkOption {
+      default = [];
+      type = types.list types.string;
+      description = ''
+        Charon will set up an encrypted tunnel (via SSH) to the
+        machines listed here.  Since this is a two-way (peer to peer)
+        connection, it is not necessary to set this option on both
+        endpoints.  Charon will set up <filename>/etc/hosts</filename>
+        so that the host names of the machines listed here resolve to
+        the IP addresses of the tunnels.  It will also add the alias
+        <literal><replaceable>machine</replaceable>-encrypted</literal>
+        for each machine.
       '';
     };
 

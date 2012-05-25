@@ -135,25 +135,72 @@ class Deployment:
     def get_physical_spec(self):
         """Compute the contents of the Nix expression specifying the computed physical deployment attributes"""
 
-        def for_machine(m):
-            lines = []
-            lines.append("  " + m.name + " = { config, pkgs, ... }: {")
+        lines_per_machine = {m.name: [] for m in self.active.itervalues()}
+        authorized_keys = {m.name: [] for m in self.active.itervalues()}
+        kernel_modules = {m.name: set() for m in self.active.itervalues()}
+        hosts = {}
+
+        for m in self.active.itervalues():
+            hosts[m.name] = {}
+            for m2 in self.active.itervalues():
+                if m == m2: continue
+                ip = m.address_to(m2)
+                if ip: hosts[m.name][m2.name] = hosts[m.name][m2.name + "-unencrypted"] = ip
+
+        def do_machine(m):
+            defn = self.definitions[m.name]
+            lines = lines_per_machine[m.name]
+            
             lines.extend(m.get_physical_spec(self.active))
+
+            # Emit configuration to realise encrypted peer-to-peer links.
+            for m2_name in defn.encrypted_links_to:
+                
+                if m2_name not in self.active:
+                    raise Exception("‘deployment.encryptedLinksTo’ in machine ‘{0}’ refers to an unknown machine ‘{1}’"
+                                    .format(m.name, m2_name))
+                m2 = self.active[m2_name]
+                # Don't create two tunnels between a pair of machines.
+                if m.name in self.definitions[m2.name].encrypted_links_to and m.name >= m2.name:
+                    continue
+                local_ipv4 = "192.168.105.{0}".format(m.index)
+                remote_ipv4 = "192.168.105.{0}".format(m2.index)
+                lines.append('    networking.p2pTunnels.{0} ='.format(m2.name))
+                lines.append('      {{ target = "{0}-unencrypted";'.format(m2.name))
+                lines.append('        localTunnel = {0};'.format(10000 + m2.index))
+                lines.append('        remoteTunnel = {0};'.format(10000 + m.index))
+                lines.append('        localIPv4 = "{0}";'.format(local_ipv4))
+                lines.append('        remoteIPv4 = "{0}";'.format(remote_ipv4))
+                lines.append('        privateKey = "/root/.ssh/id_charon_vpn";')
+                lines.append('      }};'.format(m2.name))
+                # FIXME: set up the authorized_key file such that ‘m’
+                # can do nothing more than create a tunnel.
+                authorized_keys[m2.name].append('"' + m._public_vpn_key + '"')
+                kernel_modules[m.name].add('"tun"')
+                kernel_modules[m2.name].add('"tun"')
+                hosts[m.name][m2.name] = hosts[m.name][m2.name + "-encrypted"] = remote_ipv4
+                hosts[m2.name][m.name] = hosts[m2.name][m.name + "-encrypted"] = local_ipv4
+            
             private_ipv4 = m.private_ipv4
             if private_ipv4: lines.append('    networking.privateIPv4 = "{0}";'.format(private_ipv4))
             public_ipv4 = m.public_ipv4
             if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";'.format(public_ipv4))
-            hosts = []
-            for m2 in self.active.itervalues():
-                if m == m2: continue
-                ip = m.address_to(m2)
-                if ip: hosts.append("{0} {1}".format(ip, m2.name))
-            lines.append('    networking.extraHosts = "{0}\\n";'.format('\\n'.join(hosts)))
-            lines.append('    boot.kernelModules = [ "tun" ];')
+            
+        for m in self.active.itervalues(): do_machine(m)
+
+        def emit_machine(m):
+            lines = []
+            lines.append("  " + m.name + " = { config, pkgs, ... }: {")
+            lines.extend(lines_per_machine[m.name])
+            if authorized_keys[m.name]:
+                lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys[m.name])))
+                lines.append('    services.openssh.extraConfig = "PermitTunnel yes\\n";')
+            lines.append('    boot.kernelModules = [ {0} ];'.format(" ".join(kernel_modules[m.name])))
+            lines.append('    networking.extraHosts = "{0}\\n";'.format('\\n'.join([hosts[m.name][m2] + " " + m2 for m2 in hosts[m.name]])))
             lines.append("  };\n")
             return "\n".join(lines)
 
-        return "".join(["{\n"] + [for_machine(m) for m in self.active.itervalues()] + ["}\n"])
+        return "".join(["{\n"] + [emit_machine(m) for m in self.active.itervalues()] + ["}\n"])
             
 
     def build_configs(self, include, exclude, dry_run=False):
@@ -266,9 +313,8 @@ class Deployment:
                 if not should_do(m, include, exclude): return
                 m.create(self.definitions[m.name], check=check)
                 m.wait_for_ssh(check=check)
+                m.generate_vpn_key()
             charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
-
-        if create_only: return
 
         # Build the machine configurations.
         if dry_run:

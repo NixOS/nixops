@@ -19,6 +19,7 @@ class MachineDefinition:
     def __init__(self, xml):
         self.name = xml.get("name")
         assert self.name
+        self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
 
 
 class MachineState:
@@ -36,6 +37,7 @@ class MachineState:
         self._ssh_pinged_this_time = False
         self._ssh_master_started = False
         self._ssh_master_opts = []
+        self._public_vpn_key = None
         self.index = None
 
         # Nix store path of the last global configuration deployed to
@@ -63,6 +65,7 @@ class MachineState:
         if self.cur_configs_path: x['vmsPath'] = self.cur_configs_path
         if self.cur_toplevel: x['toplevel'] = self.cur_toplevel
         if self._ssh_pinged: x['sshPinged'] = self._ssh_pinged
+        if self._public_vpn_key: x['publicVpnKey'] = self._public_vpn_key
         if self.index != None: x['index'] = self.index
         return x
 
@@ -71,7 +74,8 @@ class MachineState:
         self.cur_configs_path = x.get('vmsPath', None)
         self.cur_toplevel = x.get('toplevel', None)
         self._ssh_pinged = x.get('sshPinged', False)
-        self._index = x.get('index', None)
+        self._public_vpn_key = x.get('publicVpnKey', None)
+        self.index = x.get('index', None)
 
     def destroy(self):
         """Destroy this machine, if possible."""
@@ -166,10 +170,10 @@ class MachineState:
                 raise Exception("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
             return res
 
-    def _create_key_pair(self):
+    def _create_key_pair(self, key_name="Charon auto-generated key"):
         key_dir = self.depl.tempdir + "/ssh-key-" + self.name
         os.mkdir(key_dir, 0700)
-        res = subprocess.call(["ssh-keygen", "-t", "dsa", "-f", key_dir + "/key", "-N", '', "-C", "Charon auto-generated key"],
+        res = subprocess.call(["ssh-keygen", "-t", "dsa", "-f", key_dir + "/key", "-N", '', "-C", key_name],
                               stdout=charon.util.devnull)
         if res != 0: raise Exception("unable to generate an SSH key")
         f = open(key_dir + "/key"); private = f.read(); f.close()
@@ -190,6 +194,23 @@ class MachineState:
             env=env).wait()
         if res != 0:
             raise Exception("unable to copy closure to machine ‘{0}’".format(self.name))
+
+    def generate_vpn_key(self):
+        if self._public_vpn_key: return
+        (private, public) = self._create_key_pair(key_name="Charon VPN key of {0}".format(self.name))
+        f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
+        f.write(private)
+        f.seek(0)
+        # FIXME: use run_command
+        res = subprocess.call(
+            ["ssh", "-x", "root@" + self.get_ssh_name()]
+            + self.get_ssh_flags() +
+            ["umask 077 && mkdir -p /root/.ssh && cat > /root/.ssh/id_charon_vpn"],
+            stdin=f)
+        f.close()
+        if res != 0: raise Exception("unable to upload VPN key to ‘{0}’".format(self.name))
+        self._public_vpn_key = public
+        self.write()
 
 
 import charon.backends.none

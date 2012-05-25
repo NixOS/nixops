@@ -79,7 +79,6 @@ class EC2State(MachineState):
         self._tags = {}
         self._block_device_mapping = {}
         self._public_host_key = False
-        self._public_vpn_key = False
         self._root_device_type = None
         
         
@@ -103,7 +102,6 @@ class EC2State(MachineState):
         if self._tags: y['tags'] = self._tags
         if self._block_device_mapping: y['blockDeviceMapping'] = self._block_device_mapping
         if self._public_host_key: y['publicHostKey'] = self._public_host_key
-        if self._public_vpn_key: y['publicVpnKey'] = self._public_vpn_key
         if self._root_device_type: y['rootDeviceType'] = self._root_device_type
         if self._elastic_ipv4: y['elasticIPv4'] = self._elastic_ipv4
         x['ec2'] = y
@@ -131,8 +129,6 @@ class EC2State(MachineState):
         self._tags = y.get('tags', {})
         self._block_device_mapping = y.get('blockDeviceMapping', {})
         self._public_host_key = y.get('publicHostKey', None)
-        self._vpn_key_set = y.get('vpnKeySet', False)
-        self._public_vpn_key = y.get('publicVpnKey', None)
         self._root_device_type = y.get('rootDeviceType', None)
         self._elastic_ipv4 = y.get('elasticIPv4', None)
 
@@ -148,35 +144,7 @@ class EC2State(MachineState):
 
     
     def get_physical_spec(self, machines):
-        lines = ['    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];',
-                 '    services.openssh.extraConfig = "PermitTunnel yes\\n";']
-        authorized_keys = []
-        tun = 0
-        for m in machines.itervalues():
-            tun = tun + 1
-            if self != m and isinstance(m, EC2State) and self._region != m._region:
-                # The two machines are in different regions, so they
-                # can't talk directly to each other over their private
-                # IP.  So create a VPN connection over their public
-                # IPs to forward the private IPs.
-                if self.name > m.name:
-                    # Since it's a two-way tunnel, we only need to
-                    # start it on one machine (for each pair of
-                    # machines).  Pick the one that has the higher
-                    # name (lexicographically).
-                    lines.append('    jobs."vpn-to-{0}" = {{'.format(m.name))
-                    lines.append('      startOn = "started network-interfaces";')
-                    lines.append('      path = [ pkgs.nettools pkgs.openssh ];')
-                    lines.append('      daemonType = "fork";')
-                    lines.append('      exec = "ssh -i /root/.ssh/id_vpn -o StrictHostKeyChecking=no -f -x -w {0}:{0} {4} \'ifconfig tun{0} {2} {3} netmask 255.255.255.255; route add {2}/32 dev tun{0}\'";'
-                                 .format(tun, m.name, self._private_ipv4, m._private_ipv4, m._public_ipv4))
-                    lines.append('      postStart = "ifconfig tun{0} {2} {1} netmask 255.255.255.255; route add {2}/32 dev tun{0}";'
-                                 .format(tun, self._private_ipv4, m._private_ipv4))
-                    lines.append('    };')
-                else:
-                    # The other side just needs an authorized_keys entry.
-                    authorized_keys.append('"' + m._public_vpn_key + '"')
-        lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys)))
+        lines = ['    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];']
 
         for k, v in self._block_device_mapping.items():
             if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "":
@@ -524,24 +492,6 @@ class EC2State(MachineState):
             if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") == "":
                 v['generatedKey'] = charon.util.generate_random_string(length=256)
                 self.write()
-
-        # Generate an SSH key for ad hoc VPN links between EC2
-        # machines, and upload the private half.
-        if not self._public_vpn_key:
-            (private, public) = self._create_key_pair()
-            f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
-            f.write(private)
-            f.seek(0)
-            # FIXME: use run_command
-            res = subprocess.call(
-                ["ssh", "-x", "root@" + self.get_ssh_name()]
-                + self.get_ssh_flags() +
-                ["umask 077 && mkdir -p /root/.ssh && cat > /root/.ssh/id_vpn"],
-                stdin=f)
-            f.close()
-            if res != 0: raise Exception("unable to upload VPN key to ‘{0}’".format(self.name))
-            self._public_vpn_key = public
-            self.write()
 
 
     def _delete_volume(self, volume_id):
