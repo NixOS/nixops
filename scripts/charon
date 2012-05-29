@@ -96,6 +96,18 @@ def op_ssh():
     sys.exit(res)
 
     
+def op_ssh_for_each():
+    depl = deployment.Deployment(args.state_file, lock=False)
+    # FIXME: only do active machines?
+    res2 = 0
+    for m in depl.machines.itervalues():
+        ssh_name = m.get_ssh_name()
+        print >> sys.stderr, "running command on ‘{0}’...".format(m.name)
+        res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + args.args)
+        if res != 0: res2 = res
+    sys.exit(res2)
+
+    
 def scp_loc(ssh_name, remote, loc):
     return "root@{0}:{1}".format(ssh_name, loc) if remote else loc
 
@@ -154,6 +166,10 @@ subparser.set_defaults(op=op_show_physical)
 subparser = subparsers.add_parser('ssh', help='login on the specified machine via SSH')
 subparser.set_defaults(op=op_ssh)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
+subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
+
+subparser = subparsers.add_parser('ssh-for-each', help='execute a command on each machine via SSH')
+subparser.set_defaults(op=op_ssh_for_each)
 subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
 
 subparser = subparsers.add_parser('scp', help='copy files to or from the specified machine via scp')
