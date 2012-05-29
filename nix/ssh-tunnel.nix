@@ -60,7 +60,7 @@ with pkgs.lib;
   config = {
 
     jobs = flip mapAttrs' config.networking.p2pTunnels (n: v: nameValuePair "ssh-tunnel-${n}" {
-      startOn = "starting networking and started network-interfaces and started udev";
+      startOn = "started network-interfaces";
       stopOn = "stopping network-interfaces";
       path = [ pkgs.nettools pkgs.openssh ];
       preStart = "sleep 1"; # FIXME: hack to work around Upstart
