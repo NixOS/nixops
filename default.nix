@@ -8,7 +8,7 @@ pythonPackages.buildPythonPackage {
 
   src = ./.;
 
-  buildInputs = [ git ];
+  buildInputs = [ git libxslt docbook_xsl ];
 
   postUnpack = ''
     # Clean up when building from a working tree.
@@ -23,4 +23,14 @@ pythonPackages.buildPythonPackage {
     ];
 
   installCommand = "python setup.py install --prefix=$out";
+
+  postInstall =
+    ''
+      make -C doc/manual install docbookxsl=${docbook5_xsl}/xml/xsl/docbook \
+        docdir=$out/share/doc/charon mandir=$out/share/man
+
+      mkdir -p $out/nix-support
+      echo "nix-build none $out" >> $out/nix-support/hydra-build-products
+      echo "doc manual $out/share/doc/nix/manual" >> $out/nix-support/hydra-build-products
+    '';
 }

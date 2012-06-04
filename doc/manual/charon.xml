@@ -1,0 +1,31 @@
+<refentry xmlns="http://docbook.org/ns/docbook"
+          xmlns:xlink="http://www.w3.org/1999/xlink"
+          xmlns:xi="http://www.w3.org/2001/XInclude"
+          xml:id="sec-charon">
+
+<refmeta>
+  <refentrytitle>charon</refentrytitle>
+  <manvolnum>1</manvolnum>
+  <refmiscinfo class="source">Charon</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+  <refname>charon</refname>
+  <refpurpose>deploy a set of NixOS machines</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv>
+  <cmdsynopsis>
+    <command>charon</command>
+  </cmdsynopsis>
+</refsynopsisdiv>
+
+
+<refsection><title>Description</title>
+
+<para>Foo</para>
+
+</refsection>
+
+
+</refentry>

@@ -1,0 +1,36 @@
+<book xmlns="http://docbook.org/ns/docbook"
+      xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <info>
+
+    <title>Charon User's Guide</title>
+
+    <author>
+      <personname>
+        <firstname>Eelco</firstname>
+        <surname>Dolstra</surname>
+      </personname>
+      <affiliation>
+        <orgname>LogicBlox</orgname>
+      </affiliation>
+      <contrib>Author</contrib>
+    </author>
+
+    <copyright>
+      <year>2012</year>
+      <holder>Eelco Dolstra</holder>
+    </copyright>
+
+    <date>June 2012</date>
+    
+  </info>
+
+  <xi:include href="introduction.xml" />
+  <xi:include href="installation.xml" />
+  
+  <appendix>
+    <title>Command Reference</title>
+    <xi:include href="charon.xml" />
+  </appendix>
+    
+</book>
