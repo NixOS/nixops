@@ -27,10 +27,11 @@
 
   <xi:include href="introduction.xml" />
   <xi:include href="installation.xml" />
+  <xi:include href="overview.xml" />
   
   <appendix>
     <title>Command Reference</title>
     <xi:include href="charon.xml" />
   </appendix>
-    
+
 </book>

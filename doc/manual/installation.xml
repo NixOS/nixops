@@ -4,6 +4,77 @@
 
 <title>Installation</title>
 
-<para>Foo</para>
+<para>Charon runs on Linux and Mac OS X.  (It may also run on other
+platforms; the main prerequisite is that Nix runs on your
+platform.)  Installing it requires the following steps:</para>
+
+<orderedlist>
+
+  <listitem><para>Install the Nix package manager; you need at least
+  version 1.0.  It’s available from <link
+  xlink:href="http://nixos.org/nix/download.html">the Nix
+  website</link> in binary form for several platforms.  Please refer
+  to <link
+  xlink:href="http://hydra.nixos.org/view/nix/trunk/latest/tarball/download-by-type/doc/manual#chap-installation">the
+  installation instruction</link> in the Nix manual for more
+  details.</para></listitem>
+
+  <listitem><para>Obtain the NixOS and Nixpkgs sources and add them to
+  <envar>NIX_PATH</envar> environment variable so that Charon can find
+  them.  The easiest way to do this is to use the NixOS channel, which
+  also ensures that you get pre-built binaries so that your machine
+  doesn’t have to compile everything locally:
+
+<screen>
+$ nix-channel --add http://nixos.org/releases/nixos/channels/nixos-unstable
+$ export NIX_PATH=/nix/var/nix/profiles/per-user/root/channels/nixos
+</screen>
+
+  (You may have to replace <literal>root</literal> in the last line by
+  your own user name if you’ve installed Nix under another user
+  account.)</para>
+
+  <para>Alternatively, you can check out the sources using Git:
+
+<screen>
+$ cd /some/dir
+$ git clone git://github.com/NixOS/nixos.git
+$ git clone git://github.com/NixOS/nixpkgs.git
+$ export NIX_PATH=/some/dir
+</screen>
+
+  In this case you’ll probably want to do
+
+<screen>
+$ nix-pull http://nixos.org/releases/nixos/channels/nixos-unstable/MANIFEST
+</screen>
+
+  to tell Nix to use the pre-built binaries in the
+  <literal>nixos-unstable</literal> channel.</para></listitem>
+
+  <listitem><para>Install the latest version of Charon.  One way to do
+  this is to get Charon’s source from Git and build it:
+
+<screen>
+$ git clone git://github.com/NixOS/charon.git
+$ cd charon
+$ nix-env -f . -i charon
+$ charon --version
+Charon 0.1
+</screen>
+
+  </para></listitem>
+
+</orderedlist>
+
+<para>FIXME: document how to set up distributed builds on Mac OS X.
+This is necessary because Charon builds and deploys Linux (NixOS)
+machines and Macs cannot natively do Linux builds.</para>
+
+<para>FIXME: EC2 configuration (environment variables,
+<filename>~/.ec2-keys</filename>).</para>
+
+<para>FIXME: VirtualBox configuration (vboxnet0 host-only networking
+interface).</para>
 
 </chapter>

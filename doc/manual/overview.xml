@@ -1,0 +1,9 @@
+<chapter xmlns="http://docbook.org/ns/docbook"
+         xmlns:xlink="http://www.w3.org/1999/xlink"
+         xml:id="chap-overview">
+
+<title>Overview</title>
+
+<para>This chapter gives a quick overview of how to use Charon.</para>
+
+</chapter>
