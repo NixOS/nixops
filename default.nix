@@ -31,6 +31,6 @@ pythonPackages.buildPythonPackage {
 
       mkdir -p $out/nix-support
       echo "nix-build none $out" >> $out/nix-support/hydra-build-products
-      echo "doc manual $out/share/doc/nix/manual" >> $out/nix-support/hydra-build-products
+      echo "doc manual $out/share/doc/charon manual.html" >> $out/nix-support/hydra-build-products
     '';
 }
