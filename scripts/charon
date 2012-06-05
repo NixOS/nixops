@@ -30,8 +30,8 @@ def op_info():
                 state(d, m).lower(),
                 m.show_type() if m else d.get_type(),
                 m.vm_id or "" if m else "",
-                m.public_ipv4 or "",
-                m.private_ipv4 or "")
+                m.public_ipv4 or "" if m else "",
+                m.private_ipv4 or "" if m else "")
 
     else:
         print "Network UUID:", depl.uuid
@@ -99,6 +99,7 @@ def op_ssh():
 def op_ssh_for_each():
     depl = deployment.Deployment(args.state_file, lock=False)
     # FIXME: only do active machines?
+    # FIXME: support parallel execution
     res2 = 0
     for m in depl.machines.itervalues():
         ssh_name = m.get_ssh_name()
