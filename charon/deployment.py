@@ -307,7 +307,7 @@ class Deployment:
             if m.index == None:
                 m.index = self._get_free_machine_index()
                 
-        # Start or update the active machines.  !!! Should do this in parallel.
+        # Start or update the active machines.
         if not dry_run and not build_only:
             def worker(m):
                 if not should_do(m, include, exclude): return
