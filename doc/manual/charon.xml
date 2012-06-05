@@ -17,13 +17,487 @@
 <refsynopsisdiv>
   <cmdsynopsis>
     <command>charon</command>
+    <arg>
+      <group choice='req'>
+        <arg choice='plain'><option>--state</option></arg>
+        <arg choice='plain'><option>-s</option></arg>
+      </group>
+      <replaceable>statefile</replaceable>
+    </arg>
+    <arg><option>--debug</option></arg>
+    <group choice='req'>
+      <arg choice='plain'><option>--version</option></arg>
+      <arg choice='plain'><option>--help</option></arg>
+      <arg choice='plain'><replaceable>command</replaceable> <arg rep='repeat'><replaceable>arguments</replaceable></arg></arg>
+    </group>
   </cmdsynopsis>
 </refsynopsisdiv>
 
 
 <refsection><title>Description</title>
 
-<para>Foo</para>
+<para>Charon is a tool for deploying NixOS machines in a network or
+cloud.</para>
+
+</refsection>
+
+
+<refsection><title>Common options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--state</option></term>
+    <term><option>-s</option></term>
+
+    <listitem><para>Path to the state file (created by <command>charon
+    create</command>).  It defaults to the value of the
+    <envar>CHARON_STATE</envar> environment variable, or
+    <filename>./network.json</filename> if that one is not
+    defined.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--debug</option></term>
+
+    <listitem><para>Turn on debugging output.  In particular, this
+    causes Charon to print a Python stack trace if an unhandled
+    exception occurs.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--help</option></term>
+
+    <listitem><para>Print a brief summary of Charon’s
+    command line syntax.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--version</option></term>
+
+    <listitem><para>Print Charon’s version number.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+
+<refsection><title>Environment variables</title>
+
+<variablelist>
+
+  <varlistentry><term><envar>CHARON_STATE</envar></term>
+
+    <listitem><para>The location of the state file if
+    <option>--state</option> is not used.  It defaults to
+    <filename>./network.json</filename>.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><envar>EC2_ACCESS_KEY</envar></term>
+    <term><envar>AWS_ACCESS_KEY_ID</envar></term>
+
+    <listitem><para>AWS Access Key ID used to communicate with the
+    Amazon EC2 cloud.  Used if
+    <varname>deployment.ec2.accessKeyId</varname> is not set in an EC2
+    machine’s configuration.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><envar>EC2_SECRET_KEY</envar></term>
+    <term><envar>AWS_SECRET_ACCESS_KEY</envar></term>
+
+    <listitem><para>AWS Secret Access Key used to communicate with the
+    Amazon EC2 cloud.  It is only used if no secret key corresponding
+    to the AWS Access Key ID is defined in
+    <filename>~/.ec2-keys</filename>.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+
+</refsection>
+
+
+<refsection><title>Files</title>
+
+<variablelist>
+
+  <varlistentry><term><filename>~/.ec2-keys</filename></term>
+
+    <listitem><para>This file maps AWS Access Key IDs to their
+    corresponding Secret Access Keys.  Each line must consist of an
+    Access Key IDs and a Secret Access Keys, separated by whitespace.
+    Comments starting with <literal>#</literal> are stripped.  An example:
+
+<programlisting>
+AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ # AWS development account
+AKIAEODJSLXMDLLJKDLW DLeodsk32kldlDLSKdflexfpgiklf130r4dl23qp # AWS production account
+</programlisting>
+
+    </para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon create</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon create</command>
+  <arg choice='plain' rep='repeat'><replaceable>nixexprs</replaceable></arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command creates or updates a Charon state file representing
+a deployment.  The paths of the Nix expressions that describe the
+deployment (<replaceable>nixexprs</replaceable>) are stored in the
+state file.  If the state file already exists, this command simply
+replaces the paths of the Nix expressions stored in the statefile; it
+doesn’t affect any other deployment state.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<screen>
+$ charon -s ./state.json create foo.nix bar.nix
+$ charon -s ./state.json deploy</screen>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon deploy</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon deploy</command>
+  <group>
+    <arg choice='plain'><option>--kill-obsolete</option></arg>
+    <arg choice='plain'><option>-k</option></arg>
+  </group>
+  <arg><option>--dry-run</option></arg>
+  <arg><option>--create-only</option></arg>
+  <arg><option>--build-only</option></arg>
+  <arg><option>--check</option></arg>
+  <arg>
+    <option>--include</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
+    <option>--exclude</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command deploys a set of machines on the basis of the
+specification described by the Nix expressions given in the preceding
+<command>charon create</command> call.  It creates missing virtual
+machines, builds each machine configuration, copies the closure of
+each configuration to the corresponding machine, and activates
+them.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--kill-obsolete</option></term>
+    <term><option>-k</option></term>
+
+    <listitem><para>Destroy (terminate) virtual machines that were
+    previously created as part of this deployment, but are obsolete
+    because they are no longer mentioned in the deployment
+    specification.  This happens if you remove a machine from the
+    specification after having run <command>charon deploy</command> to
+    create it.  Without this flag, such obsolete machines are left
+    untouched.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--dry-run</option></term>
+
+    <listitem><para>Dry run; show what would be done by this command
+    without actually doing it.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--create-only</option></term>
+
+    <listitem><para>Exit after creating any missing machines.  Nothing
+    is built and no existing machines are touched.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--build-only</option></term>
+
+    <listitem><para>Just build the configuration locally; don’t create
+    or deploy any machines.  Note that this may fail if the
+    configuration refers to information only known after machines have
+    been created (such as IP addresses).</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--check</option></term>
+
+    <listitem><para>Normally, Charon assumes that the deployment state
+    of machines doesn’t change behind its back.  For instance, it
+    assumes that a VirtualBox VM, once started, will continue to run
+    unless you run <command>charon destroy</command> to terminate it.
+    If this is not the case, e.g., because you shut down or destroyed
+    a machine through other means, you should pass the
+    <option>--check</option> option to tell Charon to verify its
+    current knowledge.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--include</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Only operate on the machines explicitly mentioned
+    here, excluding other machines.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--exclude</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Only operate on the machines that are
+    <emphasis>not</emphasis> mentioned here.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To deploy all machines:
+
+<screen>
+$ charon deploy</screen>
+
+</para>
+
+<para>To deploy only the logical machines <literal>foo</literal> and
+<literal>bar</literal>, checking whether their recorded deployment
+state is correct:
+
+<screen>
+$ charon deploy --check --include foo bar</screen>
+
+</para>
+
+<para>To create any missing machines (except <literal>foo</literal>)
+without doing anything else:
+
+<screen>
+$ charon deploy --create-only --exclude foo</screen>
+
+</para>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon destroy</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon destroy</command>
+  <arg>
+    <option>--include</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
+    <option>--exclude</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command destroys (terminates) all virtual machines
+previously created as part of this deployment, and similarly deletes
+all disk volumes if they’re marked as “delete on termination”.</para>
+
+<para>This command has no effect on machines that cannot be destroyed
+automatically; for instance, machines in the <literal>none</literal>
+target environment (such as physical machines, or virtual machines not
+created by Charon).</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--include</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Only destroy the machines listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--exclude</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Destroy all machines except the ones listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To destroy all machines:
+
+<screen>
+$ charon destroy</screen>
+
+</para>
+
+<para>To destroy the machine named <literal>foo</literal>:
+
+<screen>
+$ charon destroy foo</screen>
+
+</para>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon info</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon info</command>
+  <arg><option>--plain</option></arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command prints some information about the current state of
+the deployment.  For each machine, it prints:
+
+<itemizedlist>
+  <listitem><para>The logical name of the machine.</para></listitem>
+  
+  <listitem><para>Its state, which is one of <literal>New</literal>
+  (not deployed yet), <literal>Up</literal> (created and up to date),
+  <literal>Outdated</literal> (created but not up to date with the
+  current configuration, e.g. due to use of the
+  <option>--exclude</option> option to <command>charon
+  deploy</command>) and <literal>Obsolete</literal> (created but no
+  longer present in the configuration).</para></listitem>
+
+  <listitem><para>The type of the machine (i.e. the value of
+  <varname>deployment.targetEnv</varname>, such as
+  <literal>ec2</literal>).  For EC2 machines, it also shows the
+  machine’s region or availability zone.</para></listitem>
+
+  <listitem><para>The virtual machine identifier, if applicable.  For
+  EC2 machines, this is the instance ID.  For VirtualBox VMs, it’s the
+  virtual machine name.</para></listitem>
+
+  <listitem><para>The IP address of the machine.  This is its public
+  IP address, if it has one, or its private IP address otherwise.
+  (For instance, VirtualBox machines only have a private IP
+  address.)</para></listitem>
+
+</itemizedlist>
+
+</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--plain</option></term>
+
+    <listitem><para>Print the information in a more easily parsed
+    format where columns are separated by tab
+    characters and there are no column headers.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon ssh</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon ssh</command>
+  <arg choice='plain'><replaceable>machine</replaceable></arg>
+  <arg>
+    <replaceable>command</replaceable>
+    <arg rep='repeat'><replaceable>args</replaceable></arg>
+  </arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command opens an SSH connection to the specified machine
+and executes the specified command.  If no command if specified, an
+interactive shell is started.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To start a shell on machine <literal>foo</literal>:
+
+<screen>
+$ charon ssh foo</screen>
+
+</para>
+
+<para>To run Emacs on machine <literal>bar</literal>:
+
+<screen>
+$ charon ssh bar -- -X emacs</screen>
+
+Note the use of <literal>--</literal> to force the flag
+<literal>-X</literal> (“enable X11 forwarding”) to be passed to SSH.</para>
+
+</refsection>
 
 </refsection>
 

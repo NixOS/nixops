@@ -17,7 +17,9 @@ manual.html: *.xml
 	  $(docbookxsl)/profiling/profile.xsl manual.xml | \
 	  $(xsltproc) --output manual.html $(docbookxsl)/html/docbook.xsl -
 
-man: *.xml
+man: charon.1
+
+charon.1: *.xml
 	$(xsltproc) --xinclude --stringparam profile.condition manpage \
 	  $(docbookxsl)/profiling/profile.xsl manual.xml | \
 	  $(xsltproc) $(docbookxsl)/manpages/docbook.xsl -
