@@ -10,13 +10,12 @@ platform.)  Installing it requires the following steps:</para>
 
 <orderedlist>
 
-  <listitem><para>Install the Nix package manager; you need at least
-  version 1.0.  It’s available from <link
-  xlink:href="http://nixos.org/nix/download.html">the Nix
-  website</link> in binary form for several platforms.  Please refer
-  to <link
-  xlink:href="http://hydra.nixos.org/view/nix/trunk/latest/tarball/download-by-type/doc/manual#chap-installation">the
-  installation instruction</link> in the Nix manual for more
+  <listitem><para>Install the Nix package manager.  You need at least
+  version 1.0.  It’s available from the <link
+  xlink:href="http://nixos.org/nix/download.html">Nix website</link>
+  in binary form for several platforms.  Please refer to the <link
+  xlink:href="http://hydra.nixos.org/view/nix/trunk/latest/tarball/download-by-type/doc/manual#chap-installation">installation
+  instruction</link> in the Nix manual for more
   details.</para></listitem>
 
   <listitem><para>Obtain the NixOS and Nixpkgs sources and add them to
@@ -61,6 +60,14 @@ $ cd charon
 $ nix-env -f . -i charon
 $ charon --version
 Charon 0.1
+</screen>
+
+  Another way is to install the <link
+  xlink:href="http://hydra.nixos.org/job/charon/master/build/latest-for/x86_64-linux">latest
+  build</link>, e.g.
+
+<screen>
+$ nix-install-package --non-interactive --url http://hydra.nixos.org/build/2662145/nix/pkg/charon-0.1pre225_721cf08-x86_64-linux.nixpkg
 </screen>
 
   </para></listitem>
