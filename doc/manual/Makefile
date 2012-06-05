@@ -2,7 +2,7 @@ xsltproc = xsltproc --nonet \
  --param section.autolabel 1 \
  --param section.label.includes.component.label 1 \
  --param html.stylesheet \'style.css\' \
- --param xref.with.number.and.title 1 \
+ --param xref.with.number.and.title 0 \
  --param toc.section.depth 3 \
  --param admon.style \'\' \
  --param callout.graphics.extension \'.gif\' \

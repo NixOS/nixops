@@ -6,4 +6,219 @@
 
 <para>This chapter gives a quick overview of how to use Charon.</para>
 
+<para>Charon deploys machines on the basis of a declarative
+description of what those machines should do, and where they should be
+deployed to.  These descriptions are specified in the <emphasis>Nix
+expression language</emphasis> used by the Nix package manager.  <xref
+linkend="ex-logical.nix" /> shows a minimal specification of a network
+consisting of only one logical machine named
+<literal>webserver</literal>.</para>
+
+<example xml:id="ex-logical.nix">
+  <title><filename>trivial.nix</filename>: logical network specification</title>
+<programlisting>
+{
+  network.description = "Web server";
+
+  webserver = 
+    { config, pkgs, ... }:
+    { services.httpd.enable = true;
+      services.httpd.adminAddr = "alice@example.org";
+      services.httpd.documentRoot = "${pkgs.valgrind}/share/doc/valgrind/html";
+    };
+}
+</programlisting>
+</example>
+
+<para>This specification consists of a set of top-level attributes
+describing logical machines (namely <varname>webserver</varname>) and
+meta-information (namely <varname>network.description</varname>).
+Each attribute not named <varname>network</varname> describes a
+logical machine.  The value of each logical machine attribute is a
+<emphasis>NixOS configuration module</emphasis>, which describes the
+desired configuration of the corresponding machine.  Thus, the logical
+machine <literal>webserver</literal> should have the Apache
+<command>httpd</command> web server running, and its document root
+(rather arbitrarily for demonstration purposes) should be the
+documentation of the Valgrind package.</para>
+
+<para>To deploy this machine, we also need to provide configuration
+options that tell Charon to what environment it should be deployed.
+<xref linkend="ex-physical-vbox.nix" /> specifies that
+<literal>webserver</literal> should be deployed as a VirtualBox
+instance.</para>
+
+<example xml:id="ex-physical-vbox.nix">
+  <title><filename>trivial-vbox.nix</filename>: physical network specification</title>
+<programlisting>
+{
+  webserver = 
+    { config, pkgs, ... }:
+    { deployment.targetEnv = "virtualbox";
+      deployment.virtualbox.memorySize = 1024; # megabytes
+    };
+}
+</programlisting>
+</example>
+
+<para>Before we can deploy the network we need to use the command
+<command>charon create</command> to create a <emphasis>state
+file</emphasis> that contains any state associated with the deployment
+(such as information about instantiated VMs).  The state file is a
+JSON-encoded record.  At creation time, we need to specify the Nix
+expressions that constitute the complete deployment specification.  So
+to create a state file for deploying the Apache web server to
+VirtualBox, we would do:
+
+<screen>
+$ charon -s ./trivial-vbox.json create ./trivial.nix ./trivial-vbox.nix
+</screen>
+
+The <option>-s</option> flag specifies the name of the state file.  If
+it’s omitted, <filename>./network.json</filename> is used by default.</para>
+
+<para>The command <command>charon info</command> shows the current
+deployment state:
+
+<screen>
+$ charon -s ./trivial-vbox.json info
+Network UUID: 33bced96-5f26-11e1-b9d7-9630d48abec1
+Network description: Web server
+
++-----------+--------+------------+-------+------------+
+|   Name    | Status |    Type    | VM Id | IP address |
++-----------+--------+------------+-------+------------+
+| webserver |  New   | virtualbox |       |            |
++-----------+--------+------------+-------+------------+
+</screen>
+
+The machine status <literal>New</literal> indicates that the logical
+machine <literal>webserver</literal> hasn’t been created yet.</para>
+
+<para>The actual deployment is done by running <command>charon
+deploy</command>:
+
+<screen>
+$ charon -s ./trivial-vbox.json deploy
+creating VirtualBox VM ‘webserver’...
+Virtual machine 'charon-33bced96-5f26-11e1-b9d7-9630d48abec1-webserver' is created and registered.
+Clone hard disk created in format 'VDI'. UUID: 5a0b0771-7e03-4fab-9c2f-e95888b57db3
+Waiting for VM "charon-33bced96-5f26-11e1-b9d7-9630d48abec1-webserver" to power on...
+VM "charon-33bced96-5f26-11e1-b9d7-9630d48abec1-webserver" has been successfully started.
+waiting for IP address of ‘webserver’........................... 192.168.56.101
+waiting for SSH on ‘webserver’...
+building all machine configurations...
+building path(s) `/nix/store/ybrny9h744q8i3x026ccfmdav8qnw7pd-nixos-version'
+building path(s) `/nix/store/zxw279xhl6l8yl94gnka8aqv1kkcrrd4-os-release'
+fetching path `/nix/store/pn43d3llpsm3pc1ywaxccmw8pmzjqgz0-valgrind-3.7.0'...
+…
+copying closure to machine ‘webserver’...
+copying 376 missing paths to ‘root@192.168.56.101’...
+importing path `/nix/store/jfcs9xnfbmiwqs224sb0qqsybbfl3sab-linux-headers-2.6.35.14'
+…
+activating new configuration on machine ‘webserver’...
+updating GRUB 2 menu...
+activating the configuration...
+…
+starting new service ‘httpd’...
+</screen>
+
+Charon performs the following steps to do the deployment:
+
+<itemizedlist>
+
+  <listitem><para>It creates missing machines.  In this case, a
+  VirtualBox instance for the logical machine
+  <literal>webserver</literal> is started.  Charon then waits to
+  obtain its IP address.</para></listitem>
+
+  <listitem><para>It builds the NixOS machine configurations locally.
+  For instance, here Valgrind is built or downloaded because our
+  machine configuration has a dependency on it.</para></listitem>
+
+  <listitem><para>It copies the closure of each machine configuration
+  to the corresponding machine.</para></listitem>
+
+  <listitem><para>It activates the configuration on each machine.  For
+  instance, it starts the <literal>httpd</literal> Upstart job on the
+  <literal>webserver</literal> machine.  This is the only step that
+  has a visible effect; all prior steps do not affect the active
+  configuration of the machines.</para></listitem>
+
+</itemizedlist>
+
+</para>
+
+<para>The <command>charon info</command> command will show that a
+machine was created:
+
+<screen>
+$ charon -s ./trivial-vbox.json info
+Network UUID: 33bced96-5f26-11e1-b9d7-9630d48abec1
+Network description: Web server
+
++-----------+--------+------------+-----------------------------------------------------+----------------+
+|   Name    | Status |    Type    |                        VM Id                        |   IP address   |
++-----------+--------+------------+-----------------------------------------------------+----------------+
+| webserver |   Up   | virtualbox | charon-33bced96-5f26-11e1-b9d7-9630d48abec1-machine | 192.168.56.101 |
++-----------+--------+------------+-----------------------------------------------------+----------------+
+</screen>
+
+</para>
+
+<para>Visit <literal>http://192.168.56.101</literal> in a web browser
+should now show the Valgrind documentation.  You can also log in to
+the virtual machine as <literal>root</literal>:
+
+<screen>
+$ charon -s ./trivial-vbox.json ssh webserver
+connecting to 192.168.56.101...
+[root@webserver:~]# 
+</screen>
+
+The command <command>charon ssh</command> is a convenience wrapper
+around <command>ssh</command> that passes the right IP address and SSH
+identity for the specified logical machine.  (Charon automatically
+creates a unique SSH key pair for communicating with each VirtualBox
+instance.)</para>
+
+<para>Redeployment after making a change to the specification is
+simply a matter of running <command>charon deploy</command> again.  If
+we do this for the example, Charon will notice that the
+<literal>webserver</literal> machine already exists and that most or
+all dependencies are already present, so it won’t create a new
+VirtualBox instance or need to build and copy a lot of dependencies.
+Thus redeployment typically only takes a few seconds:
+
+<screen>
+$ time charon -s ./trivial-vbox.json deploy
+building all machine configurations...
+copying closure to machine ‘webserver’...
+activating new configuration on machine ‘webserver’...
+real    0m3.700s
+</screen>
+
+</para>
+
+<para>If you want to get rid of the virtual machines created by
+Charon, you can run <command>charon destroy</command>:
+
+<screen>
+$ charon -s ./trivial-vbox.json destroy
+destroying VirtualBox VM ‘webserver’...
+</screen>
+
+Obviously, this is a potentially dangerous operation.</para>
+
+
+<!--
+
+<para>EC2 logical.nix</para>
+
+<para>EC2 deployment</para>
+
+<para>Multiple machines (load balancer)</para>
+
+-->
+
 </chapter>
