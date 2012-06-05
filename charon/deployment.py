@@ -316,6 +316,8 @@ class Deployment:
                 m.generate_vpn_key()
             charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
 
+        if create_only: return
+        
         # Build the machine configurations.
         if dry_run:
             self.build_configs(dry_run=True, include=include, exclude=exclude)
