@@ -78,9 +78,6 @@ $ nix-install-package --non-interactive --url http://hydra.nixos.org/build/26621
 This is necessary because Charon builds and deploys Linux (NixOS)
 machines and Macs cannot natively do Linux builds.</para>
 
-<para>FIXME: EC2 configuration (environment variables,
-<filename>~/.ec2-keys</filename>).</para>
-
 <para>FIXME: VirtualBox configuration (vboxnet0 host-only networking
 interface).</para>
 

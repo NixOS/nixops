@@ -6,6 +6,8 @@
 
 <para>This chapter gives a quick overview of how to use Charon.</para>
 
+<simplesect><title>Deploying a VirtualBox VM</title>
+
 <para>Charon deploys machines on the basis of a declarative
 description of what those machines should do, and where they should be
 deployed to.  These descriptions are specified in the <emphasis>Nix
@@ -49,7 +51,7 @@ options that tell Charon to what environment it should be deployed.
 instance.</para>
 
 <example xml:id="ex-physical-vbox.nix">
-  <title><filename>trivial-vbox.nix</filename>: physical network specification</title>
+  <title><filename>trivial-vbox.nix</filename>: VirtualBox physical network specification</title>
 <programlisting>
 {
   webserver = 
@@ -209,6 +211,196 @@ destroying VirtualBox VM ‘webserver’...
 </screen>
 
 Obviously, this is a potentially dangerous operation.</para>
+
+</simplesect>
+
+
+<simplesect><title>Deploying multiple machines</title>
+
+<para>A network consisting of only one logical machine is not very
+exciting.  <xref linkend="ex-logical-multi.nix" /> shows a network
+consisting of three machines: a load balancer (named
+<literal>proxy</literal>) that uses Apache’s
+<literal>mod_proxy</literal> to do reverse proxying, and two backend
+web servers (<literal>backend1</literal> and
+<literal>backend2</literal>) that serve the actual content.  One
+important thing to note is that if you want to refer to another
+machine (e.g. in a configuration file), you can use a hostname equal
+to the logical name of the machine, as in the line
+
+<programlisting>
+BalancerMember http://backend1 retry=0
+</programlisting>
+
+This works because Charon generates a <filename>/etc/hosts</filename>
+file that contains entries for all the logical machines in the
+network, mapping names to each machine’s IP address.  Also note that
+because the two backend machines have identical configurations, we can
+use a let-binding to define the configuration only once.</para>
+
+<example xml:id="ex-logical-multi.nix">
+  <title><filename>load-balancer.nix</filename>: logical network specification</title>
+<programlisting>
+let
+
+  backend = 
+    { config, pkgs, ... }:
+    { services.httpd.enable = true;
+      services.httpd.adminAddr = "alice@example.org";
+      services.httpd.documentRoot = "${pkgs.valgrind}/share/doc/valgrind/html";
+    };
+
+in
+    
+{
+  network.description = "Load balancing network";
+
+  proxy =
+    { config, pkgs, nodes, ... }:
+    { services.httpd.enable = true;
+      services.httpd.adminAddr = "bob@example.org";
+      services.httpd.extraModules = ["proxy_balancer"];
+      services.httpd.extraConfig =
+        ''
+          &lt;Proxy balancer://cluster>
+            Allow from all
+            BalancerMember http://backend1 retry=0
+            BalancerMember http://backend2 retry=0
+          &lt;/Proxy>
+          ProxyPass         /    balancer://cluster/
+          ProxyPassReverse  /    balancer://cluster/
+        '';
+    };
+
+  backend1 = backend;
+  backend2 = backend;
+}
+</programlisting>
+</example>
+
+<para>To deploy it, we need a physical specification, shown in <xref
+linkend="ex-physical-multi.nix" />.  Deployment is as follows:
+
+<screen>
+$ charon -s ./load-balancer-vbox.json create ./load-balancer.nix ./load-balancer-vbox.nix
+$ charon -s ./load-balancer-vbox.json deploy
+</screen>
+
+Note that Charon creates and deploys the VMs in parallel to speed
+things up.</para>
+
+<example xml:id="ex-physical-multi.nix">
+  <title><filename>load-balancer-vbox.nix</filename>: VirtualBox physical network specification</title>
+<programlisting>
+let
+  vbox = { deployment.targetEnv = "virtualbox"; };
+in
+{ proxy    = vbox;
+  backend1 = vbox;
+  backend2 = vbox;
+}
+</programlisting>
+</example>
+
+</simplesect>
+
+
+<simplesect><title>Deploying to Amazon EC2</title>
+
+<para><xref linkend="ex-physical-multi-ec2.nix" /> shows a physical
+specification that deploys the load balancer network to Amazon’s
+Elastic Compute Cloud (EC2).</para>
+
+<example xml:id="ex-physical-multi-ec2.nix">
+  <title><filename>load-balancer-ec2.nix</filename>: EC2 physical network specification</title>
+<programlisting>
+let
+  ec2 =
+    { deployment.targetEnv = "ec2";
+      deployment.ec2.region = "eu-west-1";
+      deployment.ec2.instanceType = "m1.small";
+      deployment.ec2.accessKeyId = "AKIAIUTDLWJKSLSJDLDQ";
+      deployment.ec2.keyPair = "my-key-pair";
+      deployment.ec2.privateKey = "/home/alice/.ssh/id_rsa-my-key-pair";
+    };
+in
+{ proxy    = ec2;
+  backend1 = ec2;
+  backend2 = ec2;
+}
+</programlisting>
+</example>
+
+<para>Deployment is as follows:
+
+<screen>
+$ charon -s ./load-balancer-ec2.json create ./load-balancer.nix ./load-balancer-ec2.nix
+$ charon -s ./load-balancer-ec2.json deploy
+</screen>
+
+This will start three instance-store backed instances running a
+default NixOS AMI.  Other than that, deployment is the same as for
+VirtualBox: Charon builds the machine configurations, copies their
+closure over to the EC2 instances, and activates the new
+configurations.  The instances can be terminated by running:
+
+<screen>
+$ charon -s ./load-balancer-ec2.json destroy
+</screen>
+
+</para>
+
+<para>Deployment to EC2 has some prerequisites.
+
+<itemizedlist>
+
+  <listitem><para>Obviously, you need an EC2 account.</para></listitem>
+
+  <listitem><para>You need to set your AWS access key ID in the option
+  <varname>deployment.ec2.accessKeyId</varname> or in the environment
+  variable <envar>EC2_ACCESS_KEY</envar>.</para></listitem>
+
+  <listitem><para>You need to set you AWS secret key in the
+  environment variable <envar>EC2_SECRET_KEY</envar> or by creating a
+  file <filename>~/.ec2-keys</filename> that maps access key IDs to
+  secret keys:
+
+<programlisting>
+AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ # my AWS development account
+</programlisting>
+
+  </para></listitem>
+
+  <listitem><para>You need to create an SSH key pair using the
+  <command>ec2-create-keypair</command> command line tool or using the
+  AWS web interface, set <varname>deployment.ec2.keyPair</varname> to
+  the name of the key pair, and set
+  <varname>deployment.ec2.privateKey</varname> to the path of the
+  private key.</para></listitem>
+
+  <listitem><para>You need to ensure that your EC2 security groups are
+  set up to allow (at the very least) SSH traffic from your network.
+  By default, Charon uses the security group
+  <literal>default</literal>.  You can set the option
+  <varname>deployment.ec2.securityGroups</varname> to use other
+  security groups:
+
+<programlisting>
+deployment.ec2.securityGroups = [ "allow-ssh" "allow-http" ];
+</programlisting>
+
+  </para></listitem>
+  
+  <listitem><para>You need to set
+  <varname>deployment.ec2.region</varname> to the EC2 region you want
+  to deploy to.  Note that key pairs and security groups are
+  region-specific.</para></listitem>
+  
+</itemizedlist>
+
+</para>
+
+</simplesect>
 
 
 <!--
