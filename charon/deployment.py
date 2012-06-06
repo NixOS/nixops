@@ -350,6 +350,26 @@ class Deployment:
         charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.values(), worker_fun=worker)
             
 
+    def stop_machines(self, include=[], exclude=[]):
+        """Stop all current or obsolete machines."""
+
+        def worker(m):
+            if not should_do(m, include, exclude): return
+            m.stop()
+
+        charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.itervalues(), worker_fun=worker)
+            
+
+    def start_machines(self, include=[], exclude=[]):
+        """Start all current or obsolete machines."""
+
+        def worker(m):
+            if not should_do(m, include, exclude): return
+            m.start()
+
+        charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.itervalues(), worker_fun=worker)
+            
+
 class NixEvalError(Exception):
     pass
 

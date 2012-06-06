@@ -393,6 +393,132 @@ $ charon destroy foo</screen>
 </refsection>
 
 
+<refsection><title>Command <option>charon stop</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon stop</command>
+  <arg>
+    <option>--include</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
+    <option>--exclude</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command stops (shuts down) all machines that can be
+automatically started.  This includes EC2 and VirtualBox machines, but
+not machines using the <literal>none</literal> backend (because Charon
+doesn’t know how to start them automatically).</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--include</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Only stop the machines listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--exclude</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Stop all machines except the ones listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To stop all machines that support being stopped:
+
+<screen>
+$ charon stop</screen>
+
+</para>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon start</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon start</command>
+  <arg>
+    <option>--include</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
+    <option>--exclude</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command starts machines previously stopped using
+<command>charon stop</command>.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--include</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Only start the machines listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--exclude</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Start all machines except the ones listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To start all machines that were previously stopped:
+
+<screen>
+$ charon start</screen>
+
+</para>
+
+</refsection>
+
+</refsection>
+
+
 <refsection><title>Command <option>charon info</option></title>
 
 <refsection><title>Synopsis</title>

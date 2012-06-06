@@ -79,6 +79,16 @@ def op_destroy():
     depl.destroy_vms(include=args.include or [], exclude=args.exclude or [])
 
 
+def op_stop():
+    depl = deployment.Deployment(args.state_file)
+    depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
+
+
+def op_start():
+    depl = deployment.Deployment(args.state_file)
+    depl.start_machines(include=args.include or [], exclude=args.exclude or [])
+
+
 def op_show_physical():
     depl = deployment.Deployment(args.state_file, lock=False)
     depl.evaluate()
@@ -160,6 +170,16 @@ subparser = subparsers.add_parser('destroy', help='destroy all virtual machines 
 subparser.set_defaults(op=op_destroy)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='destroy only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='destroy all except the specified machines')
+
+subparser = subparsers.add_parser('stop', help='stop all virtual machines in the network')
+subparser.set_defaults(op=op_stop)
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='stop only the specified machines')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='stop all except the specified machines')
+
+subparser = subparsers.add_parser('start', help='start all virtual machines in the network')
+subparser.set_defaults(op=op_start)
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='start only the specified machines')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='start all except the specified machines')
 
 subparser = subparsers.add_parser('show-physical', help='print the physical network expression')
 subparser.set_defaults(op=op_show_physical)

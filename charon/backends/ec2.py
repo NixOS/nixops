@@ -80,6 +80,7 @@ class EC2State(MachineState):
         self._block_device_mapping = {}
         self._public_host_key = False
         self._root_device_type = None
+        self._state = None
         
         
     def serialise(self):
@@ -378,21 +379,7 @@ class EC2State(MachineState):
         if not self._public_ipv4 or check:
             instance = self._get_instance_by_id(self._instance_id)
             sys.stderr.write("waiting for IP address of ‘{0}’... ".format(self.name))
-            while True:
-                sys.stderr.write("[{0}] ".format(instance.state))
-                if instance.state not in {"pending", "running", "scheduling", "launching"}:
-                    raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self._instance_id, instance.state))
-                if instance.ip_address: break
-                time.sleep(3)
-                instance.update()
-            sys.stderr.write("{0} / {1}\n".format(instance.ip_address, instance.private_ip_address))
-
-            charon.known_hosts.add(instance.ip_address, self._public_host_key)
-            
-            self._private_ipv4 = instance.private_ip_address
-            self._public_ipv4 = instance.ip_address
-            self._ssh_pinged = False
-            self.write()
+            self.wait_for_ip(instance)
 
         # Wait until the instance is reachable via SSH.
         self.wait_for_ssh(check=check)
@@ -523,6 +510,61 @@ class EC2State(MachineState):
         for k, v in self._block_device_mapping.items():
             if v.get('charonDeleteOnTermination', False):
                 self._delete_volume(v['volumeId'])
+
+                
+    def stop(self):
+        sys.stderr.write("stopping EC2 machine ‘{0}’... ".format(self.name))
+
+        instance = self._get_instance_by_id(self._instance_id)
+        instance.stop() # no-op if the machine is already stopped
+
+        # Wait until it's really stopped.
+        while True:
+            sys.stderr.write("[{0}] ".format(instance.state))
+            if instance.state == "stopped": break
+            if instance.state not in {"running", "stopping"}:
+                raise Exception(
+                    "EC2 instance ‘{0}’ failed to stop (state is ‘{1}’)"
+                    .format(self._instance_id, instance.state))
+            time.sleep(3)
+            instance.update()
+        sys.stderr.write("\n")
+
+
+    def wait_for_ip(self, instance):
+        while True:
+            instance.update()
+            sys.stderr.write("[{0}] ".format(instance.state))
+            if instance.state not in {"pending", "running", "scheduling", "launching", "stopped"}:
+                raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self._instance_id, instance.state))
+            if instance.ip_address: break
+            time.sleep(3)
+        sys.stderr.write("{0} / {1}\n".format(instance.ip_address, instance.private_ip_address))
+        
+        charon.known_hosts.add(instance.ip_address, self._public_host_key)
+            
+        self._private_ipv4 = instance.private_ip_address
+        self._public_ipv4 = instance.ip_address
+        self._ssh_pinged = False
+        self.write()
+
+
+    def start(self):
+        sys.stderr.write("starting EC2 machine ‘{0}’... ".format(self.name))
+
+        instance = self._get_instance_by_id(self._instance_id)
+        instance.start() # no-op if the machine is already started
+
+        # Wait until it's really started, and obtain its new IP
+        # address.  Warn the user if the IP address has changed (which
+        # is generally the case).
+        prev_private_ipv4 = self._private_ipv4
+        prev_public_ipv4 = self._public_ipv4
+        
+        self.wait_for_ip(instance)
+        
+        if prev_private_ipv4 != self._private_ipv4 or prev_public_ipv4 != self._public_ipv4:
+            self.log("warning: IP address of EC2 machine ‘{0}’ has changed, you may need to run ‘charon deploy’".format(self.name))
 
 
 def _xvd_to_sd(dev):
