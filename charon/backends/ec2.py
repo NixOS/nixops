@@ -4,9 +4,11 @@ import os
 import sys
 import re
 import time
-import subprocess
+import socket
+import getpass
 import shutil
 import boto.ec2
+import subprocess
 from charon.backends import MachineDefinition, MachineState
 import charon.known_hosts
 import charon.util
@@ -381,7 +383,9 @@ class EC2State(MachineState):
             self.warn("cannot change region of a running instance")
                     
         # Reapply tags if they have changed.
-        common_tags = {'CharonNetworkUUID': str(self.depl.uuid), 'CharonMachineName': self.name}
+        common_tags = {'CharonNetworkUUID': str(self.depl.uuid),
+                       'CharonMachineName': self.name,
+                       'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl.state_file)}
         tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
         tags.update(defn.tags)
         tags.update(common_tags)
