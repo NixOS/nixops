@@ -233,7 +233,7 @@ class EC2State(MachineState):
         return volumes[0]
 
 
-    def wait_for_ip(self, instance):
+    def _wait_for_ip(self, instance):
         while True:
             instance.update()
             sys.stderr.write("[{0}] ".format(instance.state))
@@ -417,7 +417,7 @@ class EC2State(MachineState):
         if not self._public_ipv4 or check:
             instance = self._get_instance_by_id(self._instance_id)
             sys.stderr.write("waiting for IP address of ‘{0}’... ".format(self.name))
-            self.wait_for_ip(instance)
+            self._wait_for_ip(instance)
 
         # Wait until the instance is reachable via SSH.
         self.wait_for_ssh(check=check)
@@ -552,7 +552,7 @@ class EC2State(MachineState):
                 
     def stop(self):
         if not self._ebs_root:
-            self.warn("cannot stop non-EBS-backed instance ‘{0}’".format(self.name))
+            self.warn("cannot stop non-EBS-backed instance")
             return
 
         sys.stderr.write("stopping EC2 machine ‘{0}’... ".format(self.name))
@@ -587,10 +587,10 @@ class EC2State(MachineState):
         prev_private_ipv4 = self._private_ipv4
         prev_public_ipv4 = self._public_ipv4
         
-        self.wait_for_ip(instance)
+        self._wait_for_ip(instance)
         
         if prev_private_ipv4 != self._private_ipv4 or prev_public_ipv4 != self._public_ipv4:
-            self.warn("IP address of EC2 machine ‘{0}’ has changed, you may need to run ‘charon deploy’".format(self.name))
+            self.warn("IP address has changed, you may need to run ‘charon deploy’")
 
 
 def _xvd_to_sd(dev):

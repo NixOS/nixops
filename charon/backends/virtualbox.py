@@ -129,6 +129,42 @@ class VirtualBoxState(MachineState):
             raise Exception("unable to get state of VirtualBox VM ‘{0}’".format(self.name))
         return vminfo['VMState'].replace('"', '')
 
+
+    def _start(self, headless):
+        res = subprocess.call(
+            ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP", ''])
+        if res != 0: raise Exception("unable to clear IP address of VirtualBox VM ‘{0}’".format(self.name))
+
+        res = subprocess.call(
+            ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Charon/ClientPublicKey", self._client_public_key])
+        if res != 0: raise Exception("unable to client key of VirtualBox VM ‘{0}’".format(self.name))
+
+        res = subprocess.call(["VBoxManage", "startvm", self._vm_id] + (["--type", "headless"] if headless else []))
+        if res != 0: raise Exception("unable to start VirtualBox VM ‘{0}’".format(self.name))
+
+        self._started = True
+        self.write()
+
+
+    def _wait_for_ip(self):
+        sys.stderr.write("waiting for IP address of ‘{0}’...".format(self.name))
+        while True:
+            try:
+                res = subprocess.check_output(
+                    ["VBoxManage", "guestproperty", "get", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP"]).rstrip()
+                if res[0:7] == "Value: ":
+                    self._ipv4 = res[7:]
+                    sys.stderr.write(" " + self._ipv4 + "\n")
+                    break
+            except subprocess.CalledProcessError:
+                raise Exception("unable to get IP address of VirtualBox VM ‘{0}’".format(self.name))
+            time.sleep(1)
+            sys.stderr.write(".")
+
+        charon.known_hosts.remove(self._ipv4)
+            
+        self.write()
+
     
     def create(self, defn, check):
         assert isinstance(defn, VirtualBoxDefinition)
@@ -206,40 +242,12 @@ class VirtualBoxState(MachineState):
                  "--nestedpaging", "off"])
             if res != 0: raise Exception("unable to modify VirtualBox VM ‘{0}’".format(self.name))
 
-            res = subprocess.call(
-                ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP", ''])
-            if res != 0: raise Exception("unable to clear IP address of VirtualBox VM ‘{0}’".format(self.name))
-
-            res = subprocess.call(
-                ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Charon/ClientPublicKey", self._client_public_key])
-            if res != 0: raise Exception("unable to client key of VirtualBox VM ‘{0}’".format(self.name))
-
-            res = subprocess.call(["VBoxManage", "startvm", self._vm_id] + (["--type", "headless"] if defn.headless else []))
-            if res != 0: raise Exception("unable to start VirtualBox VM ‘{0}’".format(self.name))
-
-            self._started = True
-            self.write()
+            self._start(headless=defn.headless)
 
         if not self._ipv4 or check:
-            sys.stderr.write("waiting for IP address of ‘{0}’...".format(self.name))
-            while True:
-                try:
-                    res = subprocess.check_output(
-                        ["VBoxManage", "guestproperty", "get", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP"]).rstrip()
-                    if res[0:7] == "Value: ":
-                        self._ipv4 = res[7:]
-                        sys.stderr.write(" " + self._ipv4 + "\n")
-                        break
-                except subprocess.CalledProcessError:
-                    raise Exception("unable to get IP address of VirtualBox VM ‘{0}’".format(self.name))
-                time.sleep(1)
-                sys.stderr.write(".")
+            self._wait_for_ip()
 
-            charon.known_hosts.remove(self._ipv4)
-            
-            self.write()
 
-            
     def destroy(self):
         self.log("destroying VirtualBox VM...")
 
@@ -253,3 +261,30 @@ class VirtualBoxState(MachineState):
 
         res = subprocess.call(["VBoxManage", "unregistervm", "--delete", self._vm_id])
         if res != 0: raise Exception("unable to unregister VirtualBox VM ‘{0}’".format(self.name))
+
+
+    def stop(self):
+        if self._get_vm_state() != 'running': return
+
+        self.log("shutting down...")
+        
+        self.run_command("poweroff &")
+        
+        while self._get_vm_state() not in ['poweroff']:
+            time.sleep(1)
+            
+        self._started = False
+        self.write()
+
+
+    def start(self):
+        if self._get_vm_state() == 'running': return
+        self.log("restarting...")
+
+        prev_ipv4 = self._ipv4
+        
+        self._start(headless=False) # FIXME: should store headless flag in state file
+        self._wait_for_ip()
+
+        if prev_ipv4 != self._ipv4:
+            self.warn("IP address has changed, you may need to run ‘charon deploy’")
