@@ -82,15 +82,15 @@ class MachineState:
 
     def destroy(self):
         """Destroy this machine, if possible."""
-        print >> sys.stderr, "warning: don't know how to destroy machine ‘{0}’".format(self.name)
+        self.warn("don't know how to destroy machine ‘{0}’".format(self.name))
 
     def stop(self):
         """Stop this machine, if possible."""
-        print >> sys.stderr, "warning: don't know how to stop machine ‘{0}’".format(self.name)
+        self.warn("don't know how to stop machine ‘{0}’".format(self.name))
         
     def start(self):
         """Start this machine, if possible."""
-        print >> sys.stderr, "warning: don't know how to start machine ‘{0}’".format(self.name)
+        pass
         
     def get_ssh_name(self):
         assert False
