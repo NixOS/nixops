@@ -50,7 +50,7 @@ class MachineState:
         self.cur_toplevel = None
 
     def log(self, msg):
-        sys.stderr.write(msg + "\n")
+        self.depl.log("[" + self.name + "] " + msg)
 
     def warn(self, msg):
         self.log("warning: " + msg)

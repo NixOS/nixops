@@ -41,7 +41,7 @@ class Deployment:
                 fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except exceptions.IOError as e:
                 if e.errno != errno.EAGAIN: raise
-                sys.stderr.write("waiting for exclusive lock on ‘{0}’...\n".format(self.state_file))
+                self.log("waiting for exclusive lock on ‘{0}’...".format(self.state_file))
                 fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX)
 
         if create:
@@ -99,6 +99,10 @@ class Deployment:
             if m.name in self._machine_state: del self._machine_state[m.name]
             if m.name in self.active: del self.active[m.name]
             self.write_state()
+
+
+    def log(self, msg):
+        sys.stderr.write(msg + "\n")
 
 
     def evaluate(self):
@@ -206,7 +210,7 @@ class Deployment:
     def build_configs(self, include, exclude, dry_run=False):
         """Build the machine configurations in the Nix store."""
 
-        print >> sys.stderr, "building all machine configurations..."
+        self.log("building all machine configurations...")
 
         phys_expr = self.tempdir + "/physical.nix"
         f = open(phys_expr, "w")
@@ -234,7 +238,7 @@ class Deployment:
 
         def worker(m):
             if not should_do(m, include, exclude): return
-            sys.stderr.write("copying closure to machine ‘{0}’...\n".format(m.name))
+            m.log("copying closure...")
             m.new_toplevel = os.path.realpath(configs_path + "/" + m.name)
             if not os.path.exists(m.new_toplevel):
                 raise Exception("can't find closure of machine ‘{0}’".format(m.name))
@@ -249,7 +253,7 @@ class Deployment:
         def worker(m):
             if not should_do(m, include, exclude): return
             
-            sys.stderr.write("activating new configuration on machine ‘{0}’...\n".format(m.name))
+            m.log("activating new configuration...")
 
             res = m.run_command(
                 # Set the system profile to the new configuration.
@@ -298,7 +302,7 @@ class Deployment:
             if m.name in self.definitions:
                 self.active[m.name] = m
             else:
-                print >> sys.stderr, "machine ‘{0}’ is obsolete".format(m.name)
+                self.log("machine ‘{0}’ is obsolete".format(m.name))
                 if not should_do(m, include, exclude): continue
                 # !!! If kill_obsolete is set, kill the machine.
 

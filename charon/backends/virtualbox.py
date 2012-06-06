@@ -134,7 +134,7 @@ class VirtualBoxState(MachineState):
         assert isinstance(defn, VirtualBoxDefinition)
         
         if not self._vm_id:
-            print >> sys.stderr, "creating VirtualBox VM ‘{0}’...".format(self.name)
+            self.log("creating VirtualBox VM...")
             
             vm_id = "charon-{0}-{1}".format(self.depl.uuid, self.name)
         
@@ -190,7 +190,7 @@ class VirtualBoxState(MachineState):
             if self._get_vm_state() == 'running':
                 self._started = True
             else:
-                print >> sys.stderr, "VirtualBox VM ‘{0}’ went down, restarting...".format(self.name)
+                self.log("VirtualBox VM went down, restarting...")
                 self._started = False
                 self.write()
 
@@ -241,7 +241,7 @@ class VirtualBoxState(MachineState):
 
             
     def destroy(self):
-        print >> sys.stderr, "destroying VirtualBox VM ‘{0}’...".format(self.name)
+        self.log("destroying VirtualBox VM...")
 
         if self._get_vm_state() == 'running':
             subprocess.call(["VBoxManage", "controlvm", self._vm_id, "poweroff"])

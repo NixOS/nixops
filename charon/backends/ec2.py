@@ -267,11 +267,11 @@ class EC2State(MachineState):
             self.connect()
             instance = self._get_instance_by_id(self._instance_id, allow_missing=True)
             if instance is None or instance.state in {"shutting-down", "terminated"}:
-                self.log("EC2 instance for ‘{0}’ went away (state ‘{1}’), will recreate".format(self.name, instance.state if instance else "gone"))
+                self.log("EC2 instance went away (state ‘{0}’), will recreate".format(instance.state if instance else "gone"))
                 self._reset_state()
                 self.write()
             elif instance.state == "stopped":
-                self.log("EC2 instance for ‘{0}’ was stopped, restarting...".format(self.name))
+                self.log("EC2 instance was stopped, restarting...")
 
                 # Modify the instance type, if desired.
                 if self._instance_type != defn.instance_type:
@@ -289,8 +289,8 @@ class EC2State(MachineState):
 
         # Start the instance.
         if not self._instance_id:
-            self.log("creating EC2 instance ‘{0}’ (AMI ‘{1}’, type ‘{2}’, region ‘{3}’)...".format(
-                self.name, defn.ami, defn.instance_type, defn.region))
+            self.log("creating EC2 instance (AMI ‘{0}’, type ‘{1}’, region ‘{2}’)...".format(
+                defn.ami, defn.instance_type, defn.region))
 
             self._region = defn.region
             self.connect()
@@ -329,8 +329,8 @@ class EC2State(MachineState):
                     # zone of the volume.
                     volume = self._get_volume_by_id(v['disk'])
                     if not zone:
-                        self.log("starting EC2 instance ‘{0}’ in zone ‘{1}’ due to volume ‘{2}’".format(
-                            self.name, volume.zone, v['disk']))
+                        self.log("starting EC2 instance in zone ‘{0}’ due to volume ‘{1}’".format(
+                            volume.zone, v['disk']))
                         zone = volume.zone
                     elif zone != volume.zone:
                         raise Exception("unable to start EC2 instance ‘{0}’ in zone ‘{1}’ because volume ‘{2}’ is in zone ‘{3}’"
@@ -396,16 +396,14 @@ class EC2State(MachineState):
         if (self._elastic_ipv4 or "") != defn.elastic_ipv4:
             self.connect()
             if defn.elastic_ipv4 != "":
-                self.log("associating IP address ‘{0}’ with EC2 machine ‘{1}’...".format(
-                    defn.elastic_ipv4, self.name))
+                self.log("associating IP address ‘{0}’...".format(defn.elastic_ipv4))
                 self._conn.associate_address(instance_id=self._instance_id, public_ip=defn.elastic_ipv4)
                 self._elastic_ipv4 = defn.elastic_ipv4
                 self._public_ipv4 = defn.elastic_ipv4
                 self._ssh_pinged = False
                 charon.known_hosts.add(defn.elastic_ipv4, self._public_host_key)
             else:
-                self.log("disassociating IP address ‘{0}’ from EC2 machine ‘{1}’...".format(
-                    self._elastic_ipv4, self.name))
+                self.log("disassociating IP address ‘{0}’...".format(self._elastic_ipv4))
                 self._conn.disassociate_address(public_ip=self._elastic_ipv4)
                 self._elastic_ipv4 = None
                 self._public_ipv4 = None
@@ -424,7 +422,7 @@ class EC2State(MachineState):
         # FIXME: support snapshots.
         for k, v in defn.block_device_mapping.iteritems():
             if k not in self._block_device_mapping and v['disk'] == '':
-                self.log("creating {0} GiB volume for EC2 machine ‘{1}’...".format(v['size'], self.name))
+                self.log("creating {0} GiB volume...".format(v['size']))
                 self.connect()
                 volume = self._conn.create_volume(size=v['size'], zone=self._zone)
                 # The flag charonDeleteOnTermination denotes that on
@@ -440,7 +438,7 @@ class EC2State(MachineState):
         # Attach missing volumes.
         for k, v in defn.block_device_mapping.iteritems():
             if k not in self._block_device_mapping:
-                self.log("attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['disk'], self.name, _sd_to_xvd(k)))
+                self.log("attaching volume ‘{0}’ as ‘{1}’...".format(v['disk'], _sd_to_xvd(k)))
                 self.connect()
                 if v['disk'].startswith("vol-"):
                     self._conn.attach_volume(v['disk'], self._instance_id, k)
@@ -451,7 +449,7 @@ class EC2State(MachineState):
 
         for k, v in self._block_device_mapping.items():
             if v.get('needsAttach', False):
-                self.log("attaching volume ‘{0}’ to EC2 machine ‘{1}’ as ‘{2}’...".format(v['volumeId'], self.name, _sd_to_xvd(k)))
+                self.log("attaching volume ‘{0}’ as ‘{2}’...".format(v['volumeId'], _sd_to_xvd(k)))
                 self.connect()
 
                 volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
@@ -487,7 +485,7 @@ class EC2State(MachineState):
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self._block_device_mapping.items():
             if k not in defn.block_device_mapping:
-                self.log("detaching device ‘{0}’ from EC2 machine ‘{1}’...".format(_sd_to_xvd(k), self.name))
+                self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
                 self.connect()
                 volumes = self._conn.get_all_volumes([], filters={'attachment.instance-id': self._instance_id, 'attachment.device': k})
                 assert len(volumes) <= 1
