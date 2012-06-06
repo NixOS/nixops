@@ -369,6 +369,12 @@ class EC2State(MachineState):
                 self.log("EC2 instance ‘{0}’ not known yet, waiting...".format(self._instance_id))
                 time.sleep(3)
 
+        # Warn about some EC2 options that we cannot update for an existing instance.
+        if self._instance_type != defn.instance_type:
+            self.warn("cannot change type of a running instance (do ‘charon stop’ first)")
+        if self._region != defn.region:
+            self.warn("cannot change region of a running instance")
+                    
         # Reapply tags if they have changed.
         common_tags = {'CharonNetworkUUID': str(self.depl.uuid), 'CharonMachineName': self.name}
         tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
@@ -571,7 +577,7 @@ class EC2State(MachineState):
         self.wait_for_ip(instance)
         
         if prev_private_ipv4 != self._private_ipv4 or prev_public_ipv4 != self._public_ipv4:
-            self.log("warning: IP address of EC2 machine ‘{0}’ has changed, you may need to run ‘charon deploy’".format(self.name))
+            self.warn("IP address of EC2 machine ‘{0}’ has changed, you may need to run ‘charon deploy’".format(self.name))
 
 
 def _xvd_to_sd(dev):

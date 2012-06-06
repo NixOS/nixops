@@ -52,6 +52,9 @@ class MachineState:
     def log(self, msg):
         sys.stderr.write(msg + "\n")
 
+    def warn(self, msg):
+        self.log("warning: " + msg)
+
     def write(self):
         self.depl.update_machine_state(self)
         
