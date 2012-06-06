@@ -96,13 +96,18 @@ def op_show_physical():
     print depl.get_physical_spec()
 
 
+def parse_machine(name):
+    return ("root", name) if name.find("@") == -1 else name.split("@", 1)
+    
+
 def op_ssh():
     depl = deployment.Deployment(args.state_file, lock=False)
-    m = depl.machines.get(args.machine)
-    if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
+    (username, machine) = parse_machine(args.machine)
+    m = depl.machines.get(machine)
+    if not m: raise Exception("unknown machine ‘{0}’".format(machine))
     ssh_name = m.get_ssh_name()
     print >> sys.stderr, "connecting to {0}...".format(ssh_name)
-    res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + args.args)
+    res = subprocess.call(["ssh", username + "@" + ssh_name] + m.get_ssh_flags() + args.args)
     sys.exit(res)
 
     

@@ -590,7 +590,9 @@ the deployment.  For each machine, it prints:
 
 <cmdsynopsis>
   <command>charon ssh</command>
-  <arg choice='plain'><replaceable>machine</replaceable></arg>
+  <arg choice='plain'>
+    <arg><replaceable>username</replaceable>@</arg><replaceable>machine</replaceable>
+  </arg>
   <arg>
     <replaceable>command</replaceable>
     <arg rep='repeat'><replaceable>args</replaceable></arg>
