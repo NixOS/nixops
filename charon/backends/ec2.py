@@ -270,6 +270,13 @@ class EC2State(MachineState):
             elif instance.state == "stopped":
                 self.log("EC2 instance for ‘{0}’ was stopped, restarting...".format(self.name))
 
+                # Modify the instance type, if desired.
+                if self._instance_type != defn.instance_type:
+                    self.log("changing instance type from ‘{0}’ to ‘{1}’...".format(self._instance_type, defn.instance_type))
+                    instance.modify_attribute("instanceType", defn.instance_type)
+                    self._instance_type = defn.instance_type
+                    self.write()
+
                 # When we restart, we'll probably get a new IP.  So forget the current one.
                 self._public_ipv4 = None
                 self._private_ipv4 = None
