@@ -228,6 +228,24 @@ class EC2State(MachineState):
         return volumes[0]
 
 
+    def wait_for_ip(self, instance):
+        while True:
+            instance.update()
+            sys.stderr.write("[{0}] ".format(instance.state))
+            if instance.state not in {"pending", "running", "scheduling", "launching", "stopped"}:
+                raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self._instance_id, instance.state))
+            if instance.ip_address: break
+            time.sleep(3)
+        sys.stderr.write("{0} / {1}\n".format(instance.ip_address, instance.private_ip_address))
+        
+        charon.known_hosts.add(instance.ip_address, self._public_host_key)
+            
+        self._private_ipv4 = instance.private_ip_address
+        self._public_ipv4 = instance.ip_address
+        self._ssh_pinged = False
+        self.write()
+
+
     def create(self, defn, check):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
@@ -529,24 +547,6 @@ class EC2State(MachineState):
             time.sleep(3)
             instance.update()
         sys.stderr.write("\n")
-
-
-    def wait_for_ip(self, instance):
-        while True:
-            instance.update()
-            sys.stderr.write("[{0}] ".format(instance.state))
-            if instance.state not in {"pending", "running", "scheduling", "launching", "stopped"}:
-                raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self._instance_id, instance.state))
-            if instance.ip_address: break
-            time.sleep(3)
-        sys.stderr.write("{0} / {1}\n".format(instance.ip_address, instance.private_ip_address))
-        
-        charon.known_hosts.add(instance.ip_address, self._public_host_key)
-            
-        self._private_ipv4 = instance.private_ip_address
-        self._public_ipv4 = instance.ip_address
-        self._ssh_pinged = False
-        self.write()
 
 
     def start(self):
