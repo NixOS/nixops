@@ -147,19 +147,19 @@ class VirtualBoxState(MachineState):
 
 
     def _wait_for_ip(self):
-        sys.stderr.write("waiting for IP address of ‘{0}’...".format(self.name))
+        self.log_start("waiting for IP address...")
         while True:
             try:
                 res = subprocess.check_output(
                     ["VBoxManage", "guestproperty", "get", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP"]).rstrip()
                 if res[0:7] == "Value: ":
                     self._ipv4 = res[7:]
-                    sys.stderr.write(" " + self._ipv4 + "\n")
+                    self.log_end(" " + self._ipv4)
                     break
             except subprocess.CalledProcessError:
                 raise Exception("unable to get IP address of VirtualBox VM ‘{0}’".format(self.name))
             time.sleep(1)
-            sys.stderr.write(".")
+            self.log_continue(".")
 
         charon.known_hosts.remove(self._ipv4)
             
@@ -266,13 +266,18 @@ class VirtualBoxState(MachineState):
     def stop(self):
         if self._get_vm_state() != 'running': return
 
-        self.log("shutting down...")
+        self.log_start("shutting down...")
         
         self.run_command("poweroff &")
-        
-        while self._get_vm_state() not in ['poweroff']:
+
+        while True:
+            state = self._get_vm_state()
+            self.log_continue("({0}) ".format(state))
+            if state == 'poweroff': break
             time.sleep(1)
             
+        self.log_end("")
+        
         self._started = False
         self.write()
 

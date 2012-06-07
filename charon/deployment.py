@@ -28,8 +28,10 @@ class Deployment:
         self.active = { }
         self.configs_path = None
         self.description = "Unnamed Charon network"
+        self._last_log_prefix = None
         
         self._state_lock = threading.Lock()
+        self._log_lock = threading.Lock()
             
         self.expr_path = os.path.dirname(__file__) + "/../../../../share/nix/charon"
         if not os.path.exists(self.expr_path):
@@ -102,8 +104,34 @@ class Deployment:
 
 
     def log(self, msg):
-        sys.stderr.write(msg + "\n")
+        with self._log_lock:
+            if self._last_log_prefix != None:
+                sys.stderr.write("\n")
+                self._last_log_prefix = None
+            sys.stderr.write(msg + "\n")
 
+
+    def log_start(self, prefix, msg):
+        with self._log_lock:
+            if self._last_log_prefix != prefix:
+                if self._last_log_prefix != None:
+                    sys.stderr.write("\n")
+                sys.stderr.write(prefix)
+            sys.stderr.write(msg)
+            self._last_log_prefix = prefix
+        
+
+    def log_end(self, prefix, msg):
+        with self._log_lock:
+            last = self._last_log_prefix
+            self._last_log_prefix = None
+            if last != prefix:
+                if last != None:
+                    sys.stderr.write("\n")
+                if msg == "": return
+                sys.stderr.write(prefix)
+            sys.stderr.write(msg + "\n")
+        
 
     def evaluate(self):
         """Evaluate the Nix expressions belonging to this deployment into a deployment model."""

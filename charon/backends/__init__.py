@@ -52,6 +52,15 @@ class MachineState:
     def log(self, msg):
         self.depl.log("[{0}] {1}".format(self.name, msg))
 
+    def log_start(self, msg):
+        self.depl.log_start("[{0}] ".format(self.name), msg)
+
+    def log_continue(self, msg):
+        self.depl.log_start("[{0}] ".format(self.name), msg)
+
+    def log_end(self, msg):
+        self.depl.log_end("[{0}] ".format(self.name), msg)
+
     def warn(self, msg):
         self.log("warning: " + msg)
 
@@ -125,13 +134,13 @@ class MachineState:
     def wait_for_ssh(self, check=False):
         """Wait until the SSH port is open on this machine."""
         if self._ssh_pinged and (not check or self._ssh_pinged_this_time): return
-        sys.stderr.write("waiting for SSH on ‘{0}’...".format(self.name))
+        self.log_start("waiting for SSH...")
         while True:
             res = subprocess.call(["nc", "-z", self.get_ssh_name(), "22", "-w", "1"])
             if res == 0: break
             time.sleep(1)
-            sys.stderr.write(".")
-        sys.stderr.write("\n")
+            self.log_continue(".")
+        self.log_end("")
         self._ssh_pinged = True
         self._ssh_pinged_this_time = True
         self.write()
