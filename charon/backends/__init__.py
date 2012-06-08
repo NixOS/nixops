@@ -5,6 +5,7 @@ import sys
 import time
 import shutil
 import atexit
+import select
 import subprocess
 import charon.util
 
@@ -39,6 +40,7 @@ class MachineState:
         self._ssh_master_opts = []
         self._public_vpn_key = None
         self.index = None
+        self._log_prefix = "{0}> ".format(self.name)
 
         # Nix store path of the last global configuration deployed to
         # this machine.  Used to check whether this machine is up to
@@ -50,16 +52,16 @@ class MachineState:
         self.cur_toplevel = None
 
     def log(self, msg):
-        self.depl.log("[{0}] {1}".format(self.name, msg))
+        self.depl.log(self._log_prefix + msg)
 
     def log_start(self, msg):
-        self.depl.log_start("[{0}] ".format(self.name), msg)
+        self.depl.log_start(self._log_prefix, msg)
 
     def log_continue(self, msg):
-        self.depl.log_start("[{0}] ".format(self.name), msg)
+        self.depl.log_start(self._log_prefix, msg)
 
     def log_end(self, msg):
-        self.depl.log_end("[{0}] ".format(self.name), msg)
+        self.depl.log_end(self._log_prefix, msg)
 
     def warn(self, msg):
         self.log("warning: " + msg)
@@ -148,6 +150,7 @@ class MachineState:
     def _open_ssh_master(self):
         """Start an SSH master connection to speed up subsequent SSH sessions."""
         if self._ssh_master_started: return
+        return
 
         # Start the master.
         control_socket = self.depl.tempdir + "/ssh-master-" + self.name
@@ -169,26 +172,69 @@ class MachineState:
         self._ssh_master_opts = ["-S", control_socket]
         self._ssh_master_started = True
 
+    def _logged_exec(self, command, check=True, capture_stdout=False, stdin_string=None, env=None):
+        stdin = subprocess.PIPE if stdin_string != None else charon.util.devnull
+
+        if capture_stdout:
+            process = subprocess.Popen(command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+            fds = [process.stdout, process.stderr]
+            log_fd = process.stderr
+        else:
+            process = subprocess.Popen(command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
+            fds = [process.stdout]
+            log_fd = process.stdout
+
+        # FIXME: this can deadlock if stdin_string doesn't fit in the
+        # kernel pipe buffer.
+        if stdin_string != None: process.stdin.write(stdin_string)
+
+        for fd in fds: charon.util.make_non_blocking(fd)
+        
+        at_new_line = True
+        stdout = ""
+
+        while len(fds) > 0:
+            (r, w, x) = select.select(fds, [], [])
+            if capture_stdout and process.stdout in r:
+                data = process.stdout.read()
+                if data == "":
+                    fds.remove(process.stdout)
+                else:
+                    stdout += data
+            if log_fd in r:
+                data = log_fd.read()
+                if data == "":
+                    if not at_new_line: self.log_end("")
+                    fds.remove(log_fd)
+                else:
+                    start = 0
+                    while start < len(data):
+                        end = data.find('\n', start)
+                        if end == -1:
+                            self.log_start(data[start:])
+                            at_new_line = False
+                        else:
+                            s = data[start:end]
+                            if at_new_line:
+                                self.log(s)
+                            else:
+                                self.log_end(s)
+                            at_new_line = True
+                        if end == -1: break
+                        start = end + 1
+
+        res = process.wait()
+
+        if stdin_string != None: process.stdin.close()
+        if check and res != 0:
+            raise Exception("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
+        return stdout if capture_stdout else res
+
     def run_command(self, command, check=True, capture_stdout=False, stdin_string=None):
         """Execute a command on the machine via SSH."""
         self._open_ssh_master()
         cmdline = ["ssh", "-x", "root@" + self.get_ssh_name()] + self._ssh_master_opts + self.get_ssh_flags() + [command];
-        if capture_stdout:
-            return subprocess.check_output(cmdline)
-        else:
-            stdin = None
-            if stdin_string != None:
-                # Ugly, should pipe it in.
-                tempfile = self.depl.tempdir + "/ssh-stdin-" + self.name
-                # !!! set permission
-                with open(tempfile, "w+") as f:
-                    f.write(stdin_string)
-                stdin = open(tempfile)
-            res = subprocess.call(cmdline, stdin=stdin)
-            if stdin != None: stdin.close()
-            if check and res != 0:
-                raise Exception("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
-            return res
+        return self._logged_exec(cmdline, check=check, capture_stdout=capture_stdout, stdin_string=stdin_string)
 
     def _create_key_pair(self, key_name="Charon auto-generated key"):
         key_dir = self.depl.tempdir + "/ssh-key-" + self.name
@@ -209,11 +255,9 @@ class MachineState:
 
         env = dict(os.environ)
         env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags());
-        res = subprocess.Popen(
+        self._logged_exec(
             ["nix-copy-closure", "--gzip", "--to", "root@" + self.get_ssh_name(), path],
-            env=env).wait()
-        if res != 0:
-            raise Exception("unable to copy closure to machine ‘{0}’".format(self.name))
+            env=env)
 
     def generate_vpn_key(self):
         if self._public_vpn_key: return

@@ -3,6 +3,7 @@
 import os
 import sys
 import time
+import fcntl
 import base64
 
 devnull = open(os.devnull, 'rw')
@@ -26,6 +27,5 @@ def generate_random_string(length=256):
     assert len(s) == length
     return base64.b64encode(s)
 
-
-
-
+def make_non_blocking(fd):
+    fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)

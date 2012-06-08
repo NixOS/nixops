@@ -8,7 +8,6 @@ import socket
 import getpass
 import shutil
 import boto.ec2
-import subprocess
 from charon.backends import MachineDefinition, MachineState
 import charon.known_hosts
 import charon.util
