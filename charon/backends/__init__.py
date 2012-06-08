@@ -138,8 +138,7 @@ class MachineState:
         if self._ssh_pinged and (not check or self._ssh_pinged_this_time): return
         self.log_start("waiting for SSH...")
         while True:
-            res = subprocess.call(["nc", "-z", self.get_ssh_name(), "22", "-w", "1"])
-            if res == 0: break
+            if charon.util.ping_tcp_port(self.get_ssh_name(), 22): break
             time.sleep(1)
             self.log_continue(".")
         self.log_end("")

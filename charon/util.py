@@ -5,6 +5,7 @@ import sys
 import time
 import fcntl
 import base64
+import socket
 
 devnull = open(os.devnull, 'rw')
 
@@ -29,3 +30,12 @@ def generate_random_string(length=256):
 
 def make_non_blocking(fd):
     fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)
+
+def ping_tcp_port(ip, port, timeout=1):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    try:
+        s.connect((ip, port))
+    except:
+        return False
+    return True
