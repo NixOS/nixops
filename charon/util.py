@@ -6,6 +6,7 @@ import time
 import fcntl
 import base64
 import socket
+import struct
 
 devnull = open(os.devnull, 'rw')
 
@@ -34,8 +35,10 @@ def make_non_blocking(fd):
 def ping_tcp_port(ip, port, timeout=1):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(timeout)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
     try:
         s.connect((ip, port))
     except:
         return False
+    s.shutdown(socket.SHUT_RDWR)
     return True
