@@ -34,4 +34,9 @@
     <xi:include href="charon.xml" />
   </appendix>
 
+  <appendix xml:id="ch-options">
+    <title>Charon-specific Configuration Options</title>
+    <xi:include href="options-db.xml" />
+  </appendix>
+  
 </book>

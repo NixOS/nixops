@@ -1,4 +1,4 @@
-{ charonSrc ? { outPath = ./.; revCount = 0; shortRev = "abcdef"; }
+{ charonSrc ? { outPath = ./.; revCount = 0; shortRev = "abcdef"; rev = "HEAD"; }
 , officialRelease ? false
 }:
 
@@ -35,6 +35,7 @@ rec {
 
   build = import ./default.nix {
     version = tarball.version;
+    revision = charonSrc.rev;
   };
 
   tests.none_backend = (import ./tests/none-backend.nix {

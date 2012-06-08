@@ -1,4 +1,4 @@
-{ version ? "0" }:
+{ version ? "0", revision ? "local" }:
 
 with import <nixpkgs> {};
 
@@ -26,6 +26,8 @@ pythonPackages.buildPythonPackage {
 
   postInstall =
     ''
+      cp ${import ./doc/manual { inherit revision; }} doc/manual/options-db.xml
+
       make -C doc/manual install docbookxsl=${docbook5_xsl}/xml/xsl/docbook \
         docdir=$out/share/doc/charon mandir=$out/share/man
 
