@@ -2,7 +2,6 @@
 
 import os
 import sys
-import subprocess
 import time
 import shutil
 import stat
@@ -105,11 +104,9 @@ class VirtualBoxState(MachineState):
     
     def _get_vm_info(self):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
-        p = subprocess.Popen(
+        lines = self._logged_exec(
             ["VBoxManage", "showvminfo", "--machinereadable", self._vm_id],
-            stdout=subprocess.PIPE)
-        lines = p.communicate()[0].splitlines()
-        p.wait()
+            capture_stdout=True, check=False).splitlines()
         # We ignore the exit code, because it may be 1 while the VM is
         # shutting down (even though the necessary info is returned on
         # stdout).
@@ -131,16 +128,13 @@ class VirtualBoxState(MachineState):
 
 
     def _start(self, headless):
-        res = subprocess.call(
+        self._logged_exec(
             ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP", ''])
-        if res != 0: raise Exception("unable to clear IP address of VirtualBox VM ‘{0}’".format(self.name))
 
-        res = subprocess.call(
+        self._logged_exec(
             ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Charon/ClientPublicKey", self._client_public_key])
-        if res != 0: raise Exception("unable to client key of VirtualBox VM ‘{0}’".format(self.name))
 
-        res = subprocess.call(["VBoxManage", "startvm", self._vm_id] + (["--type", "headless"] if headless else []))
-        if res != 0: raise Exception("unable to start VirtualBox VM ‘{0}’".format(self.name))
+        self._logged_exec(["VBoxManage", "startvm", self._vm_id] + (["--type", "headless"] if headless else []))
 
         self._started = True
         self.write()
@@ -149,15 +143,13 @@ class VirtualBoxState(MachineState):
     def _wait_for_ip(self):
         self.log_start("waiting for IP address...")
         while True:
-            try:
-                res = subprocess.check_output(
-                    ["VBoxManage", "guestproperty", "get", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP"]).rstrip()
-                if res[0:7] == "Value: ":
-                    self._ipv4 = res[7:]
-                    self.log_end(" " + self._ipv4)
-                    break
-            except subprocess.CalledProcessError:
-                raise Exception("unable to get IP address of VirtualBox VM ‘{0}’".format(self.name))
+            res = self._logged_exec(
+                ["VBoxManage", "guestproperty", "get", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP"],
+                capture_stdout=True).rstrip()
+            if res[0:7] == "Value: ":
+                self._ipv4 = res[7:]
+                self.log_end(" " + self._ipv4)
+                break
             time.sleep(1)
             self.log_continue(".")
 
@@ -174,9 +166,7 @@ class VirtualBoxState(MachineState):
             
             vm_id = "charon-{0}-{1}".format(self.depl.uuid, self.name)
         
-            res = subprocess.call(["VBoxManage", "createvm", "--name", vm_id, "--ostype", "Linux", "--register"])
-            if res != 0:
-                raise Exception("unable to create VirtualBox VM ‘{0}’".format(self.name))
+            self._logged_exec(["VBoxManage", "createvm", "--name", vm_id, "--ostype", "Linux", "--register"])
 
             self._vm_id = vm_id
             self.write()
@@ -190,34 +180,29 @@ class VirtualBoxState(MachineState):
 
             base_image = defn.base_image
             if base_image == "drv":
-                try:
-                    base_image = subprocess.check_output(
-                        ["nix-build", "-I", "charon=" + self.depl.expr_path, "--show-trace",
-                         "<charon/eval-machine-info.nix>",
-                         "--arg", "networkExprs", "[ " + " ".join(self.depl.nix_exprs) + " ]",
-                         "-A", "nodes." + self.name + ".config.deployment.virtualbox.baseImage",
-                         "-o", "{0}/vbox-image-{1}".format(self.depl.tempdir, self.name)]).rstrip()
-                except subprocess.CalledProcessError:
-                    raise Exception("unable to build base image")
+                base_image = self._logged_exec(
+                    ["nix-build", "-I", "charon=" + self.depl.expr_path, "--show-trace",
+                     "<charon/eval-machine-info.nix>",
+                     "--arg", "networkExprs", "[ " + " ".join(self.depl.nix_exprs) + " ]",
+                     "-A", "nodes." + self.name + ".config.deployment.virtualbox.baseImage",
+                     "-o", "{0}/vbox-image-{1}".format(self.depl.tempdir, self.name)],
+                    capture_stdout=True).rstrip()
 
-            res = subprocess.call(["VBoxManage", "clonehd", base_image, disk])
-            if res != 0: raise Exception("unable to copy VirtualBox disk from ‘{0}’ to ‘{1}’".format(base_image, disk))
+            self._logged_exec(["VBoxManage", "clonehd", base_image, disk])
 
             self._disk = disk
             self.write()
 
         if not self._disk_attached:
-            res = subprocess.call(
+            self._logged_exec(
                 ["VBoxManage", "storagectl", self._vm_id,
                  "--name", "SATA", "--add", "sata", "--sataportcount", "2",
                  "--bootable", "on", "--hostiocache", "on"])
-            if res != 0: raise Exception("unable to create SATA controller on VirtualBox VM ‘{0}’".format(self.name))
             
-            res = subprocess.call(
+            self._logged_exec(
                 ["VBoxManage", "storageattach", self._vm_id,
                  "--storagectl", "SATA", "--port", "0", "--device", "0",
                  "--type", "hdd", "--medium", self._disk])
-            if res != 0: raise Exception("unable to attach disk to VirtualBox VM ‘{0}’".format(self.name))
             
             self._disk_attached = True
             self.write()
@@ -234,13 +219,12 @@ class VirtualBoxState(MachineState):
             (self._client_private_key, self._client_public_key) = self._create_key_pair()
 
         if not self._started:
-            res = subprocess.call(
+            self._logged_exec(
                 ["VBoxManage", "modifyvm", self._vm_id,
                  "--memory", defn.memory_size, "--vram", "10",
                  "--nictype1", "virtio", "--nictype2", "virtio",
                  "--nic2", "hostonly", "--hostonlyadapter2", "vboxnet0",
                  "--nestedpaging", "off"])
-            if res != 0: raise Exception("unable to modify VirtualBox VM ‘{0}’".format(self.name))
 
             self._start(headless=defn.headless)
 
@@ -252,15 +236,14 @@ class VirtualBoxState(MachineState):
         self.log("destroying VirtualBox VM...")
 
         if self._get_vm_state() == 'running':
-            subprocess.call(["VBoxManage", "controlvm", self._vm_id, "poweroff"])
+            self._logged_exec(["VBoxManage", "controlvm", self._vm_id, "poweroff"], check=False)
 
         while self._get_vm_state() not in ['poweroff', 'aborted']:
             time.sleep(1)
 
         time.sleep(1) # hack to work around "machine locked" errors
 
-        res = subprocess.call(["VBoxManage", "unregistervm", "--delete", self._vm_id])
-        if res != 0: raise Exception("unable to unregister VirtualBox VM ‘{0}’".format(self.name))
+        self._logged_exec(["VBoxManage", "unregistervm", "--delete", self._vm_id])
 
 
     def stop(self):
