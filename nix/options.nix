@@ -40,7 +40,6 @@ in
     };
 
     deployment.targetHost = mkOption {
-      default = config.networking.hostName;
       type = types.uniq types.string;
       description = ''
         This option specifies the hostname or IP address to be used by
@@ -160,6 +159,8 @@ in
 
   config = {
 
+    deployment.targetHost = mkDefault config.networking.hostName;
+      
     deployment.virtualbox = {
 
       baseImage = mkDefault (
