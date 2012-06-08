@@ -23,4 +23,9 @@ in
   users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ clientKeyPath ];
 
   boot.vesa = false;
+
+  # VirtualBox doesn't seem to lease IP addresses persistently, so we
+  # may get a different IP address if dhcpcd is restarted.  So don't
+  # restart dhcpcd.
+  jobs.dhcpcd.restartIfChanged = false;
 }
