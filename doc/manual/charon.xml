@@ -630,4 +630,44 @@ Note the use of <literal>--</literal> to force the flag
 </refsection>
 
 
+<refsection><title>Command <option>charon ssh-for-each</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon ssh-for-each</command>
+  <group>
+    <arg choice='plain'><option>--parallel</option></arg>
+    <arg choice='plain'><option>-p</option></arg>
+  </group>
+  <arg>
+    <replaceable>command</replaceable>
+    <arg rep='repeat'><replaceable>args</replaceable></arg>
+  </arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command executes the specified command on all machines.  If
+the option <option>--parallel</option> is given, the command is
+executed on all machines in parallel; otherwise, it’s executed
+sequentially.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To reboot all machines in parallel:
+
+<screen>
+$ charon ssh-for-each -p reboot</screen>
+
+</para>
+
+</refsection>
+
+</refsection>
+
+
 </refentry>
