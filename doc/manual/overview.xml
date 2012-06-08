@@ -206,11 +206,14 @@ real    0m3.700s
 Charon, you can run <command>charon destroy</command>:
 
 <screen>
+warning: are you sure you want to destroy EC2 machine ‘webserver’? (y/N) y
 $ charon -s ./trivial-vbox.json destroy
 destroying VirtualBox VM ‘webserver’...
 </screen>
 
-Obviously, this is a potentially dangerous operation.</para>
+You can use the option <option>--confirm</option> to confirm all
+questions.  This is useful for automated deployment, but potentially
+dangerous.</para>
 
 </simplesect>
 

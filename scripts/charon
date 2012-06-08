@@ -70,6 +70,7 @@ def op_check():
     
 def op_deploy():
     depl = deployment.Deployment(args.state_file)
+    if args.confirm: depl.auto_response = "y"
     depl.deploy(dry_run=args.dry_run, build_only=args.build_only, create_only=args.create_only,
                 include=args.include or [], exclude=args.exclude or [],
                 check=args.check)
@@ -77,6 +78,7 @@ def op_deploy():
 
 def op_destroy():
     depl = deployment.Deployment(args.state_file)
+    if args.confirm: depl.auto_response = "y"
     depl.destroy_vms(include=args.include or [], exclude=args.exclude or [])
 
 
@@ -151,6 +153,7 @@ parser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
                     default=os.environ.get("CHARON_STATE", "network.json"), help='path to state file')
 parser.add_argument('--debug', dest='debug', action='store_true', help='enable debug output')
 parser.add_argument('--version', action='version', version='Charon 0.1')
+parser.add_argument('--confirm', dest='confirm', action='store_true', help='confirm dangerous operations; do not ask')
 
 subparsers = parser.add_subparsers(help='sub-command help')
 

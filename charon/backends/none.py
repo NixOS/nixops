@@ -42,3 +42,8 @@ class NoneState(MachineState):
         
     def get_ssh_name(self):
         return self._target_host
+
+    def destroy(self):
+        # No-op; just forget about the machine.
+        return True
+    

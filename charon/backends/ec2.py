@@ -452,7 +452,7 @@ class EC2State(MachineState):
 
         for k, v in self._block_device_mapping.items():
             if v.get('needsAttach', False):
-                self.log("attaching volume ‘{0}’ as ‘{2}’...".format(v['volumeId'], _sd_to_xvd(k)))
+                self.log("attaching volume ‘{0}’ as ‘{1}’...".format(v['volumeId'], _sd_to_xvd(k)))
                 self.connect()
 
                 volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
@@ -519,6 +519,8 @@ class EC2State(MachineState):
 
 
     def _delete_volume(self, volume_id):
+        if not self.depl.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
+            raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
         self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
         try:
             volume = self._get_volume_by_id(volume_id)
@@ -530,6 +532,8 @@ class EC2State(MachineState):
 
 
     def destroy(self):
+        if not self.depl.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
+        
         sys.stderr.write("destroying EC2 machine ‘{0}’... ".format(self.name))
 
         instance = self._get_instance_by_id(self._instance_id)
@@ -547,6 +551,8 @@ class EC2State(MachineState):
         for k, v in self._block_device_mapping.items():
             if v.get('charonDeleteOnTermination', False):
                 self._delete_volume(v['volumeId'])
+
+        return True
 
                 
     def stop(self):

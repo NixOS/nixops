@@ -29,6 +29,7 @@ class Deployment:
         self.configs_path = None
         self.description = "Unnamed Charon network"
         self._last_log_prefix = None
+        self.auto_response = None
         
         self._state_lock = threading.Lock()
         self._log_lock = threading.Lock()
@@ -131,7 +132,24 @@ class Deployment:
                 if msg == "": return
                 sys.stderr.write(prefix)
             sys.stderr.write(msg + "\n")
-        
+
+
+    def confirm(self, question):
+        while True:
+            with self._log_lock:
+                if self._last_log_prefix != None:
+                    sys.stderr.write("\n")
+                    self._last_log_prefix = None
+                sys.stderr.write("warning: {0} (y/N) ".format(question))
+                if self.auto_response != None:
+                    sys.stderr.write("{0}\n".format(self.auto_response))
+                    return self.auto_response == "y"
+                response = sys.stdin.readline()
+                if response == "": return False
+                response = response.rstrip().lower()
+                if response == "y": return True
+                if response == "n": return False
+
 
     def evaluate(self):
         """Evaluate the Nix expressions belonging to this deployment into a deployment model."""
@@ -376,8 +394,7 @@ class Deployment:
 
         def worker(m):
             if not should_do(m, include, exclude): return
-            m.destroy()
-            self.delete_machine(m)
+            if m.destroy(): self.delete_machine(m)
 
         charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.values(), worker_fun=worker)
             

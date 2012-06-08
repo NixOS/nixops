@@ -24,6 +24,7 @@
       </group>
       <replaceable>statefile</replaceable>
     </arg>
+    <arg><option>--confirm</option></arg>
     <arg><option>--debug</option></arg>
     <group choice='req'>
       <arg choice='plain'><option>--version</option></arg>
@@ -54,6 +55,15 @@ cloud.</para>
     <envar>CHARON_STATE</envar> environment variable, or
     <filename>./network.json</filename> if that one is not
     defined.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--confirm</option></term>
+
+    <listitem><para>Automatically confirm “dangerous” actions, such as
+    terminating EC2 instances or deleting EBS volumes.  Without this
+    option, you will be asked to confirm each dangerous action
+    interactively.</para></listitem>
 
   </varlistentry>
 
@@ -339,7 +349,9 @@ $ charon deploy --create-only --exclude foo</screen>
 
 <para>This command destroys (terminates) all virtual machines
 previously created as part of this deployment, and similarly deletes
-all disk volumes if they’re marked as “delete on termination”.</para>
+all disk volumes if they’re marked as “delete on termination”.  Unless
+you pass the <option>--confirm</option> option, you will be asked to
+approve every machine destruction.</para>
 
 <para>This command has no effect on machines that cannot be destroyed
 automatically; for instance, machines in the <literal>none</literal>

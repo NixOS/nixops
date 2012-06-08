@@ -232,6 +232,8 @@ class VirtualBoxState(MachineState):
 
 
     def destroy(self):
+        if not self.depl.confirm("are you sure you want to destroy VirtualBox VM ‘{0}’?".format(self.name)): return False
+        
         self.log("destroying VirtualBox VM...")
 
         if self._get_vm_state() == 'running':
@@ -243,6 +245,8 @@ class VirtualBoxState(MachineState):
         time.sleep(1) # hack to work around "machine locked" errors
 
         self._logged_exec(["VBoxManage", "unregistervm", "--delete", self._vm_id])
+
+        return True
 
 
     def stop(self):

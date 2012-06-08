@@ -94,6 +94,7 @@ class MachineState:
     def destroy(self):
         """Destroy this machine, if possible."""
         self.warn("don't know how to destroy machine ‘{0}’".format(self.name))
+        return False
 
     def stop(self):
         """Stop this machine, if possible."""
