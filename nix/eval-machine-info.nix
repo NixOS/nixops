@@ -49,8 +49,8 @@ rec {
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
           virtualbox =
             let cfg = v.config.deployment.virtualbox; in
-            (optionalAttrs (v.config.deployment.targetEnv == "virtualbox") cfg)
-            // { baseImage = if isDerivation cfg.baseImage then "drv" else toString cfg.baseImage; };
+            optionalAttrs (v.config.deployment.targetEnv == "virtualbox") (cfg
+              // { baseImage = if isDerivation cfg.baseImage then "drv" else toString cfg.baseImage; });
         }
       );
 
