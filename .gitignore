@@ -1,4 +1,5 @@
 *~
 *.pyc
 examples/*.json
+examples/*.lock
 result
