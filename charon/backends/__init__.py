@@ -197,7 +197,13 @@ class MachineState:
         stdout = ""
 
         while len(fds) > 0:
-            (r, w, x) = select.select(fds, [], [])
+            # The timeout/poll is to deal with processes (like
+            # VBoxManage) that start children that go into the
+            # background but keep the parent's stdout/stderr open,
+            # preventing an EOF.  FIXME: Would be better to catch
+            # SIGCHLD.
+            (r, w, x) = select.select(fds, [], [], 1)
+            if process.poll(): break
             if capture_stdout and process.stdout in r:
                 data = process.stdout.read()
                 if data == "":
