@@ -148,7 +148,7 @@ class Deployment:
                 if response == "": return False
                 response = response.rstrip().lower()
                 if response == "y": return True
-                if response == "n": return False
+                if response == "n" or response == "": return False
 
 
     def evaluate(self):
