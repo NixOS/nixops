@@ -53,6 +53,8 @@ class MachineState:
 
     def set_log_prefix(self, length):
         self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))
+        if sys.stderr.isatty() and self.index != None:
+            self._log_prefix = "\033[1;{0}m{1}\033[0m".format(31 + self.index % 7, self._log_prefix)
 
     def log(self, msg):
         self.depl.log(self._log_prefix + msg)

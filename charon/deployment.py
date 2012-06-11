@@ -366,6 +366,8 @@ class Deployment:
             if m.index == None:
                 m.index = self._get_free_machine_index()
                 
+        self.set_log_prefixes()
+        
         # Start or update the active machines.
         if not dry_run and not build_only:
             def worker(m):
