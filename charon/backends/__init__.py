@@ -40,7 +40,7 @@ class MachineState:
         self._ssh_master_opts = []
         self._public_vpn_key = None
         self.index = None
-        self._log_prefix = "{0}> ".format(self.name)
+        self.set_log_prefix(0)
 
         # Nix store path of the last global configuration deployed to
         # this machine.  Used to check whether this machine is up to
@@ -50,6 +50,9 @@ class MachineState:
         # Nix store path of the last machine configuration deployed to
         # this machine.
         self.cur_toplevel = None
+
+    def set_log_prefix(self, length):
+        self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))
 
     def log(self, msg):
         self.depl.log(self._log_prefix + msg)

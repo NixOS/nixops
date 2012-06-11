@@ -74,6 +74,7 @@ class Deployment:
             self.machines[n] = charon.backends.create_state(self, v['targetEnv'], n)
             self.machines[n].deserialise(v)
             self._machine_state[n] = v
+        self.set_log_prefixes()
         
             
     def write_state(self):
@@ -132,6 +133,12 @@ class Deployment:
                 if msg == "": return
                 sys.stderr.write(prefix)
             sys.stderr.write(msg + "\n")
+
+
+    def set_log_prefixes(self):
+        max_len = max([len(m.name) for m in self.machines.itervalues()] or [0])
+        for m in self.machines.itervalues():
+            m.set_log_prefix(max_len)
 
 
     def confirm(self, question):
@@ -340,6 +347,8 @@ class Deployment:
             if m.name not in self.machines:
                 self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name)
 
+        self.set_log_prefixes()
+        
         # Determine the set of active machines.  (We can't just delete
         # obsolete machines from ‘self.machines’ because they contain
         # important state that we don't want to forget about.)
