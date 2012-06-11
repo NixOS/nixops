@@ -42,3 +42,6 @@ def ping_tcp_port(ip, port, timeout=1):
         return False
     s.shutdown(socket.SHUT_RDWR)
     return True
+
+def ansi_warn(s):
+    return "\033[1;31m" + s + "\033[0m" if sys.stderr.isatty() else s

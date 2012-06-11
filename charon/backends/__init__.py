@@ -69,7 +69,7 @@ class MachineState:
         self.depl.log_end(self._log_prefix, msg)
 
     def warn(self, msg):
-        self.log("warning: " + msg)
+        self.log(charon.util.ansi_warn("warning: " + msg))
 
     def write(self):
         self.depl.update_machine_state(self)

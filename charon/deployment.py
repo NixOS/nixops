@@ -147,7 +147,7 @@ class Deployment:
                 if self._last_log_prefix != None:
                     sys.stderr.write("\n")
                     self._last_log_prefix = None
-                sys.stderr.write("warning: {0} (y/N) ".format(question))
+                sys.stderr.write(charon.util.ansi_warn("warning: {0} (y/N) ".format(question)))
                 if self.auto_response != None:
                     sys.stderr.write("{0}\n".format(self.auto_response))
                     return self.auto_response == "y"
