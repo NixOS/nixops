@@ -331,7 +331,7 @@ class Deployment:
     def _get_free_machine_index(self):
         index = 0
         for m in self.machines.itervalues():
-            if m.index != None and m.index <= index:
+            if m.index != None and index <= m.index:
                 index = m.index + 1
         return index
             
