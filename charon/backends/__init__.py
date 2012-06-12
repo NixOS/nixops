@@ -205,7 +205,7 @@ class MachineState:
             # preventing an EOF.  FIXME: Would be better to catch
             # SIGCHLD.
             (r, w, x) = select.select(fds, [], [], 1)
-            if process.poll(): break
+            if process.poll() != None: break
             if capture_stdout and process.stdout in r:
                 data = process.stdout.read()
                 if data == "":
