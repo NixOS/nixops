@@ -233,14 +233,17 @@ class EC2State(MachineState):
 
 
     def _wait_for_ip(self, instance):
+        self.log_start("waiting for IP address... ".format(self.name))
+        
         while True:
             instance.update()
-            sys.stderr.write("[{0}] ".format(instance.state))
+            self.log_continue("({0}) ".format(instance.state))
             if instance.state not in {"pending", "running", "scheduling", "launching", "stopped"}:
                 raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self._instance_id, instance.state))
             if instance.ip_address: break
             time.sleep(3)
-        sys.stderr.write("{0} / {1}\n".format(instance.ip_address, instance.private_ip_address))
+            
+        self.log_end("{0} / {1}".format(instance.ip_address, instance.private_ip_address))
         
         charon.known_hosts.add(instance.ip_address, self._public_host_key)
             
@@ -415,7 +418,6 @@ class EC2State(MachineState):
         # Wait for the IP address.
         if not self._public_ipv4 or check:
             instance = self._get_instance_by_id(self._instance_id)
-            sys.stderr.write("waiting for IP address of ‘{0}’... ".format(self.name))
             self._wait_for_ip(instance)
 
         # Wait until the instance is reachable via SSH.
@@ -534,18 +536,18 @@ class EC2State(MachineState):
     def destroy(self):
         if not self.depl.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
         
-        sys.stderr.write("destroying EC2 machine ‘{0}’... ".format(self.name))
+        self.log_start("destroying EC2 machine... ".format(self.name))
 
         instance = self._get_instance_by_id(self._instance_id)
         instance.terminate()        
 
         # Wait until it's really terminated.
         while True:
-            sys.stderr.write("[{0}] ".format(instance.state))
+            self.log_continue("({0}) ".format(instance.state))
             if instance.state == "terminated": break
             time.sleep(3)
             instance.update()
-        sys.stderr.write("\n")
+        self.log_end("")
 
         # Destroy volumes created for this instance.
         for k, v in self._block_device_mapping.items():
@@ -560,14 +562,14 @@ class EC2State(MachineState):
             self.warn("cannot stop non-EBS-backed instance")
             return
 
-        sys.stderr.write("stopping EC2 machine ‘{0}’... ".format(self.name))
+        self.log_start("stopping EC2 machine... ".format(self.name))
 
         instance = self._get_instance_by_id(self._instance_id)
         instance.stop() # no-op if the machine is already stopped
 
         # Wait until it's really stopped.
         while True:
-            sys.stderr.write("[{0}] ".format(instance.state))
+            self.log_continue("({0}) ".format(instance.state))
             if instance.state == "stopped": break
             if instance.state not in {"running", "stopping"}:
                 raise Exception(
@@ -575,13 +577,13 @@ class EC2State(MachineState):
                     .format(self._instance_id, instance.state))
             time.sleep(3)
             instance.update()
-        sys.stderr.write("\n")
+        self.log_end("")
 
 
     def start(self):
         if not self._ebs_root: return
 
-        sys.stderr.write("starting EC2 machine ‘{0}’... ".format(self.name))
+        self.log("starting EC2 machine".format(self.name))
 
         instance = self._get_instance_by_id(self._instance_id)
         instance.start() # no-op if the machine is already started

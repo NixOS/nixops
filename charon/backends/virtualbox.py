@@ -252,7 +252,7 @@ class VirtualBoxState(MachineState):
     def stop(self):
         if self._get_vm_state() != 'running': return
 
-        self.log_start("shutting down...")
+        self.log_start("shutting down... ")
         
         self.run_command("poweroff &")
 
