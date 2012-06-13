@@ -52,7 +52,7 @@ with pkgs.lib;
             }} > $out
           '';
       in if config.nixpkgs.system == "x86_64-linux" then
-        unpack "0.1pre3742_9125d3a-249badd" "d9f1f266ce53bd2f144735597a8b0afee6aa07e48b0f532bfdd4d91cac3e51ef"
+        unpack "0.1pre3755_fd9604b-3c948a1" "58a8fdcaea605fbcc3decfe075c88caac7bc71d39c5b2b6969849898fb257d81"
       else
         # !!! Stupid lack of laziness
         # throw "Unsupported VirtualBox system type!"
