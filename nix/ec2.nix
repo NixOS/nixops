@@ -310,9 +310,8 @@ in
             ${concatStrings (attrValues (flip mapAttrs cfg.blockDeviceMapping (name: dev:
               # FIXME: The key file should be marked as private once
               # https://github.com/NixOS/nix/issues/8 is fixed.
-              assert dev.passphrase != "";
               let keyFile = pkgs.writeText "luks-key" dev.passphrase; in
-              optionalString dev.encrypt ''
+              optionalString dev.encrypt (assert dev.passphrase != ""; ''
                 if [ -e "${name}" ]; then
                 
                   # Do LUKS formatting if the device is empty.  FIXME:
@@ -334,7 +333,7 @@ in
 
                 fi
 
-              '')))}
+              ''))))}
           '';
       };
 
