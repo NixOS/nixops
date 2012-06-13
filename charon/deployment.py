@@ -372,6 +372,10 @@ class Deployment:
         if not dry_run and not build_only:
             def worker(m):
                 if not should_do(m, include, exclude): return
+                defn = self.definitions[m.name]
+                if m.get_type() != defn.get_type():
+                    raise Exception("the type of machine ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported"
+                                    .format(m.name, m.get_type(), defn.get_type()))
                 m.create(self.definitions[m.name], check=check)
                 m.wait_for_ssh(check=check)
                 m.generate_vpn_key()
