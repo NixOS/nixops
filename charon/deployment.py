@@ -337,7 +337,7 @@ class Deployment:
             
 
     def deploy(self, dry_run=False, build_only=False, create_only=False,
-               include=[], exclude=[], check=False):
+               include=[], exclude=[], check=False, kill_obsolete=False):
         """Perform the deployment defined by the deployment model."""
 
         self.evaluate()
@@ -353,13 +353,13 @@ class Deployment:
         # obsolete machines from ‘self.machines’ because they contain
         # important state that we don't want to forget about.)
         self.active = {}
-        for m in self.machines.itervalues():
+        for m in self.machines.values():
             if m.name in self.definitions:
                 self.active[m.name] = m
             else:
                 self.log("machine ‘{0}’ is obsolete".format(m.name))
                 if not should_do(m, include, exclude): continue
-                # !!! If kill_obsolete is set, kill the machine.
+                if kill_obsolete and m.destroy(): self.delete_machine(m)
 
         # Assign each machine an index if it doesn't have one.
         for m in self.active.itervalues():
