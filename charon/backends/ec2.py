@@ -82,7 +82,6 @@ class EC2State(MachineState):
         self._public_host_key = False
         self._root_device_type = None
         self._state = None
-        self._ebs_root = None
         
         
     def serialise(self):
@@ -107,7 +106,6 @@ class EC2State(MachineState):
         if self._public_host_key: y['publicHostKey'] = self._public_host_key
         if self._root_device_type: y['rootDeviceType'] = self._root_device_type
         if self._elastic_ipv4: y['elasticIPv4'] = self._elastic_ipv4
-        if self._ebs_root != None: y['ebsRoot'] = self._ebs_root
         x['ec2'] = y
         
         return x
@@ -135,7 +133,6 @@ class EC2State(MachineState):
         self._public_host_key = y.get('publicHostKey', None)
         self._root_device_type = y.get('rootDeviceType', None)
         self._elastic_ipv4 = y.get('elasticIPv4', None)
-        self._ebs_root = y.get('ebsRoot', None)
 
         
     def get_ssh_name(self):
@@ -253,6 +250,10 @@ class EC2State(MachineState):
         self.write()
 
 
+    def _booted_from_ebs(self):
+        return self._root_device_type == "ebs"
+
+
     def create(self, defn, check):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
@@ -302,8 +303,8 @@ class EC2State(MachineState):
             # Figure out whether this AMI is EBS-backed.
             ami = self._conn.get_all_images([defn.ami])[0]
 
-            self._ebs_root = ami.root_device_type == "ebs"
-
+            self._root_device_type = ami.root_device_type
+            
             (private, public) = self._create_key_pair()
 
             user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"))
@@ -316,7 +317,7 @@ class EC2State(MachineState):
                 if re.match("/dev/sd[a-e]", k) and not v['disk'].startswith("ephemeral"):
                     raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(_sd_to_xvd(k)))
                 if v['disk'] == '':
-                    if self._ebs_root:
+                    if self._booted_from_ebs():
                         devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(
                             size=v['size'], delete_on_termination=v['deleteOnTermination'])
                         self._block_device_mapping[k] = v
@@ -363,7 +364,6 @@ class EC2State(MachineState):
             self._security_groups = defn.security_groups
             self._zone = instance.placement
             self._public_host_key = public
-            self._root_device_type = ami.root_device_type
             
             self.write()
 
@@ -558,7 +558,7 @@ class EC2State(MachineState):
 
                 
     def stop(self):
-        if not self._ebs_root:
+        if not self._booted_from_ebs():
             self.warn("cannot stop non-EBS-backed instance")
             return
 
@@ -581,7 +581,7 @@ class EC2State(MachineState):
 
 
     def start(self):
-        if not self._ebs_root: return
+        if not self._booted_from_ebs(): return
 
         self.log("starting EC2 machine".format(self.name))
 
