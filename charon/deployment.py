@@ -16,7 +16,7 @@ import errno
 from xml.etree import ElementTree
 import charon.backends
 import charon.parallel
-
+import re
 
 class Deployment:
     """Charon top-level deployment manager."""
@@ -432,7 +432,23 @@ class Deployment:
             m.start()
 
         charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.itervalues(), worker_fun=worker)
-            
+
+    def is_valid_machine_name(self, name):
+        p = re.compile('^\w+$')
+        return not p.match(name) is None
+
+    def rename(self, name, new_name):
+        if not name in self.machines:
+            raise Exception("Machine {0} not found.".format(name))
+        if new_name in self.machines:
+            raise Exception("Machine with {0} already exists.".format(new_name))
+        if not self.is_valid_machine_name(new_name):
+            raise Exception("{0} is not a valid machine identifier.".format(new_name))
+
+        self.log("Renaming machine ‘{0}’ to ‘{1}’...".format(name, new_name))
+        machine = self._machine_state.pop(name)
+        self._machine_state[new_name] = machine
+        self.write_state()
 
 class NixEvalError(Exception):
     pass

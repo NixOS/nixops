@@ -91,6 +91,9 @@ def op_start():
     depl = deployment.Deployment(args.state_file)
     depl.start_machines(include=args.include or [], exclude=args.exclude or [])
 
+def op_rename():
+    depl = deployment.Deployment(args.state_file)
+    depl.rename(args.current_name, args.new_name)
 
 def op_show_physical():
     depl = deployment.Deployment(args.state_file, lock=False)
@@ -215,6 +218,10 @@ subparser.add_argument('machine', metavar='MACHINE', help='identifier of the mac
 subparser.add_argument('source', metavar='SOURCE', help='source file location')
 subparser.add_argument('destination', metavar='DEST', help='destination file location')
 
+subparser = subparsers.add_parser('rename', help='rename machine in network')
+subparser.set_defaults(op=op_rename)
+subparser.add_argument('current_name', metavar='FROM', help='current identifier of the machine')
+subparser.add_argument('new_name', metavar='TO', help='new identifier of the machine')
 
 # Parse the command line and execute the desired operation.
 args = parser.parse_args()
