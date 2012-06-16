@@ -367,16 +367,16 @@ class EC2State(MachineState):
             
             self.write()
 
-            # There is a short time window during which EC2 doesn't
-            # know the instance ID yet.  So wait until it does.
-            while True:
-                try:
-                    instance = self._get_instance_by_id(self._instance_id)
-                    break
-                except boto.exception.EC2ResponseError as e:
-                    if e.error_code != "InvalidInstanceID.NotFound": raise
-                self.log("EC2 instance ‘{0}’ not known yet, waiting...".format(self._instance_id))
-                time.sleep(3)
+        # There is a short time window during which EC2 doesn't
+        # know the instance ID yet.  So wait until it does.
+        while True:
+            try:
+                instance = self._get_instance_by_id(self._instance_id)
+                break
+            except boto.exception.EC2ResponseError as e:
+                if e.error_code != "InvalidInstanceID.NotFound": raise
+            self.log("EC2 instance ‘{0}’ not known yet, waiting...".format(self._instance_id))
+            time.sleep(3)
 
         # Warn about some EC2 options that we cannot update for an existing instance.
         if self._instance_type != defn.instance_type:
@@ -402,6 +402,19 @@ class EC2State(MachineState):
         if (self._elastic_ipv4 or "") != defn.elastic_ipv4:
             self.connect()
             if defn.elastic_ipv4 != "":
+                # wait until machine is in running state
+                self.log_start("waiting for machine to be in running state... ".format(self.name))
+                while True:
+                    self.log_continue("({0}) ".format(instance.state))
+                    if instance.state == "running": break
+                    if instance.state not in {"running", "pending"}:
+                        raise Exception(
+                            "EC2 instance ‘{0}’ failed to reach running state (state is ‘{1}’)"
+                            .format(self._instance_id, instance.state))
+                    time.sleep(3)
+                    instance.update()
+                self.log_end("")
+
                 self.log("associating IP address ‘{0}’...".format(defn.elastic_ipv4))
                 self._conn.associate_address(instance_id=self._instance_id, public_ip=defn.elastic_ipv4)
                 self._elastic_ipv4 = defn.elastic_ipv4
