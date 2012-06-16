@@ -20,6 +20,6 @@
   machine3 =
     { config, pkgs, ... }:
     { deployment.targetEnv = "virtualbox";
-#      deployment.encryptedLinksTo = [ "machine1" "machine2" ];
+      deployment.encryptedLinksTo = [ "machine1" "machine2" ];
     };
 }
