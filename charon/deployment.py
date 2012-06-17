@@ -414,6 +414,16 @@ class Deployment:
         charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.values(), worker_fun=worker)
             
 
+    def reboot_machines(self, include=[], exclude=[]):
+        """Reboot all current or obsolete machines."""
+
+        def worker(m):
+            if not should_do(m, include, exclude): return
+            m.reboot()
+
+        charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.itervalues(), worker_fun=worker)
+
+
     def stop_machines(self, include=[], exclude=[]):
         """Stop all current or obsolete machines."""
 

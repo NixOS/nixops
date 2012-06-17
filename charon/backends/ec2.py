@@ -612,6 +612,10 @@ class EC2State(MachineState):
         if prev_private_ipv4 != self._private_ipv4 or prev_public_ipv4 != self._public_ipv4:
             self.warn("IP address has changed, you may need to run ‘charon deploy’")
 
+    def reboot(self):
+        self.log_start("rebooting EC2 machine... ")
+        instance = self._get_instance_by_id(self._instance_id)
+        instance.reboot() 
 
 def _xvd_to_sd(dev):
     return dev.replace("/dev/xvd", "/dev/sd")
