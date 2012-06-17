@@ -46,8 +46,3 @@ class NoneState(MachineState):
     def destroy(self):
         # No-op; just forget about the machine.
         return True
-
-    def reboot(self):
-        self.log("rebooting...")
-        self.run_command("reboot &")
-    

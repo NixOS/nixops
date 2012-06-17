@@ -109,6 +109,10 @@ class MachineState:
         """Start this machine, if possible."""
         pass
         
+    def reboot(self):
+        self.log("rebooting...")
+        self.run_command("reboot &")
+
     def get_ssh_name(self):
         assert False
 

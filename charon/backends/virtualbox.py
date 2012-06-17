@@ -279,8 +279,3 @@ class VirtualBoxState(MachineState):
 
         if prev_ipv4 != self._ipv4:
             self.warn("IP address has changed, you may need to run ‘charon deploy’")
-
-    def reboot(self):
-        if self._get_vm_state() != 'running': return
-        self.log("rebooting...")
-        self.run_command("reboot &")
