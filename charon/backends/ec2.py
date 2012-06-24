@@ -613,7 +613,7 @@ class EC2State(MachineState):
             self.warn("IP address has changed, you may need to run ‘charon deploy’")
 
     def reboot(self):
-        self.log_start("rebooting EC2 machine... ")
+        self.log("rebooting EC2 machine... ")
         instance = self._get_instance_by_id(self._instance_id)
         instance.reboot() 
 
