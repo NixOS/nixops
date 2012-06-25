@@ -29,7 +29,7 @@ class EC2Definition(MachineDefinition):
         self.region = x.find("attr[@name='region']/string").get("value")
         self.controller = x.find("attr[@name='controller']/string").get("value")
         self.ami = x.find("attr[@name='ami']/string").get("value")
-        if self.ami == "": raise Exception("no AMI defined for EC2 machine ‘{0}’".format(self.name))
+        if self.ami == "": raise Exception("no AMI defined for EC2 machine '{0}'".format(self.name))
         self.instance_type = x.find("attr[@name='instanceType']/string").get("value")
         self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
         self.private_key = x.find("attr[@name='privateKey']/string").get("value")
@@ -137,7 +137,7 @@ class EC2State(MachineState):
         
     def get_ssh_name(self):
         if not self._public_ipv4:
-            raise Exception("EC2 machine ‘{0}’ does not have a public IPv4 address (yet)".format(self.name))
+            raise Exception("EC2 machine '{0}' does not have a public IPv4 address (yet)".format(self.name))
         return self._public_ipv4
 
     
@@ -203,7 +203,7 @@ class EC2State(MachineState):
                     break
             
         if not secret_access_key:
-            raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/ec2-keys"
+            raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for '{0}' to ~/ec2-keys"
                             .format(self._access_key_id))
 
         self._conn = boto.ec2.connect_to_region(
@@ -216,7 +216,7 @@ class EC2State(MachineState):
         reservations = self._conn.get_all_instances([instance_id])
         if len(reservations) == 0:
             if allow_missing: return None
-            raise Exception("EC2 instance ‘{0}’ disappeared!".format(instance_id))
+            raise Exception("EC2 instance '{0}' disappeared!".format(instance_id))
         return reservations[0].instances[0]
 
 
@@ -225,7 +225,7 @@ class EC2State(MachineState):
         self.connect()
         volumes = self._conn.get_all_volumes([volume_id])
         if len(volumes) != 1:
-            raise Exception("unable to find volume ‘{0}’".format(volume_id))
+            raise Exception("unable to find volume '{0}'".format(volume_id))
         return volumes[0]
 
 
@@ -236,7 +236,7 @@ class EC2State(MachineState):
             instance.update()
             self.log_continue("({0}) ".format(instance.state))
             if instance.state not in {"pending", "running", "scheduling", "launching", "stopped"}:
-                raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self._instance_id, instance.state))
+                raise Exception("EC2 instance '{0}' failed to start (state is '{1}')".format(self._instance_id, instance.state))
             if instance.ip_address: break
             time.sleep(3)
             
@@ -262,7 +262,7 @@ class EC2State(MachineState):
         if not self._access_key_id:
             self._access_key_id = defn.access_key_id or os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
             if not self._access_key_id:
-                raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
+                raise Exception("please set 'deployment.ec2.accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         self._private_key = defn.private_key or None
         
@@ -272,7 +272,7 @@ class EC2State(MachineState):
             self.connect()
             instance = self._get_instance_by_id(self._instance_id, allow_missing=True)
             if instance is None or instance.state in {"shutting-down", "terminated"}:
-                self.log("EC2 instance went away (state ‘{0}’), will recreate".format(instance.state if instance else "gone"))
+                self.log("EC2 instance went away (state '{0}'), will recreate".format(instance.state if instance else "gone"))
                 self._reset_state()
                 self.write()
             elif instance.state == "stopped":
@@ -280,7 +280,7 @@ class EC2State(MachineState):
 
                 # Modify the instance type, if desired.
                 if self._instance_type != defn.instance_type:
-                    self.log("changing instance type from ‘{0}’ to ‘{1}’...".format(self._instance_type, defn.instance_type))
+                    self.log("changing instance type from '{0}' to '{1}'...".format(self._instance_type, defn.instance_type))
                     instance.modify_attribute("instanceType", defn.instance_type)
                     self._instance_type = defn.instance_type
                     self.write()
@@ -294,7 +294,7 @@ class EC2State(MachineState):
 
         # Start the instance.
         if not self._instance_id:
-            self.log("creating EC2 instance (AMI ‘{0}’, type ‘{1}’, region ‘{2}’)...".format(
+            self.log("creating EC2 instance (AMI '{0}', type '{1}', region '{2}')...".format(
                 defn.ami, defn.instance_type, defn.region))
 
             self._region = defn.region
@@ -315,7 +315,7 @@ class EC2State(MachineState):
             devs_mapped = {}
             for k, v in defn.block_device_mapping.iteritems():
                 if re.match("/dev/sd[a-e]", k) and not v['disk'].startswith("ephemeral"):
-                    raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(_sd_to_xvd(k)))
+                    raise Exception("non-ephemeral disk not allowed on device '{0}'; use /dev/xvdf or higher".format(_sd_to_xvd(k)))
                 if v['disk'] == '':
                     if self._booted_from_ebs():
                         devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(
@@ -334,14 +334,14 @@ class EC2State(MachineState):
                     # zone of the volume.
                     volume = self._get_volume_by_id(v['disk'])
                     if not zone:
-                        self.log("starting EC2 instance in zone ‘{0}’ due to volume ‘{1}’".format(
+                        self.log("starting EC2 instance in zone '{0}' due to volume '{1}'".format(
                             volume.zone, v['disk']))
                         zone = volume.zone
                     elif zone != volume.zone:
-                        raise Exception("unable to start EC2 instance ‘{0}’ in zone ‘{1}’ because volume ‘{2}’ is in zone ‘{3}’"
+                        raise Exception("unable to start EC2 instance '{0}' in zone '{1}' because volume '{2}' is in zone '{3}'"
                                         .format(self.name, zone, v['disk'], volume.zone))
                 else:
-                    raise Exception("device mapping ‘{0}’ not (yet) supported".format(v['disk']))
+                    raise Exception("device mapping '{0}' not (yet) supported".format(v['disk']))
 
             # FIXME: Should use client_token to ensure idempotency.
             reservation = ami.run(
@@ -375,12 +375,12 @@ class EC2State(MachineState):
                 break
             except boto.exception.EC2ResponseError as e:
                 if e.error_code != "InvalidInstanceID.NotFound": raise
-            self.log("EC2 instance ‘{0}’ not known yet, waiting...".format(self._instance_id))
+            self.log("EC2 instance '{0}' not known yet, waiting...".format(self._instance_id))
             time.sleep(3)
 
         # Warn about some EC2 options that we cannot update for an existing instance.
         if self._instance_type != defn.instance_type:
-            self.warn("cannot change type of a running instance (do ‘charon stop’ first)")
+            self.warn("cannot change type of a running instance (do 'charon stop' first)")
         if self._region != defn.region:
             self.warn("cannot change region of a running instance")
                     
@@ -409,20 +409,20 @@ class EC2State(MachineState):
                     if instance.state == "running": break
                     if instance.state not in {"running", "pending"}:
                         raise Exception(
-                            "EC2 instance ‘{0}’ failed to reach running state (state is ‘{1}’)"
+                            "EC2 instance '{0}' failed to reach running state (state is '{1}')"
                             .format(self._instance_id, instance.state))
                     time.sleep(3)
                     instance.update()
                 self.log_end("")
 
-                self.log("associating IP address ‘{0}’...".format(defn.elastic_ipv4))
+                self.log("associating IP address '{0}'...".format(defn.elastic_ipv4))
                 self._conn.associate_address(instance_id=self._instance_id, public_ip=defn.elastic_ipv4)
                 self._elastic_ipv4 = defn.elastic_ipv4
                 self._public_ipv4 = defn.elastic_ipv4
                 self._ssh_pinged = False
                 charon.known_hosts.add(defn.elastic_ipv4, self._public_host_key)
             else:
-                self.log("disassociating IP address ‘{0}’...".format(self._elastic_ipv4))
+                self.log("disassociating IP address '{0}'...".format(self._elastic_ipv4))
                 self._conn.disassociate_address(public_ip=self._elastic_ipv4)
                 self._elastic_ipv4 = None
                 self._public_ipv4 = None
@@ -456,18 +456,18 @@ class EC2State(MachineState):
         # Attach missing volumes.
         for k, v in defn.block_device_mapping.iteritems():
             if k not in self._block_device_mapping:
-                self.log("attaching volume ‘{0}’ as ‘{1}’...".format(v['disk'], _sd_to_xvd(k)))
+                self.log("attaching volume '{0}' as '{1}'...".format(v['disk'], _sd_to_xvd(k)))
                 self.connect()
                 if v['disk'].startswith("vol-"):
                     self._conn.attach_volume(v['disk'], self._instance_id, k)
                     self._block_device_mapping[k] = v
                     self.write()
                 else:
-                    raise Exception("adding device mapping ‘{0}’ to a running instance is not (yet) supported".format(v['disk']))
+                    raise Exception("adding device mapping '{0}' to a running instance is not (yet) supported".format(v['disk']))
 
         for k, v in self._block_device_mapping.items():
             if v.get('needsAttach', False):
-                self.log("attaching volume ‘{0}’ as ‘{1}’...".format(v['volumeId'], _sd_to_xvd(k)))
+                self.log("attaching volume '{0}' as '{1}'...".format(v['volumeId'], _sd_to_xvd(k)))
                 self.connect()
 
                 volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
@@ -496,14 +496,14 @@ class EC2State(MachineState):
                     filters={'attachment.instance-id': self._instance_id,
                              'attachment.device': k})
                 if len(volumes) != 1:
-                    raise Exception("unable to find volume attached to ‘{0}’ on EC2 machine ‘{1}’".format(k, self.name))
+                    raise Exception("unable to find volume attached to '{0}' on EC2 machine '{1}'".format(k, self.name))
                 v['volumeId'] = volumes[0].id
                 self.write()
                 
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self._block_device_mapping.items():
             if k not in defn.block_device_mapping:
-                self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
+                self.log("detaching device '{0}'...".format(_sd_to_xvd(k)))
                 self.connect()
                 volumes = self._conn.get_all_volumes([], filters={'attachment.instance-id': self._instance_id, 'attachment.device': k})
                 assert len(volumes) <= 1
@@ -517,7 +517,7 @@ class EC2State(MachineState):
                     else:
                         self.run_command("umount -l {0}".format(device), check=False)
                     if not self._conn.detach_volume(volumes[0].id, instance_id=self._instance_id, device=k):
-                        raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
+                        raise Exception("unable to detach device '{0}' from EC2 machine '{1}'".format(v['disk'], self.name))
                     # FIXME: Wait until the volume is actually detached.
                     
                 if v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
@@ -534,9 +534,9 @@ class EC2State(MachineState):
 
 
     def _delete_volume(self, volume_id):
-        if not self.depl.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
-            raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
-        self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
+        if not self.depl.confirm("are you sure you want to destroy EC2 volume '{0}'?".format(volume_id)):
+            raise Exception("not destroying EC2 volume '{0}'".format(volume_id))
+        self.log("destroying EC2 volume '{0}'...".format(volume_id))
         try:
             volume = self._get_volume_by_id(volume_id)
             charon.util.check_wait(lambda: volume.update() == 'available')
@@ -547,7 +547,7 @@ class EC2State(MachineState):
 
 
     def destroy(self):
-        if not self.depl.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
+        if not self.depl.confirm("are you sure you want to destroy EC2 machine '{0}'?".format(self.name)): return False
         
         self.log_start("destroying EC2 machine... ".format(self.name))
 
@@ -586,7 +586,7 @@ class EC2State(MachineState):
             if instance.state == "stopped": break
             if instance.state not in {"running", "stopping"}:
                 raise Exception(
-                    "EC2 instance ‘{0}’ failed to stop (state is ‘{1}’)"
+                    "EC2 instance '{0}' failed to stop (state is '{1}')"
                     .format(self._instance_id, instance.state))
             time.sleep(3)
             instance.update()
@@ -610,7 +610,7 @@ class EC2State(MachineState):
         self._wait_for_ip(instance)
         
         if prev_private_ipv4 != self._private_ipv4 or prev_public_ipv4 != self._public_ipv4:
-            self.warn("IP address has changed, you may need to run ‘charon deploy’")
+            self.warn("IP address has changed, you may need to run 'charon deploy'")
 
     def reboot(self):
         self.log("rebooting EC2 machine... ")

@@ -44,7 +44,7 @@ class Deployment:
                 fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except exceptions.IOError as e:
                 if e.errno != errno.EAGAIN: raise
-                self.log("waiting for exclusive lock on ‘{0}’...".format(self.state_file))
+                self.log("waiting for exclusive lock on '{0}'...".format(self.state_file))
                 fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX)
 
         if create:
@@ -214,7 +214,7 @@ class Deployment:
             for m2_name in defn.encrypted_links_to:
                 
                 if m2_name not in self.active:
-                    raise Exception("‘deployment.encryptedLinksTo’ in machine ‘{0}’ refers to an unknown machine ‘{1}’"
+                    raise Exception("'deployment.encryptedLinksTo' in machine '{0}' refers to an unknown machine '{1}'"
                                     .format(m.name, m2_name))
                 m2 = self.active[m2_name]
                 # Don't create two tunnels between a pair of machines.
@@ -230,7 +230,7 @@ class Deployment:
                 lines.append('        remoteIPv4 = "{0}";'.format(remote_ipv4))
                 lines.append('        privateKey = "/root/.ssh/id_charon_vpn";')
                 lines.append('      }};'.format(m2.name))
-                # FIXME: set up the authorized_key file such that ‘m’
+                # FIXME: set up the authorized_key file such that 'm'
                 # can do nothing more than create a tunnel.
                 authorized_keys[m2.name].append('"' + m._public_vpn_key + '"')
                 kernel_modules[m.name].add('"tun"')
@@ -294,7 +294,7 @@ class Deployment:
             m.log("copying closure...")
             m.new_toplevel = os.path.realpath(configs_path + "/" + m.name)
             if not os.path.exists(m.new_toplevel):
-                raise Exception("can't find closure of machine ‘{0}’".format(m.name))
+                raise Exception("can't find closure of machine '{0}'".format(m.name))
             m.copy_closure_to(m.new_toplevel)
 
         charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
@@ -317,7 +317,7 @@ class Deployment:
                 "cur=$(readlink /var/run/current-system); " +
                 'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi",
                 check=False)
-            if res != 0: raise Exception("unable to activate new configuration on machine ‘{0}’".format(m.name))
+            if res != 0: raise Exception("unable to activate new configuration on machine '{0}'".format(m.name))
 
             # Record that we switched this machine to the new
             # configuration.
@@ -350,14 +350,14 @@ class Deployment:
         self.set_log_prefixes()
         
         # Determine the set of active machines.  (We can't just delete
-        # obsolete machines from ‘self.machines’ because they contain
+        # obsolete machines from 'self.machines' because they contain
         # important state that we don't want to forget about.)
         self.active = {}
         for m in self.machines.values():
             if m.name in self.definitions:
                 self.active[m.name] = m
             else:
-                self.log("machine ‘{0}’ is obsolete".format(m.name))
+                self.log("machine '{0}' is obsolete".format(m.name))
                 if not should_do(m, include, exclude): continue
                 if kill_obsolete and m.destroy(): self.delete_machine(m)
 
@@ -374,7 +374,7 @@ class Deployment:
                 if not should_do(m, include, exclude): return
                 defn = self.definitions[m.name]
                 if m.get_type() != defn.get_type():
-                    raise Exception("the type of machine ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported"
+                    raise Exception("the type of machine '{0}' changed from '{1}' to '{2}', which is currently unsupported"
                                     .format(m.name, m.get_type(), defn.get_type()))
                 m.create(self.definitions[m.name], check=check)
                 m.wait_for_ssh(check=check)
@@ -390,7 +390,7 @@ class Deployment:
 
         self.configs_path = self.build_configs(include=include, exclude=exclude)
 
-        # Record configs_path in the state so that the ‘info’ command
+        # Record configs_path in the state so that the 'info' command
         # can show whether machines have an outdated configuration.
         self.write_state()
 
@@ -455,7 +455,7 @@ class Deployment:
         if not self.is_valid_machine_name(new_name):
             raise Exception("{0} is not a valid machine identifier.".format(new_name))
 
-        self.log("Renaming machine ‘{0}’ to ‘{1}’...".format(name, new_name))
+        self.log("Renaming machine '{0}' to '{1}'...".format(name, new_name))
         machine = self._machine_state.pop(name)
         self._machine_state[new_name] = machine
         self.write_state()
