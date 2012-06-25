@@ -125,7 +125,7 @@ in
       $coordinator->succeed("cp ${./id_test.pub} id_test.pub");
       $coordinator->succeed("charon create ./physical.nix ./logical.nix");
 
-      # Test ‘charon info’.
+      # Test 'charon info'.
       subtest "info-before", sub {
         $coordinator->succeed("${env} charon info >&2");
       };
@@ -138,17 +138,17 @@ in
         $target1->succeed("vim --version >&2");
       };
 
-      # Test ‘charon info’.
+      # Test 'charon info'.
       subtest "info-after", sub {
         $coordinator->succeed("${env} charon info >&2");
       };
       
-      # Test ‘charon ssh’.
+      # Test 'charon ssh'.
       subtest "ssh", sub {
         $coordinator->succeed("${env} charon ssh target1 -- -v ls / >&2");
       };
       
-      # Test ‘charon check’.
+      # Test 'charon check'.
       subtest "check", sub {
         $coordinator->succeed("${env} charon check");
       };

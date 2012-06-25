@@ -285,7 +285,7 @@ in
       if cfg.region == "us-east-1" && config.nixpkgs.system == "x86_64-linux" &&  cfg.ebsBoot then "ami-dabe1db3" else
       if cfg.region == "us-west-1" && config.nixpkgs.system == "x86_64-linux" && !cfg.ebsBoot then "ami-4996ce0c" else
       # !!! Doesn't work, not lazy enough.
-      #throw "I don't know an AMI for region ‘${cfg.region}’ and platform type ‘${config.nixpkgs.system}’"
+      #throw "I don't know an AMI for region '${cfg.region}' and platform type '${config.nixpkgs.system}'"
       "");
 
     # Workaround: the evaluation of blockDeviceMapping requires fileSystems to be defined.
@@ -319,7 +319,7 @@ in
                   # just check if the first sector is empty.
                   type=$(blkid -p -s TYPE -o value "${name}" || true)
                   if [ -z "$type" ]; then
-                    echo "initialising encryption on device ‘${name}’..."
+                    echo "initialising encryption on device '${name}'..."
                     cryptsetup luksFormat "${name}" --key-file=${keyFile}
                   fi
 

@@ -11,7 +11,7 @@ import struct
 devnull = open(os.devnull, 'rw')
 
 def check_wait(test, initial=10, factor=1, max_tries=60):
-    """Call function ‘test’ periodically until it returns True or a timeout occurs."""
+    """Call function 'test' periodically until it returns True or a timeout occurs."""
     wait = initial
     tries = 0
     while tries < max_tries and not test():

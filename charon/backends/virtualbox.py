@@ -102,7 +102,7 @@ class VirtualBoxState(MachineState):
 
     
     def _get_vm_info(self):
-        '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
+        '''Return the output of 'VBoxManage showvminfo' in a dictionary.'''
         lines = self._logged_exec(
             ["VBoxManage", "showvminfo", "--machinereadable", self._vm_id],
             capture_stdout=True, check=False).splitlines()
@@ -110,7 +110,7 @@ class VirtualBoxState(MachineState):
         # shutting down (even though the necessary info is returned on
         # stdout).
         if len(lines) == 0:
-            raise Exception("unable to get info on VirtualBox VM ‘{0}’".format(self.name))
+            raise Exception("unable to get info on VirtualBox VM '{0}'".format(self.name))
         vminfo = {}
         for l in lines:
             (k, v) = l.split("=", 1)
@@ -122,7 +122,7 @@ class VirtualBoxState(MachineState):
         '''Return the state ("running", etc.) of a VM.'''
         vminfo = self._get_vm_info()
         if 'VMState' not in vminfo:
-            raise Exception("unable to get state of VirtualBox VM ‘{0}’".format(self.name))
+            raise Exception("unable to get state of VirtualBox VM '{0}'".format(self.name))
         return vminfo['VMState'].replace('"', '')
 
 
@@ -173,7 +173,7 @@ class VirtualBoxState(MachineState):
         if not self._disk:
             vm_dir = os.environ['HOME'] + "/VirtualBox VMs/" + self._vm_id
             if not os.path.isdir(vm_dir):
-                raise Exception("can't find directory of VirtualBox VM ‘{0}’".format(self.name))
+                raise Exception("can't find directory of VirtualBox VM '{0}'".format(self.name))
 
             disk = vm_dir + "/disk1.vdi"
 
@@ -232,7 +232,7 @@ class VirtualBoxState(MachineState):
 
 
     def destroy(self):
-        if not self.depl.confirm("are you sure you want to destroy VirtualBox VM ‘{0}’?".format(self.name)): return False
+        if not self.depl.confirm("are you sure you want to destroy VirtualBox VM '{0}'?".format(self.name)): return False
         
         self.log("destroying VirtualBox VM...")
 
@@ -278,4 +278,4 @@ class VirtualBoxState(MachineState):
         self._wait_for_ip()
 
         if prev_ipv4 != self._ipv4:
-            self.warn("IP address has changed, you may need to run ‘charon deploy’")
+            self.warn("IP address has changed, you may need to run 'charon deploy'")

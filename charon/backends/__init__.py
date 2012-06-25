@@ -75,7 +75,7 @@ class MachineState:
         self.depl.update_machine_state(self)
         
     def create(self, defn, check):
-        """Create or update the machine instance defined by ‘defn’, if appropriate."""
+        """Create or update the machine instance defined by 'defn', if appropriate."""
         assert False
 
     def serialise(self):
@@ -98,12 +98,12 @@ class MachineState:
 
     def destroy(self):
         """Destroy this machine, if possible."""
-        self.warn("don't know how to destroy machine ‘{0}’".format(self.name))
+        self.warn("don't know how to destroy machine '{0}'".format(self.name))
         return False
 
     def stop(self):
         """Stop this machine, if possible."""
-        self.warn("don't know how to stop machine ‘{0}’".format(self.name))
+        self.warn("don't know how to stop machine '{0}'".format(self.name))
         
     def start(self):
         """Start this machine, if possible."""
@@ -168,7 +168,7 @@ class MachineState:
              "-M", "-N", "-f"]
             + self.get_ssh_flags())
         if res != 0: 
-            raise Exception("unable to start SSH master connection to ‘{0}’".format(self.name))
+            raise Exception("unable to start SSH master connection to '{0}'".format(self.name))
 
         # Kill the master on exit.
         atexit.register(
@@ -242,7 +242,7 @@ class MachineState:
 
         if stdin_string != None: process.stdin.close()
         if check and res != 0:
-            raise Exception("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
+            raise Exception("command '{0}' failed on machine '{1}'".format(command, self.name))
         return stdout if capture_stdout else res
 
     def run_command(self, command, check=True, capture_stdout=False, stdin_string=None):
@@ -287,7 +287,7 @@ class MachineState:
             ["umask 077 && mkdir -p /root/.ssh && cat > /root/.ssh/id_charon_vpn"],
             stdin=f)
         f.close()
-        if res != 0: raise Exception("unable to upload VPN key to ‘{0}’".format(self.name))
+        if res != 0: raise Exception("unable to upload VPN key to '{0}'".format(self.name))
         self._public_vpn_key = public
         self.write()
 
@@ -304,7 +304,7 @@ def create_definition(xml):
               charon.backends.ec2.EC2Definition]:
         if target_env == i.get_type():
             return i(xml)
-    raise Exception("unknown backend type ‘{0}’".format(target_env))
+    raise Exception("unknown backend type '{0}'".format(target_env))
 
 def create_state(depl, type, name):
     """Create a machine state object of the desired backend type."""
@@ -313,4 +313,4 @@ def create_state(depl, type, name):
               charon.backends.ec2.EC2State]:
         if type == i.get_type():
             return i(depl, name)
-    raise Exception("unknown backend type ‘{0}’".format(type))
+    raise Exception("unknown backend type '{0}'".format(type))

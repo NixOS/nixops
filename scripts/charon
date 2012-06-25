@@ -117,7 +117,7 @@ def op_ssh():
     depl = deployment.Deployment(args.state_file, lock=False)
     (username, machine) = parse_machine(args.machine)
     m = depl.machines.get(machine)
-    if not m: raise Exception("unknown machine ‘{0}’".format(machine))
+    if not m: raise Exception("unknown machine '{0}'".format(machine))
     ssh_name = m.get_ssh_name()
     print >> sys.stderr, "connecting to {0}...".format(ssh_name)
     res = subprocess.call(["ssh", username + "@" + ssh_name] + m.get_ssh_flags() + args.args)
@@ -136,7 +136,7 @@ def op_ssh_for_each():
         results = []
         for m in depl.machines.itervalues():
             ssh_name = m.get_ssh_name()
-            print >> sys.stderr, "running command on ‘{0}’...".format(m.name)
+            print >> sys.stderr, "running command on '{0}'...".format(m.name)
             results.append(subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + args.args))
     sys.exit(max(results))
 
@@ -148,7 +148,7 @@ def scp_loc(ssh_name, remote, loc):
 def op_scp():
     depl = deployment.Deployment(args.state_file, lock=False)
     m = depl.machines.get(args.machine)
-    if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
+    if not m: raise Exception("unknown machine '{0}'".format(args.machine))
     ssh_name = m.get_ssh_name()
     from_loc = scp_loc(ssh_name, args.scp_from, args.source)
     to_loc = scp_loc(ssh_name, args.scp_to, args.destination)
