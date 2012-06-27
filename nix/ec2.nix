@@ -58,6 +58,22 @@ let
         '';
       };
 
+      cipher = mkOption {
+        default = "aes-cbc-essiv:sha256";
+        type = types.uniq types.string;
+        description = ''
+          The cipher used to encrypt the disk.
+        '';
+      };
+
+      keySize = mkOption {
+        default = 128;
+        type = types.uniq types.int;
+        description = ''
+          The size of the encryption key.
+        '';
+      };
+
       passphrase = mkOption {
         default = "";
         type = types.uniq types.string;
@@ -320,7 +336,7 @@ in
                   type=$(blkid -p -s TYPE -o value "${name}" || true)
                   if [ -z "$type" ]; then
                     echo "initialising encryption on device ‘${name}’..."
-                    cryptsetup luksFormat "${name}" --key-file=${keyFile}
+                    cryptsetup luksFormat "${name}" --key-file=${keyFile} --cipher ${dev.cipher} --key-size ${toString dev.keySize}
                   fi
 
                 fi
