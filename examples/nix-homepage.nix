@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 
 { services.httpd.enable = true;
-  services.httpd.adminAddr = "e.dolstra@tudelft.nl";
+  services.httpd.adminAddr = "eelco.dolstra@logicblox.com";
 
   # Serve the NixOS homepage.
   services.httpd.documentRoot =
