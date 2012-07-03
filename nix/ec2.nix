@@ -167,6 +167,16 @@ in
       '';
     };
 
+    deployment.ec2.zone = mkOption {
+      default = "";
+      example = "us-east-1c";
+      type = types.uniq types.string;
+      description = ''
+        The EC2 availability zone in which the instance should be
+        created.  If not specified, a zone is selected automatically.
+      '';
+    };
+
     deployment.ec2.ebsBoot = mkOption {
       default = false;
       type = types.bool;
