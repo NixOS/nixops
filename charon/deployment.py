@@ -337,7 +337,8 @@ class Deployment:
             
 
     def deploy(self, dry_run=False, build_only=False, create_only=False,
-               include=[], exclude=[], check=False, kill_obsolete=False):
+               include=[], exclude=[], check=False, kill_obsolete=False,
+               allow_reboot=False):
         """Perform the deployment defined by the deployment model."""
 
         self.evaluate()
@@ -376,7 +377,7 @@ class Deployment:
                 if m.get_type() != defn.get_type():
                     raise Exception("the type of machine ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported"
                                     .format(m.name, m.get_type(), defn.get_type()))
-                m.create(self.definitions[m.name], check=check)
+                m.create(self.definitions[m.name], check=check, allow_reboot=allow_reboot)
                 m.wait_for_ssh(check=check)
                 m.generate_vpn_key()
             charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)

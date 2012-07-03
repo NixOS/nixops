@@ -254,7 +254,7 @@ class EC2State(MachineState):
         return self._root_device_type == "ebs"
 
 
-    def create(self, defn, check):
+    def create(self, defn, check, allow_reboot):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
 
@@ -265,6 +265,13 @@ class EC2State(MachineState):
                 raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         self._private_key = defn.private_key or None
+
+        # Stop the instance (if allowed) to change instance attributes
+        # such as the type.
+        if self._instance_id and allow_reboot:
+            if self._instance_type != defn.instance_type:
+                self.stop()
+                check = True
         
         # Check whether the instance hasn't been killed behind our
         # backs.  Restart stopped instances.
