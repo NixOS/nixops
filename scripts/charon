@@ -14,7 +14,7 @@ def op_create():
     depl = deployment.Deployment(args.state_file, create=True, nix_exprs=args.nix_exprs)
     depl.write_state()
 
-    
+
 def op_info():
     depl = deployment.Deployment(args.state_file, lock=False)
     depl.evaluate()
@@ -50,10 +50,10 @@ def op_info():
                  m.vm_id or "" if m else "",
                  m.public_ipv4 or m.private_ipv4 or "" if m else ""
                 ])
-            
+
         print tbl
 
-    
+
 def op_check():
     depl = deployment.Deployment(args.state_file, lock=False)
     fnull = open(os.devnull, 'w')
@@ -67,7 +67,7 @@ def op_check():
         except subprocess.CalledProcessError:
             sys.stderr.write("fail\n")
 
-    
+
 def op_deploy():
     depl = deployment.Deployment(args.state_file)
     if args.confirm: depl.auto_response = "y"
@@ -111,7 +111,7 @@ def op_show_physical():
 
 def parse_machine(name):
     return ("root", name) if name.find("@") == -1 else name.split("@", 1)
-    
+
 
 def op_ssh():
     depl = deployment.Deployment(args.state_file, lock=False)
@@ -123,7 +123,7 @@ def op_ssh():
     res = subprocess.call(["ssh", username + "@" + ssh_name] + m.get_ssh_flags() + args.args)
     sys.exit(res)
 
-    
+
 def op_ssh_for_each():
     depl = deployment.Deployment(args.state_file, lock=False)
     # FIXME: only do active machines?
@@ -140,7 +140,7 @@ def op_ssh_for_each():
             results.append(subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + args.args))
     sys.exit(max(results))
 
-    
+
 def scp_loc(ssh_name, remote, loc):
     return "root@{0}:{1}".format(ssh_name, loc) if remote else loc
 
@@ -153,7 +153,7 @@ def op_scp():
     from_loc = scp_loc(ssh_name, args.scp_from, args.source)
     to_loc = scp_loc(ssh_name, args.scp_to, args.destination)
     print >> sys.stderr, "scp {0} -> {1}".format(ssh_name, from_loc, to_loc)
-    res = subprocess.call([ "scp", "-r", from_loc, to_loc])
+    res = subprocess.call([ "scp", "-r", ] + m.get_ssh_flags() + [from_loc, to_loc])
     sys.exit(res)
 
 
