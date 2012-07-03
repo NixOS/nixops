@@ -27,6 +27,7 @@ class EC2Definition(MachineDefinition):
         self.access_key_id = x.find("attr[@name='accessKeyId']/string").get("value")
         self.type = x.find("attr[@name='type']/string").get("value")
         self.region = x.find("attr[@name='region']/string").get("value")
+        self.zone = x.find("attr[@name='zone']/string").get("value")
         self.controller = x.find("attr[@name='controller']/string").get("value")
         self.ami = x.find("attr[@name='ami']/string").get("value")
         if self.ami == "": raise Exception("no AMI defined for EC2 machine ‘{0}’".format(self.name))
@@ -254,7 +255,7 @@ class EC2State(MachineState):
         return self._root_device_type == "ebs"
 
 
-    def create(self, defn, check):
+    def create(self, defn, check, allow_reboot):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
 
@@ -265,6 +266,12 @@ class EC2State(MachineState):
                 raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         self._private_key = defn.private_key or None
+
+        # Stop the instance (if allowed) to change instance attributes
+        # such as the type.
+        if self._instance_id and allow_reboot and self._booted_from_ebs() and self._instance_type != defn.instance_type:
+            self.stop()
+            check = True
         
         # Check whether the instance hasn't been killed behind our
         # backs.  Restart stopped instances.
@@ -309,7 +316,7 @@ class EC2State(MachineState):
 
             user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"))
 
-            zone = None
+            zone = defn.zone or None
 
             devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
             devs_mapped = {}
@@ -380,9 +387,11 @@ class EC2State(MachineState):
 
         # Warn about some EC2 options that we cannot update for an existing instance.
         if self._instance_type != defn.instance_type:
-            self.warn("cannot change type of a running instance (do ‘charon stop’ first)")
+            self.warn("cannot change type of a running instance (use ‘--allow-reboot’)")
         if self._region != defn.region:
             self.warn("cannot change region of a running instance")
+        if defn.zone and self._zone != defn.zone:
+            self.warn("cannot change availability zone of a running instance")
                     
         # Reapply tags if they have changed.
         common_tags = {'CharonNetworkUUID': str(self.depl.uuid),

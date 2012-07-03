@@ -27,7 +27,7 @@ class NoneState(MachineState):
     def __init__(self, depl, name):
         MachineState.__init__(self, depl, name)
         
-    def create(self, defn, check):
+    def create(self, defn, check, allow_reboot):
         assert isinstance(defn, NoneDefinition)
         self._target_host = defn._target_host
 

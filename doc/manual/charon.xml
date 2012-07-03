@@ -202,6 +202,7 @@ $ charon -s ./state.json deploy</screen>
   <arg><option>--create-only</option></arg>
   <arg><option>--build-only</option></arg>
   <arg><option>--check</option></arg>
+  <arg><option>--allow-reboot</option></arg>
   <arg>
     <option>--include</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
@@ -274,6 +275,15 @@ them.</para>
     a machine through other means, you should pass the
     <option>--check</option> option to tell Charon to verify its
     current knowledge.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--allow-reboot</option></term>
+
+    <listitem><para>Allow Charon to reboot the instance if necessary.
+    For instance, if you change the type of an EC2 instance, Charon
+    must stop, modify and restart the instance to effectuate this
+    change.</para></listitem>
 
   </varlistentry>
 

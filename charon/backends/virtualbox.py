@@ -157,7 +157,7 @@ class VirtualBoxState(MachineState):
         self.write()
 
     
-    def create(self, defn, check):
+    def create(self, defn, check, allow_reboot):
         assert isinstance(defn, VirtualBoxDefinition)
         
         if not self._vm_id:

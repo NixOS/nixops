@@ -81,7 +81,7 @@ in
   nodes =
     { coordinator =
         { config, pkgs, ... }:
-        { environment.systemPackages = [ charon pkgs.stdenv pkgs.vim pkgs.apacheHttpd ];
+        { environment.systemPackages = [ charon pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox ];
           virtualisation.writableStore = true;
         };
 
