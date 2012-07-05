@@ -22,7 +22,7 @@ class Deployment:
     """Charon top-level deployment manager."""
 
     def __init__(self, state_file, create=False, nix_exprs=[], lock=True):
-        self.state_file = os.path.abspath(state_file)
+        self.state_file = os.path.realpath(state_file)
         self.machines = { }
         self._machine_state = { }
         self.active = { }
