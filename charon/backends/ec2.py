@@ -204,7 +204,7 @@ class EC2State(MachineState):
                     break
             
         if not secret_access_key:
-            raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/ec2-keys"
+            raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/.ec2-keys"
                             .format(self._access_key_id))
 
         self._conn = boto.ec2.connect_to_region(
