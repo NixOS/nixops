@@ -35,6 +35,7 @@ def op_info():
                 m.private_ipv4 or "" if m else "")
 
     else:
+        print "Nix expressions:", ", ".join(depl.nix_exprs)
         print "Network UUID:", depl.uuid
         print "Network description:", depl.description
         print
