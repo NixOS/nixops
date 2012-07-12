@@ -18,11 +18,14 @@ def op_create():
 
 def op_info():
     depl = deployment.Deployment(args.state_file, lock=False)
-    
-    try:
-        depl.evaluate()
-    except charon.deployment.NixEvalError:
-        sys.stderr.write(charon.util.ansi_warn("warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"))
+
+    if args.no_eval:
+        depl.definitions = {}
+    else:
+        try:
+            depl.evaluate()
+        except charon.deployment.NixEvalError:
+            sys.stderr.write(charon.util.ansi_warn("warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"))
 
     def state(d, m):
         return (("Up" if depl.configs_path == m.cur_configs_path else "Outdated") if m else "New") if d else "Obsolete"
@@ -182,6 +185,7 @@ subparser.add_argument('nix_exprs', nargs='+', metavar='NIX-FILE', help='Nix exp
 subparser = subparsers.add_parser('info', help='show the state of the network')
 subparser.set_defaults(op=op_info)
 subparser.add_argument('--plain',  dest='plain', action='store_true', help='do not pretty-print the output')
+subparser.add_argument('--no-eval', dest='no_eval', action='store_true', help='do not evaluate the deployment specification')
 
 subparser = subparsers.add_parser('check', help='check the state of the machines in the network')
 subparser.set_defaults(op=op_check)
@@ -248,7 +252,7 @@ args = parser.parse_args()
 try:
     args.op()
 except deployment.NixEvalError:
-    print >> sys.stderr, "error: evaluation of the deployment model failed"
+    print >> sys.stderr, "error: evaluation of the deployment specification failed"
     sys.exit(1)
 except KeyboardInterrupt:
     print >> sys.stderr, "error: interrupted"

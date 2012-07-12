@@ -548,6 +548,7 @@ $ charon start</screen>
 <cmdsynopsis>
   <command>charon info</command>
   <arg><option>--plain</option></arg>
+  <arg><option>--no-eval</option></arg>
 </cmdsynopsis>
 </refsection>
 
@@ -596,6 +597,15 @@ the deployment.  For each machine, it prints:
     <listitem><para>Print the information in a more easily parsed
     format where columns are separated by tab
     characters and there are no column headers.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--no-eval</option></term>
+
+    <listitem><para>Do not evaluate the deployment specification.
+    Note that as a consequence the “Status” field in the output will
+    show all machines as “Obsolete” (since the effective deployment
+    specification is empty).</para></listitem>
 
   </varlistentry>
 
