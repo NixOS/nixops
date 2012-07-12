@@ -394,7 +394,7 @@ class EC2State(MachineState):
             self.warn("cannot change availability zone of a running instance")
                     
         # Reapply tags if they have changed.
-        common_tags = {'CharonNetworkUUID': str(self.depl.uuid),
+        common_tags = {'CharonNetworkUUID': self.depl.uuid,
                        'CharonMachineName': self.name,
                        'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl.state_file)}
         tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}

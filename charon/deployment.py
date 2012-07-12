@@ -4,7 +4,6 @@ import sys
 import os.path
 import subprocess
 import json
-import uuid
 import string
 import tempfile
 import atexit
@@ -52,7 +51,8 @@ class Deployment:
             if os.path.exists(self.state_file):
                 self.load_state()
             else:
-                self.uuid = uuid.uuid1()
+                import uuid
+                self.uuid = str(uuid.uuid1())
             self.nix_exprs = [os.path.abspath(x) for x in nix_exprs]
             self.nix_path = [os.path.abspath(x) for x in nix_path]
         else:
@@ -68,7 +68,7 @@ class Deployment:
         state = json.load(f)
         self.nix_exprs = state['networkExprs']
         self.nix_path = state.get('nixPath', [])
-        self.uuid = uuid.UUID(state['uuid'])
+        self.uuid = state['uuid']
         self.description = state.get('description', self.description)
         self.machines = { }
         self._machine_state = { }
@@ -84,7 +84,7 @@ class Deployment:
         """Write the current deployment state to the state file in JSON format."""
         state = {'networkExprs': self.nix_exprs,
                  'nixPath': self.nix_path,
-                 'uuid': str(self.uuid),
+                 'uuid': self.uuid,
                  'description': self.description,
                  'machines': self._machine_state}
         if self.configs_path: state['vmsPath'] = self.configs_path
