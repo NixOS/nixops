@@ -461,6 +461,7 @@ class Deployment:
         self._machine_state[new_name] = machine
         self.write_state()
 
+
 class NixEvalError(Exception):
     pass
 

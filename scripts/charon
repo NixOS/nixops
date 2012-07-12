@@ -8,6 +8,7 @@ import os
 import sys
 import subprocess
 import charon.parallel
+import charon.util
 
 
 def op_create():
@@ -17,7 +18,11 @@ def op_create():
 
 def op_info():
     depl = deployment.Deployment(args.state_file, lock=False)
-    depl.evaluate()
+    
+    try:
+        depl.evaluate()
+    except charon.deployment.NixEvalError:
+        sys.stderr.write(charon.util.ansi_warn("warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"))
 
     def state(d, m):
         return (("Up" if depl.configs_path == m.cur_configs_path else "Outdated") if m else "New") if d else "Obsolete"
