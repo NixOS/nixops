@@ -80,7 +80,8 @@ def op_check():
 def op_deploy():
     depl = deployment.Deployment(args.state_file)
     if args.confirm: depl.auto_response = "y"
-    depl.deploy(dry_run=args.dry_run, build_only=args.build_only, create_only=args.create_only,
+    depl.deploy(dry_run=args.dry_run, build_only=args.build_only,
+                create_only=args.create_only, copy_only=args.copy_only,
                 include=args.include or [], exclude=args.exclude or [],
                 check=args.check, kill_obsolete=args.kill_obsolete,
                 allow_reboot=args.allow_reboot)
@@ -196,6 +197,7 @@ subparser.add_argument('--kill-obsolete', '-k', dest='kill_obsolete', action='st
 subparser.add_argument('--dry-run', dest='dry_run', action='store_true', help='show what would be done')
 subparser.add_argument('--build-only', dest='build_only', action='store_true', help='build only; do not perform deployment actions')
 subparser.add_argument('--create-only', dest='create_only', action='store_true', help='exit after creating missing machines')
+subparser.add_argument('--copy-only', dest='copy_only', action='store_true', help='exit after copying closures')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform deployment actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform deployment actions on the specified machines')
 subparser.add_argument('--check', dest='check', action='store_true', help='do not assume that the recorded state is correct')

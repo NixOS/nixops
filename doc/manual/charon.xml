@@ -201,6 +201,7 @@ $ charon -s ./state.json deploy</screen>
   <arg><option>--dry-run</option></arg>
   <arg><option>--create-only</option></arg>
   <arg><option>--build-only</option></arg>
+  <arg><option>--copy-only</option></arg>
   <arg><option>--check</option></arg>
   <arg><option>--allow-reboot</option></arg>
   <arg>
@@ -262,6 +263,15 @@ them.</para>
     or deploy any machines.  Note that this may fail if the
     configuration refers to information only known after machines have
     been created (such as IP addresses).</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--copy-only</option></term>
+
+    <listitem><para>Exit after creating missing machines, building the
+    configuration and copying closures to the target machines; i.e.,
+    do everything except activate the new
+    configuration.</para></listitem>
 
   </varlistentry>
 

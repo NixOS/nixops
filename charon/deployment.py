@@ -336,7 +336,7 @@ class Deployment:
         return index
             
 
-    def deploy(self, dry_run=False, build_only=False, create_only=False,
+    def deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
                include=[], exclude=[], check=False, kill_obsolete=False,
                allow_reboot=False):
         """Perform the deployment defined by the deployment model."""
@@ -401,6 +401,8 @@ class Deployment:
         # target machines.
         self.copy_closures(self.configs_path, include=include, exclude=exclude)
 
+        if copy_only: return
+        
         # Active the configurations.
         self.activate_configs(self.configs_path, include=include, exclude=exclude)
 
