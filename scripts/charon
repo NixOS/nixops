@@ -12,7 +12,9 @@ import charon.util
 
 
 def op_create():
-    depl = deployment.Deployment(args.state_file, create=True, nix_exprs=args.nix_exprs)
+    depl = deployment.Deployment(
+        args.state_file, create=True, nix_exprs=args.nix_exprs,
+        nix_path=sum(args.nix_path or [], []))
     depl.write_state()
 
 
@@ -79,6 +81,7 @@ def op_check():
 
 def op_deploy():
     depl = deployment.Deployment(args.state_file)
+    depl.extra_nix_path = sum(args.nix_path or [], [])
     if args.confirm: depl.auto_response = "y"
     depl.deploy(dry_run=args.dry_run, build_only=args.build_only,
                 create_only=args.create_only, copy_only=args.copy_only,
@@ -173,35 +176,37 @@ parser = argparse.ArgumentParser(description='NixOS cloud deployment tool')
 
 parser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
                     default=os.environ.get("CHARON_STATE", "network.json"), help='path to state file')
-parser.add_argument('--debug', dest='debug', action='store_true', help='enable debug output')
+parser.add_argument('--debug', action='store_true', help='enable debug output')
 parser.add_argument('--version', action='version', version='Charon 0.1')
-parser.add_argument('--confirm', dest='confirm', action='store_true', help='confirm dangerous operations; do not ask')
+parser.add_argument('--confirm', action='store_true', help='confirm dangerous operations; do not ask')
 
 subparsers = parser.add_subparsers(help='sub-command help')
 
 subparser = subparsers.add_parser('create', help='create a state file')
 subparser.set_defaults(op=op_create)
 subparser.add_argument('nix_exprs', nargs='+', metavar='NIX-FILE', help='Nix expression(s) defining the network')
+subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='persistently append a directory to the Nix search path')
 
 subparser = subparsers.add_parser('info', help='show the state of the network')
 subparser.set_defaults(op=op_info)
-subparser.add_argument('--plain',  dest='plain', action='store_true', help='do not pretty-print the output')
-subparser.add_argument('--no-eval', dest='no_eval', action='store_true', help='do not evaluate the deployment specification')
+subparser.add_argument('--plain',  action='store_true', help='do not pretty-print the output')
+subparser.add_argument('--no-eval', action='store_true', help='do not evaluate the deployment specification')
 
 subparser = subparsers.add_parser('check', help='check the state of the machines in the network')
 subparser.set_defaults(op=op_check)
 
 subparser = subparsers.add_parser('deploy', help='deploy the network configuration')
 subparser.set_defaults(op=op_deploy)
-subparser.add_argument('--kill-obsolete', '-k', dest='kill_obsolete', action='store_true', help='kill obsolete virtual machines')
-subparser.add_argument('--dry-run', dest='dry_run', action='store_true', help='show what would be done')
-subparser.add_argument('--build-only', dest='build_only', action='store_true', help='build only; do not perform deployment actions')
-subparser.add_argument('--create-only', dest='create_only', action='store_true', help='exit after creating missing machines')
-subparser.add_argument('--copy-only', dest='copy_only', action='store_true', help='exit after copying closures')
+subparser.add_argument('--kill-obsolete', '-k', action='store_true', help='kill obsolete virtual machines')
+subparser.add_argument('--dry-run', action='store_true', help='show what would be done')
+subparser.add_argument('--build-only', action='store_true', help='build only; do not perform deployment actions')
+subparser.add_argument('--create-only', action='store_true', help='exit after creating missing machines')
+subparser.add_argument('--copy-only', action='store_true', help='exit after copying closures')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform deployment actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform deployment actions on the specified machines')
-subparser.add_argument('--check', dest='check', action='store_true', help='do not assume that the recorded state is correct')
-subparser.add_argument('--allow-reboot', dest='allow_reboot', action='store_true', help='reboot machines if necessary')
+subparser.add_argument('--check', action='store_true', help='do not assume that the recorded state is correct')
+subparser.add_argument('--allow-reboot', action='store_true', help='reboot machines if necessary')
+subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='append a directory to the Nix search path')
 
 subparser = subparsers.add_parser('destroy', help='destroy all virtual machines in the network')
 subparser.set_defaults(op=op_destroy)
@@ -234,7 +239,7 @@ subparser.add_argument('args', metavar="ARG", nargs='*', help='additional argume
 subparser = subparsers.add_parser('ssh-for-each', help='execute a command on each machine via SSH')
 subparser.set_defaults(op=op_ssh_for_each)
 subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
-subparser.add_argument('--parallel', '-p', dest='parallel', action='store_true', help='run in parallel')
+subparser.add_argument('--parallel', '-p', action='store_true', help='run in parallel')
 
 subparser = subparsers.add_parser('scp', help='copy files to or from the specified machine via scp')
 subparser.set_defaults(op=op_scp)

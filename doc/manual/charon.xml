@@ -163,7 +163,12 @@ AKIAEODJSLXMDLLJKDLW DLeodsk32kldlDLSKdflexfpgiklf130r4dl23qp # AWS production a
 <cmdsynopsis>
   <command>charon create</command>
   <arg choice='plain' rep='repeat'><replaceable>nixexprs</replaceable></arg>
+  <arg rep='repeat'>
+    <option>-I</option>
+    <replaceable>path</replaceable>
+  </arg>
 </cmdsynopsis>
+
 </refsection>
 
 <refsection><title>Description</title>
@@ -174,6 +179,27 @@ deployment (<replaceable>nixexprs</replaceable>) are stored in the
 state file.  If the state file already exists, this command simply
 replaces the paths of the Nix expressions stored in the statefile; it
 doesn’t affect any other deployment state.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>-I</option> <replaceable>path</replaceable></term>
+
+    <listitem><para>Add <replaceable>path</replaceable> to the Nix
+    expression search path for all future evaluations of the
+    deployment specification.  Charon stores
+    <replaceable>path</replaceable> in the state file.  This option
+    may be given multiple times.  See the description of the
+    <option>-I</option> option in
+    <citerefentry><refentrytitle>nix-instantiate</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for details.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
 
 </refsection>
 
@@ -212,7 +238,12 @@ $ charon -s ./state.json deploy</screen>
     <option>--exclude</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
   </arg>
+  <arg rep='repeat'>
+    <option>-I</option>
+    <replaceable>path</replaceable>
+  </arg>
 </cmdsynopsis>
+
 </refsection>
 
 <refsection><title>Description</title>
@@ -310,6 +341,18 @@ them.</para>
 
     <listitem><para>Only operate on the machines that are
     <emphasis>not</emphasis> mentioned here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>-I</option> <replaceable>path</replaceable></term>
+
+    <listitem><para>Add <replaceable>path</replaceable> to the Nix
+    expression search path.  This option may be given multiple times
+    and takes precedence over the <option>-I</option> flags used in
+    the preceding <command>charon create</command> invocation.  See
+    the description of the <option>-I</option> option in
+    <citerefentry><refentrytitle>nix-instantiate</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for details.</para></listitem>
 
   </varlistentry>
 

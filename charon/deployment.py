@@ -21,7 +21,7 @@ import re
 class Deployment:
     """Charon top-level deployment manager."""
 
-    def __init__(self, state_file, create=False, nix_exprs=[], lock=True):
+    def __init__(self, state_file, create=False, nix_exprs=[], nix_path=[], lock=True):
         self.state_file = os.path.realpath(state_file)
         self.machines = { }
         self._machine_state = { }
@@ -30,6 +30,7 @@ class Deployment:
         self.description = "Unnamed Charon network"
         self._last_log_prefix = None
         self.auto_response = None
+        self.extra_nix_path = []
         
         self._state_lock = threading.Lock()
         self._log_lock = threading.Lock()
@@ -53,6 +54,7 @@ class Deployment:
             else:
                 self.uuid = uuid.uuid1()
             self.nix_exprs = [os.path.abspath(x) for x in nix_exprs]
+            self.nix_path = [os.path.abspath(x) for x in nix_path]
         else:
             self.load_state()
 
@@ -65,6 +67,7 @@ class Deployment:
         f = open(self.state_file, 'r')
         state = json.load(f)
         self.nix_exprs = state['networkExprs']
+        self.nix_path = state.get('nixPath', [])
         self.uuid = uuid.UUID(state['uuid'])
         self.description = state.get('description', self.description)
         self.machines = { }
@@ -80,6 +83,7 @@ class Deployment:
     def write_state(self):
         """Write the current deployment state to the state file in JSON format."""
         state = {'networkExprs': self.nix_exprs,
+                 'nixPath': self.nix_path,
                  'uuid': str(self.uuid),
                  'description': self.description,
                  'machines': self._machine_state}
@@ -158,6 +162,10 @@ class Deployment:
                 if response == "n" or response == "": return False
 
 
+    def _eval_flags(self):
+        return sum([["-I", x] for x in (self.extra_nix_path + self.nix_path)], [])
+
+
     def evaluate(self):
         """Evaluate the Nix expressions belonging to this deployment into a deployment model."""
 
@@ -169,7 +177,7 @@ class Deployment:
                  "--eval-only", "--show-trace", "--xml", "--strict",
                  "<charon/eval-machine-info.nix>",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
-                 "-A", "info"])
+                 "-A", "info"] + self._eval_flags())
         except subprocess.CalledProcessError:
             raise NixEvalError
 
@@ -279,6 +287,7 @@ class Deployment:
                  "--arg", "networkExprs", "[ " + " ".join(self.nix_exprs + [phys_expr]) + " ]",
                  "--arg", "names", "[ " + " ".join(names) + " ]",
                  "-A", "machines", "-o", self.tempdir + "/configs"]
+                + self._eval_flags()
                 + (["--dry-run"] if dry_run else [])).rstrip()
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
