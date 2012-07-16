@@ -53,7 +53,7 @@ class Deployment:
             else:
                 import uuid
                 self.uuid = str(uuid.uuid1())
-            self.nix_exprs = [os.path.abspath(x) for x in nix_exprs]
+            self.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in nix_exprs]
             self.nix_path = [os.path.abspath(x) for x in nix_path]
         else:
             self.load_state()
@@ -173,11 +173,12 @@ class Deployment:
 
         try:
             xml = subprocess.check_output(
-                ["nix-instantiate", "-I", "charon=" + self.expr_path,
-                 "--eval-only", "--show-trace", "--xml", "--strict",
+                ["nix-instantiate", "-I", "charon=" + self.expr_path]
+                + self._eval_flags() +
+                ["--eval-only", "--show-trace", "--xml", "--strict",
                  "<charon/eval-machine-info.nix>",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
-                 "-A", "info"] + self._eval_flags())
+                 "-A", "info"])
         except subprocess.CalledProcessError:
             raise NixEvalError
 
@@ -282,12 +283,12 @@ class Deployment:
         
         try:
             configs_path = subprocess.check_output(
-                ["nix-build", "-I", "charon=" + self.expr_path, "--show-trace",
-                 "<charon/eval-machine-info.nix>",
+                ["nix-build", "-I", "charon=" + self.expr_path, "--show-trace"]
+                + self._eval_flags() +
+                ["<charon/eval-machine-info.nix>",
                  "--arg", "networkExprs", "[ " + " ".join(self.nix_exprs + [phys_expr]) + " ]",
                  "--arg", "names", "[ " + " ".join(names) + " ]",
                  "-A", "machines", "-o", self.tempdir + "/configs"]
-                + self._eval_flags()
                 + (["--dry-run"] if dry_run else [])).rstrip()
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
