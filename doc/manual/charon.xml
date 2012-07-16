@@ -139,15 +139,27 @@ cloud.</para>
 
     <listitem><para>This file maps AWS Access Key IDs to their
     corresponding Secret Access Keys.  Each line must consist of an
-    Access Key IDs and a Secret Access Keys, separated by whitespace.
-    Comments starting with <literal>#</literal> are stripped.  An example:
+    Access Key IDs, a Secret Access Keys and an optional symbolic
+    identifier, separated by whitespace.  Comments starting with
+    <literal>#</literal> are stripped.  An example:
 
 <programlisting>
-AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ # AWS development account
-AKIAEODJSLXMDLLJKDLW DLeodsk32kldlDLSKdflexfpgiklf130r4dl23qp # AWS production account
+AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ dev # AWS development account
+AKIAEODJSLXMDLLJKDLW DLeodsk32kldlDLSKdflexfpgiklf130r4dl23qp proc # AWS production account
 </programlisting>
 
-    </para></listitem>
+    The identifier can be used instead of actual Access Key IDs in
+    <option>deployment.ec2.accessKeyId</option>, e.g.
+
+<programlisting>
+deployment.ec2.accessKeyId = "prod";
+</programlisting>
+
+    This is useful if you have an AWS account with multiple user
+    accounts and you don’t want to hard-code an Access Key ID in
+    a Charon specification.</para>
+
+    </listitem>
 
   </varlistentry>
 

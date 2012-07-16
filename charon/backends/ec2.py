@@ -189,6 +189,7 @@ class EC2State(MachineState):
         assert self._region
 
         # Get the secret access key from the environment or from ~/.ec2-keys.
+        access_key_id = self._access_key_id
         secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
         path = os.path.expanduser("~/.ec2-keys")
         if os.path.isfile(path):
@@ -198,7 +199,11 @@ class EC2State(MachineState):
             for l in contents.splitlines():
                 l = l.split("#")[0] # drop comments
                 w = l.split()
-                if len(w) < 2: continue
+                if len(w) < 2 or len(w) > 3: continue
+                if len(w) == 3 and w[2] == self._access_key_id:
+                    access_key_id = w[0]
+                    secret_access_key = w[1]
+                    break
                 if w[0] == self._access_key_id:
                     secret_access_key = w[1]
                     break
@@ -208,7 +213,7 @@ class EC2State(MachineState):
                             .format(self._access_key_id))
 
         self._conn = boto.ec2.connect_to_region(
-            region_name=self._region, aws_access_key_id=self._access_key_id, aws_secret_access_key=secret_access_key)
+            region_name=self._region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
         
     def _get_instance_by_id(self, instance_id, allow_missing=False):
@@ -260,10 +265,9 @@ class EC2State(MachineState):
         assert defn.type == "ec2"
 
         # Figure out the access key.
+        self._access_key_id = defn.access_key_id or os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
         if not self._access_key_id:
-            self._access_key_id = defn.access_key_id or os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
-            if not self._access_key_id:
-                raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
+            raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         self._private_key = defn.private_key or None
 
