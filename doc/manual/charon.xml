@@ -145,7 +145,7 @@ cloud.</para>
 
 <programlisting>
 AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ dev # AWS development account
-AKIAEODJSLXMDLLJKDLW DLeodsk32kldlDLSKdflexfpgiklf130r4dl23qp proc # AWS production account
+AKIAEODJSLXMDLLJKDLW DLeodsk32kldlDLSKdflexfpgiklf130r4dl23qp prod # AWS production account
 </programlisting>
 
     The identifier can be used instead of actual Access Key IDs in
