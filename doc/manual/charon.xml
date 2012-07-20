@@ -767,4 +767,84 @@ $ charon ssh-for-each -p reboot</screen>
 </refsection>
 
 
+<refsection><title>Command <option>charon reboot</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon reboot</command>
+  <arg>
+    <option>--include</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
+    <option>--exclude</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <group>
+    <arg choice='plain'><option>--wait</option></arg>
+    <arg choice='plain'><option>-w</option></arg>
+  </group>
+  <arg>
+    <replaceable>command</replaceable>
+    <arg rep='repeat'><replaceable>args</replaceable></arg>
+  </arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command reboots all machines.  If the option
+<option>--parallel</option> is given, the command is executed on all
+machines in parallel; otherwise, it’s executed sequentially.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--include</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Only reboot the machines listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--exclude</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Reboot all machines except the ones listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--wait</option></term>
+    <term><option>-w</option></term>
+
+    <listitem><para>Wait until the machines have finished rebooting,
+    that is, are reachable via SSH again.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To reboot all machines except <literal>foo</literal> and wait
+until they’re up again:
+
+<screen>
+$ charon reboot -w --exclude foo</screen>
+
+</para>
+
+</refsection>
+
+</refsection>
+
+
 </refentry>
