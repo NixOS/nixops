@@ -11,14 +11,18 @@ in
   services.openssh.enable = true;
 
   jobs."get-vbox-charon-client-key" =
-    { startOn = "starting sshd";
-      task = true;
+    { task = true;
       path = [ config.boot.kernelPackages.virtualboxGuestAdditions ];
       exec =
         ''
           VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/Charon/ClientPublicKey | sed 's/Value: //' > ${clientKeyPath}
         '';
-    };
+    } // (if config.system.build ? systemd then {
+      wantedBy = [ "sshd.service" ];
+      before = [ "sshd.service" ];
+    } else {
+      startOn = "starting sshd";
+    });
 
   users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ clientKeyPath ];
 
