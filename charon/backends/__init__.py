@@ -112,7 +112,9 @@ class MachineState:
     def reboot(self):
         """Reboot this machine."""
         self.log("rebooting...")
-        self.run_command("reboot &")
+        # The sleep is to prevent the reboot from causing the SSH
+        # session to hang.
+        self.run_command("(sleep 2; reboot) &")
 
     def reboot_sync(self):
         """Reboot this machine and wait until it's up again."""
