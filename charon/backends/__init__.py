@@ -110,8 +110,18 @@ class MachineState:
         pass
         
     def reboot(self):
+        """Reboot this machine."""
         self.log("rebooting...")
         self.run_command("reboot &")
+
+    def reboot_sync(self):
+        """Reboot this machine and wait until it's up again."""
+        self.reboot()
+        self.log_start("waiting for the machine to finish rebooting...")
+        charon.util.wait_for_tcp_port(self.get_ssh_name(), 22, open=False, callback=lambda: self.log_continue("."))
+        self.log_continue("[down]")
+        charon.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
+        self.log_end("[up]")
 
     def get_ssh_name(self):
         assert False
@@ -147,10 +157,7 @@ class MachineState:
         """Wait until the SSH port is open on this machine."""
         if self._ssh_pinged and (not check or self._ssh_pinged_this_time): return
         self.log_start("waiting for SSH...")
-        while True:
-            if charon.util.ping_tcp_port(self.get_ssh_name(), 22): break
-            time.sleep(1)
-            self.log_continue(".")
+        charon.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
         self.log_end("")
         self._ssh_pinged = True
         self._ssh_pinged_this_time = True

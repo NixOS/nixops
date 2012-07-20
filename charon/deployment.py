@@ -315,7 +315,7 @@ class Deployment:
         charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
             
 
-    def activate_configs(self, configs_path, include, exclude):
+    def activate_configs(self, configs_path, include, exclude, allow_reboot):
         """Activate the new configuration on a machine."""
 
         def worker(m):
@@ -332,7 +332,12 @@ class Deployment:
                 "cur=$(readlink /var/run/current-system); " +
                 'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi",
                 check=False)
-            if res != 0: raise Exception("unable to activate new configuration on machine ‘{0}’".format(m.name))
+            if res != 0 and res != 100:
+                raise Exception("unable to activate new configuration on machine ‘{0}’".format(m.name))
+            if res == 100:
+                if not allow_reboot:
+                    raise Exception("the new configuration on machine ‘{0}’ requires a reboot to take effect (hint: use ‘--allow-reboot’)".format(m.name))
+                m.reboot_sync()
 
             # Record that we switched this machine to the new
             # configuration.
@@ -419,7 +424,7 @@ class Deployment:
         if copy_only: return
         
         # Active the configurations.
-        self.activate_configs(self.configs_path, include=include, exclude=exclude)
+        self.activate_configs(self.configs_path, include=include, exclude=exclude, allow_reboot=allow_reboot)
 
             
     def destroy_vms(self, include=[], exclude=[]):

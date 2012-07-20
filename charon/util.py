@@ -39,9 +39,22 @@ def ping_tcp_port(ip, port, timeout=1):
     try:
         s.connect((ip, port))
     except:
+        # FIXME: check that the timeout expired or we got a refused
+        # connection. For any other error, throw an exception.
         return False
     s.shutdown(socket.SHUT_RDWR)
     return True
+
+def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
+    """Wait until the specified TCP port is open or closed."""
+    n = 0
+    while True:
+        if ping_tcp_port(ip, port) == open: return True
+        n = n + 1
+        if timeout != -1 and n >= timeout: break
+        time.sleep(1) # FIXME - ping_tcp_port() *may* also wait 1 second
+        if callback: callback()
+    raise Error("timed out waiting for port {0} on ‘{1}’".format(port, ip))
 
 def ansi_warn(s):
     return "\033[1;31m" + s + "\033[0m" if sys.stderr.isatty() else s
