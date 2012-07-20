@@ -32,15 +32,19 @@ def generate_random_string(length=256):
 def make_non_blocking(fd):
     fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)
 
-def ping_tcp_port(ip, port, timeout=1):
+def ping_tcp_port(ip, port, timeout=1, ensure_timeout=False):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.settimeout(timeout)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
     try:
         s.connect((ip, port))
+    except socket.timeout:
+        return False
     except:
-        # FIXME: check that the timeout expired or we got a refused
-        # connection. For any other error, throw an exception.
+        # FIXME: check that we got a transient error (like connection
+        # refused or no route to host). For any other error, throw an
+        # exception.
+        if ensure_timeout: time.sleep(timeout)
         return False
     s.shutdown(socket.SHUT_RDWR)
     return True
@@ -49,10 +53,9 @@ def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
     """Wait until the specified TCP port is open or closed."""
     n = 0
     while True:
-        if ping_tcp_port(ip, port) == open: return True
+        if ping_tcp_port(ip, port, ensure_timeout=True) == open: return True
         n = n + 1
         if timeout != -1 and n >= timeout: break
-        time.sleep(1) # FIXME - ping_tcp_port() *may* also wait 1 second
         if callback: callback()
     raise Error("timed out waiting for port {0} on ‘{1}’".format(port, ip))
 
