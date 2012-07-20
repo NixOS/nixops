@@ -46,7 +46,7 @@ class Deployment:
                 import uuid
                 self.uuid = str(uuid.uuid1())
             self.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in nix_exprs]
-            self.nix_path = [os.path.abspath(x) for x in nix_path]
+            self.nix_path = [_abs_nix_path(x) for x in nix_path]
         else:
             if not os.path.isfile(self.state_file):
                 raise Exception("state file ‘{0}’ does not exist".format(self.state_file))
@@ -487,3 +487,11 @@ def should_do(m, include, exclude):
     if m.name in exclude: return False
     if include == []: return True
     return m.name in include
+
+
+def _abs_nix_path(x):
+    xs = x.split('=', 1)
+    if len(xs) == 1: return os.path.abspath(x)
+    return xs[0] + '=' + os.path.abspath(xs[1])
+
+
