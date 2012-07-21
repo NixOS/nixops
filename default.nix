@@ -2,7 +2,7 @@
 
 with import <nixpkgs> {};
 
-pythonPackages.buildPythonPackage {
+pythonPackages.buildPythonPackage rec {
   name = "charon-${version}";
   namePrefix = "";
 
@@ -21,6 +21,8 @@ pythonPackages.buildPythonPackage {
     [ pythonPackages.prettytable
       pythonPackages.boto
     ];
+
+  propagatedBuildInputs = pythonPath;
 
   installCommand = "python setup.py install --prefix=$out";
 
