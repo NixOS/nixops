@@ -42,6 +42,7 @@ class VirtualBoxState(MachineState):
         self._disk = None
         self._disk_attached = False
         self._started = False
+        self._headless = False
         self._client_private_key = None
         self._client_public_key = None
         
@@ -56,6 +57,7 @@ class VirtualBoxState(MachineState):
         if self._client_public_key: y['clientPublicKey'] = self._client_public_key
         y['diskAttached'] = self._disk_attached
         y['started'] = self._started
+        y['headless'] = self._headless
         x['virtualbox'] = y
         
         return x
@@ -71,6 +73,7 @@ class VirtualBoxState(MachineState):
         self._client_private_key = y.get('clientPrivateKey', None)
         self._client_public_key = y.get('clientPublicKey', None)
         self._started = y.get('started', False)
+        self._headless = y.get('headless', False)
 
     def get_ssh_name(self):
         assert self._ipv4
@@ -126,14 +129,15 @@ class VirtualBoxState(MachineState):
         return vminfo['VMState'].replace('"', '')
 
 
-    def _start(self, headless):
+    def _start(self):
         self._logged_exec(
             ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP", ''])
 
         self._logged_exec(
             ["VBoxManage", "guestproperty", "set", self._vm_id, "/VirtualBox/GuestInfo/Charon/ClientPublicKey", self._client_public_key])
 
-        self._logged_exec(["VBoxManage", "startvm", self._vm_id] + (["--type", "headless"] if headless else []))
+        self._logged_exec(["VBoxManage", "startvm", self._vm_id] +
+                          (["--type", "headless"] if self._headless else []))
 
         self._started = True
         self.write()
@@ -225,7 +229,8 @@ class VirtualBoxState(MachineState):
                  "--nic2", "hostonly", "--hostonlyadapter2", "vboxnet0",
                  "--nestedpaging", "off"])
 
-            self._start(headless=defn.headless)
+            self._headless = defn.headless
+            self._start()
 
         if not self._ipv4 or check:
             self._wait_for_ip()
@@ -274,7 +279,7 @@ class VirtualBoxState(MachineState):
 
         prev_ipv4 = self._ipv4
         
-        self._start(headless=False) # FIXME: should store headless flag in state file
+        self._start()
         self._wait_for_ip()
 
         if prev_ipv4 != self._ipv4:
