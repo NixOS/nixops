@@ -88,7 +88,8 @@ def op_deploy():
                 create_only=args.create_only, copy_only=args.copy_only,
                 include=args.include or [], exclude=args.exclude or [],
                 check=args.check, kill_obsolete=args.kill_obsolete,
-                allow_reboot=args.allow_reboot)
+                allow_reboot=args.allow_reboot,
+                max_concurrent_copy=args.max_concurrent_copy)
 
 
 def op_destroy():
@@ -208,6 +209,7 @@ subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do 
 subparser.add_argument('--check', action='store_true', help='do not assume that the recorded state is correct')
 subparser.add_argument('--allow-reboot', action='store_true', help='reboot machines if necessary')
 subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='append a directory to the Nix search path')
+subparser.add_argument('--max-concurrent-copy', type=int, default=5, metavar='N', help='maximum number of concurrent nix-copy-closure processes')
 
 subparser = subparsers.add_parser('destroy', help='destroy all virtual machines in the network')
 subparser.set_defaults(op=op_destroy)

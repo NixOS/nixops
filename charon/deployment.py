@@ -301,7 +301,7 @@ class Deployment:
         return configs_path
         
 
-    def copy_closures(self, configs_path, include, exclude):
+    def copy_closures(self, configs_path, include, exclude, max_concurrent_copy):
         """Copy the closure of each machine configuration to the corresponding machine."""
 
         def worker(m):
@@ -312,7 +312,9 @@ class Deployment:
                 raise Exception("can't find closure of machine ‘{0}’".format(m.name))
             m.copy_closure_to(m.new_toplevel)
 
-        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+        charon.parallel.run_tasks(
+            nr_workers=max_concurrent_copy,
+            tasks=self.active.itervalues(), worker_fun=worker)
             
 
     def activate_configs(self, configs_path, include, exclude, allow_reboot):
@@ -358,7 +360,7 @@ class Deployment:
 
     def deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
                include=[], exclude=[], check=False, kill_obsolete=False,
-               allow_reboot=False):
+               allow_reboot=False, max_concurrent_copy=5):
         """Perform the deployment defined by the deployment model."""
 
         self.evaluate()
@@ -419,7 +421,8 @@ class Deployment:
         
         # Copy the closures of the machine configurations to the
         # target machines.
-        self.copy_closures(self.configs_path, include=include, exclude=exclude)
+        self.copy_closures(self.configs_path, include=include, exclude=exclude,
+                           max_concurrent_copy=max_concurrent_copy)
 
         if copy_only: return
         

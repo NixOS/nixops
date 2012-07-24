@@ -7,6 +7,8 @@ def run_tasks(nr_workers, tasks, worker_fun):
     task_queue = Queue.Queue()
     result_queue = Queue.Queue()
 
+    if nr_workers < 1: raise Exception("number of worker threads must be at least 1")
+
     nr_tasks = 0
     for t in tasks: task_queue.put(t); nr_tasks = nr_tasks + 1
 
