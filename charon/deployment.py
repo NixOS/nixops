@@ -327,7 +327,9 @@ class Deployment:
 
             res = m.run_command(
                 # Set the system profile to the new configuration.
-                "set -e; nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + ";" +
+                "set -e; nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + "; " +
+                # In case the switch crashes the system, do a sync.
+                "sync; " +
                 # Run the switch script.  This will also update the
                 # GRUB boot loader.  For performance, skip this step
                 # if the new config is already current.
