@@ -20,7 +20,7 @@ import re
 class Deployment:
     """Charon top-level deployment manager."""
 
-    def __init__(self, state_file, create=False, nix_exprs=[], nix_path=[], lock=True):
+    def __init__(self, state_file, create=False, nix_exprs=[], nix_path=[]):
         self.state_file = os.path.realpath(state_file)
         self.machines = { }
         self._machine_state = { }
@@ -39,7 +39,6 @@ class Deployment:
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
         if create:
-            if lock: self._create_state_lock()
             if os.path.exists(self.state_file):
                 self.load_state()
             else:
@@ -50,21 +49,10 @@ class Deployment:
         else:
             if not os.path.isfile(self.state_file):
                 raise Exception("state file ‘{0}’ does not exist".format(self.state_file))
-            if lock: self._create_state_lock()
             self.load_state()
 
         self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
         atexit.register(lambda: shutil.rmtree(self.tempdir))
-
-
-    def _create_state_lock(self):
-        self._state_file_lock = open(self.state_file + ".lock", "w+")
-        try:
-            fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except exceptions.IOError as e:
-            if e.errno != errno.EAGAIN: raise
-            self.log("waiting for exclusive lock on ‘{0}’...".format(self.state_file))
-            fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX)
 
 
     def load_state(self):
