@@ -412,7 +412,7 @@ class EC2State(MachineState):
             self.write()
 
         # Assign or release an elastic IP address, if given.
-        if (self._elastic_ipv4 or "") != defn.elastic_ipv4:
+        if (self._elastic_ipv4 or "") != defn.elastic_ipv4 or check:
             self.connect()
             if defn.elastic_ipv4 != "":
                 # wait until machine is in running state
