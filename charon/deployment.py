@@ -485,9 +485,11 @@ class Deployment:
 
         charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.itervalues(), worker_fun=worker)
 
+
     def is_valid_machine_name(self, name):
         p = re.compile('^\w+$')
         return not p.match(name) is None
+
 
     def rename(self, name, new_name):
         if not name in self.machines:
