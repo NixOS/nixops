@@ -39,6 +39,8 @@ class Deployment:
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
         self._create = create
+        self._nix_exprs = nix_exprs
+        self._nix_path = nix_path
 
         self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
         atexit.register(lambda: shutil.rmtree(self.tempdir))
@@ -52,8 +54,8 @@ class Deployment:
             else:
                 import uuid
                 self.uuid = str(uuid.uuid1())
-            self.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in nix_exprs]
-            self.nix_path = [_abs_nix_path(x) for x in nix_path]
+            self.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in self._nix_exprs]
+            self.nix_path = [_abs_nix_path(x) for x in self._nix_path]
         else:
             if not os.path.isfile(self.state_file):
                 raise Exception("state file ‘{0}’ does not exist".format(self.state_file))
