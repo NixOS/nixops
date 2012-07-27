@@ -434,7 +434,7 @@ class EC2State(MachineState):
                 self._public_ipv4 = defn.elastic_ipv4
                 self._ssh_pinged = False
                 charon.known_hosts.add(defn.elastic_ipv4, self._public_host_key)
-            else:
+            elif self._elastic_ipv4 != None:
                 self.log("disassociating IP address ‘{0}’...".format(self._elastic_ipv4))
                 self._conn.disassociate_address(public_ip=self._elastic_ipv4)
                 self._elastic_ipv4 = None
