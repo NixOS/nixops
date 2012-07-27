@@ -20,7 +20,7 @@ def op_create():
 
 
 def op_info():
-    depl = deployment.Deployment(args.state_file, lock=False)
+    depl = deployment.Deployment(args.state_file)
     depl.load_state()
 
     if args.no_eval:
@@ -69,7 +69,7 @@ def op_info():
 
 
 def op_check():
-    depl = deployment.Deployment(args.state_file, lock=False)
+    depl = deployment.Deployment(args.state_file)
     depl.load_state()
     fnull = open(os.devnull, 'w')
     for m in depl.machines.itervalues():
@@ -128,7 +128,7 @@ def op_rename():
 
 
 def op_show_physical():
-    depl = deployment.Deployment(args.state_file, lock=False)
+    depl = deployment.Deployment(args.state_file)
     depl.load_state()
     depl.evaluate()
     depl.active = {n: depl.machines[n] for n in depl.machines if n in depl.definitions}
@@ -140,7 +140,7 @@ def parse_machine(name):
 
 
 def op_ssh():
-    depl = deployment.Deployment(args.state_file, lock=False)
+    depl = deployment.Deployment(args.state_file)
     depl.load_state()
     (username, machine) = parse_machine(args.machine)
     m = depl.machines.get(machine)
@@ -152,7 +152,7 @@ def op_ssh():
 
 
 def op_ssh_for_each():
-    depl = deployment.Deployment(args.state_file, lock=False)
+    depl = deployment.Deployment(args.state_file)
     depl.load_state()
     # FIXME: only do active machines?
     res2 = 0
@@ -174,7 +174,7 @@ def scp_loc(ssh_name, remote, loc):
 
 
 def op_scp():
-    depl = deployment.Deployment(args.state_file, lock=False)
+    depl = deployment.Deployment(args.state_file)
     depl.load_state()
     m = depl.machines.get(args.machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))

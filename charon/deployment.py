@@ -20,7 +20,7 @@ import re
 class Deployment:
     """Charon top-level deployment manager."""
 
-    def __init__(self, state_file, create=False, nix_exprs=[], nix_path=[], lock=True):
+    def __init__(self, state_file, create=False, nix_exprs=[], nix_path=[]):
         self.state_file = os.path.realpath(state_file)
         self.machines = { }
         self._machine_state = { }
