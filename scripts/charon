@@ -15,11 +15,13 @@ def op_create():
     depl = deployment.Deployment(
         args.state_file, create=True, nix_exprs=args.nix_exprs,
         nix_path=sum(args.nix_path or [], []))
-    depl.write_state()
+    with depl:
+        depl.write_state()
 
 
 def op_info():
     depl = deployment.Deployment(args.state_file, lock=False)
+    depl.load_state()
 
     if args.no_eval:
         depl.definitions = {}
@@ -68,6 +70,7 @@ def op_info():
 
 def op_check():
     depl = deployment.Deployment(args.state_file, lock=False)
+    depl.load_state()
     fnull = open(os.devnull, 'w')
     for m in depl.machines.itervalues():
         sys.stderr.write("{0}... ".format(m.name))
@@ -82,44 +85,51 @@ def op_check():
 
 def op_deploy():
     depl = deployment.Deployment(args.state_file)
-    depl.extra_nix_path = sum(args.nix_path or [], [])
-    if args.confirm: depl.auto_response = "y"
-    depl.deploy(dry_run=args.dry_run, build_only=args.build_only,
-                create_only=args.create_only, copy_only=args.copy_only,
-                include=args.include or [], exclude=args.exclude or [],
-                check=args.check, kill_obsolete=args.kill_obsolete,
-                allow_reboot=args.allow_reboot,
-                max_concurrent_copy=args.max_concurrent_copy)
+    with depl:
+        depl.extra_nix_path = sum(args.nix_path or [], [])
+        if args.confirm: depl.auto_response = "y"
+        depl.deploy(dry_run=args.dry_run, build_only=args.build_only,
+                    create_only=args.create_only, copy_only=args.copy_only,
+                    include=args.include or [], exclude=args.exclude or [],
+                    check=args.check, kill_obsolete=args.kill_obsolete,
+                    allow_reboot=args.allow_reboot,
+                    max_concurrent_copy=args.max_concurrent_copy)
 
 
 def op_destroy():
     depl = deployment.Deployment(args.state_file)
-    if args.confirm: depl.auto_response = "y"
-    depl.destroy_vms(include=args.include or [], exclude=args.exclude or [])
+    with depl:
+        if args.confirm: depl.auto_response = "y"
+        depl.destroy_vms(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_reboot():
     depl = deployment.Deployment(args.state_file)
-    depl.reboot_machines(include=args.include or [], exclude=args.exclude or [], wait=args.wait)
+    with depl:
+        depl.reboot_machines(include=args.include or [], exclude=args.exclude or [], wait=args.wait)
 
 
 def op_stop():
     depl = deployment.Deployment(args.state_file)
-    depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
+    with depl:
+        depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_start():
     depl = deployment.Deployment(args.state_file)
-    depl.start_machines(include=args.include or [], exclude=args.exclude or [])
+    with depl:
+        depl.start_machines(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_rename():
     depl = deployment.Deployment(args.state_file)
-    depl.rename(args.current_name, args.new_name)
+    with depl:
+        depl.rename(args.current_name, args.new_name)
 
 
 def op_show_physical():
     depl = deployment.Deployment(args.state_file, lock=False)
+    depl.load_state()
     depl.evaluate()
     depl.active = {n: depl.machines[n] for n in depl.machines if n in depl.definitions}
     print depl.get_physical_spec()
@@ -131,6 +141,7 @@ def parse_machine(name):
 
 def op_ssh():
     depl = deployment.Deployment(args.state_file, lock=False)
+    depl.load_state()
     (username, machine) = parse_machine(args.machine)
     m = depl.machines.get(machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(machine))
@@ -142,6 +153,7 @@ def op_ssh():
 
 def op_ssh_for_each():
     depl = deployment.Deployment(args.state_file, lock=False)
+    depl.load_state()
     # FIXME: only do active machines?
     res2 = 0
     if args.parallel:
@@ -163,6 +175,7 @@ def scp_loc(ssh_name, remote, loc):
 
 def op_scp():
     depl = deployment.Deployment(args.state_file, lock=False)
+    depl.load_state()
     m = depl.machines.get(args.machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
     ssh_name = m.get_ssh_name()

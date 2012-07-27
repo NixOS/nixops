@@ -38,8 +38,15 @@ class Deployment:
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
-        if create:
-            if lock: self._create_state_lock()
+        self._create = create
+
+        self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
+        atexit.register(lambda: shutil.rmtree(self.tempdir))
+
+
+    def __enter__(self):
+        if self._create:
+            self._create_state_lock()
             if os.path.exists(self.state_file):
                 self.load_state()
             else:
@@ -50,11 +57,13 @@ class Deployment:
         else:
             if not os.path.isfile(self.state_file):
                 raise Exception("state file ‘{0}’ does not exist".format(self.state_file))
-            if lock: self._create_state_lock()
+            self._create_state_lock()
             self.load_state()
 
-        self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
-        atexit.register(lambda: shutil.rmtree(self.tempdir))
+
+    def __exit__(self, exception_type, exception_value, exception_traceback):
+        fcntl.lockf(self._state_file_lock, fcntl.LOCK_UN)
+        self._state_file_lock.close()
 
 
     def _create_state_lock(self):
