@@ -30,7 +30,7 @@ class MachineState:
     def get_type(cls):
         assert False
 
-    def __init__(self, depl, name):
+    def __init__(self, depl, name, log_file=sys.stderr):
         self.name = name
         self.depl = depl
         self.created = False
@@ -40,6 +40,7 @@ class MachineState:
         self._ssh_master_opts = []
         self._public_vpn_key = None
         self.index = None
+        self._log_file = log_file
         self.set_log_prefix(0)
 
         # Nix store path of the last global configuration deployed to
@@ -53,7 +54,7 @@ class MachineState:
 
     def set_log_prefix(self, length):
         self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))
-        if sys.stderr.isatty() and self.index != None:
+        if self._log_file.isatty() and self.index != None:
             self._log_prefix = "\033[1;{0}m{1}\033[0m".format(31 + self.index % 7, self._log_prefix)
 
     def log(self, msg):
