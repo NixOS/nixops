@@ -196,7 +196,7 @@ class Deployment:
                 ["--eval-only", "--show-trace", "--xml", "--strict",
                  "<charon/eval-machine-info.nix>",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
-                 "-A", "info"])
+                 "-A", "info"], stderr=self._log_file)
         except subprocess.CalledProcessError:
             raise NixEvalError
 
@@ -307,7 +307,7 @@ class Deployment:
                  "--arg", "networkExprs", "[ " + " ".join(self.nix_exprs + [phys_expr]) + " ]",
                  "--arg", "names", "[ " + " ".join(names) + " ]",
                  "-A", "machines", "-o", self.tempdir + "/configs"]
-                + (["--dry-run"] if dry_run else [])).rstrip()
+                + (["--dry-run"] if dry_run else []), stderr=self._log_file).rstrip()
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
 
