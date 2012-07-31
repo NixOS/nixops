@@ -24,9 +24,6 @@ class VirtualBoxDefinition(MachineDefinition):
         self.memory_size = x.find("attr[@name='memorySize']/int").get("value")
         self.headless = x.find("attr[@name='headless']/bool").get("value") == "true"
 
-    def make_state():
-        return MachineState()
-
 
 class VirtualBoxState(MachineState):
     """State of a VirtualBox machine."""

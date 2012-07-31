@@ -14,9 +14,6 @@ class NoneDefinition(MachineDefinition):
         MachineDefinition.__init__(self, xml)
         self._target_host = xml.find("attrs/attr[@name='targetHost']/string").get("value")
 
-    def make_state():
-        return MachineState()
-
 
 class NoneState(MachineState):
     """State of a trivial machine."""

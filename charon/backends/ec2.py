@@ -46,9 +46,6 @@ class EC2Definition(MachineDefinition):
         self.block_device_mapping = {_xvd_to_sd(k.get("name")): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
         self.elastic_ipv4 = x.find("attr[@name='elasticIPv4']/string").get("value")
 
-    def make_state():
-        return MachineState()
-
 
 class EC2State(MachineState):
     """State of an EC2 machine."""
