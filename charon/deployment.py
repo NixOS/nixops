@@ -130,18 +130,18 @@ class Deployment:
     def log(self, msg):
         with self._log_lock:
             if self._last_log_prefix != None:
-                self.log_file.write("\n")
+                self._log_file.write("\n")
                 self._last_log_prefix = None
-            self.log_file.write(msg + "\n")
+            self._log_file.write(msg + "\n")
 
 
     def log_start(self, prefix, msg):
         with self._log_lock:
             if self._last_log_prefix != prefix:
                 if self._last_log_prefix != None:
-                    self.log_file.write("\n")
-                self.log_file.write(prefix)
-            self.log_file.write(msg)
+                    self._log_file.write("\n")
+                self._log_file.write(prefix)
+            self._log_file.write(msg)
             self._last_log_prefix = prefix
         
 
@@ -151,10 +151,10 @@ class Deployment:
             self._last_log_prefix = None
             if last != prefix:
                 if last != None:
-                    self.log_file.write("\n")
+                    self._log_file.write("\n")
                 if msg == "": return
-                self.log_file.write(prefix)
-            self.log_file.write(msg + "\n")
+                self._log_file.write(prefix)
+            self._log_file.write(msg + "\n")
 
 
     def set_log_prefixes(self):
@@ -167,11 +167,11 @@ class Deployment:
         while True:
             with self._log_lock:
                 if self._last_log_prefix != None:
-                    self.log_file.write("\n")
+                    self._log_file.write("\n")
                     self._last_log_prefix = None
-                self.log_file.write(charon.util.ansi_warn("warning: {0} (y/N) ".format(question)))
+                self._log_file.write(charon.util.ansi_warn("warning: {0} (y/N) ".format(question)))
                 if self.auto_response != None:
-                    self.log_file.write("{0}\n".format(self.auto_response))
+                    self._log_file.write("{0}\n".format(self.auto_response))
                     return self.auto_response == "y"
                 response = sys.stdin.readline()
                 if response == "": return False
