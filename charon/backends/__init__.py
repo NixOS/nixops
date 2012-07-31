@@ -316,11 +316,11 @@ def create_definition(xml):
             return i(xml)
     raise Exception("unknown backend type ‘{0}’".format(target_env))
 
-def create_state(depl, type, name):
+def create_state(depl, type, name, log_file=sys.stderr):
     """Create a machine state object of the desired backend type."""
     for i in [charon.backends.none.NoneState,
               charon.backends.virtualbox.VirtualBoxState,
               charon.backends.ec2.EC2State]:
         if type == i.get_type():
-            return i(depl, name)
+            return i(depl, name, log_file=log_file)
     raise Exception("unknown backend type ‘{0}’".format(type))

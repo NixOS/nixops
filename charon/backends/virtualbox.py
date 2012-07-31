@@ -35,8 +35,8 @@ class VirtualBoxState(MachineState):
     def get_type(cls):
         return "virtualbox"
     
-    def __init__(self, depl, name):
-        MachineState.__init__(self, depl, name)
+    def __init__(self, depl, name, log_file=sys.stderr):
+        MachineState.__init__(self, depl, name, log_file)
         self._vm_id = None
         self._ipv4 = None
         self._disk = None

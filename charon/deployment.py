@@ -92,7 +92,7 @@ class Deployment:
         self._machine_state = { }
         self.configs_path = state.get('vmsPath', None)
         for n, v in state['machines'].iteritems():
-            self.machines[n] = charon.backends.create_state(self, v['targetEnv'], n)
+            self.machines[n] = charon.backends.create_state(self, v['targetEnv'], n, self._log_file)
             self.machines[n].deserialise(v)
             self._machine_state[n] = v
         self.set_log_prefixes()
@@ -383,7 +383,7 @@ class Deployment:
         # Create state objects for all defined machines.
         for m in self.definitions.itervalues():
             if m.name not in self.machines:
-                self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name)
+                self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, self._log_file)
 
         self.set_log_prefixes()
         

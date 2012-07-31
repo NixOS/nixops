@@ -57,8 +57,8 @@ class EC2State(MachineState):
     def get_type(cls):
         return "ec2"
     
-    def __init__(self, depl, name):
-        MachineState.__init__(self, depl, name)
+    def __init__(self, depl, name, log_file=sys.stderr):
+        MachineState.__init__(self, depl, name, log_file)
         self._conn = None
         self._access_key_id = None
         self._reset_state()

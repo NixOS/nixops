@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from charon.backends import MachineDefinition, MachineState
+import sys
 
 class NoneDefinition(MachineDefinition):
     """Definition of a trivial machine."""
@@ -24,8 +25,8 @@ class NoneState(MachineState):
     def get_type(cls):
         return "none"
     
-    def __init__(self, depl, name):
-        MachineState.__init__(self, depl, name)
+    def __init__(self, depl, name, log_file=sys.stderr):
+        MachineState.__init__(self, depl, name, log_file)
         
     def create(self, defn, check, allow_reboot):
         assert isinstance(defn, NoneDefinition)
