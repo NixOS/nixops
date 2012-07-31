@@ -20,7 +20,7 @@ import re
 class Deployment:
     """Charon top-level deployment manager."""
 
-    def __init__(self, state_file, create=False, nix_exprs=[], nix_path=[]):
+    def __init__(self, state_file, create=False, nix_exprs=[], nix_path=[], log_file=sys.stderr):
         self.state_file = os.path.realpath(state_file)
         self.machines = { }
         self._machine_state = { }
@@ -44,6 +44,8 @@ class Deployment:
 
         self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
         atexit.register(lambda: shutil.rmtree(self.tempdir))
+
+        self._log_file = log_file
 
 
     def __enter__(self):
@@ -128,18 +130,18 @@ class Deployment:
     def log(self, msg):
         with self._log_lock:
             if self._last_log_prefix != None:
-                sys.stderr.write("\n")
+                self.log_file.write("\n")
                 self._last_log_prefix = None
-            sys.stderr.write(msg + "\n")
+            self.log_file.write(msg + "\n")
 
 
     def log_start(self, prefix, msg):
         with self._log_lock:
             if self._last_log_prefix != prefix:
                 if self._last_log_prefix != None:
-                    sys.stderr.write("\n")
-                sys.stderr.write(prefix)
-            sys.stderr.write(msg)
+                    self.log_file.write("\n")
+                self.log_file.write(prefix)
+            self.log_file.write(msg)
             self._last_log_prefix = prefix
         
 
@@ -149,10 +151,10 @@ class Deployment:
             self._last_log_prefix = None
             if last != prefix:
                 if last != None:
-                    sys.stderr.write("\n")
+                    self.log_file.write("\n")
                 if msg == "": return
-                sys.stderr.write(prefix)
-            sys.stderr.write(msg + "\n")
+                self.log_file.write(prefix)
+            self.log_file.write(msg + "\n")
 
 
     def set_log_prefixes(self):
@@ -165,11 +167,11 @@ class Deployment:
         while True:
             with self._log_lock:
                 if self._last_log_prefix != None:
-                    sys.stderr.write("\n")
+                    self.log_file.write("\n")
                     self._last_log_prefix = None
-                sys.stderr.write(charon.util.ansi_warn("warning: {0} (y/N) ".format(question)))
+                self.log_file.write(charon.util.ansi_warn("warning: {0} (y/N) ".format(question)))
                 if self.auto_response != None:
-                    sys.stderr.write("{0}\n".format(self.auto_response))
+                    self.log_file.write("{0}\n".format(self.auto_response))
                     return self.auto_response == "y"
                 response = sys.stdin.readline()
                 if response == "": return False
