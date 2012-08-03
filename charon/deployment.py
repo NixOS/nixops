@@ -337,33 +337,46 @@ class Deployment:
         def worker(m):
             if not should_do(m, include, exclude): return
 
-            m.log("activating new configuration...")
+            try:
+                res = m.run_command(
+                    # Set the system profile to the new configuration.
+                    "set -e; nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + "; " +
+                    # In case the switch crashes the system, do a sync.
+                    "sync; " +
+                    # Run the switch script.  This will also update the
+                    # GRUB boot loader.  For performance, skip this step
+                    # if the new config is already current.
+                    "cur=$(readlink /var/run/current-system); " +
+                    'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi",
+                    check=False)
+                if res != 0 and res != 100:
+                    raise Exception("unable to activate new configuration")
+                if res == 100:
+                    if not allow_reboot:
+                        raise Exception("the new configuration requires a reboot to take effect (hint: use ‘--allow-reboot’)".format(m.name))
+                    m.reboot_sync()
+                    # FIXME: should check which systemd services
+                    # failed to start after the reboot.
 
-            res = m.run_command(
-                # Set the system profile to the new configuration.
-                "set -e; nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + "; " +
-                # In case the switch crashes the system, do a sync.
-                "sync; " +
-                # Run the switch script.  This will also update the
-                # GRUB boot loader.  For performance, skip this step
-                # if the new config is already current.
-                "cur=$(readlink /var/run/current-system); " +
-                'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi",
-                check=False)
-            if res != 0 and res != 100:
-                raise Exception("unable to activate new configuration on machine ‘{0}’".format(m.name))
-            if res == 100:
-                if not allow_reboot:
-                    raise Exception("the new configuration on machine ‘{0}’ requires a reboot to take effect (hint: use ‘--allow-reboot’)".format(m.name))
-                m.reboot_sync()
+                # Record that we switched this machine to the new
+                # configuration.
+                m.cur_configs_path = configs_path
+                m.cur_toplevel = m.new_toplevel
+                self.update_machine_state(m)
 
-            # Record that we switched this machine to the new
-            # configuration.
-            m.cur_configs_path = configs_path
-            m.cur_toplevel = m.new_toplevel
-            self.update_machine_state(m)
+            except Exception as e:
+                # This thread shouldn't throw an exception because
+                # that will cause Charon to exit and interrupt
+                # activation on the other machines.
+                m.log(str(e))
+                return m.name
+            return None
 
-        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+        res = charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+        failed = [x for x in res if x != None]
+        if failed != []:
+            raise Exception("activation of {0} of {1} machines failed (namely on {2})"
+                            .format(len(failed), len(res), ", ".join(["‘{0}’".format(x) for x in failed])))
 
 
     def _get_free_machine_index(self):
@@ -411,6 +424,7 @@ class Deployment:
         charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
         self.write_state()
 
+
     def restore(self, include=[], exclude=[], backup_id=None):
         self.evaluate_active(include, exclude)
         def worker(m):
@@ -419,6 +433,7 @@ class Deployment:
 
         charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
         self.deploy(include=include, exclude=exclude, check=True)
+
 
     def evaluate_active(self, include=[], exclude=[]):
         self.evaluate()
