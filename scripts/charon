@@ -9,7 +9,7 @@ import sys
 import subprocess
 import charon.parallel
 import charon.util
-
+from pprint import pprint
 
 def op_create():
     depl = deployment.Deployment(
@@ -81,6 +81,28 @@ def op_check():
             sys.stderr.write("ok [{0} {1} {2}]\n".format(avg[0], avg[1], avg[2]))
         except subprocess.CalledProcessError:
             sys.stderr.write("fail\n")
+
+
+def op_backup():
+    depl = deployment.Deployment(args.state_file)
+    with depl:
+        if args.show_backups:
+            backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
+
+            print "Network UUID:", depl.uuid
+            print "Network description:", depl.description
+            tbl = PrettyTable(["Backup ID", "Status"])
+            for k, v in sorted(backups.items(), reverse=True):
+                tbl.add_row([k,v['status']])
+            print tbl
+        else:
+            depl.backup(include=args.include or [], exclude=args.exclude or [])
+
+
+def op_restore():
+    depl = deployment.Deployment(args.state_file)
+    with depl:
+        depl.restore(include=args.include or [], exclude=args.exclude or [], backup_id=args.backup_id)
 
 
 def op_deploy():
@@ -270,6 +292,20 @@ subparser = subparsers.add_parser('rename', help='rename machine in network')
 subparser.set_defaults(op=op_rename)
 subparser.add_argument('current_name', metavar='FROM', help='current identifier of the machine')
 subparser.add_argument('new_name', metavar='TO', help='new identifier of the machine')
+
+subparser = subparsers.add_parser('backup', help='make snapshots of persistent disks in network (currently EC2-only)')
+subparser.set_defaults(op=op_backup)
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
+subparser.add_argument('--list', dest='show_backups', action="store_true", default=False, help='show available backups for network')
+subparser.add_argument('--freeze', dest='freeze_fs', action="store_true", default=False, help='freeze filesystems for non-root filesystems that support this (e.g. xfs)')
+
+subparser = subparsers.add_parser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
+subparser.set_defaults(op=op_restore)
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
+subparser.add_argument('--backup-id', dest="backup_id", default=None, help='use specified backup in stead of latest')
+
 
 # Parse the command line and execute the desired operation.
 args = parser.parse_args()

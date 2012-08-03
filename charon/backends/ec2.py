@@ -12,7 +12,6 @@ from charon.backends import MachineDefinition, MachineState
 import charon.known_hosts
 import charon.util
 
-
 class EC2Definition(MachineDefinition):
     """Definition of an EC2 machine."""
 
@@ -53,13 +52,12 @@ class EC2State(MachineState):
     @classmethod
     def get_type(cls):
         return "ec2"
-    
+
     def __init__(self, depl, name, log_file=sys.stderr):
         MachineState.__init__(self, depl, name, log_file)
         self._conn = None
         self._access_key_id = None
         self._reset_state()
-
 
     def _reset_state(self):
         self._region = None
@@ -70,7 +68,7 @@ class EC2State(MachineState):
         self._key_pair = None
         self._private_key = None
         self._security_groups = None
-        
+
         self._instance_id = None
         self._public_ipv4 = None
         self._private_ipv4 = None
@@ -80,11 +78,12 @@ class EC2State(MachineState):
         self._public_host_key = False
         self._root_device_type = None
         self._state = None
-        
-        
+        self._backups = {}
+
+
     def serialise(self):
         x = MachineState.serialise(self)
-        
+
         if self._instance_id: x['vmId'] = self._instance_id
         if self._public_ipv4: x['ipv4'] = self._public_ipv4
         if self._private_ipv4: x['privateIpv4'] = self._private_ipv4
@@ -105,17 +104,19 @@ class EC2State(MachineState):
         if self._root_device_type: y['rootDeviceType'] = self._root_device_type
         if self._elastic_ipv4: y['elasticIPv4'] = self._elastic_ipv4
         x['ec2'] = y
-        
+
+        if self._backups: x['backups'] = self._backups
+
         return x
 
-    
+
     def deserialise(self, x):
         MachineState.deserialise(self, x)
 
         self._instance_id = x.get('vmId', None)
         self._public_ipv4 = x.get('ipv4', None)
         self._private_ipv4 = x.get('privateIpv4', None)
-        
+
         y = x.get('ec2')
         self._access_key_id = y.get('accessKeyId', None)
         self._region = y.get('region', None)
@@ -132,17 +133,18 @@ class EC2State(MachineState):
         self._root_device_type = y.get('rootDeviceType', None)
         self._elastic_ipv4 = y.get('elasticIPv4', None)
 
-        
+        self._backups = x.get('backups', {})
+
     def get_ssh_name(self):
         if not self._public_ipv4:
             raise Exception("EC2 machine ‘{0}’ does not have a public IPv4 address (yet)".format(self.name))
         return self._public_ipv4
 
-    
+
     def get_ssh_flags(self):
         return ["-i", self._private_key] if self._private_key else []
 
-    
+
     def get_physical_spec(self, machines):
         lines = ['    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];']
 
@@ -150,37 +152,37 @@ class EC2State(MachineState):
             if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "":
                 lines.append('    deployment.ec2.blockDeviceMapping."{0}".passphrase = pkgs.lib.mkOverride 10 "{1}";'
                              .format(_sd_to_xvd(k), v['generatedKey']))
-        
+
         return lines
 
-    
+
     def show_type(self):
         s = MachineState.show_type(self)
         if self._zone or self._region: s = "{0} [{1}; {2}]".format(s, self._zone or self._region, self._instance_type)
         return s
 
-    
+
     @property
     def vm_id(self):
         return self._instance_id
 
-    
+
     @property
     def public_ipv4(self):
         return self._public_ipv4
 
-    
+
     @property
     def private_ipv4(self):
         return self._private_ipv4
 
-    
+
     def address_to(self, m):
         if isinstance(m, EC2State):
             return m._private_ipv4
         return MachineState.address_to(self, m)
 
-    
+
     def connect(self):
         if self._conn: return
         assert self._region
@@ -204,7 +206,7 @@ class EC2State(MachineState):
                 if w[0] == self._access_key_id:
                     secret_access_key = w[1]
                     break
-            
+
         if not secret_access_key:
             raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/.ec2-keys"
                             .format(self._access_key_id))
@@ -212,7 +214,7 @@ class EC2State(MachineState):
         self._conn = boto.ec2.connect_to_region(
             region_name=self._region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
-        
+
     def _get_instance_by_id(self, instance_id, allow_missing=False):
         """Get instance object by instance id."""
         self.connect()
@@ -232,9 +234,18 @@ class EC2State(MachineState):
         return volumes[0]
 
 
+    def _get_snapshot_by_id(self, snapshot_id):
+        """Get snapshot object by instance id."""
+        self.connect()
+        snapshots = self._conn.get_all_snapshots([snapshot_id])
+        if len(snapshots) != 1:
+            raise Exception("unable to find snapshot ‘{0}’".format(snapshot_id))
+        return snapshots[0]
+
+
     def _wait_for_ip(self, instance):
         self.log_start("waiting for IP address... ".format(self.name))
-        
+
         while True:
             instance.update()
             self.log_continue("({0}) ".format(instance.state))
@@ -242,11 +253,11 @@ class EC2State(MachineState):
                 raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self._instance_id, instance.state))
             if instance.ip_address: break
             time.sleep(3)
-            
+
         self.log_end("{0} / {1}".format(instance.ip_address, instance.private_ip_address))
-        
+
         charon.known_hosts.add(instance.ip_address, self._public_host_key)
-            
+
         self._private_ipv4 = instance.private_ip_address
         self._public_ipv4 = instance.ip_address
         self._ssh_pinged = False
@@ -255,6 +266,83 @@ class EC2State(MachineState):
 
     def _booted_from_ebs(self):
         return self._root_device_type == "ebs"
+
+
+    def get_backups(self):
+        self.connect()
+        backups = {}
+        current_volumes = set([v['volumeId'] for v in self._block_device_mapping.values()])
+        for b_id, b in self._backups.items():
+            backups[b_id] = {}
+            backup_complete = True
+            for k, v in self._block_device_mapping.items():
+                if not k in b.keys():
+                    backup_complete = False
+                else:
+                    snapshot_id = b[k]
+                    snapshot = self._get_snapshot_by_id(snapshot_id)
+                    if snapshot.update() != '100%':
+                        backup_complete = False
+
+                backups[b_id]['status'] = 'complete' if backup_complete else 'incomplete'
+        return backups
+
+    def backup(self, backup_id):
+        self.connect()
+
+        self.log("Backing up machine '{0}' using id '{1}'".format(self.name, backup_id))
+        backup = {}
+        for k, v in self._block_device_mapping.items():
+            snapshot = self._conn.create_snapshot(volume_id=v['volumeId'])
+            self.log("+ Created snapshot of volume '{0}': {1}".format(v['volumeId'], snapshot.id))
+
+            common_tags = {'CharonNetworkUUID': str(self.depl.uuid), 'CharonMachineName': self.name, 'CharonBackupID': backup_id, 'CharonBackupDevice': k}
+            snapshot_tags = {'Name': "{0} - {3} [{1} - {2}]".format(self.depl.description, self.name, k, backup_id)}
+            snapshot_tags.update(common_tags)
+            self._conn.create_tags([snapshot.id], snapshot_tags)
+            backup[k] = snapshot.id
+        self._backups[backup_id] = backup
+        self.write()
+
+    def restore(self, defn, backup_id):
+        self.connect()
+        self.log("Restoring machine '{0}' to backup '{1}'".format(self.name, backup_id))
+
+        self.log("Stopping machine '{0}'".format(self.name))
+        instance = self._get_instance_by_id(self._instance_id)
+        instance.stop()
+
+        while True:
+            sys.stderr.write("[{0}] ".format(instance.state))
+            if instance.state == "stopped": break
+            time.sleep(3)
+            instance.update()
+        sys.stderr.write("\n")
+
+        for k, v in self._block_device_mapping.items():
+            # detach disks
+            volume = self._get_volume_by_id(v['volumeId'])
+            if volume.update() == "in-use":
+                self.log("Detaching volume from '{0}'".format(self.name))
+                volume.detach()
+
+            # attach backup disks
+            snapshot_id = self._backups[backup_id][k]
+            self.log("Creating volume from snapshot '{0}'".format(snapshot_id))
+            new_volume = self._conn.create_volume(size=0, snapshot=snapshot_id, zone=self._zone)
+
+            # wait for available
+            while True:
+                sys.stderr.write("[{0}] ".format(volume.status))
+                if volume.status == "available": break
+                time.sleep(3)
+                volume.update()
+            sys.stderr.write("\n")
+
+            self.log("Attaching volume '{0}' to '{1}'".format(new_volume.id, self.name))
+            new_volume.attach(self._instance_id, k)
+            self._block_device_mapping[k]['volumeId'] = new_volume.id
+            self.write()
 
 
     def create(self, defn, check, allow_reboot):
@@ -273,7 +361,7 @@ class EC2State(MachineState):
         if self._instance_id and allow_reboot and self._booted_from_ebs() and self._instance_type != defn.instance_type:
             self.stop()
             check = True
-        
+
         # Check whether the instance hasn't been killed behind our
         # backs.  Restart stopped instances.
         if self._instance_id and check:
@@ -312,7 +400,7 @@ class EC2State(MachineState):
             ami = self._conn.get_all_images([defn.ami])[0]
 
             self._root_device_type = ami.root_device_type
-            
+
             (private, public) = self._create_key_pair()
 
             user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"))
@@ -372,7 +460,7 @@ class EC2State(MachineState):
             self._security_groups = defn.security_groups
             self._zone = instance.placement
             self._public_host_key = public
-            
+
             self.write()
 
         # There is a short time window during which EC2 doesn't
@@ -393,7 +481,7 @@ class EC2State(MachineState):
             self.warn("cannot change region of a running instance")
         if defn.zone and self._zone != defn.zone:
             self.warn("cannot change availability zone of a running instance")
-                    
+
         # Reapply tags if they have changed.
         common_tags = {'CharonNetworkUUID': self.depl.uuid,
                        'CharonMachineName': self.name,
@@ -483,7 +571,7 @@ class EC2State(MachineState):
                 volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
                 volume_tags.update(common_tags)
                 self._conn.create_tags([v['volumeId']], volume_tags)
-                
+
                 volume = self._get_volume_by_id(v['volumeId'])
                 if volume.volume_state() == "available":
                     self._conn.attach_volume(v['volumeId'], self._instance_id, k)
@@ -494,6 +582,16 @@ class EC2State(MachineState):
                 charon.util.check_wait(check_dev)
                 del v['needsAttach']
                 self.write()
+
+        # Add disks that were in original device mapping of image
+        for k, dm in instance.block_device_mapping.items():
+            if k not in self._block_device_mapping:
+                if dm.volume_id:
+                    bdm = {}
+                    bdm['volumeId'] = dm.volume_id
+                    bdm['partOfImage'] = True
+                    self._block_device_mapping[k]=bdm
+
 
         # FIXME: process changes to the deleteOnTermination flag.
 
@@ -509,15 +607,15 @@ class EC2State(MachineState):
                     raise Exception("unable to find volume attached to ‘{0}’ on EC2 machine ‘{1}’".format(k, self.name))
                 v['volumeId'] = volumes[0].id
                 self.write()
-                
+
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self._block_device_mapping.items():
-            if k not in defn.block_device_mapping:
+            if k not in defn.block_device_mapping and not v['partOfImage']:
                 self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
                 self.connect()
                 volumes = self._conn.get_all_volumes([], filters={'attachment.instance-id': self._instance_id, 'attachment.device': k})
                 assert len(volumes) <= 1
-                
+
                 if len(volumes) == 1:
                     device = _sd_to_xvd(k)
                     if v.get('encrypt', False):
@@ -529,10 +627,10 @@ class EC2State(MachineState):
                     if not self._conn.detach_volume(volumes[0].id, instance_id=self._instance_id, device=k):
                         raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
                     # FIXME: Wait until the volume is actually detached.
-                    
+
                 if v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
                     self._delete_volume(v['volumeId'])
-                
+
                 del self._block_device_mapping[k]
                 self.write()
 
@@ -558,11 +656,11 @@ class EC2State(MachineState):
 
     def destroy(self):
         if not self.depl.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
-        
+
         self.log_start("destroying EC2 machine... ".format(self.name))
 
         instance = self._get_instance_by_id(self._instance_id)
-        instance.terminate()        
+        instance.terminate()
 
         # Wait until it's really terminated.
         while True:
@@ -579,7 +677,7 @@ class EC2State(MachineState):
 
         return True
 
-                
+
     def stop(self):
         if not self._booted_from_ebs():
             self.warn("cannot stop non-EBS-backed instance")
@@ -616,16 +714,16 @@ class EC2State(MachineState):
         # is generally the case).
         prev_private_ipv4 = self._private_ipv4
         prev_public_ipv4 = self._public_ipv4
-        
+
         self._wait_for_ip(instance)
-        
+
         if prev_private_ipv4 != self._private_ipv4 or prev_public_ipv4 != self._public_ipv4:
             self.warn("IP address has changed, you may need to run ‘charon deploy’")
 
     def reboot(self):
         self.log("rebooting EC2 machine... ")
         instance = self._get_instance_by_id(self._instance_id)
-        instance.reboot() 
+        instance.reboot()
 
 def _xvd_to_sd(dev):
     return dev.replace("/dev/xvd", "/dev/sd")

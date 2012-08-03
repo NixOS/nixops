@@ -16,19 +16,31 @@
       <contrib>Author</contrib>
     </author>
 
+    <author>
+      <personname>
+        <firstname>Rob</firstname>
+        <surname>Vermaas</surname>
+      </personname>
+      <affiliation>
+        <orgname>LogicBlox</orgname>
+      </affiliation>
+      <contrib>Author</contrib>
+    </author>
+
     <copyright>
       <year>2012</year>
       <holder>Eelco Dolstra</holder>
+      <holder>Rob Vermaas</holder>
     </copyright>
 
     <date>June 2012</date>
-    
+
   </info>
 
   <xi:include href="introduction.xml" />
   <xi:include href="installation.xml" />
   <xi:include href="overview.xml" />
-  
+
   <appendix>
     <title>Command Reference</title>
     <xi:include href="charon.xml" />
@@ -38,5 +50,5 @@
     <title>Charon-specific Configuration Options</title>
     <xi:include href="options-db.xml" />
   </appendix>
-  
+
 </book>

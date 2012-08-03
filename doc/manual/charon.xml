@@ -624,7 +624,7 @@ the deployment.  For each machine, it prints:
 
 <itemizedlist>
   <listitem><para>The logical name of the machine.</para></listitem>
-  
+
   <listitem><para>Its state, which is one of <literal>New</literal>
   (not deployed yet), <literal>Up</literal> (created and up to date),
   <literal>Outdated</literal> (created but not up to date with the
@@ -839,6 +839,150 @@ until they’re up again:
 
 <screen>
 $ charon reboot -w --exclude foo</screen>
+
+</para>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon backup</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon backup</command>
+  <arg>
+    <option>--include</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
+    <option>--exclude</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <group>
+    <arg choice='plain'><option>--list</option></arg>
+  </group>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command makes a backup of all persistent disks of all machines. Currently this is only implemented for EC2 EBS instances/volumes.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--include</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Only backup the persistent disks of the machines listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--exclude</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Backup the persistent disks of all machines except the ones listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--list</option></term>
+
+    <listitem><para>List of available backups.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To backup the persistent disks of all machines:
+
+<screen>
+$ charon backup</screen>
+
+</para>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon restore</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon restore</command>
+  <arg>
+    <option>--include</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
+    <option>--exclude</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
+    <option>--backup-id</option>
+    <arg choice='plain' rep='repeat'><replaceable>backup-id</replaceable></arg>
+  </arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command restores a machine to a backup.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--include</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Only backup the persistent disks of the machines listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--exclude</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Restore the persistent disks of all machines to a given backup except the ones listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--backup-id</option>
+    <replaceable>backup-id...</replaceable></term>
+
+    <listitem><para>Restore the persistent disks of all machines to a given backup except the ones listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To list the available backups and restore the persistent disks of all machines to a given backup:
+
+<screen>
+$ charon backup --list
+$ charon restore --backup-id 20120803151302</screen>
 
 </para>
 

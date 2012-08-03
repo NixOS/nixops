@@ -12,7 +12,7 @@ import charon.util
 
 class MachineDefinition:
     """Base class for Charon backend machine definitions."""
-    
+
     @classmethod
     def get_type(cls):
         assert False
@@ -74,7 +74,7 @@ class MachineState:
 
     def write(self):
         self.depl.update_machine_state(self)
-        
+
     def create(self, defn, check, allow_reboot):
         """Create or update the machine instance defined by ‘defn’, if appropriate."""
         assert False
@@ -105,11 +105,19 @@ class MachineState:
     def stop(self):
         """Stop this machine, if possible."""
         self.warn("don't know how to stop machine ‘{0}’".format(self.name))
-        
+
     def start(self):
         """Start this machine, if possible."""
         pass
-        
+
+    def restore(self, defn, backup_id):
+        """Stop this machine, if possible."""
+        self.warn("don't know how to restore disks from backup for machine ‘{0}’".format(self.name))
+
+    def backup(self, backup_id):
+        """Stop this machine, if possible."""
+        self.warn("don't know how to make backup of disks for machine ‘{0}’".format(self.name))
+
     def reboot(self):
         """Reboot this machine."""
         self.log("rebooting...")
@@ -145,7 +153,7 @@ class MachineState:
     @property
     def public_ipv4(self):
         return None
-    
+
     @property
     def private_ipv4(self):
         return None
@@ -177,17 +185,17 @@ class MachineState:
             ["ssh", "-x", "root@" + self.get_ssh_name(), "-S", control_socket,
              "-M", "-N", "-f"]
             + self.get_ssh_flags())
-        if res != 0: 
+        if res != 0:
             raise Exception("unable to start SSH master connection to ‘{0}’".format(self.name))
 
         # Kill the master on exit.
         atexit.register(
-            lambda: 
+            lambda:
             subprocess.call(
                 ["ssh", "root@" + self.get_ssh_name(),
                  "-S", control_socket, "-O", "exit"], stderr=charon.util.devnull)
             )
-        
+
         self._ssh_master_opts = ["-S", control_socket]
         self._ssh_master_started = True
 
@@ -208,7 +216,7 @@ class MachineState:
         if stdin_string != None: process.stdin.write(stdin_string)
 
         for fd in fds: charon.util.make_non_blocking(fd)
-        
+
         at_new_line = True
         stdout = ""
 
@@ -274,7 +282,7 @@ class MachineState:
 
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
-        
+
         # !!! Implement copying between cloud machines, as in the Perl
         # version.
 

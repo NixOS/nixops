@@ -16,6 +16,7 @@ from xml.etree import ElementTree
 import charon.backends
 import charon.parallel
 import re
+from datetime import datetime
 
 class Deployment:
     """Charon top-level deployment manager."""
@@ -30,10 +31,10 @@ class Deployment:
         self._last_log_prefix = None
         self.auto_response = None
         self.extra_nix_path = []
-        
+
         self._state_lock = threading.Lock()
         self._log_lock = threading.Lock()
-            
+
         self.expr_path = os.path.dirname(__file__) + "/../../../../share/nix/charon"
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
@@ -96,8 +97,8 @@ class Deployment:
             self.machines[n].deserialise(v)
             self._machine_state[n] = v
         self.set_log_prefixes()
-        
-            
+
+
     def write_state(self):
         """Write the current deployment state to the state file in JSON format."""
         state = {'networkExprs': self.nix_exprs,
@@ -143,7 +144,7 @@ class Deployment:
                 self._log_file.write(prefix)
             self._log_file.write(msg)
             self._last_log_prefix = prefix
-        
+
 
     def log_end(self, prefix, msg):
         with self._log_lock:
@@ -234,12 +235,12 @@ class Deployment:
         def do_machine(m):
             defn = self.definitions[m.name]
             lines = lines_per_machine[m.name]
-            
+
             lines.extend(m.get_physical_spec(self.active))
 
             # Emit configuration to realise encrypted peer-to-peer links.
             for m2_name in defn.encrypted_links_to:
-                
+
                 if m2_name not in self.active:
                     raise Exception("‘deployment.encryptedLinksTo’ in machine ‘{0}’ refers to an unknown machine ‘{1}’"
                                     .format(m.name, m2_name))
@@ -264,12 +265,12 @@ class Deployment:
                 kernel_modules[m2.name].add('"tun"')
                 hosts[m.name][m2.name] = hosts[m.name][m2.name + "-encrypted"] = remote_ipv4
                 hosts[m2.name][m.name] = hosts[m2.name][m.name + "-encrypted"] = local_ipv4
-            
+
             private_ipv4 = m.private_ipv4
             if private_ipv4: lines.append('    networking.privateIPv4 = "{0}";'.format(private_ipv4))
             public_ipv4 = m.public_ipv4
             if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";'.format(public_ipv4))
-            
+
         for m in self.active.itervalues(): do_machine(m)
 
         def emit_machine(m):
@@ -285,7 +286,7 @@ class Deployment:
             return "\n".join(lines)
 
         return "".join(["{\n"] + [emit_machine(m) for m in self.active.itervalues()] + ["}\n"])
-            
+
 
     def build_configs(self, include, exclude, dry_run=False):
         """Build the machine configurations in the Nix store."""
@@ -298,7 +299,7 @@ class Deployment:
         f.close()
 
         names = ['"' + m.name + '"' for m in self.active.itervalues() if should_do(m, include, exclude)]
-        
+
         try:
             configs_path = subprocess.check_output(
                 ["nix-build", "-I", "charon=" + self.expr_path, "--show-trace"]
@@ -312,7 +313,7 @@ class Deployment:
             raise Exception("unable to build all machine configurations")
 
         return configs_path
-        
+
 
     def copy_closures(self, configs_path, include, exclude, max_concurrent_copy):
         """Copy the closure of each machine configuration to the corresponding machine."""
@@ -328,14 +329,14 @@ class Deployment:
         charon.parallel.run_tasks(
             nr_workers=max_concurrent_copy,
             tasks=self.active.itervalues(), worker_fun=worker)
-            
+
 
     def activate_configs(self, configs_path, include, exclude, allow_reboot):
         """Activate the new configuration on a machine."""
 
         def worker(m):
             if not should_do(m, include, exclude): return
-            
+
             m.log("activating new configuration...")
 
             res = m.run_command(
@@ -371,22 +372,63 @@ class Deployment:
             if m.index != None and index <= m.index:
                 index = m.index + 1
         return index
-            
 
-    def deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
-               include=[], exclude=[], check=False, kill_obsolete=False,
-               allow_reboot=False, max_concurrent_copy=5):
-        """Perform the deployment defined by the deployment model."""
 
+    def get_backups(self, include=[], exclude=[]):
+        self.evaluate_active(include, exclude)
+        machine_backups = {}
+        for m in self.active.itervalues():
+            if should_do(m, include, exclude):
+                machine_backups[m.name] = m.get_backups()
+
+        # merging machine backups into network backups
+        backup_ids = [b for bs in machine_backups.values() for b in bs.keys()]
+        backups = {}
+        for backup_id in backup_ids:
+            backups[backup_id] = {}
+            backups[backup_id]['machines'] = {}
+            backups[backup_id]['status'] = 'complete'
+            for m in self.active.itervalues():
+                if should_do(m, include, exclude):
+                    backups[backup_id]['machines'][m.name] = machine_backups[m.name][backup_id]
+                    if backups[backup_id]['machines'][m.name]['status'] == 'incomplete':
+                        backups[backup_id]['status'] = 'incomplete'
+        return backups
+
+
+    def backup(self, include=[], exclude=[]):
+        self.evaluate_active(include, exclude)
+        backup_id = datetime.now().strftime("%Y%m%d%H%M%S");
+
+        def worker(m):
+            if not should_do(m, include, exclude): return
+            ssh_name = m.get_ssh_name()
+            res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + ["sync"])
+            if res != 0:
+                m.log("Running sync failed on {0}.".format(m.name))
+            m.backup(backup_id)
+
+        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+        self.write_state()
+
+    def restore(self, include=[], exclude=[], backup_id=None):
+        self.evaluate_active(include, exclude)
+        def worker(m):
+            if not should_do(m, include, exclude): return
+            m.restore(self.definitions[m.name], backup_id)
+
+        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+        self.deploy(include=include, exclude=exclude, check=True)
+
+    def evaluate_active(self, include=[], exclude=[]):
         self.evaluate()
-
         # Create state objects for all defined machines.
         for m in self.definitions.itervalues():
             if m.name not in self.machines:
                 self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, self._log_file)
 
         self.set_log_prefixes()
-        
+
         # Determine the set of active machines.  (We can't just delete
         # obsolete machines from ‘self.machines’ because they contain
         # important state that we don't want to forget about.)
@@ -399,13 +441,21 @@ class Deployment:
                 if not should_do(m, include, exclude): continue
                 if kill_obsolete and m.destroy(): self.delete_machine(m)
 
+
+    def deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
+               include=[], exclude=[], check=False, kill_obsolete=False,
+               allow_reboot=False, max_concurrent_copy=5):
+        """Perform the deployment defined by the deployment model."""
+
+        self.evaluate_active()
+
         # Assign each machine an index if it doesn't have one.
         for m in self.active.itervalues():
             if m.index == None:
                 m.index = self._get_free_machine_index()
-                
+
         self.set_log_prefixes()
-        
+
         # Start or update the active machines.
         if not dry_run and not build_only:
             def worker(m):
@@ -420,7 +470,7 @@ class Deployment:
             charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
 
         if create_only: return
-        
+
         # Build the machine configurations.
         if dry_run:
             self.build_configs(dry_run=True, include=include, exclude=exclude)
@@ -433,18 +483,18 @@ class Deployment:
         self.write_state()
 
         if build_only: return
-        
+
         # Copy the closures of the machine configurations to the
         # target machines.
         self.copy_closures(self.configs_path, include=include, exclude=exclude,
                            max_concurrent_copy=max_concurrent_copy)
 
         if copy_only: return
-        
+
         # Active the configurations.
         self.activate_configs(self.configs_path, include=include, exclude=exclude, allow_reboot=allow_reboot)
 
-            
+
     def destroy_vms(self, include=[], exclude=[]):
         """Destroy all current or obsolete VMs."""
 
@@ -453,7 +503,7 @@ class Deployment:
             if m.destroy(): self.delete_machine(m)
 
         charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.values(), worker_fun=worker)
-            
+
 
     def reboot_machines(self, include=[], exclude=[], wait=False):
         """Reboot all current or obsolete machines."""
@@ -476,7 +526,7 @@ class Deployment:
             m.stop()
 
         charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.itervalues(), worker_fun=worker)
-            
+
 
     def start_machines(self, include=[], exclude=[]):
         """Start all current or obsolete machines."""
