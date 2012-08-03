@@ -331,7 +331,7 @@ class Deployment:
             tasks=self.active.itervalues(), worker_fun=worker)
 
 
-    def activate_configs(self, configs_path, include, exclude, allow_reboot):
+    def activate_configs(self, configs_path, include, exclude, allow_reboot, check):
         """Activate the new configuration on a machine."""
 
         def worker(m):
@@ -346,8 +346,9 @@ class Deployment:
                     # Run the switch script.  This will also update the
                     # GRUB boot loader.  For performance, skip this step
                     # if the new config is already current.
-                    "cur=$(readlink /var/run/current-system); " +
-                    'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi",
+                    ("cur=$(readlink /run/current-system); " +
+                     'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi"
+                     if not check else "/nix/var/nix/profiles/system/bin/switch-to-configuration switch"),
                     check=False)
                 if res != 0 and res != 100:
                     raise Exception("unable to activate new configuration")
@@ -507,7 +508,8 @@ class Deployment:
         if copy_only: return
 
         # Active the configurations.
-        self.activate_configs(self.configs_path, include=include, exclude=exclude, allow_reboot=allow_reboot)
+        self.activate_configs(self.configs_path, include=include, exclude=exclude,
+                              allow_reboot=allow_reboot, check=check)
 
 
     def destroy_vms(self, include=[], exclude=[]):
