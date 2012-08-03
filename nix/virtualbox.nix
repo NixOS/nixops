@@ -35,7 +35,7 @@ with pkgs.lib;
 
   };
 
-  
+
   ###### implementation
 
   config = mkIf (config.deployment.targetEnv == "virtualbox") {
@@ -58,7 +58,7 @@ with pkgs.lib;
         # throw "Unsupported VirtualBox system type!"
         ""
     );
-        
+
   };
 
 }

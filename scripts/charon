@@ -208,6 +208,12 @@ def op_scp():
     sys.exit(res)
 
 
+def op_show_option():
+    depl = deployment.Deployment(args.state_file)
+    depl.load_state()
+    sys.stdout.write(depl.evaluate_option_value(args.machine, args.option, xml=args.xml))
+
+
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool')
 
@@ -305,6 +311,12 @@ subparser.set_defaults(op=op_restore)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
 subparser.add_argument('--backup-id', dest="backup_id", default=None, help='use specified backup in stead of latest')
+
+subparser = subparsers.add_parser('show-option', help='print the value of a configuration option')
+subparser.set_defaults(op=op_show_option)
+subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
+subparser.add_argument('option', metavar='OPTION', help='option name')
+subparser.add_argument('--xml', action='store_true', help='print the option value in XML format')
 
 
 # Parse the command line and execute the desired operation.

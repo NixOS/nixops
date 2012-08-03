@@ -186,7 +186,7 @@ class Deployment:
 
 
     def evaluate(self):
-        """Evaluate the Nix expressions belonging to this deployment into a deployment model."""
+        """Evaluate the Nix expressions belonging to this deployment into a deployment specification."""
 
         self.definitions = {}
 
@@ -215,6 +215,24 @@ class Deployment:
         for m in machines.findall("attr"):
             defn = charon.backends.create_definition(m)
             self.definitions[defn.name] = defn
+
+
+    def evaluate_option_value(self, machine_name, option_name, xml=False):
+        """Evaluate a single option of a single machine in the deployment specification."""
+
+        try:
+            return subprocess.check_output(
+                ["nix-instantiate", "-I", "charon=" + self.expr_path]
+                + self._eval_flags() +
+                ["--eval-only", "--show-trace", "--strict",
+                 "<charon/eval-machine-info.nix>",
+                 "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
+                 "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
+                + (["--xml"] if xml else []),
+                stderr=self._log_file)
+        except subprocess.CalledProcessError:
+            raise NixEvalError
+
 
 
     def get_physical_spec(self):
@@ -438,6 +456,7 @@ class Deployment:
 
     def evaluate_active(self, include=[], exclude=[]):
         self.evaluate()
+        
         # Create state objects for all defined machines.
         for m in self.definitions.itervalues():
             if m.name not in self.machines:
@@ -461,7 +480,7 @@ class Deployment:
     def deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
                include=[], exclude=[], check=False, kill_obsolete=False,
                allow_reboot=False, max_concurrent_copy=5):
-        """Perform the deployment defined by the deployment model."""
+        """Perform the deployment defined by the deployment specification."""
 
         self.evaluate_active()
 

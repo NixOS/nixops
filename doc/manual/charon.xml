@@ -991,4 +991,45 @@ $ charon restore --backup-id 20120803151302</screen>
 </refsection>
 
 
+<refsection><title>Command <option>charon show-option</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon show-option</command>
+  <arg><option>--xml</option></arg>
+  <arg choice='plain'><replaceable>machine</replaceable></arg>
+  <arg choice='plain'><replaceable>option</replaceable></arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command prints the value of the specified NixOS
+configuration option for the specified machine.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<screen>
+$ charon show-option machine services.xserver.enable
+false
+
+$ charon show-option --xml machine boot.initrd.availableKernelModules
+&lt;?xml version='1.0' encoding='utf-8'?>
+&lt;expr>
+  &lt;list>
+    &lt;string value="md_mod" />
+    &lt;string value="raid0" />
+    <replaceable>…</replaceable>
+  &lt;/list>
+&lt;/expr>
+</screen>
+
+</refsection>
+
+</refsection>
+
+
 </refentry>
