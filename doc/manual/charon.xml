@@ -254,6 +254,10 @@ $ charon -s ./state.json deploy</screen>
     <option>-I</option>
     <replaceable>path</replaceable>
   </arg>
+  <arg>
+    <option>--max-concurrent-copy</option>
+    <replaceable>N</replaceable>
+  </arg>
 </cmdsynopsis>
 
 </refsection>
@@ -368,6 +372,15 @@ them.</para>
 
   </varlistentry>
 
+  <varlistentry><term><option>--max-concurrent-copy</option> <replaceable>N</replaceable></term>
+
+    <listitem><para>Use at most <replaceable>N</replaceable>
+    concurrent <command>nix-copy-closure</command> processes to deploy
+    closures to the target machines.  <replaceable>N</replaceable>
+    defaults to 5.</para></listitem>
+
+  </varlistentry>
+    
 </variablelist>
 
 </refsection>
