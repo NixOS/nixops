@@ -13,13 +13,16 @@ in
   jobs."get-vbox-charon-client-key" =
     { task = true;
       path = [ config.boot.kernelPackages.virtualboxGuestAdditions ];
-      exec =
+      script =
         ''
+          set -o pipefail
           VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/Charon/ClientPublicKey | sed 's/Value: //' > ${clientKeyPath}
         '';
     } // (if config.system.build ? systemd then {
-      wantedBy = [ "sshd.service" ];
+      wantedBy = [ "multi-user.target" ];
       before = [ "sshd.service" ];
+      requires = [ "dev-vboxguest.device" ];
+      after = [ "dev-vboxguest.device" ];
     } else {
       startOn = "starting sshd";
     });
