@@ -1,5 +1,6 @@
 { system ? builtins.currentSystem
 , networkExprs
+, checkConfigurationOptions ? true
 }:
 
 with import <nixos/lib/testing.nix> { inherit system; };
@@ -13,7 +14,7 @@ rec {
   network = zipAttrs networks;
 
   defaults = network.defaults or [];
-  
+
   nodes =
     listToAttrs (map (machineName:
       let
@@ -31,7 +32,7 @@ rec {
                 # to the attribute name of the machine in the model.
                 networking.hostName = mkOverride 900 machineName;
                 deployment.targetHost = mkOverride 900 machineName;
-                environment.checkConfigurationOptions = false; # should only do this in phase 1
+                environment.checkConfigurationOptions = checkConfigurationOptions;
               }
             ];
           extraArgs = { inherit nodes; };
@@ -41,7 +42,7 @@ rec {
 
   # Phase 1: evaluate only the deployment attributes.
   info = {
-  
+
     machines =
       flip mapAttrs nodes (n: v:
         { inherit (v.config.deployment) targetEnv targetHost encryptedLinksTo;
@@ -58,9 +59,9 @@ rec {
 
   };
 
-  # Phase 2: build complete machine configurations.  
+  # Phase 2: build complete machine configurations.
   machines = { names }:
-    let nodes' = filterAttrs (n: v: elem n names) nodes; in 
+    let nodes' = filterAttrs (n: v: elem n names) nodes; in
     runCommand "vms"
       { preferLocalBuild = true; }
       ''

@@ -196,6 +196,7 @@ class Deployment:
                 + self._eval_flags() +
                 ["--eval-only", "--show-trace", "--xml", "--strict",
                  "<charon/eval-machine-info.nix>",
+                 "--arg", "checkConfigurationOptions", "false",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
                  "-A", "info"], stderr=self._log_file)
         except subprocess.CalledProcessError:
