@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import os.path
 import sys
 import re
 import time
@@ -44,6 +45,7 @@ class EC2Definition(MachineDefinition):
                     'passphrase': xml.find("attrs/attr[@name='passphrase']/string").get("value")}
         self.block_device_mapping = {_xvd_to_sd(k.get("name")): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
         self.elastic_ipv4 = x.find("attr[@name='elasticIPv4']/string").get("value")
+        self.store_keys_on_root_disk = x.find("attr[@name='storeKeysOnRootDisk']/bool").get("value") == "true"
 
 
 class EC2State(MachineState):
@@ -640,6 +642,19 @@ class EC2State(MachineState):
                 v['generatedKey'] = charon.util.generate_random_string(length=256)
                 self.write()
 
+        if not defn.store_keys_on_root_disk:
+            for k, v in self._block_device_mapping.items():
+                if v.get('encrypt', False):
+                    key = v['passphrase'] or v['generatedKey']
+                    device = _sd_to_xvd(k)
+                    self.log("uploading key for device ‘{0}’".format(device))
+                    # FIXME: optimise this
+                    self.run_command("mkdir -m 0700 -p /run/ebs-keys/{0}".format(os.path.dirname(device)))
+                    tmp = self.depl.tempdir + "/ebs-key-" + self.name
+                    f = open(tmp, "w+"); f.write(key); f.close()
+                    self.upload_file(tmp, "/run/ebs-keys/" + device)
+                    os.remove(tmp)
+
 
     def _delete_volume(self, volume_id):
         if not self.depl.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
@@ -720,10 +735,12 @@ class EC2State(MachineState):
         if prev_private_ipv4 != self._private_ipv4 or prev_public_ipv4 != self._public_ipv4:
             self.warn("IP address has changed, you may need to run ‘charon deploy’")
 
+
     def reboot(self):
         self.log("rebooting EC2 machine... ")
         instance = self._get_instance_by_id(self._instance_id)
         instance.reboot()
+
 
 def _xvd_to_sd(dev):
     return dev.replace("/dev/xvd", "/dev/sd")

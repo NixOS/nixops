@@ -9,9 +9,9 @@ let
   cfg = config.deployment.ec2;
 
   ec2DiskOptions = { config, ... }: {
-  
+
     options = {
-      
+
       disk = mkOption {
         default = "";
         example = "vol-d04895b8";
@@ -104,7 +104,7 @@ let
     if builtins.substring 0 12 dev == "/dev/mapper/"
     then "/dev/" + builtins.substring 12 100 dev
     else dev;
-  
+
 in
 
 {
@@ -273,6 +273,18 @@ in
       '';
     };
 
+    deployment.ec2.storeKeysOnRootDisk = mkOption {
+      default = true;
+      type = types.bool;
+      description = ''
+        If true (default), EBS encryption keys are stored on the root
+        volume, allowing the machine to do unattended reboots.  If
+        false, keys are not stored; Charon supplies them to the
+        instance at mount time.  This means that a reboot cannot
+        finish until you run <command>charon deploy</command>.
+      '';
+    };
+
     fileSystems = mkOption {
       options = {
         ec2 = mkOption {
@@ -291,11 +303,11 @@ in
 
   };
 
-      
+
   ###### implementation
 
   config = mkIf (config.deployment.targetEnv == "ec2") {
-  
+
     boot.loader.grub.extraPerEntryConfig = mkIf isEc2Hvm ( mkOverride 10 "root (hd0,0)" );
 
     deployment.ec2.controller = mkDefault "https://ec2.${cfg.region}.amazonaws.com/";
@@ -336,10 +348,21 @@ in
             ${concatStrings (attrValues (flip mapAttrs cfg.blockDeviceMapping (name: dev:
               # FIXME: The key file should be marked as private once
               # https://github.com/NixOS/nix/issues/8 is fixed.
-              let keyFile = pkgs.writeText "luks-key" dev.passphrase; in
-              optionalString dev.encrypt (assert dev.passphrase != ""; ''
+              let
+
+                keyFile =
+                  if cfg.storeKeysOnRootDisk
+                  then pkgs.writeText "luks-key" dev.passphrase
+                  else "/run/ebs-keys/${name}";
+
+              in optionalString dev.encrypt (assert dev.passphrase != ""; ''
+
+                while ! [ -e ${keyFile} ]; do
+                  sleep 1
+                done
+
                 if [ -e "${name}" ]; then
-                
+
                   # Do LUKS formatting if the device is empty.  FIXME:
                   # this check is kinda dangerous.  For EC2 we could
                   # just check if the first sector is empty.
@@ -353,7 +376,7 @@ in
 
                 base="$(basename "${name}")"
                 if [ ! -e "/dev/mapper/$base" ]; then
-                
+
                   # Activate the LUKS device.
                   cryptsetup luksOpen "${name}" "$base" --key-file=${keyFile}
 

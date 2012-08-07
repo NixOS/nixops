@@ -266,7 +266,7 @@ class MachineState:
     def run_command(self, command, check=True, capture_stdout=False, stdin_string=None):
         """Execute a command on the machine via SSH."""
         self._open_ssh_master()
-        cmdline = ["ssh", "-x", "root@" + self.get_ssh_name()] + self._ssh_master_opts + self.get_ssh_flags() + [command];
+        cmdline = ["ssh", "-x", "root@" + self.get_ssh_name()] + self._ssh_master_opts + self.get_ssh_flags() + [command]
         return self._logged_exec(cmdline, check=check, capture_stdout=capture_stdout, stdin_string=stdin_string)
 
     def _create_key_pair(self, key_name="Charon auto-generated key"):
@@ -308,6 +308,12 @@ class MachineState:
         if res != 0: raise Exception("unable to upload VPN key to ‘{0}’".format(self.name))
         self._public_vpn_key = public
         self.write()
+
+    def upload_file(self, source, target):
+        self._open_ssh_master()
+        # FIXME: use ssh master
+        cmdline = ["scp"] +  self.get_ssh_flags() + [source, "root@" + self.get_ssh_name() + ":" + target]
+        return self._logged_exec(cmdline)
 
 
 import charon.backends.none
