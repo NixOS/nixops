@@ -273,18 +273,6 @@ in
       '';
     };
 
-    deployment.ec2.storeKeysOnRootDisk = mkOption {
-      default = true;
-      type = types.bool;
-      description = ''
-        If true (default), EBS encryption keys are stored on the root
-        volume, allowing the machine to do unattended reboots.  If
-        false, keys are not stored; Charon supplies them to the
-        instance at mount time.  This means that a reboot cannot
-        finish until you run <command>charon deploy</command>.
-      '';
-    };
-
     fileSystems = mkOption {
       options = {
         ec2 = mkOption {
@@ -351,7 +339,7 @@ in
               let
 
                 keyFile =
-                  if cfg.storeKeysOnRootDisk
+                  if config.deployment.storeKeysOnMachine
                   then pkgs.writeText "luks-key" dev.passphrase
                   else "/run/ebs-keys/${name}";
 

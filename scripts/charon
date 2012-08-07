@@ -118,6 +118,12 @@ def op_deploy():
                     max_concurrent_copy=args.max_concurrent_copy)
 
 
+def op_send_keys():
+    depl = deployment.Deployment(args.state_file)
+    depl.load_state()
+    depl.send_keys(include=args.include or [], exclude=args.exclude or [])
+
+
 def op_destroy():
     depl = deployment.Deployment(args.state_file)
     with depl:
@@ -251,6 +257,11 @@ subparser.add_argument('--check', action='store_true', help='do not assume that 
 subparser.add_argument('--allow-reboot', action='store_true', help='reboot machines if necessary')
 subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='append a directory to the Nix search path')
 subparser.add_argument('--max-concurrent-copy', type=int, default=5, metavar='N', help='maximum number of concurrent nix-copy-closure processes')
+
+subparser = subparsers.add_parser('send-keys', help='send encryption keys')
+subparser.set_defaults(op=op_send_keys)
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='send keys to only the specified machines')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='send keys to all except the specified machines')
 
 subparser = subparsers.add_parser('destroy', help='destroy all virtual machines in the network')
 subparser.set_defaults(op=op_destroy)

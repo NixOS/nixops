@@ -62,7 +62,20 @@ in
       '';
     };
 
-    
+    deployment.storeKeysOnMachine = mkOption {
+      default = true;
+      type = types.bool;
+      description = ''
+        If true (default), LUKS encryption keys are stored on the root
+        disk of the machine, allowing the machine to do unattended
+        reboots.  If false, keys are not stored; Charon supplies them
+        to the machine at mount time.  This means that a reboot will
+        not complete entirely until you run <command>charon
+        deploy</command> or <command>charon send-keys</command>.
+      '';
+    };
+
+
     # Ad hoc cloud options.
 
     deployment.adhoc.controller = mkOption {

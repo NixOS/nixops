@@ -502,6 +502,7 @@ class Deployment:
                                     .format(m.name, m.get_type(), defn.get_type()))
                 m.create(self.definitions[m.name], check=check, allow_reboot=allow_reboot)
                 m.wait_for_ssh(check=check)
+                m.send_keys()
                 m.generate_vpn_key()
             charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
 
@@ -592,6 +593,16 @@ class Deployment:
         machine = self._machine_state.pop(name)
         self._machine_state[new_name] = machine
         self.write_state()
+
+
+    def send_keys(self, include=[], exclude=[]):
+        """Send LUKS encryption keys to machines."""
+
+        def worker(m):
+            if not should_do(m, include, exclude): return
+            m.send_keys()
+
+        charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.itervalues(), worker_fun=worker)
 
 
 class NixEvalError(Exception):

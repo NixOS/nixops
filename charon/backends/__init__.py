@@ -21,6 +21,7 @@ class MachineDefinition:
         self.name = xml.get("name")
         assert self.name
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
+        self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
 
 
 class MachineState:
@@ -39,6 +40,7 @@ class MachineState:
         self._ssh_master_started = False
         self._ssh_master_opts = []
         self._public_vpn_key = None
+        self._store_keys_on_machine = True
         self.index = None
         self._log_file = log_file
         self.set_log_prefix(0)
@@ -86,6 +88,7 @@ class MachineState:
         if self.cur_toplevel: x['toplevel'] = self.cur_toplevel
         if self._ssh_pinged: x['sshPinged'] = self._ssh_pinged
         if self._public_vpn_key: x['publicVpnKey'] = self._public_vpn_key
+        x['storeKeysOnMachine'] = self._store_keys_on_machine
         if self.index != None: x['index'] = self.index
         return x
 
@@ -95,6 +98,7 @@ class MachineState:
         self.cur_toplevel = x.get('toplevel', None)
         self._ssh_pinged = x.get('sshPinged', False)
         self._public_vpn_key = x.get('publicVpnKey', None)
+        self._store_keys_on_machine = x.get('storeKeysOnMachine', True)
         self.index = x.get('index', None)
 
     def destroy(self):
@@ -133,6 +137,9 @@ class MachineState:
         self.log_continue("[down]")
         charon.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
         self.log_end("[up]")
+
+    def send_keys(self):
+        pass
 
     def get_ssh_name(self):
         assert False
