@@ -137,6 +137,9 @@ class MachineState:
         self.log_continue("[down]")
         charon.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
         self.log_end("[up]")
+        self._ssh_pinged = True
+        self._ssh_pinged_this_time = True
+        self.send_keys()
 
     def send_keys(self):
         pass
