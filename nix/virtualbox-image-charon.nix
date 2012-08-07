@@ -20,7 +20,7 @@ in
         '';
     } // (if config.system.build ? systemd then {
       wantedBy = [ "multi-user.target" ];
-      before = [ "get-vbox-charon-client-key.service" ];
+      before = [ "set-ssh-keys.service" ];
       requires = [ "dev-vboxguest.device" ];
       after = [ "dev-vboxguest.device" ];
     } else {
