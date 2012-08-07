@@ -54,6 +54,7 @@ def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
     n = 0
     while True:
         if ping_tcp_port(ip, port, ensure_timeout=True) == open: return True
+        if not open: time.sleep(1)
         n = n + 1
         if timeout != -1 and n >= timeout: break
         if callback: callback()
