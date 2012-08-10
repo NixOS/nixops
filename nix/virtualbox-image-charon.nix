@@ -11,12 +11,12 @@ in
   services.openssh.enable = true;
 
   jobs."get-vbox-charon-client-key" =
-    { task = true;
-      path = [ config.boot.kernelPackages.virtualboxGuestAdditions ];
-      script =
+    { path = [ config.boot.kernelPackages.virtualboxGuestAdditions ];
+      preStart =
         ''
           set -o pipefail
-          VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/Charon/ClientPublicKey | sed 's/Value: //' > ${clientKeyPath}
+          VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/Charon/ClientPublicKey | sed 's/Value: //' > ${clientKeyPath}.tmp
+          mv ${clientKeyPath}.tmp ${clientKeyPath}
         '';
     } // (if config.system.build ? systemd then {
       wantedBy = [ "multi-user.target" ];
