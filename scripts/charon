@@ -91,9 +91,13 @@ def op_backup():
 
             print "Network UUID:", depl.uuid
             print "Network description:", depl.description
-            tbl = PrettyTable(["Backup ID", "Status"])
+            tbl = PrettyTable(["Backup ID", "Status", "Info"])
             for k, v in sorted(backups.items(), reverse=True):
-                tbl.add_row([k,v['status']])
+                fst = v['info'][0] if len(v['info']) > 0 else ""
+                tbl.add_row([k,v['status'], fst])
+                for i in v['info'][1:]:
+                    tbl.add_row(["", "", i])
+
             print tbl
         else:
             depl.backup(include=args.include or [], exclude=args.exclude or [])

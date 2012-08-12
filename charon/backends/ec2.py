@@ -276,16 +276,27 @@ class EC2State(MachineState):
         for b_id, b in self._backups.items():
             backups[b_id] = {}
             backup_complete = True
+            info = []
             for k, v in self._block_device_mapping.items():
                 if not k in b.keys():
                     backup_complete = False
+                    info.append("{0} - {1} - Not available in backup".format(self.name, k))
                 else:
                     snapshot_id = b[k]
-                    snapshot = self._get_snapshot_by_id(snapshot_id)
-                    if snapshot.update() != '100%':
+                    try:
+                        snapshot = self._get_snapshot_by_id(snapshot_id)
+                        snapshot_status = snapshot.update()
+                        if snapshot_status != '100%':
+                            info.append("progress[{0},{1},{2}] = {3}%.".format(self.name, k, snapshot_id, snapshot_status))
+                            backup_complete = False
+                    except:
+                        info.append("{0} - {1} - {2} - Snapshot has disappeared.".format(self.name, k, snapshot_id))
                         backup_complete = False
 
+
+
                 backups[b_id]['status'] = 'complete' if backup_complete else 'incomplete'
+                backups[b_id]['info'] = info
         return backups
 
     def backup(self, backup_id):

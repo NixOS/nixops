@@ -420,10 +420,12 @@ class Deployment:
         for backup_id in backup_ids:
             backups[backup_id] = {}
             backups[backup_id]['machines'] = {}
+            backups[backup_id]['info'] = []
             backups[backup_id]['status'] = 'complete'
             for m in self.active.itervalues():
                 if should_do(m, include, exclude):
                     backups[backup_id]['machines'][m.name] = machine_backups[m.name][backup_id]
+                    backups[backup_id]['info'].extend(backups[backup_id]['machines'][m.name]['info'])
                     if backups[backup_id]['machines'][m.name]['status'] == 'incomplete':
                         backups[backup_id]['status'] = 'incomplete'
         return backups
@@ -457,7 +459,7 @@ class Deployment:
 
     def evaluate_active(self, include=[], exclude=[]):
         self.evaluate()
-        
+
         # Create state objects for all defined machines.
         for m in self.definitions.itervalues():
             if m.name not in self.machines:
