@@ -34,6 +34,7 @@ class MachineState:
     UP=3 # machine is reachable
     STOPPING=4 # shutdown initiated
     STOPPED=5 # machine is down
+    UNREACHABLE=6 # machine should be up, but is unreachable
 
     @classmethod
     def get_type(cls):
@@ -138,7 +139,7 @@ class MachineState:
         if avg == None:
             self.log_end("unreachable")
             if self._state == self.UP:
-                self._state = self.UNKNOWN
+                self._state = self.UNREACHABLE
                 self.write()
         else:
             self.log_end("up [{0} {1} {2}]".format(avg[0], avg[1], avg[2]))
@@ -200,6 +201,7 @@ class MachineState:
         elif self._state == self.UP: return "Up"
         elif self._state == self.STOPPING: return "Stopping"
         elif self._state == self.STOPPED: return "Stopped"
+        elif self._state == self.UNREACHABLE: return "Unreachable"
 
     @property
     def vm_id(self):
