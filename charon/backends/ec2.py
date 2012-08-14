@@ -363,6 +363,8 @@ class EC2State(MachineState):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
 
+        if self._state != self.UP: check = True
+
         # Figure out the access key.
         self._access_key_id = defn.access_key_id or os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
         if not self._access_key_id:

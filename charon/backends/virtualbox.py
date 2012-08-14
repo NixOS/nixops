@@ -162,6 +162,8 @@ class VirtualBoxState(MachineState):
     def create(self, defn, check, allow_reboot):
         assert isinstance(defn, VirtualBoxDefinition)
 
+        if self._state != self.UP: check = True
+
         if not self._vm_id:
             self.log("creating VirtualBox VM...")
 
