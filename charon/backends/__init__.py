@@ -143,6 +143,8 @@ class MachineState:
         else:
             self.log_end("up [{0} {1} {2}]".format(avg[0], avg[1], avg[2]))
             self._state = self.UP
+            self._ssh_pinged = True
+            self._ssh_pinged_this_time = True
             self.write()
 
     def restore(self, defn, backup_id):
