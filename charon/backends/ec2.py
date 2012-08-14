@@ -61,6 +61,7 @@ class EC2State(MachineState):
         self._reset_state()
 
     def _reset_state(self):
+        self._state = self.MISSING
         self._region = None
         self._zone = None
         self._controller = None
@@ -78,7 +79,6 @@ class EC2State(MachineState):
         self._block_device_mapping = {}
         self._public_host_key = False
         self._root_device_type = None
-        self._state = None
         self._backups = {}
 
 
@@ -400,6 +400,9 @@ class EC2State(MachineState):
 
                 instance.start()
 
+                self._state = self.STARTING
+                self.write()
+
         # Start the instance.
         if not self._instance_id:
             self.log("creating EC2 instance (AMI ‘{0}’, type ‘{1}’, region ‘{2}’)...".format(
@@ -464,6 +467,7 @@ class EC2State(MachineState):
 
             instance = reservation.instances[0]
 
+            self._state = self.STARTING
             self._instance_id = instance.id
             self._controller = defn.controller
             self._ami = defn.ami
@@ -704,6 +708,9 @@ class EC2State(MachineState):
         instance = self._get_instance_by_id(self._instance_id)
         instance.stop() # no-op if the machine is already stopped
 
+        self._state = self.STOPPING
+        self.write()
+
         # Wait until it's really stopped.
         while True:
             self.log_continue("({0}) ".format(instance.state))
@@ -716,6 +723,9 @@ class EC2State(MachineState):
             instance.update()
         self.log_end("")
 
+        self._state = self.STOPPED
+        self.write()
+
 
     def start(self):
         if not self._booted_from_ebs(): return
@@ -724,6 +734,9 @@ class EC2State(MachineState):
 
         instance = self._get_instance_by_id(self._instance_id)
         instance.start() # no-op if the machine is already started
+
+        self._state = self.STARTING
+        self.write()
 
         # Wait until it's really started, and obtain its new IP
         # address.  Warn the user if the IP address has changed (which
@@ -736,11 +749,35 @@ class EC2State(MachineState):
         if prev_private_ipv4 != self._private_ipv4 or prev_public_ipv4 != self._public_ipv4:
             self.warn("IP address has changed, you may need to run ‘charon deploy’")
 
+        self.wait_for_ssh(check=True)
+
+
+    def check(self):
+        self.connect()
+        instance = self._get_instance_by_id(self._instance_id, allow_missing=True)
+        old_state = self._state
+        if instance is None or instance.state in {"shutting-down", "terminated"}:
+            self._state = self.MISSING
+        elif instance.state == "pending":
+            self._state = self.STARTING
+        elif instance.state == "running":
+            # FIXME - could be starting
+            # FIXME - check IP address
+            self._state = self.UP
+        elif instance.state == "stopping":
+            self._state = self.STOPPING
+        elif instance.state == "stopped":
+            self._state = self.STOPPED
+        if old_state != self._state:
+            self.write()
+
 
     def reboot(self):
         self.log("rebooting EC2 machine... ")
         instance = self._get_instance_by_id(self._instance_id)
         instance.reboot()
+        self._state = self.STARTING
+        self.write()
 
 
     def send_keys(self):

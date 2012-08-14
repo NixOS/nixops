@@ -27,6 +27,14 @@ class MachineDefinition:
 class MachineState:
     """Base class for Charon backends machine states."""
 
+    # Valid values for self._state.
+    UNKNOWN=0 # state unknown
+    MISSING=1 # instance destroyed or not yet created
+    STARTING=2 # boot initiated
+    UP=3 # machine is reachable
+    STOPPING=4 # shutdown initiated
+    STOPPED=5 # machine is down
+
     @classmethod
     def get_type(cls):
         assert False
@@ -35,6 +43,7 @@ class MachineState:
         self.name = name
         self.depl = depl
         self.created = False
+        self._state = self.UNKNOWN
         self._ssh_pinged = False
         self._ssh_pinged_this_time = False
         self._ssh_master_started = False
@@ -83,7 +92,7 @@ class MachineState:
 
     def serialise(self):
         """Return a dictionary suitable for representing the on-disk state of this machine."""
-        x = {'targetEnv': self.get_type()}
+        x = {'targetEnv': self.get_type(), 'state': self._state}
         if self.cur_configs_path: x['vmsPath'] = self.cur_configs_path
         if self.cur_toplevel: x['toplevel'] = self.cur_toplevel
         if self._ssh_pinged: x['sshPinged'] = self._ssh_pinged
@@ -94,6 +103,7 @@ class MachineState:
 
     def deserialise(self, x):
         """Deserialise the state from the given dictionary."""
+        self._state = x.get('state', self.UNKNOWN)
         self.cur_configs_path = x.get('vmsPath', None)
         self.cur_toplevel = x.get('toplevel', None)
         self._ssh_pinged = x.get('sshPinged', False)
@@ -114,6 +124,23 @@ class MachineState:
         """Start this machine, if possible."""
         pass
 
+    def check(self):
+        """Check machine state."""
+        if self._state == self.MISSING: return
+        sys.stderr.write("{0}... ".format(self.name))
+        try:
+            avg = subprocess.check_output(
+                ["ssh", "-v", "root@" + self.get_ssh_name()] + self.get_ssh_flags() + ["cat /proc/loadavg"],
+                stderr=charon.util.devnull).rstrip().split(' ')
+            sys.stderr.write("ok [{0} {1} {2}]\n".format(avg[0], avg[1], avg[2]))
+            self._state = self.UP
+            self.write()
+        except subprocess.CalledProcessError:
+            sys.stderr.write("fail\n")
+            if self._state == self.UP:
+                self._state = self.UNKNOWN
+                self.write()
+
     def restore(self, defn, backup_id):
         """Stop this machine, if possible."""
         self.warn("don't know how to restore disks from backup for machine ‘{0}’".format(self.name))
@@ -128,6 +155,8 @@ class MachineState:
         # The sleep is to prevent the reboot from causing the SSH
         # session to hang.
         self.run_command("(sleep 2; reboot) &")
+        self._state = self.STARTING
+        self.write()
 
     def reboot_sync(self):
         """Reboot this machine and wait until it's up again."""
@@ -137,8 +166,10 @@ class MachineState:
         self.log_continue("[down]")
         charon.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
         self.log_end("[up]")
+        self._state = self.UP
         self._ssh_pinged = True
         self._ssh_pinged_this_time = True
+        self.write()
         self.send_keys()
 
     def send_keys(self):
@@ -155,6 +186,14 @@ class MachineState:
 
     def show_type(self):
         return self.get_type()
+
+    def show_state(self):
+        if self._state == self.UNKNOWN: return "Unknown"
+        elif self._state == self.MISSING: return "Missing"
+        elif self._state == self.STARTING: return "Starting"
+        elif self._state == self.UP: return "Up"
+        elif self._state == self.STOPPING: return "Stopping"
+        elif self._state == self.STOPPED: return "Stopped"
 
     @property
     def vm_id(self):
@@ -180,6 +219,7 @@ class MachineState:
         self.log_start("waiting for SSH...")
         charon.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
         self.log_end("")
+        self._state = self.UP
         self._ssh_pinged = True
         self._ssh_pinged_this_time = True
         self.write()

@@ -32,7 +32,7 @@ def op_info():
             sys.stderr.write(charon.util.ansi_warn("warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"))
 
     def state(d, m):
-        return (("Up" if depl.configs_path == m.cur_configs_path else "Outdated") if m else "New") if d else "Obsolete"
+        return (("Up-to-date" if depl.configs_path == m.cur_configs_path else "Outdated") if m else "New") if d else "Obsolete"
 
     if args.plain:
         for name in set(depl.definitions.keys()) | set(depl.machines.keys()):
@@ -59,7 +59,7 @@ def op_info():
             m = depl.machines.get(name)
             tbl.add_row(
                 [name,
-                 state(d, m),
+                 "{0} / {1}".format(m.show_state() if m else "Missing", state(d, m)),
                  m.show_type() if m else (d.get_type() + (" [{0}]".format(d.region) if hasattr(d, 'region') and d.region else "")),
                  m.vm_id or "" if m else "",
                  m.public_ipv4 or m.private_ipv4 or "" if m else ""
@@ -70,17 +70,9 @@ def op_info():
 
 def op_check():
     depl = deployment.Deployment(args.state_file)
-    depl.load_state()
-    fnull = open(os.devnull, 'w')
-    for m in depl.machines.itervalues():
-        sys.stderr.write("{0}... ".format(m.name))
-        try:
-            avg = subprocess.check_output(
-                ["ssh", "-v", "root@" + m.get_ssh_name()] + m.get_ssh_flags() + ["cat /proc/loadavg"],
-                stderr=fnull).rstrip().split(' ')
-            sys.stderr.write("ok [{0} {1} {2}]\n".format(avg[0], avg[1], avg[2]))
-        except subprocess.CalledProcessError:
-            sys.stderr.write("fail\n")
+    with depl:
+        for m in depl.machines.itervalues():
+            m.check()
 
 
 def op_backup():
