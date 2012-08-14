@@ -299,6 +299,7 @@ class EC2State(MachineState):
                 backups[b_id]['info'] = info
         return backups
 
+
     def backup(self, backup_id):
         self.connect()
 
@@ -315,6 +316,7 @@ class EC2State(MachineState):
             backup[k] = snapshot.id
         self._backups[backup_id] = backup
         self.write()
+
 
     def restore(self, defn, backup_id):
         self.connect()
@@ -756,14 +758,14 @@ class EC2State(MachineState):
         self.connect()
         instance = self._get_instance_by_id(self._instance_id, allow_missing=True)
         old_state = self._state
+        self.log("instance state is ‘{0}’".format(instance.state if instance else "gone"))
         if instance is None or instance.state in {"shutting-down", "terminated"}:
             self._state = self.MISSING
         elif instance.state == "pending":
             self._state = self.STARTING
         elif instance.state == "running":
-            # FIXME - could be starting
             # FIXME - check IP address
-            self._state = self.UP
+            MachineState.check(self)
         elif instance.state == "stopping":
             self._state = self.STOPPING
         elif instance.state == "stopped":

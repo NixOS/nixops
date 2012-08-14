@@ -124,22 +124,26 @@ class MachineState:
         """Start this machine, if possible."""
         pass
 
+    def get_load_avg(self):
+        """Get the load averages on the machine."""
+        try:
+            return self.run_command("cat /proc/loadavg", capture_stdout=True, timeout=15).rstrip().split(' ')
+        except SSHCommandFailed:
+            return None
+
     def check(self):
         """Check machine state."""
-        if self._state == self.MISSING: return
-        sys.stderr.write("{0}... ".format(self.name))
-        try:
-            avg = subprocess.check_output(
-                ["ssh", "-v", "root@" + self.get_ssh_name()] + self.get_ssh_flags() + ["cat /proc/loadavg"],
-                stderr=charon.util.devnull).rstrip().split(' ')
-            sys.stderr.write("ok [{0} {1} {2}]\n".format(avg[0], avg[1], avg[2]))
-            self._state = self.UP
-            self.write()
-        except subprocess.CalledProcessError:
-            sys.stderr.write("fail\n")
+        self.log_start("pinging SSH... ")
+        avg = self.get_load_avg()
+        if avg == None:
+            self.log_end("unreachable")
             if self._state == self.UP:
                 self._state = self.UNKNOWN
                 self.write()
+        else:
+            self.log_end("up [{0} {1} {2}]".format(avg[0], avg[1], avg[2]))
+            self._state = self.UP
+            self.write()
 
     def restore(self, defn, backup_id):
         """Stop this machine, if possible."""
@@ -310,13 +314,16 @@ class MachineState:
 
         if stdin_string != None: process.stdin.close()
         if check and res != 0:
-            raise Exception("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
+            raise SSHCommandFailed("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
         return stdout if capture_stdout else res
 
-    def run_command(self, command, check=True, capture_stdout=False, stdin_string=None):
+    def run_command(self, command, check=True, capture_stdout=False, stdin_string=None, timeout=None):
         """Execute a command on the machine via SSH."""
         self._open_ssh_master()
-        cmdline = ["ssh", "-x", "root@" + self.get_ssh_name()] + self._ssh_master_opts + self.get_ssh_flags() + [command]
+        cmdline = (
+            ["ssh", "-x", "root@" + self.get_ssh_name()] +
+            (["-o", "ConnectTimeout={0}".format(timeout)] if timeout else []) +
+            self._ssh_master_opts + self.get_ssh_flags() + [command])
         return self._logged_exec(cmdline, check=check, capture_stdout=capture_stdout, stdin_string=stdin_string)
 
     def _create_key_pair(self, key_name="Charon auto-generated key"):
@@ -364,6 +371,10 @@ class MachineState:
         # FIXME: use ssh master
         cmdline = ["scp"] +  self.get_ssh_flags() + [source, "root@" + self.get_ssh_name() + ":" + target]
         return self._logged_exec(cmdline)
+
+
+class SSHCommandFailed(Exception):
+    pass
 
 
 import charon.backends.none
