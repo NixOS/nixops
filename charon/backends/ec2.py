@@ -764,7 +764,11 @@ class EC2State(MachineState):
         elif instance.state == "pending":
             self._state = self.STARTING
         elif instance.state == "running":
-            # FIXME - check IP address
+            if self._private_ipv4 != instance.private_ip_address or self._public_ipv4 != instance.ip_address:
+                self.warn("IP address has changed, you may need to run ‘charon deploy’")
+                self._private_ipv4 = instance.private_ip_address
+                self._public_ipv4 = instance.ip_address
+                self.write()
             MachineState.check(self)
         elif instance.state == "stopping":
             self._state = self.STOPPING
