@@ -457,7 +457,7 @@ class Deployment:
         self.deploy(include=include, exclude=exclude, check=True)
 
 
-    def evaluate_active(self, include=[], exclude=[]):
+    def evaluate_active(self, include=[], exclude=[], kill_obsolete=False):
         self.evaluate()
 
         # Create state objects for all defined machines.
@@ -485,7 +485,7 @@ class Deployment:
                allow_reboot=False, max_concurrent_copy=5):
         """Perform the deployment defined by the deployment specification."""
 
-        self.evaluate_active()
+        self.evaluate_active(include, exclude, kill_obsolete)
 
         # Assign each machine an index if it doesn't have one.
         for m in self.active.itervalues():
