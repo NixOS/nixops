@@ -11,7 +11,8 @@ in
   services.openssh.enable = true;
 
   jobs."get-vbox-charon-client-key" =
-    { path = [ config.boot.kernelPackages.virtualboxGuestAdditions ];
+    { description = "Get Charon SSH Key";
+      path = [ config.boot.kernelPackages.virtualboxGuestAdditions ];
       preStart =
         ''
           set -o pipefail
