@@ -422,12 +422,14 @@ class Deployment:
             backups[backup_id]['machines'] = {}
             backups[backup_id]['info'] = []
             backups[backup_id]['status'] = 'complete'
+            backup = backups[backup_id]
             for m in self.active.itervalues():
                 if should_do(m, include, exclude):
-                    backups[backup_id]['machines'][m.name] = machine_backups[m.name][backup_id]
-                    backups[backup_id]['info'].extend(backups[backup_id]['machines'][m.name]['info'])
-                    if backups[backup_id]['machines'][m.name]['status'] == 'incomplete':
-                        backups[backup_id]['status'] = 'incomplete'
+                    backup['machines'][m.name] = machine_backups[m.name][backup_id]
+                    backup['info'].extend(backup['machines'][m.name]['info'])
+                    # status is always running when one of the backups is still running
+                    if backup['machines'][m.name]['status'] != "complete" and backup['status'] != "running":
+                        backup['status'] = backup['machines'][m.name]['status']
         return backups
 
 

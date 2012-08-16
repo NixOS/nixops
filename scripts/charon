@@ -78,8 +78,8 @@ def op_check():
 def op_backup():
     depl = deployment.Deployment(args.state_file)
     with depl:
+        backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
         if args.show_backups:
-            backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
 
             print "Network UUID:", depl.uuid
             print "Network description:", depl.description
@@ -92,7 +92,11 @@ def op_backup():
 
             print tbl
         else:
-            depl.backup(include=args.include or [], exclude=args.exclude or [])
+            backups_status = [b['status'] for _, b in backups.items()]
+            if "running" in backups_status and not args.force:
+                raise Exception("There are still backups running, use --force to run a new backup concurrently (not advised!)")
+            else:
+                depl.backup(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_restore():
@@ -312,6 +316,8 @@ subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='per
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
 subparser.add_argument('--list', dest='show_backups', action="store_true", default=False, help='show available backups for network')
 subparser.add_argument('--freeze', dest='freeze_fs', action="store_true", default=False, help='freeze filesystems for non-root filesystems that support this (e.g. xfs)')
+subparser.add_argument('--force', dest='force', action="store_true", default=False, help='start new backup even if previous is still running')
+
 
 subparser = subparsers.add_parser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
 subparser.set_defaults(op=op_restore)

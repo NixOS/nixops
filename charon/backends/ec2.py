@@ -275,7 +275,7 @@ class EC2State(MachineState):
         current_volumes = set([v['volumeId'] for v in self._block_device_mapping.values()])
         for b_id, b in self._backups.items():
             backups[b_id] = {}
-            backup_complete = True
+            backup_status = "complete"
             info = []
             for k, v in self._block_device_mapping.items():
                 if not k in b.keys():
@@ -288,14 +288,12 @@ class EC2State(MachineState):
                         snapshot_status = snapshot.update()
                         if snapshot_status != '100%':
                             info.append("progress[{0},{1},{2}] = {3}%.".format(self.name, k, snapshot_id, snapshot_status))
-                            backup_complete = False
+                            backup_status = "running"
                     except:
                         info.append("{0} - {1} - {2} - Snapshot has disappeared.".format(self.name, k, snapshot_id))
-                        backup_complete = False
+                        backup_status = "unavailable"
 
-
-
-                backups[b_id]['status'] = 'complete' if backup_complete else 'incomplete'
+                backups[b_id]['status'] = backup_status
                 backups[b_id]['info'] = info
         return backups
 
