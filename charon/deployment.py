@@ -486,8 +486,15 @@ class Deployment:
         for m in self.machines.values():
             if m.name in self.definitions:
                 self.active[m.name] = m
+                if m.obsolete:
+                    self.log("machine ‘{0}’ is no longer obsolete".format(m.name))
+                    m.obsolete = False
+                    m.write()
             else:
                 self.log("machine ‘{0}’ is obsolete".format(m.name))
+                if not m.obsolete:
+                    m.obsolete = True
+                    m.write()
                 if not should_do(m, include, exclude): continue
                 if kill_obsolete and m.destroy(): self.delete_machine(m)
 

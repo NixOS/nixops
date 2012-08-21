@@ -43,7 +43,7 @@ class MachineState:
     def __init__(self, depl, name, log_file=sys.stderr):
         self.name = name
         self.depl = depl
-        self.created = False
+        self.obsolete = False
         self._state = self.UNKNOWN
         self._ssh_pinged = False
         self._ssh_pinged_this_time = False
@@ -94,6 +94,7 @@ class MachineState:
     def serialise(self):
         """Return a dictionary suitable for representing the on-disk state of this machine."""
         x = {'targetEnv': self.get_type(), 'state': self._state}
+        if self.obsolete: x['obsolete'] = True
         if self.cur_configs_path: x['vmsPath'] = self.cur_configs_path
         if self.cur_toplevel: x['toplevel'] = self.cur_toplevel
         if self._ssh_pinged: x['sshPinged'] = self._ssh_pinged
@@ -104,6 +105,7 @@ class MachineState:
 
     def deserialise(self, x):
         """Deserialise the state from the given dictionary."""
+        self.obsolete = x.get('obsolete', False)
         self._state = x.get('state', self.UNKNOWN)
         self.cur_configs_path = x.get('vmsPath', None)
         self.cur_toplevel = x.get('toplevel', None)

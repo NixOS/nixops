@@ -34,8 +34,8 @@ def op_info():
             sys.stderr.write(charon.util.ansi_warn("warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"))
 
     def state(d, m):
-        if not have_definitions: return "Unknown"
-        if not d: return "Obsolete"
+        if not d and (have_definitions or m.obsolete): return "Obsolete"
+        if d and m.obsolete: return "Revived"
         if not m: return "New"
         if depl.configs_path != m.cur_configs_path: return "Outdated"
         return "Up-to-date"
