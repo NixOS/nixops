@@ -17,6 +17,7 @@ import charon.backends
 import charon.parallel
 import re
 from datetime import datetime
+import getpass
 
 class Deployment:
     """Charon top-level deployment manager."""
@@ -28,6 +29,7 @@ class Deployment:
         self.active = { }
         self.configs_path = None
         self.description = "Unnamed Charon network"
+        self.enable_rollback = False
         self._last_log_prefix = None
         self.auto_response = None
         self.extra_nix_path = []
@@ -209,6 +211,8 @@ class Deployment:
         assert info != None
         elem = info.find("attrs/attr[@name='description']/string")
         if elem != None: self.description = elem.get("value")
+        elem = info.find("attrs/attr[@name='enableRollback']/bool")
+        if elem != None: self.enable_rollback = elem.get("value") == "true"
 
         # Extract machine information.
         machines = tree.find("attrs/attr[@name='machines']/attrs")
@@ -233,7 +237,6 @@ class Deployment:
                 stderr=self._log_file)
         except subprocess.CalledProcessError:
             raise NixEvalError
-
 
 
     def get_physical_spec(self):
@@ -330,6 +333,13 @@ class Deployment:
                 + (["--dry-run"] if dry_run else []), stderr=self._log_file).rstrip()
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
+
+        if self.enable_rollback:
+            profile = "/nix/var/nix/profiles/per-user/{0}/charon/{1}".format(getpass.getuser(), self.uuid)
+            dir = os.path.dirname(profile)
+            if not os.path.exists(dir): os.makedirs(dir, 0755)
+            if subprocess.call(["nix-env", "-p", profile, "--set", configs_path]) != 0:
+                raise Exception("cannot update profile ‘{0}’".format(profile))
 
         return configs_path
 

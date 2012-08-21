@@ -11,8 +11,8 @@ in
 {
 
   imports = [ ./ec2.nix ./virtualbox.nix ./ssh-tunnel.nix ];
-  
-  
+
+
   options = {
 
     deployment.targetEnv = mkOption {
@@ -116,7 +116,7 @@ in
       '';
     };
 
-    
+
     # Computed options useful for referring to other machines in
     # network specifications.
 
@@ -145,7 +145,7 @@ in
   config = {
 
     deployment.targetHost = mkDefault config.networking.hostName;
-      
+
   };
-  
+
 }

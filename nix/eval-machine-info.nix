@@ -62,7 +62,7 @@ rec {
   # Phase 2: build complete machine configurations.
   machines = { names }:
     let nodes' = filterAttrs (n: v: elem n names) nodes; in
-    runCommand "vms"
+    runCommand "charon-machines"
       { preferLocalBuild = true; }
       ''
         mkdir -p $out
