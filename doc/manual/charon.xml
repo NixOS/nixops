@@ -512,10 +512,10 @@ $ charon destroy foo</screen>
 
 <refsection><title>Description</title>
 
-<para>This command stops (shuts down) all machines that can be
-automatically started.  This includes EC2 and VirtualBox machines, but
-not machines using the <literal>none</literal> backend (because Charon
-doesn’t know how to start them automatically).</para>
+<para>This command stops (shuts down) all non-obsolete machines that
+can be automatically started.  This includes EC2 and VirtualBox
+machines, but not machines using the <literal>none</literal> backend
+(because Charon doesn’t know how to start them automatically).</para>
 
 </refsection>
 
@@ -576,8 +576,8 @@ $ charon stop</screen>
 
 <refsection><title>Description</title>
 
-<para>This command starts machines previously stopped using
-<command>charon stop</command>.</para>
+<para>This command starts all non-obsolete machines previously stopped
+using <command>charon stop</command>.</para>
 
 </refsection>
 
@@ -759,10 +759,10 @@ Note the use of <literal>--</literal> to force the flag
 
 <refsection><title>Description</title>
 
-<para>This command executes the specified command on all machines.  If
-the option <option>--parallel</option> is given, the command is
-executed on all machines in parallel; otherwise, it’s executed
-sequentially.</para>
+<para>This operation executes the specified shell command on all
+non-obsolete machines.  If the option <option>--parallel</option> is
+given, the command is executed on all machines in parallel; otherwise,
+it’s executed sequentially.</para>
 
 </refsection>
 
@@ -807,7 +807,7 @@ $ charon ssh-for-each -p reboot</screen>
 
 <refsection><title>Description</title>
 
-<para>This command reboots all machines.  If the option
+<para>This command reboots all non-obsolete machines.  If the option
 <option>--parallel</option> is given, the command is executed on all
 machines in parallel; otherwise, it’s executed sequentially.</para>
 

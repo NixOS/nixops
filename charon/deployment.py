@@ -93,11 +93,14 @@ class Deployment:
         self.description = state.get('description', self.description)
         self.machines = { }
         self._machine_state = { }
+        self.active = { }
         self.configs_path = state.get('vmsPath', None)
         for n, v in state['machines'].iteritems():
-            self.machines[n] = charon.backends.create_state(self, v['targetEnv'], n, self._log_file)
+            m = charon.backends.create_state(self, v['targetEnv'], n, self._log_file)
+            self.machines[n] = m
             self.machines[n].deserialise(v)
             self._machine_state[n] = v
+            if not m.obsolete: self.active[m.name] = m
         self.set_log_prefixes()
 
 
@@ -418,7 +421,7 @@ class Deployment:
 
 
     def get_backups(self, include=[], exclude=[]):
-        self.evaluate_active(include, exclude)
+        self.evaluate_active(include, exclude) # unnecessary?
         machine_backups = {}
         for m in self.active.itervalues():
             if should_do(m, include, exclude):
@@ -444,7 +447,7 @@ class Deployment:
 
 
     def backup(self, include=[], exclude=[]):
-        self.evaluate_active(include, exclude)
+        self.evaluate_active(include, exclude) # unnecessary?
         backup_id = datetime.now().strftime("%Y%m%d%H%M%S");
 
         def worker(m):
@@ -555,7 +558,7 @@ class Deployment:
 
 
     def destroy_vms(self, include=[], exclude=[]):
-        """Destroy all current or obsolete VMs."""
+        """Destroy all active or obsolete VMs."""
 
         def worker(m):
             if not should_do(m, include, exclude): return
@@ -565,7 +568,7 @@ class Deployment:
 
 
     def reboot_machines(self, include=[], exclude=[], wait=False):
-        """Reboot all current or obsolete machines."""
+        """Reboot all active machines."""
 
         def worker(m):
             if not should_do(m, include, exclude): return
@@ -574,27 +577,27 @@ class Deployment:
             else:
                 m.reboot()
 
-        charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.itervalues(), worker_fun=worker)
+        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
 
 
     def stop_machines(self, include=[], exclude=[]):
-        """Stop all current or obsolete machines."""
+        """Stop all active machines."""
 
         def worker(m):
             if not should_do(m, include, exclude): return
             m.stop()
 
-        charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.itervalues(), worker_fun=worker)
+        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
 
 
     def start_machines(self, include=[], exclude=[]):
-        """Start all current or obsolete machines."""
+        """Start all active machines."""
 
         def worker(m):
             if not should_do(m, include, exclude): return
             m.start()
 
-        charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.itervalues(), worker_fun=worker)
+        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
 
 
     def is_valid_machine_name(self, name):
@@ -623,7 +626,7 @@ class Deployment:
             if not should_do(m, include, exclude): return
             m.send_keys()
 
-        charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.itervalues(), worker_fun=worker)
+        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
 
 
 class NixEvalError(Exception):

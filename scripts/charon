@@ -77,7 +77,7 @@ def op_info():
 def op_check():
     depl = deployment.Deployment(args.state_file)
     with depl:
-        for m in depl.machines.itervalues():
+        for m in depl.active.itervalues():
             m.check()
 
 
@@ -188,19 +188,18 @@ def op_ssh():
 def op_ssh_for_each():
     depl = deployment.Deployment(args.state_file)
     depl.load_state()
-    # FIXME: only do active machines?
     res2 = 0
     if args.parallel:
         def worker(m):
             return m._logged_exec(["ssh", "root@" + m.get_ssh_name()] + m.get_ssh_flags() + args.args, check=False)
-        results = charon.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.machines.itervalues(), worker_fun=worker)
+        results = charon.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
     else:
         results = []
-        for m in depl.machines.itervalues():
+        for m in depl.active.itervalues():
             ssh_name = m.get_ssh_name()
             print >> sys.stderr, "running command on ‘{0}’...".format(m.name)
             results.append(subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + args.args))
-    sys.exit(max(results))
+    sys.exit(max(results) if results != [] else 0)
 
 
 def scp_loc(ssh_name, remote, loc):
