@@ -226,6 +226,15 @@ def op_show_option():
     sys.stdout.write(depl.evaluate_option_value(args.machine, args.option, xml=args.xml))
 
 
+def op_list_generations():
+    depl = deployment.Deployment(args.state_file)
+    depl.load_state()
+    if not depl.enable_rollback:
+        raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy")
+    if subprocess.call(["nix-env", "-p", depl.get_profile(), "--list-generations"]) != 0:
+        raise Exception("nix-env --list-generations failed")
+
+
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool')
 
@@ -324,7 +333,6 @@ subparser.add_argument('--list', dest='show_backups', action="store_true", defau
 subparser.add_argument('--freeze', dest='freeze_fs', action="store_true", default=False, help='freeze filesystems for non-root filesystems that support this (e.g. xfs)')
 subparser.add_argument('--force', dest='force', action="store_true", default=False, help='start new backup even if previous is still running')
 
-
 subparser = subparsers.add_parser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
 subparser.set_defaults(op=op_restore)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
@@ -336,6 +344,9 @@ subparser.set_defaults(op=op_show_option)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
 subparser.add_argument('option', metavar='OPTION', help='option name')
 subparser.add_argument('--xml', action='store_true', help='print the option value in XML format')
+
+subparser = subparsers.add_parser('list-generations', help='list previous configurations to which you can roll back')
+subparser.set_defaults(op=op_list_generations)
 
 
 # Parse the command line and execute the desired operation.
