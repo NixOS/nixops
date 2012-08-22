@@ -55,6 +55,7 @@ def op_info():
     else:
         print "Nix expressions:", ", ".join(depl.nix_exprs)
         if depl.nix_path != []: print "Nix path:", ", ".join(depl.nix_path)
+        if depl.enable_rollback: print "Nix profile:", depl.get_profile()
         print "Network UUID:", depl.uuid
         print "Network description:", depl.description
         print

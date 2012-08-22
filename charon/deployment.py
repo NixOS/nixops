@@ -313,6 +313,10 @@ class Deployment:
         return "".join(["{\n"] + [emit_machine(m) for m in self.active.itervalues()] + ["}\n"])
 
 
+    def get_profile(self):
+        return "/nix/var/nix/profiles/per-user/{0}/charon/{1}".format(getpass.getuser(), self.uuid)
+
+
     def build_configs(self, include, exclude, dry_run=False):
         """Build the machine configurations in the Nix store."""
 
@@ -338,7 +342,7 @@ class Deployment:
             raise Exception("unable to build all machine configurations")
 
         if self.enable_rollback:
-            profile = "/nix/var/nix/profiles/per-user/{0}/charon/{1}".format(getpass.getuser(), self.uuid)
+            profile = self.get_profile()
             dir = os.path.dirname(profile)
             if not os.path.exists(dir): os.makedirs(dir, 0755)
             if subprocess.call(["nix-env", "-p", profile, "--set", configs_path]) != 0:
