@@ -235,6 +235,15 @@ def op_list_generations():
         raise Exception("nix-env --list-generations failed")
 
 
+def op_rollback():
+    depl = deployment.Deployment(args.state_file)
+    with depl:
+        depl.rollback(args.generation,
+                      include=args.include or [], exclude=args.exclude or [],
+                      check=args.check, allow_reboot=args.allow_reboot,
+                      max_concurrent_copy=args.max_concurrent_copy)
+
+
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool')
 
@@ -259,6 +268,13 @@ subparser.add_argument('--no-eval', action='store_true', help='do not evaluate t
 subparser = subparsers.add_parser('check', help='check the state of the machines in the network')
 subparser.set_defaults(op=op_check)
 
+def add_common_deployment_options(subparser):
+    subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform deployment actions on the specified machines only')
+    subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform deployment actions on the specified machines')
+    subparser.add_argument('--check', action='store_true', help='do not assume that the recorded state is correct')
+    subparser.add_argument('--allow-reboot', action='store_true', help='reboot machines if necessary')
+    subparser.add_argument('--max-concurrent-copy', type=int, default=5, metavar='N', help='maximum number of concurrent nix-copy-closure processes')
+
 subparser = subparsers.add_parser('deploy', help='deploy the network configuration')
 subparser.set_defaults(op=op_deploy)
 subparser.add_argument('--kill-obsolete', '-k', action='store_true', help='kill obsolete virtual machines')
@@ -266,12 +282,8 @@ subparser.add_argument('--dry-run', action='store_true', help='show what would b
 subparser.add_argument('--build-only', action='store_true', help='build only; do not perform deployment actions')
 subparser.add_argument('--create-only', action='store_true', help='exit after creating missing machines')
 subparser.add_argument('--copy-only', action='store_true', help='exit after copying closures')
-subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform deployment actions on the specified machines only')
-subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform deployment actions on the specified machines')
-subparser.add_argument('--check', action='store_true', help='do not assume that the recorded state is correct')
-subparser.add_argument('--allow-reboot', action='store_true', help='reboot machines if necessary')
 subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='append a directory to the Nix search path')
-subparser.add_argument('--max-concurrent-copy', type=int, default=5, metavar='N', help='maximum number of concurrent nix-copy-closure processes')
+add_common_deployment_options(subparser)
 
 subparser = subparsers.add_parser('send-keys', help='send encryption keys')
 subparser.set_defaults(op=op_send_keys)
@@ -347,6 +359,11 @@ subparser.add_argument('--xml', action='store_true', help='print the option valu
 
 subparser = subparsers.add_parser('list-generations', help='list previous configurations to which you can roll back')
 subparser.set_defaults(op=op_list_generations)
+
+subparser = subparsers.add_parser('rollback', help='roll back to a previous configuration')
+subparser.set_defaults(op=op_rollback)
+subparser.add_argument('generation', type=int, metavar='GENERATION', help='number of the desired configuration (see ‘charon list-generations’)')
+add_common_deployment_options(subparser)
 
 
 # Parse the command line and execute the desired operation.

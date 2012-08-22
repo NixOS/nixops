@@ -563,6 +563,48 @@ class Deployment:
                               allow_reboot=allow_reboot, check=check)
 
 
+    def rollback(self, generation, include=[], exclude=[], check=False,
+                 allow_reboot=False, max_concurrent_copy=5):
+        if not self.enable_rollback:
+            raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy"
+                            )
+        profile = self.get_profile()
+        if subprocess.call(["nix-env", "-p", profile, "--switch-generation", str(generation)]) != 0:
+            raise Exception("nix-env --switch-generation failed")
+
+        self.configs_path = os.path.realpath(profile)
+        assert os.path.isdir(self.configs_path)
+        self.write_state()
+
+        names = set()
+        for filename in os.listdir(self.configs_path):
+            if not os.path.islink(self.configs_path + "/" + filename): continue
+            if should_do_n(filename, include, exclude) and filename not in self.machines:
+                raise Exception("cannot roll back machine ‘{0}’ which no longer exists".format(filename))
+            names.add(filename)
+
+        # Update the set of active machines.
+        self.active = {}
+        for m in self.machines.values():
+            if m.name in names:
+                self.active[m.name] = m
+                if m.obsolete:
+                    self.log("machine ‘{0}’ is no longer obsolete".format(m.name))
+                    m.obsolete = False
+                    m.write()
+            else:
+                self.log("machine ‘{0}’ is obsolete".format(m.name))
+                if not m.obsolete:
+                    m.obsolete = True
+                    m.write()
+
+        self.copy_closures(self.configs_path, include=include, exclude=exclude,
+                           max_concurrent_copy=max_concurrent_copy)
+
+        self.activate_configs(self.configs_path, include=include, exclude=exclude,
+                              allow_reboot=allow_reboot, check=check)
+
+
     def destroy_vms(self, include=[], exclude=[]):
         """Destroy all active or obsolete VMs."""
 
@@ -640,9 +682,13 @@ class NixEvalError(Exception):
 
 
 def should_do(m, include, exclude):
-    if m.name in exclude: return False
+    return should_do_n(m.name, include, exclude)
+
+def should_do_n(name, include, exclude):
+    if name in exclude: return False
     if include == []: return True
-    return m.name in include
+    return name in include
+
 
 
 def _abs_nix_path(x):
