@@ -91,6 +91,7 @@ class Deployment:
         self.nix_path = state.get('nixPath', [])
         self.uuid = state['uuid']
         self.description = state.get('description', self.description)
+        self.enable_rollback = state.get('enableRollback', False)
         self.machines = { }
         self._machine_state = { }
         self.active = { }
@@ -110,6 +111,7 @@ class Deployment:
                  'nixPath': self.nix_path,
                  'uuid': self.uuid,
                  'description': self.description,
+                 'enableRollback': self.enable_rollback,
                  'machines': self._machine_state}
         if self.configs_path: state['vmsPath'] = self.configs_path
         tmp = self.state_file + ".tmp"
