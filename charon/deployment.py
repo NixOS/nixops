@@ -302,7 +302,7 @@ class Deployment:
 
         def emit_machine(m):
             lines = []
-            lines.append("  " + m.name + " = { config, pkgs, ... }: {")
+            lines.append("  \"" + m.name + "\" = { config, pkgs, ... }: {")
             lines.extend(lines_per_machine[m.name])
             if authorized_keys[m.name]:
                 lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys[m.name])))
