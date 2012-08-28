@@ -1,6 +1,7 @@
 { system ? builtins.currentSystem
 , networkExprs
 , checkConfigurationOptions ? true
+, args
 }:
 
 with import <nixos/lib/testing.nix> { inherit system; };
@@ -9,7 +10,9 @@ with lib;
 
 rec {
 
-  networks = map (networkExpr: import networkExpr) networkExprs;
+  networks = map (networkExpr: call (import networkExpr)) networkExprs;
+
+  call = x: if builtins.isFunction x then x args else x;
 
   network = zipAttrs networks;
 

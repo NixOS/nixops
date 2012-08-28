@@ -1045,4 +1045,121 @@ $ charon show-option --xml machine boot.initrd.availableKernelModules
 </refsection>
 
 
+<refsection><title>Command <option>charon set-args</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon set-args</command>
+  <arg rep='repeat'>
+    <option>--arg</option>
+    <replaceable>name</replaceable>
+    <replaceable>value</replaceable>
+  </arg>
+  <arg rep='repeat'>
+    <option>--argstr</option>
+    <replaceable>name</replaceable>
+    <replaceable>value</replaceable>
+  </arg>
+  <arg rep='repeat'>
+    <option>--unset</option>
+    <replaceable>name</replaceable>
+  </arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command persistently sets arguments to be passed to the
+deployment specification.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--arg</option> <replaceable>name</replaceable> <replaceable>value</replaceable></term>
+
+    <listitem><para>Set the function argument
+    <replaceable>name</replaceable> to
+    <replaceable>value</replaceable>, where the latter is an arbitrary
+    Nix expression.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--argstr</option> <replaceable>name</replaceable> <replaceable>value</replaceable></term>
+
+    <listitem><para>Like <option>--arg</option>, but the value is a
+    literal string rather than a Nix expression.  Thus,
+    <literal>--argstr name value</literal> is equivalent to
+    <literal>--arg name \"value\"</literal>.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--unset</option> <replaceable>name</replaceable></term>
+
+    <listitem><para>Remove a previously set function
+    argument.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>Consider the following deployment specification
+(<filename>servers.nix</filename>):
+
+<programlisting>
+{ nrMachines, active }:
+
+with import &lt;nixpkgs/pkgs/lib>;
+
+let
+
+  makeMachine = n: nameValuePair "webserver-${toString n}"
+    ({ config, pkgs, ... }:
+    { deployment.targetEnv = "virtualbox";
+      services.httpd.enable = active;
+      services.httpd.adminAddr = "foo@example.org";
+    });
+
+in listToAttrs (map makeMachine (range 1 nrMachines))
+</programlisting>
+
+This specifies a network of <replaceable>nrMachines</replaceable>
+identical VirtualBox VMs that run the Apache web server if
+<replaceable>active</replaceable> is set.  To create 10 machines
+without Apache:
+
+<screen>
+$ charon create servers.nix
+$ charon set-args --arg nrMachines 10 --arg active false
+$ charon deploy
+</screen>
+
+Next we can enable Apache on the existing machines:
+
+<screen>
+$ charon set-args --arg active true
+$ charon deploy
+</screen>
+
+or provision additional machines:
+
+<screen>
+$ charon set-args --arg nrMachines 20
+$ charon deploy
+</screen>
+
+</para>
+
+</refsection>
+
+</refsection>
+
+
 </refentry>

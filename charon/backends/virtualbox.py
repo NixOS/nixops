@@ -183,11 +183,13 @@ class VirtualBoxState(MachineState):
 
             base_image = defn.base_image
             if base_image == "drv":
+                # FIXME: move this to deployment.py.
                 base_image = self._logged_exec(
                     ["nix-build", "-I", "charon=" + self.depl.expr_path, "--show-trace",
                      "<charon/eval-machine-info.nix>",
                      "--arg", "checkConfigurationOptions", "false",
                      "--arg", "networkExprs", "[ " + " ".join(self.depl.nix_exprs) + " ]",
+                     "--arg", "args", self.depl._args_to_attrs(),
                      "-A", "nodes." + self.name + ".config.deployment.virtualbox.baseImage",
                      "-o", "{0}/vbox-image-{1}".format(self.depl.tempdir, self.name)],
                     capture_stdout=True).rstrip()

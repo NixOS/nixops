@@ -11,6 +11,7 @@ import charon.parallel
 import charon.util
 from pprint import pprint
 
+
 def op_create():
     depl = deployment.Deployment(
         args.state_file, create=True, nix_exprs=args.nix_exprs,
@@ -41,7 +42,7 @@ def op_info():
         return "Up-to-date"
 
     if args.plain:
-        for name in set(depl.definitions.keys()) | set(depl.machines.keys()):
+        for name in sorted(set(depl.definitions.keys()) | set(depl.machines.keys())):
             d = depl.definitions.get(name)
             m = depl.machines.get(name)
             print "{0}\t{1}\t{2}\t{3}\t{4}\t{5}".format(
@@ -56,12 +57,13 @@ def op_info():
         print "Nix expressions:", ", ".join(depl.nix_exprs)
         if depl.nix_path != []: print "Nix path:", ", ".join(depl.nix_path)
         if depl.enable_rollback: print "Nix profile:", depl.get_profile()
+        if depl._args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl._args.iteritems()])
         print "Network UUID:", depl.uuid
         print "Network description:", depl.description
         print
 
         tbl = PrettyTable(["Name", "Status", "Type", "VM Id", "IP address"])
-        for name in set(depl.definitions.keys()) | set(depl.machines.keys()):
+        for name in sorted(set(depl.definitions.keys()) | set(depl.machines.keys())):
             d = depl.definitions.get(name)
             m = depl.machines.get(name)
             tbl.add_row(
@@ -129,6 +131,15 @@ def op_send_keys():
     depl = deployment.Deployment(args.state_file)
     depl.load_state()
     depl.send_keys(include=args.include or [], exclude=args.exclude or [])
+
+
+def op_set_args():
+    depl = deployment.Deployment(args.state_file)
+    with depl:
+        for [n, v] in args.args or []: depl.set_arg(n, v)
+        for [n, v] in args.argstrs or []: depl.set_argstr(n, v)
+        for [n] in args.unset or []: depl.unset_arg(n)
+        depl.write_state()
 
 
 def op_destroy():
@@ -267,6 +278,12 @@ subparser.add_argument('--no-eval', action='store_true', help='do not evaluate t
 
 subparser = subparsers.add_parser('check', help='check the state of the machines in the network')
 subparser.set_defaults(op=op_check)
+
+subparser = subparsers.add_parser('set-args', help='persistently set arguments to the deployment specification')
+subparser.set_defaults(op=op_set_args)
+subparser.add_argument('--arg', nargs=2, action="append", dest="args", metavar=('NAME', 'VALUE'), help='pass a Nix expression value')
+subparser.add_argument('--argstr', nargs=2, action="append", dest="argstrs", metavar=('NAME', 'VALUE'), help='pass a string value')
+subparser.add_argument('--unset', nargs=1, action="append", dest="unset", metavar='NAME', help='unset previously set argument')
 
 def add_common_deployment_options(subparser):
     subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform deployment actions on the specified machines only')

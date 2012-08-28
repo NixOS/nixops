@@ -24,15 +24,16 @@ class Deployment:
 
     def __init__(self, state_file, create=False, nix_exprs=[], nix_path=[], log_file=sys.stderr):
         self.state_file = os.path.realpath(state_file)
-        self.machines = { }
-        self._machine_state = { }
-        self.active = { }
+        self.machines = {}
+        self._machine_state = {}
+        self.active = {}
         self.configs_path = None
         self.description = "Unnamed Charon network"
         self.enable_rollback = False
         self._last_log_prefix = None
         self.auto_response = None
         self.extra_nix_path = []
+        self._args = {}
 
         self._state_lock = threading.Lock()
         self._log_lock = threading.Lock()
@@ -92,9 +93,9 @@ class Deployment:
         self.uuid = state['uuid']
         self.description = state.get('description', self.description)
         self.enable_rollback = state.get('enableRollback', False)
-        self.machines = { }
-        self._machine_state = { }
-        self.active = { }
+        self.machines = {}
+        self._machine_state = {}
+        self.active = {}
         self.configs_path = state.get('vmsPath', None)
         for n, v in state['machines'].iteritems():
             m = charon.backends.create_state(self, v['targetEnv'], n, self._log_file)
@@ -102,6 +103,7 @@ class Deployment:
             self.machines[n].deserialise(v)
             self._machine_state[n] = v
             if not m.obsolete: self.active[m.name] = m
+        self._args = state.get('args', {})
         self.set_log_prefixes()
 
 
@@ -112,7 +114,8 @@ class Deployment:
                  'uuid': self.uuid,
                  'description': self.description,
                  'enableRollback': self.enable_rollback,
-                 'machines': self._machine_state}
+                 'machines': self._machine_state,
+                 'args': self._args}
         if self.configs_path: state['vmsPath'] = self.configs_path
         tmp = self.state_file + ".tmp"
         f = open(tmp, 'w')
@@ -192,6 +195,35 @@ class Deployment:
         return sum([["-I", x] for x in (self.extra_nix_path + self.nix_path)], [])
 
 
+    def set_arg(self, name, value):
+        """Set a persistent argument to the deployment specification."""
+        assert isinstance(name, str)
+        assert isinstance(value, str)
+        self._args[name] = value
+
+
+    def set_argstr(self, name, value):
+        """Set a persistent argument to the deployment specification."""
+        assert isinstance(value, str)
+        s = ""
+        for c in value:
+            if c == '"': s += '\\"'
+            elif c == '\\': s += '\\\\'
+            elif c == '$': s += '\\$'
+            else: s += c
+        self.set_arg(name, '"' + s + '"')
+
+
+    def unset_arg(self, name):
+        """Unset a persistent argument to the deployment specification."""
+        assert isinstance(name, str)
+        self._args.pop(name, None)
+
+
+    def _args_to_attrs(self):
+        return "{ " + string.join([n + " = " + v + "; " for n, v in self._args.iteritems()]) + "}"
+
+
     def evaluate(self):
         """Evaluate the Nix expressions belonging to this deployment into a deployment specification."""
 
@@ -205,6 +237,7 @@ class Deployment:
                  "<charon/eval-machine-info.nix>",
                  "--arg", "checkConfigurationOptions", "false",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
+                 "--arg", "args", self._args_to_attrs(),
                  "-A", "info"], stderr=self._log_file)
         except subprocess.CalledProcessError:
             raise NixEvalError
@@ -237,6 +270,7 @@ class Deployment:
                 ["--eval-only", "--show-trace", "--strict",
                  "<charon/eval-machine-info.nix>",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
+                 "--arg", "args", self._args_to_attrs(),
                  "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
                 + (["--xml"] if xml else []),
                 stderr=self._log_file)
@@ -337,6 +371,7 @@ class Deployment:
                 + self._eval_flags() +
                 ["<charon/eval-machine-info.nix>",
                  "--arg", "networkExprs", "[ " + " ".join(self.nix_exprs + [phys_expr]) + " ]",
+                 "--arg", "args", self._args_to_attrs(),
                  "--arg", "names", "[ " + " ".join(names) + " ]",
                  "-A", "machines", "-o", self.tempdir + "/configs"]
                 + (["--dry-run"] if dry_run else []), stderr=self._log_file).rstrip()
