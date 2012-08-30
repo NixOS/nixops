@@ -504,6 +504,7 @@ class EC2State(MachineState):
         common_tags = {'CharonNetworkUUID': self.depl.uuid,
                        'CharonMachineName': self.name,
                        'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl.state_file)}
+        # FIXME: description can be None now
         tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
         tags.update(defn.tags)
         tags.update(common_tags)
@@ -658,9 +659,7 @@ class EC2State(MachineState):
                 v['generatedKey'] = charon.util.generate_random_string(length=256)
                 self.write()
 
-        if self._store_keys_on_machine != defn.store_keys_on_machine:
-            self._store_keys_on_machine = defn.store_keys_on_machine
-            self.write()
+        self.store_keys_on_machine = defn.store_keys_on_machine
 
 
     def _delete_volume(self, volume_id):
@@ -787,7 +786,7 @@ class EC2State(MachineState):
 
 
     def send_keys(self):
-        if self._store_keys_on_machine: return
+        if self.store_keys_on_machine: return
         for k, v in self._block_device_mapping.items():
             if not v.get('encrypt', False): continue
             key = v.get('passphrase', "") or v.get('generatedKey', "")

@@ -13,16 +13,16 @@ from pprint import pprint
 
 
 def op_create():
-    depl = deployment.Deployment(
-        args.state_file, create=True, nix_exprs=args.nix_exprs,
-        nix_path=sum(args.nix_path or [], []))
-    with depl:
-        depl.write_state()
+    depl = deployment.open_deployment(args.state_file, ignore_missing=True)
+    if not depl:
+        depl = deployment.create_deployment(args.state_file)
+        sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
+    depl.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in args.nix_exprs]
+    depl.nix_path = [charon.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
 
 
 def op_info():
-    depl = deployment.Deployment(args.state_file)
-    depl.load_state()
+    depl = deployment.open_deployment(args.state_file)
 
     have_definitions = False
     if args.no_eval:
@@ -56,10 +56,10 @@ def op_info():
     else:
         print "Nix expressions:", ", ".join(depl.nix_exprs)
         if depl.nix_path != []: print "Nix path:", ", ".join(depl.nix_path)
-        if depl.enable_rollback: print "Nix profile:", depl.get_profile()
-        if depl._args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl._args.iteritems()])
+        if depl.rollback_enabled: print "Nix profile:", depl.get_profile()
+        if depl.args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl.args.iteritems()])
         print "Network UUID:", depl.uuid
-        print "Network description:", depl.description
+        print "Network description:", depl.description or "(none)"
         print
 
         tbl = PrettyTable(["Name", "Status", "Type", "VM Id", "IP address"])
@@ -78,107 +78,95 @@ def op_info():
 
 
 def op_check():
-    depl = deployment.Deployment(args.state_file)
-    with depl:
-        for m in depl.active.itervalues():
-            m.check()
+    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    for m in depl.active.itervalues():
+        m.check()
 
 
 def op_backup():
-    depl = deployment.Deployment(args.state_file)
-    with depl:
-        backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
-        if args.show_backups:
+    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
 
-            print "Network UUID:", depl.uuid
-            print "Network description:", depl.description
-            tbl = PrettyTable(["Backup ID", "Status", "Info"])
-            for k, v in sorted(backups.items(), reverse=True):
-                fst = v['info'][0] if len(v['info']) > 0 else ""
-                tbl.add_row([k,v['status'], fst])
-                for i in v['info'][1:]:
-                    tbl.add_row(["", "", i])
+    if args.show_backups:
+        print "Network UUID:", depl.uuid
+        print "Network description:", depl.description or "(none)"
+        tbl = PrettyTable(["Backup ID", "Status", "Info"])
+        for k, v in sorted(backups.items(), reverse=True):
+            fst = v['info'][0] if len(v['info']) > 0 else ""
+            tbl.add_row([k,v['status'], fst])
+            for i in v['info'][1:]:
+                tbl.add_row(["", "", i])
 
-            print tbl
+        print tbl
+
+    else:
+        backups_status = [b['status'] for _, b in backups.items()]
+        if "running" in backups_status and not args.force:
+            raise Exception("There are still backups running, use --force to run a new backup concurrently (not advised!)")
         else:
-            backups_status = [b['status'] for _, b in backups.items()]
-            if "running" in backups_status and not args.force:
-                raise Exception("There are still backups running, use --force to run a new backup concurrently (not advised!)")
-            else:
-                depl.backup(include=args.include or [], exclude=args.exclude or [])
+            depl.backup(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_restore():
-    depl = deployment.Deployment(args.state_file)
-    with depl:
-        depl.restore(include=args.include or [], exclude=args.exclude or [], backup_id=args.backup_id)
+    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl.restore(include=args.include or [], exclude=args.exclude or [], backup_id=args.backup_id)
 
 
 def op_deploy():
-    depl = deployment.Deployment(args.state_file)
-    with depl:
-        depl.extra_nix_path = sum(args.nix_path or [], [])
-        if args.confirm: depl.auto_response = "y"
-        depl.deploy(dry_run=args.dry_run, build_only=args.build_only,
-                    create_only=args.create_only, copy_only=args.copy_only,
-                    include=args.include or [], exclude=args.exclude or [],
-                    check=args.check, kill_obsolete=args.kill_obsolete,
-                    allow_reboot=args.allow_reboot,
-                    max_concurrent_copy=args.max_concurrent_copy)
+    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl.extra_nix_path = sum(args.nix_path or [], [])
+    if args.confirm: depl.auto_response = "y"
+    depl.deploy(dry_run=args.dry_run, build_only=args.build_only,
+                create_only=args.create_only, copy_only=args.copy_only,
+                include=args.include or [], exclude=args.exclude or [],
+                check=args.check, kill_obsolete=args.kill_obsolete,
+                allow_reboot=args.allow_reboot,
+                max_concurrent_copy=args.max_concurrent_copy)
 
 
 def op_send_keys():
-    depl = deployment.Deployment(args.state_file)
-    depl.load_state()
+    depl = deployment.open_deployment(args.state_file)
     depl.send_keys(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_set_args():
-    depl = deployment.Deployment(args.state_file)
-    with depl:
-        for [n, v] in args.args or []: depl.set_arg(n, v)
-        for [n, v] in args.argstrs or []: depl.set_argstr(n, v)
-        for [n] in args.unset or []: depl.unset_arg(n)
-        depl.write_state()
+    depl = deployment.open_deployment(args.state_file)
+    for [n, v] in args.args or []: depl.set_arg(n, v)
+    for [n, v] in args.argstrs or []: depl.set_argstr(n, v)
+    for [n] in args.unset or []: depl.unset_arg(n)
 
 
 def op_destroy():
-    depl = deployment.Deployment(args.state_file)
-    with depl:
-        if args.confirm: depl.auto_response = "y"
-        depl.destroy_vms(include=args.include or [], exclude=args.exclude or [])
+    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    if args.confirm: depl.auto_response = "y"
+    depl.destroy_vms(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_reboot():
-    depl = deployment.Deployment(args.state_file)
-    with depl:
-        depl.reboot_machines(include=args.include or [], exclude=args.exclude or [], wait=args.wait)
+    depl = deployment.open_deployment(args.state_file)
+    depl.reboot_machines(include=args.include or [], exclude=args.exclude or [], wait=args.wait)
 
 
 def op_stop():
-    depl = deployment.Deployment(args.state_file)
-    with depl:
-        depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
+    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_start():
-    depl = deployment.Deployment(args.state_file)
-    with depl:
-        depl.start_machines(include=args.include or [], exclude=args.exclude or [])
+    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl.start_machines(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_rename():
-    depl = deployment.Deployment(args.state_file)
-    with depl:
-        depl.rename(args.current_name, args.new_name)
+    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl.rename(args.current_name, args.new_name)
 
 
 def op_show_physical():
-    depl = deployment.Deployment(args.state_file)
-    depl.load_state()
+    depl = deployment.open_deployment(args.state_file)
     depl.evaluate()
     depl.active = {n: depl.machines[n] for n in depl.machines if n in depl.definitions}
-    print depl.get_physical_spec()
+    sys.stdout.write(depl.get_physical_spec())
 
 
 def parse_machine(name):
@@ -186,8 +174,7 @@ def parse_machine(name):
 
 
 def op_ssh():
-    depl = deployment.Deployment(args.state_file)
-    depl.load_state()
+    depl = deployment.open_deployment(args.state_file)
     (username, machine) = parse_machine(args.machine)
     m = depl.machines.get(machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(machine))
@@ -198,8 +185,7 @@ def op_ssh():
 
 
 def op_ssh_for_each():
-    depl = deployment.Deployment(args.state_file)
-    depl.load_state()
+    depl = deployment.open_deployment(args.state_file)
     res2 = 0
     if args.parallel:
         def worker(m):
@@ -219,8 +205,7 @@ def scp_loc(ssh_name, remote, loc):
 
 
 def op_scp():
-    depl = deployment.Deployment(args.state_file)
-    depl.load_state()
+    depl = deployment.open_deployment(args.state_file)
     m = depl.machines.get(args.machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
     ssh_name = m.get_ssh_name()
@@ -232,34 +217,31 @@ def op_scp():
 
 
 def op_show_option():
-    depl = deployment.Deployment(args.state_file)
-    depl.load_state()
+    depl = deployment.open_deployment(args.state_file)
     sys.stdout.write(depl.evaluate_option_value(args.machine, args.option, xml=args.xml))
 
 
 def op_list_generations():
-    depl = deployment.Deployment(args.state_file)
-    depl.load_state()
-    if not depl.enable_rollback:
+    depl = deployment.open_deployment(args.state_file)
+    if not depl.rollback_enabled:
         raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy")
     if subprocess.call(["nix-env", "-p", depl.get_profile(), "--list-generations"]) != 0:
         raise Exception("nix-env --list-generations failed")
 
 
 def op_rollback():
-    depl = deployment.Deployment(args.state_file)
-    with depl:
-        depl.rollback(args.generation,
-                      include=args.include or [], exclude=args.exclude or [],
-                      check=args.check, allow_reboot=args.allow_reboot,
-                      max_concurrent_copy=args.max_concurrent_copy)
+    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl.rollback(args.generation,
+                  include=args.include or [], exclude=args.exclude or [],
+                  check=args.check, allow_reboot=args.allow_reboot,
+                  max_concurrent_copy=args.max_concurrent_copy)
 
 
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool')
 
 parser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
-                    default=os.environ.get("CHARON_STATE", "network.json"), help='path to state file')
+                    default=os.environ.get("CHARON_STATE", "network.charon"), help='path to state file')
 parser.add_argument('--debug', action='store_true', help='enable debug output')
 parser.add_argument('--version', action='version', version='Charon 0.1')
 parser.add_argument('--confirm', action='store_true', help='confirm dangerous operations; do not ask')

@@ -7,10 +7,14 @@ def run_tasks(nr_workers, tasks, worker_fun):
     task_queue = Queue.Queue()
     result_queue = Queue.Queue()
 
-    if nr_workers < 1: raise Exception("number of worker threads must be at least 1")
-
     nr_tasks = 0
     for t in tasks: task_queue.put(t); nr_tasks = nr_tasks + 1
+
+    if nr_tasks == 0: return []
+
+    if nr_workers < 1: raise Exception("number of worker threads must be at least 1")
+
+    nr_workers = 1 # FIXME; disabled until we use SQLite in a thread-safe manner
 
     def thread_fun():
         n = 0
@@ -25,7 +29,7 @@ def run_tasks(nr_workers, tasks, worker_fun):
             except Exception as e:
                 result_queue.put((None, e, sys.exc_info()[2]))
         #sys.stderr.write("thread {0} did {1} tasks\n".format(threading.current_thread(), n))
-        
+
     threads = []
     for n in range(nr_workers):
         thr = threading.Thread(target=thread_fun)
@@ -44,7 +48,7 @@ def run_tasks(nr_workers, tasks, worker_fun):
         if exc:
             raise exc, None, tb
         results.append(res)
-        
+
     for thr in threads:
         thr.join()
 

@@ -53,8 +53,11 @@ cloud.</para>
     <listitem><para>Path to the state file (created by <command>charon
     create</command>).  It defaults to the value of the
     <envar>CHARON_STATE</envar> environment variable, or
-    <filename>./network.json</filename> if that one is not
-    defined.</para></listitem>
+    <filename>./network.charon</filename> if that one is not defined.
+    It must have extension <literal>.charon</literal>.  The state file
+    is actually a SQLite database that can be inspected using the
+    <command>sqlite3</command> command (for example, <literal>sqlite3
+    network.charon .dump</literal>).</para></listitem>
 
   </varlistentry>
 
@@ -101,7 +104,7 @@ cloud.</para>
 
     <listitem><para>The location of the state file if
     <option>--state</option> is not used.  It defaults to
-    <filename>./network.json</filename>.</para></listitem>
+    <filename>./network.charon</filename>.</para></listitem>
 
   </varlistentry>
 
@@ -218,8 +221,8 @@ doesn’t affect any other deployment state.</para>
 <refsection><title>Examples</title>
 
 <screen>
-$ charon -s ./state.json create foo.nix bar.nix
-$ charon -s ./state.json deploy</screen>
+$ charon -s ./state.charon create foo.nix bar.nix
+$ charon -s ./state.charon deploy</screen>
 
 </refsection>
 

@@ -73,17 +73,18 @@ to create a state file for deploying the Apache web server to
 VirtualBox, we would do:
 
 <screen>
-$ charon -s ./trivial-vbox.json create ./trivial.nix ./trivial-vbox.nix
+$ charon -s ./trivial-vbox.charon create ./trivial.nix ./trivial-vbox.nix
 </screen>
 
 The <option>-s</option> flag specifies the name of the state file.  If
-it’s omitted, <filename>./network.json</filename> is used by default.</para>
+it’s omitted, <filename>./network.charon</filename> is used by
+default.</para>
 
 <para>The command <command>charon info</command> shows the current
 deployment state:
 
 <screen>
-$ charon -s ./trivial-vbox.json info
+$ charon -s ./trivial-vbox.charon info
 Network UUID: 33bced96-5f26-11e1-b9d7-9630d48abec1
 Network description: Web server
 
@@ -101,7 +102,7 @@ machine <literal>webserver</literal> hasn’t been created yet.</para>
 deploy</command>:
 
 <screen>
-$ charon -s ./trivial-vbox.json deploy
+$ charon -s ./trivial-vbox.charon deploy
 creating VirtualBox VM ‘webserver’...
 Virtual machine 'charon-33bced96-5f26-11e1-b9d7-9630d48abec1-webserver' is created and registered.
 Clone hard disk created in format 'VDI'. UUID: 5a0b0771-7e03-4fab-9c2f-e95888b57db3
@@ -155,7 +156,7 @@ Charon performs the following steps to do the deployment:
 machine was created:
 
 <screen>
-$ charon -s ./trivial-vbox.json info
+$ charon -s ./trivial-vbox.charon info
 Network UUID: 33bced96-5f26-11e1-b9d7-9630d48abec1
 Network description: Web server
 
@@ -173,7 +174,7 @@ should now show the Valgrind documentation.  You can also log in to
 the virtual machine as <literal>root</literal>:
 
 <screen>
-$ charon -s ./trivial-vbox.json ssh webserver
+$ charon -s ./trivial-vbox.charon ssh webserver
 connecting to 192.168.56.101...
 [root@webserver:~]# 
 </screen>
@@ -193,7 +194,7 @@ VirtualBox instance or need to build and copy a lot of dependencies.
 Thus redeployment typically only takes a few seconds:
 
 <screen>
-$ time charon -s ./trivial-vbox.json deploy
+$ time charon -s ./trivial-vbox.charon deploy
 building all machine configurations...
 copying closure to machine ‘webserver’...
 activating new configuration on machine ‘webserver’...
@@ -207,7 +208,7 @@ Charon, you can run <command>charon destroy</command>:
 
 <screen>
 warning: are you sure you want to destroy EC2 machine ‘webserver’? (y/N) y
-$ charon -s ./trivial-vbox.json destroy
+$ charon -s ./trivial-vbox.charon destroy
 destroying VirtualBox VM ‘webserver’...
 </screen>
 
@@ -285,8 +286,8 @@ in
 linkend="ex-physical-multi.nix" />.  Deployment is as follows:
 
 <screen>
-$ charon -s ./load-balancer-vbox.json create ./load-balancer.nix ./load-balancer-vbox.nix
-$ charon -s ./load-balancer-vbox.json deploy
+$ charon -s ./load-balancer-vbox.charon create ./load-balancer.nix ./load-balancer-vbox.nix
+$ charon -s ./load-balancer-vbox.charon deploy
 </screen>
 
 Note that Charon creates and deploys the VMs in parallel to speed
@@ -337,8 +338,8 @@ in
 <para>Deployment is as follows:
 
 <screen>
-$ charon -s ./load-balancer-ec2.json create ./load-balancer.nix ./load-balancer-ec2.nix
-$ charon -s ./load-balancer-ec2.json deploy
+$ charon -s ./load-balancer-ec2.charon create ./load-balancer.nix ./load-balancer-ec2.nix
+$ charon -s ./load-balancer-ec2.charon deploy
 </screen>
 
 This will start three instance-store backed instances running a
@@ -348,7 +349,7 @@ closure over to the EC2 instances, and activates the new
 configurations.  The instances can be terminated by running:
 
 <screen>
-$ charon -s ./load-balancer-ec2.json destroy
+$ charon -s ./load-balancer-ec2.charon destroy
 </screen>
 
 </para>

@@ -9,7 +9,6 @@ import tempfile
 import atexit
 import shutil
 import threading
-import fcntl
 import exceptions
 import errno
 from xml.etree import ElementTree
@@ -18,124 +17,157 @@ import charon.parallel
 import re
 from datetime import datetime
 import getpass
+import sqlite3
 
-class Deployment:
+
+def _open_database(db_file, exclusive=False):
+    if os.path.splitext(db_file)[1] != '.charon':
+        raise Exception("state file ‘{0}’ should have extension ‘.charon’".format(db_file))
+    db = sqlite3.connect(db_file, timeout=60, check_same_thread=False) # FIXME
+    c = db.cursor()
+
+    if exclusive: c.execute("pragma locking_mode = exclusive")
+    c.execute("pragma journal_mode = wal")
+    c.execute("pragma foreign_keys = 1")
+
+    c.execute(
+        '''create table if not exists Deployments(
+             uuid text primary key
+           );''')
+
+    c.execute(
+        '''create table if not exists DeploymentAttrs(
+             deployment text not null,
+             name text not null,
+             value text not null,
+             primary key(deployment, name),
+             foreign key(deployment) references Deployments(uuid) on delete cascade
+           );''')
+
+    c.execute(
+        '''create table if not exists Machines(
+             id integer primary key autoincrement,
+             deployment text not null,
+             name text not null,
+             type text not null,
+             foreign key(deployment) references Deployments(uuid) on delete cascade
+           );''')
+
+    c.execute(
+        '''create table if not exists MachineAttrs(
+             machine integer not null,
+             name text not null,
+             value text not null,
+             primary key(machine, name),
+             foreign key(machine) references Machines(id) on delete cascade
+           );''')
+
+    return db
+
+
+def _find_deployment(db, uuid=None):
+    c = db.cursor()
+    if not uuid:
+        c.execute("select uuid from Deployments")
+        res = c.fetchall()
+        if len(res) == 0: return None
+        if len(res) > 1:
+            raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘--uuid’")
+        return Deployment(db, res[0][0])
+    raise Exception("not implemented")
+
+
+def create_deployment(db_file):
+    """Create a new deployment."""
+    db = _open_database(db_file)
+    import uuid
+    uuid = str(uuid.uuid1())
+    db.execute("insert into Deployments(uuid) values (?)", (uuid,))
+    db.commit()
+    return Deployment(db, uuid)
+
+
+def open_deployment(db_file, ignore_missing=False, exclusive=False):
+    """Open an existing deployment."""
+    db = _open_database(db_file, exclusive=exclusive)
+    deployment = _find_deployment(db)
+    if deployment: return deployment
+    if ignore_missing: return None
+    raise Exception("could not find specified deployment in state file ‘{0}’".format(db_file))
+
+
+class Deployment(object):
     """Charon top-level deployment manager."""
 
-    def __init__(self, state_file, create=False, nix_exprs=[], nix_path=[], log_file=sys.stderr):
-        self.state_file = os.path.realpath(state_file)
-        self.machines = {}
-        self._machine_state = {}
-        self.active = {}
-        self.configs_path = None
-        self.description = "Unnamed Charon network"
-        self.enable_rollback = False
+    nix_exprs = charon.util.attr_property("nixExprs", [], 'json')
+    nix_path = charon.util.attr_property("nixPath", [], 'json')
+    args = charon.util.attr_property("args", {}, 'json')
+    description = charon.util.attr_property("description", None)
+    configs_path = charon.util.attr_property("configsPath", None)
+    rollback_enabled = charon.util.attr_property("rollbackEnabled", False)
+
+    def __init__(self, db, uuid, log_file=sys.stderr):
+        self._db = db
+        self.uuid = uuid
+
         self._last_log_prefix = None
         self.auto_response = None
         self.extra_nix_path = []
-        self._args = {}
 
-        self._state_lock = threading.Lock()
         self._log_lock = threading.Lock()
 
         self.expr_path = os.path.dirname(__file__) + "/../../../../share/nix/charon"
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
-        self._create = create
-        self._nix_exprs = nix_exprs
-        self._nix_path = nix_path
-
         self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
         atexit.register(lambda: shutil.rmtree(self.tempdir))
 
         self._log_file = log_file
 
-
-    def __enter__(self):
-        if self._create:
-            self._create_state_lock()
-            if os.path.exists(self.state_file):
-                self.load_state()
-            else:
-                import uuid
-                self.uuid = str(uuid.uuid1())
-            self.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in self._nix_exprs]
-            self.nix_path = [_abs_nix_path(x) for x in self._nix_path]
-        else:
-            if not os.path.isfile(self.state_file):
-                raise Exception("state file ‘{0}’ does not exist".format(self.state_file))
-            self._create_state_lock()
-            self.load_state()
-
-
-    def __exit__(self, exception_type, exception_value, exception_traceback):
-        fcntl.lockf(self._state_file_lock, fcntl.LOCK_UN)
-        self._state_file_lock.close()
-
-
-    def _create_state_lock(self):
-        self._state_file_lock = open(self.state_file + ".lock", "w+")
-        try:
-            fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except exceptions.IOError as e:
-            if e.errno != errno.EAGAIN: raise
-            self.log("waiting for exclusive lock on ‘{0}’...".format(self.state_file))
-            fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX)
-
-
-    def load_state(self):
-        """Read the current deployment state from the state file."""
-        f = open(self.state_file, 'r')
-        state = json.load(f)
-        self.nix_exprs = state['networkExprs']
-        self.nix_path = state.get('nixPath', [])
-        self.uuid = state['uuid']
-        self.description = state.get('description', self.description)
-        self.enable_rollback = state.get('enableRollback', False)
         self.machines = {}
-        self._machine_state = {}
         self.active = {}
-        self.configs_path = state.get('vmsPath', None)
-        for n, v in state['machines'].iteritems():
-            m = charon.backends.create_state(self, v['targetEnv'], n, self._log_file)
-            self.machines[n] = m
-            self.machines[n].deserialise(v)
-            self._machine_state[n] = v
-            if not m.obsolete: self.active[m.name] = m
-        self._args = state.get('args', {})
+        c = self._db.cursor()
+        c.execute("select id, name, type from Machines where deployment = ?", (self.uuid,))
+        for (id, name, type) in c.fetchall():
+            m = charon.backends.create_state(self, type, name, id, self._log_file)
+            self.machines[name] = m
+            if not m.obsolete: self.active[name] = m
         self.set_log_prefixes()
 
 
-    def write_state(self):
-        """Write the current deployment state to the state file in JSON format."""
-        state = {'networkExprs': self.nix_exprs,
-                 'nixPath': self.nix_path,
-                 'uuid': self.uuid,
-                 'description': self.description,
-                 'enableRollback': self.enable_rollback,
-                 'machines': self._machine_state,
-                 'args': self._args}
-        if self.configs_path: state['vmsPath'] = self.configs_path
-        tmp = self.state_file + ".tmp"
-        f = open(tmp, 'w')
-        json.dump(state, f, indent=2)
-        f.close()
-        os.rename(tmp, self.state_file)
+    def _set_attrs(self, attrs, commit=True):
+        """Update deployment attributes in the state file."""
+        c = self._db.cursor()
+        for n, v in attrs.iteritems():
+            if v == None:
+                c.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, n))
+            else:
+                c.execute("insert or replace into DeploymentAttrs(deployment, name, value) values (?, ?, ?)",
+                          (self.uuid, n, v))
+        if commit: self._db.commit()
 
 
-    def update_machine_state(self, m):
-        with self._state_lock:
-            self._machine_state[m.name] = m.serialise()
-            self.write_state()
+    def _set_attr(self, name, value, commit=True):
+        """Update one deployment attribute in the state file."""
+        self._set_attrs({name: value}, commit=commit)
+
+
+    def _get_attr(self, name, default=charon.util.undefined):
+        """Get a deployment attribute from the state file."""
+        c = self._db.cursor()
+        c.execute("select value from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
+        row = c.fetchone()
+        if row != None: return row[0]
+        if default != charon.util.undefined: return default
+        raise Exception("deployment attribute ‘{0}’ missing from state file".format(name))
 
 
     def delete_machine(self, m):
-        with self._state_lock:
-            del self.machines[m.name]
-            if m.name in self._machine_state: del self._machine_state[m.name]
-            if m.name in self.active: del self.active[m.name]
-            self.write_state()
+        del self.machines[m.name]
+        self.active.pop(m.name, None)
+        self._db.execute("delete from Machines where deployment = ? and id = ?", (self.uuid, m.id))
+        self._db.commit()
 
 
     def log(self, msg):
@@ -199,7 +231,9 @@ class Deployment:
         """Set a persistent argument to the deployment specification."""
         assert isinstance(name, str)
         assert isinstance(value, str)
-        self._args[name] = value
+        args = self.args
+        args[name] = value
+        self.args = args
 
 
     def set_argstr(self, name, value):
@@ -217,11 +251,13 @@ class Deployment:
     def unset_arg(self, name):
         """Unset a persistent argument to the deployment specification."""
         assert isinstance(name, str)
-        self._args.pop(name, None)
+        args = self.args
+        args.pop(name, None)
+        self.args = args
 
 
     def _args_to_attrs(self):
-        return "{ " + string.join([n + " = " + v + "; " for n, v in self._args.iteritems()]) + "}"
+        return "{ " + string.join([n + " = " + v + "; " for n, v in self.args.iteritems()]) + "}"
 
 
     def evaluate(self):
@@ -248,9 +284,9 @@ class Deployment:
         info = tree.find("attrs/attr[@name='network']")
         assert info != None
         elem = info.find("attrs/attr[@name='description']/string")
-        if elem != None: self.description = elem.get("value")
+        self.description = elem.get("value") if elem != None else None
         elem = info.find("attrs/attr[@name='enableRollback']/bool")
-        if elem != None: self.enable_rollback = elem.get("value") == "true"
+        self.rollback_enabled = elem != None and elem.get("value") == "true"
 
         # Extract machine information.
         machines = tree.find("attrs/attr[@name='machines']/attrs")
@@ -269,6 +305,7 @@ class Deployment:
                 + self._eval_flags() +
                 ["--eval-only", "--show-trace", "--strict",
                  "<charon/eval-machine-info.nix>",
+                 "--arg", "checkConfigurationOptions", "false",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
                  "--arg", "args", self._args_to_attrs(),
                  "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
@@ -321,7 +358,7 @@ class Deployment:
                 lines.append('      }};'.format(m2.name))
                 # FIXME: set up the authorized_key file such that ‘m’
                 # can do nothing more than create a tunnel.
-                authorized_keys[m2.name].append('"' + m._public_vpn_key + '"')
+                authorized_keys[m2.name].append('"' + m.public_vpn_key + '"')
                 kernel_modules[m.name].add('"tun"')
                 kernel_modules[m2.name].add('"tun"')
                 hosts[m.name][m2.name] = hosts[m.name][m2.name + "-encrypted"] = remote_ipv4
@@ -378,7 +415,7 @@ class Deployment:
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
 
-        if self.enable_rollback:
+        if self.rollback_enabled:
             profile = self.get_profile()
             dir = os.path.dirname(profile)
             if not os.path.exists(dir): os.makedirs(dir, 0755)
@@ -436,7 +473,6 @@ class Deployment:
                 # configuration.
                 m.cur_configs_path = configs_path
                 m.cur_toplevel = m.new_toplevel
-                self.update_machine_state(m)
 
             except Exception as e:
                 # This thread shouldn't throw an exception because
@@ -500,7 +536,6 @@ class Deployment:
             m.backup(backup_id)
 
         charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
-        self.write_state()
 
 
     def restore(self, include=[], exclude=[], backup_id=None):
@@ -519,7 +554,16 @@ class Deployment:
         # Create state objects for all defined machines.
         for m in self.definitions.itervalues():
             if m.name not in self.machines:
-                self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, self._log_file)
+                c = self._db.cursor()
+                c.execute("select 1 from Machines where deployment = ? and name = ?", (self.uuid, m.name))
+                if len(c.fetchall()) != 0:
+                    raise Exception("machine already exists in database!")
+                c.execute("insert into Machines(deployment, name, type) values (?, ?, ?)",
+                          (self.uuid, m.name, m.get_type()))
+                id = c.lastrowid
+                self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, id, self._log_file)
+
+        self._db.commit()
 
         self.set_log_prefixes()
 
@@ -533,12 +577,9 @@ class Deployment:
                 if m.obsolete:
                     self.log("machine ‘{0}’ is no longer obsolete".format(m.name))
                     m.obsolete = False
-                    m.write()
             else:
                 self.log("machine ‘{0}’ is obsolete".format(m.name))
-                if not m.obsolete:
-                    m.obsolete = True
-                    m.write()
+                if not m.obsolete: m.obsolete = True
                 if not should_do(m, include, exclude): continue
                 if kill_obsolete and m.destroy(): self.delete_machine(m)
 
@@ -578,11 +619,9 @@ class Deployment:
             self.build_configs(dry_run=True, include=include, exclude=exclude)
             return
 
-        self.configs_path = self.build_configs(include=include, exclude=exclude)
-
         # Record configs_path in the state so that the ‘info’ command
         # can show whether machines have an outdated configuration.
-        self.write_state()
+        self.configs_path = self.build_configs(include=include, exclude=exclude)
 
         if build_only: return
 
@@ -600,7 +639,7 @@ class Deployment:
 
     def rollback(self, generation, include=[], exclude=[], check=False,
                  allow_reboot=False, max_concurrent_copy=5):
-        if not self.enable_rollback:
+        if not self.rollback_enabled:
             raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy"
                             )
         profile = self.get_profile()
@@ -609,7 +648,6 @@ class Deployment:
 
         self.configs_path = os.path.realpath(profile)
         assert os.path.isdir(self.configs_path)
-        self.write_state()
 
         names = set()
         for filename in os.listdir(self.configs_path):
@@ -626,12 +664,9 @@ class Deployment:
                 if m.obsolete:
                     self.log("machine ‘{0}’ is no longer obsolete".format(m.name))
                     m.obsolete = False
-                    m.write()
             else:
                 self.log("machine ‘{0}’ is obsolete".format(m.name))
-                if not m.obsolete:
-                    m.obsolete = True
-                    m.write()
+                if not m.obsolete: m.obsolete = True
 
         self.copy_closures(self.configs_path, include=include, exclude=exclude,
                            max_concurrent_copy=max_concurrent_copy)
@@ -690,16 +725,20 @@ class Deployment:
 
     def rename(self, name, new_name):
         if not name in self.machines:
-            raise Exception("Machine {0} not found.".format(name))
+            raise Exception("machine {0} not found".format(name))
         if new_name in self.machines:
-            raise Exception("Machine with {0} already exists.".format(new_name))
+            raise Exception("machine with {0} already exists".format(new_name))
         if not self.is_valid_machine_name(new_name):
-            raise Exception("{0} is not a valid machine identifier.".format(new_name))
+            raise Exception("{0} is not a valid machine identifier".format(new_name))
 
-        self.log("Renaming machine ‘{0}’ to ‘{1}’...".format(name, new_name))
-        machine = self._machine_state.pop(name)
-        self._machine_state[new_name] = machine
-        self.write_state()
+        self.log("renaming machine ‘{0}’ to ‘{1}’...".format(name, new_name))
+
+        m = self.machines.pop(name)
+        self.machines[new_name] = m
+        # FIXME: update self.active
+
+        self._db.execute("update Machines set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
+        self._db.commit()
 
 
     def send_keys(self, include=[], exclude=[]):
@@ -723,12 +762,3 @@ def should_do_n(name, include, exclude):
     if name in exclude: return False
     if include == []: return True
     return name in include
-
-
-
-def _abs_nix_path(x):
-    xs = x.split('=', 1)
-    if len(xs) == 1: return os.path.abspath(x)
-    return xs[0] + '=' + os.path.abspath(xs[1])
-
-

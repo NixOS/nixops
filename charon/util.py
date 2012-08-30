@@ -3,6 +3,7 @@
 import os
 import sys
 import time
+import json
 import fcntl
 import base64
 import socket
@@ -62,3 +63,25 @@ def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
 
 def ansi_warn(s, outfile=sys.stderr):
     return "\033[1;31m" + s + "\033[0m" if outfile.isatty() else s
+
+def abs_nix_path(x):
+    xs = x.split('=', 1)
+    if len(xs) == 1: return os.path.abspath(x)
+    return xs[0] + '=' + os.path.abspath(xs[1])
+
+undefined = object()
+
+def attr_property(name, default, type=str):
+    """Define a property that corresponds to a value in the Charon state file."""
+    def get(self):
+        s = self._get_attr(name, default)
+        if s == None: return None
+        elif type is str: return s
+        elif type is int: return int(s)
+        elif type is bool: return True if s == "1" else False
+        elif type is 'json': return json.loads(s)
+        else: assert False
+    def set(self, x):
+        if type is 'json': self._set_attr(name, json.dumps(x))
+        else: self._set_attr(name, x)
+    return property(get, set)
