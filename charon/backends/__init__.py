@@ -88,8 +88,7 @@ class MachineState(object):
         c.execute("select value from MachineAttrs where machine = ? and name = ?", (self.id, name))
         row = c.fetchone()
         if row != None: return row[0]
-        if default != charon.util.undefined: return default
-        raise Exception("deployment attribute ‘{0}’ missing from state file".format(name))
+        return charon.util.undefined
 
     def set_log_prefix(self, length):
         self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))

@@ -75,6 +75,9 @@ def attr_property(name, default, type=str):
     """Define a property that corresponds to a value in the Charon state file."""
     def get(self):
         s = self._get_attr(name, default)
+        if s == undefined:
+            if default != undefined: return default
+            raise Exception("deployment attribute ‘{0}’ missing from state file".format(name))
         if s == None: return None
         elif type is str: return s
         elif type is int: return int(s)

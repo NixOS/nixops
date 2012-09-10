@@ -159,8 +159,7 @@ class Deployment(object):
         c.execute("select value from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
         row = c.fetchone()
         if row != None: return row[0]
-        if default != charon.util.undefined: return default
-        raise Exception("deployment attribute ‘{0}’ missing from state file".format(name))
+        return charon.util.undefined
 
 
     def delete_machine(self, m):
