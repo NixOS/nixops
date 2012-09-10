@@ -2,9 +2,6 @@
 
 { config, pkgs, ... }:
 
-let 
-  cfg = config.deployment.route53;
-in
 with pkgs.lib;
 
 {
@@ -33,7 +30,7 @@ with pkgs.lib;
       '';
     };
 
-    deployment.route53.hostname = mkOption {
+    deployment.route53.hostName = mkOption {
       default = "";
       example = "test.x.logicblox.com";
       type = types.uniq types.string;
@@ -58,4 +55,5 @@ with pkgs.lib;
   ###### implementation
 
   config = mkIf (config.deployment.targetEnv == "ec2") {};
+
 }

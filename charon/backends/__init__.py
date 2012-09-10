@@ -82,6 +82,12 @@ class MachineState(object):
         """Update one machine attribute in the state file."""
         self._set_attrs({name: value}, commit=commit)
 
+    def _del_attr(self, name):
+        """Delete a machine attribute from the state file."""
+        c = self.depl._db.cursor()
+        c.execute("delete from MachineAttrs where machine = ? and name = ?", (self.id, name))
+        self.depl._db.commit()
+
     def _get_attr(self, name, default=charon.util.undefined):
         """Get a machine attribute from the state file."""
         c = self.depl._db.cursor()

@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import json
+import copy
 import fcntl
 import base64
 import socket
@@ -76,7 +77,7 @@ def attr_property(name, default, type=str):
     def get(self):
         s = self._get_attr(name, default)
         if s == undefined:
-            if default != undefined: return default
+            if default != undefined: return copy.deepcopy(default)
             raise Exception("deployment attribute ‘{0}’ missing from state file".format(name))
         if s == None: return None
         elif type is str: return s
@@ -85,6 +86,7 @@ def attr_property(name, default, type=str):
         elif type is 'json': return json.loads(s)
         else: assert False
     def set(self, x):
-        if type is 'json': self._set_attr(name, json.dumps(x))
+        if x == default: self._del_attr(name)
+        elif type is 'json': self._set_attr(name, json.dumps(x))
         else: self._set_attr(name, x)
     return property(get, set)

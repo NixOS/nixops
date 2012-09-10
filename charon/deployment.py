@@ -65,7 +65,7 @@ def _open_database(db_file, exclusive=False):
     return db
 
 
-def _find_deployment(db, uuid=None):
+def _find_deployment(db, db_file, uuid=None):
     c = db.cursor()
     if not uuid:
         c.execute("select uuid from Deployments")
@@ -73,7 +73,7 @@ def _find_deployment(db, uuid=None):
         if len(res) == 0: return None
         if len(res) > 1:
             raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘--uuid’")
-        return Deployment(db, res[0][0])
+        return Deployment(db, db_file, res[0][0])
     raise Exception("not implemented")
 
 
@@ -84,13 +84,13 @@ def create_deployment(db_file):
     uuid = str(uuid.uuid1())
     db.execute("insert into Deployments(uuid) values (?)", (uuid,))
     db.commit()
-    return Deployment(db, uuid)
+    return Deployment(db, db_file, uuid)
 
 
 def open_deployment(db_file, ignore_missing=False, exclusive=False):
     """Open an existing deployment."""
     db = _open_database(db_file, exclusive=exclusive)
-    deployment = _find_deployment(db)
+    deployment = _find_deployment(db, db_file)
     if deployment: return deployment
     if ignore_missing: return None
     raise Exception("could not find specified deployment in state file ‘{0}’".format(db_file))
@@ -106,8 +106,9 @@ class Deployment(object):
     configs_path = charon.util.attr_property("configsPath", None)
     rollback_enabled = charon.util.attr_property("rollbackEnabled", False)
 
-    def __init__(self, db, uuid, log_file=sys.stderr):
+    def __init__(self, db, db_file, uuid, log_file=sys.stderr):
         self._db = db
+        self._db_file = os.path.abspath(db_file)
         self.uuid = uuid
 
         self._last_log_prefix = None
@@ -151,6 +152,13 @@ class Deployment(object):
     def _set_attr(self, name, value, commit=True):
         """Update one deployment attribute in the state file."""
         self._set_attrs({name: value}, commit=commit)
+
+
+    def _del_attr(self, name):
+        """Delete a deployment attribute from the state file."""
+        c = self._db.cursor()
+        c.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
+        self._db.commit()
 
 
     def _get_attr(self, name, default=charon.util.undefined):
