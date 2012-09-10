@@ -578,6 +578,12 @@ class EC2State(MachineState):
                     self._conn.attach_volume(v['disk'], self._instance_id, k)
                     self._block_device_mapping[k] = v
                     self.write()
+                if v['disk'].startswith("snap-"):
+                    new_volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self._zone)
+                    new_volume.attach(self._instance_id, k)
+                    v['disk'] = new_volume.id
+                    self._block_device_mapping[k] = v
+                    self.write()
                 else:
                     raise Exception("adding device mapping ‘{0}’ to a running instance is not (yet) supported".format(v['disk']))
 
@@ -628,7 +634,7 @@ class EC2State(MachineState):
 
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self._block_device_mapping.items():
-            if k not in defn.block_device_mapping and not v['partOfImage']:
+            if k not in defn.block_device_mapping and 'partOfImage' in v  and not v['partOfImage']:
                 self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
                 self.connect()
                 volumes = self._conn.get_all_volumes([], filters={'attachment.instance-id': self._instance_id, 'attachment.device': k})
