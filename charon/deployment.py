@@ -545,7 +545,8 @@ class Deployment(object):
             m.restore(self.definitions[m.name], backup_id)
 
         charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
-        self.deploy(include=include, exclude=exclude, check=True)
+        self.start_machines(include=include, exclude=exclude)
+        self.warn("Restore finished, please note that you might need to run charon deploy to fix configuration issues regarding changed IP addresses.")
 
 
     def evaluate_active(self, include=[], exclude=[], kill_obsolete=False):
