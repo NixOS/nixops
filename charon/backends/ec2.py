@@ -13,6 +13,10 @@ from charon.backends import MachineDefinition, MachineState
 import charon.known_hosts
 import charon.util
 
+import boto.route53
+from boto.route53.record import ResourceRecordSets
+from xml import etree
+
 class EC2Definition(MachineDefinition):
     """Definition of an EC2 machine."""
 
@@ -46,6 +50,12 @@ class EC2Definition(MachineDefinition):
         self.block_device_mapping = {_xvd_to_sd(k.get("name")): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
         self.elastic_ipv4 = x.find("attr[@name='elasticIPv4']/string").get("value")
 
+        x = xml.find("attrs/attr[@name='route53']/attrs")
+        assert x is not None
+        self.dns_hostname = x.find("attr[@name='hostname']/string").get("value")
+        self.dns_ttl = x.find("attr[@name='ttl']/int").get("value")
+        self.route53_access_key_id = x.find("attr[@name='accessKeyId']/string").get("value")
+
 
 class EC2State(MachineState):
     """State of an EC2 machine."""
@@ -57,6 +67,7 @@ class EC2State(MachineState):
     def __init__(self, depl, name, log_file=sys.stderr):
         MachineState.__init__(self, depl, name, log_file)
         self._conn = None
+        self._conn_route53 = None
         self._access_key_id = None
         self._reset_state()
 
@@ -80,7 +91,9 @@ class EC2State(MachineState):
         self._public_host_key = False
         self._root_device_type = None
         self._backups = {}
-
+        self._dns_hostname = None
+        self._dns_ttl = None
+        self._route53_access_key_id = None
 
     def serialise(self):
         x = MachineState.serialise(self)
@@ -105,6 +118,12 @@ class EC2State(MachineState):
         if self._root_device_type: y['rootDeviceType'] = self._root_device_type
         if self._elastic_ipv4: y['elasticIPv4'] = self._elastic_ipv4
         x['ec2'] = y
+
+        y = {}
+        if self._dns_hostname: y['hostname'] = self._dns_hostname
+        if self._dns_ttl: y['ttl'] = self._dns_ttl
+        if self._route53_access_key_id: y['accessKeyId'] = self._route53_access_key_id
+        x['route53'] = y
 
         if self._backups: x['backups'] = self._backups
 
@@ -133,6 +152,11 @@ class EC2State(MachineState):
         self._public_host_key = y.get('publicHostKey', None)
         self._root_device_type = y.get('rootDeviceType', None)
         self._elastic_ipv4 = y.get('elasticIPv4', None)
+
+        y = x.get('route53', {})
+        self._dns_hostname = y.get('hostname', "")
+        self._dns_ttl = y.get('ttl', None)
+        self._route53_access_key_id = y.get('accessKeyId', None)
 
         self._backups = x.get('backups', {})
 
@@ -183,13 +207,7 @@ class EC2State(MachineState):
             return m._private_ipv4
         return MachineState.address_to(self, m)
 
-
-    def connect(self):
-        if self._conn: return
-        assert self._region
-
-        # Get the secret access key from the environment or from ~/.ec2-keys.
-        access_key_id = self._access_key_id
+    def fetch_aws_secret_key(self, access_key_id):
         secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
         path = os.path.expanduser("~/.ec2-keys")
         if os.path.isfile(path):
@@ -200,21 +218,42 @@ class EC2State(MachineState):
                 l = l.split("#")[0] # drop comments
                 w = l.split()
                 if len(w) < 2 or len(w) > 3: continue
-                if len(w) == 3 and w[2] == self._access_key_id:
+                if len(w) == 3 and w[2] == access_key_id:
                     access_key_id = w[0]
                     secret_access_key = w[1]
                     break
-                if w[0] == self._access_key_id:
+                if w[0] == access_key_id:
                     secret_access_key = w[1]
                     break
 
         if not secret_access_key:
             raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/.ec2-keys"
-                            .format(self._access_key_id))
+                            .format(access_key_id))
+
+        return (access_key_id, secret_access_key)
+
+
+
+    def connect(self):
+        if self._conn: return
+        assert self._region
+
+        # Get the secret access key from the environment or from ~/.ec2-keys.
+        access_key_id = self._access_key_id
+        (access_key_id, secret_access_key) = self.fetch_aws_secret_key(access_key_id)
 
         self._conn = boto.ec2.connect_to_region(
             region_name=self._region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
+
+    def connect_route53(self):
+        if self._conn_route53: return
+
+        # Get the secret access key from the environment or from ~/.ec2-keys.
+        access_key_id = self._route53_access_key_id
+        (access_key_id, secret_access_key) = self.fetch_aws_secret_key(access_key_id)
+
+        self._conn_route53 = boto.connect_route53(access_key_id, secret_access_key)
 
     def _get_instance_by_id(self, instance_id, allow_missing=False):
         """Get instance object by instance id."""
@@ -548,6 +587,35 @@ class EC2State(MachineState):
         if not self._public_ipv4 or check:
             instance = self._get_instance_by_id(self._instance_id)
             self._wait_for_ip(instance)
+
+        if defn.dns_hostname != "":
+            self._dns_hostname = defn.dns_hostname
+            self._dns_ttl = defn.dns_ttl
+            self._route53_access_key_id = defn.route53_access_key_id
+
+            self.write()
+
+            self.connect_route53()
+            hosted_zone = ".".join(self._dns_hostname.split(".")[1:])
+            zones = self._conn_route53.get_all_hosted_zones()
+
+            zones = [zone for zone in zones['ListHostedZonesResponse']['HostedZones'] if "{0}.".format(hosted_zone) == zone.Name ]
+            if len(zones) != 1:
+                raise Exception('Hosted zone for {0} not found.'.format(hosted_zone))
+            zoneid = zones[0]['Id'].split("/")[2]
+
+            prevrrs = self._conn_route53.get_all_rrsets(hosted_zone_id=zoneid, type="A", name="{0}.".format(self._dns_hostname))
+            changes = ResourceRecordSets(connection=self._conn_route53, hosted_zone_id=zoneid)
+            if len(prevrrs) > 0:
+                for prevrr in prevrrs:
+                    change = changes.add_change("DELETE", self._dns_hostname, "A")
+                    change.add_value(",".join(prevrr.resource_records))
+
+            change = changes.add_change("CREATE", self._dns_hostname, "A")
+            change.add_value(self._public_ipv4)
+            changes.commit()
+            self.log('Sending Route53 DNS : {0} {1}'.format(self._public_ipv4, self._dns_hostname))
+
 
         # Wait until the instance is reachable via SSH.
         self.wait_for_ssh(check=check)
