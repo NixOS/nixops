@@ -501,6 +501,7 @@ class Deployment:
 
         charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
         self.write_state()
+        return backup_id
 
 
     def restore(self, include=[], exclude=[], backup_id=None):

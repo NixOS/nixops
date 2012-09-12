@@ -571,7 +571,8 @@ class EC2State(MachineState):
                 self.log_end("")
 
                 addresses = self._conn.get_all_addresses(addresses=[defn.elastic_ipv4])
-                if addresses[0].instance_id != self._instance_id \
+                if addresses[0].instance_id != "" \
+                   and addresses[0].instance_id != self._instance_id \
                    and not self.depl.confirm("are you sure you want to associate IP address ‘{0}’, it is currently in use by instance ‘{1}’?".format(defn.elastic_ipv4, addresses[0].instance_id)):
                     raise Exception("Elastic IP ‘{0}’ already in use...".format(defn.elastic_ipv4))
                 else:

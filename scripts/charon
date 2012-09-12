@@ -9,6 +9,7 @@ import sys
 import subprocess
 import charon.parallel
 import charon.util
+import time
 from pprint import pprint
 
 
@@ -83,35 +84,64 @@ def op_check():
         for m in depl.active.itervalues():
             m.check()
 
+def print_backups(depl, backups):
+    print "Network UUID:", depl.uuid
+    print "Network description:", depl.description
+    tbl = PrettyTable(["Backup ID", "Status", "Info"])
+    for k, v in sorted(backups.items(), reverse=True):
+        fst = v['info'][0] if len(v['info']) > 0 else ""
+        tbl.add_row([k,v['status'], fst])
+        for i in v['info'][1:]:
+            tbl.add_row(["", "", i])
+
+    print tbl
 
 def op_backup():
     depl = deployment.Deployment(args.state_file)
     with depl:
         backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
         if args.show_backups:
-
-            print "Network UUID:", depl.uuid
-            print "Network description:", depl.description
-            tbl = PrettyTable(["Backup ID", "Status", "Info"])
-            for k, v in sorted(backups.items(), reverse=True):
-                fst = v['info'][0] if len(v['info']) > 0 else ""
-                tbl.add_row([k,v['status'], fst])
-                for i in v['info'][1:]:
-                    tbl.add_row(["", "", i])
-
-            print tbl
+            print_backups(depl, backups)
         else:
             backups_status = [b['status'] for _, b in backups.items()]
             if "running" in backups_status and not args.force:
                 raise Exception("There are still backups running, use --force to run a new backup concurrently (not advised!)")
             else:
-                depl.backup(include=args.include or [], exclude=args.exclude or [])
+                backup_id = depl.backup(include=args.include or [], exclude=args.exclude or [])
+                print backup_id
+
+def op_backup_status():
+    depl = deployment.Deployment(args.state_file)
+    with depl:
+        backupid = args.backupid
+        while True:
+            backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
+            sorted_backups = sorted(backups.keys(), reverse=True)
+            if backupid is None:
+                if len(backups) == 0:
+                    Exception("No backups found!")
+                backupid = sorted_backups[0]
+
+            _backups = {}
+            _backups[backupid] = backups[backupid]
+
+            print_backups(depl, _backups)
+
+            backups_status = [b['status'] for _, b in _backups.items()]
+            if "running" in backups_status:
+                if args.wait:
+                    print "Waiting for 30 seconds..."
+                    time.sleep(30)
+                else:
+                    raise Exception("Backup {0} not yet finished.".format(backupid))
+            else:
+                return
 
 
 def op_restore():
     depl = deployment.Deployment(args.state_file)
     with depl:
-        depl.restore(include=args.include or [], exclude=args.exclude or [], backup_id=args.backup_id)
+        depl.restore(include=args.include or [], exclude=args.exclude or [], backup_id=args.backupid)
 
 
 def op_deploy():
@@ -362,11 +392,18 @@ subparser.add_argument('--list', dest='show_backups', action="store_true", defau
 subparser.add_argument('--freeze', dest='freeze_fs', action="store_true", default=False, help='freeze filesystems for non-root filesystems that support this (e.g. xfs)')
 subparser.add_argument('--force', dest='force', action="store_true", default=False, help='start new backup even if previous is still running')
 
-subparser = subparsers.add_parser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
-subparser.set_defaults(op=op_restore)
+subparser = subparsers.add_parser('backup-status', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
+subparser.set_defaults(op=op_backup_status)
+subparser.add_argument('backupid', default=None, nargs='?', help='use specified backup in stead of latest')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
-subparser.add_argument('--backup-id', dest="backup_id", default=None, help='use specified backup in stead of latest')
+subparser.add_argument('--wait', dest='wait', action="store_true", default=False, help='wait until backup is finished')
+
+subparser = subparsers.add_parser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
+subparser.set_defaults(op=op_restore)
+subparser.add_argument('backupid', default=None, help='use specified backup in stead of latest')
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
 
 subparser = subparsers.add_parser('show-option', help='print the value of a configuration option')
 subparser.set_defaults(op=op_show_option)
