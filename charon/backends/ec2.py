@@ -570,8 +570,22 @@ class EC2State(MachineState):
                     instance.update()
                 self.log_end("")
 
-                self.log("associating IP address ‘{0}’...".format(defn.elastic_ipv4))
-                self._conn.associate_address(instance_id=self._instance_id, public_ip=defn.elastic_ipv4)
+                addresses = self._conn.get_all_addresses(addresses=[defn.elastic_ipv4])
+                if addresses[0].instance_id != self._instance_id \
+                   and not self.depl.confirm("are you sure you want to associate IP address ‘{0}’, it is currently in use by instance ‘{1}’?".format(defn.elastic_ipv4, addresses[0].instance_id)):
+                    raise Exception("Elastic IP ‘{0}’ already in use...".format(defn.elastic_ipv4))
+                else:
+                    self.log("associating IP address ‘{0}’...".format(defn.elastic_ipv4))
+                    addresses[0].associate(self._instance_id)
+                    self.log_start("waiting for address to be associated to machine... ".format(self.name))
+                    instance.update()
+                    while True:
+                        self.log_continue("({0}) ".format(instance.ip_address))
+                        if instance.ip_address == defn.elastic_ipv4: break
+                        time.sleep(3)
+                        instance.update()
+                    self.log_end("")
+
                 self._elastic_ipv4 = defn.elastic_ipv4
                 self._public_ipv4 = defn.elastic_ipv4
                 self._ssh_pinged = False
