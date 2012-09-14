@@ -285,35 +285,38 @@ def op_rollback():
 
 
 # Set up the parser.
-parser = argparse.ArgumentParser(description='NixOS cloud deployment tool')
-
-parser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
-                    default=os.environ.get("CHARON_STATE", "network.charon"), help='path to state file')
-parser.add_argument('--deployment', '-d', dest='deployment', metavar='UUID',
-                    default=os.environ.get("CHARON_DEPLOYMENT", None), help='UUID of the deployment')
-parser.add_argument('--debug', action='store_true', help='enable debug output')
+parser = argparse.ArgumentParser(description='NixOS cloud deployment tool', prog='charon')
 parser.add_argument('--version', action='version', version='Charon 0.1')
-parser.add_argument('--confirm', action='store_true', help='confirm dangerous operations; do not ask')
 
 subparsers = parser.add_subparsers(help='sub-command help')
 
-subparser = subparsers.add_parser('list-deployments', help='list all known deployments')
+def add_subparser(name, help):
+    subparser = subparsers.add_parser(name, help=help)
+    subparser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
+                           default=os.environ.get("CHARON_STATE", "network.charon"), help='path to state file')
+    subparser.add_argument('--deployment', '-d', dest='deployment', metavar='UUID',
+                           default=os.environ.get("CHARON_DEPLOYMENT", None), help='UUID of the deployment')
+    subparser.add_argument('--debug', action='store_true', help='enable debug output')
+    subparser.add_argument('--confirm', action='store_true', help='confirm dangerous operations; do not ask')
+    return subparser
+
+subparser = add_subparser('list-deployments', help='list all known deployments')
 subparser.set_defaults(op=op_list_deployments)
 
-subparser = subparsers.add_parser('create', help='create a state file')
+subparser = add_subparser('create', help='create a state file')
 subparser.set_defaults(op=op_create)
 subparser.add_argument('nix_exprs', nargs='+', metavar='NIX-FILE', help='Nix expression(s) defining the network')
 subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='persistently append a directory to the Nix search path')
 
-subparser = subparsers.add_parser('info', help='show the state of the network')
+subparser = add_subparser('info', help='show the state of the network')
 subparser.set_defaults(op=op_info)
 subparser.add_argument('--plain',  action='store_true', help='do not pretty-print the output')
 subparser.add_argument('--no-eval', action='store_true', help='do not evaluate the deployment specification')
 
-subparser = subparsers.add_parser('check', help='check the state of the machines in the network')
+subparser = add_subparser('check', help='check the state of the machines in the network')
 subparser.set_defaults(op=op_check)
 
-subparser = subparsers.add_parser('set-args', help='persistently set arguments to the deployment specification')
+subparser = add_subparser('set-args', help='persistently set arguments to the deployment specification')
 subparser.set_defaults(op=op_set_args)
 subparser.add_argument('--arg', nargs=2, action="append", dest="args", metavar=('NAME', 'VALUE'), help='pass a Nix expression value')
 subparser.add_argument('--argstr', nargs=2, action="append", dest="argstrs", metavar=('NAME', 'VALUE'), help='pass a string value')
@@ -326,7 +329,7 @@ def add_common_deployment_options(subparser):
     subparser.add_argument('--allow-reboot', action='store_true', help='reboot machines if necessary')
     subparser.add_argument('--max-concurrent-copy', type=int, default=5, metavar='N', help='maximum number of concurrent nix-copy-closure processes')
 
-subparser = subparsers.add_parser('deploy', help='deploy the network configuration')
+subparser = add_subparser('deploy', help='deploy the network configuration')
 subparser.set_defaults(op=op_deploy)
 subparser.add_argument('--kill-obsolete', '-k', action='store_true', help='kill obsolete virtual machines')
 subparser.add_argument('--dry-run', action='store_true', help='show what would be done')
@@ -336,46 +339,46 @@ subparser.add_argument('--copy-only', action='store_true', help='exit after copy
 subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='append a directory to the Nix search path')
 add_common_deployment_options(subparser)
 
-subparser = subparsers.add_parser('send-keys', help='send encryption keys')
+subparser = add_subparser('send-keys', help='send encryption keys')
 subparser.set_defaults(op=op_send_keys)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='send keys to only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='send keys to all except the specified machines')
 
-subparser = subparsers.add_parser('destroy', help='destroy all virtual machines in the network')
+subparser = add_subparser('destroy', help='destroy all virtual machines in the network')
 subparser.set_defaults(op=op_destroy)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='destroy only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='destroy all except the specified machines')
 
-subparser = subparsers.add_parser('stop', help='stop all virtual machines in the network')
+subparser = add_subparser('stop', help='stop all virtual machines in the network')
 subparser.set_defaults(op=op_stop)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='stop only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='stop all except the specified machines')
 
-subparser = subparsers.add_parser('start', help='start all virtual machines in the network')
+subparser = add_subparser('start', help='start all virtual machines in the network')
 subparser.set_defaults(op=op_start)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='start only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='start all except the specified machines')
 
-subparser = subparsers.add_parser('reboot', help='reboot all virtual machines in the network')
+subparser = add_subparser('reboot', help='reboot all virtual machines in the network')
 subparser.set_defaults(op=op_reboot)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='reboot only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='reboot all except the specified machines')
 subparser.add_argument('--wait', '-w', action='store_true', help='wait until the machines are up again')
 
-subparser = subparsers.add_parser('show-physical', help='print the physical network expression')
+subparser = add_subparser('show-physical', help='print the physical network expression')
 subparser.set_defaults(op=op_show_physical)
 
-subparser = subparsers.add_parser('ssh', help='login on the specified machine via SSH')
+subparser = add_subparser('ssh', help='login on the specified machine via SSH')
 subparser.set_defaults(op=op_ssh)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
 subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
 
-subparser = subparsers.add_parser('ssh-for-each', help='execute a command on each machine via SSH')
+subparser = add_subparser('ssh-for-each', help='execute a command on each machine via SSH')
 subparser.set_defaults(op=op_ssh_for_each)
 subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
 subparser.add_argument('--parallel', '-p', action='store_true', help='run in parallel')
 
-subparser = subparsers.add_parser('scp', help='copy files to or from the specified machine via scp')
+subparser = add_subparser('scp', help='copy files to or from the specified machine via scp')
 subparser.set_defaults(op=op_scp)
 subparser.add_argument('--from', dest='scp_from', action='store_true', help='copy a file from specified machine')
 subparser.add_argument('--to', dest='scp_to', action='store_true', help='copy a file to specified machine')
@@ -383,12 +386,12 @@ subparser.add_argument('machine', metavar='MACHINE', help='identifier of the mac
 subparser.add_argument('source', metavar='SOURCE', help='source file location')
 subparser.add_argument('destination', metavar='DEST', help='destination file location')
 
-subparser = subparsers.add_parser('rename', help='rename machine in network')
+subparser = add_subparser('rename', help='rename machine in network')
 subparser.set_defaults(op=op_rename)
 subparser.add_argument('current_name', metavar='FROM', help='current identifier of the machine')
 subparser.add_argument('new_name', metavar='TO', help='new identifier of the machine')
 
-subparser = subparsers.add_parser('backup', help='make snapshots of persistent disks in network (currently EC2-only)')
+subparser = add_subparser('backup', help='make snapshots of persistent disks in network (currently EC2-only)')
 subparser.set_defaults(op=op_backup)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
@@ -396,29 +399,29 @@ subparser.add_argument('--list', dest='show_backups', action="store_true", defau
 subparser.add_argument('--freeze', dest='freeze_fs', action="store_true", default=False, help='freeze filesystems for non-root filesystems that support this (e.g. xfs)')
 subparser.add_argument('--force', dest='force', action="store_true", default=False, help='start new backup even if previous is still running')
 
-subparser = subparsers.add_parser('backup-status', help='get current status of backups')
+subparser = add_subparser('backup-status', help='get current status of backups')
 subparser.set_defaults(op=op_backup_status)
 subparser.add_argument('backupid', default=None, nargs='?', help='use specified backup in stead of latest')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
 subparser.add_argument('--wait', dest='wait', action="store_true", default=False, help='wait until backup is finished')
 
-subparser = subparsers.add_parser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
+subparser = add_subparser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
 subparser.set_defaults(op=op_restore)
 subparser.add_argument('backupid', default=None, help='use specified backup in stead of latest')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
 
-subparser = subparsers.add_parser('show-option', help='print the value of a configuration option')
+subparser = add_subparser('show-option', help='print the value of a configuration option')
 subparser.set_defaults(op=op_show_option)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
 subparser.add_argument('option', metavar='OPTION', help='option name')
 subparser.add_argument('--xml', action='store_true', help='print the option value in XML format')
 
-subparser = subparsers.add_parser('list-generations', help='list previous configurations to which you can roll back')
+subparser = add_subparser('list-generations', help='list previous configurations to which you can roll back')
 subparser.set_defaults(op=op_list_generations)
 
-subparser = subparsers.add_parser('rollback', help='roll back to a previous configuration')
+subparser = add_subparser('rollback', help='roll back to a previous configuration')
 subparser.set_defaults(op=op_rollback)
 subparser.add_argument('generation', type=int, metavar='GENERATION', help='number of the desired configuration (see ‘charon list-generations’)')
 add_common_deployment_options(subparser)
