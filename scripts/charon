@@ -26,6 +26,10 @@ def op_list_deployments():
     print tbl
 
 
+def open_deployment(exclusive=False):
+    return deployment.open_deployment(args.state_file, uuid=args.deployment, exclusive=exclusive)
+
+
 def op_create():
     depl = deployment.open_deployment(args.state_file, ignore_missing=True)
     if not depl:
@@ -36,7 +40,7 @@ def op_create():
 
 
 def op_info():
-    depl = deployment.open_deployment(args.state_file)
+    depl = open_deployment()
 
     have_definitions = False
     if args.no_eval:
@@ -92,7 +96,7 @@ def op_info():
 
 
 def op_check():
-    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl = open_deployment(exclusive=True)
     for m in depl.active.itervalues():
         m.check()
 
@@ -110,7 +114,7 @@ def print_backups(depl, backups):
 
 
 def op_backup():
-    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl = open_deployment(exclusive=True)
     backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
     if args.show_backups:
         print_backups(depl, backups)
@@ -124,7 +128,7 @@ def op_backup():
 
 
 def op_backup_status():
-    depl = deployment.open_deployment(args.state_file)
+    depl = open_deployment()
     backupid = args.backupid
     while True:
         backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
@@ -151,12 +155,12 @@ def op_backup_status():
 
 
 def op_restore():
-    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl = open_deployment(exclusive=True)
     depl.restore(include=args.include or [], exclude=args.exclude or [], backup_id=args.backup_id)
 
 
 def op_deploy():
-    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl = open_deployment(exclusive=True)
     depl.extra_nix_path = sum(args.nix_path or [], [])
     if args.confirm: depl.auto_response = "y"
     depl.deploy(dry_run=args.dry_run, build_only=args.build_only,
@@ -168,45 +172,45 @@ def op_deploy():
 
 
 def op_send_keys():
-    depl = deployment.open_deployment(args.state_file)
+    depl = open_deployment()
     depl.send_keys(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_set_args():
-    depl = deployment.open_deployment(args.state_file)
+    depl = open_deployment()
     for [n, v] in args.args or []: depl.set_arg(n, v)
     for [n, v] in args.argstrs or []: depl.set_argstr(n, v)
     for [n] in args.unset or []: depl.unset_arg(n)
 
 
 def op_destroy():
-    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl = open_deployment(exclusive=True)
     if args.confirm: depl.auto_response = "y"
     depl.destroy_vms(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_reboot():
-    depl = deployment.open_deployment(args.state_file)
+    depl = open_deployment()
     depl.reboot_machines(include=args.include or [], exclude=args.exclude or [], wait=args.wait)
 
 
 def op_stop():
-    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl = open_deployment(exclusive=True)
     depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_start():
-    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl = open_deployment(exclusive=True)
     depl.start_machines(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_rename():
-    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl = open_deployment(exclusive=True)
     depl.rename(args.current_name, args.new_name)
 
 
 def op_show_physical():
-    depl = deployment.open_deployment(args.state_file)
+    depl = open_deployment()
     depl.evaluate()
     depl.active = {n: depl.machines[n] for n in depl.machines if n in depl.definitions}
     sys.stdout.write(depl.get_physical_spec())
@@ -217,7 +221,7 @@ def parse_machine(name):
 
 
 def op_ssh():
-    depl = deployment.open_deployment(args.state_file)
+    depl = open_deployment()
     (username, machine) = parse_machine(args.machine)
     m = depl.machines.get(machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(machine))
@@ -228,7 +232,7 @@ def op_ssh():
 
 
 def op_ssh_for_each():
-    depl = deployment.open_deployment(args.state_file)
+    depl = open_deployment()
     res2 = 0
     if args.parallel:
         def worker(m):
@@ -248,7 +252,7 @@ def scp_loc(ssh_name, remote, loc):
 
 
 def op_scp():
-    depl = deployment.open_deployment(args.state_file)
+    depl = open_deployment()
     m = depl.machines.get(args.machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
     ssh_name = m.get_ssh_name()
@@ -260,12 +264,12 @@ def op_scp():
 
 
 def op_show_option():
-    depl = deployment.open_deployment(args.state_file)
+    depl = open_deployment()
     sys.stdout.write(depl.evaluate_option_value(args.machine, args.option, xml=args.xml))
 
 
 def op_list_generations():
-    depl = deployment.open_deployment(args.state_file)
+    depl = open_deployment()
     if not depl.rollback_enabled:
         raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy")
     if subprocess.call(["nix-env", "-p", depl.get_profile(), "--list-generations"]) != 0:
@@ -273,7 +277,7 @@ def op_list_generations():
 
 
 def op_rollback():
-    depl = deployment.open_deployment(args.state_file, exclusive=True)
+    depl = open_deployment(exclusive=True)
     depl.rollback(args.generation,
                   include=args.include or [], exclude=args.exclude or [],
                   check=args.check, allow_reboot=args.allow_reboot,
@@ -285,6 +289,8 @@ parser = argparse.ArgumentParser(description='NixOS cloud deployment tool')
 
 parser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
                     default=os.environ.get("CHARON_STATE", "network.charon"), help='path to state file')
+parser.add_argument('--deployment', '-d', dest='deployment', metavar='UUID',
+                    default=os.environ.get("CHARON_DEPLOYMENT", None), help='UUID of the deployment')
 parser.add_argument('--debug', action='store_true', help='enable debug output')
 parser.add_argument('--version', action='version', version='Charon 0.1')
 parser.add_argument('--confirm', action='store_true', help='confirm dangerous operations; do not ask')

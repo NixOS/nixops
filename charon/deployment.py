@@ -83,7 +83,7 @@ def _find_deployment(db, db_file, uuid=None):
     res = c.fetchall()
     if len(res) == 0: return None
     if len(res) > 1:
-        raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘--uuid’")
+        raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘-d’")
     return Deployment(db, db_file, res[0][0])
 
 
