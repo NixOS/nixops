@@ -9,8 +9,6 @@ import socket
 import getpass
 import shutil
 import boto.ec2
-import boto.route53
-from boto.route53.record import ResourceRecordSets
 from charon.backends import MachineDefinition, MachineState
 import charon.known_hosts
 import charon.util
@@ -537,6 +535,9 @@ class EC2State(MachineState):
             self._wait_for_ip(instance)
 
         if defn.dns_hostname:
+            import boto.route53
+            import boto.route53.record
+
             self.dns_hostname = defn.dns_hostname
             self.dns_ttl = defn.dns_ttl
             self.route53_access_key_id = defn.route53_access_key_id
@@ -553,7 +554,7 @@ class EC2State(MachineState):
             zoneid = zones[0]['Id'].split("/")[2]
 
             prevrrs = self._conn_route53.get_all_rrsets(hosted_zone_id=zoneid, type="A", name="{0}.".format(self.dns_hostname))
-            changes = ResourceRecordSets(connection=self._conn_route53, hosted_zone_id=zoneid)
+            changes = boto.route53.record.ResourceRecordSets(connection=self._conn_route53, hosted_zone_id=zoneid)
             if len(prevrrs) > 0:
                 for prevrr in prevrrs:
                     change = changes.add_change("DELETE", self.dns_hostname, "A")
