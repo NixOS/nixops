@@ -178,7 +178,7 @@ in
     };
 
     deployment.ec2.ebsBoot = mkOption {
-      default = false;
+      default = true;
       type = types.bool;
       description = ''
         Whether you want to boot from an EBS-backed AMI.  Only
