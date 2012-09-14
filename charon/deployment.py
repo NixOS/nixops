@@ -99,10 +99,12 @@ def open_deployment(db_file, ignore_missing=False, exclusive=False):
 class Deployment(object):
     """Charon top-level deployment manager."""
 
+    default_description = "Unnamed Charon network"
+
     nix_exprs = charon.util.attr_property("nixExprs", [], 'json')
     nix_path = charon.util.attr_property("nixPath", [], 'json')
     args = charon.util.attr_property("args", {}, 'json')
-    description = charon.util.attr_property("description", None)
+    description = charon.util.attr_property("description", default_description)
     configs_path = charon.util.attr_property("configsPath", None)
     rollback_enabled = charon.util.attr_property("rollbackEnabled", False)
 
@@ -291,7 +293,7 @@ class Deployment(object):
         info = tree.find("attrs/attr[@name='network']")
         assert info != None
         elem = info.find("attrs/attr[@name='description']/string")
-        self.description = elem.get("value") if elem != None else None
+        self.description = elem.get("value") if elem != None else self.default_description
         elem = info.find("attrs/attr[@name='enableRollback']/bool")
         self.rollback_enabled = elem != None and elem.get("value") == "true"
 

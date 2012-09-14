@@ -473,7 +473,6 @@ class EC2State(MachineState):
         common_tags = {'CharonNetworkUUID': self.depl.uuid,
                        'CharonMachineName': self.name,
                        'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db_file)}
-        # FIXME: description can be None now
         tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
         tags.update(defn.tags)
         tags.update(common_tags)
