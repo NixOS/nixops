@@ -93,26 +93,26 @@ class EC2State(MachineState):
 
     def _reset_state(self):
         """Discard all state pertaining to an instance."""
-        # FIXME: transaction!
-        self.state = MachineState.MISSING
-        self.vm_id = None
-        self.public_ipv4 = None
-        self.private_ipv4 = None
-        self.elastic_ipv4 = None
-        self.region = None
-        self.zone = None
-        self.controller = None
-        self.ami = None
-        self.instance_type = None
-        self.key_pair = None
-        self.public_host_key = None
-        self.security_groups = None
-        self.tags = {}
-        self.block_device_mapping = {}
-        self.root_device_type = None
-        self.backups = {}
-        self.dns_hostname = None
-        self.dns_ttl = None
+        with self.depl._db:
+            self.state = MachineState.MISSING
+            self.vm_id = None
+            self.public_ipv4 = None
+            self.private_ipv4 = None
+            self.elastic_ipv4 = None
+            self.region = None
+            self.zone = None
+            self.controller = None
+            self.ami = None
+            self.instance_type = None
+            self.key_pair = None
+            self.public_host_key = None
+            self.security_groups = None
+            self.tags = {}
+            self.block_device_mapping = {}
+            self.root_device_type = None
+            self.backups = {}
+            self.dns_hostname = None
+            self.dns_ttl = None
 
 
     def get_ssh_name(self):
@@ -439,16 +439,16 @@ class EC2State(MachineState):
 
             instance = reservation.instances[0]
 
-            # FIXME: transaction!
-            self.state = self.STARTING
-            self.vm_id = instance.id
-            self.controller = defn.controller
-            self.ami = defn.ami
-            self.instance_type = defn.instance_type
-            self.key_pair = defn.key_pair
-            self.security_groups = defn.security_groups
-            self.zone = instance.placement
-            self.public_host_key = public
+            with self.depl._db:
+                self.state = self.STARTING
+                self.vm_id = instance.id
+                self.controller = defn.controller
+                self.ami = defn.ami
+                self.instance_type = defn.instance_type
+                self.key_pair = defn.key_pair
+                self.security_groups = defn.security_groups
+                self.zone = instance.placement
+                self.public_host_key = public
 
         # There is a short time window during which EC2 doesn't
         # know the instance ID yet.  So wait until it does.
@@ -518,18 +518,18 @@ class EC2State(MachineState):
                     self.log_end("")
 
                 charon.known_hosts.add(defn.elastic_ipv4, self._public_host_key)
-                # FIXME: transaction
-                self.elastic_ipv4 = defn.elastic_ipv4
-                self.public_ipv4 = defn.elastic_ipv4
-                self.ssh_pinged = False
+                with self.depl._db:
+                    self.elastic_ipv4 = defn.elastic_ipv4
+                    self.public_ipv4 = defn.elastic_ipv4
+                    self.ssh_pinged = False
 
             elif self.elastic_ipv4 != None:
                 self.log("disassociating IP address ‘{0}’...".format(self.elastic_ipv4))
                 self._conn.disassociate_address(public_ip=self.elastic_ipv4)
-                # FIXME: transaction
-                self.elastic_ipv4 = None
-                self.public_ipv4 = None
-                self.ssh_pinged = False
+                with self.depl._db:
+                    self.elastic_ipv4 = None
+                    self.public_ipv4 = None
+                    self.ssh_pinged = False
 
         # Wait for the IP address.
         if not self.public_ipv4 or check:

@@ -67,26 +67,25 @@ class MachineState(object):
         self._log_file = log_file
         self.set_log_prefix(0)
 
-    def _set_attrs(self, attrs, commit=True):
+    def _set_attrs(self, attrs):
         """Update machine attributes in the state file."""
-        c = self.depl._db.cursor()
-        for n, v in attrs.iteritems():
-            if v == None:
-                c.execute("delete from MachineAttrs where machine = ? and name = ?", (self.id, n))
-            else:
-                c.execute("insert or replace into MachineAttrs(machine, name, value) values (?, ?, ?)",
-                          (self.id, n, v))
-        if commit: self.depl._db.commit()
+        with self.depl._db:
+            c = self.depl._db.cursor()
+            for n, v in attrs.iteritems():
+                if v == None:
+                    c.execute("delete from MachineAttrs where machine = ? and name = ?", (self.id, n))
+                else:
+                    c.execute("insert or replace into MachineAttrs(machine, name, value) values (?, ?, ?)",
+                              (self.id, n, v))
 
-    def _set_attr(self, name, value, commit=True):
+    def _set_attr(self, name, value):
         """Update one machine attribute in the state file."""
-        self._set_attrs({name: value}, commit=commit)
+        self._set_attrs({name: value})
 
     def _del_attr(self, name):
         """Delete a machine attribute from the state file."""
-        c = self.depl._db.cursor()
-        c.execute("delete from MachineAttrs where machine = ? and name = ?", (self.id, name))
-        self.depl._db.commit()
+        with self.depl._db:
+            self.depl._db.execute("delete from MachineAttrs where machine = ? and name = ?", (self.id, name))
 
     def _get_attr(self, name, default=charon.util.undefined):
         """Get a machine attribute from the state file."""

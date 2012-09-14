@@ -18,11 +18,31 @@ import re
 from datetime import datetime
 import getpass
 import sqlite3
+import traceback
 
 
 class Connection(sqlite3.Connection):
     db_file = None
-    pass
+
+    nesting = 0
+
+    # Implement Python's context management protocol so that "with db"
+    # automatically commits or rolls back.  The difference with the
+    # parent's "with" implementation is that we nest, i.e. a commit or
+    # rollback is only done at the outer "with".
+    def __enter__(self):
+        if self.nesting == 0: self.must_rollback = False
+        self.nesting = self.nesting + 1
+
+    def __exit__(self, exception_type, exception_value, exception_traceback):
+        if exception_type != None: self.must_rollback = True
+        self.nesting = self.nesting - 1
+        assert self.nesting >= 0
+        if self.nesting == 0:
+            if self.must_rollback:
+                self.rollback()
+            else:
+                self.commit()
 
 
 def open_database(db_file, exclusive=False):
@@ -30,6 +50,7 @@ def open_database(db_file, exclusive=False):
         raise Exception("state file ‘{0}’ should have extension ‘.charon’".format(db_file))
     db = sqlite3.connect(db_file, timeout=60, check_same_thread=False, factory=Connection) # FIXME
     db.db_file = db_file
+
     c = db.cursor()
 
     if exclusive: c.execute("pragma locking_mode = exclusive")
@@ -97,8 +118,8 @@ def create_deployment(db, uuid=None):
     if not uuid:
         import uuid
         uuid = str(uuid.uuid1())
-    db.execute("insert into Deployments(uuid) values (?)", (uuid,))
-    db.commit()
+    with db:
+        db.execute("insert into Deployments(uuid) values (?)", (uuid,))
     return Deployment(db, uuid)
 
 
@@ -152,28 +173,27 @@ class Deployment(object):
         self.set_log_prefixes()
 
 
-    def _set_attrs(self, attrs, commit=True):
+    def _set_attrs(self, attrs):
         """Update deployment attributes in the state file."""
-        c = self._db.cursor()
-        for n, v in attrs.iteritems():
-            if v == None:
-                c.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, n))
-            else:
-                c.execute("insert or replace into DeploymentAttrs(deployment, name, value) values (?, ?, ?)",
-                          (self.uuid, n, v))
-        if commit: self._db.commit()
+        with self._db:
+            c = self._db.cursor()
+            for n, v in attrs.iteritems():
+                if v == None:
+                    c.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, n))
+                else:
+                    c.execute("insert or replace into DeploymentAttrs(deployment, name, value) values (?, ?, ?)",
+                              (self.uuid, n, v))
 
 
-    def _set_attr(self, name, value, commit=True):
+    def _set_attr(self, name, value):
         """Update one deployment attribute in the state file."""
-        self._set_attrs({name: value}, commit=commit)
+        self._set_attrs({name: value})
 
 
     def _del_attr(self, name):
         """Delete a deployment attribute from the state file."""
-        c = self._db.cursor()
-        c.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
-        self._db.commit()
+        with self._db:
+            self._db.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
 
 
     def _get_attr(self, name, default=charon.util.undefined):
@@ -188,8 +208,8 @@ class Deployment(object):
     def delete_machine(self, m):
         del self.machines[m.name]
         self.active.pop(m.name, None)
-        self._db.execute("delete from Machines where deployment = ? and id = ?", (self.uuid, m.id))
-        self._db.commit()
+        with self._db:
+            self._db.execute("delete from Machines where deployment = ? and id = ?", (self.uuid, m.id))
 
 
     def log(self, msg):
@@ -577,18 +597,17 @@ class Deployment(object):
         self.evaluate()
 
         # Create state objects for all defined machines.
-        for m in self.definitions.itervalues():
-            if m.name not in self.machines:
-                c = self._db.cursor()
-                c.execute("select 1 from Machines where deployment = ? and name = ?", (self.uuid, m.name))
-                if len(c.fetchall()) != 0:
-                    raise Exception("machine already exists in database!")
-                c.execute("insert into Machines(deployment, name, type) values (?, ?, ?)",
-                          (self.uuid, m.name, m.get_type()))
-                id = c.lastrowid
-                self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, id, self._log_file)
-
-        self._db.commit()
+        with self._db:
+            for m in self.definitions.itervalues():
+                if m.name not in self.machines:
+                    c = self._db.cursor()
+                    c.execute("select 1 from Machines where deployment = ? and name = ?", (self.uuid, m.name))
+                    if len(c.fetchall()) != 0:
+                        raise Exception("machine already exists in database!")
+                    c.execute("insert into Machines(deployment, name, type) values (?, ?, ?)",
+                              (self.uuid, m.name, m.get_type()))
+                    id = c.lastrowid
+                    self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, id, self._log_file)
 
         self.set_log_prefixes()
 
@@ -762,8 +781,8 @@ class Deployment(object):
         self.machines[new_name] = m
         # FIXME: update self.active
 
-        self._db.execute("update Machines set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
-        self._db.commit()
+        with self._db:
+            self._db.execute("update Machines set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
 
 
     def send_keys(self, include=[], exclude=[]):
