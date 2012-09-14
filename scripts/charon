@@ -5,6 +5,7 @@ from charon import deployment
 from prettytable import PrettyTable
 import argparse
 import os
+import re
 import sys
 import subprocess
 import charon.parallel
@@ -19,11 +20,12 @@ if not os.path.exists(home): os.makedirs(home, 0700)
 def op_list_deployments():
     # FIXME: open DB only once.
     uuids = deployment.query_deployments(args.state_file)
-    tbl = PrettyTable(["UUID", "Description", "# Machines", "Type"])
+    tbl = PrettyTable(["UUID", "Name", "Description", "# Machines", "Type"])
     for uuid in uuids:
         depl = deployment.open_deployment(args.state_file, uuid=uuid)
         tbl.add_row(
-            [uuid, depl.description, len(depl.machines),
+            [uuid, depl.name or "(none)",
+             depl.description, len(depl.machines),
              ", ".join(set([m.get_type() for m in depl.machines.itervalues()]))
             ])
     print tbl
@@ -36,6 +38,10 @@ def open_deployment(exclusive=False):
 def modify_deployment(depl):
     depl.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in args.nix_exprs]
     depl.nix_path = [charon.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
+    if args.name != None:
+        if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-]*$", args.name):
+            raise Exception("invalid deployment name ‘{0}’".format(args.name))
+        depl.name = args.name
 
 
 def op_create():
@@ -318,6 +324,7 @@ subparser.set_defaults(op=op_list_deployments)
 def add_common_modify_options(subparser):
     subparser.add_argument('nix_exprs', nargs='+', metavar='NIX-FILE', help='Nix expression(s) defining the network')
     subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='persistently append a directory to the Nix search path')
+    subparser.add_argument('--name', '-n', dest='name', metavar='NAME', help='symbolic name of deployment')
 
 subparser = add_subparser('create', help='create a new deployment')
 subparser.set_defaults(op=op_create)

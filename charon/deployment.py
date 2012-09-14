@@ -79,7 +79,7 @@ def _find_deployment(db, db_file, uuid=None):
     if not uuid:
         c.execute("select uuid from Deployments")
     else:
-        c.execute("select uuid from Deployments where uuid = ?", (uuid,))
+        c.execute("select uuid from Deployments d where uuid = ? or exists (select 1 from DeploymentAttrs where deployment = d.uuid and name = 'name' and value = ?)", (uuid, uuid))
     res = c.fetchall()
     if len(res) == 0: return None
     if len(res) > 1:
@@ -110,6 +110,7 @@ class Deployment(object):
 
     default_description = "Unnamed Charon network"
 
+    name = charon.util.attr_property("name", None)
     nix_exprs = charon.util.attr_property("nixExprs", [], 'json')
     nix_path = charon.util.attr_property("nixPath", [], 'json')
     args = charon.util.attr_property("args", {}, 'json')
