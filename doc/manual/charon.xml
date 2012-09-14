@@ -947,10 +947,7 @@ $ charon backup</screen>
     <option>--exclude</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
   </arg>
-  <arg>
-    <option>--backup-id</option>
-    <arg choice='plain' rep='repeat'><replaceable>backup-id</replaceable></arg>
-  </arg>
+  <arg choice='plain'><replaceable>backup-id</replaceable></arg>
 </cmdsynopsis>
 </refsection>
 
@@ -980,8 +977,7 @@ $ charon backup</screen>
 
   </varlistentry>
 
-  <varlistentry><term><option>--backup-id</option>
-    <replaceable>backup-id...</replaceable></term>
+  <varlistentry><term><replaceable>backup-id...</replaceable></term>
 
     <listitem><para>Restore the persistent disks of all machines to a given backup except the ones listed
     here.</para></listitem>
@@ -998,7 +994,7 @@ $ charon backup</screen>
 
 <screen>
 $ charon backup --list
-$ charon restore --backup-id 20120803151302</screen>
+$ charon restore 20120803151302</screen>
 
 </para>
 
