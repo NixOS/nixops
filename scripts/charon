@@ -392,7 +392,7 @@ subparser.add_argument('--list', dest='show_backups', action="store_true", defau
 subparser.add_argument('--freeze', dest='freeze_fs', action="store_true", default=False, help='freeze filesystems for non-root filesystems that support this (e.g. xfs)')
 subparser.add_argument('--force', dest='force', action="store_true", default=False, help='start new backup even if previous is still running')
 
-subparser = subparsers.add_parser('backup-status', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
+subparser = subparsers.add_parser('backup-status', help='get status of backups')
 subparser.set_defaults(op=op_backup_status)
 subparser.add_argument('backupid', default=None, nargs='?', help='use specified backup in stead of latest')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
