@@ -304,7 +304,7 @@ def add_subparser(name, help):
     subparser.add_argument('--confirm', action='store_true', help='confirm dangerous operations; do not ask')
     return subparser
 
-subparser = add_subparser('list-deployments', help='list all known deployments')
+subparser = add_subparser('list', help='list all known deployments')
 subparser.set_defaults(op=op_list_deployments)
 
 subparser = add_subparser('create', help='create a state file')
