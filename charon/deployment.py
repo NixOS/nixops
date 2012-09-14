@@ -97,12 +97,11 @@ def create_deployment(db_file):
     return Deployment(db, db_file, uuid)
 
 
-def open_deployment(db_file, ignore_missing=False, exclusive=False, uuid=None):
+def open_deployment(db_file, exclusive=False, uuid=None):
     """Open an existing deployment."""
     db = _open_database(db_file, exclusive=exclusive)
     deployment = _find_deployment(db, db_file, uuid=uuid)
     if deployment: return deployment
-    if ignore_missing: return None
     raise Exception("could not find specified deployment in state file ‘{0}’".format(db_file))
 
 

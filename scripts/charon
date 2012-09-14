@@ -33,13 +33,21 @@ def open_deployment(exclusive=False):
     return deployment.open_deployment(args.state_file, uuid=args.deployment, exclusive=exclusive)
 
 
-def op_create():
-    depl = deployment.open_deployment(args.state_file, ignore_missing=True)
-    if not depl:
-        depl = deployment.create_deployment(args.state_file)
-        sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
+def modify_deployment(depl):
     depl.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in args.nix_exprs]
     depl.nix_path = [charon.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
+
+
+def op_create():
+    depl = deployment.create_deployment(args.state_file)
+    sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
+    modify_deployment(depl)
+    sys.stdout.write(depl.uuid + "\n")
+
+
+def op_modify():
+    depl = open_deployment()
+    modify_deployment(depl)
 
 
 def op_info():
@@ -307,10 +315,17 @@ def add_subparser(name, help):
 subparser = add_subparser('list', help='list all known deployments')
 subparser.set_defaults(op=op_list_deployments)
 
-subparser = add_subparser('create', help='create a state file')
+def add_common_modify_options(subparser):
+    subparser.add_argument('nix_exprs', nargs='+', metavar='NIX-FILE', help='Nix expression(s) defining the network')
+    subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='persistently append a directory to the Nix search path')
+
+subparser = add_subparser('create', help='create a new deployment')
 subparser.set_defaults(op=op_create)
-subparser.add_argument('nix_exprs', nargs='+', metavar='NIX-FILE', help='Nix expression(s) defining the network')
-subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='persistently append a directory to the Nix search path')
+add_common_modify_options(subparser)
+
+subparser = add_subparser('modify', help='modify an existing deployment')
+subparser.set_defaults(op=op_modify)
+add_common_modify_options(subparser)
 
 subparser = add_subparser('info', help='show the state of the network')
 subparser.set_defaults(op=op_info)
