@@ -20,10 +20,16 @@ import getpass
 import sqlite3
 
 
-def _open_database(db_file, exclusive=False):
+class Connection(sqlite3.Connection):
+    db_file = None
+    pass
+
+
+def open_database(db_file, exclusive=False):
     if os.path.splitext(db_file)[1] != '.charon':
         raise Exception("state file ‘{0}’ should have extension ‘.charon’".format(db_file))
-    db = sqlite3.connect(db_file, timeout=60, check_same_thread=False) # FIXME
+    db = sqlite3.connect(db_file, timeout=60, check_same_thread=False, factory=Connection) # FIXME
+    db.db_file = db_file
     c = db.cursor()
 
     if exclusive: c.execute("pragma locking_mode = exclusive")
@@ -65,16 +71,15 @@ def _open_database(db_file, exclusive=False):
     return db
 
 
-def query_deployments(db_file):
+def query_deployments(db):
     """Return the UUIDs of all deployments in the database."""
-    db = _open_database(db_file)
     c = db.cursor()
     c.execute("select uuid from Deployments")
     res = c.fetchall()
     return [x[0] for x in res]
 
 
-def _find_deployment(db, db_file, uuid=None):
+def _find_deployment(db, uuid=None):
     c = db.cursor()
     if not uuid:
         c.execute("select uuid from Deployments")
@@ -84,26 +89,24 @@ def _find_deployment(db, db_file, uuid=None):
     if len(res) == 0: return None
     if len(res) > 1:
         raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘-d’")
-    return Deployment(db, db_file, res[0][0])
+    return Deployment(db, res[0][0])
 
 
-def create_deployment(db_file, uuid=None):
+def create_deployment(db, uuid=None):
     """Create a new deployment."""
-    db = _open_database(db_file)
     if not uuid:
         import uuid
         uuid = str(uuid.uuid1())
     db.execute("insert into Deployments(uuid) values (?)", (uuid,))
     db.commit()
-    return Deployment(db, db_file, uuid)
+    return Deployment(db, uuid)
 
 
-def open_deployment(db_file, exclusive=False, uuid=None):
+def open_deployment(db, uuid=None):
     """Open an existing deployment."""
-    db = _open_database(db_file, exclusive=exclusive)
-    deployment = _find_deployment(db, db_file, uuid=uuid)
+    deployment = _find_deployment(db, uuid=uuid)
     if deployment: return deployment
-    raise Exception("could not find specified deployment in state file ‘{0}’".format(db_file))
+    raise Exception("could not find specified deployment in state file ‘{0}’".format(db.db_file))
 
 
 class Deployment(object):
@@ -119,9 +122,8 @@ class Deployment(object):
     configs_path = charon.util.attr_property("configsPath", None)
     rollback_enabled = charon.util.attr_property("rollbackEnabled", False)
 
-    def __init__(self, db, db_file, uuid, log_file=sys.stderr):
+    def __init__(self, db, uuid, log_file=sys.stderr):
         self._db = db
-        self._db_file = os.path.abspath(db_file)
         self.uuid = uuid
 
         self._last_log_prefix = None

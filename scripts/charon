@@ -19,11 +19,11 @@ if not os.path.exists(home): os.makedirs(home, 0700)
 
 
 def op_list_deployments():
-    # FIXME: open DB only once.
-    uuids = deployment.query_deployments(args.state_file)
+    db = deployment.open_database(args.state_file)
+    uuids = deployment.query_deployments(db)
     tbl = PrettyTable(["UUID", "Name", "Description", "# Machines", "Type"])
     for uuid in uuids:
-        depl = deployment.open_deployment(args.state_file, uuid=uuid)
+        depl = deployment.open_deployment(db, uuid=uuid)
         tbl.add_row(
             [uuid, depl.name or "(none)",
              depl.description, len(depl.machines),
@@ -33,7 +33,8 @@ def op_list_deployments():
 
 
 def open_deployment(exclusive=False):
-    return deployment.open_deployment(args.state_file, uuid=args.deployment, exclusive=exclusive)
+    db = deployment.open_database(args.state_file, exclusive=exclusive)
+    return deployment.open_deployment(db, uuid=args.deployment)
 
 
 def modify_deployment(depl):

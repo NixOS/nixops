@@ -8,8 +8,10 @@ def import_json(db_file, json_file):
     f = open(json_file, 'r')
     state = json.load(f)
 
+    db = charon.deployment.open_database(db_file)
+
     # FIXME: transaction!
-    depl = charon.deployment.create_deployment(db_file, uuid=state['uuid'])
+    depl = charon.deployment.create_deployment(db, uuid=state['uuid'])
     depl.nix_exprs = state['networkExprs']
     depl.nix_path = state.get('nixPath', [])
     depl.args = state.get('args', {})
