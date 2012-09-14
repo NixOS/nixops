@@ -13,6 +13,19 @@ import time
 from pprint import pprint
 
 
+def op_list_deployments():
+    # FIXME: open DB only once.
+    uuids = deployment.query_deployments(args.state_file)
+    tbl = PrettyTable(["UUID", "Description", "# Machines", "Type"])
+    for uuid in uuids:
+        depl = deployment.open_deployment(args.state_file, uuid=uuid)
+        tbl.add_row(
+            [uuid, depl.description, len(depl.machines),
+             ", ".join(set([m.get_type() for m in depl.machines.itervalues()]))
+            ])
+    print tbl
+
+
 def op_create():
     depl = deployment.open_deployment(args.state_file, ignore_missing=True)
     if not depl:
@@ -277,6 +290,9 @@ parser.add_argument('--version', action='version', version='Charon 0.1')
 parser.add_argument('--confirm', action='store_true', help='confirm dangerous operations; do not ask')
 
 subparsers = parser.add_subparsers(help='sub-command help')
+
+subparser = subparsers.add_parser('list-deployments', help='list all known deployments')
+subparser.set_defaults(op=op_list_deployments)
 
 subparser = subparsers.add_parser('create', help='create a state file')
 subparser.set_defaults(op=op_create)

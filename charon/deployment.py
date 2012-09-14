@@ -65,16 +65,26 @@ def _open_database(db_file, exclusive=False):
     return db
 
 
+def query_deployments(db_file):
+    """Return the UUIDs of all deployments in the database."""
+    db = _open_database(db_file)
+    c = db.cursor()
+    c.execute("select uuid from Deployments")
+    res = c.fetchall()
+    return [x[0] for x in res]
+
+
 def _find_deployment(db, db_file, uuid=None):
     c = db.cursor()
     if not uuid:
         c.execute("select uuid from Deployments")
-        res = c.fetchall()
-        if len(res) == 0: return None
-        if len(res) > 1:
-            raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘--uuid’")
-        return Deployment(db, db_file, res[0][0])
-    raise Exception("not implemented")
+    else:
+        c.execute("select uuid from Deployments where uuid = ?", (uuid,))
+    res = c.fetchall()
+    if len(res) == 0: return None
+    if len(res) > 1:
+        raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘--uuid’")
+    return Deployment(db, db_file, res[0][0])
 
 
 def create_deployment(db_file):
@@ -87,10 +97,10 @@ def create_deployment(db_file):
     return Deployment(db, db_file, uuid)
 
 
-def open_deployment(db_file, ignore_missing=False, exclusive=False):
+def open_deployment(db_file, ignore_missing=False, exclusive=False, uuid=None):
     """Open an existing deployment."""
     db = _open_database(db_file, exclusive=exclusive)
-    deployment = _find_deployment(db, db_file)
+    deployment = _find_deployment(db, db_file, uuid=uuid)
     if deployment: return deployment
     if ignore_missing: return None
     raise Exception("could not find specified deployment in state file ‘{0}’".format(db_file))
