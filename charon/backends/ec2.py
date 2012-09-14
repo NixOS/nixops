@@ -536,7 +536,7 @@ class EC2State(MachineState):
             instance = self._get_instance_by_id(self.vm_id)
             self._wait_for_ip(instance)
 
-        if defn.dns_hostname != "":
+        if defn.dns_hostname:
             self.dns_hostname = defn.dns_hostname
             self.dns_ttl = defn.dns_ttl
             self.route53_access_key_id = defn.route53_access_key_id

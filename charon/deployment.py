@@ -87,11 +87,12 @@ def _find_deployment(db, db_file, uuid=None):
     return Deployment(db, db_file, res[0][0])
 
 
-def create_deployment(db_file):
+def create_deployment(db_file, uuid=None):
     """Create a new deployment."""
     db = _open_database(db_file)
-    import uuid
-    uuid = str(uuid.uuid1())
+    if not uuid:
+        import uuid
+        uuid = str(uuid.uuid1())
     db.execute("insert into Deployments(uuid) values (?)", (uuid,))
     db.commit()
     return Deployment(db, db_file, uuid)

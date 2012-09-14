@@ -10,6 +10,7 @@ import sys
 import subprocess
 import charon.parallel
 import charon.util
+import charon.import_json
 import time
 from pprint import pprint
 
@@ -56,6 +57,10 @@ def op_modify():
     modify_deployment(depl)
 
 
+def op_import_json():
+    charon.import_json.import_json(args.state_file, args.json_file)
+
+
 def op_info():
     depl = open_deployment()
 
@@ -89,12 +94,13 @@ def op_info():
                 m.private_ipv4 or "" if m else "")
 
     else:
+        print "Network name:", depl.name or "(none)"
+        print "Network UUID:", depl.uuid
+        print "Network description:", depl.description
         print "Nix expressions:", ", ".join(depl.nix_exprs)
         if depl.nix_path != []: print "Nix path:", ", ".join(depl.nix_path)
         if depl.rollback_enabled: print "Nix profile:", depl.get_profile()
         if depl.args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl.args.iteritems()])
-        print "Network UUID:", depl.uuid
-        print "Network description:", depl.description
         print
 
         tbl = PrettyTable(["Name", "Status", "Type", "VM Id", "IP address"])
@@ -333,6 +339,10 @@ add_common_modify_options(subparser)
 subparser = add_subparser('modify', help='modify an existing deployment')
 subparser.set_defaults(op=op_modify)
 add_common_modify_options(subparser)
+
+subparser = add_subparser('import-json', help='import a legacy JSON state file')
+subparser.set_defaults(op=op_import_json)
+subparser.add_argument('json_file', metavar='FILE', help='path to JSON file')
 
 subparser = add_subparser('info', help='show the state of the network')
 subparser.set_defaults(op=op_info)
