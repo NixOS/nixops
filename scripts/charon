@@ -100,15 +100,12 @@ def op_backup():
     depl = deployment.Deployment(args.state_file)
     with depl:
         backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
-        if args.show_backups:
-            print_backups(depl, backups)
+        backups_status = [b['status'] for _, b in backups.items()]
+        if "running" in backups_status and not args.force:
+            raise Exception("There are still backups running, use --force to run a new backup concurrently (not advised!)")
         else:
-            backups_status = [b['status'] for _, b in backups.items()]
-            if "running" in backups_status and not args.force:
-                raise Exception("There are still backups running, use --force to run a new backup concurrently (not advised!)")
-            else:
-                backup_id = depl.backup(include=args.include or [], exclude=args.exclude or [])
-                print backup_id
+            backup_id = depl.backup(include=args.include or [], exclude=args.exclude or [])
+            print backup_id
 
 def op_backup_status():
     depl = deployment.Deployment(args.state_file)
@@ -116,14 +113,18 @@ def op_backup_status():
         backupid = args.backupid
         while True:
             backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
-            sorted_backups = sorted(backups.keys(), reverse=True)
-            if backupid is None:
-                if len(backups) == 0:
-                    Exception("No backups found!")
-                backupid = sorted_backups[0]
 
-            _backups = {}
-            _backups[backupid] = backups[backupid]
+            if backupid or args.latest:
+                sorted_backups = sorted(backups.keys(), reverse=True)
+                if args.latest:
+                    if len(backups) == 0:
+                        Exception("No backups found!")
+                    backupid = sorted_backups[0]
+
+                _backups = {}
+                _backups[backupid] = backups[backupid]
+            else:
+                _backups = backups
 
             print_backups(depl, _backups)
 
@@ -388,7 +389,6 @@ subparser = subparsers.add_parser('backup', help='make snapshots of persistent d
 subparser.set_defaults(op=op_backup)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
-subparser.add_argument('--list', dest='show_backups', action="store_true", default=False, help='show available backups for network')
 subparser.add_argument('--freeze', dest='freeze_fs', action="store_true", default=False, help='freeze filesystems for non-root filesystems that support this (e.g. xfs)')
 subparser.add_argument('--force', dest='force', action="store_true", default=False, help='start new backup even if previous is still running')
 
@@ -398,6 +398,7 @@ subparser.add_argument('backupid', default=None, nargs='?', help='use specified 
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
 subparser.add_argument('--wait', dest='wait', action="store_true", default=False, help='wait until backup is finished')
+subparser.add_argument('--latest', dest='latest', action="store_true", default=False, help='show status of latest backup only')
 
 subparser = subparsers.add_parser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
 subparser.set_defaults(op=op_restore)
