@@ -383,7 +383,7 @@ them.</para>
     defaults to 5.</para></listitem>
 
   </varlistentry>
-    
+
 </variablelist>
 
 </refsection>
@@ -877,9 +877,6 @@ $ charon reboot -w --exclude foo</screen>
     <option>--exclude</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
   </arg>
-  <group>
-    <arg choice='plain'><option>--list</option></arg>
-  </group>
 </cmdsynopsis>
 </refsection>
 
@@ -906,12 +903,6 @@ $ charon reboot -w --exclude foo</screen>
 
     <listitem><para>Backup the persistent disks of all machines except the ones listed
     here.</para></listitem>
-
-  </varlistentry>
-
-  <varlistentry><term><option>--list</option></term>
-
-    <listitem><para>List of available backups.</para></listitem>
 
   </varlistentry>
 
@@ -993,7 +984,7 @@ $ charon backup</screen>
 <para>To list the available backups and restore the persistent disks of all machines to a given backup:
 
 <screen>
-$ charon backup --list
+$ charon backup-status
 $ charon restore 20120803151302</screen>
 
 </para>
