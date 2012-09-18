@@ -47,7 +47,8 @@ def modify_deployment(depl):
 
 
 def op_create():
-    depl = deployment.create_deployment(args.state_file)
+    db = deployment.open_database(args.state_file)
+    depl = deployment.create_deployment(db)
     sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
     modify_deployment(depl)
     sys.stdout.write(depl.uuid + "\n")
