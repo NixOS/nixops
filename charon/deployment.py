@@ -22,16 +22,21 @@ import traceback
 
 
 class Connection(sqlite3.Connection):
-    db_file = None
 
-    nesting = 0
+    def __init__(self, db_file, **kwargs):
+        sqlite3.Connection.__init__(self, db_file, **kwargs)
+        self.db_file = db_file
+        self.nesting = 0
+        self.lock = threading.RLock()
 
     # Implement Python's context management protocol so that "with db"
     # automatically commits or rolls back.  The difference with the
     # parent's "with" implementation is that we nest, i.e. a commit or
     # rollback is only done at the outer "with".
     def __enter__(self):
-        if self.nesting == 0: self.must_rollback = False
+        self.lock.acquire()
+        if self.nesting == 0:
+            self.must_rollback = False
         self.nesting = self.nesting + 1
 
     def __exit__(self, exception_type, exception_value, exception_traceback):
@@ -43,6 +48,7 @@ class Connection(sqlite3.Connection):
                 self.rollback()
             else:
                 self.commit()
+        self.lock.release()
 
 
 def open_database(db_file, exclusive=False):
@@ -164,8 +170,9 @@ class Deployment(object):
 
         self.machines = {}
         self.active = {}
-        c = self._db.cursor()
-        c.execute("select id, name, type from Machines where deployment = ?", (self.uuid,))
+        with self._db:
+            c = self._db.cursor()
+            c.execute("select id, name, type from Machines where deployment = ?", (self.uuid,))
         for (id, name, type) in c.fetchall():
             m = charon.backends.create_state(self, type, name, id, self._log_file)
             self.machines[name] = m
@@ -198,11 +205,12 @@ class Deployment(object):
 
     def _get_attr(self, name, default=charon.util.undefined):
         """Get a deployment attribute from the state file."""
-        c = self._db.cursor()
-        c.execute("select value from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
-        row = c.fetchone()
-        if row != None: return row[0]
-        return charon.util.undefined
+        with self._db:
+            c = self._db.cursor()
+            c.execute("select value from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
+            row = c.fetchone()
+            if row != None: return row[0]
+            return charon.util.undefined
 
 
     def delete_machine(self, m):

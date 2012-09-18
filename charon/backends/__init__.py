@@ -89,11 +89,12 @@ class MachineState(object):
 
     def _get_attr(self, name, default=charon.util.undefined):
         """Get a machine attribute from the state file."""
-        c = self.depl._db.cursor()
-        c.execute("select value from MachineAttrs where machine = ? and name = ?", (self.id, name))
-        row = c.fetchone()
-        if row != None: return row[0]
-        return charon.util.undefined
+        with self.depl._db:
+            c = self.depl._db.cursor()
+            c.execute("select value from MachineAttrs where machine = ? and name = ?", (self.id, name))
+            row = c.fetchone()
+            if row != None: return row[0]
+            return charon.util.undefined
 
     def set_log_prefix(self, length):
         self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))

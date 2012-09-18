@@ -14,8 +14,6 @@ def run_tasks(nr_workers, tasks, worker_fun):
 
     if nr_workers < 1: raise Exception("number of worker threads must be at least 1")
 
-    nr_workers = 1 # FIXME; disabled until we use SQLite in a thread-safe manner
-
     def thread_fun():
         n = 0
         while True:
