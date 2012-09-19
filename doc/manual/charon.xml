@@ -17,6 +17,11 @@
 <refsynopsisdiv>
   <cmdsynopsis>
     <command>charon</command>
+    <group choice='req'>
+      <arg choice='plain'><option>--version</option></arg>
+      <arg choice='plain'><option>--help</option></arg>
+      <arg choice='plain'><replaceable>command</replaceable> <arg rep='repeat'><replaceable>arguments</replaceable></arg></arg>
+    </group>
     <arg>
       <group choice='req'>
         <arg choice='plain'><option>--state</option></arg>
@@ -24,13 +29,15 @@
       </group>
       <replaceable>statefile</replaceable>
     </arg>
+    <arg>
+      <group choice='req'>
+        <arg choice='plain'><option>--deployment</option></arg>
+        <arg choice='plain'><option>-d</option></arg>
+      </group>
+      <replaceable>uuid-or-name</replaceable>
+    </arg>
     <arg><option>--confirm</option></arg>
     <arg><option>--debug</option></arg>
-    <group choice='req'>
-      <arg choice='plain'><option>--version</option></arg>
-      <arg choice='plain'><option>--help</option></arg>
-      <arg choice='plain'><replaceable>command</replaceable> <arg rep='repeat'><replaceable>arguments</replaceable></arg></arg>
-    </group>
   </cmdsynopsis>
 </refsynopsisdiv>
 
@@ -50,15 +57,26 @@ cloud.</para>
   <varlistentry><term><option>--state</option></term>
     <term><option>-s</option></term>
 
-    <listitem><para>Path to the state file (created by <command>charon
-    create</command>).  It defaults to the value of the
+    <listitem><para>Path to the state file that contains the
+    deployments.  It defaults to the value of the
     <envar>CHARON_STATE</envar> environment variable, or
-    <filename>./network.charon</filename> if that one is not defined.
-    It must have extension <literal>.charon</literal>.  The state file
-    is actually a SQLite database that can be inspected using the
-    <command>sqlite3</command> command (for example, <literal>sqlite3
-    network.charon .dump</literal>).</para></listitem>
+    <filename>~/.charon/deployments.charon</filename> if that one is
+    not defined.  It must have extension <literal>.charon</literal>.
+    The state file is actually a SQLite database that can be inspected
+    using the <command>sqlite3</command> command (for example,
+    <literal>sqlite3 network.charon .dump</literal>).  If it does not
+    exist, it is created automatically.</para></listitem>
 
+  </varlistentry>
+
+  <varlistentry><term><option>--deployment</option></term>
+    <term><option>-d</option></term>
+
+    <listitem><para>UUID or symbolic name of the deployment on which
+    to operate.  Defaults to the value of the
+    <envar>CHARON_DEPLOYMENT</envar> environment
+    variable.</para></listitem>
+    
   </varlistentry>
 
   <varlistentry><term><option>--confirm</option></term>
@@ -105,6 +123,14 @@ cloud.</para>
     <listitem><para>The location of the state file if
     <option>--state</option> is not used.  It defaults to
     <filename>./network.charon</filename>.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><envar>CHARON_DEPLOYMENT</envar></term>
+
+    <listitem><para>UUID or symbolic name of the deployment on which
+    to operate.  Can be overriden using the <option>-d</option>
+    option.</para></listitem>
 
   </varlistentry>
 
@@ -178,6 +204,13 @@ deployment.ec2.accessKeyId = "prod";
 <cmdsynopsis>
   <command>charon create</command>
   <arg choice='plain' rep='repeat'><replaceable>nixexprs</replaceable></arg>
+    <arg>
+      <group choice='req'>
+        <arg choice='plain'><option>--name</option></arg>
+        <arg choice='plain'><option>-n</option></arg>
+      </group>
+      <replaceable>name</replaceable>
+    </arg>
   <arg rep='repeat'>
     <option>-I</option>
     <replaceable>path</replaceable>
@@ -188,12 +221,11 @@ deployment.ec2.accessKeyId = "prod";
 
 <refsection><title>Description</title>
 
-<para>This command creates or updates a Charon state file representing
-a deployment.  The paths of the Nix expressions that describe the
+<para>This command creates a new deployment state record in Charon’s
+database.  The paths of the Nix expressions that specify the desired
 deployment (<replaceable>nixexprs</replaceable>) are stored in the
-state file.  If the state file already exists, this command simply
-replaces the paths of the Nix expressions stored in the statefile; it
-doesn’t affect any other deployment state.</para>
+state file.  The UUID of the new deployment is printed on standard
+output.</para>
 
 </refsection>
 
@@ -214,6 +246,21 @@ doesn’t affect any other deployment state.</para>
 
   </varlistentry>
 
+  <varlistentry><term><option>--name</option></term><term><option>-n</option></term>
+
+    <listitem><para>Set the symbolic name of the deployment to the
+    given string.  The name can be used to refer to the deployment by
+    passing the option <literal>-d
+    <replaceable>name</replaceable></literal> or the environment
+    variable
+    <literal>CHARON_DEPLOYMENT=<replaceable>name</replaceable></literal>
+    to subsequent Charon invocations.  This is typically more
+    convenient than using the deployment’s UUID.  However, names are
+    not required to be unique; if you create multiple deployments with
+    the same name, Charon will complain.</para></listitem>
+
+  </varlistentry>
+
 </variablelist>
 
 </refsection>
@@ -221,8 +268,53 @@ doesn’t affect any other deployment state.</para>
 <refsection><title>Examples</title>
 
 <screen>
-$ charon -s ./state.charon create foo.nix bar.nix
-$ charon -s ./state.charon deploy</screen>
+$ charon create expr1.nix expr2.nix --name foo
+$ charon deploy -d foo</screen>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon modify</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon modify</command>
+  <arg choice='plain' rep='repeat'><replaceable>nixexprs</replaceable></arg>
+    <arg>
+      <group choice='req'>
+        <arg choice='plain'><option>--name</option></arg>
+        <arg choice='plain'><option>-n</option></arg>
+      </group>
+      <replaceable>name</replaceable>
+    </arg>
+  <arg rep='repeat'>
+    <option>-I</option>
+    <replaceable>path</replaceable>
+  </arg>
+</cmdsynopsis>
+
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command modifies an existing deployment.  The options are
+the same as for <command>charon create</command>.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To change the Nix expressions specifying the deployment, and
+rename it from <literal>foo</literal> to <literal>bar</literal>:
+
+<screen>
+$ charon rename -d foo -n bar expr3.nix expr4.nix</screen>
+
+Note that <option>-d</option> identifies the existing deployment,
+while <option>-n</option> specifies its new name.</para>
 
 </refsection>
 
