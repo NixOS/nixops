@@ -19,6 +19,7 @@ from datetime import datetime
 import getpass
 import sqlite3
 import traceback
+import posixfile
 
 
 class Connection(sqlite3.Connection):
@@ -51,7 +52,7 @@ class Connection(sqlite3.Connection):
         self.lock.release()
 
 
-def open_database(db_file, exclusive=False):
+def open_database(db_file):
     if os.path.splitext(db_file)[1] != '.charon':
         raise Exception("state file ‘{0}’ should have extension ‘.charon’".format(db_file))
     db = sqlite3.connect(db_file, timeout=60, check_same_thread=False, factory=Connection) # FIXME
@@ -59,7 +60,6 @@ def open_database(db_file, exclusive=False):
 
     c = db.cursor()
 
-    if exclusive: c.execute("pragma locking_mode = exclusive")
     c.execute("pragma journal_mode = wal")
     c.execute("pragma foreign_keys = 1")
 
@@ -158,6 +158,9 @@ class Deployment(object):
         self.extra_nix_path = []
 
         self._log_lock = threading.Lock()
+        self._log_file = log_file
+
+        self._deployment_lock = None
 
         self.expr_path = os.path.dirname(__file__) + "/../../../../share/nix/charon"
         if not os.path.exists(self.expr_path):
@@ -165,8 +168,6 @@ class Deployment(object):
 
         self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
         atexit.register(lambda: shutil.rmtree(self.tempdir))
-
-        self._log_file = log_file
 
         self.machines = {}
         self.active = {}
@@ -211,6 +212,22 @@ class Deployment(object):
             row = c.fetchone()
             if row != None: return row[0]
             return charon.util.undefined
+
+
+    def _get_deployment_lock(self):
+        if not self._deployment_lock:
+            lock_dir = os.environ.get("HOME", "") + "/.charon/locks"
+            if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)
+            lock_file = lock_dir + "/" + self.uuid
+            self._deployment_lock = posixfile.open(lock_file, 'w')
+        class DeploymentLock(object):
+            def __init__(self, depl):
+                self.depl = depl
+            def __enter__(self):
+                self.depl._deployment_lock.lock('w|')
+            def __exit__(self, exception_type, exception_value, exception_traceback):
+                self.depl._deployment_lock.lock('u')
+        return DeploymentLock(self)
 
 
     def delete_machine(self, m):
@@ -591,14 +608,16 @@ class Deployment(object):
 
 
     def restore(self, include=[], exclude=[], backup_id=None):
-        self.evaluate_active(include, exclude)
-        def worker(m):
-            if not should_do(m, include, exclude): return
-            m.restore(self.definitions[m.name], backup_id)
+        with self._get_deployment_lock():
 
-        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
-        self.start_machines(include=include, exclude=exclude)
-        self.warn("Restore finished, please note that you might need to run charon deploy to fix configuration issues regarding changed IP addresses.")
+            self.evaluate_active(include, exclude)
+            def worker(m):
+                if not should_do(m, include, exclude): return
+                m.restore(self.definitions[m.name], backup_id)
+
+            charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+            self.start_machines(include=include, exclude=exclude)
+            self.warn("restore finished; please note that you might need to run ‘charon deploy’ to fix configuration issues regarding changed IP addresses")
 
 
     def evaluate_active(self, include=[], exclude=[], kill_obsolete=False):
@@ -636,7 +655,7 @@ class Deployment(object):
                 if kill_obsolete and m.destroy(): self.delete_machine(m)
 
 
-    def deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
+    def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
                include=[], exclude=[], check=False, kill_obsolete=False,
                allow_reboot=False, max_concurrent_copy=5):
         """Perform the deployment defined by the deployment specification."""
@@ -689,7 +708,12 @@ class Deployment(object):
                               allow_reboot=allow_reboot, check=check)
 
 
-    def rollback(self, generation, include=[], exclude=[], check=False,
+    def deploy(self, **kwargs):
+        with self._get_deployment_lock():
+            self._deploy(**kwargs)
+
+
+    def _rollback(self, generation, include=[], exclude=[], check=False,
                  allow_reboot=False, max_concurrent_copy=5):
         if not self.rollback_enabled:
             raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy"
@@ -727,14 +751,20 @@ class Deployment(object):
                               allow_reboot=allow_reboot, check=check)
 
 
+    def rollback(self, **kwargs):
+        with self._get_deployment_lock():
+            self._rollback(**kwargs)
+
+
     def destroy_vms(self, include=[], exclude=[]):
         """Destroy all active or obsolete VMs."""
+        with self._get_deployment_lock():
 
-        def worker(m):
-            if not should_do(m, include, exclude): return
-            if m.destroy(): self.delete_machine(m)
+            def worker(m):
+                if not should_do(m, include, exclude): return
+                if m.destroy(): self.delete_machine(m)
 
-        charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.values(), worker_fun=worker)
+            charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.values(), worker_fun=worker)
 
 
     def reboot_machines(self, include=[], exclude=[], wait=False):
