@@ -321,6 +321,38 @@ while <option>-n</option> specifies its new name.</para>
 </refsection>
 
 
+<refsection><title>Command <option>charon delete</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon delete</command>
+</cmdsynopsis>
+
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command deletes a deployment from the state file.  You must
+run <command>charon destroy</command> first to get rid of any
+previously instantiated machines in the deployment.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To delete the deployment named <literal>foo</literal>:
+
+<screen>
+$ charon delete -d foo</screen>
+
+</para>
+
+</refsection>
+
+</refsection>
+
+
 <refsection><title>Command <option>charon deploy</option></title>
 
 <refsection><title>Synopsis</title>

@@ -59,6 +59,11 @@ def op_modify():
     modify_deployment(depl)
 
 
+def op_delete():
+    depl = open_deployment()
+    depl.delete()
+
+
 def op_import_json():
     charon.import_json.import_json(args.state_file, args.json_file)
 
@@ -342,6 +347,9 @@ add_common_modify_options(subparser)
 subparser = add_subparser('modify', help='modify an existing deployment')
 subparser.set_defaults(op=op_modify)
 add_common_modify_options(subparser)
+
+subparser = add_subparser('delete', help='delete a deployment')
+subparser.set_defaults(op=op_delete)
 
 subparser = add_subparser('import-json', help='import a legacy JSON state file')
 subparser.set_defaults(op=op_import_json)

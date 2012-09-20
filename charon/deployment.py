@@ -237,6 +237,14 @@ class Deployment(object):
             self._db.execute("delete from Machines where deployment = ? and id = ?", (self.uuid, m.id))
 
 
+    def delete(self):
+        """Delete this deployment from the state file."""
+        if len(self.machines) > 0:
+            raise Exception("cannot delete this deployment because it still has machines")
+        with self._db:
+            self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
+
+
     def log(self, msg):
         with self._log_lock:
             if self._last_log_prefix != None:
