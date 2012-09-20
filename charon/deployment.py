@@ -388,6 +388,7 @@ class Deployment(object):
         lines_per_machine = {m.name: [] for m in self.active.itervalues()}
         authorized_keys = {m.name: [] for m in self.active.itervalues()}
         kernel_modules = {m.name: set() for m in self.active.itervalues()}
+        trusted_interfaces = {m.name: set() for m in self.active.itervalues()}
         hosts = {}
 
         for m in self.active.itervalues():
@@ -415,10 +416,12 @@ class Deployment(object):
                     continue
                 local_ipv4 = "192.168.105.{0}".format(m.index)
                 remote_ipv4 = "192.168.105.{0}".format(m2.index)
+                local_tunnel = 10000 + m2.index
+                remote_tunnel = 10000 + m.index
                 lines.append('    networking.p2pTunnels.{0} ='.format(m2.name))
                 lines.append('      {{ target = "{0}-unencrypted";'.format(m2.name))
-                lines.append('        localTunnel = {0};'.format(10000 + m2.index))
-                lines.append('        remoteTunnel = {0};'.format(10000 + m.index))
+                lines.append('        localTunnel = {0};'.format(local_tunnel))
+                lines.append('        remoteTunnel = {0};'.format(remote_tunnel))
                 lines.append('        localIPv4 = "{0}";'.format(local_ipv4))
                 lines.append('        remoteIPv4 = "{0}";'.format(remote_ipv4))
                 lines.append('        privateKey = "/root/.ssh/id_charon_vpn";')
@@ -430,11 +433,14 @@ class Deployment(object):
                 kernel_modules[m2.name].add('"tun"')
                 hosts[m.name][m2.name] = hosts[m.name][m2.name + "-encrypted"] = remote_ipv4
                 hosts[m2.name][m.name] = hosts[m2.name][m.name + "-encrypted"] = local_ipv4
+                trusted_interfaces[m.name].add('"tun' + str(local_tunnel) + '"')
+                trusted_interfaces[m2.name].add('"tun' + str(remote_tunnel) + '"')
 
             private_ipv4 = m.private_ipv4
             if private_ipv4: lines.append('    networking.privateIPv4 = "{0}";'.format(private_ipv4))
             public_ipv4 = m.public_ipv4
             if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";'.format(public_ipv4))
+            #if trusted_interfaces: lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces)))
 
         for m in self.active.itervalues(): do_machine(m)
 
@@ -446,6 +452,7 @@ class Deployment(object):
                 lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys[m.name])))
                 lines.append('    services.openssh.extraConfig = "PermitTunnel yes\\n";')
             lines.append('    boot.kernelModules = [ {0} ];'.format(" ".join(kernel_modules[m.name])))
+            lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces[m.name])))
             lines.append('    networking.extraHosts = "{0}\\n";'.format('\\n'.join([hosts[m.name][m2] + " " + m2 for m2 in hosts[m.name]])))
             lines.append("  };\n")
             return "\n".join(lines)
