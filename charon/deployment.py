@@ -472,6 +472,13 @@ class Deployment(object):
         return "/nix/var/nix/profiles/per-user/{0}/charon/{1}".format(getpass.getuser(), self.uuid)
 
 
+    def create_profile(self):
+        profile = self.get_profile()
+        dir = os.path.dirname(profile)
+        if not os.path.exists(dir): os.makedirs(dir, 0755)
+        return profile
+
+
     def build_configs(self, include, exclude, dry_run=False):
         """Build the machine configurations in the Nix store."""
 
@@ -498,9 +505,7 @@ class Deployment(object):
             raise Exception("unable to build all machine configurations")
 
         if self.rollback_enabled:
-            profile = self.get_profile()
-            dir = os.path.dirname(profile)
-            if not os.path.exists(dir): os.makedirs(dir, 0755)
+            profile = self.create_profile()
             if subprocess.call(["nix-env", "-p", profile, "--set", configs_path]) != 0:
                 raise Exception("cannot update profile ‘{0}’".format(profile))
 
@@ -780,6 +785,19 @@ class Deployment(object):
                 if m.destroy(): self.delete_machine(m)
 
             charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.values(), worker_fun=worker)
+
+        # Remove the destroyed machines from the rollback profile.
+        # This way, a subsequent "nix-env --delete-generations old" or
+        # "nix-collect-garbage -d" will get rid of the machine
+        # configurations.
+        if self.rollback_enabled: # and len(self.active) == 0:
+            profile = self.create_profile()
+            attrs = ["\"{0}\" = builtins.storePath {1};".format(m.name, m.cur_toplevel) for m in self.active.itervalues() if m.cur_toplevel]
+            if subprocess.call(
+                ["nix-env", "-p", profile, "--set", "*", "-I", "charon=" + self.expr_path,
+                 "-f", "<charon/update-profile.nix>",
+                 "--arg", "machines", "{ " + " ".join(attrs) + " }"]) != 0:
+                raise Exception("cannot update profile ‘{0}’".format(profile))
 
 
     def reboot_machines(self, include=[], exclude=[], wait=False):
