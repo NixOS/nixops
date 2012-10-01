@@ -20,6 +20,7 @@ import getpass
 import sqlite3
 import traceback
 import posixfile
+import glob
 
 
 class Connection(sqlite3.Connection):
@@ -241,6 +242,14 @@ class Deployment(object):
         """Delete this deployment from the state file."""
         if len(self.machines) > 0:
             raise Exception("cannot delete this deployment because it still has machines")
+
+        # Delete the profile, if any.
+        profile = self.get_profile()
+        assert profile
+        for p in glob.glob(profile + "*"):
+            if os.path.islink(p): os.remove(p)
+
+        # Delete the deployment from the database.
         with self._db:
             self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
 
