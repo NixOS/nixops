@@ -9,6 +9,7 @@ import socket
 import getpass
 import shutil
 import boto.ec2
+import boto.ec2.blockdevicemapping
 from charon.backends import MachineDefinition, MachineState
 import charon.known_hosts
 import charon.util
@@ -535,34 +536,7 @@ class EC2State(MachineState):
             self._wait_for_ip(instance)
 
         if defn.dns_hostname:
-            import boto.route53
-            import boto.route53.record
-
-            self.dns_hostname = defn.dns_hostname
-            self.dns_ttl = defn.dns_ttl
-            self.route53_access_key_id = defn.route53_access_key_id
-
-            self.log('sending Route53 DNS: {0} {1}'.format(self._public_ipv4, self.dns_hostname))
-
-            self.connect_route53()
-            hosted_zone = ".".join(self.dns_hostname.split(".")[1:])
-            zones = self._conn_route53.get_all_hosted_zones()
-
-            zones = [zone for zone in zones['ListHostedZonesResponse']['HostedZones'] if "{0}.".format(hosted_zone) == zone.Name ]
-            if len(zones) != 1:
-                raise Exception('hosted zone for {0} not found.'.format(hosted_zone))
-            zoneid = zones[0]['Id'].split("/")[2]
-
-            prevrrs = self._conn_route53.get_all_rrsets(hosted_zone_id=zoneid, type="A", name="{0}.".format(self.dns_hostname))
-            changes = boto.route53.record.ResourceRecordSets(connection=self._conn_route53, hosted_zone_id=zoneid)
-            if len(prevrrs) > 0:
-                for prevrr in prevrrs:
-                    change = changes.add_change("DELETE", self.dns_hostname, "A")
-                    change.add_value(",".join(prevrr.resource_records))
-
-            change = changes.add_change("CREATE", self.dns_hostname, "A")
-            change.add_value(self.public_ipv4)
-            changes.commit()
+            self._update_route53(defn)
 
         # Wait until the instance is reachable via SSH.
         self.wait_for_ssh(check=check)
@@ -675,6 +649,37 @@ class EC2State(MachineState):
                 self.update_block_device_mapping(k, v)
 
         self.store_keys_on_machine = defn.store_keys_on_machine
+
+
+    def _update_route53(self, defn):
+        import boto.route53
+        import boto.route53.record
+
+        self.dns_hostname = defn.dns_hostname
+        self.dns_ttl = defn.dns_ttl
+        self.route53_access_key_id = defn.route53_access_key_id
+
+        self.log('sending Route53 DNS: {0} {1}'.format(self._public_ipv4, self.dns_hostname))
+
+        self.connect_route53()
+        hosted_zone = ".".join(self.dns_hostname.split(".")[1:])
+        zones = self._conn_route53.get_all_hosted_zones()
+
+        zones = [zone for zone in zones['ListHostedZonesResponse']['HostedZones'] if "{0}.".format(hosted_zone) == zone.Name]
+        if len(zones) != 1:
+            raise Exception('hosted zone for {0} not found'.format(hosted_zone))
+        zoneid = zones[0]['Id'].split("/")[2]
+
+        prevrrs = self._conn_route53.get_all_rrsets(hosted_zone_id=zoneid, type="A", name="{0}.".format(self.dns_hostname))
+        changes = boto.route53.record.ResourceRecordSets(connection=self._conn_route53, hosted_zone_id=zoneid)
+        if len(prevrrs) > 0:
+            for prevrr in prevrrs:
+                change = changes.add_change("DELETE", self.dns_hostname, "A")
+                change.add_value(",".join(prevrr.resource_records))
+
+        change = changes.add_change("CREATE", self.dns_hostname, "A")
+        change.add_value(self.public_ipv4)
+        changes.commit()
 
 
     def _delete_volume(self, volume_id):
