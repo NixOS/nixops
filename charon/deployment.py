@@ -215,6 +215,16 @@ class Deployment(object):
             return charon.util.undefined
 
 
+    def clone(self):
+        with self._db:
+            new = create_deployment(self._db)
+            self._db.execute("insert into DeploymentAttrs (deployment, name, value) " +
+                             "select ?, name, value from DeploymentAttrs where deployment = ?",
+                             (new.uuid, self.uuid))
+            new.configs_path = None
+            return new
+
+
     def _get_deployment_lock(self):
         if not self._deployment_lock:
             lock_dir = os.environ.get("HOME", "") + "/.charon/locks"

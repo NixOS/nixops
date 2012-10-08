@@ -204,13 +204,13 @@ deployment.ec2.accessKeyId = "prod";
 <cmdsynopsis>
   <command>charon create</command>
   <arg choice='plain' rep='repeat'><replaceable>nixexprs</replaceable></arg>
-    <arg>
-      <group choice='req'>
-        <arg choice='plain'><option>--name</option></arg>
-        <arg choice='plain'><option>-n</option></arg>
-      </group>
-      <replaceable>name</replaceable>
-    </arg>
+  <arg>
+    <group choice='req'>
+      <arg choice='plain'><option>--name</option></arg>
+      <arg choice='plain'><option>-n</option></arg>
+    </group>
+    <replaceable>name</replaceable>
+  </arg>
   <arg rep='repeat'>
     <option>-I</option>
     <replaceable>path</replaceable>
@@ -283,13 +283,13 @@ $ charon deploy -d foo</screen>
 <cmdsynopsis>
   <command>charon modify</command>
   <arg choice='plain' rep='repeat'><replaceable>nixexprs</replaceable></arg>
-    <arg>
-      <group choice='req'>
-        <arg choice='plain'><option>--name</option></arg>
-        <arg choice='plain'><option>-n</option></arg>
-      </group>
-      <replaceable>name</replaceable>
-    </arg>
+  <arg>
+    <group choice='req'>
+      <arg choice='plain'><option>--name</option></arg>
+      <arg choice='plain'><option>-n</option></arg>
+    </group>
+    <replaceable>name</replaceable>
+  </arg>
   <arg rep='repeat'>
     <option>-I</option>
     <replaceable>path</replaceable>
@@ -315,6 +315,50 @@ $ charon rename -d foo -n bar expr3.nix expr4.nix</screen>
 
 Note that <option>-d</option> identifies the existing deployment,
 while <option>-n</option> specifies its new name.</para>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon clone</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon clone</command>
+  <arg>
+    <group choice='req'>
+      <arg choice='plain'><option>--name</option></arg>
+      <arg choice='plain'><option>-n</option></arg>
+    </group>
+    <replaceable>name</replaceable>
+  </arg>
+</cmdsynopsis>
+
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command clones an existing deployment; that is, it create a
+new deployment that has the same deployment specification and
+parameters, but a different UUID and (optionally) name.  Note that
+<command>charon clone</command> does not currently clone the state of
+the machines in the existing deployment.  Thus, when you first run
+<command>charon deploy</command> on the cloned deployment, Charon will
+create new instances from scratch.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To create a new deployment <literal>bar</literal> by cloning the
+deployment <literal>foo</literal>:
+
+<screen>
+$ charon clone -d foo -n bar</screen>
+
+</para>
 
 </refsection>
 

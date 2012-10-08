@@ -37,13 +37,17 @@ def open_deployment():
     return deployment.open_deployment(db, uuid=args.deployment)
 
 
+def set_name(depl, name):
+    if not name: return
+    if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-]*$", name):
+        raise Exception("invalid deployment name ‘{0}’".format(name))
+    depl.name = name
+
+
 def modify_deployment(depl):
     depl.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in args.nix_exprs]
     depl.nix_path = [charon.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
-    if args.name != None:
-        if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-]*$", args.name):
-            raise Exception("invalid deployment name ‘{0}’".format(args.name))
-        depl.name = args.name
+    set_name(depl, args.name)
 
 
 def op_create():
@@ -57,6 +61,14 @@ def op_create():
 def op_modify():
     depl = open_deployment()
     modify_deployment(depl)
+
+
+def op_clone():
+    depl = open_deployment()
+    depl2 = depl.clone()
+    sys.stderr.write("created deployment ‘{0}’\n".format(depl2.uuid))
+    set_name(depl2, args.name)
+    sys.stdout.write(depl2.uuid + "\n")
 
 
 def op_delete():
@@ -347,6 +359,10 @@ add_common_modify_options(subparser)
 subparser = add_subparser('modify', help='modify an existing deployment')
 subparser.set_defaults(op=op_modify)
 add_common_modify_options(subparser)
+
+subparser = add_subparser('clone', help='clone an existing deployment')
+subparser.set_defaults(op=op_clone)
+subparser.add_argument('--name', '-n', dest='name', metavar='NAME', help='symbolic name of the cloned deployment')
 
 subparser = add_subparser('delete', help='delete a deployment')
 subparser.set_defaults(op=op_delete)
