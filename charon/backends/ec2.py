@@ -287,6 +287,7 @@ class EC2State(MachineState):
 
         self.log("backing up machine ‘{0}’ using id ‘{1}’".format(self.name, backup_id))
         backup = {}
+        _backups = self.backups
         for k, v in self.block_device_mapping.items():
             snapshot = self._conn.create_snapshot(volume_id=v['volumeId'])
             self.log("+ created snapshot of volume ‘{0}’: ‘{1}’".format(v['volumeId'], snapshot.id))
@@ -296,8 +297,8 @@ class EC2State(MachineState):
             snapshot_tags.update(common_tags)
             self._conn.create_tags([snapshot.id], snapshot_tags)
             backup[k] = snapshot.id
-        self.backups[backup_id] = backup # FIXME: check whether this works
-
+        _backups[backup_id] = backup
+        self.backups = _backups
 
     def restore(self, defn, backup_id):
         self.stop()
