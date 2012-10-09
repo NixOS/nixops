@@ -157,6 +157,7 @@ class Deployment(object):
         self._last_log_prefix = None
         self.auto_response = None
         self.extra_nix_path = []
+        self.extra_nix_flags = []
 
         self._log_lock = threading.Lock()
         self._log_file = log_file
@@ -318,7 +319,7 @@ class Deployment(object):
 
 
     def _eval_flags(self):
-        return sum([["-I", x] for x in (self.extra_nix_path + self.nix_path)], [])
+        return sum([["-I", x] for x in (self.extra_nix_path + self.nix_path)], self.extra_nix_flags)
 
 
     def set_arg(self, name, value):
