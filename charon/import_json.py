@@ -75,3 +75,5 @@ def import_json(db_file, json_file):
                 m.dns_hostname = z.get('hostname', None)
                 m.dns_ttl = z.get('ttl', None)
                 m.route53_access_key_id = z.get('accessKeyId', None)
+
+        return depl
