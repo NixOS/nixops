@@ -561,11 +561,8 @@ class Deployment(object):
                     # In case the switch crashes the system, do a sync.
                     "sync; " +
                     # Run the switch script.  This will also update the
-                    # GRUB boot loader.  For performance, skip this step
-                    # if the new config is already current.
-                    ("cur=$(readlink /run/current-system); " +
-                     'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi"
-                     if not check else "/nix/var/nix/profiles/system/bin/switch-to-configuration switch"),
+                    # GRUB boot loader.
+                    "/nix/var/nix/profiles/system/bin/switch-to-configuration switch",
                     check=False)
                 if res != 0 and res != 100:
                     raise Exception("unable to activate new configuration")
