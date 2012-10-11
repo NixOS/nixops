@@ -143,7 +143,7 @@ class EC2State(MachineState):
 
     def address_to(self, m):
         if isinstance(m, EC2State):
-            return m._private_ipv4
+            return m.private_ipv4
         return MachineState.address_to(self, m)
 
 
@@ -517,7 +517,7 @@ class EC2State(MachineState):
                         instance.update()
                     self.log_end("")
 
-                charon.known_hosts.add(defn.elastic_ipv4, self._public_host_key)
+                charon.known_hosts.add(defn.elastic_ipv4, self.public_host_key)
                 with self.depl._db:
                     self.elastic_ipv4 = defn.elastic_ipv4
                     self.public_ipv4 = defn.elastic_ipv4
