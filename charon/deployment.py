@@ -177,7 +177,7 @@ class Deployment(object):
             c = self._db.cursor()
             c.execute("select id, name, type from Machines where deployment = ?", (self.uuid,))
         for (id, name, type) in c.fetchall():
-            m = charon.backends.create_state(self, type, name, id, self._log_file)
+            m = charon.backends.create_state(self, type, name, id)
             self.machines[name] = m
             if not m.obsolete: self.active[name] = m
         self.set_log_prefixes()
@@ -299,6 +299,10 @@ class Deployment(object):
         max_len = max([len(m.name) for m in self.machines.itervalues()] or [0])
         for m in self.machines.itervalues():
             m.set_log_prefix(max_len)
+
+
+    def warn(self, msg):
+        self.log(charon.util.ansi_warn("warning: " + msg, outfile=self._log_file))
 
 
     def confirm(self, question):
@@ -671,7 +675,7 @@ class Deployment(object):
                     c.execute("insert into Machines(deployment, name, type) values (?, ?, ?)",
                               (self.uuid, m.name, m.get_type()))
                     id = c.lastrowid
-                    self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, id, self._log_file)
+                    self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, id)
 
         self.set_log_prefixes()
 

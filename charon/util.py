@@ -60,7 +60,7 @@ def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
         n = n + 1
         if timeout != -1 and n >= timeout: break
         if callback: callback()
-    raise Error("timed out waiting for port {0} on ‘{1}’".format(port, ip))
+    raise Exception("timed out waiting for port {0} on ‘{1}’".format(port, ip))
 
 def ansi_warn(s, outfile=sys.stderr):
     return "\033[1;31m" + s + "\033[0m" if outfile.isatty() else s

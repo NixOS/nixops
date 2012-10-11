@@ -40,8 +40,8 @@ class VirtualBoxState(MachineState):
     _client_public_key = charon.util.attr_property("virtualbox.clientPublicKey", None)
     _headless = charon.util.attr_property("virtualbox.headless", False, bool)
 
-    def __init__(self, depl, name, id, log_file=sys.stderr):
-        MachineState.__init__(self, depl, name, id, log_file)
+    def __init__(self, depl, name, id):
+        MachineState.__init__(self, depl, name, id)
         self._disk_attached = False
 
     def get_ssh_name(self):

@@ -85,8 +85,8 @@ class EC2State(MachineState):
     dns_ttl = charon.util.attr_property("route53.ttl", None, int)
     route53_access_key_id = charon.util.attr_property("route53.accessKeyId", None)
 
-    def __init__(self, depl, name, id, log_file=sys.stderr):
-        MachineState.__init__(self, depl, name, id, log_file)
+    def __init__(self, depl, name, id):
+        MachineState.__init__(self, depl, name, id)
         self._conn = None
         self._conn_route53 = None
 
@@ -660,7 +660,7 @@ class EC2State(MachineState):
         self.dns_ttl = defn.dns_ttl
         self.route53_access_key_id = defn.route53_access_key_id
 
-        self.log('sending Route53 DNS: {0} {1}'.format(self._public_ipv4, self.dns_hostname))
+        self.log('sending Route53 DNS: {0} {1}'.format(self.public_ipv4, self.dns_hostname))
 
         self.connect_route53()
         hosted_zone = ".".join(self.dns_hostname.split(".")[1:])

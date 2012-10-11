@@ -27,7 +27,7 @@ def import_json(db_file, json_file):
                       (depl.uuid, n, type))
             id = c.lastrowid
 
-            m = charon.backends.create_state(depl, type, n, id, depl._log_file)
+            m = charon.backends.create_state(depl, type, n, id)
             depl.machines[n] = m
 
             m.index = x.get('index', None)

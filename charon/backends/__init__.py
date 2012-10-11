@@ -57,14 +57,13 @@ class MachineState(object):
     # this machine.
     cur_toplevel = charon.util.attr_property("toplevel", None)
 
-    def __init__(self, depl, name, id, log_file=sys.stderr):
+    def __init__(self, depl, name, id):
         self.depl = depl
         self.name = name
         self.id = id
         self._ssh_pinged_this_time = False
         self._ssh_master_started = False
         self._ssh_master_opts = []
-        self._log_file = log_file
         self.set_log_prefix(0)
 
     def _set_attrs(self, attrs):
@@ -98,7 +97,7 @@ class MachineState(object):
 
     def set_log_prefix(self, length):
         self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))
-        if self._log_file.isatty() and self.index != None:
+        if self.depl._log_file.isatty() and self.index != None:
             self._log_prefix = "\033[1;{0}m{1}\033[0m".format(31 + self.index % 7, self._log_prefix)
 
     def log(self, msg):
@@ -114,7 +113,7 @@ class MachineState(object):
         self.depl.log_end(self._log_prefix, msg)
 
     def warn(self, msg):
-        self.log(charon.util.ansi_warn("warning: " + msg, outfile=self._log_file))
+        self.log(charon.util.ansi_warn("warning: " + msg, outfile=self.depl._log_file))
 
     @property
     def started(self):
@@ -399,11 +398,11 @@ def create_definition(xml):
             return i(xml)
     raise Exception("unknown backend type ‘{0}’".format(target_env))
 
-def create_state(depl, type, name, id, log_file=sys.stderr):
+def create_state(depl, type, name, id):
     """Create a machine state object of the desired backend type."""
     for i in [charon.backends.none.NoneState,
               charon.backends.virtualbox.VirtualBoxState,
               charon.backends.ec2.EC2State]:
         if type == i.get_type():
-            return i(depl, name, id, log_file=log_file)
+            return i(depl, name, id)
     raise Exception("unknown backend type ‘{0}’".format(type))

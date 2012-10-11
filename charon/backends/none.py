@@ -25,8 +25,8 @@ class NoneState(MachineState):
 
     target_host = charon.util.attr_property("targetHost", None)
 
-    def __init__(self, depl, name, id, log_file=sys.stderr):
-        MachineState.__init__(self, depl, name, id, log_file)
+    def __init__(self, depl, name, id):
+        MachineState.__init__(self, depl, name, id)
 
     def create(self, defn, check, allow_reboot):
         assert isinstance(defn, NoneDefinition)
