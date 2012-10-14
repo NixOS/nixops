@@ -178,7 +178,7 @@ in
     };
 
     deployment.ec2.ebsBoot = mkOption {
-      default = false;
+      default = true;
       type = types.bool;
       description = ''
         Whether you want to boot from an EBS-backed AMI.  Only
@@ -273,6 +273,15 @@ in
       '';
     };
 
+    deployment.ec2.physicalProperties = mkOption {
+      default = {};
+      example = { cores = 4; memory = 14985; };
+      description = ''
+        Attribute set containing number of CPUs and memory available to
+        the machine.
+      '';
+    };
+
     fileSystems = mkOption {
       options = {
         ec2 = mkOption {
@@ -323,6 +332,30 @@ in
           fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
         })
        (filter (fs: fs.ec2 != null) config.fileSystems));
+
+    deployment.ec2.physicalProperties =
+      let 
+        type = config.deployment.ec2.instanceType or "unknown";
+        mapping = {
+          "t1.micro"    = { cores = 1;  memory = 595;   };
+          "m1.small"    = { cores = 1;  memory = 1658;  };
+          "m1.medium"   = { cores = 1;  memory = 3755;  };
+          "m1.large"    = { cores = 2;  memory = 7455;  };
+          "m1.xlarge"   = { cores = 4;  memory = 14985; };
+          "m2.xlarge"   = { cores = 2;  memory = 17084; };
+          "m2.2xlarge"  = { cores = 4;  memory = 34241; };
+          "m2.4xlarge"  = { cores = 8;  memory = 68557; };
+          "c1.medium"   = { cores = 2;  memory = 1697;  };
+          "c1.xlarge"   = { cores = 8;  memory = 6953;  };
+          "cc1.4xlarge" = { cores = 16; memory = 21542; };
+          "cc2.8xlarge" = { cores = 32; memory = 59930; };
+          "hi1.4xlarge" = { cores = 16; memory = 60711; };
+        };
+      in 
+        if builtins.hasAttr type mapping then 
+          builtins.getAttr type mapping
+        else
+          null;
 
     jobs."init-luks" =
       { task = true;

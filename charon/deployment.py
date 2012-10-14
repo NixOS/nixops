@@ -9,7 +9,6 @@ import tempfile
 import atexit
 import shutil
 import threading
-import fcntl
 import exceptions
 import errno
 from xml.etree import ElementTree
@@ -18,124 +17,252 @@ import charon.parallel
 import re
 from datetime import datetime
 import getpass
+import sqlite3
+import traceback
+import posixfile
+import glob
 
-class Deployment:
+
+class Connection(sqlite3.Connection):
+
+    def __init__(self, db_file, **kwargs):
+        sqlite3.Connection.__init__(self, db_file, **kwargs)
+        self.db_file = db_file
+        self.nesting = 0
+        self.lock = threading.RLock()
+
+    # Implement Python's context management protocol so that "with db"
+    # automatically commits or rolls back.  The difference with the
+    # parent's "with" implementation is that we nest, i.e. a commit or
+    # rollback is only done at the outer "with".
+    def __enter__(self):
+        self.lock.acquire()
+        if self.nesting == 0:
+            self.must_rollback = False
+        self.nesting = self.nesting + 1
+
+    def __exit__(self, exception_type, exception_value, exception_traceback):
+        if exception_type != None: self.must_rollback = True
+        self.nesting = self.nesting - 1
+        assert self.nesting >= 0
+        if self.nesting == 0:
+            if self.must_rollback:
+                self.rollback()
+            else:
+                self.commit()
+        self.lock.release()
+
+
+def open_database(db_file):
+    if os.path.splitext(db_file)[1] != '.charon':
+        raise Exception("state file ‘{0}’ should have extension ‘.charon’".format(db_file))
+    db = sqlite3.connect(db_file, timeout=60, check_same_thread=False, factory=Connection) # FIXME
+    db.db_file = db_file
+
+    c = db.cursor()
+
+    c.execute("pragma journal_mode = wal")
+    c.execute("pragma foreign_keys = 1")
+
+    c.execute(
+        '''create table if not exists Deployments(
+             uuid text primary key
+           );''')
+
+    c.execute(
+        '''create table if not exists DeploymentAttrs(
+             deployment text not null,
+             name text not null,
+             value text not null,
+             primary key(deployment, name),
+             foreign key(deployment) references Deployments(uuid) on delete cascade
+           );''')
+
+    c.execute(
+        '''create table if not exists Machines(
+             id integer primary key autoincrement,
+             deployment text not null,
+             name text not null,
+             type text not null,
+             foreign key(deployment) references Deployments(uuid) on delete cascade
+           );''')
+
+    c.execute(
+        '''create table if not exists MachineAttrs(
+             machine integer not null,
+             name text not null,
+             value text not null,
+             primary key(machine, name),
+             foreign key(machine) references Machines(id) on delete cascade
+           );''')
+
+    return db
+
+
+def query_deployments(db):
+    """Return the UUIDs of all deployments in the database."""
+    c = db.cursor()
+    c.execute("select uuid from Deployments")
+    res = c.fetchall()
+    return [x[0] for x in res]
+
+
+def _find_deployment(db, uuid=None):
+    c = db.cursor()
+    if not uuid:
+        c.execute("select uuid from Deployments")
+    else:
+        c.execute("select uuid from Deployments d where uuid = ? or exists (select 1 from DeploymentAttrs where deployment = d.uuid and name = 'name' and value = ?)", (uuid, uuid))
+    res = c.fetchall()
+    if len(res) == 0: return None
+    if len(res) > 1:
+        raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘-d’")
+    return Deployment(db, res[0][0])
+
+
+def create_deployment(db, uuid=None):
+    """Create a new deployment."""
+    if not uuid:
+        import uuid
+        uuid = str(uuid.uuid1())
+    with db:
+        db.execute("insert into Deployments(uuid) values (?)", (uuid,))
+    return Deployment(db, uuid)
+
+
+def open_deployment(db, uuid=None):
+    """Open an existing deployment."""
+    deployment = _find_deployment(db, uuid=uuid)
+    if deployment: return deployment
+    raise Exception("could not find specified deployment in state file ‘{0}’".format(db.db_file))
+
+
+class Deployment(object):
     """Charon top-level deployment manager."""
 
-    def __init__(self, state_file, create=False, nix_exprs=[], nix_path=[], log_file=sys.stderr):
-        self.state_file = os.path.realpath(state_file)
-        self.machines = {}
-        self._machine_state = {}
-        self.active = {}
-        self.configs_path = None
-        self.description = "Unnamed Charon network"
-        self.enable_rollback = False
+    default_description = "Unnamed Charon network"
+
+    name = charon.util.attr_property("name", None)
+    nix_exprs = charon.util.attr_property("nixExprs", [], 'json')
+    nix_path = charon.util.attr_property("nixPath", [], 'json')
+    args = charon.util.attr_property("args", {}, 'json')
+    description = charon.util.attr_property("description", default_description)
+    configs_path = charon.util.attr_property("configsPath", None)
+    rollback_enabled = charon.util.attr_property("rollbackEnabled", False)
+
+    def __init__(self, db, uuid, log_file=sys.stderr):
+        self._db = db
+        self.uuid = uuid
+
         self._last_log_prefix = None
         self.auto_response = None
         self.extra_nix_path = []
-        self._args = {}
+        self.extra_nix_flags = []
 
-        self._state_lock = threading.Lock()
         self._log_lock = threading.Lock()
+        self._log_file = log_file
+
+        self._deployment_lock = None
 
         self.expr_path = os.path.dirname(__file__) + "/../../../../share/nix/charon"
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
-        self._create = create
-        self._nix_exprs = nix_exprs
-        self._nix_path = nix_path
-
         self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
         atexit.register(lambda: shutil.rmtree(self.tempdir))
 
-        self._log_file = log_file
-
-
-    def __enter__(self):
-        if self._create:
-            self._create_state_lock()
-            if os.path.exists(self.state_file):
-                self.load_state()
-            else:
-                import uuid
-                self.uuid = str(uuid.uuid1())
-            self.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in self._nix_exprs]
-            self.nix_path = [_abs_nix_path(x) for x in self._nix_path]
-        else:
-            if not os.path.isfile(self.state_file):
-                raise Exception("state file ‘{0}’ does not exist".format(self.state_file))
-            self._create_state_lock()
-            self.load_state()
-
-
-    def __exit__(self, exception_type, exception_value, exception_traceback):
-        fcntl.lockf(self._state_file_lock, fcntl.LOCK_UN)
-        self._state_file_lock.close()
-
-
-    def _create_state_lock(self):
-        self._state_file_lock = open(self.state_file + ".lock", "w+")
-        try:
-            fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except exceptions.IOError as e:
-            if e.errno != errno.EAGAIN: raise
-            self.log("waiting for exclusive lock on ‘{0}’...".format(self.state_file))
-            fcntl.lockf(self._state_file_lock, fcntl.LOCK_EX)
-
-
-    def load_state(self):
-        """Read the current deployment state from the state file."""
-        f = open(self.state_file, 'r')
-        state = json.load(f)
-        self.nix_exprs = state['networkExprs']
-        self.nix_path = state.get('nixPath', [])
-        self.uuid = state['uuid']
-        self.description = state.get('description', self.description)
-        self.enable_rollback = state.get('enableRollback', False)
         self.machines = {}
-        self._machine_state = {}
         self.active = {}
-        self.configs_path = state.get('vmsPath', None)
-        for n, v in state['machines'].iteritems():
-            m = charon.backends.create_state(self, v['targetEnv'], n, self._log_file)
-            self.machines[n] = m
-            self.machines[n].deserialise(v)
-            self._machine_state[n] = v
-            if not m.obsolete: self.active[m.name] = m
-        self._args = state.get('args', {})
+        with self._db:
+            c = self._db.cursor()
+            c.execute("select id, name, type from Machines where deployment = ?", (self.uuid,))
+        for (id, name, type) in c.fetchall():
+            m = charon.backends.create_state(self, type, name, id)
+            self.machines[name] = m
+            if not m.obsolete: self.active[name] = m
         self.set_log_prefixes()
 
 
-    def write_state(self):
-        """Write the current deployment state to the state file in JSON format."""
-        state = {'networkExprs': self.nix_exprs,
-                 'nixPath': self.nix_path,
-                 'uuid': self.uuid,
-                 'description': self.description,
-                 'enableRollback': self.enable_rollback,
-                 'machines': self._machine_state,
-                 'args': self._args}
-        if self.configs_path: state['vmsPath'] = self.configs_path
-        tmp = self.state_file + ".tmp"
-        f = open(tmp, 'w')
-        json.dump(state, f, indent=2)
-        f.close()
-        os.rename(tmp, self.state_file)
+    def _set_attrs(self, attrs):
+        """Update deployment attributes in the state file."""
+        with self._db:
+            c = self._db.cursor()
+            for n, v in attrs.iteritems():
+                if v == None:
+                    c.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, n))
+                else:
+                    c.execute("insert or replace into DeploymentAttrs(deployment, name, value) values (?, ?, ?)",
+                              (self.uuid, n, v))
 
 
-    def update_machine_state(self, m):
-        with self._state_lock:
-            self._machine_state[m.name] = m.serialise()
-            self.write_state()
+    def _set_attr(self, name, value):
+        """Update one deployment attribute in the state file."""
+        self._set_attrs({name: value})
+
+
+    def _del_attr(self, name):
+        """Delete a deployment attribute from the state file."""
+        with self._db:
+            self._db.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
+
+
+    def _get_attr(self, name, default=charon.util.undefined):
+        """Get a deployment attribute from the state file."""
+        with self._db:
+            c = self._db.cursor()
+            c.execute("select value from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
+            row = c.fetchone()
+            if row != None: return row[0]
+            return charon.util.undefined
+
+
+    def clone(self):
+        with self._db:
+            new = create_deployment(self._db)
+            self._db.execute("insert into DeploymentAttrs (deployment, name, value) " +
+                             "select ?, name, value from DeploymentAttrs where deployment = ?",
+                             (new.uuid, self.uuid))
+            new.configs_path = None
+            return new
+
+
+    def _get_deployment_lock(self):
+        if not self._deployment_lock:
+            lock_dir = os.environ.get("HOME", "") + "/.charon/locks"
+            if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)
+            lock_file = lock_dir + "/" + self.uuid
+            self._deployment_lock = posixfile.open(lock_file, 'w')
+        class DeploymentLock(object):
+            def __init__(self, depl):
+                self.depl = depl
+            def __enter__(self):
+                self.depl._deployment_lock.lock('w|')
+            def __exit__(self, exception_type, exception_value, exception_traceback):
+                self.depl._deployment_lock.lock('u')
+        return DeploymentLock(self)
 
 
     def delete_machine(self, m):
-        with self._state_lock:
-            del self.machines[m.name]
-            if m.name in self._machine_state: del self._machine_state[m.name]
-            if m.name in self.active: del self.active[m.name]
-            self.write_state()
+        del self.machines[m.name]
+        self.active.pop(m.name, None)
+        with self._db:
+            self._db.execute("delete from Machines where deployment = ? and id = ?", (self.uuid, m.id))
+
+
+    def delete(self):
+        """Delete this deployment from the state file."""
+        if len(self.machines) > 0:
+            raise Exception("cannot delete this deployment because it still has machines")
+
+        # Delete the profile, if any.
+        profile = self.get_profile()
+        assert profile
+        for p in glob.glob(profile + "*"):
+            if os.path.islink(p): os.remove(p)
+
+        # Delete the deployment from the database.
+        with self._db:
+            self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
 
 
     def log(self, msg):
@@ -174,6 +301,10 @@ class Deployment:
             m.set_log_prefix(max_len)
 
 
+    def warn(self, msg):
+        self.log(charon.util.ansi_warn("warning: " + msg, outfile=self._log_file))
+
+
     def confirm(self, question):
         while True:
             with self._log_lock:
@@ -192,14 +323,16 @@ class Deployment:
 
 
     def _eval_flags(self):
-        return sum([["-I", x] for x in (self.extra_nix_path + self.nix_path)], [])
+        return sum([["-I", x] for x in (self.extra_nix_path + self.nix_path)], self.extra_nix_flags)
 
 
     def set_arg(self, name, value):
         """Set a persistent argument to the deployment specification."""
         assert isinstance(name, str)
         assert isinstance(value, str)
-        self._args[name] = value
+        args = self.args
+        args[name] = value
+        self.args = args
 
 
     def set_argstr(self, name, value):
@@ -217,11 +350,13 @@ class Deployment:
     def unset_arg(self, name):
         """Unset a persistent argument to the deployment specification."""
         assert isinstance(name, str)
-        self._args.pop(name, None)
+        args = self.args
+        args.pop(name, None)
+        self.args = args
 
 
     def _args_to_attrs(self):
-        return "{ " + string.join([n + " = " + v + "; " for n, v in self._args.iteritems()]) + "}"
+        return "{ " + string.join([n + " = " + v + "; " for n, v in self.args.iteritems()]) + "}"
 
 
     def evaluate(self):
@@ -248,9 +383,9 @@ class Deployment:
         info = tree.find("attrs/attr[@name='network']")
         assert info != None
         elem = info.find("attrs/attr[@name='description']/string")
-        if elem != None: self.description = elem.get("value")
+        self.description = elem.get("value") if elem != None else self.default_description
         elem = info.find("attrs/attr[@name='enableRollback']/bool")
-        if elem != None: self.enable_rollback = elem.get("value") == "true"
+        self.rollback_enabled = elem != None and elem.get("value") == "true"
 
         # Extract machine information.
         machines = tree.find("attrs/attr[@name='machines']/attrs")
@@ -269,6 +404,7 @@ class Deployment:
                 + self._eval_flags() +
                 ["--eval-only", "--show-trace", "--strict",
                  "<charon/eval-machine-info.nix>",
+                 "--arg", "checkConfigurationOptions", "false",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
                  "--arg", "args", self._args_to_attrs(),
                  "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
@@ -284,6 +420,7 @@ class Deployment:
         lines_per_machine = {m.name: [] for m in self.active.itervalues()}
         authorized_keys = {m.name: [] for m in self.active.itervalues()}
         kernel_modules = {m.name: set() for m in self.active.itervalues()}
+        trusted_interfaces = {m.name: set() for m in self.active.itervalues()}
         hosts = {}
 
         for m in self.active.itervalues():
@@ -311,26 +448,31 @@ class Deployment:
                     continue
                 local_ipv4 = "192.168.105.{0}".format(m.index)
                 remote_ipv4 = "192.168.105.{0}".format(m2.index)
+                local_tunnel = 10000 + m2.index
+                remote_tunnel = 10000 + m.index
                 lines.append('    networking.p2pTunnels.{0} ='.format(m2.name))
                 lines.append('      {{ target = "{0}-unencrypted";'.format(m2.name))
-                lines.append('        localTunnel = {0};'.format(10000 + m2.index))
-                lines.append('        remoteTunnel = {0};'.format(10000 + m.index))
+                lines.append('        localTunnel = {0};'.format(local_tunnel))
+                lines.append('        remoteTunnel = {0};'.format(remote_tunnel))
                 lines.append('        localIPv4 = "{0}";'.format(local_ipv4))
                 lines.append('        remoteIPv4 = "{0}";'.format(remote_ipv4))
                 lines.append('        privateKey = "/root/.ssh/id_charon_vpn";')
                 lines.append('      }};'.format(m2.name))
                 # FIXME: set up the authorized_key file such that ‘m’
                 # can do nothing more than create a tunnel.
-                authorized_keys[m2.name].append('"' + m._public_vpn_key + '"')
+                authorized_keys[m2.name].append('"' + m.public_vpn_key + '"')
                 kernel_modules[m.name].add('"tun"')
                 kernel_modules[m2.name].add('"tun"')
                 hosts[m.name][m2.name] = hosts[m.name][m2.name + "-encrypted"] = remote_ipv4
                 hosts[m2.name][m.name] = hosts[m2.name][m.name + "-encrypted"] = local_ipv4
+                trusted_interfaces[m.name].add('"tun' + str(local_tunnel) + '"')
+                trusted_interfaces[m2.name].add('"tun' + str(remote_tunnel) + '"')
 
             private_ipv4 = m.private_ipv4
             if private_ipv4: lines.append('    networking.privateIPv4 = "{0}";'.format(private_ipv4))
             public_ipv4 = m.public_ipv4
             if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";'.format(public_ipv4))
+            #if trusted_interfaces: lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces)))
 
         for m in self.active.itervalues(): do_machine(m)
 
@@ -342,6 +484,7 @@ class Deployment:
                 lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys[m.name])))
                 lines.append('    services.openssh.extraConfig = "PermitTunnel yes\\n";')
             lines.append('    boot.kernelModules = [ {0} ];'.format(" ".join(kernel_modules[m.name])))
+            lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces[m.name])))
             lines.append('    networking.extraHosts = "{0}\\n";'.format('\\n'.join([hosts[m.name][m2] + " " + m2 for m2 in hosts[m.name]])))
             lines.append("  };\n")
             return "\n".join(lines)
@@ -351,6 +494,13 @@ class Deployment:
 
     def get_profile(self):
         return "/nix/var/nix/profiles/per-user/{0}/charon/{1}".format(getpass.getuser(), self.uuid)
+
+
+    def create_profile(self):
+        profile = self.get_profile()
+        dir = os.path.dirname(profile)
+        if not os.path.exists(dir): os.makedirs(dir, 0755)
+        return profile
 
 
     def build_configs(self, include, exclude, dry_run=False):
@@ -378,10 +528,8 @@ class Deployment:
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
 
-        if self.enable_rollback:
-            profile = self.get_profile()
-            dir = os.path.dirname(profile)
-            if not os.path.exists(dir): os.makedirs(dir, 0755)
+        if self.rollback_enabled:
+            profile = self.create_profile()
             if subprocess.call(["nix-env", "-p", profile, "--set", configs_path]) != 0:
                 raise Exception("cannot update profile ‘{0}’".format(profile))
 
@@ -417,11 +565,8 @@ class Deployment:
                     # In case the switch crashes the system, do a sync.
                     "sync; " +
                     # Run the switch script.  This will also update the
-                    # GRUB boot loader.  For performance, skip this step
-                    # if the new config is already current.
-                    ("cur=$(readlink /run/current-system); " +
-                     'if [ "$cur" != ' + m.new_toplevel + " ]; then /nix/var/nix/profiles/system/bin/switch-to-configuration switch; fi"
-                     if not check else "/nix/var/nix/profiles/system/bin/switch-to-configuration switch"),
+                    # GRUB boot loader.
+                    "/nix/var/nix/profiles/system/bin/switch-to-configuration switch",
                     check=False)
                 if res != 0 and res != 100:
                     raise Exception("unable to activate new configuration")
@@ -436,7 +581,6 @@ class Deployment:
                 # configuration.
                 m.cur_configs_path = configs_path
                 m.cur_toplevel = m.new_toplevel
-                self.update_machine_state(m)
 
             except Exception as e:
                 # This thread shouldn't throw an exception because
@@ -500,27 +644,38 @@ class Deployment:
             m.backup(backup_id)
 
         charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
-        self.write_state()
+
+        return backup_id
 
 
     def restore(self, include=[], exclude=[], backup_id=None):
-        self.evaluate_active(include, exclude)
-        def worker(m):
-            if not should_do(m, include, exclude): return
-            m.restore(self.definitions[m.name], backup_id)
+        with self._get_deployment_lock():
 
-        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
-        self.start_machines(include=include, exclude=exclude)
-        self.warn("Restore finished, please note that you might need to run charon deploy to fix configuration issues regarding changed IP addresses.")
+            self.evaluate_active(include, exclude)
+            def worker(m):
+                if not should_do(m, include, exclude): return
+                m.restore(self.definitions[m.name], backup_id)
+
+            charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+            self.start_machines(include=include, exclude=exclude)
+            self.warn("restore finished; please note that you might need to run ‘charon deploy’ to fix configuration issues regarding changed IP addresses")
 
 
     def evaluate_active(self, include=[], exclude=[], kill_obsolete=False):
         self.evaluate()
 
         # Create state objects for all defined machines.
-        for m in self.definitions.itervalues():
-            if m.name not in self.machines:
-                self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, self._log_file)
+        with self._db:
+            for m in self.definitions.itervalues():
+                if m.name not in self.machines:
+                    c = self._db.cursor()
+                    c.execute("select 1 from Machines where deployment = ? and name = ?", (self.uuid, m.name))
+                    if len(c.fetchall()) != 0:
+                        raise Exception("machine already exists in database!")
+                    c.execute("insert into Machines(deployment, name, type) values (?, ?, ?)",
+                              (self.uuid, m.name, m.get_type()))
+                    id = c.lastrowid
+                    self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, id)
 
         self.set_log_prefixes()
 
@@ -534,17 +689,14 @@ class Deployment:
                 if m.obsolete:
                     self.log("machine ‘{0}’ is no longer obsolete".format(m.name))
                     m.obsolete = False
-                    m.write()
             else:
                 self.log("machine ‘{0}’ is obsolete".format(m.name))
-                if not m.obsolete:
-                    m.obsolete = True
-                    m.write()
+                if not m.obsolete: m.obsolete = True
                 if not should_do(m, include, exclude): continue
                 if kill_obsolete and m.destroy(): self.delete_machine(m)
 
 
-    def deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
+    def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
                include=[], exclude=[], check=False, kill_obsolete=False,
                allow_reboot=False, max_concurrent_copy=5):
         """Perform the deployment defined by the deployment specification."""
@@ -579,11 +731,9 @@ class Deployment:
             self.build_configs(dry_run=True, include=include, exclude=exclude)
             return
 
-        self.configs_path = self.build_configs(include=include, exclude=exclude)
-
         # Record configs_path in the state so that the ‘info’ command
         # can show whether machines have an outdated configuration.
-        self.write_state()
+        self.configs_path = self.build_configs(include=include, exclude=exclude)
 
         if build_only: return
 
@@ -599,9 +749,14 @@ class Deployment:
                               allow_reboot=allow_reboot, check=check)
 
 
-    def rollback(self, generation, include=[], exclude=[], check=False,
+    def deploy(self, **kwargs):
+        with self._get_deployment_lock():
+            self._deploy(**kwargs)
+
+
+    def _rollback(self, generation, include=[], exclude=[], check=False,
                  allow_reboot=False, max_concurrent_copy=5):
-        if not self.enable_rollback:
+        if not self.rollback_enabled:
             raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy"
                             )
         profile = self.get_profile()
@@ -610,7 +765,6 @@ class Deployment:
 
         self.configs_path = os.path.realpath(profile)
         assert os.path.isdir(self.configs_path)
-        self.write_state()
 
         names = set()
         for filename in os.listdir(self.configs_path):
@@ -627,12 +781,9 @@ class Deployment:
                 if m.obsolete:
                     self.log("machine ‘{0}’ is no longer obsolete".format(m.name))
                     m.obsolete = False
-                    m.write()
             else:
                 self.log("machine ‘{0}’ is obsolete".format(m.name))
-                if not m.obsolete:
-                    m.obsolete = True
-                    m.write()
+                if not m.obsolete: m.obsolete = True
 
         self.copy_closures(self.configs_path, include=include, exclude=exclude,
                            max_concurrent_copy=max_concurrent_copy)
@@ -641,14 +792,33 @@ class Deployment:
                               allow_reboot=allow_reboot, check=check)
 
 
+    def rollback(self, **kwargs):
+        with self._get_deployment_lock():
+            self._rollback(**kwargs)
+
+
     def destroy_vms(self, include=[], exclude=[]):
         """Destroy all active or obsolete VMs."""
+        with self._get_deployment_lock():
 
-        def worker(m):
-            if not should_do(m, include, exclude): return
-            if m.destroy(): self.delete_machine(m)
+            def worker(m):
+                if not should_do(m, include, exclude): return
+                if m.destroy(): self.delete_machine(m)
 
-        charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.values(), worker_fun=worker)
+            charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.values(), worker_fun=worker)
+
+        # Remove the destroyed machines from the rollback profile.
+        # This way, a subsequent "nix-env --delete-generations old" or
+        # "nix-collect-garbage -d" will get rid of the machine
+        # configurations.
+        if self.rollback_enabled: # and len(self.active) == 0:
+            profile = self.create_profile()
+            attrs = ["\"{0}\" = builtins.storePath {1};".format(m.name, m.cur_toplevel) for m in self.active.itervalues() if m.cur_toplevel]
+            if subprocess.call(
+                ["nix-env", "-p", profile, "--set", "*", "-I", "charon=" + self.expr_path,
+                 "-f", "<charon/update-profile.nix>",
+                 "--arg", "machines", "{ " + " ".join(attrs) + " }"]) != 0:
+                raise Exception("cannot update profile ‘{0}’".format(profile))
 
 
     def reboot_machines(self, include=[], exclude=[], wait=False):
@@ -691,16 +861,20 @@ class Deployment:
 
     def rename(self, name, new_name):
         if not name in self.machines:
-            raise Exception("Machine {0} not found.".format(name))
+            raise Exception("machine {0} not found".format(name))
         if new_name in self.machines:
-            raise Exception("Machine with {0} already exists.".format(new_name))
+            raise Exception("machine with {0} already exists".format(new_name))
         if not self.is_valid_machine_name(new_name):
-            raise Exception("{0} is not a valid machine identifier.".format(new_name))
+            raise Exception("{0} is not a valid machine identifier".format(new_name))
 
-        self.log("Renaming machine ‘{0}’ to ‘{1}’...".format(name, new_name))
-        machine = self._machine_state.pop(name)
-        self._machine_state[new_name] = machine
-        self.write_state()
+        self.log("renaming machine ‘{0}’ to ‘{1}’...".format(name, new_name))
+
+        m = self.machines.pop(name)
+        self.machines[new_name] = m
+        # FIXME: update self.active
+
+        with self._db:
+            self._db.execute("update Machines set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
 
 
     def send_keys(self, include=[], exclude=[]):
@@ -724,12 +898,3 @@ def should_do_n(name, include, exclude):
     if name in exclude: return False
     if include == []: return True
     return name in include
-
-
-
-def _abs_nix_path(x):
-    xs = x.split('=', 1)
-    if len(xs) == 1: return os.path.abspath(x)
-    return xs[0] + '=' + os.path.abspath(xs[1])
-
-

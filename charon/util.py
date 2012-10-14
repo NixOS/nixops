@@ -3,6 +3,8 @@
 import os
 import sys
 import time
+import json
+import copy
 import fcntl
 import base64
 import socket
@@ -58,7 +60,33 @@ def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
         n = n + 1
         if timeout != -1 and n >= timeout: break
         if callback: callback()
-    raise Error("timed out waiting for port {0} on ‘{1}’".format(port, ip))
+    raise Exception("timed out waiting for port {0} on ‘{1}’".format(port, ip))
 
 def ansi_warn(s, outfile=sys.stderr):
     return "\033[1;31m" + s + "\033[0m" if outfile.isatty() else s
+
+def abs_nix_path(x):
+    xs = x.split('=', 1)
+    if len(xs) == 1: return os.path.abspath(x)
+    return xs[0] + '=' + os.path.abspath(xs[1])
+
+undefined = object()
+
+def attr_property(name, default, type=str):
+    """Define a property that corresponds to a value in the Charon state file."""
+    def get(self):
+        s = self._get_attr(name, default)
+        if s == undefined:
+            if default != undefined: return copy.deepcopy(default)
+            raise Exception("deployment attribute ‘{0}’ missing from state file".format(name))
+        if s == None: return None
+        elif type is str: return s
+        elif type is int: return int(s)
+        elif type is bool: return True if s == "1" else False
+        elif type is 'json': return json.loads(s)
+        else: assert False
+    def set(self, x):
+        if x == default: self._del_attr(name)
+        elif type is 'json': self._set_attr(name, json.dumps(x))
+        else: self._set_attr(name, x)
+    return property(get, set)

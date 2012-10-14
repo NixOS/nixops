@@ -20,6 +20,7 @@ pythonPackages.buildPythonPackage rec {
   pythonPath =
     [ pythonPackages.prettytable
       pythonPackages.boto
+      pythonPackages.sqlite3
     ];
 
   propagatedBuildInputs = pythonPath;
