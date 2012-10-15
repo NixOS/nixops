@@ -363,8 +363,9 @@ in
 
         luksFormat = name: dev:
           let
+            base = baseNameOf name;
             name' = escapeSystemdPath name + ".device";
-            mapperDevice = "/dev/mapper/${baseNameOf name}";
+            mapperDevice = "/dev/mapper/${base}";
             mapperDevice' = escapeSystemdPath mapperDevice + ".device";
 
             # FIXME: The key file should be marked as private once
@@ -385,29 +386,23 @@ in
             unitConfig.DefaultDependencies = false; # needed to prevent a cycle
             script =
               ''
+                # FIXME: this might cause dependent units to time out.
                 while ! [ -e ${keyFile} ]; do
                   sleep 1
                 done
 
                 if [ -e "${name}" ]; then
-
-                  # Do LUKS formatting if the device is empty.  FIXME:
-                  # this check is kinda dangerous.  For EC2 we could
-                  # just check if the first sector is empty.
-                  type=$(blkid -p -s TYPE -o value "${name}" || true)
-                  if [ -z "$type" ]; then
+                  # Do LUKS formatting if the device is empty.
+                  type=$(blkid -p -s TYPE -o value "${name}" || res=$?)
+                  if [ -z "$type" -a "$res" = 0 ]; then
                     echo "initialising encryption on device ‘${name}’..."
                     cryptsetup luksFormat "${name}" --key-file=${keyFile} --cipher ${dev.cipher} --key-size ${toString dev.keySize}
                   fi
-
                 fi
 
-                base="$(basename "${name}")"
-                if [ ! -e "/dev/mapper/$base" ]; then
-
+                if [ ! -e "${mapperDevice}" ]; then
                   # Activate the LUKS device.
                   cryptsetup luksOpen "${name}" "$base" --key-file=${keyFile}
-
                 fi
               '';
           };
