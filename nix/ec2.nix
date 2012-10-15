@@ -1,8 +1,9 @@
 # Configuration specific to the EC2/Nova/Eucalyptus backend.
 
-{ config, pkgs, ... }:
+{ config, pkgs, utils, ... }:
 
 with pkgs.lib;
+with utils;
 
 let
 
@@ -334,7 +335,7 @@ in
        (filter (fs: fs.ec2 != null) config.fileSystems));
 
     deployment.ec2.physicalProperties =
-      let 
+      let
         type = config.deployment.ec2.instanceType or "unknown";
         mapping = {
           "t1.micro"    = { cores = 1;  memory = 595;   };
@@ -351,33 +352,39 @@ in
           "cc2.8xlarge" = { cores = 32; memory = 59930; };
           "hi1.4xlarge" = { cores = 16; memory = 60711; };
         };
-      in 
-        if builtins.hasAttr type mapping then 
+      in
+        if builtins.hasAttr type mapping then
           builtins.getAttr type mapping
         else
           null;
 
-    jobs."init-luks" =
-      { task = true;
+    boot.systemd.services =
+      let
 
-        startOn = "starting mountall";
+        luksFormat = name: dev:
+          let
+            name' = escapeSystemdPath name + ".device";
+            mapperDevice = "/dev/mapper/${baseNameOf name}";
+            mapperDevice' = escapeSystemdPath mapperDevice + ".device";
 
-        path = [ pkgs.cryptsetup pkgs.utillinux ];
+            # FIXME: The key file should be marked as private once
+            # https://github.com/NixOS/nix/issues/8 is fixed.
+            keyFile =
+              if config.deployment.storeKeysOnMachine
+              then pkgs.writeText "luks-key" dev.passphrase
+              else "/run/ebs-keys/${name}";
 
-        script =
-          ''
-            ${concatStrings (attrValues (flip mapAttrs cfg.blockDeviceMapping (name: dev:
-              # FIXME: The key file should be marked as private once
-              # https://github.com/NixOS/nix/issues/8 is fixed.
-              let
+          in assert dev.passphrase != ""; nameValuePair "luksformat-${name'}"
 
-                keyFile =
-                  if config.deployment.storeKeysOnMachine
-                  then pkgs.writeText "luks-key" dev.passphrase
-                  else "/run/ebs-keys/${name}";
-
-              in optionalString dev.encrypt (assert dev.passphrase != ""; ''
-
+          { description = "Cryptographic Initialisation of Device ${name}";
+            wantedBy = [ mapperDevice' ];
+            before = [ mapperDevice' ];
+            require = [ name' ];
+            after = [ name' ];
+            path = [ pkgs.cryptsetup pkgs.utillinux ];
+            unitConfig.DefaultDependencies = false; # needed to prevent a cycle
+            script =
+              ''
                 while ! [ -e ${keyFile} ]; do
                   sleep 1
                 done
@@ -402,10 +409,11 @@ in
                   cryptsetup luksOpen "${name}" "$base" --key-file=${keyFile}
 
                 fi
+              '';
+          };
 
-              ''))))}
-          '';
-      };
+      in
+        mapAttrs' luksFormat (filterAttrs (name: dev: dev.encrypt) cfg.blockDeviceMapping);
 
   };
 
