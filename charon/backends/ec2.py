@@ -697,6 +697,7 @@ class EC2State(MachineState):
 
 
     def destroy(self):
+        if not self.vm_id: return True
         if not self.depl.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
 
         self.log_start("destroying EC2 machine... ".format(self.name))
