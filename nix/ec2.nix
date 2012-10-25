@@ -218,6 +218,16 @@ in
       '';
     };
 
+    deployment.ec2.instanceProfile = mkOption {
+      default = "";
+      example = "rolename";
+      type = types.uniq types.string;
+      description = ''
+        The name of the IAM Instance Profile (IIP) to associate with
+        the instances.
+      '';
+    };
+
     deployment.ec2.keyPair = mkOption {
       example = "my-keypair";
       type = types.uniq types.string;

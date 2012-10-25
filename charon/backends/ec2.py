@@ -38,6 +38,7 @@ class EC2Definition(MachineDefinition):
         self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
         self.private_key = x.find("attr[@name='privateKey']/string").get("value")
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
+        self.instance_profile = x.find("attr[@name='instanceProfile']/string").get("value")
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
         def f(xml):
             return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
@@ -77,6 +78,7 @@ class EC2State(MachineState):
     key_pair = charon.util.attr_property("ec2.keyPair", None)
     public_host_key = charon.util.attr_property("ec2.publicHostKey", None)
     private_key_file = charon.util.attr_property("ec2.privateKeyFile", None)
+    instance_profile = charon.util.attr_property("ec2.instanceProfile", None)
     security_groups = charon.util.attr_property("ec2.securityGroups", None, 'json')
     tags = charon.util.attr_property("ec2.tags", {}, 'json')
     block_device_mapping = charon.util.attr_property("ec2.blockDeviceMapping", {}, 'json')
@@ -106,6 +108,7 @@ class EC2State(MachineState):
             self.instance_type = None
             self.key_pair = None
             self.public_host_key = None
+            self.instance_profile = None
             self.security_groups = None
             self.tags = {}
             self.block_device_mapping = {}
@@ -405,8 +408,12 @@ class EC2State(MachineState):
 
             devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
             devs_mapped = {}
+            ebs_optimized = False
             for k, v in defn.block_device_mapping.iteritems():
                 (volume_type, iops) = self.disk_volume_options(v)
+                if iops != 0:
+                    ebs_optimized = True
+
                 if re.match("/dev/sd[a-e]", k) and not v['disk'].startswith("ephemeral"):
                     raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(_sd_to_xvd(k)))
                 if v['disk'] == '':
@@ -437,13 +444,16 @@ class EC2State(MachineState):
                     raise Exception("device mapping ‘{0}’ not (yet) supported".format(v['disk']))
 
             # FIXME: Should use client_token to ensure idempotency.
-            reservation = ami.run(
+            reservation = self._conn.run_instances(
                 instance_type=defn.instance_type,
                 placement=zone,
                 key_name=defn.key_pair,
                 security_groups=defn.security_groups,
                 block_device_map=devmap,
-                user_data=user_data)
+                user_data=user_data,
+                image_id=defn.ami,
+                instance_profile_name=defn.instance_profile,
+                ebs_optimized=ebs_optimized)
 
             assert len(reservation.instances) == 1
 
