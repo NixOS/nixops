@@ -89,6 +89,15 @@ let
         '';
       };
 
+      iops = mkOption {
+        default = 0;
+        type = types.uniq types.int;
+        description = ''
+          The provisioned IOPs you want to associate with this EBS volume.
+        '';
+      };
+
+
     };
 
     config = {
@@ -328,7 +337,7 @@ in
 
     deployment.ec2.blockDeviceMapping = listToAttrs
       (map (fs: nameValuePair (dmToDevice fs.device)
-        { inherit (fs.ec2) disk size deleteOnTermination encrypt passphrase;
+        { inherit (fs.ec2) disk size deleteOnTermination encrypt passphrase iops;
           fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
         })
        (filter (fs: fs.ec2 != null) config.fileSystems));

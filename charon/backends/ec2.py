@@ -42,6 +42,7 @@ class EC2Definition(MachineDefinition):
         def f(xml):
             return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
                     'size': int(xml.find("attrs/attr[@name='size']/int").get("value")),
+                    'iops': int(xml.find("attrs/attr[@name='iops']/int").get("value")),
                     'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value"),
                     'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true",
                     'encrypt': xml.find("attrs/attr[@name='encrypt']/bool").get("value") == "true",
@@ -146,6 +147,14 @@ class EC2State(MachineState):
             return m.private_ipv4
         return MachineState.address_to(self, m)
 
+    def disk_volume_options(self, v):
+        if v['iops'] != 0:
+            iops = v['iops']
+            volume_type = 'io1'
+        else:
+            iops = None
+            volume_type = 'standard'
+        return (volume_type, iops)
 
     def fetch_aws_secret_key(self, access_key_id):
         secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
@@ -397,19 +406,20 @@ class EC2State(MachineState):
             devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
             devs_mapped = {}
             for k, v in defn.block_device_mapping.iteritems():
+                (volume_type, iops) = self.disk_volume_options(v)
                 if re.match("/dev/sd[a-e]", k) and not v['disk'].startswith("ephemeral"):
                     raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(_sd_to_xvd(k)))
                 if v['disk'] == '':
                     if self._booted_from_ebs():
                         devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(
-                            size=v['size'], delete_on_termination=v['deleteOnTermination'])
+                            size=v['size'], delete_on_termination=v['deleteOnTermination'], volume_type=volume_type, iops=iops)
                         self.update_block_device_mapping(k, v)
                     # Otherwise, it's instance store backed, and we'll create the volume later.
                 elif v['disk'].startswith("ephemeral"):
                     devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v['disk'])
                     self.update_block_device_mapping(k, v)
                 elif v['disk'].startswith("snap-"):
-                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=v['disk'], delete_on_termination=True)
+                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=v['disk'], delete_on_termination=True, volume_type=volume_type, iops=iops)
                     self.update_block_device_mapping(k, v)
                 elif v['disk'].startswith("vol-"):
                     # Volumes cannot be attached at boot time, so
@@ -548,7 +558,8 @@ class EC2State(MachineState):
             if k not in self.block_device_mapping and v['disk'] == '':
                 self.log("creating {0} GiB volume...".format(v['size']))
                 self.connect()
-                volume = self._conn.create_volume(size=v['size'], zone=self.zone)
+                (volume_type, iops) = self.disk_volume_options(v)
+                volume = self._conn.create_volume(size=v['size'], zone=self.zone, volume_type=volume_type, iops=iops)
                 # The flag charonDeleteOnTermination denotes that on
                 # instance termination, we have to delete the volume
                 # ourselves.  For volumes created at instance creation
@@ -567,7 +578,8 @@ class EC2State(MachineState):
                     self._conn.attach_volume(v['disk'], self.vm_id, k)
                     self.update_block_device_mapping(k, v)
                 if v['disk'].startswith("snap-"):
-                    new_volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone)
+                    (volume_type, iops) = self.disk_volume_options(v)
+                    new_volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone, volume_type=volume_type, iops=iops)
                     new_volume.attach(self.vm_id, k)
                     v['disk'] = new_volume.id
                     self.update_block_device_mapping(k, v)
