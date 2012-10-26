@@ -140,7 +140,9 @@ class MachineState(object):
     def get_load_avg(self):
         """Get the load averages on the machine."""
         try:
-            return self.run_command("cat /proc/loadavg", capture_stdout=True, timeout=15).rstrip().split(' ')
+            res = self.run_command("cat /proc/loadavg", capture_stdout=True, timeout=15).rstrip().split(' ')
+            assert len(res) >= 3
+            return res
         except SSHCommandFailed:
             return None
 
@@ -289,7 +291,7 @@ class MachineState(object):
             # preventing an EOF.  FIXME: Would be better to catch
             # SIGCHLD.
             (r, w, x) = select.select(fds, [], [], 1)
-            if process.poll() != None: break
+            if len(r) == 0 and process.poll() != None: break
             if capture_stdout and process.stdout in r:
                 data = process.stdout.read()
                 if data == "":
