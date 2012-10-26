@@ -354,6 +354,7 @@ class EC2State(MachineState):
             raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         self.private_key_file = defn.private_key or None
+        self.owners = defn.owners
 
         # Stop the instance (if allowed) to change instance attributes
         # such as the type.
@@ -493,6 +494,10 @@ class EC2State(MachineState):
         common_tags = {'CharonNetworkUUID': self.depl.uuid,
                        'CharonMachineName': self.name,
                        'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file)}
+
+        if self.owners != []:
+            common_tags['Owners'] = ", ".join(self.owners)
+
         tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
         tags.update(defn.tags)
         tags.update(common_tags)

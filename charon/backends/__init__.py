@@ -9,7 +9,6 @@ import select
 import subprocess
 import charon.util
 
-
 class MachineDefinition(object):
     """Base class for Charon backend machine definitions."""
 
@@ -22,6 +21,7 @@ class MachineDefinition(object):
         assert self.name
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
+        self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
 
 
 class MachineState(object):
@@ -47,6 +47,7 @@ class MachineState(object):
     ssh_pinged = charon.util.attr_property("sshPinged", False, bool)
     public_vpn_key = charon.util.attr_property("publicVpnKey", None)
     store_keys_on_machine = charon.util.attr_property("storeKeysOnMachine", True, bool)
+    owners = charon.util.attr_property("owners", [], 'json')
 
     # Nix store path of the last global configuration deployed to this
     # machine.  Used to check whether this machine is up to date with
