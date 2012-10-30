@@ -10,7 +10,13 @@ in
 
 {
 
-  imports = [ ./ec2.nix ./route53.nix ./virtualbox.nix ./ssh-tunnel.nix ];
+  imports =
+    [ ./ec2.nix
+      ./route53.nix
+      ./virtualbox.nix
+      ./ssh-tunnel.nix
+      ./auto-raid0.nix
+    ];
 
 
   options = {

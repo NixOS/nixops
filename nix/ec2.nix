@@ -393,8 +393,8 @@ in
 
                 if [ -e "${name}" ]; then
                   # Do LUKS formatting if the device is empty.
-                  type=$(blkid -p -s TYPE -o value "${name}" || res=$?)
-                  if [ -z "$type" -a "$res" = 0 ]; then
+                  type=$(blkid -p -s TYPE -o value "${name}") || res=$?
+                  if [ -z "$type" -a \( -z "$res" -o "$res" = 2 \) ]; then
                     echo "initialising encryption on device ‘${name}’..."
                     cryptsetup luksFormat "${name}" --key-file=${keyFile} --cipher ${dev.cipher} --key-size ${toString dev.keySize}
                   fi
@@ -407,8 +407,7 @@ in
               '';
           };
 
-      in
-        mapAttrs' luksFormat (filterAttrs (name: dev: dev.encrypt) cfg.blockDeviceMapping);
+      in mapAttrs' luksFormat (filterAttrs (name: dev: dev.encrypt) cfg.blockDeviceMapping);
 
   };
 
