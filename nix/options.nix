@@ -122,6 +122,14 @@ in
       '';
     };
 
+    deployment.owners = mkOption {
+      default = [];
+      type = types.list types.string;
+      description = ''
+        List of emailaddresses of the owners of the machines. Used
+        to send email on performing certain actions.
+      '';
+    };
 
     # Computed options useful for referring to other machines in
     # network specifications.

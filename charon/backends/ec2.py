@@ -38,10 +38,12 @@ class EC2Definition(MachineDefinition):
         self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
         self.private_key = x.find("attr[@name='privateKey']/string").get("value")
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
+        self.instance_profile = x.find("attr[@name='instanceProfile']/string").get("value")
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
         def f(xml):
             return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
                     'size': int(xml.find("attrs/attr[@name='size']/int").get("value")),
+                    'iops': int(xml.find("attrs/attr[@name='iops']/int").get("value")),
                     'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value"),
                     'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true",
                     'encrypt': xml.find("attrs/attr[@name='encrypt']/bool").get("value") == "true",
@@ -76,6 +78,7 @@ class EC2State(MachineState):
     key_pair = charon.util.attr_property("ec2.keyPair", None)
     public_host_key = charon.util.attr_property("ec2.publicHostKey", None)
     private_key_file = charon.util.attr_property("ec2.privateKeyFile", None)
+    instance_profile = charon.util.attr_property("ec2.instanceProfile", None)
     security_groups = charon.util.attr_property("ec2.securityGroups", None, 'json')
     tags = charon.util.attr_property("ec2.tags", {}, 'json')
     block_device_mapping = charon.util.attr_property("ec2.blockDeviceMapping", {}, 'json')
@@ -105,6 +108,7 @@ class EC2State(MachineState):
             self.instance_type = None
             self.key_pair = None
             self.public_host_key = None
+            self.instance_profile = None
             self.security_groups = None
             self.tags = {}
             self.block_device_mapping = {}
@@ -146,6 +150,14 @@ class EC2State(MachineState):
             return m.private_ipv4
         return MachineState.address_to(self, m)
 
+    def disk_volume_options(self, v):
+        if v['iops'] != 0 and not v['iops'] is None:
+            iops = v['iops']
+            volume_type = 'io1'
+        else:
+            iops = None
+            volume_type = 'standard'
+        return (volume_type, iops)
 
     def fetch_aws_secret_key(self, access_key_id):
         secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
@@ -342,6 +354,7 @@ class EC2State(MachineState):
             raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         self.private_key_file = defn.private_key or None
+        self.owners = defn.owners
 
         # Stop the instance (if allowed) to change instance attributes
         # such as the type.
@@ -396,20 +409,25 @@ class EC2State(MachineState):
 
             devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
             devs_mapped = {}
+            ebs_optimized = False
             for k, v in defn.block_device_mapping.iteritems():
+                (volume_type, iops) = self.disk_volume_options(v)
+                if volume_type != "standard":
+                    ebs_optimized = True
+
                 if re.match("/dev/sd[a-e]", k) and not v['disk'].startswith("ephemeral"):
                     raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(_sd_to_xvd(k)))
                 if v['disk'] == '':
                     if self._booted_from_ebs():
                         devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(
-                            size=v['size'], delete_on_termination=v['deleteOnTermination'])
+                            size=v['size'], delete_on_termination=v['deleteOnTermination'], volume_type=volume_type, iops=iops)
                         self.update_block_device_mapping(k, v)
                     # Otherwise, it's instance store backed, and we'll create the volume later.
                 elif v['disk'].startswith("ephemeral"):
                     devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v['disk'])
                     self.update_block_device_mapping(k, v)
                 elif v['disk'].startswith("snap-"):
-                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=v['disk'], delete_on_termination=True)
+                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=v['disk'], delete_on_termination=True, volume_type=volume_type, iops=iops)
                     self.update_block_device_mapping(k, v)
                 elif v['disk'].startswith("vol-"):
                     # Volumes cannot be attached at boot time, so
@@ -427,13 +445,16 @@ class EC2State(MachineState):
                     raise Exception("device mapping ‘{0}’ not (yet) supported".format(v['disk']))
 
             # FIXME: Should use client_token to ensure idempotency.
-            reservation = ami.run(
+            reservation = self._conn.run_instances(
                 instance_type=defn.instance_type,
                 placement=zone,
                 key_name=defn.key_pair,
                 security_groups=defn.security_groups,
                 block_device_map=devmap,
-                user_data=user_data)
+                user_data=user_data,
+                image_id=defn.ami,
+                instance_profile_name=defn.instance_profile,
+                ebs_optimized=ebs_optimized)
 
             assert len(reservation.instances) == 1
 
@@ -473,6 +494,10 @@ class EC2State(MachineState):
         common_tags = {'CharonNetworkUUID': self.depl.uuid,
                        'CharonMachineName': self.name,
                        'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file)}
+
+        if self.owners != []:
+            common_tags['Owners'] = ", ".join(self.owners)
+
         tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
         tags.update(defn.tags)
         tags.update(common_tags)
@@ -548,7 +573,8 @@ class EC2State(MachineState):
             if k not in self.block_device_mapping and v['disk'] == '':
                 self.log("creating {0} GiB volume...".format(v['size']))
                 self.connect()
-                volume = self._conn.create_volume(size=v['size'], zone=self.zone)
+                (volume_type, iops) = self.disk_volume_options(v)
+                volume = self._conn.create_volume(size=v['size'], zone=self.zone, volume_type=volume_type, iops=iops)
                 # The flag charonDeleteOnTermination denotes that on
                 # instance termination, we have to delete the volume
                 # ourselves.  For volumes created at instance creation
@@ -567,7 +593,8 @@ class EC2State(MachineState):
                     self._conn.attach_volume(v['disk'], self.vm_id, k)
                     self.update_block_device_mapping(k, v)
                 if v['disk'].startswith("snap-"):
-                    new_volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone)
+                    (volume_type, iops) = self.disk_volume_options(v)
+                    new_volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone, volume_type=volume_type, iops=iops)
                     new_volume.attach(self.vm_id, k)
                     v['disk'] = new_volume.id
                     self.update_block_device_mapping(k, v)

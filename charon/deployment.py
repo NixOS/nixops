@@ -19,8 +19,8 @@ from datetime import datetime
 import getpass
 import sqlite3
 import traceback
-import posixfile
 import glob
+import fcntl
 
 
 class Connection(sqlite3.Connection):
@@ -231,14 +231,18 @@ class Deployment(object):
             lock_dir = os.environ.get("HOME", "") + "/.charon/locks"
             if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)
             lock_file = lock_dir + "/" + self.uuid
-            self._deployment_lock = posixfile.open(lock_file, 'w')
+            self._deployment_lock = open(lock_file, "w")
         class DeploymentLock(object):
             def __init__(self, depl):
                 self.depl = depl
             def __enter__(self):
-                self.depl._deployment_lock.lock('w|')
+                try:
+                    fcntl.flock(self.depl._deployment_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except IOError:
+                    self.depl.log("waiting for exclusive deployment lock...")
+                    fcntl.flock(self.depl._deployment_lock, fcntl.LOCK_EX)
             def __exit__(self, exception_type, exception_value, exception_traceback):
-                self.depl._deployment_lock.lock('u')
+                fcntl.flock(self.depl._deployment_lock, fcntl.LOCK_UN)
         return DeploymentLock(self)
 
 

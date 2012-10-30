@@ -90,6 +90,15 @@ let
         '';
       };
 
+      iops = mkOption {
+        default = 0;
+        type = types.uniq types.int;
+        description = ''
+          The provisioned IOPs you want to associate with this EBS volume.
+        '';
+      };
+
+
     };
 
     config = {
@@ -207,6 +216,16 @@ in
         EC2 instance type.  See <link
         xlink:href='http://aws.amazon.com/ec2/instance-types/'/> for a
         list of valid Amazon EC2 instance types.
+      '';
+    };
+
+    deployment.ec2.instanceProfile = mkOption {
+      default = "";
+      example = "rolename";
+      type = types.uniq types.string;
+      description = ''
+        The name of the IAM Instance Profile (IIP) to associate with
+        the instances.
       '';
     };
 
@@ -329,7 +348,7 @@ in
 
     deployment.ec2.blockDeviceMapping = listToAttrs
       (map (fs: nameValuePair (dmToDevice fs.device)
-        { inherit (fs.ec2) disk size deleteOnTermination encrypt passphrase;
+        { inherit (fs.ec2) disk size deleteOnTermination encrypt passphrase iops;
           fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
         })
        (filter (fs: fs.ec2 != null) config.fileSystems));
