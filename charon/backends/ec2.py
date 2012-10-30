@@ -151,7 +151,7 @@ class EC2State(MachineState):
         return MachineState.address_to(self, m)
 
     def disk_volume_options(self, v):
-        if v['iops'] != 0:
+        if v['iops'] != 0 and not v['iops'] is None:
             iops = v['iops']
             volume_type = 'io1'
         else:
@@ -412,7 +412,7 @@ class EC2State(MachineState):
             ebs_optimized = False
             for k, v in defn.block_device_mapping.iteritems():
                 (volume_type, iops) = self.disk_volume_options(v)
-                if iops != 0:
+                if volume_type != "standard":
                     ebs_optimized = True
 
                 if re.match("/dev/sd[a-e]", k) and not v['disk'].startswith("ephemeral"):
