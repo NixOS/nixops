@@ -366,9 +366,10 @@ class Deployment(object):
 
         try:
             xml = subprocess.check_output(
-                ["nix-instantiate", "-I", "charon=" + self.expr_path]
+                ["nix-instantiate"]
                 + self._eval_flags() +
-                ["--eval-only", "--show-trace", "--xml", "--strict",
+                ["-I", "charon=" + self.expr_path,
+                 "--eval-only", "--show-trace", "--xml", "--strict",
                  "<charon/eval-machine-info.nix>",
                  "--arg", "checkConfigurationOptions", "false",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
@@ -400,9 +401,10 @@ class Deployment(object):
 
         try:
             return subprocess.check_output(
-                ["nix-instantiate", "-I", "charon=" + self.expr_path]
+                ["nix-instantiate"]
                 + self._eval_flags() +
-                ["--eval-only", "--show-trace", "--strict",
+                ["-I", "charon=" + self.expr_path,
+                 "--eval-only", "--show-trace", "--strict",
                  "<charon/eval-machine-info.nix>",
                  "--arg", "checkConfigurationOptions", "false",
                  "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
@@ -517,9 +519,10 @@ class Deployment(object):
 
         try:
             configs_path = subprocess.check_output(
-                ["nix-build", "-I", "charon=" + self.expr_path, "--show-trace"]
+                ["nix-build", "--show-trace"]
                 + self._eval_flags() +
-                ["<charon/eval-machine-info.nix>",
+                ["-I", "charon=" + self.expr_path,
+                 "<charon/eval-machine-info.nix>",
                  "--arg", "networkExprs", "[ " + " ".join(self.nix_exprs + [phys_expr]) + " ]",
                  "--arg", "args", self._args_to_attrs(),
                  "--arg", "names", "[ " + " ".join(names) + " ]",
