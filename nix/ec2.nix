@@ -375,7 +375,7 @@ in
               then pkgs.writeText "luks-key" dev.passphrase
               else "/run/ebs-keys/${name}";
 
-          in assert dev.passphrase != ""; nameValuePair "luksformat-${name'}"
+          in assert dev.passphrase != ""; nameValuePair "luksformat-${base}"
 
           { description = "Cryptographic Initialisation of Device ${name}";
             wantedBy = [ mapperDevice' ];
@@ -402,7 +402,7 @@ in
 
                 if [ ! -e "${mapperDevice}" ]; then
                   # Activate the LUKS device.
-                  cryptsetup luksOpen "${name}" "$base" --key-file=${keyFile}
+                  cryptsetup luksOpen "${name}" "${base}" --key-file=${keyFile}
                 fi
               '';
           };
