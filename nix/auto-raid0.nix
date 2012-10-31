@@ -45,12 +45,13 @@ with utils;
           let
             devices' = map (d: escapeSystemdPath d + ".device") attrs.devices;
             mapperDevice = "/dev/${name}/${name}";
-            mapperDevice' = escapeSystemdPath mapperDevice + ".device";
+            mapperDevice' = escapeSystemdPath mapperDevice;
+            mapperDevice'' = mapperDevice' + ".device";
             vg = name;
           in nameValuePair "create-raid0-${name}"
-          { description = "Initialisation of RAID-0 Volume ${mapperDevice}";
-            wantedBy = [ mapperDevice' ];
-            before = [ mapperDevice' ];
+          { description = "Creation of RAID-0 Volume ${mapperDevice}";
+            wantedBy = [ mapperDevice'' ];
+            before = [ mapperDevice'' "mkfs-${mapperDevice'}.service" ];
             require = devices';
             after = devices';
             path = [ pkgs.utillinux pkgs.lvm2 ];
@@ -75,6 +76,7 @@ with utils;
                 # Second, create the volume group.
                 if vgs "${vg}"; then
                   echo "volume group ${vg} already exists"
+                  # FIXME: add new physical volumes to the volume group.
                 else
                   echo "creating volume group ${vg}..."
                   vgcreate "${vg}" ${toString attrs.devices}
@@ -83,6 +85,7 @@ with utils;
                 # Third, create the logical volume.
                 if lvs "${vg}" | grep -q fnord; then
                   echo "logical volume ${vg} already exists"
+                  # FIXME: resize the logical volume.
                 else
                   echo "creating logical volume ${vg}..."
                   lvcreate "${vg}" --name "${name}" --extents '100%FREE' \
