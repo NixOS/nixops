@@ -51,6 +51,8 @@ let
         '';
       };
 
+      # FIXME: remove the LUKS options eventually?
+
       encrypt = mkOption {
         default = false;
         type = types.bool;
@@ -107,7 +109,7 @@ let
 
   };
 
-  isEc2Hvm = (cfg.instanceType == "cc1.4xlarge" || cfg.instanceType == "cc2.8xlarge");
+  isEc2Hvm = cfg.instanceType == "cc1.4xlarge" || cfg.instanceType == "cc2.8xlarge";
 
   # Map "/dev/mapper/xvdX" to "/dev/xvdX".
   dmToDevice = dev:
@@ -353,6 +355,15 @@ in
         })
        (filter (fs: fs.ec2 != null) config.fileSystems));
 
+    deployment.autoLuks =
+      let
+        f = name: dev: nameValuePair (baseNameOf name)
+          { device = "/dev/${baseNameOf name}";
+            autoFormat = true;
+            inherit (dev) cipher keySize passphrase;
+          };
+      in mapAttrs' f (filterAttrs (name: dev: dev.encrypt) cfg.blockDeviceMapping);
+
     deployment.ec2.physicalProperties =
       let
         type = config.deployment.ec2.instanceType or "unknown";
@@ -376,57 +387,6 @@ in
           builtins.getAttr type mapping
         else
           null;
-
-    boot.systemd.services =
-      let
-
-        luksFormat = name: dev:
-          let
-            base = baseNameOf name;
-            name' = escapeSystemdPath name + ".device";
-            mapperDevice = "/dev/mapper/${base}";
-            mapperDevice' = escapeSystemdPath mapperDevice + ".device";
-
-            # FIXME: The key file should be marked as private once
-            # https://github.com/NixOS/nix/issues/8 is fixed.
-            keyFile =
-              if config.deployment.storeKeysOnMachine
-              then pkgs.writeText "luks-key" dev.passphrase
-              else "/run/ebs-keys/${name}";
-
-          in assert dev.passphrase != ""; nameValuePair "luksformat-${base}"
-
-          { description = "Cryptographic Initialisation of Device ${name}";
-            wantedBy = [ mapperDevice' ];
-            before = [ mapperDevice' ];
-            require = [ name' ];
-            after = [ name' ];
-            path = [ pkgs.cryptsetup pkgs.utillinux ];
-            unitConfig.DefaultDependencies = false; # needed to prevent a cycle
-            script =
-              ''
-                # FIXME: this might cause dependent units to time out.
-                while ! [ -e ${keyFile} ]; do
-                  sleep 1
-                done
-
-                if [ -e "${name}" ]; then
-                  # Do LUKS formatting if the device is empty.
-                  type=$(blkid -p -s TYPE -o value "${name}") || res=$?
-                  if [ -z "$type" -a \( -z "$res" -o "$res" = 2 \) ]; then
-                    echo "initialising encryption on device ‘${name}’..."
-                    cryptsetup luksFormat "${name}" --key-file=${keyFile} --cipher ${dev.cipher} --key-size ${toString dev.keySize}
-                  fi
-                fi
-
-                if [ ! -e "${mapperDevice}" ]; then
-                  # Activate the LUKS device.
-                  cryptsetup luksOpen "${name}" "${base}" --key-file=${keyFile}
-                fi
-              '';
-          };
-
-      in mapAttrs' luksFormat (filterAttrs (name: dev: dev.encrypt) cfg.blockDeviceMapping);
 
   };
 

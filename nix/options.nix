@@ -16,6 +16,7 @@ in
       ./virtualbox.nix
       ./ssh-tunnel.nix
       ./auto-raid0.nix
+      ./auto-luks.nix
     ];
 
 
