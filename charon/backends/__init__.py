@@ -21,6 +21,7 @@ class MachineDefinition(object):
         assert self.name
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
+        self.keys = {k.get("name"): k.find("string").get("value") for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")}
         self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
 
 
@@ -47,6 +48,7 @@ class MachineState(object):
     ssh_pinged = charon.util.attr_property("sshPinged", False, bool)
     public_vpn_key = charon.util.attr_property("publicVpnKey", None)
     store_keys_on_machine = charon.util.attr_property("storeKeysOnMachine", True, bool)
+    keys = charon.util.attr_property("keys", [], 'json')
     owners = charon.util.attr_property("owners", [], 'json')
 
     # Nix store path of the last global configuration deployed to this
@@ -125,6 +127,10 @@ class MachineState(object):
         """Create or update the machine instance defined by ‘defn’, if appropriate."""
         assert False
 
+    def set_common_state(self, defn):
+        self.store_keys_on_machine = defn.store_keys_on_machine
+        self.keys = defn.keys
+
     def destroy(self):
         """Destroy this machine, if possible."""
         self.warn("don't know how to destroy machine ‘{0}’".format(self.name))
@@ -190,7 +196,15 @@ class MachineState(object):
         self.send_keys()
 
     def send_keys(self):
-        pass
+        if self.store_keys_on_machine: return
+        self.run_command("mkdir -m 0700 -p /run/keys")
+        for k, v in self.keys.items():
+            self.log("uploading key ‘{0}’...".format(k))
+            tmp = self.depl.tempdir + "/key-" + self.name
+            f = open(tmp, "w+"); f.write(v); f.close()
+            self.upload_file(tmp, "/run/keys/" + k)
+            os.remove(tmp)
+        self.run_command("touch /run/keys/done")
 
     def get_ssh_name(self):
         assert False

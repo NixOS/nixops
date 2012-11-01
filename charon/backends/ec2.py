@@ -348,6 +348,8 @@ class EC2State(MachineState):
 
         if self.state != self.UP: check = True
 
+        self.set_common_state(defn)
+
         # Figure out the access key.
         self.access_key_id = defn.access_key_id or os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
         if not self.access_key_id:
@@ -676,8 +678,6 @@ class EC2State(MachineState):
                 v['generatedKey'] = charon.util.generate_random_string(length=256)
                 self.update_block_device_mapping(k, v)
 
-        self.store_keys_on_machine = defn.store_keys_on_machine
-
 
     def _update_route53(self, defn):
         import boto.route53
@@ -831,6 +831,7 @@ class EC2State(MachineState):
 
     def send_keys(self):
         if self.store_keys_on_machine: return
+        MachineState.send_keys(self)
         for k, v in self.block_device_mapping.items():
             if not v.get('encrypt', False): continue
             key = v.get('passphrase', "") or v.get('generatedKey', "")

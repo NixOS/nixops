@@ -127,6 +127,8 @@ class VirtualBoxState(MachineState):
 
         if self.state != self.UP or check: self.check()
 
+        self.set_common_state(defn)
+
         if not self.vm_id:
             self.log("creating VirtualBox VM...")
             vm_id = "charon-{0}-{1}".format(self.depl.uuid, self.name)

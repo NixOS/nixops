@@ -48,7 +48,7 @@ rec {
 
     machines =
       flip mapAttrs nodes (n: v:
-        { inherit (v.config.deployment) targetEnv targetHost encryptedLinksTo storeKeysOnMachine owners;
+        { inherit (v.config.deployment) targetEnv targetHost encryptedLinksTo storeKeysOnMachine owners keys;
           adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
           route53 = v.config.deployment.route53;
