@@ -376,6 +376,8 @@ in
           "m2.xlarge"   = { cores = 2;  memory = 17084; };
           "m2.2xlarge"  = { cores = 4;  memory = 34241; };
           "m2.4xlarge"  = { cores = 8;  memory = 68557; };
+          "m3.xlarge"   = { cores = 4;  memory = 14985; };
+          "m3.2xlarge"  = { cores = 8;  memory = 30044; };
           "c1.medium"   = { cores = 2;  memory = 1697;  };
           "c1.xlarge"   = { cores = 8;  memory = 6953;  };
           "cc1.4xlarge" = { cores = 16; memory = 21542; };
