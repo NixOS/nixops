@@ -346,14 +346,14 @@ in
       "");
 
     # Workaround: the evaluation of blockDeviceMapping requires fileSystems to be defined.
-    fileSystems = [];
+    fileSystems = {};
 
     deployment.ec2.blockDeviceMapping = listToAttrs
       (map (fs: nameValuePair (dmToDevice fs.device)
         { inherit (fs.ec2) disk size deleteOnTermination encrypt passphrase iops;
           fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
         })
-       (filter (fs: fs.ec2 != null) config.fileSystems));
+       (filter (fs: fs.ec2 != null) (attrValues config.fileSystems)));
 
     deployment.autoLuks =
       let
@@ -384,11 +384,7 @@ in
           "cc2.8xlarge" = { cores = 32; memory = 59930; };
           "hi1.4xlarge" = { cores = 16; memory = 60711; };
         };
-      in
-        if builtins.hasAttr type mapping then
-          builtins.getAttr type mapping
-        else
-          null;
+      in attrByPath [ type ] null mapping;
 
   };
 
