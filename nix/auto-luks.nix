@@ -94,30 +94,20 @@ with utils;
             mapperDevice' = escapeSystemdPath mapperDevice;
             mapperDevice'' = mapperDevice' + ".device";
 
-            # FIXME: The key file should be marked as private once
-            # https://github.com/NixOS/nix/issues/8 is fixed.
-            keyFile =
-              if config.deployment.storeKeysOnMachine
-              then pkgs.writeText "luks-key" attrs.passphrase
-              else "/run/ebs-keys/${name}";
+            keyFile = "/run/keys/luks-${name}";
 
           in assert attrs.passphrase != ""; nameValuePair "cryptsetup-${name}"
 
           { description = "Cryptographic Setup of Device ${mapperDevice}";
             wantedBy = [ mapperDevice'' ];
             before = [ mapperDevice'' "mkfs-${mapperDevice'}.service" ];
-            requires = [ device' ];
-            after = [ device' ];
+            requires = [ device' "keys.target" ];
+            after = [ device' "keys.target" ];
             path = [ pkgs.cryptsetup pkgs.utillinux ];
             unitConfig.DefaultDependencies = false; # needed to prevent a cycle
             serviceConfig.Type = "oneshot";
             script =
               ''
-                # FIXME: this might cause dependent units to time out.
-                while ! [ -e ${keyFile} ]; do
-                  sleep 1
-                done
-
                 # Do LUKS formatting if the device is empty.
                 ${optionalString attrs.autoFormat ''
                   [ -e "${attrs.device}" ]
@@ -137,6 +127,10 @@ with utils;
           };
 
       in mapAttrs' luksFormat config.deployment.autoLuks;
+
+    deployment.keys = mapAttrs'
+      (name: attrs: nameValuePair "luks-${name}" attrs.passphrase)
+      config.deployment.autoLuks;
 
   };
 
