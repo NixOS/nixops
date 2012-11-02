@@ -566,6 +566,8 @@ class Deployment(object):
             if not should_do(m, include, exclude): return
 
             try:
+                m.send_keys()
+
                 res = m.run_command(
                     # Set the system profile to the new configuration.
                     "set -e; nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + "; " +
@@ -727,7 +729,6 @@ class Deployment(object):
                                     .format(m.name, m.get_type(), defn.get_type()))
                 m.create(self.definitions[m.name], check=check, allow_reboot=allow_reboot)
                 m.wait_for_ssh(check=check)
-                m.send_keys()
                 m.generate_vpn_key()
             charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
 

@@ -139,6 +139,17 @@ class EC2State(MachineState):
         return lines
 
 
+    def get_keys(self):
+        keys = MachineState.get_keys(self)
+        # Ugly: we have to add the generated keys because they're not
+        # there in the first evaluation (though they are present in
+        # the final nix-build).
+        for k, v in self.block_device_mapping.items():
+            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "":
+                keys["luks-" + _sd_to_xvd(k).replace('/dev/', '')] = v['generatedKey']
+        return keys
+
+
     def show_type(self):
         s = MachineState.show_type(self)
         if self.zone or self.region: s = "{0} [{1}; {2}]".format(s, self.zone or self.region, self.instance_type)
@@ -150,6 +161,7 @@ class EC2State(MachineState):
             return m.private_ipv4
         return MachineState.address_to(self, m)
 
+
     def disk_volume_options(self, v):
         if v['iops'] != 0 and not v['iops'] is None:
             iops = v['iops']
@@ -158,6 +170,7 @@ class EC2State(MachineState):
             iops = None
             volume_type = 'standard'
         return (volume_type, iops)
+
 
     def fetch_aws_secret_key(self, access_key_id):
         secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
@@ -827,23 +840,6 @@ class EC2State(MachineState):
         instance = self._get_instance_by_id(self.vm_id)
         instance.reboot()
         self.state = self.STARTING
-
-
-    def send_keys(self):
-        if self.store_keys_on_machine: return
-        MachineState.send_keys(self)
-        for k, v in self.block_device_mapping.items():
-            if not v.get('encrypt', False): continue
-            key = v.get('passphrase', "") or v.get('generatedKey', "")
-            assert key != ""
-            device = _sd_to_xvd(k)
-            self.log("uploading key for device ‘{0}’...".format(device))
-            # FIXME: optimise this
-            self.run_command("mkdir -m 0700 -p /run/ebs-keys/{0}".format(os.path.dirname(device)))
-            tmp = self.depl.tempdir + "/ebs-key-" + self.name
-            f = open(tmp, "w+"); f.write(key); f.close()
-            self.upload_file(tmp, "/run/ebs-keys/" + device)
-            os.remove(tmp)
 
 
 def _xvd_to_sd(dev):

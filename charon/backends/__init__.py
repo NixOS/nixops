@@ -198,13 +198,16 @@ class MachineState(object):
     def send_keys(self):
         if self.store_keys_on_machine: return
         self.run_command("mkdir -m 0700 -p /run/keys")
-        for k, v in self.keys.items():
+        for k, v in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
             f = open(tmp, "w+"); f.write(v); f.close()
             self.upload_file(tmp, "/run/keys/" + k)
             os.remove(tmp)
         self.run_command("touch /run/keys/done")
+
+    def get_keys(self):
+        return self.keys
 
     def get_ssh_name(self):
         assert False
