@@ -26,6 +26,7 @@ platform.)  Installing it requires the following steps:</para>
 
 <screen>
 $ nix-channel --add http://nixos.org/releases/nixos/channels/nixos-unstable
+$ nix-channel --update
 $ export NIX_PATH=/nix/var/nix/profiles/per-user/root/channels/nixos
 </screen>
 
