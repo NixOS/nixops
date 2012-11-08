@@ -428,7 +428,7 @@ class Deployment(object):
         hosts = {}
 
         for m in self.active.itervalues():
-            hosts[m.name] = {}
+            hosts[m.name] = {m.name + "-encrypted": "127.0.0.1"}
             for m2 in self.active.itervalues():
                 if m == m2: continue
                 ip = m.address_to(m2)
