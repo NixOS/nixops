@@ -165,6 +165,16 @@ def print_backups(depl, backups):
     print tbl
 
 
+def op_clean_backups():
+    depl = open_deployment()
+    depl.clean_backups(args.keep)
+
+
+def op_remove_backup():
+    depl = open_deployment()
+    depl.remove_backup(args.backupid)
+
+
 def op_backup():
     depl = open_deployment()
     backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
@@ -484,6 +494,14 @@ subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='per
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
 subparser.add_argument('--wait', dest='wait', action="store_true", default=False, help='wait until backup is finished')
 subparser.add_argument('--latest', dest='latest', action="store_true", default=False, help='show status of latest backup only')
+
+subparser = add_subparser('remove-backup', help='remove a given backup')
+subparser.set_defaults(op=op_remove_backup)
+subparser.add_argument('backupid', nargs='?', help='backup id to remove')
+
+subparser = add_subparser('clean-backups', help='remove old backups')
+subparser.set_defaults(op=op_clean_backups)
+subparser.add_argument('--keep', dest="keep", type=int, default=10, help='number of backups to keep around')
 
 subparser = add_subparser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
 subparser.set_defaults(op=op_restore)
