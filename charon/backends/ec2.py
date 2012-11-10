@@ -292,7 +292,6 @@ class EC2State(MachineState):
         self.log('removing backup {0}'.format(backup_id))
         self.connect()
         _backups = self.backups
-        _backupstatus = self.get_backups()
         if not backup_id in _backups.keys():
             self.warn('backup {0} not found, skipping'.format(backup_id))
         for dev, snapshot_id in _backups[backup_id].items():
