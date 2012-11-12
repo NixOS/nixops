@@ -1,6 +1,7 @@
 { system ? builtins.currentSystem
 , networkExprs
 , checkConfigurationOptions ? true
+, uuid
 , args
 }:
 

@@ -326,8 +326,16 @@ class Deployment(object):
                 if response == "n" or response == "": return False
 
 
-    def _eval_flags(self):
-        return sum([["-I", x] for x in (self.extra_nix_path + self.nix_path)], self.extra_nix_flags)
+    def _eval_flags(self, exprs):
+        flags = sum([["-I", x] for x in (self.extra_nix_path + self.nix_path)], self.extra_nix_flags)
+        flags.extend(
+            ["-I", "charon=" + self.expr_path,
+             "--arg", "networkExprs", "[ " + string.join(exprs) + " ]",
+             "--arg", "args", self._args_to_attrs(),
+             "--argstr", "uuid", self.uuid,
+             "--show-trace",
+             "<charon/eval-machine-info.nix>"])
+        return flags
 
 
     def set_arg(self, name, value):
@@ -371,13 +379,9 @@ class Deployment(object):
         try:
             xml = subprocess.check_output(
                 ["nix-instantiate"]
-                + self._eval_flags() +
-                ["-I", "charon=" + self.expr_path,
-                 "--eval-only", "--show-trace", "--xml", "--strict",
-                 "<charon/eval-machine-info.nix>",
+                + self._eval_flags(self.nix_exprs) +
+                ["--eval-only", "--xml", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
-                 "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
-                 "--arg", "args", self._args_to_attrs(),
                  "-A", "info"], stderr=self._log_file)
         except subprocess.CalledProcessError:
             raise NixEvalError
@@ -406,13 +410,9 @@ class Deployment(object):
         try:
             return subprocess.check_output(
                 ["nix-instantiate"]
-                + self._eval_flags() +
-                ["-I", "charon=" + self.expr_path,
-                 "--eval-only", "--show-trace", "--strict",
-                 "<charon/eval-machine-info.nix>",
+                + self._eval_flags(self.nix_exprs) +
+                ["--eval-only", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
-                 "--arg", "networkExprs", "[ " + string.join(self.nix_exprs) + " ]",
-                 "--arg", "args", self._args_to_attrs(),
                  "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
                 + (["--xml"] if xml else []),
                 stderr=self._log_file)
@@ -523,13 +523,9 @@ class Deployment(object):
 
         try:
             configs_path = subprocess.check_output(
-                ["nix-build", "--show-trace"]
-                + self._eval_flags() +
-                ["-I", "charon=" + self.expr_path,
-                 "<charon/eval-machine-info.nix>",
-                 "--arg", "networkExprs", "[ " + " ".join(self.nix_exprs + [phys_expr]) + " ]",
-                 "--arg", "args", self._args_to_attrs(),
-                 "--arg", "names", "[ " + " ".join(names) + " ]",
+                ["nix-build"]
+                + self._eval_flags(self.nix_exprs + [phys_expr]) +
+                ["--arg", "names", "[ " + " ".join(names) + " ]",
                  "-A", "machines", "-o", self.tempdir + "/configs"]
                 + (["--dry-run"] if dry_run else []), stderr=self._log_file).rstrip()
         except subprocess.CalledProcessError:
