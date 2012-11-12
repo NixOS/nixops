@@ -348,12 +348,12 @@ in
     # Workaround: the evaluation of blockDeviceMapping requires fileSystems to be defined.
     fileSystems = {};
 
-    deployment.ec2.blockDeviceMapping = listToAttrs
+    deployment.ec2.blockDeviceMapping = mkFixStrictness (listToAttrs
       (map (fs: nameValuePair (dmToDevice fs.device)
         { inherit (fs.ec2) disk size deleteOnTermination encrypt passphrase iops;
           fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
         })
-       (filter (fs: fs.ec2 != null) (attrValues config.fileSystems)));
+       (filter (fs: fs.ec2 != null) (attrValues config.fileSystems))));
 
     deployment.autoLuks =
       let
