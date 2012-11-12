@@ -8,9 +8,11 @@ import atexit
 import select
 import subprocess
 import charon.util
+import charon.resources
+
 
 class MachineDefinition(object):
-    """Base class for Charon backend machine definitions."""
+    """Base class for Charon machine definitions."""
 
     @classmethod
     def get_type(cls):
@@ -25,8 +27,8 @@ class MachineDefinition(object):
         self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
 
 
-class MachineState(object):
-    """Base class for Charon backends machine states."""
+class MachineState(charon.resources.ResourceState):
+    """Base class for Charon machine state objects."""
 
     # Valid values for self.state.
     UNKNOWN=0 # state unknown
@@ -37,11 +39,6 @@ class MachineState(object):
     STOPPED=5 # machine is down
     UNREACHABLE=6 # machine should be up, but is unreachable
 
-    @classmethod
-    def get_type(cls):
-        assert False
-
-    index = charon.util.attr_property("index", None, int)
     state = charon.util.attr_property("state", UNKNOWN, int)
     obsolete = charon.util.attr_property("obsolete", False, bool)
     vm_id = charon.util.attr_property("vmId", None)
@@ -61,80 +58,19 @@ class MachineState(object):
     cur_toplevel = charon.util.attr_property("toplevel", None)
 
     def __init__(self, depl, name, id):
-        self.depl = depl
-        self.name = name
-        self.id = id
+        charon.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
         self._ssh_master_started = False
         self._ssh_master_opts = []
-        self.set_log_prefix(0)
-
-    def _set_attrs(self, attrs):
-        """Update machine attributes in the state file."""
-        with self.depl._db:
-            c = self.depl._db.cursor()
-            for n, v in attrs.iteritems():
-                if v == None:
-                    c.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, n))
-                else:
-                    c.execute("insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
-                              (self.id, n, v))
-
-    def _set_attr(self, name, value):
-        """Update one machine attribute in the state file."""
-        self._set_attrs({name: value})
-
-    def _del_attr(self, name):
-        """Delete a machine attribute from the state file."""
-        with self.depl._db:
-            self.depl._db.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, name))
-
-    def _get_attr(self, name, default=charon.util.undefined):
-        """Get a machine attribute from the state file."""
-        with self.depl._db:
-            c = self.depl._db.cursor()
-            c.execute("select value from ResourceAttrs where machine = ? and name = ?", (self.id, name))
-            row = c.fetchone()
-            if row != None: return row[0]
-            return charon.util.undefined
-
-    def set_log_prefix(self, length):
-        self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))
-        if self.depl._log_file.isatty() and self.index != None:
-            self._log_prefix = "\033[1;{0}m{1}\033[0m".format(31 + self.index % 7, self._log_prefix)
-
-    def log(self, msg):
-        self.depl.log(self._log_prefix + msg)
-
-    def log_start(self, msg):
-        self.depl.log_start(self._log_prefix, msg)
-
-    def log_continue(self, msg):
-        self.depl.log_start(self._log_prefix, msg)
-
-    def log_end(self, msg):
-        self.depl.log_end(self._log_prefix, msg)
-
-    def warn(self, msg):
-        self.log(charon.util.ansi_warn("warning: " + msg, outfile=self.depl._log_file))
 
     @property
     def started(self):
         state = self.state
         return state == self.STARTING or state == self.UP
 
-    def create(self, defn, check, allow_reboot):
-        """Create or update the machine instance defined by ‘defn’, if appropriate."""
-        assert False
-
     def set_common_state(self, defn):
         self.store_keys_on_machine = defn.store_keys_on_machine
         self.keys = defn.keys
-
-    def destroy(self):
-        """Destroy this machine, if possible."""
-        self.warn("don't know how to destroy machine ‘{0}’".format(self.name))
-        return False
 
     def stop(self):
         """Stop this machine, if possible."""
