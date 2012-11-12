@@ -75,9 +75,9 @@ class MachineState(object):
             c = self.depl._db.cursor()
             for n, v in attrs.iteritems():
                 if v == None:
-                    c.execute("delete from MachineAttrs where machine = ? and name = ?", (self.id, n))
+                    c.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, n))
                 else:
-                    c.execute("insert or replace into MachineAttrs(machine, name, value) values (?, ?, ?)",
+                    c.execute("insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
                               (self.id, n, v))
 
     def _set_attr(self, name, value):
@@ -87,13 +87,13 @@ class MachineState(object):
     def _del_attr(self, name):
         """Delete a machine attribute from the state file."""
         with self.depl._db:
-            self.depl._db.execute("delete from MachineAttrs where machine = ? and name = ?", (self.id, name))
+            self.depl._db.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, name))
 
     def _get_attr(self, name, default=charon.util.undefined):
         """Get a machine attribute from the state file."""
         with self.depl._db:
             c = self.depl._db.cursor()
-            c.execute("select value from MachineAttrs where machine = ? and name = ?", (self.id, name))
+            c.execute("select value from ResourceAttrs where machine = ? and name = ?", (self.id, name))
             row = c.fetchone()
             if row != None: return row[0]
             return charon.util.undefined

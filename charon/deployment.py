@@ -58,7 +58,7 @@ def _table_exists(c, table):
     return c.fetchone() != None
 
 
-current_schema = 2
+current_schema = 3
 
 
 def _create_schemaversion(c):
@@ -88,27 +88,36 @@ def _create_schema(c):
            );''')
 
     c.execute(
-        '''create table if not exists Machines(
+        '''create table if not exists Resources(
              id integer primary key autoincrement,
              deployment text not null,
              name text not null,
+             kind text not null,
              type text not null,
              foreign key(deployment) references Deployments(uuid) on delete cascade
            );''')
 
     c.execute(
-        '''create table if not exists MachineAttrs(
+        '''create table if not exists ResourceAttrs(
              machine integer not null,
              name text not null,
              value text not null,
              primary key(machine, name),
-             foreign key(machine) references Machines(id) on delete cascade
+             foreign key(machine) references Resources(id) on delete cascade
            );''')
 
 
 def _upgrade_1_to_2(c):
     sys.stderr.write("updating database schema from version 1 to 2...\n")
     _create_schemaversion(c)
+
+
+def _upgrade_2_to_3(c):
+    sys.stderr.write("updating database schema from version 2 to 3...\n")
+    c.execute("alter table Machines rename to Resources")
+    c.execute("alter table MachineAttrs rename to ResourceAttrs")
+    c.execute("alter table Resources add column kind text") # can't set "not null" constraint...
+    c.execute("update Resources set kind = 'machine'")
 
 
 def open_database(db_file):
@@ -138,7 +147,8 @@ def open_database(db_file):
         elif version == 0:
             _create_schema(c)
         elif version < current_schema:
-            if version == 1: _upgrade_1_to_2(c)
+            if version <= 1: _upgrade_1_to_2(c)
+            if version <= 2: _upgrade_2_to_3(c)
             c.execute("update SchemaVersion set version = ?", (current_schema,))
         else:
             raise Exception("this Charon version is too old to deal with schema version {0}".format(version))
@@ -222,11 +232,12 @@ class Deployment(object):
         self.active = {}
         with self._db:
             c = self._db.cursor()
-            c.execute("select id, name, type from Machines where deployment = ?", (self.uuid,))
-        for (id, name, type) in c.fetchall():
-            m = charon.backends.create_state(self, type, name, id)
-            self.machines[name] = m
-            if not m.obsolete: self.active[name] = m
+            c.execute("select id, name, kind, type from Resources where deployment = ?", (self.uuid,))
+            for (id, name, kind, type) in c.fetchall():
+                assert kind == "machine"
+                m = charon.backends.create_state(self, type, name, id)
+                self.machines[name] = m
+                if not m.obsolete: self.active[name] = m
         self.set_log_prefixes()
 
 
@@ -297,7 +308,7 @@ class Deployment(object):
         del self.machines[m.name]
         self.active.pop(m.name, None)
         with self._db:
-            self._db.execute("delete from Machines where deployment = ? and id = ?", (self.uuid, m.id))
+            self._db.execute("delete from Resources where deployment = ? and id = ?", (self.uuid, m.id))
 
 
     def delete(self):
@@ -721,11 +732,11 @@ class Deployment(object):
             for m in self.definitions.itervalues():
                 if m.name not in self.machines:
                     c = self._db.cursor()
-                    c.execute("select 1 from Machines where deployment = ? and name = ?", (self.uuid, m.name))
+                    c.execute("select 1 from Resources where deployment = ? and name = ?", (self.uuid, m.name))
                     if len(c.fetchall()) != 0:
                         raise Exception("machine already exists in database!")
-                    c.execute("insert into Machines(deployment, name, type) values (?, ?, ?)",
-                              (self.uuid, m.name, m.get_type()))
+                    c.execute("insert into Resources(deployment, name, kind, type) values (?, ?, ?)",
+                              (self.uuid, m.name, "machine", m.get_type()))
                     id = c.lastrowid
                     self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, id)
 
@@ -925,7 +936,7 @@ class Deployment(object):
         # FIXME: update self.active
 
         with self._db:
-            self._db.execute("update Machines set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
+            self._db.execute("update Resources set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
 
 
     def send_keys(self, include=[], exclude=[]):
