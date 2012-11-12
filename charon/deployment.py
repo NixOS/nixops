@@ -53,16 +53,25 @@ class Connection(sqlite3.Connection):
         self.lock.release()
 
 
-def open_database(db_file):
-    if os.path.splitext(db_file)[1] != '.charon':
-        raise Exception("state file ‘{0}’ should have extension ‘.charon’".format(db_file))
-    db = sqlite3.connect(db_file, timeout=60, check_same_thread=False, factory=Connection) # FIXME
-    db.db_file = db_file
+def _table_exists(c, table):
+    c.execute("select 1 from sqlite_master where name = ? and type='table'", (table,));
+    return c.fetchone() != None
 
-    c = db.cursor()
 
-    c.execute("pragma journal_mode = wal")
-    c.execute("pragma foreign_keys = 1")
+current_schema = 2
+
+
+def _create_schemaversion(c):
+    c.execute(
+        '''create table if not exists SchemaVersion(
+             version integer not null
+           );''')
+
+    c.execute("insert into SchemaVersion(version) values (?)", (current_schema,))
+
+
+def _create_schema(c):
+    _create_schemaversion(c)
 
     c.execute(
         '''create table if not exists Deployments(
@@ -95,6 +104,44 @@ def open_database(db_file):
              primary key(machine, name),
              foreign key(machine) references Machines(id) on delete cascade
            );''')
+
+
+def _upgrade_1_to_2(c):
+    sys.stderr.write("updating database schema from version 1 to 2...\n")
+    _create_schemaversion(c)
+
+
+def open_database(db_file):
+    if os.path.splitext(db_file)[1] != '.charon':
+        raise Exception("state file ‘{0}’ should have extension ‘.charon’".format(db_file))
+    db = sqlite3.connect(db_file, timeout=60, check_same_thread=False, factory=Connection) # FIXME
+    db.db_file = db_file
+
+    db.execute("pragma journal_mode = wal")
+    db.execute("pragma foreign_keys = 1")
+
+    # FIXME: this is not actually transactional, because pysqlite (not
+    # sqlite) does an implicit commit before "create table".
+    with db:
+        c = db.cursor()
+
+        # Get the schema version.
+        version = 0 # new database
+        if _table_exists(c, 'SchemaVersion'):
+            c.execute("select version from SchemaVersion")
+            version = c.fetchone()[0]
+        elif _table_exists(c, 'Deployments'):
+            version = 1
+
+        if version == current_schema:
+            pass
+        elif version == 0:
+            _create_schema(c)
+        elif version < current_schema:
+            if version == 1: _upgrade_1_to_2(c)
+            c.execute("update SchemaVersion set version = ?", (current_schema,))
+        else:
+            raise Exception("this Charon version is too old to deal with schema version {0}".format(version))
 
     return db
 
