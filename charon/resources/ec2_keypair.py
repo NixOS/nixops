@@ -48,6 +48,11 @@ class EC2KeyPairState(charon.resources.ResourceState):
         return s
 
 
+    @property
+    def resource_id(self):
+        return self.keypair_name
+
+
     def connect(self):
         if self._conn: return
         self._conn = charon.ec2_utils.connect(self.region, self.access_key_id)

@@ -48,6 +48,11 @@ class SQSQueueState(charon.resources.ResourceState):
         return s
 
 
+    @property
+    def resource_id(self):
+        return self.queue_name
+
+
     def connect(self):
         if self._conn: return
         assert self.region

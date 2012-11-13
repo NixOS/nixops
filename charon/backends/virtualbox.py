@@ -44,6 +44,10 @@ class VirtualBoxState(MachineState):
         MachineState.__init__(self, depl, name, id)
         self._disk_attached = False
 
+    @property
+    def resource_id(self):
+        return self.vm_id
+
     def get_ssh_name(self):
         assert self.private_ipv4
         return self.private_ipv4

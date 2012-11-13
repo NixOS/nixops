@@ -157,6 +157,11 @@ class EC2State(MachineState):
         return s
 
 
+    @property
+    def resource_id(self):
+        return self.vm_id
+
+
     def address_to(self, m):
         if isinstance(m, EC2State):
             return m.private_ipv4

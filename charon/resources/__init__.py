@@ -103,6 +103,10 @@ class ResourceState(object):
         elif state == self.UNREACHABLE: return "Unreachable"
         else: raise Exception("machine is in unknown state")
 
+    @property
+    def resource_id(self):
+        return None
+
     def create(self, defn, check, allow_reboot):
         """Create or update the resource defined by ‘defn’."""
         assert False
