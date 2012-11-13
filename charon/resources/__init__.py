@@ -5,10 +5,15 @@ class ResourceState(object):
     """Base class for Charon resource state objects."""
 
     @classmethod
+    def get_kind(cls):
+        assert False
+
+    @classmethod
     def get_type(cls):
         assert False
 
     index = charon.util.attr_property("index", None, int)
+    obsolete = charon.util.attr_property("obsolete", False, bool)
 
     def __init__(self, depl, name, id):
         self.depl = depl

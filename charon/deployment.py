@@ -228,17 +228,28 @@ class Deployment(object):
         self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
         atexit.register(lambda: shutil.rmtree(self.tempdir))
 
-        self.machines = {}
-        self.active = {}
+        self.resources = {}
         with self._db:
             c = self._db.cursor()
             c.execute("select id, name, kind, type from Resources where deployment = ?", (self.uuid,))
             for (id, name, kind, type) in c.fetchall():
                 assert kind == "machine"
-                m = charon.backends.create_state(self, type, name, id)
-                self.machines[name] = m
-                if not m.obsolete: self.active[name] = m
+                r = charon.backends.create_state(self, type, name, id)
+                self.resources[name] = r
         self.set_log_prefixes()
+
+
+    @property
+    def machines(self):
+        return {n: r for n, r in self.resources.items() if is_machine(r)}
+
+    @property
+    def active(self): # FIXME: rename to "active_machines"
+        return {n: r for n, r in self.resources.items() if is_machine(r) and not r.obsolete}
+
+    @property
+    def active_resources(self):
+        return {n: r for n, r in self.resources.items() if not r.obsolete}
 
 
     def _set_attrs(self, attrs):
@@ -304,17 +315,16 @@ class Deployment(object):
         return DeploymentLock(self)
 
 
-    def delete_machine(self, m):
-        del self.machines[m.name]
-        self.active.pop(m.name, None)
+    def delete_resource(self, m):
+        del self.resources[m.name]
         with self._db:
             self._db.execute("delete from Resources where deployment = ? and id = ?", (self.uuid, m.id))
 
 
     def delete(self):
         """Delete this deployment from the state file."""
-        if len(self.machines) > 0:
-            raise Exception("cannot delete this deployment because it still has machines")
+        if len(self.resources) > 0:
+            raise Exception("cannot delete this deployment because it still has resources")
 
         # Delete the profile, if any.
         profile = self.get_profile()
@@ -358,9 +368,9 @@ class Deployment(object):
 
 
     def set_log_prefixes(self):
-        max_len = max([len(m.name) for m in self.machines.itervalues()] or [0])
-        for m in self.machines.itervalues():
-            m.set_log_prefix(max_len)
+        max_len = max([len(r.name) for r in self.resources.itervalues()] or [0])
+        for r in self.resources.itervalues():
+            r.set_log_prefix(max_len)
 
 
     def warn(self, msg):
@@ -481,15 +491,17 @@ class Deployment(object):
     def get_physical_spec(self):
         """Compute the contents of the Nix expression specifying the computed physical deployment attributes"""
 
-        lines_per_machine = {m.name: [] for m in self.active.itervalues()}
-        authorized_keys = {m.name: [] for m in self.active.itervalues()}
-        kernel_modules = {m.name: set() for m in self.active.itervalues()}
-        trusted_interfaces = {m.name: set() for m in self.active.itervalues()}
+        active = self.active
+
+        lines_per_machine = {m.name: [] for m in active.itervalues()}
+        authorized_keys = {m.name: [] for m in active.itervalues()}
+        kernel_modules = {m.name: set() for m in active.itervalues()}
+        trusted_interfaces = {m.name: set() for m in active.itervalues()}
         hosts = {}
 
-        for m in self.active.itervalues():
+        for m in active.itervalues():
             hosts[m.name] = {m.name + "-encrypted": "127.0.0.1"}
-            for m2 in self.active.itervalues():
+            for m2 in active.itervalues():
                 if m == m2: continue
                 ip = m.address_to(m2)
                 if ip: hosts[m.name][m2.name] = hosts[m.name][m2.name + "-unencrypted"] = ip
@@ -498,15 +510,15 @@ class Deployment(object):
             defn = self.definitions[m.name]
             lines = lines_per_machine[m.name]
 
-            lines.extend(m.get_physical_spec(self.active))
+            lines.extend(m.get_physical_spec(active))
 
             # Emit configuration to realise encrypted peer-to-peer links.
             for m2_name in defn.encrypted_links_to:
 
-                if m2_name not in self.active:
+                if m2_name not in active:
                     raise Exception("‘deployment.encryptedLinksTo’ in machine ‘{0}’ refers to an unknown machine ‘{1}’"
                                     .format(m.name, m2_name))
-                m2 = self.active[m2_name]
+                m2 = active[m2_name]
                 # Don't create two tunnels between a pair of machines.
                 if m.name in self.definitions[m2.name].encrypted_links_to and m.name >= m2.name:
                     continue
@@ -538,7 +550,7 @@ class Deployment(object):
             if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";'.format(public_ipv4))
             #if trusted_interfaces: lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces)))
 
-        for m in self.active.itervalues(): do_machine(m)
+        for m in active.itervalues(): do_machine(m)
 
         def emit_machine(m):
             lines = []
@@ -553,7 +565,7 @@ class Deployment(object):
             lines.append("  };\n")
             return "\n".join(lines)
 
-        return "".join(["{\n"] + [emit_machine(m) for m in self.active.itervalues()] + ["}\n"])
+        return "".join(["{\n"] + [emit_machine(m) for m in active.itervalues()] + ["}\n"])
 
 
     def get_profile(self):
@@ -653,18 +665,18 @@ class Deployment(object):
                 return m.name
             return None
 
-        res = charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+        res = charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
         failed = [x for x in res if x != None]
         if failed != []:
             raise Exception("activation of {0} of {1} machines failed (namely on {2})"
                             .format(len(failed), len(res), ", ".join(["‘{0}’".format(x) for x in failed])))
 
 
-    def _get_free_machine_index(self):
+    def _get_free_resource_index(self):
         index = 0
-        for m in self.machines.itervalues():
-            if m.index != None and index <= m.index:
-                index = m.index + 1
+        for r in self.resources.itervalues():
+            if r.index != None and index <= r.index:
+                index = r.index + 1
         return index
 
 
@@ -706,7 +718,7 @@ class Deployment(object):
                 m.log("Running sync failed on {0}.".format(m.name))
             m.backup(backup_id)
 
-        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+        charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
         return backup_id
 
@@ -719,7 +731,7 @@ class Deployment(object):
                 if not should_do(m, include, exclude): return
                 m.restore(self.definitions[m.name], backup_id)
 
-            charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+            charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
             self.start_machines(include=include, exclude=exclude)
             self.warn("restore finished; please note that you might need to run ‘charon deploy’ to fix configuration issues regarding changed IP addresses")
 
@@ -730,7 +742,7 @@ class Deployment(object):
         # Create state objects for all defined machines.
         with self._db:
             for m in self.definitions.itervalues():
-                if m.name not in self.machines:
+                if m.name not in self.resources:
                     c = self._db.cursor()
                     c.execute("select 1 from Resources where deployment = ? and name = ?", (self.uuid, m.name))
                     if len(c.fetchall()) != 0:
@@ -738,17 +750,15 @@ class Deployment(object):
                     c.execute("insert into Resources(deployment, name, kind, type) values (?, ?, ?)",
                               (self.uuid, m.name, "machine", m.get_type()))
                     id = c.lastrowid
-                    self.machines[m.name] = charon.backends.create_state(self, m.get_type(), m.name, id)
+                    self.resources[m.name] = charon.backends.create_state(self, m.get_type(), m.name, id)
 
         self.set_log_prefixes()
 
         # Determine the set of active machines.  (We can't just delete
-        # obsolete machines from ‘self.machines’ because they contain
+        # obsolete machines from ‘self.resources’ because they contain
         # important state that we don't want to forget about.)
-        self.active = {}
-        for m in self.machines.values():
+        for m in self.resources.values():
             if m.name in self.definitions:
-                self.active[m.name] = m
                 if m.obsolete:
                     self.log("machine ‘{0}’ is no longer obsolete".format(m.name))
                     m.obsolete = False
@@ -756,7 +766,7 @@ class Deployment(object):
                 self.log("machine ‘{0}’ is obsolete".format(m.name))
                 if not m.obsolete: m.obsolete = True
                 if not should_do(m, include, exclude): continue
-                if kill_obsolete and m.destroy(): self.delete_machine(m)
+                if kill_obsolete and m.destroy(): self.delete_resource(m)
 
 
     def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
@@ -766,10 +776,10 @@ class Deployment(object):
 
         self.evaluate_active(include, exclude, kill_obsolete)
 
-        # Assign each machine an index if it doesn't have one.
-        for m in self.active.itervalues():
-            if m.index == None:
-                m.index = self._get_free_machine_index()
+        # Assign each resource an index if it doesn't have one.
+        for r in self.active_resources.itervalues():
+            if r.index == None:
+                r.index = self._get_free_resource_index()
 
         self.set_log_prefixes()
 
@@ -778,13 +788,14 @@ class Deployment(object):
             def worker(m):
                 if not should_do(m, include, exclude): return
                 defn = self.definitions[m.name]
+                assert is_machine(m)
                 if m.get_type() != defn.get_type():
                     raise Exception("the type of machine ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported"
                                     .format(m.name, m.get_type(), defn.get_type()))
                 m.create(self.definitions[m.name], check=check, allow_reboot=allow_reboot)
                 m.wait_for_ssh(check=check)
                 m.generate_vpn_key()
-            charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+            charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
         if create_only: return
 
@@ -836,10 +847,8 @@ class Deployment(object):
             names.add(filename)
 
         # Update the set of active machines.
-        self.active = {}
         for m in self.machines.values():
             if m.name in names:
-                self.active[m.name] = m
                 if m.obsolete:
                     self.log("machine ‘{0}’ is no longer obsolete".format(m.name))
                     m.obsolete = False
@@ -859,15 +868,16 @@ class Deployment(object):
             self._rollback(**kwargs)
 
 
-    def destroy_vms(self, include=[], exclude=[]):
-        """Destroy all active or obsolete VMs."""
+    def destroy_resources(self, include=[], exclude=[]):
+        """Destroy all active or obsolete resources."""
+
         with self._get_deployment_lock():
 
             def worker(m):
-                if not should_do(m, include, exclude): return
-                if m.destroy(): self.delete_machine(m)
+                if not should_do(r, include, exclude): return
+                if m.destroy(): self.delete_resource(r)
 
-            charon.parallel.run_tasks(nr_workers=len(self.machines), tasks=self.machines.values(), worker_fun=worker)
+            charon.parallel.run_tasks(nr_workers=-1, tasks=self.resources.values(), worker_fun=worker)
 
         # Remove the destroyed machines from the rollback profile.
         # This way, a subsequent "nix-env --delete-generations old" or
@@ -893,7 +903,7 @@ class Deployment(object):
             else:
                 m.reboot()
 
-        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+        charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
 
     def stop_machines(self, include=[], exclude=[]):
@@ -903,7 +913,7 @@ class Deployment(object):
             if not should_do(m, include, exclude): return
             m.stop()
 
-        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+        charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
 
     def start_machines(self, include=[], exclude=[]):
@@ -913,27 +923,26 @@ class Deployment(object):
             if not should_do(m, include, exclude): return
             m.start()
 
-        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+        charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
 
-    def is_valid_machine_name(self, name):
+    def is_valid_resource_name(self, name):
         p = re.compile('^\w+$')
         return not p.match(name) is None
 
 
     def rename(self, name, new_name):
-        if not name in self.machines:
-            raise Exception("machine {0} not found".format(name))
-        if new_name in self.machines:
-            raise Exception("machine with {0} already exists".format(new_name))
-        if not self.is_valid_machine_name(new_name):
-            raise Exception("{0} is not a valid machine identifier".format(new_name))
+        if not name in self.resources:
+            raise Exception("resource ‘{0}’ not found".format(name))
+        if new_name in self.resources:
+            raise Exception("resource with name ‘{0}’ already exists".format(new_name))
+        if not self.is_valid_resource_name(new_name):
+            raise Exception("{0} is not a valid resource identifier".format(new_name))
 
-        self.log("renaming machine ‘{0}’ to ‘{1}’...".format(name, new_name))
+        self.log("renaming resource ‘{0}’ to ‘{1}’...".format(name, new_name))
 
-        m = self.machines.pop(name)
-        self.machines[new_name] = m
-        # FIXME: update self.active
+        m = self.resources.pop(name)
+        self.resources[new_name] = m
 
         with self._db:
             self._db.execute("update Resources set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
@@ -946,7 +955,7 @@ class Deployment(object):
             if not should_do(m, include, exclude): return
             m.send_keys()
 
-        charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.active.itervalues(), worker_fun=worker)
+        charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
 
 class NixEvalError(Exception):
@@ -960,3 +969,6 @@ def should_do_n(name, include, exclude):
     if name in exclude: return False
     if include == []: return True
     return name in include
+
+def is_machine(r):
+    return r.get_kind() == "machine"

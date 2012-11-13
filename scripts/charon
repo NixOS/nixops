@@ -238,7 +238,7 @@ def op_set_args():
 def op_destroy():
     depl = open_deployment()
     if args.confirm: depl.auto_response = "y"
-    depl.destroy_vms(include=args.include or [], exclude=args.exclude or [])
+    depl.destroy_resources(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_reboot():
@@ -264,7 +264,6 @@ def op_rename():
 def op_show_physical():
     depl = open_deployment()
     depl.evaluate()
-    depl.active = {n: depl.machines[n] for n in depl.machines if n in depl.definitions}
     sys.stdout.write(depl.get_physical_spec())
 
 
