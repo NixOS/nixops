@@ -12,6 +12,9 @@ class ResourceDefinition(object):
         self.name = xml.get("name")
         assert self.name
 
+    def show_type(self):
+        return self.get_type()
+
 
 class ResourceState(object):
     """Base class for Charon resource state objects."""

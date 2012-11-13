@@ -22,6 +22,9 @@ class SQSQueueDefinition(charon.resources.ResourceDefinition):
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
 
+    def show_type(self):
+        return "{0} [{1}]".format(self.get_type(), self.region)
+
 
 class SQSQueueState(charon.resources.ResourceState):
     """State of an SQS queue."""
@@ -44,7 +47,7 @@ class SQSQueueState(charon.resources.ResourceState):
 
     def show_type(self):
         s = super(SQSQueueState, self).show_type()
-        if self.region: s= "{0} [{1}]".format(s, self.region)
+        if self.region: s = "{0} [{1}]".format(s, self.region)
         return s
 
 

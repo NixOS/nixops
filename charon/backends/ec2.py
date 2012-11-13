@@ -58,6 +58,9 @@ class EC2Definition(MachineDefinition):
         self.dns_ttl = x.find("attr[@name='ttl']/int").get("value")
         self.route53_access_key_id = x.find("attr[@name='accessKeyId']/string").get("value")
 
+    def show_type(self):
+        return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")
+
 
 class EC2State(MachineState):
     """State of an EC2 machine."""

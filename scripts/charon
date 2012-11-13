@@ -117,7 +117,7 @@ def op_info():
             print "{0}\t{1}\t{2}\t{3}\t{4}\t{5}".format(
                 name,
                 state(d, r).lower(),
-                r.show_type() if r else d.get_type(),
+                r.show_type() if r else d.show_type(),
                 r.vm_id or "" if r and deployment.is_machine(r) else "",
                 r.public_ipv4 or "" if r and deployment.is_machine(r) else "",
                 r.private_ipv4 or "" if r and deployment.is_machine(r) else "")
@@ -139,7 +139,7 @@ def op_info():
             tbl.add_row(
                 [name,
                  "{0} / {1}".format(r.show_state() if r else "Missing", state(d, r)),
-                 r.show_type() if r else (d.get_type() + (" [{0}]".format(d.region) if hasattr(d, 'region') and d.region else "")),
+                 r.show_type() if r else d.show_type(),
                  r.resource_id or "" if r else "",
                  r.public_ipv4 or r.private_ipv4 or "" if r and deployment.is_machine(r)  else ""
                 ])
