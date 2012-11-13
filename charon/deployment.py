@@ -332,8 +332,8 @@ class Deployment(object):
 
     def set_arg(self, name, value):
         """Set a persistent argument to the deployment specification."""
-        assert isinstance(name, str)
-        assert isinstance(value, str)
+        assert isinstance(name, basestring)
+        assert isinstance(value, basestring)
         args = self.args
         args[name] = value
         self.args = args
@@ -341,7 +341,7 @@ class Deployment(object):
 
     def set_argstr(self, name, value):
         """Set a persistent argument to the deployment specification."""
-        assert isinstance(value, str)
+        assert isinstance(value, basestring)
         s = ""
         for c in value:
             if c == '"': s += '\\"'
