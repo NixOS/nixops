@@ -42,6 +42,12 @@ class SQSQueueState(charon.resources.ResourceState):
         self._conn = None
 
 
+    def show_type(self):
+        s = super(SQSQueueState, self).show_type()
+        if self.region: s= "{0} [{1}]".format(s, self.region)
+        return s
+
+
     def connect(self):
         if self._conn: return
         assert self.region

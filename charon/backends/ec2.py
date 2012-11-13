@@ -152,7 +152,7 @@ class EC2State(MachineState):
 
 
     def show_type(self):
-        s = MachineState.show_type(self)
+        s = super(EC2State, self).show_type()
         if self.zone or self.region: s = "{0} [{1}; {2}]".format(s, self.zone or self.region, self.instance_type)
         return s
 
