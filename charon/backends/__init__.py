@@ -11,16 +11,11 @@ import charon.util
 import charon.resources
 
 
-class MachineDefinition(object):
+class MachineDefinition(charon.resources.ResourceDefinition):
     """Base class for Charon machine definitions."""
 
-    @classmethod
-    def get_type(cls):
-        assert False
-
     def __init__(self, xml):
-        self.name = xml.get("name")
-        assert self.name
+        charon.resources.ResourceDefinition.__init__(self, xml)
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
         self.keys = {k.get("name"): k.find("string").get("value") for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")}
@@ -30,17 +25,6 @@ class MachineDefinition(object):
 class MachineState(charon.resources.ResourceState):
     """Base class for Charon machine state objects."""
 
-    # Valid values for self.state.
-    UNKNOWN=0 # state unknown
-    MISSING=1 # instance destroyed or not yet created
-    STARTING=2 # boot initiated
-    UP=3 # machine is reachable
-    STOPPING=4 # shutdown initiated
-    STOPPED=5 # machine is down
-    UNREACHABLE=6 # machine should be up, but is unreachable
-
-    state = charon.util.attr_property("state", UNKNOWN, int)
-    obsolete = charon.util.attr_property("obsolete", False, bool)
     vm_id = charon.util.attr_property("vmId", None)
     ssh_pinged = charon.util.attr_property("sshPinged", False, bool)
     public_vpn_key = charon.util.attr_property("publicVpnKey", None)
@@ -153,20 +137,6 @@ class MachineState(charon.resources.ResourceState):
 
     def get_physical_spec(self, machines):
         return []
-
-    def show_type(self):
-        return self.get_type()
-
-    def show_state(self):
-        state = self.state
-        if state == self.UNKNOWN: return "Unknown"
-        elif state == self.MISSING: return "Missing"
-        elif state == self.STARTING: return "Starting"
-        elif state == self.UP: return "Up"
-        elif state == self.STOPPING: return "Stopping"
-        elif state == self.STOPPED: return "Stopped"
-        elif state == self.UNREACHABLE: return "Unreachable"
-        else: raise Exception("machine is in unknown state")
 
     @property
     def public_ipv4(self):
@@ -290,17 +260,6 @@ class MachineState(charon.resources.ResourceState):
             self._ssh_master_opts + self.get_ssh_flags() + [command])
         return self._logged_exec(cmdline, check=check, capture_stdout=capture_stdout, stdin_string=stdin_string)
 
-    def _create_key_pair(self, key_name="Charon auto-generated key"):
-        key_dir = self.depl.tempdir + "/ssh-key-" + self.name
-        os.mkdir(key_dir, 0700)
-        res = subprocess.call(["ssh-keygen", "-t", "dsa", "-f", key_dir + "/key", "-N", '', "-C", key_name],
-                              stdout=charon.util.devnull)
-        if res != 0: raise Exception("unable to generate an SSH key")
-        f = open(key_dir + "/key"); private = f.read(); f.close()
-        f = open(key_dir + "/key.pub"); public = f.read().rstrip(); f.close()
-        shutil.rmtree(key_dir)
-        return (private, public)
-
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
 
@@ -315,7 +274,7 @@ class MachineState(charon.resources.ResourceState):
 
     def generate_vpn_key(self):
         if self.public_vpn_key: return
-        (private, public) = self._create_key_pair(key_name="Charon VPN key of {0}".format(self.name))
+        (private, public) = charon.util.create_key_pair(key_name="Charon VPN key of {0}".format(self.name))
         f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
         f.write(private)
         f.seek(0)
@@ -343,6 +302,7 @@ class SSHCommandFailed(Exception):
 import charon.backends.none
 import charon.backends.virtualbox
 import charon.backends.ec2
+import charon.resources.ec2_keypair
 
 def create_definition(xml):
     """Create a machine definition object from the given XML representation of the machine's attributes."""
@@ -358,7 +318,8 @@ def create_state(depl, type, name, id):
     """Create a machine state object of the desired backend type."""
     for i in [charon.backends.none.NoneState,
               charon.backends.virtualbox.VirtualBoxState,
-              charon.backends.ec2.EC2State]:
+              charon.backends.ec2.EC2State,
+              charon.resources.ec2_keypair.EC2KeyPairState]:
         if type == i.get_type():
             return i(depl, name, id)
     raise Exception("unknown backend type ‘{0}’".format(type))

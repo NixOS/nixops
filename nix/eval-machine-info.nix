@@ -39,10 +39,20 @@ rec {
                 environment.checkConfigurationOptions = checkConfigurationOptions;
               }
             ];
-          extraArgs = { inherit nodes; };
+          extraArgs = { inherit nodes; resources = resources'; };
         };
       }
-    ) (attrNames (removeAttrs network [ "network" "defaults" ])));
+    ) (attrNames (removeAttrs network [ "network" "defaults" "resources" ])));
+
+  # Compute the ‘resources’ attribute set. FIXME: use the NixOS option
+  # system for this.
+  resources = fold recursiveUpdate {} (network.resources or []);
+
+  defaultResources =
+    { ec2KeyPairs = mapAttrs (n: v: { name = "charon-${uuid}-${n}"; }) (resources.ec2KeyPairs or {});
+    };
+
+  resources' = recursiveUpdate defaultResources resources;
 
   # Phase 1: evaluate only the deployment attributes.
   info = {
@@ -61,6 +71,8 @@ rec {
       );
 
     network = fold (as: bs: as // bs) {} (network.network or []);
+
+    resources = resources';
 
   };
 

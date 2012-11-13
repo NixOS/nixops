@@ -14,6 +14,7 @@ import errno
 from xml.etree import ElementTree
 import charon.backends
 import charon.parallel
+import charon.resources.ec2_keypair
 import re
 from datetime import datetime
 import getpass
@@ -92,7 +93,6 @@ def _create_schema(c):
              id integer primary key autoincrement,
              deployment text not null,
              name text not null,
-             kind text not null,
              type text not null,
              foreign key(deployment) references Deployments(uuid) on delete cascade
            );''')
@@ -116,8 +116,6 @@ def _upgrade_2_to_3(c):
     sys.stderr.write("updating database schema from version 2 to 3...\n")
     c.execute("alter table Machines rename to Resources")
     c.execute("alter table MachineAttrs rename to ResourceAttrs")
-    c.execute("alter table Resources add column kind text") # can't set "not null" constraint...
-    c.execute("update Resources set kind = 'machine'")
 
 
 def open_database(db_file):
@@ -231,9 +229,8 @@ class Deployment(object):
         self.resources = {}
         with self._db:
             c = self._db.cursor()
-            c.execute("select id, name, kind, type from Resources where deployment = ?", (self.uuid,))
-            for (id, name, kind, type) in c.fetchall():
-                assert kind == "machine"
+            c.execute("select id, name, type from Resources where deployment = ?", (self.uuid,))
+            for (id, name, type) in c.fetchall():
                 r = charon.backends.create_state(self, type, name, id)
                 self.resources[name] = r
         self.set_log_prefixes()
@@ -465,10 +462,15 @@ class Deployment(object):
         self.rollback_enabled = elem != None and elem.get("value") == "true"
 
         # Extract machine information.
-        machines = tree.find("attrs/attr[@name='machines']/attrs")
+        for x in tree.find("attrs/attr[@name='machines']/attrs").findall("attr"):
+            defn = charon.backends.create_definition(x)
+            self.definitions[defn.name] = defn
 
-        for m in machines.findall("attr"):
-            defn = charon.backends.create_definition(m)
+        # Extract info about other kinds of resources.
+        res = tree.find("attrs/attr[@name='resources']/attrs")
+
+        for x in res.find("attr[@name='ec2KeyPairs']/attrs").findall("attr"):
+            defn = charon.resources.ec2_keypair.EC2KeyPairDefinition(x)
             self.definitions[defn.name] = defn
 
 
@@ -739,24 +741,24 @@ class Deployment(object):
     def evaluate_active(self, include=[], exclude=[], kill_obsolete=False):
         self.evaluate()
 
-        # Create state objects for all defined machines.
+        # Create state objects for all defined resources.
         with self._db:
             for m in self.definitions.itervalues():
                 if m.name not in self.resources:
                     c = self._db.cursor()
                     c.execute("select 1 from Resources where deployment = ? and name = ?", (self.uuid, m.name))
                     if len(c.fetchall()) != 0:
-                        raise Exception("machine already exists in database!")
-                    c.execute("insert into Resources(deployment, name, kind, type) values (?, ?, ?)",
-                              (self.uuid, m.name, "machine", m.get_type()))
+                        raise Exception("resource already exists in database!")
+                    c.execute("insert into Resources(deployment, name, type) values (?, ?, ?)",
+                              (self.uuid, m.name, m.get_type()))
                     id = c.lastrowid
                     self.resources[m.name] = charon.backends.create_state(self, m.get_type(), m.name, id)
 
         self.set_log_prefixes()
 
-        # Determine the set of active machines.  (We can't just delete
-        # obsolete machines from ‘self.resources’ because they contain
-        # important state that we don't want to forget about.)
+        # Determine the set of active resources.  (We can't just
+        # delete obsolete resources from ‘self.resources’ because they
+        # contain important state that we don't want to forget about.)
         for m in self.resources.values():
             if m.name in self.definitions:
                 if m.obsolete:
@@ -788,14 +790,14 @@ class Deployment(object):
             def worker(m):
                 if not should_do(m, include, exclude): return
                 defn = self.definitions[m.name]
-                assert is_machine(m)
                 if m.get_type() != defn.get_type():
-                    raise Exception("the type of machine ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported"
+                    raise Exception("the type of resource ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported"
                                     .format(m.name, m.get_type(), defn.get_type()))
                 m.create(self.definitions[m.name], check=check, allow_reboot=allow_reboot)
-                m.wait_for_ssh(check=check)
-                m.generate_vpn_key()
-            charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
+                if is_machine(m):
+                    m.wait_for_ssh(check=check)
+                    m.generate_vpn_key()
+            charon.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=worker)
 
         if create_only: return
 
@@ -874,8 +876,8 @@ class Deployment(object):
         with self._get_deployment_lock():
 
             def worker(m):
-                if not should_do(r, include, exclude): return
-                if m.destroy(): self.delete_resource(r)
+                if not should_do(m, include, exclude): return
+                if m.destroy(): self.delete_resource(m)
 
             charon.parallel.run_tasks(nr_workers=-1, tasks=self.resources.values(), worker_fun=worker)
 
@@ -971,4 +973,7 @@ def should_do_n(name, include, exclude):
     return name in include
 
 def is_machine(r):
-    return r.get_kind() == "machine"
+    return isinstance(r, charon.backends.MachineState)
+
+def is_machine_defn(r):
+    return isinstance(r, charon.backends.MachineDefinition)

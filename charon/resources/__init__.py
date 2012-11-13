@@ -1,17 +1,36 @@
 import charon.util
 
 
-class ResourceState(object):
-    """Base class for Charon resource state objects."""
-
-    @classmethod
-    def get_kind(cls):
-        assert False
+class ResourceDefinition(object):
+    """Base class for Charon resource definitions."""
 
     @classmethod
     def get_type(cls):
         assert False
 
+    def __init__(self, xml):
+        self.name = xml.get("name")
+        assert self.name
+
+
+class ResourceState(object):
+    """Base class for Charon resource state objects."""
+
+    @classmethod
+    def get_type(cls):
+        assert False
+
+    # Valid values for self.state.  Not all of these make sense for
+    # all resource types.
+    UNKNOWN=0 # state unknown
+    MISSING=1 # instance destroyed or not yet created
+    STARTING=2 # boot initiated
+    UP=3 # machine is reachable
+    STOPPING=4 # shutdown initiated
+    STOPPED=5 # machine is down
+    UNREACHABLE=6 # machine should be up, but is unreachable
+
+    state = charon.util.attr_property("state", UNKNOWN, int)
     index = charon.util.attr_property("index", None, int)
     obsolete = charon.util.attr_property("obsolete", False, bool)
 
@@ -69,6 +88,20 @@ class ResourceState(object):
 
     def warn(self, msg):
         self.log(charon.util.ansi_warn("warning: " + msg, outfile=self.depl._log_file))
+
+    def show_type(self):
+        return self.get_type()
+
+    def show_state(self):
+        state = self.state
+        if state == self.UNKNOWN: return "Unknown"
+        elif state == self.MISSING: return "Missing"
+        elif state == self.STARTING: return "Starting"
+        elif state == self.UP: return "Up"
+        elif state == self.STOPPING: return "Stopping"
+        elif state == self.STOPPED: return "Stopped"
+        elif state == self.UNREACHABLE: return "Unreachable"
+        else: raise Exception("machine is in unknown state")
 
     def create(self, defn, check, allow_reboot):
         """Create or update the resource defined by ‘defn’."""

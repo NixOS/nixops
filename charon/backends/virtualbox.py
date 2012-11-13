@@ -172,7 +172,7 @@ class VirtualBoxState(MachineState):
             self.disk_attached = True
 
         if not self._client_private_key:
-            (self._client_private_key, self._client_public_key) = self._create_key_pair()
+            (self._client_private_key, self._client_public_key) = charon.util.create_key_pair()
 
         if not self.started:
             self._logged_exec(

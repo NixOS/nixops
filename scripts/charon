@@ -107,20 +107,20 @@ def op_info():
         if not d and (have_definitions or m.obsolete): return "Obsolete"
         if d and m and m.obsolete: return "Revived"
         if not m: return "New"
-        if depl.configs_path != m.cur_configs_path: return "Outdated"
+        if deployment.is_machine(m) and depl.configs_path != m.cur_configs_path: return "Outdated"
         return "Up-to-date"
 
     if args.plain:
-        for name in sorted(set(depl.definitions.keys()) | set(depl.machines.keys())):
+        for name in sorted(set(depl.definitions.keys()) | set(depl.resources.keys())):
             d = depl.definitions.get(name)
-            m = depl.machines.get(name)
+            r = depl.resources.get(name)
             print "{0}\t{1}\t{2}\t{3}\t{4}\t{5}".format(
                 name,
-                state(d, m).lower(),
-                m.show_type() if m else d.get_type(),
-                m.vm_id or "" if m else "",
-                m.public_ipv4 or "" if m else "",
-                m.private_ipv4 or "" if m else "")
+                state(d, r).lower(),
+                r.show_type() if r else d.get_type(),
+                r.vm_id or "" if r and deployment.is_machine(r) else "",
+                r.public_ipv4 or "" if r and deployment.is_machine(r) else "",
+                r.private_ipv4 or "" if r and deployment.is_machine(r) else "")
 
     else:
         print "Network name:", depl.name or "(none)"
@@ -133,15 +133,15 @@ def op_info():
         print
 
         tbl = PrettyTable(["Name", "Status", "Type", "VM Id", "IP address"])
-        for name in sorted(set(depl.definitions.keys()) | set(depl.machines.keys())):
+        for name in sorted(set(depl.definitions.keys()) | set(depl.resources.keys())):
             d = depl.definitions.get(name)
-            m = depl.machines.get(name)
+            r = depl.resources.get(name)
             tbl.add_row(
                 [name,
-                 "{0} / {1}".format(m.show_state() if m else "Missing", state(d, m)),
-                 m.show_type() if m else (d.get_type() + (" [{0}]".format(d.region) if hasattr(d, 'region') and d.region else "")),
-                 m.vm_id or "" if m else "",
-                 m.public_ipv4 or m.private_ipv4 or "" if m else ""
+                 "{0} / {1}".format(r.show_state() if r else "Missing", state(d, r)),
+                 r.show_type() if r else (d.get_type() + (" [{0}]".format(d.region) if hasattr(d, 'region') and d.region else "")),
+                 r.vm_id or "" if r and deployment.is_machine(r) else "",
+                 r.public_ipv4 or r.private_ipv4 or "" if r and deployment.is_machine(r)  else ""
                 ])
 
         print tbl

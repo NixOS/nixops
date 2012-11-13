@@ -11,8 +11,9 @@ import shutil
 import boto.ec2
 import boto.ec2.blockdevicemapping
 from charon.backends import MachineDefinition, MachineState
-import charon.known_hosts
 import charon.util
+import charon.ec2_utils
+import charon.known_hosts
 from xml import etree
 
 
@@ -172,48 +173,16 @@ class EC2State(MachineState):
         return (volume_type, iops)
 
 
-    def fetch_aws_secret_key(self, access_key_id):
-        secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
-        path = os.path.expanduser("~/.ec2-keys")
-        if os.path.isfile(path):
-            f = open(path, 'r')
-            contents = f.read()
-            f.close()
-            for l in contents.splitlines():
-                l = l.split("#")[0] # drop comments
-                w = l.split()
-                if len(w) < 2 or len(w) > 3: continue
-                if len(w) == 3 and w[2] == access_key_id:
-                    access_key_id = w[0]
-                    secret_access_key = w[1]
-                    break
-                if w[0] == access_key_id:
-                    secret_access_key = w[1]
-                    break
-
-        if not secret_access_key:
-            raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/.ec2-keys"
-                            .format(access_key_id))
-
-        return (access_key_id, secret_access_key)
-
-
     def connect(self):
         if self._conn: return
-        assert self.region
-
-        # Get the secret access key from the environment or from ~/.ec2-keys.
-        (access_key_id, secret_access_key) = self.fetch_aws_secret_key(self.access_key_id)
-
-        self._conn = boto.ec2.connect_to_region(
-            region_name=self.region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+        self._conn = charon.ec2_utils.connect(self.region, self.access_key_id)
 
 
     def connect_route53(self):
         if self._conn_route53: return
 
         # Get the secret access key from the environment or from ~/.ec2-keys.
-        (access_key_id, secret_access_key) = self.fetch_aws_secret_key(self.route53_access_key_id)
+        (access_key_id, secret_access_key) = charon.ec2_utils.fetch_aws_secret_key(self.route53_access_key_id)
 
         self._conn_route53 = boto.connect_route53(access_key_id, secret_access_key)
 
@@ -416,7 +385,7 @@ class EC2State(MachineState):
 
             self.root_device_type = ami.root_device_type
 
-            (private, public) = self._create_key_pair()
+            (private, public) = charon.util.create_key_pair()
 
             user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"))
 
