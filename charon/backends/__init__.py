@@ -46,6 +46,7 @@ class MachineState(charon.resources.ResourceState):
         self._ssh_pinged_this_time = False
         self._ssh_master_started = False
         self._ssh_master_opts = []
+        self._ssh_private_key_file = None
 
     @property
     def started(self):
@@ -186,6 +187,13 @@ class MachineState(charon.resources.ResourceState):
 
         self._ssh_master_opts = ["-S", control_socket]
         self._ssh_master_started = True
+
+    def write_ssh_private_key(self, private_key):
+        key_file = "{0}/id_charon-{1}".format(self.depl.tempdir, self.name)
+        with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0600), "w") as f:
+            f.write(private_key)
+        self._ssh_private_key_file = key_file
+        return key_file
 
     def _logged_exec(self, command, check=True, capture_stdout=False, stdin_string=None, env=None):
         stdin = subprocess.PIPE if stdin_string != None else charon.util.devnull

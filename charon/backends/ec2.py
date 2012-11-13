@@ -128,8 +128,20 @@ class EC2State(MachineState):
         return self.public_ipv4
 
 
+    def get_private_key_file(self):
+        if self.private_key_file: return self.private_key_file
+        if self._ssh_private_key_file: return self._ssh_private_key_file
+        for r in self.depl.active_resources.itervalues():
+            if isinstance(r, charon.resources.ec2_keypair.EC2KeyPairState) and \
+                    r.state == charon.resources.ec2_keypair.EC2KeyPairState.UP and \
+                    r.keypair_name == self.key_pair:
+                return self.write_ssh_private_key(r.private_key)
+        return None
+
+
     def get_ssh_flags(self):
-        return ["-i", self.private_key_file] if self.private_key_file else []
+        file = self.get_private_key_file()
+        return ["-i", file] if file else []
 
 
     def get_physical_spec(self, machines):
