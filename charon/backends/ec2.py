@@ -333,7 +333,7 @@ class EC2State(MachineState):
         self.set_common_state(defn)
 
         # Figure out the access key.
-        self.access_key_id = defn.access_key_id or os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
+        self.access_key_id = defn.access_key_id or charon.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 

@@ -4,6 +4,7 @@
 
 import charon.util
 import charon.resources
+import charon.ec2_utils
 
 
 class EC2KeyPairDefinition(charon.resources.ResourceDefinition):
@@ -23,11 +24,13 @@ class EC2KeyPairDefinition(charon.resources.ResourceDefinition):
 class EC2KeyPairState(charon.resources.ResourceState):
     """State of an EC2 key pair."""
 
+    state = charon.util.attr_property("state", charon.resources.ResourceState.MISSING, int)
     keypair_name = charon.util.attr_property("ec2.keyPairName", None)
     public_key = charon.util.attr_property("publicKey", None)
     private_key = charon.util.attr_property("privateKey", None)
     access_key_id = charon.util.attr_property("ec2.accessKeyId", None)
     region = charon.util.attr_property("ec2.region", None)
+
 
     @classmethod
     def get_type(cls):

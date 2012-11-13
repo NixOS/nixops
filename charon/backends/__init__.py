@@ -303,6 +303,7 @@ import charon.backends.none
 import charon.backends.virtualbox
 import charon.backends.ec2
 import charon.resources.ec2_keypair
+import charon.resources.sqs_queue
 
 def create_definition(xml):
     """Create a machine definition object from the given XML representation of the machine's attributes."""
@@ -319,7 +320,8 @@ def create_state(depl, type, name, id):
     for i in [charon.backends.none.NoneState,
               charon.backends.virtualbox.VirtualBoxState,
               charon.backends.ec2.EC2State,
-              charon.resources.ec2_keypair.EC2KeyPairState]:
+              charon.resources.ec2_keypair.EC2KeyPairState,
+              charon.resources.sqs_queue.SQSQueueState]:
         if type == i.get_type():
             return i(depl, name, id)
     raise Exception("unknown backend type ‘{0}’".format(type))
