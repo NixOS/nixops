@@ -790,18 +790,29 @@ class Deployment(object):
 
         self.set_log_prefixes()
 
-        # Start or update the active machines.
+        # Start or update the active resources.  Non-machine resources
+        # are created first, because machines may depend on them
+        # (e.g. EC2 machines depend on EC2 key pairs or EBS volumes).
+        # FIXME: would be nice to have a more fine-grained topological
+        # sort.
         if not dry_run and not build_only:
-            def worker(m):
-                if not should_do(m, include, exclude): return
-                defn = self.definitions[m.name]
-                if m.get_type() != defn.get_type():
+
+            for r in self.active_resources.itervalues():
+                defn = self.definitions[r.name]
+                if r.get_type() != defn.get_type():
                     raise Exception("the type of resource ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported"
-                                    .format(m.name, m.get_type(), defn.get_type()))
+                                    .format(r.name, r.get_type(), defn.get_type()))
+
+            def worker(r):
+                if not should_do(r, include, exclude) or is_machine(r): return
+                r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot)
+            charon.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=worker)
+
+            def worker(m):
+                if not should_do(m, include, exclude) or not is_machine(m): return
                 m.create(self.definitions[m.name], check=check, allow_reboot=allow_reboot)
-                if is_machine(m):
-                    m.wait_for_ssh(check=check)
-                    m.generate_vpn_key()
+                m.wait_for_ssh(check=check)
+                m.generate_vpn_key()
             charon.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=worker)
 
         if create_only: return
