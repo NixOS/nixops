@@ -69,7 +69,7 @@ class SQSQueueState(charon.resources.ResourceState):
         self.connect()
         q = self._conn.lookup(self.queue_name)
         if q:
-            self.log("destroying queue ‘{0}’...".format(self.queue_name))
+            self.log("destroying SQS queue ‘{0}’...".format(self.queue_name))
             self._conn.delete_queue(q)
         with self.depl._db:
             self.state = self.MISSING
