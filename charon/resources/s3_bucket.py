@@ -86,14 +86,18 @@ class S3BucketState(charon.resources.ResourceState):
 
     def destroy(self):
         if self.state == self.UP:
-            self.log("destroying S3 bucket ‘{0}’...".format(self.bucket_name))
             self.connect()
             try:
+                self.log("destroying S3 bucket ‘{0}’...".format(self.bucket_name))
                 bucket = self._conn.get_bucket(self.bucket_name)
-                keys = bucket.list()
-                for x in keys: print x.name
-                bucket.delete_keys(keys)
-                self._conn.delete_bucket(self.bucket_name)
+                try:
+                    bucket.delete()
+                except boto.exception.S3ResponseError as e:
+                    if e.error_code != "BucketNotEmpty": raise
+                    if not self.depl.confirm("are you sure you want to destroy S3 bucket ‘{0}’?".format(self.bucket_name)): return False
+                    keys = bucket.list()
+                    bucket.delete_keys(keys)
+                    bucket.delete()
             except boto.exception.S3ResponseError as e:
                 if e.error_code != "NoSuchBucket": raise
         return True
