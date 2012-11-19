@@ -9,8 +9,13 @@ import fcntl
 import base64
 import socket
 import struct
+import shutil
+import tempfile
+import subprocess
+
 
 devnull = open(os.devnull, 'rw')
+
 
 def check_wait(test, initial=10, factor=1, max_tries=60):
     """Call function ‘test’ periodically until it returns True or a timeout occurs."""
@@ -24,6 +29,7 @@ def check_wait(test, initial=10, factor=1, max_tries=60):
             raise Exception("operation timed out")
     return True
 
+
 def generate_random_string(length=256):
     """Generate a base-64 encoded cryptographically strong random string."""
     f = open("/dev/urandom", "r")
@@ -31,8 +37,10 @@ def generate_random_string(length=256):
     assert len(s) == length
     return base64.b64encode(s)
 
+
 def make_non_blocking(fd):
     fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)
+
 
 def ping_tcp_port(ip, port, timeout=1, ensure_timeout=False):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -51,6 +59,7 @@ def ping_tcp_port(ip, port, timeout=1, ensure_timeout=False):
     s.shutdown(socket.SHUT_RDWR)
     return True
 
+
 def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
     """Wait until the specified TCP port is open or closed."""
     n = 0
@@ -62,13 +71,16 @@ def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
         if callback: callback()
     raise Exception("timed out waiting for port {0} on ‘{1}’".format(port, ip))
 
+
 def ansi_warn(s, outfile=sys.stderr):
     return "\033[1;31m" + s + "\033[0m" if outfile.isatty() else s
+
 
 def abs_nix_path(x):
     xs = x.split('=', 1)
     if len(xs) == 1: return os.path.abspath(x)
     return xs[0] + '=' + os.path.abspath(xs[1])
+
 
 undefined = object()
 
@@ -90,3 +102,14 @@ def attr_property(name, default, type=str):
         elif type is 'json': self._set_attr(name, json.dumps(x))
         else: self._set_attr(name, x)
     return property(get, set)
+
+
+def create_key_pair(key_name="Charon auto-generated key", type="dsa"):
+    key_dir = tempfile.mkdtemp(prefix="charon-tmp")
+    res = subprocess.call(["ssh-keygen", "-t", type, "-f", key_dir + "/key", "-N", '', "-C", key_name],
+                          stdout=devnull)
+    if res != 0: raise Exception("unable to generate an SSH key")
+    f = open(key_dir + "/key"); private = f.read(); f.close()
+    f = open(key_dir + "/key.pub"); public = f.read().rstrip(); f.close()
+    shutil.rmtree(key_dir)
+    return (private, public)

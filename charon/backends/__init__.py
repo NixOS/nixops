@@ -8,42 +8,23 @@ import atexit
 import select
 import subprocess
 import charon.util
+import charon.resources
 
-class MachineDefinition(object):
-    """Base class for Charon backend machine definitions."""
 
-    @classmethod
-    def get_type(cls):
-        assert False
+class MachineDefinition(charon.resources.ResourceDefinition):
+    """Base class for Charon machine definitions."""
 
     def __init__(self, xml):
-        self.name = xml.get("name")
-        assert self.name
+        charon.resources.ResourceDefinition.__init__(self, xml)
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
         self.keys = {k.get("name"): k.find("string").get("value") for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")}
         self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
 
 
-class MachineState(object):
-    """Base class for Charon backends machine states."""
+class MachineState(charon.resources.ResourceState):
+    """Base class for Charon machine state objects."""
 
-    # Valid values for self.state.
-    UNKNOWN=0 # state unknown
-    MISSING=1 # instance destroyed or not yet created
-    STARTING=2 # boot initiated
-    UP=3 # machine is reachable
-    STOPPING=4 # shutdown initiated
-    STOPPED=5 # machine is down
-    UNREACHABLE=6 # machine should be up, but is unreachable
-
-    @classmethod
-    def get_type(cls):
-        assert False
-
-    index = charon.util.attr_property("index", None, int)
-    state = charon.util.attr_property("state", UNKNOWN, int)
-    obsolete = charon.util.attr_property("obsolete", False, bool)
     vm_id = charon.util.attr_property("vmId", None)
     ssh_pinged = charon.util.attr_property("sshPinged", False, bool)
     public_vpn_key = charon.util.attr_property("publicVpnKey", None)
@@ -61,80 +42,20 @@ class MachineState(object):
     cur_toplevel = charon.util.attr_property("toplevel", None)
 
     def __init__(self, depl, name, id):
-        self.depl = depl
-        self.name = name
-        self.id = id
+        charon.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
         self._ssh_master_started = False
         self._ssh_master_opts = []
-        self.set_log_prefix(0)
-
-    def _set_attrs(self, attrs):
-        """Update machine attributes in the state file."""
-        with self.depl._db:
-            c = self.depl._db.cursor()
-            for n, v in attrs.iteritems():
-                if v == None:
-                    c.execute("delete from MachineAttrs where machine = ? and name = ?", (self.id, n))
-                else:
-                    c.execute("insert or replace into MachineAttrs(machine, name, value) values (?, ?, ?)",
-                              (self.id, n, v))
-
-    def _set_attr(self, name, value):
-        """Update one machine attribute in the state file."""
-        self._set_attrs({name: value})
-
-    def _del_attr(self, name):
-        """Delete a machine attribute from the state file."""
-        with self.depl._db:
-            self.depl._db.execute("delete from MachineAttrs where machine = ? and name = ?", (self.id, name))
-
-    def _get_attr(self, name, default=charon.util.undefined):
-        """Get a machine attribute from the state file."""
-        with self.depl._db:
-            c = self.depl._db.cursor()
-            c.execute("select value from MachineAttrs where machine = ? and name = ?", (self.id, name))
-            row = c.fetchone()
-            if row != None: return row[0]
-            return charon.util.undefined
-
-    def set_log_prefix(self, length):
-        self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))
-        if self.depl._log_file.isatty() and self.index != None:
-            self._log_prefix = "\033[1;{0}m{1}\033[0m".format(31 + self.index % 7, self._log_prefix)
-
-    def log(self, msg):
-        self.depl.log(self._log_prefix + msg)
-
-    def log_start(self, msg):
-        self.depl.log_start(self._log_prefix, msg)
-
-    def log_continue(self, msg):
-        self.depl.log_start(self._log_prefix, msg)
-
-    def log_end(self, msg):
-        self.depl.log_end(self._log_prefix, msg)
-
-    def warn(self, msg):
-        self.log(charon.util.ansi_warn("warning: " + msg, outfile=self.depl._log_file))
+        self._ssh_private_key_file = None
 
     @property
     def started(self):
         state = self.state
         return state == self.STARTING or state == self.UP
 
-    def create(self, defn, check, allow_reboot):
-        """Create or update the machine instance defined by ‘defn’, if appropriate."""
-        assert False
-
     def set_common_state(self, defn):
         self.store_keys_on_machine = defn.store_keys_on_machine
         self.keys = defn.keys
-
-    def destroy(self):
-        """Destroy this machine, if possible."""
-        self.warn("don't know how to destroy machine ‘{0}’".format(self.name))
-        return False
 
     def stop(self):
         """Stop this machine, if possible."""
@@ -218,20 +139,6 @@ class MachineState(object):
     def get_physical_spec(self, machines):
         return []
 
-    def show_type(self):
-        return self.get_type()
-
-    def show_state(self):
-        state = self.state
-        if state == self.UNKNOWN: return "Unknown"
-        elif state == self.MISSING: return "Missing"
-        elif state == self.STARTING: return "Starting"
-        elif state == self.UP: return "Up"
-        elif state == self.STOPPING: return "Stopping"
-        elif state == self.STOPPED: return "Stopped"
-        elif state == self.UNREACHABLE: return "Unreachable"
-        else: raise Exception("machine is in unknown state")
-
     @property
     def public_ipv4(self):
         return None
@@ -280,6 +187,13 @@ class MachineState(object):
 
         self._ssh_master_opts = ["-S", control_socket]
         self._ssh_master_started = True
+
+    def write_ssh_private_key(self, private_key):
+        key_file = "{0}/id_charon-{1}".format(self.depl.tempdir, self.name)
+        with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0600), "w") as f:
+            f.write(private_key)
+        self._ssh_private_key_file = key_file
+        return key_file
 
     def _logged_exec(self, command, check=True, capture_stdout=False, stdin_string=None, env=None):
         stdin = subprocess.PIPE if stdin_string != None else charon.util.devnull
@@ -354,17 +268,6 @@ class MachineState(object):
             self._ssh_master_opts + self.get_ssh_flags() + [command])
         return self._logged_exec(cmdline, check=check, capture_stdout=capture_stdout, stdin_string=stdin_string)
 
-    def _create_key_pair(self, key_name="Charon auto-generated key"):
-        key_dir = self.depl.tempdir + "/ssh-key-" + self.name
-        os.mkdir(key_dir, 0700)
-        res = subprocess.call(["ssh-keygen", "-t", "dsa", "-f", key_dir + "/key", "-N", '', "-C", key_name],
-                              stdout=charon.util.devnull)
-        if res != 0: raise Exception("unable to generate an SSH key")
-        f = open(key_dir + "/key"); private = f.read(); f.close()
-        f = open(key_dir + "/key.pub"); public = f.read().rstrip(); f.close()
-        shutil.rmtree(key_dir)
-        return (private, public)
-
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
 
@@ -379,7 +282,7 @@ class MachineState(object):
 
     def generate_vpn_key(self):
         if self.public_vpn_key: return
-        (private, public) = self._create_key_pair(key_name="Charon VPN key of {0}".format(self.name))
+        (private, public) = charon.util.create_key_pair(key_name="Charon VPN key of {0}".format(self.name))
         f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
         f.write(private)
         f.seek(0)
@@ -407,6 +310,9 @@ class SSHCommandFailed(Exception):
 import charon.backends.none
 import charon.backends.virtualbox
 import charon.backends.ec2
+import charon.resources.ec2_keypair
+import charon.resources.sqs_queue
+import charon.resources.s3_bucket
 
 def create_definition(xml):
     """Create a machine definition object from the given XML representation of the machine's attributes."""
@@ -422,7 +328,10 @@ def create_state(depl, type, name, id):
     """Create a machine state object of the desired backend type."""
     for i in [charon.backends.none.NoneState,
               charon.backends.virtualbox.VirtualBoxState,
-              charon.backends.ec2.EC2State]:
+              charon.backends.ec2.EC2State,
+              charon.resources.ec2_keypair.EC2KeyPairState,
+              charon.resources.sqs_queue.SQSQueueState,
+              charon.resources.s3_bucket.S3BucketState]:
         if type == i.get_type():
             return i(depl, name, id)
     raise Exception("unknown backend type ‘{0}’".format(type))

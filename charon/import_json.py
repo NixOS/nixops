@@ -23,8 +23,8 @@ def import_json(db_file, json_file):
         for n, x in state['machines'].iteritems():
             c = depl._db.cursor()
             type = x['targetEnv']
-            c.execute("insert into Machines(deployment, name, type) values (?, ?, ?)",
-                      (depl.uuid, n, type))
+            c.execute("insert into Resources(deployment, name, kind, type) values (?, ?, ?)",
+                      (depl.uuid, n, "machine", type))
             id = c.lastrowid
 
             m = charon.backends.create_state(depl, type, n, id)

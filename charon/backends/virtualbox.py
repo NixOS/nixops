@@ -44,16 +44,18 @@ class VirtualBoxState(MachineState):
         MachineState.__init__(self, depl, name, id)
         self._disk_attached = False
 
+    @property
+    def resource_id(self):
+        return self.vm_id
+
     def get_ssh_name(self):
         assert self.private_ipv4
         return self.private_ipv4
 
     def get_ssh_flags(self):
-        key_file = "{0}/id_charon-{1}".format(self.depl.tempdir, self.name)
-        if not os.path.exists(key_file):
-            with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0600), "w") as f:
-                f.write(self._client_private_key)
-        return ["-o", "StrictHostKeyChecking=no", "-i", key_file]
+        if not self._ssh_private_key_file:
+            self.write_ssh_private_key(self._client_private_key)
+        return ["-o", "StrictHostKeyChecking=no", "-i", self._ssh_private_key_file]
 
     def get_physical_spec(self, machines):
         return ['    require = [ <charon/virtualbox-image-charon.nix> ];']
@@ -172,7 +174,7 @@ class VirtualBoxState(MachineState):
             self.disk_attached = True
 
         if not self._client_private_key:
-            (self._client_private_key, self._client_public_key) = self._create_key_pair()
+            (self._client_private_key, self._client_public_key) = charon.util.create_key_pair()
 
         if not self.started:
             self._logged_exec(

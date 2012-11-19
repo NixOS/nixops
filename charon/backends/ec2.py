@@ -11,8 +11,9 @@ import shutil
 import boto.ec2
 import boto.ec2.blockdevicemapping
 from charon.backends import MachineDefinition, MachineState
-import charon.known_hosts
 import charon.util
+import charon.ec2_utils
+import charon.known_hosts
 from xml import etree
 
 
@@ -56,6 +57,9 @@ class EC2Definition(MachineDefinition):
         self.dns_hostname = x.find("attr[@name='hostName']/string").get("value")
         self.dns_ttl = x.find("attr[@name='ttl']/int").get("value")
         self.route53_access_key_id = x.find("attr[@name='accessKeyId']/string").get("value")
+
+    def show_type(self):
+        return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")
 
 
 class EC2State(MachineState):
@@ -124,8 +128,20 @@ class EC2State(MachineState):
         return self.public_ipv4
 
 
+    def get_private_key_file(self):
+        if self.private_key_file: return self.private_key_file
+        if self._ssh_private_key_file: return self._ssh_private_key_file
+        for r in self.depl.active_resources.itervalues():
+            if isinstance(r, charon.resources.ec2_keypair.EC2KeyPairState) and \
+                    r.state == charon.resources.ec2_keypair.EC2KeyPairState.UP and \
+                    r.keypair_name == self.key_pair:
+                return self.write_ssh_private_key(r.private_key)
+        return None
+
+
     def get_ssh_flags(self):
-        return ["-i", self.private_key_file] if self.private_key_file else []
+        file = self.get_private_key_file()
+        return ["-i", file] if file else []
 
 
     def get_physical_spec(self, machines):
@@ -151,9 +167,14 @@ class EC2State(MachineState):
 
 
     def show_type(self):
-        s = MachineState.show_type(self)
+        s = super(EC2State, self).show_type()
         if self.zone or self.region: s = "{0} [{1}; {2}]".format(s, self.zone or self.region, self.instance_type)
         return s
+
+
+    @property
+    def resource_id(self):
+        return self.vm_id
 
 
     def address_to(self, m):
@@ -172,48 +193,16 @@ class EC2State(MachineState):
         return (volume_type, iops)
 
 
-    def fetch_aws_secret_key(self, access_key_id):
-        secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
-        path = os.path.expanduser("~/.ec2-keys")
-        if os.path.isfile(path):
-            f = open(path, 'r')
-            contents = f.read()
-            f.close()
-            for l in contents.splitlines():
-                l = l.split("#")[0] # drop comments
-                w = l.split()
-                if len(w) < 2 or len(w) > 3: continue
-                if len(w) == 3 and w[2] == access_key_id:
-                    access_key_id = w[0]
-                    secret_access_key = w[1]
-                    break
-                if w[0] == access_key_id:
-                    secret_access_key = w[1]
-                    break
-
-        if not secret_access_key:
-            raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/.ec2-keys"
-                            .format(access_key_id))
-
-        return (access_key_id, secret_access_key)
-
-
     def connect(self):
         if self._conn: return
-        assert self.region
-
-        # Get the secret access key from the environment or from ~/.ec2-keys.
-        (access_key_id, secret_access_key) = self.fetch_aws_secret_key(self.access_key_id)
-
-        self._conn = boto.ec2.connect_to_region(
-            region_name=self.region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+        self._conn = charon.ec2_utils.connect(self.region, self.access_key_id)
 
 
     def connect_route53(self):
         if self._conn_route53: return
 
         # Get the secret access key from the environment or from ~/.ec2-keys.
-        (access_key_id, secret_access_key) = self.fetch_aws_secret_key(self.route53_access_key_id)
+        (access_key_id, secret_access_key) = charon.ec2_utils.fetch_aws_secret_key(self.route53_access_key_id)
 
         self._conn_route53 = boto.connect_route53(access_key_id, secret_access_key)
 
@@ -364,7 +353,7 @@ class EC2State(MachineState):
         self.set_common_state(defn)
 
         # Figure out the access key.
-        self.access_key_id = defn.access_key_id or os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
+        self.access_key_id = defn.access_key_id or charon.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
@@ -416,7 +405,7 @@ class EC2State(MachineState):
 
             self.root_device_type = ami.root_device_type
 
-            (private, public) = self._create_key_pair()
+            (private, public) = charon.util.create_key_pair()
 
             user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"))
 
