@@ -51,6 +51,7 @@ rec {
   defaultResources =
     { ec2KeyPairs = mapAttrs (n: v: { name = "charon-${uuid}-${n}"; }) (resources.ec2KeyPairs or {});
       sqsQueues = mapAttrs (n: v: { name = "charon-${uuid}-${n}"; }) (resources.sqsQueues or {});
+      s3Buckets = mapAttrs (n: v: { name = "charon-${uuid}-${n}"; }) (resources.s3Buckets or {});
     };
 
   resources' = recursiveUpdate defaultResources resources;
