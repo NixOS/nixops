@@ -790,6 +790,41 @@ $ charon start</screen>
 </refsection>
 
 
+<refsection><title>Command <option>charon list</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon list</command>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command prints information about all deployments in the
+database: the UUID, the name, the description, the number of running
+or stopped machines, and the types of those machines.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<screen>
+$ charon list
++--------------------------------------+------------------------+------------------------+------------+------------+
+|                 UUID                 |          Name          |      Description       | # Machines |    Type    |
++--------------------------------------+------------------------+------------------------+------------+------------+
+| 80dc8e11-287d-11e2-b05a-a810fd2f513f |          test          |      Test network      |     4      |    ec2     |
+| 79fe0e26-d1ec-11e1-8ba3-a1d56c8a5447 |   nixos-systemd-test   | Unnamed Charon network |     1      | virtualbox |
+| 742c2a4f-0817-11e2-9889-49d70558c59e |       xorg-test        | NixOS X11 Updates Test |     0      |            |
++--------------------------------------+------------------------+------------------------+------------+------------+
+</screen>
+
+</refsection>
+
+</refsection>
+
+
 <refsection><title>Command <option>charon info</option></title>
 
 <refsection><title>Synopsis</title>
