@@ -164,9 +164,18 @@ def op_info():
 
 
 def op_check():
-    depl = open_deployment()
-    for m in depl.active.itervalues():
-        m.check()
+    def check(depl):
+        for m in depl.active.itervalues():
+            m.check()
+    if args.all:
+        db = deployment.open_database(args.state_file)
+        uuids = deployment.query_deployments(db)
+        for uuid in uuids:
+            depl = deployment.open_deployment(db, uuid=uuid)
+            sys.stderr.write("{0}:\n".format(depl.name or depl.uuid))
+            check(depl)
+    else:
+       check(open_deployment())
 
 
 def print_backups(depl, backups):
@@ -411,6 +420,7 @@ subparser.add_argument('--no-eval', action='store_true', help='do not evaluate t
 
 subparser = add_subparser('check', help='check the state of the machines in the network')
 subparser.set_defaults(op=op_check)
+subparser.add_argument('--all',  action='store_true', help='check all deployments')
 
 subparser = add_subparser('set-args', help='persistently set arguments to the deployment specification')
 subparser.set_defaults(op=op_set_args)
