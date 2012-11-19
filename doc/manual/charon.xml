@@ -871,6 +871,27 @@ the deployment.  For each machine, it prints:
 
 </refsection>
 
+<refsection><title>Examples</title>
+
+<screen>
+$ charon info -d foo
+Network name: test
+Network UUID: 80dc8e11-287d-11e2-b05a-a810fd2f513f
+Network description: Test network
+Nix expressions: /home/alice/test-network.nix
+
++----------+-----------------+------------------------------+------------+-----------------+
+|   Name   |      Status     |             Type             |   VM Id    |    IP address   |
++----------+-----------------+------------------------------+------------+-----------------+
+| backend0 |  Up / Outdated  | ec2 [us-east-1b; m2.2xlarge] | i-905e9def |   23.23.12.249  |
+| backend1 |  Up / Outdated  | ec2 [us-east-1b; m2.2xlarge] | i-925e9ded |  184.73.128.122 |
+| backend2 |  Up / Obsolete  | ec2 [us-east-1b; m2.2xlarge] | i-885e9df7 | 204.236.192.216 |
+| frontend | Up / Up-to-date |  ec2 [us-east-1c; m1.large]  | i-945e9deb |  23.23.161.169  |
++----------+-----------------+------------------------------+------------+-----------------+
+</screen>
+
+</refsection>
+
 </refsection>
 
 
