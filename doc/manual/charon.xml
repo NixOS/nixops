@@ -76,7 +76,7 @@ cloud.</para>
     to operate.  Defaults to the value of the
     <envar>CHARON_DEPLOYMENT</envar> environment
     variable.</para></listitem>
-    
+
   </varlistentry>
 
   <varlistentry><term><option>--confirm</option></term>
@@ -868,6 +868,61 @@ the deployment.  For each machine, it prints:
   </varlistentry>
 
 </variablelist>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon check</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon check</command>
+  <arg><option>--all</option></arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command checks and prints the status of each machine in the
+deployment.  For instance, for an EC2 machine, it will ask EC2 whether
+the machine is running or stopped.  If a machine is supposed to be up,
+Charon will try to connect to the machine via SSH and get the current
+load average statistics.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--all</option></term>
+
+    <listitem><para>Check all machines in all known deployments,
+    rather than in a specific deployment.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>For a running VirtualBox instance, Charon will print something
+like:
+<screen>
+$ charon status
+machine> VM state is ‘running’
+machine> pinging SSH... up [1.03 0.34 0.12]</screen>
+</para>
+
+<para>For a stopped EC2 instance, Charon might show:
+<screen>
+machine> instance state is ‘stopped’</screen>
+</para>
 
 </refsection>
 
