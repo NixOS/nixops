@@ -91,60 +91,76 @@ def op_import_json():
 
 
 def op_info():
-    depl = open_deployment()
+    table_header = ["Name", "Status", "Type", "Resource Id", "IP address"]
 
-    have_definitions = False
-    if args.no_eval:
-        depl.definitions = {}
-    else:
-        try:
-            depl.evaluate()
-            have_definitions = True
-        except charon.deployment.NixEvalError:
-            sys.stderr.write(charon.util.ansi_warn("warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"))
-
-    def state(d, m):
-        if not d and (have_definitions or m.obsolete): return "Obsolete"
+    def state(depl, d, m):
+        if not d and (depl.definitions != None or m.obsolete): return "Obsolete"
         if d and m and m.obsolete: return "Revived"
         if not m: return "New"
         if deployment.is_machine(m) and depl.configs_path != m.cur_configs_path: return "Outdated"
         return "Up-to-date"
 
-    if args.plain:
-        for name in sorted(set(depl.definitions.keys()) | set(depl.resources.keys())):
-            d = depl.definitions.get(name)
+    def do_eval(depl):
+        if not args.no_eval:
+            try:
+                depl.evaluate()
+            except charon.deployment.NixEvalError:
+                sys.stderr.write(charon.util.ansi_warn("warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"))
+                depl.definitions = None
+
+    def print_deployment(depl):
+        definitions = depl.definitions or {}
+        for name in sorted(set(definitions.keys()) | set(depl.resources.keys())):
+            d = definitions.get(name)
             r = depl.resources.get(name)
-            print "{0}\t{1}\t{2}\t{3}\t{4}\t{5}".format(
-                name,
-                state(d, r).lower(),
-                r.show_type() if r else d.show_type(),
-                r.vm_id or "" if r and deployment.is_machine(r) else "",
-                r.public_ipv4 or "" if r and deployment.is_machine(r) else "",
-                r.private_ipv4 or "" if r and deployment.is_machine(r) else "")
+            if args.plain:
+                print "\t".join(
+                    ([depl.uuid] if args.all else []) +
+                    [name,
+                     state(depl, d, r).lower(),
+                     r.show_type() if r else d.show_type(),
+                     r.vm_id or "" if r and deployment.is_machine(r) else "",
+                     r.public_ipv4 or "" if r and deployment.is_machine(r) else "",
+                     r.private_ipv4 or "" if r and deployment.is_machine(r) else ""
+                    ])
+            else:
+                tbl.add_row(
+                    ([depl.name or depl.uuid] if args.all else []) +
+                    [name,
+                     "{0} / {1}".format(r.show_state() if r else "Missing", state(depl, d, r)),
+                     r.show_type() if r else d.show_type(),
+                     r.resource_id or "" if r else "",
+                     r.public_ipv4 or r.private_ipv4 or "" if r and deployment.is_machine(r)  else ""
+                    ])
+
+    if args.all:
+        db = deployment.open_database(args.state_file)
+        uuids = deployment.query_deployments(db)
+        if not args.plain: tbl = PrettyTable(["Deployment"] + table_header)
+        for uuid in uuids:
+            depl = deployment.open_deployment(db, uuid=uuid)
+            do_eval(depl)
+            print_deployment(depl)
+        if not args.plain: print tbl
 
     else:
-        print "Network name:", depl.name or "(none)"
-        print "Network UUID:", depl.uuid
-        print "Network description:", depl.description
-        print "Nix expressions:", ", ".join(depl.nix_exprs)
-        if depl.nix_path != []: print "Nix path:", ", ".join(depl.nix_path)
-        if depl.rollback_enabled: print "Nix profile:", depl.get_profile()
-        if depl.args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl.args.iteritems()])
-        print
+        depl = open_deployment()
+        do_eval(depl)
 
-        tbl = PrettyTable(["Name", "Status", "Type", "Resource Id", "IP address"])
-        for name in sorted(set(depl.definitions.keys()) | set(depl.resources.keys())):
-            d = depl.definitions.get(name)
-            r = depl.resources.get(name)
-            tbl.add_row(
-                [name,
-                 "{0} / {1}".format(r.show_state() if r else "Missing", state(d, r)),
-                 r.show_type() if r else d.show_type(),
-                 r.resource_id or "" if r else "",
-                 r.public_ipv4 or r.private_ipv4 or "" if r and deployment.is_machine(r)  else ""
-                ])
-
-        print tbl
+        if args.plain:
+            print_deployment(depl)
+        else:
+            print "Network name:", depl.name or "(none)"
+            print "Network UUID:", depl.uuid
+            print "Network description:", depl.description
+            print "Nix expressions:", ", ".join(depl.nix_exprs)
+            if depl.nix_path != []: print "Nix path:", ", ".join(depl.nix_path)
+            if depl.rollback_enabled: print "Nix profile:", depl.get_profile()
+            if depl.args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl.args.iteritems()])
+            print
+            tbl = PrettyTable(table_header)
+            print_deployment(depl)
+            print tbl
 
 
 def op_check():
@@ -387,8 +403,9 @@ subparser.set_defaults(op=op_import_json)
 subparser.add_argument('json_file', metavar='FILE', help='path to JSON file')
 subparser.add_argument('--name', '-n', dest='name', metavar='NAME', help='symbolic name of the imported deployment')
 
-subparser = add_subparser('info', help='show the state of the network')
+subparser = add_subparser('info', help='show the state of the deployment')
 subparser.set_defaults(op=op_info)
+subparser.add_argument('--all',  action='store_true', help='show all deployments')
 subparser.add_argument('--plain',  action='store_true', help='do not pretty-print the output')
 subparser.add_argument('--no-eval', action='store_true', help='do not evaluate the deployment specification')
 

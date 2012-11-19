@@ -796,6 +796,7 @@ $ charon start</screen>
 
 <cmdsynopsis>
   <command>charon info</command>
+  <arg><option>--all</option></arg>
   <arg><option>--plain</option></arg>
   <arg><option>--no-eval</option></arg>
 </cmdsynopsis>
@@ -840,6 +841,14 @@ the deployment.  For each machine, it prints:
 <refsection><title>Options</title>
 
 <variablelist>
+
+  <varlistentry><term><option>--all</option></term>
+
+    <listitem><para>Print information about all resources in all known
+    deployments, rather than in a specific
+    deployment.</para></listitem>
+
+  </varlistentry>
 
   <varlistentry><term><option>--plain</option></term>
 

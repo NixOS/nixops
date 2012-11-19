@@ -236,6 +236,8 @@ class Deployment(object):
                 self.resources[name] = r
         self.set_log_prefixes()
 
+        self.definitions = None
+
 
     @property
     def machines(self):
