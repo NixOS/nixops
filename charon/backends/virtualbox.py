@@ -67,6 +67,10 @@ class VirtualBoxState(MachineState):
         return MachineState.address_to(self, m)
 
 
+    def has_really_fast_connection(self):
+        return True
+
+
     def _get_vm_info(self):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
         lines = self._logged_exec(

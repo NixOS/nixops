@@ -274,11 +274,21 @@ class MachineState(charon.resources.ResourceState):
         # !!! Implement copying between cloud machines, as in the Perl
         # version.
 
+        # It's usually faster to let the target machine download
+        # substitutes from nixos.org, so try that first.
+        if not self.has_really_fast_connection():
+            closure = subprocess.check_output(["nix-store", "-qR", path]).splitlines()
+            self.run_command("nix-store -j 4 -r --ignore-unknown " + ' '.join(closure), check=False)
+
+        # Any remaining paths are copied from the local machine.
         env = dict(os.environ)
         env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags());
         self._logged_exec(
             ["nix-copy-closure", "--gzip", "--to", "root@" + self.get_ssh_name(), path],
             env=env)
+
+    def has_really_fast_connection(self):
+        return False
 
     def generate_vpn_key(self):
         if self.public_vpn_key: return
