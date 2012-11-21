@@ -284,7 +284,8 @@ class MachineState(charon.resources.ResourceState):
         env = dict(os.environ)
         env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags());
         self._logged_exec(
-            ["nix-copy-closure", "--gzip", "--to", "root@" + self.get_ssh_name(), path],
+            ["nix-copy-closure", "--to", "root@" + self.get_ssh_name(), path]
+            + ([] if self.has_really_fast_connection() else ["--gzip"]),
             env=env)
 
     def has_really_fast_connection(self):
