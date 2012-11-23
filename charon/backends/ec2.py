@@ -745,16 +745,18 @@ class EC2State(MachineState):
 
         self.log_start("destroying EC2 machine... ".format(self.name))
 
-        instance = self._get_instance_by_id(self.vm_id)
-        instance.terminate()
+        instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
 
-        # Wait until it's really terminated.
-        while True:
-            self.log_continue("({0}) ".format(instance.state))
-            if instance.state == "terminated":
-                break
-            time.sleep(3)
-            instance.update()
+        if instance: 
+            instance.terminate()
+
+            # Wait until it's really terminated.
+            while True:
+                self.log_continue("({0}) ".format(instance.state))
+                if instance.state == "terminated": break
+                time.sleep(3)
+                instance.update()
+
         self.log_end("")
 
         # Destroy volumes created for this instance.
@@ -764,6 +766,7 @@ class EC2State(MachineState):
                 self.update_block_device_mapping(k, None)
 
         return True
+
 
     def stop(self):
         if not self._booted_from_ebs():
