@@ -48,7 +48,7 @@ def open_deployment():
 
 def set_name(depl, name):
     if not name: return
-    if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-]*$", name):
+    if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-\.]*$", name):
         raise Exception("invalid deployment name ‘{0}’".format(name))
     depl.name = name
 
