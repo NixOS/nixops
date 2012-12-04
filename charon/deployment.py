@@ -408,8 +408,8 @@ class Deployment(object):
 
     def set_arg(self, name, value):
         """Set a persistent argument to the deployment specification."""
-        assert isinstance(name, str)
-        assert isinstance(value, str)
+        assert isinstance(name, basestring)
+        assert isinstance(value, basestring)
         args = self.args
         args[name] = value
         self.args = args
@@ -417,7 +417,7 @@ class Deployment(object):
 
     def set_argstr(self, name, value):
         """Set a persistent argument to the deployment specification."""
-        assert isinstance(value, str)
+        assert isinstance(value, basestring)
         s = ""
         for c in value:
             if c == '"': s += '\\"'
@@ -717,6 +717,22 @@ class Deployment(object):
                     if backup['machines'][m.name]['status'] != "complete" and backup['status'] != "running":
                         backup['status'] = backup['machines'][m.name]['status']
         return backups
+
+    def clean_backups(self, keep=10):
+        _backups = self.get_backups()
+        backup_ids = [b for b in _backups.keys()]
+        backup_ids.sort()
+        index = len(backup_ids)-keep
+        for backup_id in backup_ids[:index]:
+            print 'Removing backup {0}'.format(backup_id)
+            self.remove_backup(backup_id)
+
+    def remove_backup(self, backup_id):
+        with self._get_deployment_lock():
+            def worker(m):
+                m.remove_backup(backup_id)
+
+            charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.machines.itervalues(), worker_fun=worker)
 
 
     def backup(self, include=[], exclude=[]):

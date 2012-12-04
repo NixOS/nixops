@@ -88,11 +88,15 @@ class MachineState(charon.resources.ResourceState):
             self._ssh_pinged_this_time = True
 
     def restore(self, defn, backup_id):
-        """Stop this machine, if possible."""
+        """Restore persistent disks to a given backup, if possible."""
         self.warn("don't know how to restore disks from backup for machine ‘{0}’".format(self.name))
 
+    def remove_backup(self, backup_id):
+        """Remove a given backup of persistent disks, if possible."""
+        self.warn("don't know how to remove a backup for machine ‘{0}’".format(self.name))
+
     def backup(self, backup_id):
-        """Stop this machine, if possible."""
+        """Make backup of persistent disks, if possible."""
         self.warn("don't know how to make backup of disks for machine ‘{0}’".format(self.name))
 
     def reboot(self):
