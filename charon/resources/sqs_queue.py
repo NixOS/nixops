@@ -35,8 +35,7 @@ class SQSQueueState(charon.resources.ResourceState):
     queue_name = charon.util.attr_property("ec2.queueName", None)
     access_key_id = charon.util.attr_property("ec2.accessKeyId", None)
     region = charon.util.attr_property("ec2.region", None)
-    region = charon.util.attr_property("ec2.queueVisibilityTimeout", None)
-
+    visibility_timeout = charon.util.attr_property("ec2.queueVisibilityTimeout", None)
 
     @classmethod
     def get_type(cls):
