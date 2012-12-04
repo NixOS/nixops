@@ -21,6 +21,8 @@ class SQSQueueDefinition(charon.resources.ResourceDefinition):
         self.queue_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
+        x = xml.find("attrs/attr[@name='visibilityTimeout']/int")
+        self.visibility_timeout = int(x.get("value")) if x is not None else 30
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -33,6 +35,7 @@ class SQSQueueState(charon.resources.ResourceState):
     queue_name = charon.util.attr_property("ec2.queueName", None)
     access_key_id = charon.util.attr_property("ec2.accessKeyId", None)
     region = charon.util.attr_property("ec2.region", None)
+    region = charon.util.attr_property("ec2.queueVisibilityTimeout", None)
 
 
     @classmethod
@@ -104,7 +107,7 @@ class SQSQueueState(charon.resources.ResourceState):
                     self._conn.delete_queue(q)
                     time.sleep(61)
                 self.log("creating SQS queue ‘{0}’...".format(defn.queue_name))
-                self._conn.create_queue(defn.queue_name)
+                self._conn.create_queue(defn.queue_name, defn.visibility_timeout)
                 # FIXME: retry if we get QueueDeletedRecently
 
             with self.depl._db:
