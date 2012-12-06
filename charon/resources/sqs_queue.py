@@ -39,6 +39,7 @@ class SQSQueueState(charon.resources.ResourceState):
     region = charon.util.attr_property("ec2.region", None)
     visibility_timeout = charon.util.attr_property("ec2.queueVisibilityTimeout", None)
     url = charon.util.attr_property("ec2.queueURL", None)
+    arn = charon.util.attr_property("ec2.queueARN", None)
 
     @classmethod
     def get_type(cls):
@@ -56,7 +57,7 @@ class SQSQueueState(charon.resources.ResourceState):
         return s
 
     def emit_resource_nix(self):
-        return 'resources.sqsQueues."{0}".url = "{1}";\n'.format(self.queue_basename, self.url)
+        return 'resources.sqsQueues."{0}".url = "{1}";\nresources.sqsQueues."{0}".arn = "{2}";\n'.format(self.queue_basename, self.url, self.arn)
 
     @property
     def resource_id(self):
@@ -83,6 +84,7 @@ class SQSQueueState(charon.resources.ResourceState):
             self.queue_name = None
             self.queue_base_name = None
             self.url = None
+            self.arn = None
             self.region = None
             self.access_key_id = None
 
@@ -121,6 +123,7 @@ class SQSQueueState(charon.resources.ResourceState):
                 self.queue_name = defn.queue_name
                 self.queue_basename = defn.queue_basename
                 self.url = q.url
+                self.arn = q.get_attributes()['QueueArn']
 
     def destroy(self):
         self._destroy()
