@@ -8,20 +8,23 @@ parent_dir = path.dirname(__file__)
 
 logical_spec = '%s/single_machine_logical_base.nix' % (parent_dir)
 
-class TestDeploysNixos(generic_deployment_test.GenericDeploymentTest):
+class TestStoppingStops(generic_deployment_test.GenericDeploymentTest):
     _multiprocess_can_split_ = True
 
     def setup(self):
-        super(TestDeploysNixos,self).setup()
+        super(TestStoppingStops,self).setup()
         self.depl.nix_exprs = [ logical_spec ]
 
-    def check_for_nixos(self):
-        tools.assert_true(self.check_command("test -f /etc/NIXOS"))
+    def check_stopping(self):
+        self.depl.deploy()
+        self.depl.stop_machines()
+        m = self.depl.active.values()[0]
+        m.check()
+        tools.assert_equal(m.state, m.STOPPED)
 
     def test_ec2(self):
         self.set_ec2_args()
         self.depl.nix_exprs = self.depl.nix_exprs + [
             ('%s/single_machine_ec2_base.nix' % (parent_dir))
         ]
-        self.depl.deploy()
-        self.check_for_nixos()
+        self.check_stopping()
