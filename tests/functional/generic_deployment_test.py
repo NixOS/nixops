@@ -12,9 +12,6 @@ class GenericDeploymentTest(object):
         self.depl = deployment.create_deployment(db())
         self.depl.auto_response = "y"
 
-    def teardown(self):
-        self.depl.destroy_vms()
-
     def check_command(self, command, machine=None, user="root"):
         if machine == None:
             self.depl.evaluate()
