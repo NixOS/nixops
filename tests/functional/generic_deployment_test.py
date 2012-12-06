@@ -12,11 +12,7 @@ class GenericDeploymentTest(object):
         self.depl = deployment.create_deployment(db())
         self.depl.auto_response = "y"
 
-    def check_command(self, command, machine=None, user="root"):
-        if machine == None:
-            self.depl.evaluate()
-            machine = self.depl.machines.values()[0]
-
+    def check_command(self, command, machine, user="root"):
         ssh_name = machine.get_ssh_name()
         return (subprocess.call(["ssh", user + "@" + ssh_name] + machine.get_ssh_flags() + [ command ]) == 0)
 
