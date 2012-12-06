@@ -578,7 +578,7 @@ class Deployment(object):
             lines.append("  };\n")
             return "\n".join(lines)
 
-        return "".join(["{\n"] + [emit_machine(m) for m in active.itervalues()] + ["}\n"])
+        return "".join(["{\n"] + [r.emit_resource_nix() for r in self.resources.itervalues()] + [emit_machine(m) for m in active.itervalues()] + ["}\n"])
 
 
     def get_profile(self):

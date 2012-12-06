@@ -19,6 +19,7 @@ class SQSQueueDefinition(charon.resources.ResourceDefinition):
     def __init__(self, xml):
         charon.resources.ResourceDefinition.__init__(self, xml)
         self.queue_name = xml.find("attrs/attr[@name='name']/string").get("value")
+        self.queue_basename = xml.find("attrs/attr[@name='basename']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
         x = xml.find("attrs/attr[@name='visibilityTimeout']/int")
@@ -33,9 +34,11 @@ class SQSQueueState(charon.resources.ResourceState):
 
     state = charon.util.attr_property("state", charon.resources.ResourceState.MISSING, int)
     queue_name = charon.util.attr_property("ec2.queueName", None)
+    queue_basename = charon.util.attr_property("ec2.queueBasename", None)
     access_key_id = charon.util.attr_property("ec2.accessKeyId", None)
     region = charon.util.attr_property("ec2.region", None)
     visibility_timeout = charon.util.attr_property("ec2.queueVisibilityTimeout", None)
+    url = charon.util.attr_property("ec2.queueURL", None)
 
     @classmethod
     def get_type(cls):
@@ -52,6 +55,8 @@ class SQSQueueState(charon.resources.ResourceState):
         if self.region: s = "{0} [{1}]".format(s, self.region)
         return s
 
+    def emit_resource_nix(self):
+        return 'resources.sqsQueues."{0}".url = "{1}";\n'.format(self.queue_basename, self.url)
 
     @property
     def resource_id(self):
@@ -76,6 +81,8 @@ class SQSQueueState(charon.resources.ResourceState):
         with self.depl._db:
             self.state = self.MISSING
             self.queue_name = None
+            self.queue_base_name = None
+            self.url = None
             self.region = None
             self.access_key_id = None
 
@@ -106,13 +113,14 @@ class SQSQueueState(charon.resources.ResourceState):
                     self._conn.delete_queue(q)
                     time.sleep(61)
                 self.log("creating SQS queue ‘{0}’...".format(defn.queue_name))
-                self._conn.create_queue(defn.queue_name, defn.visibility_timeout)
+                q = self._conn.create_queue(defn.queue_name, defn.visibility_timeout)
                 # FIXME: retry if we get QueueDeletedRecently
 
             with self.depl._db:
                 self.state = self.UP
                 self.queue_name = defn.queue_name
-
+                self.queue_basename = defn.queue_basename
+                self.url = q.url
 
     def destroy(self):
         self._destroy()
