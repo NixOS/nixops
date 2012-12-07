@@ -328,6 +328,7 @@ import charon.backends.ec2
 import charon.resources.ec2_keypair
 import charon.resources.sqs_queue
 import charon.resources.s3_bucket
+import charon.resources.iam_role
 
 def create_definition(xml):
     """Create a machine definition object from the given XML representation of the machine's attributes."""
@@ -346,6 +347,7 @@ def create_state(depl, type, name, id):
               charon.backends.ec2.EC2State,
               charon.resources.ec2_keypair.EC2KeyPairState,
               charon.resources.sqs_queue.SQSQueueState,
+              charon.resources.iam_role.IAMRoleState,
               charon.resources.s3_bucket.S3BucketState]:
         if type == i.get_type():
             return i(depl, name, id)

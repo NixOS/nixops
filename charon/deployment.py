@@ -16,6 +16,7 @@ import charon.backends
 import charon.parallel
 import charon.resources.ec2_keypair
 import charon.resources.sqs_queue
+import charon.resources.iam_role
 import re
 from datetime import datetime
 import getpass
@@ -478,6 +479,10 @@ class Deployment(object):
 
         for x in res.find("attr[@name='sqsQueues']/attrs").findall("attr"):
             defn = charon.resources.sqs_queue.SQSQueueDefinition(x)
+            self.definitions[defn.name] = defn
+
+        for x in res.find("attr[@name='iamRoles']/attrs").findall("attr"):
+            defn = charon.resources.iam_role.IAMRoleDefinition(x)
             self.definitions[defn.name] = defn
 
         for x in res.find("attr[@name='s3Buckets']/attrs").findall("attr"):
