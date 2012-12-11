@@ -19,7 +19,6 @@ class SQSQueueDefinition(charon.resources.ResourceDefinition):
     def __init__(self, xml):
         charon.resources.ResourceDefinition.__init__(self, xml)
         self.queue_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        self.queue_basename = xml.find("attrs/attr[@name='basename']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
         x = xml.find("attrs/attr[@name='visibilityTimeout']/int")
@@ -34,7 +33,6 @@ class SQSQueueState(charon.resources.ResourceState):
 
     state = charon.util.attr_property("state", charon.resources.ResourceState.MISSING, int)
     queue_name = charon.util.attr_property("ec2.queueName", None)
-    queue_basename = charon.util.attr_property("ec2.queueBasename", None)
     access_key_id = charon.util.attr_property("ec2.accessKeyId", None)
     region = charon.util.attr_property("ec2.region", None)
     visibility_timeout = charon.util.attr_property("ec2.queueVisibilityTimeout", None)
@@ -56,8 +54,10 @@ class SQSQueueState(charon.resources.ResourceState):
         if self.region: s = "{0} [{1}]".format(s, self.region)
         return s
 
+
     def emit_resource_nix(self):
-        return 'resources.sqsQueues."{0}".url = "{1}";\nresources.sqsQueues."{0}".arn = "{2}";\n'.format(self.queue_basename, self.url, self.arn)
+        return 'resources.sqsQueues."{0}".url = "{1}";\nresources.sqsQueues."{0}".arn = "{2}";\n'.format(self.name, self.url, self.arn)
+
 
     @property
     def resource_id(self):
@@ -121,7 +121,6 @@ class SQSQueueState(charon.resources.ResourceState):
             with self.depl._db:
                 self.state = self.UP
                 self.queue_name = defn.queue_name
-                self.queue_basename = defn.queue_basename
                 self.url = q.url
                 self.arn = q.get_attributes()['QueueArn']
 
