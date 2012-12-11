@@ -38,7 +38,7 @@ rec {
                 # to the attribute name of the machine in the model.
                 networking.hostName = mkOverride 900 machineName;
                 deployment.targetHost = mkOverride 900 machineName;
-                environment.checkConfigurationOptions = checkConfigurationOptions;
+                environment.checkConfigurationOptions = mkOverride 900 checkConfigurationOptions;
               }
             ];
           extraArgs = { inherit nodes resources; };
