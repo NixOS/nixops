@@ -95,10 +95,12 @@ class EC2State(MachineState):
     dns_ttl = charon.util.attr_property("route53.ttl", None, int)
     route53_access_key_id = charon.util.attr_property("route53.accessKeyId", None)
 
+
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
         self._conn = None
         self._conn_route53 = None
+
 
     def _reset_state(self):
         """Discard all state pertaining to an instance."""
@@ -124,10 +126,12 @@ class EC2State(MachineState):
             self.dns_hostname = None
             self.dns_ttl = None
 
+
     def get_ssh_name(self):
         if not self.public_ipv4:
             raise Exception("EC2 machine ‘{0}’ does not have a public IPv4 address (yet)".format(self.name))
         return self.public_ipv4
+
 
     def get_private_key_file(self):
         if self.private_key_file: return self.private_key_file
@@ -143,6 +147,7 @@ class EC2State(MachineState):
     def get_ssh_flags(self):
         file = self.get_private_key_file()
         return ["-i", file] if file else []
+
 
     def get_physical_spec(self):
         lines = ['    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];']
@@ -206,6 +211,7 @@ class EC2State(MachineState):
 
         self._conn_route53 = boto.connect_route53(access_key_id, secret_access_key)
 
+
     def _get_instance_by_id(self, instance_id, allow_missing=False):
         """Get instance object by instance id."""
         self.connect()
@@ -216,6 +222,7 @@ class EC2State(MachineState):
             raise Exception("EC2 instance ‘{0}’ disappeared!".format(instance_id))
         return reservations[0].instances[0]
 
+
     def _get_volume_by_id(self, volume_id):
         """Get instance object by instance id."""
         self.connect()
@@ -224,6 +231,7 @@ class EC2State(MachineState):
             raise Exception("unable to find volume ‘{0}’".format(volume_id))
         return volumes[0]
 
+
     def _get_snapshot_by_id(self, snapshot_id):
         """Get snapshot object by instance id."""
         self.connect()
@@ -231,6 +239,7 @@ class EC2State(MachineState):
         if len(snapshots) != 1:
             raise Exception("unable to find snapshot ‘{0}’".format(snapshot_id))
         return snapshots[0]
+
 
     def _wait_for_ip(self, instance):
         self.log_start("waiting for IP address... ".format(self.name))
@@ -252,6 +261,7 @@ class EC2State(MachineState):
         self.public_ipv4 = instance.ip_address
         self.ssh_pinged = False
 
+
     def _booted_from_ebs(self):
         return self.root_device_type == "ebs"
 
@@ -262,6 +272,7 @@ class EC2State(MachineState):
         else:
             x[k] = v
         self.block_device_mapping = x
+
 
     def get_backups(self):
         self.connect()
@@ -290,6 +301,7 @@ class EC2State(MachineState):
                 backups[b_id]['info'] = info
         return backups
 
+
     def remove_backup(self, backup_id):
         self.log('removing backup {0}'.format(backup_id))
         self.connect()
@@ -309,6 +321,7 @@ class EC2State(MachineState):
         _backups.pop(backup_id)
         self.backups = _backups
 
+
     def backup(self, backup_id):
         self.connect()
 
@@ -326,6 +339,7 @@ class EC2State(MachineState):
             backup[k] = snapshot.id
         _backups[backup_id] = backup
         self.backups = _backups
+
 
     def restore(self, defn, backup_id):
         self.stop()
@@ -356,6 +370,7 @@ class EC2State(MachineState):
             self.log("attaching volume ‘{0}’ to ‘{1}’".format(new_volume.id, self.name))
             new_volume.attach(self.vm_id, k)
             self.block_device_mapping[k]['volumeId'] = new_volume.id  # FIXME
+
 
     def create(self, defn, check, allow_reboot):
         assert isinstance(defn, EC2Definition)
@@ -798,6 +813,7 @@ class EC2State(MachineState):
 
         self.state = self.STOPPED
 
+
     def start(self):
         if not self._booted_from_ebs():
             return
@@ -822,6 +838,7 @@ class EC2State(MachineState):
 
         self.wait_for_ssh(check=True)
 
+
     def check(self):
         if not self.vm_id:
             return
@@ -843,6 +860,7 @@ class EC2State(MachineState):
             self.state = self.STOPPING
         elif instance.state == "stopped":
             self.state = self.STOPPED
+
 
     def reboot(self):
         self.log("rebooting EC2 machine... ")
