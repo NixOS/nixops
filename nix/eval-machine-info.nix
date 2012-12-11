@@ -9,6 +9,7 @@ with import <nixos/lib/testing.nix> { inherit system; };
 with pkgs;
 with lib;
 
+
 rec {
 
   networks = map (networkExpr: call (import networkExpr)) networkExprs;
@@ -19,6 +20,7 @@ rec {
 
   defaults = network.defaults or [];
 
+  # Compute the definitions of the machines.
   nodes =
     listToAttrs (map (machineName:
       let
@@ -39,23 +41,25 @@ rec {
                 environment.checkConfigurationOptions = checkConfigurationOptions;
               }
             ];
-          extraArgs = { inherit nodes; resources = resources'; };
+          extraArgs = { inherit nodes resources; };
         };
       }
     ) (attrNames (removeAttrs network [ "network" "defaults" "resources" ])));
 
-  # Compute the ‘resources’ attribute set. FIXME: use the NixOS option
-  # system for this.
-  resources = fold recursiveUpdate {} (network.resources or []);
+  # Compute the definitions of the non-machine resources.
+  resourcesByType = zipAttrs network.resources;
 
-  defaultResources =
-    { ec2KeyPairs = mapAttrs (n: v: { name = "charon-${uuid}-${n}"; }) (resources.ec2KeyPairs or {});
-      sqsQueues = mapAttrs (n: v: { name = "charon-${uuid}-${n}"; }) (resources.sqsQueues or {});
-      s3Buckets = mapAttrs (n: v: rec { name = "charon-${uuid}-${n}"; arn = "arn:aws:s3:::${name}"; }) (resources.s3Buckets or {});
-      iamRoles = mapAttrs (n: v: { name = "charon-${uuid}-${n}"; }) (resources.iamRoles or {});
-    };
+  evalResources = mainModule: resources:
+    mapAttrs (name: defs:
+      (fixMergeModules
+        ([ mainModule ] ++ defs)
+        { inherit pkgs uuid name; }
+      ).config) resources;
 
-  resources' = recursiveUpdate defaultResources resources;
+  resources.sqsQueues = evalResources ./sqs-queue.nix (zipAttrs resourcesByType.sqsQueues or []);
+  resources.ec2KeyPairs = evalResources ./ec2-keypair.nix (zipAttrs resourcesByType.ec2KeyPairs or []);
+  resources.s3Buckets = evalResources ./s3-bucket.nix (zipAttrs resourcesByType.s3Buckets or []);
+  resources.iamRoles = evalResources ./iam-role.nix (zipAttrs resourcesByType.iamRoles or []);
 
   # Phase 1: evaluate only the deployment attributes.
   info = {
@@ -75,7 +79,7 @@ rec {
 
     network = fold (as: bs: as // bs) {} (network.network or []);
 
-    resources = resources';
+    inherit resources;
 
   };
 

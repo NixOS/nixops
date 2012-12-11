@@ -21,8 +21,7 @@ class SQSQueueDefinition(charon.resources.ResourceDefinition):
         self.queue_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
-        x = xml.find("attrs/attr[@name='visibilityTimeout']/int")
-        self.visibility_timeout = int(x.get("value")) if x is not None else 30
+        self.visibility_timeout = xml.find("attrs/attr[@name='visibilityTimeout']/int").get("value")
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
