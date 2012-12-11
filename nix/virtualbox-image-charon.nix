@@ -2,7 +2,7 @@
 
 let
 
-  clientKeyPath = "/root/.vbox-client-key";
+  clientKeyPath = "/root/.vbox-charon-client-key";
 
 in
 
@@ -21,14 +21,14 @@ in
         '';
     } // (if config.system.build ? systemd then {
       wantedBy = [ "multi-user.target" ];
-      before = [ "set-ssh-keys.service" ];
+      before = [ "sshd.service" ];
       requires = [ "dev-vboxguest.device" ];
       after = [ "dev-vboxguest.device" ];
     } else {
       startOn = "starting sshd";
     });
 
-  users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ clientKeyPath ];
+  services.openssh.authorizedKeysFiles = [ ".vbox-charon-client-key" ];
 
   boot.vesa = false;
 
