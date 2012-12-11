@@ -57,7 +57,7 @@ class VirtualBoxState(MachineState):
             self.write_ssh_private_key(self._client_private_key)
         return ["-o", "StrictHostKeyChecking=no", "-i", self._ssh_private_key_file]
 
-    def get_physical_spec(self, machines):
+    def get_physical_spec(self):
         return ['    require = [ <charon/virtualbox-image-charon.nix> ];']
 
 

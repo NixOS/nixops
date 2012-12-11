@@ -144,7 +144,7 @@ class EC2State(MachineState):
         file = self.get_private_key_file()
         return ["-i", file] if file else []
 
-    def get_physical_spec(self, machines):
+    def get_physical_spec(self):
         lines = ['    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];']
 
         for k, v in self.block_device_mapping.items():

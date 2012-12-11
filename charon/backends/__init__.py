@@ -140,9 +140,6 @@ class MachineState(charon.resources.ResourceState):
     def get_ssh_flags(self):
         return []
 
-    def get_physical_spec(self, machines):
-        return []
-
     @property
     def public_ipv4(self):
         return None

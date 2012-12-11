@@ -106,8 +106,8 @@ class ResourceState(object):
         elif state == self.UNREACHABLE: return "Unreachable"
         else: raise Exception("machine is in unknown state")
 
-    def emit_resource_nix(self):
-        return ""
+    def get_physical_spec(self):
+        return []
 
     @property
     def resource_id(self):
