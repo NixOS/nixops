@@ -47,7 +47,7 @@ rec {
     ) (attrNames (removeAttrs network [ "network" "defaults" "resources" ])));
 
   # Compute the definitions of the non-machine resources.
-  resourcesByType = zipAttrs network.resources;
+  resourcesByType = zipAttrs (network.resources or []);
 
   evalResources = mainModule: resources:
     mapAttrs (name: defs:
