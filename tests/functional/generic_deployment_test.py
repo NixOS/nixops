@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sqlite3
 from charon import deployment
 
 from tests.functional import db
