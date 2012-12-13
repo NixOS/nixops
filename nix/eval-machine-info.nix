@@ -65,7 +65,7 @@ rec {
   info = {
 
     machines =
-      flip mapAttrs nodes (n: v:
+      flip mapAttrs nodes (n: v': let v = scrubOptionValue v'; in
         { inherit (v.config.deployment) targetEnv targetHost encryptedLinksTo storeKeysOnMachine owners keys;
           adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
@@ -73,7 +73,8 @@ rec {
           virtualbox =
             let cfg = v.config.deployment.virtualbox; in
             optionalAttrs (v.config.deployment.targetEnv == "virtualbox") (cfg
-              // { baseImage = if isDerivation cfg.baseImage then "drv" else toString cfg.baseImage; });
+              // { disks = mapAttrs (n: v: v //
+                { baseImage = if isDerivation v.baseImage then "drv" else toString v.baseImage; }) cfg.disks; });
         }
       );
 
