@@ -26,6 +26,9 @@ import glob
 import fcntl
 
 
+debug = False
+
+
 class Connection(sqlite3.Connection):
 
     def __init__(self, db_file, **kwargs):
@@ -452,6 +455,7 @@ class Deployment(object):
                 ["--eval-only", "--xml", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
                  "-A", "info"], stderr=self._log_file)
+            if debug: print >> sys.stderr, "XML output of nix-instantiate:\n" + xml
         except subprocess.CalledProcessError:
             raise NixEvalError
 

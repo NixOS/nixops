@@ -553,6 +553,7 @@ add_common_deployment_options(subparser)
 # Parse the command line and execute the desired operation.
 args = parser.parse_args()
 try:
+    charon.deployment.debug = args.debug
     args.op()
 except deployment.NixEvalError:
     print >> sys.stderr, "error: evaluation of the deployment specification failed"
