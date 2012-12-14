@@ -9,6 +9,9 @@ from charon.backends import MachineDefinition, MachineState
 import charon.known_hosts
 
 
+sata_ports = 8
+
+
 class VirtualBoxDefinition(MachineDefinition):
     """Definition of a VirtualBox machine."""
 
@@ -175,7 +178,7 @@ class VirtualBoxState(MachineState):
         if not self.sata_controller_created:
             self._logged_exec(
                 ["VBoxManage", "storagectl", self.vm_id,
-                 "--name", "SATA", "--add", "sata", "--sataportcount", "2",
+                 "--name", "SATA", "--add", "sata", "--sataportcount", int(sata_ports),
                  "--bootable", "on", "--hostiocache", "on"])
             self.sata_controller_created = True
 
@@ -218,6 +221,9 @@ class VirtualBoxState(MachineState):
 
             if not disk_state.get('attached', False):
                 self.log("attaching disk ‘{0}’...".format(disk_name))
+
+                if disk_def['port'] >= sata_ports:
+                    raise Exception("SATA port number {0} of disk ‘{1}’ exceeds maximum ({2})".format(disk_def['port'], disk_name, sata_ports))
 
                 for disk_name2, disk_state2 in self.disks.items():
                     if disk_name != disk_name2 and disk_state2.get('attached', False) and \

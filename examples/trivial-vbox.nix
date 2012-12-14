@@ -6,5 +6,9 @@
         { port = 1;
           size = 2048;
         };
+      deployment.virtualbox.disks.small-disk =
+        { port = 2;
+          size = 128;
+        };
     };
 }
