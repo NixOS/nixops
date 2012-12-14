@@ -245,7 +245,7 @@ class VirtualBoxState(MachineState):
                     raise Exception("not destroying VirtualBox disk ‘{0}’".format(disk_name))
                 self.log("destroying disk ‘{0}’".format(disk_name))
 
-                if disk_state['attached']:
+                if disk_state.get('attached', False):
                     # FIXME: only do this if the device is actually
                     # attached (and remove check=False).
                     self._logged_exec(
