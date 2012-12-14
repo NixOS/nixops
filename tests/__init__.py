@@ -14,7 +14,7 @@ def setup():
 def destroy(db, uuid):
     depl = deployment.open_deployment(db, uuid)
     depl.auto_response = "y"
-    depl.destroy_vms()
+    depl.destroy_resources()
 
 def teardown():
     try:
