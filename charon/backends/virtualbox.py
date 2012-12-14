@@ -25,7 +25,6 @@ class VirtualBoxDefinition(MachineDefinition):
 
         def f(xml):
             return {'port': int(xml.find("attrs/attr[@name='port']/int").get("value")),
-                    'device': int(xml.find("attrs/attr[@name='device']/int").get("value")),
                     'size': int(xml.find("attrs/attr[@name='size']/int").get("value")),
                     'baseImage': xml.find("attrs/attr[@name='baseImage']/string").get("value")}
 
@@ -167,7 +166,7 @@ class VirtualBoxState(MachineState):
             with self.depl._db:
                 self._update_disk("disk1", {"created": True, "path": self.disk,
                                             "attached": self.disk_attached,
-                                            "port": 0, "device": 0})
+                                            "port": 0})
                 self.disk = None
                 self.sata_controller_created = self.disk_attached
                 self.disk_attached = False
@@ -222,17 +221,15 @@ class VirtualBoxState(MachineState):
 
                 for disk_name2, disk_state2 in self.disks.items():
                     if disk_name != disk_name2 and disk_state2.get('attached', False) and \
-                            disk_state2['port'] == disk_def['port'] and \
-                            disk_state2['device'] == disk_def['device']:
-                        raise Exception("cannot attach disks ‘{0}’ and ‘{1}’ to the same SATA port/device on VirtualBox machine ‘{2}’".format(disk_name, disk_name2, self.name))
+                            disk_state2['port'] == disk_def['port']:
+                        raise Exception("cannot attach disks ‘{0}’ and ‘{1}’ to the same SATA port on VirtualBox machine ‘{2}’".format(disk_name, disk_name2, self.name))
 
                 self._logged_exec(
                     ["VBoxManage", "storageattach", self.vm_id,
-                     "--storagectl", "SATA", "--port", str(disk_def['port']), "--device", str(disk_def['device']),
+                     "--storagectl", "SATA", "--port", str(disk_def['port']), "--device", "0",
                      "--type", "hdd", "--medium", disk_state['path']])
                 disk_state['attached'] = True
                 disk_state['port'] = disk_def['port']
-                disk_state['device'] = disk_def['device']
                 self._update_disk(disk_name, disk_state)
 
         # FIXME: warn about changed disk attributes (like size).  Or
@@ -250,11 +247,10 @@ class VirtualBoxState(MachineState):
                     # attached (and remove check=False).
                     self._logged_exec(
                         ["VBoxManage", "storageattach", self.vm_id,
-                         "--storagectl", "SATA", "--port", str(disk_state['port']), "--device", str(disk_state['device']),
+                         "--storagectl", "SATA", "--port", str(disk_state['port']), "--device", "0",
                          "--type", "hdd", "--medium", "none"], check=False)
                     disk_state['attached'] = False
                     disk_state.pop('port')
-                    disk_state.pop('device')
                     self._update_disk(disk_name, disk_state)
 
                 if disk_state['created']:

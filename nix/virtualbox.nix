@@ -43,12 +43,6 @@ with pkgs.lib;
           description = "SATA port number to which the disk is attached.";
         };
 
-        device = mkOption {
-          default = 0;
-          type = types.uniq types.int;
-          description = "SATA device number to which the disk is attached.";
-        };
-
         size = mkOption {
           type = types.uniq types.int;
           description = "Size (in megabytes) of this disk.";
@@ -79,7 +73,6 @@ with pkgs.lib;
 
     deployment.virtualbox.disks.disk1 =
       { port = 0;
-        device = 0;
         size = 0;
         baseImage = mkDefault (
           let
