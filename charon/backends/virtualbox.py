@@ -219,8 +219,13 @@ class VirtualBoxState(MachineState):
 
             if not disk_state.get('attached', False):
                 self.log("attaching disk ‘{0}’...".format(disk_name))
-                # FIXME: check that nothing is attached to this
-                # port/device.
+
+                for disk_name2, disk_state2 in self.disks.items():
+                    if disk_name != disk_name2 and disk_state2.get('attached', False) and \
+                            disk_state2['port'] == disk_def['port'] and \
+                            disk_state2['device'] == disk_def['device']:
+                        raise Exception("cannot attach disks ‘{0}’ and ‘{1}’ to the same SATA port/device on VirtualBox machine ‘{2}’".format(disk_name, disk_name2, self.name))
+
                 self._logged_exec(
                     ["VBoxManage", "storageattach", self.vm_id,
                      "--storagectl", "SATA", "--port", str(disk_def['port']), "--device", str(disk_def['device']),
