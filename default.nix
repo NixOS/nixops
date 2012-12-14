@@ -8,7 +8,19 @@ pythonPackages.buildPythonPackage rec {
 
   src = ./.;
 
-  buildInputs = [ git libxslt docbook_xsl ];
+  buildInputs =
+    [ git libxslt docbook_xsl
+      pythonPackages.prettytable
+      pythonPackages.boto
+      pythonPackages.sqlite3
+    ];
+
+  # XXX: needed until nix stops to preserve the epoch 0 timestamp when
+  # copying source from store to tmp build directory or python zip
+  # knows how to handle epoch 0
+  preConfigure = ''
+    find . |xargs touch
+  '';
 
   postUnpack = ''
     # Clean up when building from a working tree.
@@ -16,16 +28,6 @@ pythonPackages.buildPythonPackage rec {
   '';
 
   doCheck = false;
-
-  pythonPath =
-    [ pythonPackages.prettytable
-      pythonPackages.boto
-      pythonPackages.sqlite3
-    ];
-
-  propagatedBuildInputs = pythonPath;
-
-  installCommand = "python setup.py install --prefix=$out";
 
   postInstall =
     ''
