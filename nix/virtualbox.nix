@@ -60,7 +60,7 @@ with pkgs.lib;
           type = types.nullOr types.path;
           description = ''
             If set, this disk is created as a clone of the specified
-            disk image (and the <literal>size<literal> attribute is
+            disk image (and the <literal>size</literal> attribute is
             ignored).
           '';
         };
