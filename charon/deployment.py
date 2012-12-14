@@ -399,7 +399,7 @@ class Deployment(object):
 
 
     def _eval_flags(self, exprs):
-        flags = sum([["-I", x] for x in (self.extra_nix_path + self.nix_path)], self.extra_nix_flags)
+        flags = [["-I", x] for x in (self.extra_nix_path + self.nix_path)] + self.extra_nix_flags
         flags.extend(
             ["-I", "charon=" + self.expr_path,
              "--arg", "networkExprs", "[ " + string.join(exprs) + " ]",
@@ -609,7 +609,9 @@ class Deployment(object):
 
         phys_expr = self.tempdir + "/physical.nix"
         f = open(phys_expr, "w")
-        f.write(self.get_physical_spec())
+        p = self.get_physical_spec()
+        f.write(p)
+        if debug: print >> sys.stderr, "generated physical spec:\n" + p
         f.close()
 
         names = ['"' + m.name + '"' for m in self.active.itervalues() if should_do(m, include, exclude)]
