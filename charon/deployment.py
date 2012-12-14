@@ -24,6 +24,7 @@ import sqlite3
 import traceback
 import glob
 import fcntl
+import itertools
 
 
 debug = False
@@ -399,7 +400,7 @@ class Deployment(object):
 
 
     def _eval_flags(self, exprs):
-        flags = [["-I", x] for x in (self.extra_nix_path + self.nix_path)] + self.extra_nix_flags
+        flags = list(itertools.chain(*[["-I", x] for x in (self.extra_nix_path + self.nix_path)])) + self.extra_nix_flags
         flags.extend(
             ["-I", "charon=" + self.expr_path,
              "--arg", "networkExprs", "[ " + string.join(exprs) + " ]",
