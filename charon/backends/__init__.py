@@ -315,7 +315,7 @@ class MachineState(charon.resources.ResourceState):
             recursive_cmdline = [ '-r' ]
         else:
             recursive_cmdline = [ ]
-        cmdline = ["scp"] +  self.get_ssh_flags() + recurisve_cmdline + [source, "root@" + self.get_ssh_name() + ":" + target]
+        cmdline = ["scp"] +  self.get_ssh_flags() + recursive_cmdline + [source, "root@" + self.get_ssh_name() + ":" + target]
         return self._logged_exec(cmdline)
 
 
