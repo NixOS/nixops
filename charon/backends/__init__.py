@@ -308,10 +308,14 @@ class MachineState(charon.resources.ResourceState):
         if res != 0: raise Exception("unable to upload VPN key to ‘{0}’".format(self.name))
         self.public_vpn_key = public
 
-    def upload_file(self, source, target):
+    def upload_file(self, source, target, recursive=False):
         self._open_ssh_master()
         # FIXME: use ssh master
-        cmdline = ["scp"] +  self.get_ssh_flags() + [source, "root@" + self.get_ssh_name() + ":" + target]
+        if recursive:
+            recursive_cmdline = [ '-r' ]
+        else:
+            recursive_cmdline = [ ]
+        cmdline = ["scp"] +  self.get_ssh_flags() + recurisve_cmdline + [source, "root@" + self.get_ssh_name() + ":" + target]
         return self._logged_exec(cmdline)
 
 
