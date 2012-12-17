@@ -54,7 +54,10 @@ class Connection(sqlite3.Connection):
         assert self.nesting >= 0
         if self.nesting == 0:
             if self.must_rollback:
-                self.rollback()
+                try:
+                    self.rollback()
+                except sqlite3.ProgrammingError:
+                    pass
             else:
                 self.commit()
         self.lock.release()
