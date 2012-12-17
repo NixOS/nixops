@@ -6,16 +6,13 @@ from charon import deployment
 
 from tests import db_file
 
-_multiprocess_can_split_ = True
 
-_db = None
+class DatabaseUsingTest(object):
+    _multiprocess_can_split_ = True
 
-db = lambda: _db
+    def setup(self):
+        self.db = sqlite3.connect(db_file, timeout=60, check_same_thread=False, factory=deployment.Connection)
+        self.db.db_file = db_file
 
-def setup():
-    global _db
-    _db = sqlite3.connect(db_file, timeout=60, check_same_thread=False, factory=deployment.Connection)
-    _db.db_file = db_file
-
-def teardown():
-    db().close()
+    def teardown(self):
+        self.db.close()
