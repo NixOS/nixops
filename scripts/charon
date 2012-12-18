@@ -110,14 +110,20 @@ def op_info():
 
     def print_deployment(depl):
         definitions = depl.definitions or {}
+
+        # Sort machines by type, then name.  Sort numbers in machine
+        # names numerically (e.g. "foo10" comes after "foo9").
         def name_to_key(name):
+            xs = [int(x) if x.isdigit() else x for x in re.split('(\d+)', name)]
+            print xs
             d = definitions.get(name)
             r = depl.resources.get(name)
-            return [r.get_type(), name] if r else [d.get_type(), name]
+            return [r.get_type(), xs] if r else [d.get_type(), xs]
         names = sorted(
             set(definitions.keys()) | set(depl.resources.keys()), 
             key=name_to_key
             )
+
         for name in names:
             d = definitions.get(name)
             r = depl.resources.get(name)
