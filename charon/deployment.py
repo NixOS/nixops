@@ -533,6 +533,11 @@ class Deployment(object):
                 ip = m.address_to(m2)
                 if ip: hosts[m.name][m2.name] = hosts[m.name][m2.name + "-unencrypted"] = ip
 
+        def index_to_private_ip(index):
+            n = 105 + index / 256
+            assert n <= 255
+            return "192.168.{0}.{1}".format(n, index % 256)
+
         def do_machine(m):
             defn = self.definitions[m.name]
             lines = lines_per_resource[m.name]
@@ -547,8 +552,8 @@ class Deployment(object):
                 # Don't create two tunnels between a pair of machines.
                 if m.name in self.definitions[m2.name].encrypted_links_to and m.name >= m2.name:
                     continue
-                local_ipv4 = "192.168.105.{0}".format(m.index)
-                remote_ipv4 = "192.168.105.{0}".format(m2.index)
+                local_ipv4 = index_to_private_ip(m.index)
+                remote_ipv4 = index_to_private_ip(m2.index)
                 local_tunnel = 10000 + m2.index
                 remote_tunnel = 10000 + m.index
                 lines.append('    networking.p2pTunnels.{0} ='.format(m2.name))
