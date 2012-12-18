@@ -157,7 +157,9 @@ def op_info():
     if args.all:
         db = deployment.open_database(args.state_file)
         uuids = deployment.query_deployments(db)
-        if not args.plain: tbl = make_table(["Deployment"])
+        if not args.plain: 
+            tbl = make_table(["Deployment"])
+            tbl.set_field_align("Deployment", "l")
         for uuid in uuids:
             depl = deployment.open_deployment(db, uuid=uuid)
             do_eval(depl)
