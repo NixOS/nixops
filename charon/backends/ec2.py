@@ -733,7 +733,13 @@ class EC2State(MachineState):
             raise Exception('hosted zone for {0} not found'.format(hosted_zone))
         zoneid = zones[0]['Id'].split("/")[2]
 
-        prevrrs = self._conn_route53.get_all_rrsets(hosted_zone_id=zoneid, type="A", name="{0}.".format(self.dns_hostname))
+        # name argument does not filter, just is a starting point, annoying.. copying into a separate list
+        all_prevrrs = self._conn_route53.get_all_rrsets(hosted_zone_id=zoneid, type="A", name="{0}.".format(self.dns_hostname))
+        prevrrs = []
+        for prevrr in all_prevrrs:
+            if prevrr.name == "{0}.".format(self.dns_hostname):
+                prevrrs.append(prevrr)
+              
         changes = boto.route53.record.ResourceRecordSets(connection=self._conn_route53, hosted_zone_id=zoneid)
         if len(prevrrs) > 0:
             for prevrr in prevrrs:
