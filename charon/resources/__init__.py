@@ -108,6 +108,9 @@ class ResourceState(object):
         elif state == self.UNREACHABLE: return "Unreachable"
         else: raise Exception("machine is in unknown state")
 
+    def get_definition_prefix(self):
+        raise Exception("not implemented")
+
     def get_physical_spec(self):
         return []
 

@@ -584,7 +584,6 @@ class Deployment(object):
 
         def emit_resource(r):
             lines = []
-            lines.append("  \"" + r.name + "\" = { config, pkgs, ... }: {")
             lines.extend(r.get_physical_spec())
             lines.extend(lines_per_resource[r.name])
             if is_machine(r):
@@ -594,6 +593,8 @@ class Deployment(object):
                 lines.append('    boot.kernelModules = [ {0} ];'.format(" ".join(kernel_modules[r.name])))
                 lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces[r.name])))
                 lines.append('    networking.extraHosts = "{0}\\n";'.format('\\n'.join([hosts[r.name][m2] + " " + m2 for m2 in hosts[r.name]])))
+            if lines == []: return ""
+            lines.insert(0, '  {0}"{1}" = {{ config, pkgs, ... }}: {{'.format(r.get_definition_prefix(), r.name))
             lines.append("  };\n")
             return "\n".join(lines)
 

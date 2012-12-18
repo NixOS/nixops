@@ -48,6 +48,9 @@ class MachineState(charon.resources.ResourceState):
         self._ssh_master_opts = []
         self._ssh_private_key_file = None
 
+    def get_definition_prefix(self):
+        return ""
+
     @property
     def started(self):
         state = self.state

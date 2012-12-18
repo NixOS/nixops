@@ -54,6 +54,10 @@ class SQSQueueState(charon.resources.ResourceState):
         return s
 
 
+    def get_definition_prefix(self):
+        return "resources.sqsQueues."
+        
+
     def get_physical_spec(self):
         return ['    url = "{0}";'.format(self.url),
                 '    arn = "{0}";'.format(self.arn)
