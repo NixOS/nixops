@@ -110,7 +110,15 @@ def op_info():
 
     def print_deployment(depl):
         definitions = depl.definitions or {}
-        for name in sorted(set(definitions.keys()) | set(depl.resources.keys())):
+        def name_to_key(name):
+            d = definitions.get(name)
+            r = depl.resources.get(name)
+            return [r.get_type(), name] if r else [d.get_type(), name]
+        names = sorted(
+            set(definitions.keys()) | set(depl.resources.keys()), 
+            key=name_to_key
+            )
+        for name in names:
             d = definitions.get(name)
             r = depl.resources.get(name)
             if args.plain:
