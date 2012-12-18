@@ -540,10 +540,10 @@ class Deployment(object):
             # Emit configuration to realise encrypted peer-to-peer links.
             for m2_name in defn.encrypted_links_to:
 
-                if m2_name not in active:
+                if m2_name not in active_machines:
                     raise Exception("‘deployment.encryptedLinksTo’ in machine ‘{0}’ refers to an unknown machine ‘{1}’"
                                     .format(m.name, m2_name))
-                m2 = active[m2_name]
+                m2 = active_machines[m2_name]
                 # Don't create two tunnels between a pair of machines.
                 if m.name in self.definitions[m2.name].encrypted_links_to and m.name >= m2.name:
                     continue
