@@ -369,7 +369,9 @@ class EC2State(MachineState):
 
             self.log("attaching volume ‘{0}’ to ‘{1}’".format(new_volume.id, self.name))
             new_volume.attach(self.vm_id, k)
-            self.block_device_mapping[k]['volumeId'] = new_volume.id  # FIXME
+            new_v = self.block_device_mapping[k]
+            new_v['volumeId'] = new_volume.id
+            self.update_block_device_mapping(k, new_v)
 
 
     def create(self, defn, check, allow_reboot):
