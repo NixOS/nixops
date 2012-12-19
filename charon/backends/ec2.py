@@ -370,6 +370,9 @@ class EC2State(MachineState):
             self.log("attaching volume ‘{0}’ to ‘{1}’".format(new_volume.id, self.name))
             new_volume.attach(self.vm_id, k)
             new_v = self.block_device_mapping[k]
+            if v.get('partOfImage', False) or v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
+                new_v['charonDeleteOnTermination'] = True
+                self._delete_volume(v['volumeId'])
             new_v['volumeId'] = new_volume.id
             self.update_block_device_mapping(k, new_v)
 
