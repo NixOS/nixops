@@ -1,0 +1,3 @@
+{
+  network.enableRollback = true;
+}
