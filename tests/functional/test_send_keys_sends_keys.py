@@ -16,7 +16,7 @@ class TestSendKeysSendsKeys(single_machine_test.SingleMachineTest):
 
     def run_check(self):
         self.depl.deploy()
-        tools.assert_true(self.check_command("test -f /run/keys/secret.key"))
-        tools.assert_true(self.check_command("rm -f /run/keys/secret.key"))
+        self.check_command("test -f /run/keys/secret.key")
+        self.check_command("rm -f /run/keys/secret.key")
         self.depl.send_keys()
-        tools.assert_true(self.check_command("test -f /run/keys/secret.key"))
+        self.check_command("test -f /run/keys/secret.key")
