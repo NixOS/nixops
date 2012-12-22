@@ -8,9 +8,10 @@ pythonPackages.buildPythonPackage rec {
 
   src = ./.;
 
-  buildInputs =
-    [ git libxslt docbook_xsl
-      pythonPackages.prettytable
+  buildInputs = [ git libxslt docbook_xsl ];
+
+  propagatedBuildInputs =
+    [ pythonPackages.prettytable
       pythonPackages.boto
       pythonPackages.sqlite3
     ];
