@@ -345,11 +345,13 @@ def op_ssh_for_each():
     res2 = 0
     if args.parallel:
         def worker(m):
+            if not charon.deployment.should_do(m, args.include or [], args.exclude or []): return
             return m._logged_exec(["ssh", "root@" + m.get_ssh_name()] + m.get_ssh_flags() + args.args, check=False)
         results = charon.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
     else:
         results = []
         for m in depl.active.itervalues():
+            if not charon.deployment.should_do(m, args.include or [], args.exclude or []): continue
             ssh_name = m.get_ssh_name()
             print >> sys.stderr, "running command on ‘{0}’...".format(m.name)
             results.append(subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + args.args))
@@ -515,6 +517,8 @@ subparser = add_subparser('ssh-for-each', help='execute a command on each machin
 subparser.set_defaults(op=op_ssh_for_each)
 subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
 subparser.add_argument('--parallel', '-p', action='store_true', help='run in parallel')
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='run command only on the specified machines')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='run command on all except the specified machines')
 
 subparser = add_subparser('scp', help='copy files to or from the specified machine via scp')
 subparser.set_defaults(op=op_scp)

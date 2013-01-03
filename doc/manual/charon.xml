@@ -1042,6 +1042,14 @@ Note the use of <literal>--</literal> to force the flag
     <arg choice='plain'><option>-p</option></arg>
   </group>
   <arg>
+    <option>--include</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
+    <option>--exclude</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
     <replaceable>command</replaceable>
     <arg rep='repeat'><replaceable>args</replaceable></arg>
   </arg>
@@ -1051,9 +1059,38 @@ Note the use of <literal>--</literal> to force the flag
 <refsection><title>Description</title>
 
 <para>This operation executes the specified shell command on all
-non-obsolete machines.  If the option <option>--parallel</option> is
-given, the command is executed on all machines in parallel; otherwise,
-it’s executed sequentially.</para>
+non-obsolete machines.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--parallel</option></term>
+
+    <listitem><para>Execute the command on each machine in parallel.
+    The default is to do each machine sequentially.</para></listitem>
+
+  </varlistentry>
+  
+  <varlistentry><term><option>--include</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Execute the command only on the machines listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--exclude</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Execute the command on all machines except the
+    ones listed here.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
 
 </refsection>
 
