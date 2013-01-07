@@ -21,17 +21,24 @@ class TestBackups(generic_deployment_test.GenericDeploymentTest):
                 '%s/single_machine_ec2_base.nix' % (parent_dir)
                 ]
 
-    def test_simple_restore(self):
+    def backup_and_restore_path(self, path=""):
         self.depl.deploy()
-        self.check_command("echo -n important-data > /back-me-up")
+        self.check_command("echo -n important-data > %s/back-me-up" % (path))
         backup_id = self.depl.backup()
         backups = self.depl.get_backups()
         while backups[backup_id]['status'] == "running":
             time.sleep(10)
             backups = self.depl.get_backups()
-        self.check_command("rm /back-me-up")
+        self.check_command("rm %s/back-me-up" % (path))
         self.depl.restore(backup_id=backup_id)
-        self.check_command("echo -n important-data | diff /back-me-up -")
+        self.check_command("echo -n important-data | diff %s/back-me-up -" % (path))
+
+    def test_simple_restore(self):
+        self.backup_and_restore_path()
+
+    def test_raid_restore(self):
+        self.depl.nix_exprs = self.depl.nix_exprs + [ '%s/single_machine_ec2_raid-0.nix' % (parent_dir) ]
+        self.backup_and_restore_path("/data")
 
     def check_command(self, command):
         self.depl.evaluate()
