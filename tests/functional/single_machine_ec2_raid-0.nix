@@ -1,7 +1,7 @@
 {
   machine = {
-    deployment.ec2.blockDeviceMapping."/dev/xvdg".size = 100;
-    deployment.ec2.blockDeviceMapping."/dev/xvdh".size = 100;
+    deployment.ec2.blockDeviceMapping."/dev/xvdg".size = 1;
+    deployment.ec2.blockDeviceMapping."/dev/xvdh".size = 1;
 
     deployment.ec2.blockDeviceMapping."/dev/xvdg".deleteOnTermination = true;
     deployment.ec2.blockDeviceMapping."/dev/xvdh".deleteOnTermination = true;
