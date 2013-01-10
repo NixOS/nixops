@@ -660,7 +660,7 @@ class Deployment(object):
             tasks=self.active.itervalues(), worker_fun=worker)
 
 
-    def activate_configs(self, configs_path, include, exclude, allow_reboot, check):
+    def activate_configs(self, configs_path, include, exclude, allow_reboot, check, sync):
         """Activate the new configuration on a machine."""
 
         def worker(m):
@@ -673,7 +673,7 @@ class Deployment(object):
                     # Set the system profile to the new configuration.
                     "set -e; nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + "; " +
                     # In case the switch crashes the system, do a sync.
-                    "sync; " +
+                    ("sync; " if sync else "") +
                     # Run the switch script.  This will also update the
                     # GRUB boot loader.
                     "/nix/var/nix/profiles/system/bin/switch-to-configuration switch",
@@ -822,7 +822,7 @@ class Deployment(object):
 
     def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
                include=[], exclude=[], check=False, kill_obsolete=False,
-               allow_reboot=False, max_concurrent_copy=5):
+               allow_reboot=False, max_concurrent_copy=5, sync=True):
         """Perform the deployment defined by the deployment specification."""
 
         self.evaluate_active(include, exclude, kill_obsolete)
@@ -881,7 +881,7 @@ class Deployment(object):
 
         # Active the configurations.
         self.activate_configs(self.configs_path, include=include, exclude=exclude,
-                              allow_reboot=allow_reboot, check=check)
+                              allow_reboot=allow_reboot, check=check, sync=sync)
 
 
     def deploy(self, **kwargs):
@@ -890,7 +890,7 @@ class Deployment(object):
 
 
     def _rollback(self, generation, include=[], exclude=[], check=False,
-                 allow_reboot=False, max_concurrent_copy=5):
+                 allow_reboot=False, max_concurrent_copy=5, sync=True):
         if not self.rollback_enabled:
             raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy"
                             )
@@ -922,7 +922,7 @@ class Deployment(object):
                            max_concurrent_copy=max_concurrent_copy)
 
         self.activate_configs(self.configs_path, include=include, exclude=exclude,
-                              allow_reboot=allow_reboot, check=check)
+                              allow_reboot=allow_reboot, check=check, sync=sync)
 
 
     def rollback(self, **kwargs):
