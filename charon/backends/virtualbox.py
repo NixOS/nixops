@@ -178,7 +178,7 @@ class VirtualBoxState(MachineState):
         if not self.sata_controller_created:
             self._logged_exec(
                 ["VBoxManage", "storagectl", self.vm_id,
-                 "--name", "SATA", "--add", "sata", "--sataportcount", int(sata_ports),
+                 "--name", "SATA", "--add", "sata", "--sataportcount", str(sata_ports),
                  "--bootable", "on", "--hostiocache", "on"])
             self.sata_controller_created = True
 
