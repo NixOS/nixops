@@ -829,7 +829,7 @@ class EC2State(MachineState):
         if not self._booted_from_ebs():
             return
 
-        self.log("starting EC2 machine".format(self.name))
+        self.log("starting EC2 machine...")
 
         instance = self._get_instance_by_id(self.vm_id)
         instance.start()  # no-op if the machine is already started
@@ -874,7 +874,7 @@ class EC2State(MachineState):
 
 
     def reboot(self):
-        self.log("rebooting EC2 machine... ")
+        self.log("rebooting EC2 machine...")
         instance = self._get_instance_by_id(self.vm_id)
         instance.reboot()
         self.state = self.STARTING
