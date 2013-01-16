@@ -38,7 +38,7 @@ with utils;
 
   config = {
 
-    boot.systemd.services =
+    systemd.services =
       let
 
         createRaid0 = name: attrs:

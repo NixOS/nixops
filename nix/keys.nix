@@ -64,7 +64,7 @@ with pkgs.lib;
         }
       '';
 
-    boot.systemd.services.charon-keys =
+    systemd.services.charon-keys =
       { description = "Waiting for Charon Keys";
         wantedBy = [ "keys.target" ];
         before = [ "keys.target" ];

@@ -83,7 +83,7 @@ with utils;
 
   config = {
 
-    boot.systemd.services =
+    systemd.services =
       let
 
         luksFormat = name: attrs:

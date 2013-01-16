@@ -60,7 +60,7 @@ with pkgs.lib;
   config = {
 
     # Convenience target to stop/start all tunnels.
-    boot.systemd.targets.encrypted-links =
+    systemd.targets.encrypted-links =
       { description = "All Encrypted Links";
         wantedBy = [ "network.target" ];
       };
