@@ -222,6 +222,7 @@ class Deployment(object):
         self.auto_response = None
         self.extra_nix_path = []
         self.extra_nix_flags = []
+        self.nixos_version_suffix = None
 
         self._log_lock = threading.Lock()
         self._log_file = log_file
@@ -402,11 +403,16 @@ class Deployment(object):
                 if response == "n" or response == "": return False
 
 
-    def _eval_flags(self, exprs):
+    def _nix_path_flags(self):
         flags = list(itertools.chain(*[["-I", x] for x in (self.extra_nix_path + self.nix_path)])) + self.extra_nix_flags
+        flags.extend(["-I", "charon=" + self.expr_path])
+        return flags
+
+
+    def _eval_flags(self, exprs):
+        flags = self._nix_path_flags()
         flags.extend(
-            ["-I", "charon=" + self.expr_path,
-             "--arg", "networkExprs", "[ " + string.join(exprs) + " ]",
+            ["--arg", "networkExprs", "[ " + string.join(exprs) + " ]",
              "--arg", "args", self._args_to_attrs(),
              "--argstr", "uuid", self.uuid,
              "--show-trace",
@@ -578,7 +584,9 @@ class Deployment(object):
             if private_ipv4: lines.append('    networking.privateIPv4 = "{0}";'.format(private_ipv4))
             public_ipv4 = m.public_ipv4
             if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";'.format(public_ipv4))
-            #if trusted_interfaces: lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces)))
+
+            if self.nixos_version_suffix:
+                lines.append('    system.nixosVersionSuffix = "{0}";'.format(self.nixos_version_suffix))
 
         for m in active_machines.itervalues(): do_machine(m)
 
@@ -616,6 +624,15 @@ class Deployment(object):
         """Build the machine configurations in the Nix store."""
 
         self.log("building all machine configurations...")
+
+        # Set the NixOS version suffix, if we're building from Git.
+        # That way ‘nixos-version’ will show something useful on the
+        # target machines.
+        nixos_path = subprocess.check_output(
+            ["nix-instantiate", "--find-file", "nixos"] + self._nix_path_flags()).rstrip()
+        get_version_script = nixos_path + "/modules/installer/tools/get-version-suffix"
+        if os.path.exists(nixos_path + "/.git") and os.path.exists(get_version_script):
+            self.nixos_version_suffix = subprocess.check_output(["/bin/sh", get_version_script] + self._nix_path_flags()).rstrip()
 
         phys_expr = self.tempdir + "/physical.nix"
         f = open(phys_expr, "w")
