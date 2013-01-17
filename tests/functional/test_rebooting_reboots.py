@@ -2,6 +2,8 @@ from nose import tools
 
 from tests.functional import single_machine_test
 
+from charon import backends
+
 class TestRebootingReboots(single_machine_test.SingleMachineTest):
     def run_check(self):
         self.depl.deploy()
@@ -10,4 +12,5 @@ class TestRebootingReboots(single_machine_test.SingleMachineTest):
         m = self.depl.active.values()[0]
         m.check()
         tools.assert_equal(m.state, m.UP)
-        tools.assert_false(self.check_command("test -f /run/not-rebooted"))
+        with tools.assert_raises(backends.SSHCommandFailed):
+            self.check_command("test -f /run/not-rebooted")

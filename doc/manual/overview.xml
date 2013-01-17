@@ -100,11 +100,11 @@ $ charon info -d trivial
 Network UUID: 33bced96-5f26-11e1-b9d7-9630d48abec1
 Network description: Web server
 
-+-----------+--------+------------+-------+------------+
-|   Name    | Status |    Type    | VM Id | IP address |
-+-----------+--------+------------+-------+------------+
-| webserver |  New   | virtualbox |       |            |
-+-----------+--------+------------+-------+------------+
++-----------+--------+------------+-------------+------------+
+|   Name    | Status |    Type    | Resource Id | IP address |
++-----------+--------+------------+-------------+------------+
+| webserver |  New   | virtualbox |             |            |
++-----------+--------+------------+-------------+------------+
 </screen>
 
 The machine status <literal>New</literal> indicates that the logical
@@ -178,7 +178,7 @@ Network UUID: 33bced96-5f26-11e1-b9d7-9630d48abec1
 Network description: Web server
 
 +-----------+--------+------------+-----------------------------------------------------+----------------+
-|   Name    | Status |    Type    |                        VM Id                        |   IP address   |
+|   Name    | Status |    Type    |                    Resource Id                      |   IP address   |
 +-----------+--------+------------+-----------------------------------------------------+----------------+
 | webserver |   Up   | virtualbox | charon-33bced96-5f26-11e1-b9d7-9630d48abec1-machine | 192.168.56.101 |
 +-----------+--------+------------+-----------------------------------------------------+----------------+
@@ -193,7 +193,7 @@ the virtual machine as <literal>root</literal>:
 <screen>
 $ charon ssh -d trivial webserver
 connecting to 192.168.56.101...
-[root@webserver:~]# 
+[root@webserver:~]#
 </screen>
 
 The command <command>charon ssh</command> is a convenience wrapper

@@ -76,7 +76,7 @@ cloud.</para>
     to operate.  Defaults to the value of the
     <envar>CHARON_DEPLOYMENT</envar> environment
     variable.</para></listitem>
-    
+
   </varlistentry>
 
   <varlistentry><term><option>--confirm</option></term>
@@ -790,12 +790,48 @@ $ charon start</screen>
 </refsection>
 
 
+<refsection><title>Command <option>charon list</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon list</command>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command prints information about all deployments in the
+database: the UUID, the name, the description, the number of running
+or stopped machines, and the types of those machines.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<screen>
+$ charon list
++--------------------------------------+------------------------+------------------------+------------+------------+
+|                 UUID                 |          Name          |      Description       | # Machines |    Type    |
++--------------------------------------+------------------------+------------------------+------------+------------+
+| 80dc8e11-287d-11e2-b05a-a810fd2f513f |          test          |      Test network      |     4      |    ec2     |
+| 79fe0e26-d1ec-11e1-8ba3-a1d56c8a5447 |   nixos-systemd-test   | Unnamed Charon network |     1      | virtualbox |
+| 742c2a4f-0817-11e2-9889-49d70558c59e |       xorg-test        | NixOS X11 Updates Test |     0      |            |
++--------------------------------------+------------------------+------------------------+------------+------------+
+</screen>
+
+</refsection>
+
+</refsection>
+
+
 <refsection><title>Command <option>charon info</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
   <command>charon info</command>
+  <arg><option>--all</option></arg>
   <arg><option>--plain</option></arg>
   <arg><option>--no-eval</option></arg>
 </cmdsynopsis>
@@ -841,6 +877,14 @@ the deployment.  For each machine, it prints:
 
 <variablelist>
 
+  <varlistentry><term><option>--all</option></term>
+
+    <listitem><para>Print information about all resources in all known
+    deployments, rather than in a specific
+    deployment.</para></listitem>
+
+  </varlistentry>
+
   <varlistentry><term><option>--plain</option></term>
 
     <listitem><para>Print the information in a more easily parsed
@@ -859,6 +903,82 @@ the deployment.  For each machine, it prints:
   </varlistentry>
 
 </variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<screen>
+$ charon info -d foo
+Network name: test
+Network UUID: 80dc8e11-287d-11e2-b05a-a810fd2f513f
+Network description: Test network
+Nix expressions: /home/alice/test-network.nix
+
++----------+-----------------+------------------------------+------------+-----------------+
+|   Name   |      Status     |             Type             |   VM Id    |    IP address   |
++----------+-----------------+------------------------------+------------+-----------------+
+| backend0 |  Up / Outdated  | ec2 [us-east-1b; m2.2xlarge] | i-905e9def |   23.23.12.249  |
+| backend1 |  Up / Outdated  | ec2 [us-east-1b; m2.2xlarge] | i-925e9ded |  184.73.128.122 |
+| backend2 |  Up / Obsolete  | ec2 [us-east-1b; m2.2xlarge] | i-885e9df7 | 204.236.192.216 |
+| frontend | Up / Up-to-date |  ec2 [us-east-1c; m1.large]  | i-945e9deb |  23.23.161.169  |
++----------+-----------------+------------------------------+------------+-----------------+
+</screen>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>charon check</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon check</command>
+  <arg><option>--all</option></arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command checks and prints the status of each machine in the
+deployment.  For instance, for an EC2 machine, it will ask EC2 whether
+the machine is running or stopped.  If a machine is supposed to be up,
+Charon will try to connect to the machine via SSH and get the current
+load average statistics.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--all</option></term>
+
+    <listitem><para>Check all machines in all known deployments,
+    rather than in a specific deployment.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>For a running VirtualBox instance, Charon will print something
+like:
+<screen>
+$ charon status
+machine> VM state is ‘running’
+machine> pinging SSH... up [1.03 0.34 0.12]</screen>
+</para>
+
+<para>For a stopped EC2 instance, Charon might show:
+<screen>
+machine> instance state is ‘stopped’</screen>
+</para>
 
 </refsection>
 
@@ -922,6 +1042,14 @@ Note the use of <literal>--</literal> to force the flag
     <arg choice='plain'><option>-p</option></arg>
   </group>
   <arg>
+    <option>--include</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
+    <option>--exclude</option>
+    <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+  </arg>
+  <arg>
     <replaceable>command</replaceable>
     <arg rep='repeat'><replaceable>args</replaceable></arg>
   </arg>
@@ -931,9 +1059,38 @@ Note the use of <literal>--</literal> to force the flag
 <refsection><title>Description</title>
 
 <para>This operation executes the specified shell command on all
-non-obsolete machines.  If the option <option>--parallel</option> is
-given, the command is executed on all machines in parallel; otherwise,
-it’s executed sequentially.</para>
+non-obsolete machines.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--parallel</option></term>
+
+    <listitem><para>Execute the command on each machine in parallel.
+    The default is to do each machine sequentially.</para></listitem>
+
+  </varlistentry>
+  
+  <varlistentry><term><option>--include</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Execute the command only on the machines listed
+    here.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--exclude</option>
+    <replaceable>machine-name...</replaceable></term>
+
+    <listitem><para>Execute the command on all machines except the
+    ones listed here.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
 
 </refsection>
 

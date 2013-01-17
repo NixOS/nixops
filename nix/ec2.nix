@@ -1,8 +1,9 @@
 # Configuration specific to the EC2/Nova/Eucalyptus backend.
 
-{ config, pkgs, ... }:
+{ config, pkgs, utils, ... }:
 
 with pkgs.lib;
+with utils;
 
 let
 
@@ -49,6 +50,8 @@ let
           volume should be deleted on instance termination.
         '';
       };
+
+      # FIXME: remove the LUKS options eventually?
 
       encrypt = mkOption {
         default = false;
@@ -106,7 +109,7 @@ let
 
   };
 
-  isEc2Hvm = (cfg.instanceType == "cc1.4xlarge" || cfg.instanceType == "cc2.8xlarge");
+  isEc2Hvm = cfg.instanceType == "cc1.4xlarge" || cfg.instanceType == "cc2.8xlarge";
 
   # Map "/dev/mapper/xvdX" to "/dev/xvdX".
   dmToDevice = dev:
@@ -343,17 +346,26 @@ in
       "");
 
     # Workaround: the evaluation of blockDeviceMapping requires fileSystems to be defined.
-    fileSystems = [];
+    fileSystems = {};
 
-    deployment.ec2.blockDeviceMapping = listToAttrs
+    deployment.ec2.blockDeviceMapping = mkFixStrictness (listToAttrs
       (map (fs: nameValuePair (dmToDevice fs.device)
         { inherit (fs.ec2) disk size deleteOnTermination encrypt passphrase iops;
           fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
         })
-       (filter (fs: fs.ec2 != null) config.fileSystems));
+       (filter (fs: fs.ec2 != null) (attrValues config.fileSystems))));
+
+    deployment.autoLuks =
+      let
+        f = name: dev: nameValuePair (baseNameOf name)
+          { device = "/dev/${baseNameOf name}";
+            autoFormat = true;
+            inherit (dev) cipher keySize passphrase;
+          };
+      in mapAttrs' f (filterAttrs (name: dev: dev.encrypt) cfg.blockDeviceMapping);
 
     deployment.ec2.physicalProperties =
-      let 
+      let
         type = config.deployment.ec2.instanceType or "unknown";
         mapping = {
           "t1.micro"    = { cores = 1;  memory = 595;   };
@@ -364,67 +376,15 @@ in
           "m2.xlarge"   = { cores = 2;  memory = 17084; };
           "m2.2xlarge"  = { cores = 4;  memory = 34241; };
           "m2.4xlarge"  = { cores = 8;  memory = 68557; };
+          "m3.xlarge"   = { cores = 4;  memory = 14985; };
+          "m3.2xlarge"  = { cores = 8;  memory = 30044; };
           "c1.medium"   = { cores = 2;  memory = 1697;  };
           "c1.xlarge"   = { cores = 8;  memory = 6953;  };
           "cc1.4xlarge" = { cores = 16; memory = 21542; };
           "cc2.8xlarge" = { cores = 32; memory = 59930; };
           "hi1.4xlarge" = { cores = 16; memory = 60711; };
         };
-      in 
-        if builtins.hasAttr type mapping then 
-          builtins.getAttr type mapping
-        else
-          null;
-
-    jobs."init-luks" =
-      { task = true;
-
-        startOn = "starting mountall";
-
-        path = [ pkgs.cryptsetup pkgs.utillinux ];
-
-        script =
-          ''
-            ${concatStrings (attrValues (flip mapAttrs cfg.blockDeviceMapping (name: dev:
-              # FIXME: The key file should be marked as private once
-              # https://github.com/NixOS/nix/issues/8 is fixed.
-              let
-
-                keyFile =
-                  if config.deployment.storeKeysOnMachine
-                  then pkgs.writeText "luks-key" dev.passphrase
-                  else "/run/ebs-keys/${name}";
-
-              in optionalString dev.encrypt (assert dev.passphrase != ""; ''
-
-                while ! [ -e ${keyFile} ]; do
-                  sleep 1
-                done
-
-                if [ -e "${name}" ]; then
-
-                  # Do LUKS formatting if the device is empty.  FIXME:
-                  # this check is kinda dangerous.  For EC2 we could
-                  # just check if the first sector is empty.
-                  type=$(blkid -p -s TYPE -o value "${name}" || true)
-                  if [ -z "$type" ]; then
-                    echo "initialising encryption on device ‘${name}’..."
-                    cryptsetup luksFormat "${name}" --key-file=${keyFile} --cipher ${dev.cipher} --key-size ${toString dev.keySize}
-                  fi
-
-                fi
-
-                base="$(basename "${name}")"
-                if [ ! -e "/dev/mapper/$base" ]; then
-
-                  # Activate the LUKS device.
-                  cryptsetup luksOpen "${name}" "$base" --key-file=${keyFile}
-
-                fi
-
-              ''))))}
-          '';
-      };
+      in attrByPath [ type ] null mapping;
 
   };
 

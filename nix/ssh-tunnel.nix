@@ -59,7 +59,15 @@ with pkgs.lib;
 
   config = {
 
+    # Convenience target to stop/start all tunnels.
+    systemd.targets.encrypted-links =
+      { description = "All Encrypted Links";
+        wantedBy = [ "network.target" ];
+      };
+
     jobs = flip mapAttrs' config.networking.p2pTunnels (n: v: nameValuePair "ssh-tunnel-${n}" {
+      wantedBy = [ "multi-user.target" "encrypted-links.target" ];
+      partOf = [ "encrypted-links.target" ];
       startOn = "started network-interfaces";
       stopOn = "stopping network-interfaces";
       path = [ pkgs.nettools pkgs.openssh ];

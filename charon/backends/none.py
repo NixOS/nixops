@@ -30,6 +30,7 @@ class NoneState(MachineState):
 
     def create(self, defn, check, allow_reboot):
         assert isinstance(defn, NoneDefinition)
+        self.set_common_state(defn)
         self.target_host = defn._target_host
 
     def get_ssh_name(self):

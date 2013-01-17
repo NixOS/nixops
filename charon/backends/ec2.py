@@ -11,8 +11,9 @@ import shutil
 import boto.ec2
 import boto.ec2.blockdevicemapping
 from charon.backends import MachineDefinition, MachineState
-import charon.known_hosts
 import charon.util
+import charon.ec2_utils
+import charon.known_hosts
 from xml import etree
 
 
@@ -60,6 +61,9 @@ class EC2Definition(MachineDefinition):
         self.dns_ttl = x.find("attr[@name='ttl']/int").get("value")
         self.route53_access_key_id = x.find("attr[@name='accessKeyId']/string").get("value")
 
+    def show_type(self):
+        return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")
+
 
 class EC2State(MachineState):
     """State of an EC2 machine."""
@@ -91,10 +95,12 @@ class EC2State(MachineState):
     dns_ttl = charon.util.attr_property("route53.ttl", None, int)
     route53_access_key_id = charon.util.attr_property("route53.accessKeyId", None)
 
+
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
         self._conn = None
         self._conn_route53 = None
+
 
     def _reset_state(self):
         """Discard all state pertaining to an instance."""
@@ -120,15 +126,30 @@ class EC2State(MachineState):
             self.dns_hostname = None
             self.dns_ttl = None
 
+
     def get_ssh_name(self):
         if not self.public_ipv4:
             raise Exception("EC2 machine ‘{0}’ does not have a public IPv4 address (yet)".format(self.name))
         return self.public_ipv4
 
-    def get_ssh_flags(self):
-        return ["-i", self.private_key_file] if self.private_key_file else []
 
-    def get_physical_spec(self, machines):
+    def get_private_key_file(self):
+        if self.private_key_file: return self.private_key_file
+        if self._ssh_private_key_file: return self._ssh_private_key_file
+        for r in self.depl.active_resources.itervalues():
+            if isinstance(r, charon.resources.ec2_keypair.EC2KeyPairState) and \
+                    r.state == charon.resources.ec2_keypair.EC2KeyPairState.UP and \
+                    r.keypair_name == self.key_pair:
+                return self.write_ssh_private_key(r.private_key)
+        return None
+
+
+    def get_ssh_flags(self):
+        file = self.get_private_key_file()
+        return ["-i", file] if file else []
+
+
+    def get_physical_spec(self):
         lines = ['    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];']
 
         for k, v in self.block_device_mapping.items():
@@ -138,16 +159,33 @@ class EC2State(MachineState):
 
         return lines
 
+    def get_keys(self):
+        keys = MachineState.get_keys(self)
+        # Ugly: we have to add the generated keys because they're not
+        # there in the first evaluation (though they are present in
+        # the final nix-build).
+        for k, v in self.block_device_mapping.items():
+            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "":
+                keys["luks-" + _sd_to_xvd(k).replace('/dev/', '')] = v['generatedKey']
+        return keys
+
+
     def show_type(self):
-        s = MachineState.show_type(self)
-        if self.zone or self.region:
-            s = "{0} [{1}; {2}]".format(s, self.zone or self.region, self.instance_type)
+        s = super(EC2State, self).show_type()
+        if self.zone or self.region: s = "{0} [{1}; {2}]".format(s, self.zone or self.region, self.instance_type)
         return s
+
+
+    @property
+    def resource_id(self):
+        return self.vm_id
+
 
     def address_to(self, m):
         if isinstance(m, EC2State):
             return m.private_ipv4
         return MachineState.address_to(self, m)
+
 
     def disk_volume_options(self, v):
         if v['iops'] != 0 and not v['iops'] is None:
@@ -158,51 +196,21 @@ class EC2State(MachineState):
             volume_type = 'standard'
         return (volume_type, iops)
 
-    def fetch_aws_secret_key(self, access_key_id):
-        secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
-        path = os.path.expanduser("~/.ec2-keys")
-        if os.path.isfile(path):
-            f = open(path, 'r')
-            contents = f.read()
-            f.close()
-            for l in contents.splitlines():
-                l = l.split("#")[0]  # drop comments
-                w = l.split()
-                if len(w) < 2 or len(w) > 3:
-                    continue
-                if len(w) == 3 and w[2] == access_key_id:
-                    access_key_id = w[0]
-                    secret_access_key = w[1]
-                    break
-                if w[0] == access_key_id:
-                    secret_access_key = w[1]
-                    break
-
-        if not secret_access_key:
-            raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/.ec2-keys"
-                            .format(access_key_id))
-
-        return (access_key_id, secret_access_key)
 
     def connect(self):
-        if self._conn:
-            return
-        assert self.region
+        if self._conn: return
+        self._conn = charon.ec2_utils.connect(self.region, self.access_key_id)
 
-        # Get the secret access key from the environment or from ~/.ec2-keys.
-        (access_key_id, secret_access_key) = self.fetch_aws_secret_key(self.access_key_id)
-
-        self._conn = boto.ec2.connect_to_region(
-            region_name=self.region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
     def connect_route53(self):
         if self._conn_route53:
             return
 
         # Get the secret access key from the environment or from ~/.ec2-keys.
-        (access_key_id, secret_access_key) = self.fetch_aws_secret_key(self.route53_access_key_id)
+        (access_key_id, secret_access_key) = charon.ec2_utils.fetch_aws_secret_key(self.route53_access_key_id)
 
         self._conn_route53 = boto.connect_route53(access_key_id, secret_access_key)
+
 
     def _get_instance_by_id(self, instance_id, allow_missing=False):
         """Get instance object by instance id."""
@@ -214,6 +222,7 @@ class EC2State(MachineState):
             raise Exception("EC2 instance ‘{0}’ disappeared!".format(instance_id))
         return reservations[0].instances[0]
 
+
     def _get_volume_by_id(self, volume_id):
         """Get instance object by instance id."""
         self.connect()
@@ -222,6 +231,7 @@ class EC2State(MachineState):
             raise Exception("unable to find volume ‘{0}’".format(volume_id))
         return volumes[0]
 
+
     def _get_snapshot_by_id(self, snapshot_id):
         """Get snapshot object by instance id."""
         self.connect()
@@ -229,6 +239,7 @@ class EC2State(MachineState):
         if len(snapshots) != 1:
             raise Exception("unable to find snapshot ‘{0}’".format(snapshot_id))
         return snapshots[0]
+
 
     def _wait_for_ip(self, instance):
         self.log_start("waiting for IP address... ".format(self.name))
@@ -250,6 +261,7 @@ class EC2State(MachineState):
         self.public_ipv4 = instance.ip_address
         self.ssh_pinged = False
 
+
     def _booted_from_ebs(self):
         return self.root_device_type == "ebs"
 
@@ -260,6 +272,7 @@ class EC2State(MachineState):
         else:
             x[k] = v
         self.block_device_mapping = x
+
 
     def get_backups(self):
         self.connect()
@@ -288,6 +301,7 @@ class EC2State(MachineState):
                 backups[b_id]['info'] = info
         return backups
 
+
     def remove_backup(self, backup_id):
         self.log('removing backup {0}'.format(backup_id))
         self.connect()
@@ -307,6 +321,7 @@ class EC2State(MachineState):
         _backups.pop(backup_id)
         self.backups = _backups
 
+
     def backup(self, backup_id):
         self.connect()
 
@@ -324,6 +339,7 @@ class EC2State(MachineState):
             backup[k] = snapshot.id
         _backups[backup_id] = backup
         self.backups = _backups
+
 
     def restore(self, defn, backup_id):
         self.stop()
@@ -353,7 +369,13 @@ class EC2State(MachineState):
 
             self.log("attaching volume ‘{0}’ to ‘{1}’".format(new_volume.id, self.name))
             new_volume.attach(self.vm_id, k)
-            self.block_device_mapping[k]['volumeId'] = new_volume.id  # FIXME
+            new_v = self.block_device_mapping[k]
+            if v.get('partOfImage', False) or v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
+                new_v['charonDeleteOnTermination'] = True
+                self._delete_volume(v['volumeId'])
+            new_v['volumeId'] = new_volume.id
+            self.update_block_device_mapping(k, new_v)
+
 
     def create(self, defn, check, allow_reboot):
         assert isinstance(defn, EC2Definition)
@@ -362,8 +384,10 @@ class EC2State(MachineState):
         if self.state != self.UP:
             check = True
 
+        self.set_common_state(defn)
+
         # Figure out the access key.
-        self.access_key_id = defn.access_key_id or os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
+        self.access_key_id = defn.access_key_id or charon.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
@@ -415,7 +439,7 @@ class EC2State(MachineState):
 
             self.root_device_type = ami.root_device_type
 
-            (private, public) = self._create_key_pair()
+            (private, public) = charon.util.create_key_pair()
 
             user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"))
 
@@ -694,7 +718,6 @@ class EC2State(MachineState):
                 v['generatedKey'] = charon.util.generate_random_string(length=256)
                 self.update_block_device_mapping(k, v)
 
-        self.store_keys_on_machine = defn.store_keys_on_machine
 
     def _update_route53(self, defn):
         import boto.route53
@@ -715,7 +738,13 @@ class EC2State(MachineState):
             raise Exception('hosted zone for {0} not found'.format(hosted_zone))
         zoneid = zones[0]['Id'].split("/")[2]
 
-        prevrrs = self._conn_route53.get_all_rrsets(hosted_zone_id=zoneid, type="A", name="{0}.".format(self.dns_hostname))
+        # name argument does not filter, just is a starting point, annoying.. copying into a separate list
+        all_prevrrs = self._conn_route53.get_all_rrsets(hosted_zone_id=zoneid, type="A", name="{0}.".format(self.dns_hostname))
+        prevrrs = []
+        for prevrr in all_prevrrs:
+            if prevrr.name == "{0}.".format(self.dns_hostname):
+                prevrrs.append(prevrr)
+              
         changes = boto.route53.record.ResourceRecordSets(connection=self._conn_route53, hosted_zone_id=zoneid)
         if len(prevrrs) > 0:
             for prevrr in prevrrs:
@@ -740,14 +769,14 @@ class EC2State(MachineState):
                 raise
 
     def destroy(self):
-        if not self.depl.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)):
-            return False
+        if not self.vm_id: return True
+        if not self.depl.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
 
         self.log_start("destroying EC2 machine... ".format(self.name))
 
         instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
 
-        if instance: 
+        if instance:
             instance.terminate()
 
             # Wait until it's really terminated.
@@ -795,11 +824,12 @@ class EC2State(MachineState):
 
         self.state = self.STOPPED
 
+
     def start(self):
         if not self._booted_from_ebs():
             return
 
-        self.log("starting EC2 machine".format(self.name))
+        self.log("starting EC2 machine...")
 
         instance = self._get_instance_by_id(self.vm_id)
         instance.start()  # no-op if the machine is already started
@@ -818,6 +848,7 @@ class EC2State(MachineState):
             self.warn("IP address has changed, you may need to run ‘charon deploy’")
 
         self.wait_for_ssh(check=True)
+
 
     def check(self):
         if not self.vm_id:
@@ -841,28 +872,12 @@ class EC2State(MachineState):
         elif instance.state == "stopped":
             self.state = self.STOPPED
 
+
     def reboot(self):
-        self.log("rebooting EC2 machine... ")
+        self.log("rebooting EC2 machine...")
         instance = self._get_instance_by_id(self.vm_id)
         instance.reboot()
         self.state = self.STARTING
-
-    def send_keys(self):
-        if self.store_keys_on_machine:
-            return
-        for k, v in self.block_device_mapping.items():
-            if not v.get('encrypt', False):
-                continue
-            key = v.get('passphrase', "") or v.get('generatedKey', "")
-            assert key != ""
-            device = _sd_to_xvd(k)
-            self.log("uploading key for device ‘{0}’...".format(device))
-            # FIXME: optimise this
-            self.run_command("mkdir -m 0700 -p /run/ebs-keys/{0}".format(os.path.dirname(device)))
-            tmp = self.depl.tempdir + "/ebs-key-" + self.name
-            f = open(tmp, "w+"); f.write(key); f.close()
-            self.upload_file(tmp, "/run/ebs-keys/" + device)
-            os.remove(tmp)
 
 
 def _xvd_to_sd(dev):

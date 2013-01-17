@@ -22,7 +22,7 @@ class SingleMachineTest(generic_deployment_test.GenericDeploymentTest):
         ]
         self.run_check()
 
-    def check_command(self, command, user="root"):
+    def check_command(self, command):
         self.depl.evaluate()
         machine = self.depl.machines.values()[0]
-        return super(SingleMachineTest,self).check_command(command, machine, user)
+        return machine.run_command(command)
