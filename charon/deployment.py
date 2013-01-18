@@ -332,17 +332,17 @@ class Deployment(object):
 
     def delete(self):
         """Delete this deployment from the state file."""
-        if len(self.resources) > 0:
-            raise Exception("cannot delete this deployment because it still has resources")
-
-        # Delete the profile, if any.
-        profile = self.get_profile()
-        assert profile
-        for p in glob.glob(profile + "*"):
-            if os.path.islink(p): os.remove(p)
-
-        # Delete the deployment from the database.
         with self._db:
+            if len(self.resources) > 0:
+                raise Exception("cannot delete this deployment because it still has resources")
+
+            # Delete the profile, if any.
+            profile = self.get_profile()
+            assert profile
+            for p in glob.glob(profile + "*"):
+                if os.path.islink(p): os.remove(p)
+
+            # Delete the deployment from the database.
             self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
 
 
