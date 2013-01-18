@@ -37,6 +37,9 @@ pythonPackages.buildPythonPackage rec {
       make -C doc/manual install docbookxsl=${docbook5_xsl}/xml/xsl/docbook \
         docdir=$out/share/doc/charon mandir=$out/share/man
 
+      mkdir -p $out/share/nix
+      cp -av nix/* $out/share/nix
+
       mkdir -p $out/nix-support
       echo "nix-build none $out" >> $out/nix-support/hydra-build-products
       echo "doc manual $out/share/doc/charon manual.html" >> $out/nix-support/hydra-build-products

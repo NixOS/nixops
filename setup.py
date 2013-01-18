@@ -9,5 +9,4 @@ setup(name='charon',
       author_email='eelco.dolstra@logicblox.com',
       scripts=['scripts/charon'],
       packages=['charon', 'charon.resources', 'charon.backends'],
-      data_files=[('share/nix/charon', glob.glob('nix/*.nix') + glob.glob('nix/id*'))],
       )
