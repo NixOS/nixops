@@ -346,6 +346,7 @@ def op_ssh_for_each():
     res2 = 0
     jobs = args.parallel if args.parallel else 1
     def worker(m):
+        if not charon.deployment.should_do(m, args.include or [], args.exclude or []): return
         return m._logged_exec(["ssh", "root@" + m.get_ssh_name()] + m.get_ssh_flags() + args.args, check=False)
     results = charon.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
     sys.exit(max(results) if results != [] else 0)
