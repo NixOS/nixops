@@ -390,6 +390,13 @@ def op_rollback():
                   sync=not args.no_sync)
 
 
+def op_show_console_output():
+    depl = open_deployment()
+    m = depl.machines.get(args.machine)
+    if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
+    sys.stdout.write(m.get_console_output())
+
+
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool', prog='charon')
 parser.add_argument('--version', action='version', version='Charon 0.1')
@@ -570,6 +577,11 @@ subparser.set_defaults(op=op_list_generations)
 subparser = add_subparser('rollback', help='roll back to a previous configuration')
 subparser.set_defaults(op=op_rollback)
 subparser.add_argument('generation', type=int, metavar='GENERATION', help='number of the desired configuration (see ‘charon list-generations’)')
+add_common_deployment_options(subparser)
+
+subparser = add_subparser('show-console-output', help='print the machine\'s console output on stdout')
+subparser.set_defaults(op=op_show_console_output)
+subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
 add_common_deployment_options(subparser)
 
 

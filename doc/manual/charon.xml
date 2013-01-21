@@ -1477,4 +1477,40 @@ $ charon deploy
 </refsection>
 
 
+<refsection><title>Command <option>charon show-console-output</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>charon show-console-output</command>
+  <arg choice='plain'>
+    <replaceable>machine</replaceable>
+  </arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command prints the console output of the specified machine,
+if available.  Currently this is only supported for the EC2
+backend.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<screen>
+$ charon show-console-output machine
+Xen Minimal OS!
+[    0.000000] Initializing cgroup subsys cpuset
+[    0.000000] Initializing cgroup subsys cpu
+[    0.000000] Linux version 3.2.36 (nixbld@) (gcc version 4.6.3 (GCC) ) #1 SMP Fri Jan 4 16:07:14 UTC 2013
+<replaceable>…</replaceable>
+</screen>
+
+</refsection>
+
+</refsection>
+
+
 </refentry>

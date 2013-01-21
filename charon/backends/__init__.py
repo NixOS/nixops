@@ -321,6 +321,9 @@ class MachineState(charon.resources.ResourceState):
         cmdline = ["scp"] +  self.get_ssh_flags() + recursive_cmdline + [source, "root@" + self.get_ssh_name() + ":" + target]
         return self._logged_exec(cmdline)
 
+    def get_console_output(self):
+        return "(not available for this machine type)\n"
+
 
 class SSHCommandFailed(Exception):
     pass
