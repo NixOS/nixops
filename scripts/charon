@@ -14,9 +14,6 @@ import charon.import_json
 import time
 from pprint import pprint
 
-home = os.environ.get("HOME", "") + "/.charon"
-if not os.path.exists(home): os.makedirs(home, 0700)
-
 
 def op_list_deployments():
     db = deployment.open_database(args.state_file)
@@ -406,8 +403,7 @@ subparsers = parser.add_subparsers(help='sub-command help')
 def add_subparser(name, help):
     subparser = subparsers.add_parser(name, help=help)
     subparser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
-                           default=os.environ.get("CHARON_STATE", home + "/deployments.charon"),
-                           help='path to state file')
+                           default=deployment.get_default_state_file(), help='path to state file')
     subparser.add_argument('--deployment', '-d', dest='deployment', metavar='UUID',
                            default=os.environ.get("CHARON_DEPLOYMENT", None), help='UUID of the deployment')
     subparser.add_argument('--debug', action='store_true', help='enable debug output')

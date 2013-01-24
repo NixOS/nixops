@@ -127,6 +127,12 @@ def _upgrade_2_to_3(c):
     c.execute("alter table MachineAttrs rename to ResourceAttrs")
 
 
+def get_default_state_file():
+    home = os.environ.get("HOME", "") + "/.charon"
+    if not os.path.exists(home): os.makedirs(home, 0700)
+    return os.environ.get("CHARON_STATE", home + "/deployments.charon")
+
+
 def open_database(db_file):
     if os.path.splitext(db_file)[1] != '.charon':
         raise Exception("state file ‘{0}’ should have extension ‘.charon’".format(db_file))
