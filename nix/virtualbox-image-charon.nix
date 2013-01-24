@@ -12,6 +12,10 @@ in
 
   jobs."get-vbox-charon-client-key" =
     { description = "Get Charon SSH Key";
+      wantedBy = [ "multi-user.target" ];
+      before = [ "sshd.service" ];
+      requires = [ "dev-vboxguest.device" ];
+      after = [ "dev-vboxguest.device" ];
       path = [ config.boot.kernelPackages.virtualboxGuestAdditions ];
       preStart =
         ''
@@ -19,14 +23,7 @@ in
           VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/Charon/ClientPublicKey | sed 's/Value: //' > ${clientKeyPath}.tmp
           mv ${clientKeyPath}.tmp ${clientKeyPath}
         '';
-    } // (if config.system.build ? systemd then {
-      wantedBy = [ "multi-user.target" ];
-      before = [ "sshd.service" ];
-      requires = [ "dev-vboxguest.device" ];
-      after = [ "dev-vboxguest.device" ];
-    } else {
-      startOn = "starting sshd";
-    });
+    };
 
   services.openssh.authorizedKeysFiles = [ ".vbox-charon-client-key" ];
 
