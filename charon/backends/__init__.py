@@ -170,7 +170,6 @@ class MachineState(charon.resources.ResourceState):
     def _open_ssh_master(self):
         """Start an SSH master connection to speed up subsequent SSH sessions."""
         if self._ssh_master_started: return
-        return
 
         # Start the master.
         control_socket = self.depl.tempdir + "/ssh-master-" + self.name
