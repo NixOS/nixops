@@ -360,7 +360,7 @@ def op_scp():
     ssh_name = m.get_ssh_name()
     from_loc = scp_loc(ssh_name, args.scp_from, args.source)
     to_loc = scp_loc(ssh_name, args.scp_to, args.destination)
-    print >> sys.stderr, "scp {0} -> {1}".format(ssh_name, from_loc, to_loc)
+    print >> sys.stderr, "{0} -> {1}".format(from_loc, to_loc)
     res = subprocess.call([ "scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc])
     sys.exit(res)
 
