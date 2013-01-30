@@ -19,6 +19,11 @@ def destroy(db, uuid):
     except Exception:
         pass
     try:
+        for m in depl.machines():
+            m.stop_ssh_master()
+    except Exception:
+        pass
+    try:
         depl.destroy_resources()
     except Exception:
         pass

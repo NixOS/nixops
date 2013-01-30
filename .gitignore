@@ -6,3 +6,4 @@ result
 tests/test.charon*
 .coverage
 coverage.xml
+html/
