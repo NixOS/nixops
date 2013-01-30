@@ -192,7 +192,6 @@ class MachineState(charon.resources.ResourceState):
         subprocess.call(
             ["ssh", "root@" + self.get_ssh_name(),
              "-S", control_socket, "-O", "exit"], stderr=charon.util.devnull)
-        )
         self._ssh_master_started = False
         self._ssh_master_opts = []
 
