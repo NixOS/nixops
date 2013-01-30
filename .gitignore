@@ -4,3 +4,5 @@ examples/*.json
 examples/*.lock
 result
 tests/test.charon*
+.coverage
+coverage.xml
