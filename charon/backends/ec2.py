@@ -823,6 +823,7 @@ class EC2State(MachineState):
         self.log_end("")
 
         self.state = self.STOPPED
+        self.stop_ssh_master()
 
 
     def start(self):
