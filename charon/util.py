@@ -113,3 +113,11 @@ def create_key_pair(key_name="Charon auto-generated key", type="dsa"):
     f = open(key_dir + "/key.pub"); public = f.read().rstrip(); f.close()
     shutil.rmtree(key_dir)
     return (private, public)
+
+class SelfDeletingDir(str):
+    def __del__(self):
+        shutil.rmtree(self)
+        try:
+            super(SelfDeletingDir,self).__del__()
+        except AttributeError:
+            pass
