@@ -23,6 +23,7 @@ class MachineDefinition(charon.resources.ResourceDefinition):
 
 class SSHMaster(object):
     def __init__(self, tempdir, name, ssh_name, ssh_flags):
+        self._tempdir = tempdir
         self._control_socket = tempdir + "/ssh-master-" + name
         self._ssh_name = ssh_name
         res = subprocess.call(
