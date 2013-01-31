@@ -322,7 +322,7 @@ class VirtualBoxState(MachineState):
         self.log_end("")
 
         self.state = self.STOPPED
-        self.stop_ssh_master()
+        self.ssh_master = None
 
 
     def start(self):

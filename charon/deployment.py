@@ -6,7 +6,6 @@ import subprocess
 import json
 import string
 import tempfile
-import atexit
 import shutil
 import threading
 import exceptions
@@ -239,8 +238,7 @@ class Deployment(object):
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
-        self.tempdir = tempfile.mkdtemp(prefix="charon-tmp")
-        atexit.register(lambda: shutil.rmtree(self.tempdir))
+        self.tempdir = charon.util.SelfDeletingDir(tempfile.mkdtemp(prefix="charon-tmp"))
 
         self.resources = {}
         with self._db:
