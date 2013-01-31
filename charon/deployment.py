@@ -238,7 +238,7 @@ class Deployment(object):
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
-        self.tempdir = util.SelfDeletingDir(tempfile.mkdtemp(prefix="charon-tmp"))
+        self.tempdir = charon.util.SelfDeletingDir(tempfile.mkdtemp(prefix="charon-tmp"))
 
         self.resources = {}
         with self._db:
