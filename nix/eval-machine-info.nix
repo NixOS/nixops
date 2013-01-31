@@ -12,7 +12,17 @@ with lib;
 
 rec {
 
-  networks = map (networkExpr: call (import networkExpr)) networkExprs;
+  networks =
+    let
+      getNetworkFromExpr = networkExpr: call (import networkExpr);
+
+      exprToKey = key: { inherit key; };
+
+      networkExprClosure = builtins.genericClosure {
+        startSet = map exprToKey networkExprs;
+        operator = { key }: map exprToKey ((getNetworkFromExpr key).require or []);
+      };
+    in map ({ key }: getNetworkFromExpr key) networkExprClosure;
 
   call = x: if builtins.isFunction x then x args else x;
 
@@ -44,7 +54,7 @@ rec {
           extraArgs = { inherit nodes resources; };
         };
       }
-    ) (attrNames (removeAttrs network [ "network" "defaults" "resources" ])));
+    ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" ])));
 
   # Compute the definitions of the non-machine resources.
   resourcesByType = zipAttrs (network.resources or []);
