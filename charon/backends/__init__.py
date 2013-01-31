@@ -44,7 +44,7 @@ class MachineState(charon.resources.ResourceState):
     def __init__(self, depl, name, id):
         charon.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
-        self._ssh_master_started = False
+        self._ssh_master_name = None
         self._ssh_master_opts = []
         self._ssh_private_key_file = None
         self._control_socket = None
@@ -173,7 +173,7 @@ class MachineState(charon.resources.ResourceState):
 
     def _open_ssh_master(self):
         """Start an SSH master connection to speed up subsequent SSH sessions."""
-        if self._ssh_master_started: return
+        if self._ssh_master_name is not None: return
 
         # Start the master.
         self._control_socket = self.depl.tempdir + "/ssh-master-" + self.name
@@ -185,15 +185,16 @@ class MachineState(charon.resources.ResourceState):
             raise Exception("unable to start SSH master connection to ‘{0}’".format(self.name))
 
         self._ssh_master_opts = ["-S", self._control_socket]
-        self._ssh_master_started = True
+        self._ssh_master_name = self.get_ssh_name()
 
     def stop_ssh_master(self):
         """Stop any running SSH master connection."""
-        if not self._ssh_master_started: return
+        if self._ssh_master_name is None: return
+
         subprocess.call(
-            ["ssh", "root@" + self.get_ssh_name(),
+            ["ssh", "root@" + self._ssh_master_name,
              "-S", self._control_socket, "-O", "exit"], stderr=charon.util.devnull)
-        self._ssh_master_started = False
+        self._ssh_master_name = None
         self._ssh_master_opts = []
         self._control_socket = None
 
