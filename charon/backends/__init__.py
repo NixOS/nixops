@@ -319,6 +319,16 @@ class MachineState(charon.resources.ResourceState):
         cmdline = ["scp"] +  self.get_ssh_flags() + recursive_cmdline + [source, "root@" + self.get_ssh_name() + ":" + target]
         return self._logged_exec(cmdline)
 
+    def download_file(self, source, target, recursive=False):
+        self._open_ssh_master()
+        # FIXME: use ssh master
+        if recursive:
+            recursive_cmdline = [ '-r' ]
+        else:
+            recursive_cmdline = [ ]
+        cmdline = ["scp"] +  self.get_ssh_flags() + recursive_cmdline + ["root@" + self.get_ssh_name() + ":" + source, target]
+        return self._logged_exec(cmdline)
+
     def get_console_output(self):
         return "(not available for this machine type)\n"
 
