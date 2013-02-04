@@ -232,7 +232,7 @@ class Deployment(object):
         self._log_lock = threading.Lock()
         self._log_file = log_file
 
-        self._deployment_lock = None
+        self._lock_file_path = None
 
         self.expr_path = os.path.dirname(__file__) + "/../../../../../share/nix/charon"
         if not os.path.exists(self.expr_path):
@@ -309,22 +309,24 @@ class Deployment(object):
 
 
     def _get_deployment_lock(self):
-        if not self._deployment_lock:
+        if self._lock_file_path is None:
             lock_dir = os.environ.get("HOME", "") + "/.charon/locks"
             if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)
-            lock_file = lock_dir + "/" + self.uuid
-            self._deployment_lock = open(lock_file, "w")
+            self._lock_file_path = lock_dir + "/" + self.uuid
         class DeploymentLock(object):
             def __init__(self, depl):
-                self.depl = depl
+                self._lock_file_path = depl._lock_file_path
+                self._log = depl.log
+                self._lock_file = None
             def __enter__(self):
+                self._lock_file = open(self._lock_file_path, "w")
                 try:
-                    fcntl.flock(self.depl._deployment_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except IOError:
-                    self.depl.log("waiting for exclusive deployment lock...")
-                    fcntl.flock(self.depl._deployment_lock, fcntl.LOCK_EX)
+                    self._log("waiting for exclusive deployment lock...")
+                    fcntl.flock(self._lock_file, fcntl.LOCK_EX)
             def __exit__(self, exception_type, exception_value, exception_traceback):
-                fcntl.flock(self.depl._deployment_lock, fcntl.LOCK_UN)
+                self._lock_file.close()
         return DeploymentLock(self)
 
 
