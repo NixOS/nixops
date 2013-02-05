@@ -59,12 +59,12 @@ rec {
   # Compute the definitions of the non-machine resources.
   resourcesByType = zipAttrs (network.resources or []);
 
-  evalResources = mainModule: resources:
+  evalResources = mainModule: _resources:
     mapAttrs (name: defs:
       (fixMergeModules
         ([ mainModule ] ++ defs)
-        { inherit pkgs uuid name; }
-      ).config) resources;
+        { inherit pkgs uuid name resources; }
+      ).config) _resources;
 
   resources.sqsQueues = evalResources ./sqs-queue.nix (zipAttrs resourcesByType.sqsQueues or []);
   resources.ec2KeyPairs = evalResources ./ec2-keypair.nix (zipAttrs resourcesByType.ec2KeyPairs or []);
