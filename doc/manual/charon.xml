@@ -1123,8 +1123,7 @@ $ charon ssh-for-each -p reboot</screen>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
   </arg>
   <group>
-    <arg choice='plain'><option>--wait</option></arg>
-    <arg choice='plain'><option>-w</option></arg>
+    <arg choice='plain'><option>--no-wait</option></arg>
   </group>
   <arg>
     <replaceable>command</replaceable>
@@ -1161,11 +1160,9 @@ machines in parallel; otherwise, it’s executed sequentially.</para>
 
   </varlistentry>
 
-  <varlistentry><term><option>--wait</option></term>
-    <term><option>-w</option></term>
+  <varlistentry><term><option>--no-wait</option></term>
 
-    <listitem><para>Wait until the machines have finished rebooting,
-    that is, are reachable via SSH again.</para></listitem>
+    <listitem><para>Do not wait until the machines have finished rebooting.</para></listitem>
 
   </varlistentry>
 
@@ -1176,10 +1173,10 @@ machines in parallel; otherwise, it’s executed sequentially.</para>
 <refsection><title>Examples</title>
 
 <para>To reboot all machines except <literal>foo</literal> and wait
-until they’re up again:
+until they’re up again, that is, are reachable via SSH again:
 
 <screen>
-$ charon reboot -w --exclude foo</screen>
+$ charon reboot --exclude foo</screen>
 
 </para>
 

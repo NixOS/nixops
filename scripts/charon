@@ -299,7 +299,7 @@ def op_destroy():
 
 def op_reboot():
     depl = open_deployment()
-    depl.reboot_machines(include=args.include or [], exclude=args.exclude or [], wait=args.wait)
+    depl.reboot_machines(include=args.include or [], exclude=args.exclude or [], wait=(not args.no_wait))
 
 
 def op_stop():
@@ -502,7 +502,7 @@ subparser = add_subparser('reboot', help='reboot all virtual machines in the net
 subparser.set_defaults(op=op_reboot)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='reboot only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='reboot all except the specified machines')
-subparser.add_argument('--wait', '-w', action='store_true', help='wait until the machines are up again')
+subparser.add_argument('--no-wait', action='store_true', help='do not wait until the machines are up again')
 
 subparser = add_subparser('show-physical', help='print the physical network expression')
 subparser.set_defaults(op=op_show_physical)
