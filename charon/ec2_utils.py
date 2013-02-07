@@ -2,7 +2,10 @@
 
 import os
 import boto.ec2
+import time                                                                                    
+import random                                                                                  
 
+from boto.exception import EC2ResponseError
 
 def fetch_aws_secret_key(access_key_id):
     """Fetch the secret access key corresponding to the given access key ID from the environment or from ~/.ec2-keys"""
@@ -41,3 +44,22 @@ def connect(region, access_key_id):
 
 def get_access_key_id():
     return os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
+
+
+def retry(f, error_codes=[]):                                                                  
+    i = 0                                                                                      
+    num_retries = 6                                                                            
+    while i <= num_retries:
+        print i
+        next_sleep = random.random() * (2 ** i)
+        i += 1
+
+        try:
+            return f()
+        except EC2ResponseError as e:
+            if i == num_retries or not e.error_code in error_codes:
+                raise e
+        except Exception as e:
+            raise e
+
+        time.sleep(next_sleep)
