@@ -483,7 +483,7 @@ class EC2State(MachineState):
                     raise Exception("device mapping ‘{0}’ not (yet) supported".format(v['disk']))
 
             # FIXME: Should use client_token to ensure idempotency.
-            reservation = self._conn.run_instances(
+            reservation = charon.ec2_utils.retry(lambda: self._conn.run_instances(
                 instance_type=defn.instance_type,
                 placement=zone,
                 key_name=defn.key_pair,
@@ -492,7 +492,7 @@ class EC2State(MachineState):
                 user_data=user_data,
                 image_id=defn.ami,
                 instance_profile_name=defn.instance_profile,
-                ebs_optimized=ebs_optimized)
+                ebs_optimized=ebs_optimized), error_codes = ['InvalidParameterValue'])
 
             assert len(reservation.instances) == 1
 
