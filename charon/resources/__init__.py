@@ -14,7 +14,7 @@ class ResourceDefinition(object):
     def __init__(self, xml):
         self.name = xml.get("name")
         assert self.name
-        if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-\.]*$", self.name):
+        if not re.match("^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*$", self.name):
             raise Exception("invalid resource name ‘{0}’".format(self.name))
 
     def show_type(self):
