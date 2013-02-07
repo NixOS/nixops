@@ -50,7 +50,6 @@ def retry(f, error_codes=[]):
     i = 0                                                                                      
     num_retries = 6                                                                            
     while i <= num_retries:
-        print i
         next_sleep = random.random() * (2 ** i)
         i += 1
 
