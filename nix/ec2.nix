@@ -109,7 +109,11 @@ let
 
   };
 
-  isEc2Hvm = cfg.instanceType == "cc1.4xlarge" || cfg.instanceType == "cc2.8xlarge";
+  isEc2Hvm =
+      cfg.instanceType == "cc1.4xlarge"
+   || cfg.instanceType == "cc2.8xlarge"
+   || cfg.instanceType == "hs1.8xlarge"
+   || cfg.instanceType == "cr1.8xlarge";
 
   # Map "/dev/mapper/xvdX" to "/dev/xvdX".
   dmToDevice = dev:
@@ -385,6 +389,7 @@ in
           "cc1.4xlarge" = { cores = 16; memory = 21542; };
           "cc2.8xlarge" = { cores = 32; memory = 59930; };
           "hi1.4xlarge" = { cores = 16; memory = 60711; };
+          "cr1.8xlarge" = { cores = 32; memory = 245756; };
         };
       in attrByPath [ type ] null mapping;
 
