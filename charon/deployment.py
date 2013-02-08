@@ -320,6 +320,7 @@ class Deployment(object):
                 self._lock_file = None
             def __enter__(self):
                 self._lock_file = open(self._lock_file_path, "w")
+                fcntl.fcntl(self._lock_file, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
                 try:
                     fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except IOError:
