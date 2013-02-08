@@ -16,6 +16,8 @@ import charon.ec2_utils
 import charon.known_hosts
 from xml import etree
 
+class EC2InstanceDisappeared:
+    pass
 
 class EC2Definition(MachineDefinition):
     """Definition of an EC2 machine."""
@@ -219,7 +221,7 @@ class EC2State(MachineState):
         if len(reservations) == 0:
             if allow_missing:
                 return None
-            raise Exception("EC2 instance ‘{0}’ disappeared!".format(instance_id))
+            raise EC2InstanceDisappeared("EC2 instance ‘{0}’ disappeared!".format(instance_id))
         return reservations[0].instances[0]
 
 
@@ -515,6 +517,8 @@ class EC2State(MachineState):
             try:
                 instance = self._get_instance_by_id(self.vm_id)
                 break
+            except EC2InstanceDisappeared:
+                pass
             except boto.exception.EC2ResponseError as e:
                 if e.error_code != "InvalidInstanceID.NotFound":
                     raise
