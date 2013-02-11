@@ -16,7 +16,7 @@ import charon.ec2_utils
 import charon.known_hosts
 from xml import etree
 
-class EC2InstanceDisappeared:
+class EC2InstanceDisappeared(Exception):
     pass
 
 class EC2Definition(MachineDefinition):
