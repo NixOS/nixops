@@ -22,6 +22,12 @@ with pkgs.lib;
       description = "The AWS Access Key ID.";
     };
 
+    arn = mkOption {
+      default = "arn:aws:s3:::${config.name}"; # FIXME: don't set a default
+      type = types.uniq types.string;
+      description = "Amazon Resource Name (ARN) of the S3 bucket. This is set by Charon.";
+    };
+
   };
 
 }
