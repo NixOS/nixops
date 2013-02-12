@@ -86,6 +86,7 @@ class EC2State(MachineState):
     instance_type = charon.util.attr_property("ec2.instanceType", None)
     key_pair = charon.util.attr_property("ec2.keyPair", None)
     public_host_key = charon.util.attr_property("ec2.publicHostKey", None)
+    private_host_key = charon.util.attr_property("ec2.privateHostKey", None)
     private_key_file = charon.util.attr_property("ec2.privateKeyFile", None)
     instance_profile = charon.util.attr_property("ec2.instanceProfile", None)
     security_groups = charon.util.attr_property("ec2.securityGroups", None, 'json')
@@ -120,6 +121,7 @@ class EC2State(MachineState):
             self.instance_type = None
             self.key_pair = None
             self.public_host_key = None
+            self.private_host_key = None
             self.instance_profile = None
             self.security_groups = None
             self.tags = {}
@@ -432,7 +434,7 @@ class EC2State(MachineState):
         if not self.vm_id:
             self.log("creating EC2 instance (AMI ‘{0}’, type ‘{1}’, region ‘{2}’)...".format(
                 defn.ami, defn.instance_type, defn.region))
-            self._reset_state()
+            if not self.client_token: self._reset_state()
 
             self.region = defn.region
             self.connect()
@@ -441,10 +443,6 @@ class EC2State(MachineState):
             ami = self._conn.get_all_images([defn.ami])[0]
 
             self.root_device_type = ami.root_device_type
-
-            (private, public) = charon.util.create_key_pair()
-
-            user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(public, private.replace("\n", "|"))
 
             zone = defn.zone or None
 
@@ -485,12 +483,24 @@ class EC2State(MachineState):
                 else:
                     raise Exception("device mapping ‘{0}’ not (yet) supported".format(v['disk']))
 
+            # Generate a public/private host key.
+            if not self.public_host_key:
+                (private, public) = charon.util.create_key_pair()
+                with self.depl._db:
+                    self.public_host_key = public
+                    self.private_host_key = private
+
+            user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(
+                self.public_host_key, self.private_host_key.replace("\n", "|"))
+
             # Use a client token to ensure that instance creation is
             # idempotent; i.e., if we get interrupted before recording
             # the instance ID, we'll get the same instance ID on the
             # next run.
             if not self.client_token:
-                self.client_token = charon.util.generate_random_string(length=48) # = 64 ASCII chars
+                with self.depl._db:
+                    self.client_token = charon.util.generate_random_string(length=48) # = 64 ASCII chars
+                    self.state = self.STARTING
 
             reservation = charon.ec2_utils.retry(lambda: self._conn.run_instances(
                 client_token=self.client_token,
@@ -505,11 +515,9 @@ class EC2State(MachineState):
                 ebs_optimized=ebs_optimized), error_codes = ['InvalidParameterValue'])
 
             assert len(reservation.instances) == 1
-
             instance = reservation.instances[0]
 
             with self.depl._db:
-                self.state = self.STARTING
                 self.vm_id = instance.id
                 self.controller = defn.controller
                 self.ami = defn.ami
@@ -517,8 +525,8 @@ class EC2State(MachineState):
                 self.key_pair = defn.key_pair
                 self.security_groups = defn.security_groups
                 self.zone = instance.placement
-                self.public_host_key = public
                 self.client_token = None
+                self.private_host_key = None
 
         # There is a short time window during which EC2 doesn't
         # know the instance ID yet.  So wait until it does.
