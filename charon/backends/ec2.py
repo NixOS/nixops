@@ -96,6 +96,7 @@ class EC2State(MachineState):
     dns_hostname = charon.util.attr_property("route53.hostName", None)
     dns_ttl = charon.util.attr_property("route53.ttl", None, int)
     route53_access_key_id = charon.util.attr_property("route53.accessKeyId", None)
+    client_token = charon.util.attr_property("ec2.clientToken", None)
 
 
     def __init__(self, depl, name, id):
@@ -484,8 +485,15 @@ class EC2State(MachineState):
                 else:
                     raise Exception("device mapping ‘{0}’ not (yet) supported".format(v['disk']))
 
-            # FIXME: Should use client_token to ensure idempotency.
+            # Use a client token to ensure that instance creation is
+            # idempotent; i.e., if we get interrupted before recording
+            # the instance ID, we'll get the same instance ID on the
+            # next run.
+            if not self.client_token:
+                self.client_token = charon.util.generate_random_string(length=48) # = 64 ASCII chars
+
             reservation = charon.ec2_utils.retry(lambda: self._conn.run_instances(
+                client_token=self.client_token,
                 instance_type=defn.instance_type,
                 placement=zone,
                 key_name=defn.key_pair,
@@ -510,6 +518,7 @@ class EC2State(MachineState):
                 self.security_groups = defn.security_groups
                 self.zone = instance.placement
                 self.public_host_key = public
+                self.client_token = None
 
         # There is a short time window during which EC2 doesn't
         # know the instance ID yet.  So wait until it does.
@@ -748,7 +757,7 @@ class EC2State(MachineState):
         for prevrr in all_prevrrs:
             if prevrr.name == "{0}.".format(self.dns_hostname):
                 prevrrs.append(prevrr)
-              
+
         changes = boto.route53.record.ResourceRecordSets(connection=self._conn_route53, hosted_zone_id=zoneid)
         if len(prevrrs) > 0:
             for prevrr in prevrrs:
@@ -773,12 +782,23 @@ class EC2State(MachineState):
                 raise
 
     def destroy(self):
-        if not self.vm_id: return True
+        if not (self.vm_id or self.client_token): return True
         if not self.depl.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
 
         self.log_start("destroying EC2 machine... ".format(self.name))
 
-        instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
+        # Find the instance, either by its ID or by its client token.
+        # The latter allows us to destroy instances that were "leaked"
+        # in create() due to it being interrupted after the instance
+        # was created but before it registered the ID in the database.
+        self.connect()
+        instance = None
+        if self.vm_id:
+            instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
+        else:
+            reservations = self._conn.get_all_instances(filters={'client-token': self.client_token})
+            if len(reservations) > 0:
+                instance = reservations[0].instances[0]
 
         if instance:
             instance.terminate()
