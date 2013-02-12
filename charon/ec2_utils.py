@@ -2,8 +2,8 @@
 
 import os
 import boto.ec2
-import time                                                                                    
-import random                                                                                  
+import time
+import random
 
 from boto.exception import EC2ResponseError
 
@@ -46,9 +46,9 @@ def get_access_key_id():
     return os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
 
 
-def retry(f, error_codes=[]):                                                                  
-    i = 0                                                                                      
-    num_retries = 6                                                                            
+def retry(f, error_codes=[]):
+    i = 0
+    num_retries = 6
     while i <= num_retries:
         next_sleep = random.random() * (2 ** i)
         i += 1
