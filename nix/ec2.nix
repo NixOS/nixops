@@ -121,6 +121,18 @@ let
     then "/dev/" + builtins.substring 12 100 dev
     else dev;
 
+  amis = {
+    "eu-west-1".ebs = "ami-24e8e150";
+    "eu-west-1".s3  = "ami-a2eae3d6";
+    "us-east-1".ebs = "ami-dc48d9b5";
+    "us-east-1".s3  = "ami-da4edfb3";
+    "us-east-1".hvm = "ami-004adb69";
+    "us-west-1".ebs = "ami-22715367";
+    "us-west-1".s3  = "ami-967153d3";
+    "us-west-2".ebs = "ami-8a7af0ba";
+    "us-west-2".s3  = "ami-be7bf18e";
+  };
+
 in
 
 {
@@ -336,20 +348,18 @@ in
     deployment.ec2.controller = mkDefault "https://ec2.${cfg.region}.amazonaws.com/";
 
     deployment.ec2.ami = mkDefault (
-      if cfg.region == "us-east-1" && config.nixpkgs.system == "x86_64-linux" &&  isEc2Hvm    then "ami-6a9e4503" else
-      if cfg.region == "eu-west-1" && config.nixpkgs.system == "i686-linux"   && !cfg.ebsBoot then "ami-dd90a9a9" else
-
-      # nixos-0.2pre4422_28cf26d-495fbce
-      if cfg.region == "eu-west-1" && config.nixpkgs.system == "x86_64-linux" &&  cfg.ebsBoot then "ami-842927f0" else
-      if cfg.region == "eu-west-1" && config.nixpkgs.system == "x86_64-linux" && !cfg.ebsBoot then "ami-de2b25aa" else
-      if cfg.region == "us-east-1" && config.nixpkgs.system == "x86_64-linux" &&  cfg.ebsBoot then "ami-2ba53042" else
-      if cfg.region == "us-east-1" && config.nixpkgs.system == "x86_64-linux" && !cfg.ebsBoot then "ami-5dbe2b34" else
-      if cfg.region == "us-west-1" && config.nixpkgs.system == "x86_64-linux" && !cfg.ebsBoot then "ami-223d1e67" else
-      if cfg.region == "us-west-2" && config.nixpkgs.system == "x86_64-linux" && !cfg.ebsBoot then "ami-32c64c02" else
-
-      # !!! Doesn't work, not lazy enough.
-      #throw "I don't know an AMI for region ‘${cfg.region}’ and platform type ‘${config.nixpkgs.system}’"
-      "");
+      let
+        type = if isEc2Hvm then "hvm" else if cfg.ebsBoot then "ebs" else "s3";
+      in
+        with builtins;
+        if hasAttr cfg.region amis then
+          let r = getAttr cfg.region amis;
+          in if hasAttr type r then getAttr type r else ""
+        else
+          # !!! Doesn't work, not lazy enough.
+          #throw "I don't know an AMI for region ‘${cfg.region}’ and platform type ‘${config.nixpkgs.system}’"
+          ""
+      );
 
     # Workaround: the evaluation of blockDeviceMapping requires fileSystems to be defined.
     fileSystems = {};
