@@ -324,7 +324,7 @@ def op_show_physical():
 
 def op_dump_nix_paths():
     def get_nix_path(p):
-        p = path.realpath(path.abspath(p))
+        p = os.path.realpath(os.path.abspath(p))
         # FIXME: hardcoded nix store
         nix_store = '/nix/store'
         if not p.startswith('{0}/'.format(nix_store)):
@@ -340,6 +340,7 @@ def op_dump_nix_paths():
 
     def nix_paths(depl):
         candidates = depl.nix_exprs + [strip_nix_path(p) for p in depl.nix_path] + [ depl.configs_path ]
+        candidates = [ get_nix_path(p) for p in candidates ]
         return [ p for p in candidates if not p is None ]
 
     paths = []
