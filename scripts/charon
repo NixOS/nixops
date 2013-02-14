@@ -322,6 +322,40 @@ def op_show_physical():
     depl.evaluate()
     sys.stdout.write(depl.get_physical_spec())
 
+def op_dump_nix_paths():
+    def get_nix_path(p):
+        p = path.realpath(path.abspath(p))
+        # FIXME: hardcoded nix store
+        nix_store = '/nix/store'
+        if not p.startswith('{0}/'.format(nix_store)):
+            return None
+        return '/'.join(p.split('/')[:len(nix_store.split('/'))+1])
+
+    def strip_nix_path(p):
+        p = p.split('=')
+        if len(p) == 1:
+            return p[0]
+        else:
+            return p[1]
+
+    def nix_paths(depl):
+        candidates = depl.nix_exprs + [strip_nix_path(p) for p in depl.nix_path] + [ depl.configs_path ]
+        return [ p for p in candidates if not p is None ]
+
+    paths = []
+
+    if args.all:
+        db = deployment.open_database(args.state_file)
+        uuids = deployment.query_deployments(db)
+        for uuid in uuids:
+            depl = deployment.open_deployment(db, uuid=uuid)
+            paths.extend(nix_paths(depl))
+    else:
+        depl = open_deployment()
+        paths.extend(nix_paths(depl))
+
+    for p in paths:
+        print p
 
 def parse_machine(name):
     return ("root", name) if name.find("@") == -1 else name.split("@", 1)
@@ -578,6 +612,11 @@ add_common_deployment_options(subparser)
 subparser = add_subparser('show-console-output', help='print the machine\'s console output on stdout')
 subparser.set_defaults(op=op_show_console_output)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
+add_common_deployment_options(subparser)
+
+subparser = add_subparser('dump-nix-paths', help='dump nix paths referenced in deployments')
+subparser.add_argument('--all',  action='store_true', help='dump nix paths for all deployments')
+subparser.set_defaults(op=op_dump_nix_paths)
 add_common_deployment_options(subparser)
 
 
