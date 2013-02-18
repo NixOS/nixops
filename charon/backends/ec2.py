@@ -382,6 +382,15 @@ class EC2State(MachineState):
             self.update_block_device_mapping(k, new_v)
 
 
+    def create_after(self, resources):
+        # EC2 instances can require key pairs and IAM roles.  FIXME:
+        # only depend on the specific key pair / role needed for this
+        # instance.
+        return {r for r in resources if
+                isinstance(r, charon.resources.ec2_keypair.EC2KeyPairState) or
+                isinstance(r, charon.resources.iam_role.IAMRoleState)}
+
+
     def create(self, defn, check, allow_reboot):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"

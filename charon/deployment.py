@@ -837,10 +837,10 @@ class Deployment(object):
         for m in self.resources.values():
             if m.name in self.definitions:
                 if m.obsolete:
-                    self.log("machine ‘{0}’ is no longer obsolete".format(m.name))
+                    self.log("resource ‘{0}’ is no longer obsolete".format(m.name))
                     m.obsolete = False
             else:
-                self.log("machine ‘{0}’ is obsolete".format(m.name))
+                self.log("resource ‘{0}’ is obsolete".format(m.name))
                 if not m.obsolete: m.obsolete = True
                 if not should_do(m, include, exclude): continue
                 if kill_obsolete and m.destroy(): self.delete_resource(m)
@@ -872,17 +872,26 @@ class Deployment(object):
                 if r.get_type() != defn.get_type():
                     raise Exception("the type of resource ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported"
                                     .format(r.name, r.get_type(), defn.get_type()))
+                r._created_event = threading.Event()
 
             def worker(r):
-                if not should_do(r, include, exclude) or is_machine(r): return
-                r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot)
-            charon.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=worker)
+                if not should_do(r, include, exclude): return
 
-            def worker(m):
-                if not should_do(m, include, exclude) or not is_machine(m): return
-                m.create(self.definitions[m.name], check=check, allow_reboot=allow_reboot)
-                m.wait_for_ssh(check=check)
-                m.generate_vpn_key()
+                # Sleep until all dependencies of this resource have
+                # been created.
+                deps = r.create_after(self.active_resources.itervalues())
+                for dep in deps:
+                    if not should_do(dep, include, exclude): continue
+                    dep._created_event.wait()
+
+                # Now create the resource itself.
+                r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot)
+                if is_machine(r):
+                    r.wait_for_ssh(check=check)
+                    r.generate_vpn_key()
+
+                r._created_event.set()
+
             charon.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=worker)
 
         if create_only: return

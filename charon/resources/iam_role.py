@@ -87,7 +87,7 @@ class IAMRoleState(charon.resources.ResourceState):
                 self._conn.delete_role(self.role_name)
             except:
                 self.log("Could not find role")
- 
+
             self.log("Removing instance profile")
             self._conn.delete_instance_profile(self.role_name)
 
@@ -100,6 +100,12 @@ class IAMRoleState(charon.resources.ResourceState):
             self.role_name = None
             self.access_key_id = None
             self.policy = None
+
+
+    def create_after(self, resources):
+        # IAM roles can refer to S3 buckets.
+        return {r for r in resources if
+                isinstance(r, charon.resources.s3_bucket.S3BucketState)}
 
 
     def create(self, defn, check, allow_reboot):
