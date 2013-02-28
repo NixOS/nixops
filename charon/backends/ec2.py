@@ -521,7 +521,7 @@ class EC2State(MachineState):
                 user_data=user_data,
                 image_id=defn.ami,
                 instance_profile_name=defn.instance_profile,
-                ebs_optimized=ebs_optimized), error_codes = ['InvalidParameterValue'])
+                ebs_optimized=ebs_optimized), error_codes = ['InvalidParameterValue', 'UnauthorizedOperation' ])
 
             assert len(reservation.instances) == 1
             instance = reservation.instances[0]
