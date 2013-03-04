@@ -164,6 +164,9 @@ class EC2State(MachineState):
 
         return lines
 
+    def get_physical_backup_spec(self, backupid):
+        return [ '    deployment.ec2.blockDeviceMapping."{0}".disk = "{1}";'.format(_sd_to_xvd(dev), snap) for dev, snap in self.backups[backupid].items() if dev != "/dev/sda" ]
+
     def get_keys(self):
         keys = MachineState.get_keys(self)
         # Ugly: we have to add the generated keys because they're not

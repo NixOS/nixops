@@ -317,8 +317,22 @@ def op_rename():
     depl.rename(args.current_name, args.new_name)
 
 
+def print_physical_backup_spec(backupid):
+    depl = open_deployment()
+    print "{"
+    for m in depl.active.itervalues():
+        print '  "{0}" = {{'.format(m.name)
+        for l in m.get_physical_backup_spec(backupid):
+            print l
+        print '  };'
+    print "}"
+
+
 def op_show_physical():
     depl = open_deployment()
+    if args.backupid:
+        print_physical_backup_spec(args.backupid)
+        return
     depl.evaluate()
     sys.stdout.write(depl.get_physical_spec())
 
@@ -542,6 +556,7 @@ subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='reb
 subparser.add_argument('--no-wait', action='store_true', help='do not wait until the machines are up again')
 
 subparser = add_subparser('show-physical', help='print the physical network expression')
+subparser.add_argument('--backup', dest='backupid', default=None, help='print physical network expression for given backup id')
 subparser.set_defaults(op=op_show_physical)
 
 subparser = add_subparser('ssh', help='login on the specified machine via SSH')

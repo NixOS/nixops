@@ -117,6 +117,9 @@ class ResourceState(object):
     def get_physical_spec(self):
         return []
 
+    def get_physical_backup_spec(self, backupid):
+        return []
+
     @property
     def resource_id(self):
         return None
