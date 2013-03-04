@@ -294,7 +294,13 @@ class MachineState(charon.resources.ResourceState):
         return False
 
     def generate_vpn_key(self):
-        if self.public_vpn_key: return
+        try:
+            self.run_command("test -f /root/.ssh/id_charon_vpn")
+            _vpn_key_exists = True
+        except SSHCommandFailed:
+            _vpn_key_exists = False
+
+        if self.public_vpn_key and _vpn_key_exists: return
         (private, public) = charon.util.create_key_pair(key_name="Charon VPN key of {0}".format(self.name))
         f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
         f.write(private)
