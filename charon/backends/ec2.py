@@ -321,7 +321,7 @@ class EC2State(MachineState):
             try:
                 snapshot = self._get_snapshot_by_id(snapshot_id)
             except:
-                self.warn('Snapshot {0} not found, skipping.'.format(snapshot_id))
+                self.warn('snapshot {0} not found, skipping'.format(snapshot_id))
             if not snapshot is None:
                 self.log('removing snapshot {0}'.format(snapshot_id))
                 snapshot.delete()
@@ -456,44 +456,38 @@ class EC2State(MachineState):
 
             self.root_device_type = ami.root_device_type
 
-            zone = defn.zone or None
-
+            # Set the initial block device mapping to the ephemeral
+            # devices defined in the spec.  These cannot be changed
+            # later.
             devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
             devs_mapped = {}
+            for k, v in defn.block_device_mapping.iteritems():
+                if re.match("/dev/sd[a-e]", k) and not v['disk'].startswith("ephemeral"):
+                    raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(_sd_to_xvd(k)))
+                if v['disk'].startswith("ephemeral"):
+                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v['disk'])
+                    self.update_block_device_mapping(k, v)
+
+            # If we're attaching any EBS volumes, then make sure that
+            # we create the instance in the right placement zone.
+            zone = defn.zone or None
+            for k, v in defn.block_device_mapping.iteritems():
+                if not v['disk'].startswith("vol-"): continue
+                # Make note of the placement zone of the volume.
+                volume = self._get_volume_by_id(v['disk'])
+                if not zone:
+                    self.log("starting EC2 instance in zone ‘{0}’ due to volume ‘{1}’".format(
+                            volume.zone, v['disk']))
+                    zone = volume.zone
+                elif zone != volume.zone:
+                    raise Exception("unable to start EC2 instance ‘{0}’ in zone ‘{1}’ because volume ‘{2}’ is in zone ‘{3}’"
+                                    .format(self.name, zone, v['disk'], volume.zone))
+
+            # Do we want an EBS-optimized instance?
             ebs_optimized = False
             for k, v in defn.block_device_mapping.iteritems():
                 (volume_type, iops) = self.disk_volume_options(v)
-                if volume_type != "standard":
-                    ebs_optimized = True
-
-                if re.match("/dev/sd[a-e]", k) and not v['disk'].startswith("ephemeral"):
-                    raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(_sd_to_xvd(k)))
-                if v['disk'] == '':
-                    if self._booted_from_ebs():
-                        devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(
-                            size=v['size'], delete_on_termination=v['deleteOnTermination'], volume_type=volume_type, iops=iops)
-                        self.update_block_device_mapping(k, v)
-                    # Otherwise, it's instance store backed, and we'll create the volume later.
-                elif v['disk'].startswith("ephemeral"):
-                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v['disk'])
-                    self.update_block_device_mapping(k, v)
-                elif v['disk'].startswith("snap-"):
-                    devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(snapshot_id=v['disk'], delete_on_termination=True, volume_type=volume_type, iops=iops)
-                    self.update_block_device_mapping(k, v)
-                elif v['disk'].startswith("vol-"):
-                    # Volumes cannot be attached at boot time, so
-                    # attach it later.  But make note of the placement
-                    # zone of the volume.
-                    volume = self._get_volume_by_id(v['disk'])
-                    if not zone:
-                        self.log("starting EC2 instance in zone ‘{0}’ due to volume ‘{1}’".format(
-                            volume.zone, v['disk']))
-                        zone = volume.zone
-                    elif zone != volume.zone:
-                        raise Exception("unable to start EC2 instance ‘{0}’ in zone ‘{1}’ because volume ‘{2}’ is in zone ‘{3}’"
-                                        .format(self.name, zone, v['disk'], volume.zone))
-                else:
-                    raise Exception("device mapping ‘{0}’ not (yet) supported".format(v['disk']))
+                if volume_type != "standard": ebs_optimized = True
 
             # Generate a public/private host key.
             if not self.public_host_key:
@@ -641,52 +635,56 @@ class EC2State(MachineState):
         # Wait until the instance is reachable via SSH.
         self.wait_for_ssh(check=check)
 
+        # Add disks that were in the original device mapping of image.
+        for k, dm in instance.block_device_mapping.items():
+            if k not in self.block_device_mapping and dm.volume_id:
+                bdm = {'volumeId': dm.volume_id, 'partOfImage': True}
+                self.update_block_device_mapping(k, bdm)
+
         # Create missing volumes.
-        # FIXME: support snapshots.
         for k, v in defn.block_device_mapping.iteritems():
-            if k not in self.block_device_mapping and v['disk'] == '':
+            if k in self.block_device_mapping: continue
+
+            if v['disk'] == '':
                 self.log("creating {0} GiB volume...".format(v['size']))
                 self.connect()
                 (volume_type, iops) = self.disk_volume_options(v)
                 volume = self._conn.create_volume(size=v['size'], zone=self.zone, volume_type=volume_type, iops=iops)
-                # The flag charonDeleteOnTermination denotes that on
-                # instance termination, we have to delete the volume
-                # ourselves.  For volumes created at instance creation
-                # time, EC2 will do it for us.
-                v['charonDeleteOnTermination'] = v['deleteOnTermination']
-                v['needsAttach'] = True
                 v['volumeId'] = volume.id
-                self.update_block_device_mapping(k, v)
+
+            elif v['disk'].startswith("vol-"):
+                v['volumeId'] = v['disk']
+
+            elif v['disk'].startswith("snap-"):
+                self.log("creating volume from snapshot ‘{0}’...".format(v['disk']))
+                (volume_type, iops) = self.disk_volume_options(v)
+                new_volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone, volume_type=volume_type, iops=iops)
+                v['volumeId'] = new_volume.id
+
+            else:
+                raise Exception("adding device mapping ‘{0}’ to a running instance is not (yet) supported".format(v['disk']))
+
+            # ‘charonDeleteOnTermination’ denotes whether we have to
+            # delete the volume.  This is distinct from
+            # ‘deleteOnTermination’ for backwards compatibility with
+            # the time that we still used auto-created volumes.
+            v['charonDeleteOnTermination'] = v['deleteOnTermination']
+            v['needsAttach'] = True
+            self.update_block_device_mapping(k, v)
 
         # Attach missing volumes.
-        for k, v in defn.block_device_mapping.iteritems():
-            if k not in self.block_device_mapping:
-                self.log("attaching volume ‘{0}’ as ‘{1}’...".format(v['disk'], _sd_to_xvd(k)))
-                self.connect()
-                if v['disk'].startswith("vol-"):
-                    self._conn.attach_volume(v['disk'], self.vm_id, k)
-                    self.update_block_device_mapping(k, v)
-                if v['disk'].startswith("snap-"):
-                    (volume_type, iops) = self.disk_volume_options(v)
-                    new_volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone, volume_type=volume_type, iops=iops)
-                    new_volume.attach(self.vm_id, k)
-                    v['disk'] = new_volume.id
-                    self.update_block_device_mapping(k, v)
-                else:
-                    raise Exception("adding device mapping ‘{0}’ to a running instance is not (yet) supported".format(v['disk']))
-
         for k, v in self.block_device_mapping.items():
             if v.get('needsAttach', False):
                 self.log("attaching volume ‘{0}’ as ‘{1}’...".format(v['volumeId'], _sd_to_xvd(k)))
                 self.connect()
 
+                # Tag the volume.
                 volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
                 volume_tags.update(common_tags)
                 self._conn.create_tags([v['volumeId']], volume_tags)
 
-                volume = self._get_volume_by_id(v['volumeId'])
-                if volume.volume_state() == "available":
-                    self._conn.attach_volume(v['volumeId'], self.vm_id, k)
+                # Attach it.
+                self._conn.attach_volume(v['volumeId'], self.vm_id, k)
 
                 # Wait until the device is visible in the instance.
                 def check_dev():
@@ -696,29 +694,7 @@ class EC2State(MachineState):
                 del v['needsAttach']
                 self.update_block_device_mapping(k, v)
 
-        # Add disks that were in the original device mapping of image.
-        for k, dm in instance.block_device_mapping.items():
-            if k not in self.block_device_mapping:
-                if dm.volume_id:
-                    bdm = {}
-                    bdm['volumeId'] = dm.volume_id
-                    bdm['partOfImage'] = True
-                    self.update_block_device_mapping(k, bdm)
-
         # FIXME: process changes to the deleteOnTermination flag.
-
-        # Get the volume IDs of automatically created volumes (because
-        # it's good to have these in the state file).
-        for k, v in self.block_device_mapping.items():
-            if not 'volumeId' in v:
-                self.connect()
-                volumes = self._conn.get_all_volumes(
-                    filters={'attachment.instance-id': self.vm_id,
-                             'attachment.device': k})
-                if len(volumes) != 1:
-                    raise Exception("unable to find volume attached to ‘{0}’ on EC2 machine ‘{1}’".format(k, self.name))
-                v['volumeId'] = volumes[0].id  # FIXME
-                self.update_block_device_mapping(k, v)
 
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self.block_device_mapping.items():
