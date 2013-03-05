@@ -298,7 +298,7 @@ in
       type = types.attrsOf types.optionSet;
       options = ec2DiskOptions;
       description = ''
-        Block device mapping.  <filename>/dev/xvd[a-f]</filename> must be ephemeral devices.
+        Block device mapping.  <filename>/dev/xvd[a-e]</filename> must be ephemeral devices.
       '';
     };
 
