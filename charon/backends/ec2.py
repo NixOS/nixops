@@ -641,6 +641,12 @@ class EC2State(MachineState):
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self.block_device_mapping.items():
             if k not in defn.block_device_mapping and not v.get('partOfImage', False):
+                if v['disk'].startswith("ephemeral"):
+                    raise Exception("cannot detach ephemeral device ‘{0}’ from EC2 instance ‘{1}’"
+                                    .format(_sd_to_xvd(k), self.name))
+
+                assert v.get('volumeId', None)
+
                 self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
                 volumes = self._conn.get_all_volumes([],
                     filters={'attachment.instance-id': self.vm_id, 'attachment.device': k, 'volume-id': v['volumeId']})
