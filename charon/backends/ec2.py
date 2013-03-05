@@ -568,15 +568,12 @@ class EC2State(MachineState):
         tags.update(defn.tags)
         tags.update(common_tags)
         if check or self.tags != tags:
-            self.connect()
             self._conn.create_tags([self.vm_id], tags)
             # TODO: remove obsolete tags?
             self.tags = tags
 
         # Assign or release an elastic IP address, if given.
         if (self.elastic_ipv4 or "") != defn.elastic_ipv4 or check:
-            self.connect()
-
             if defn.elastic_ipv4 != "":
                 # wait until machine is in running state
                 self.log_start("waiting for machine to be in running state... ".format(self.name))
@@ -641,13 +638,45 @@ class EC2State(MachineState):
                 bdm = {'volumeId': dm.volume_id, 'partOfImage': True}
                 self.update_block_device_mapping(k, bdm)
 
+        # Detach volumes that are no longer in the deployment spec.
+        for k, v in self.block_device_mapping.items():
+            if k not in defn.block_device_mapping and not v.get('partOfImage', False):
+                self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
+                volumes = self._conn.get_all_volumes([],
+                    filters={'attachment.instance-id': self.vm_id, 'attachment.device': k, 'volume-id': v['volumeId']})
+                assert len(volumes) <= 1
+
+                if len(volumes) == 1:
+                    device = _sd_to_xvd(k)
+                    if v.get('encrypt', False):
+                        dm = device.replace("/dev/", "/dev/mapper/")
+                        self.run_command("umount -l {0}".format(dm), check=False)
+                        self.run_command("cryptsetup luksClose {0}".format(device.replace("/dev/", "")), check=False)
+                    else:
+                        self.run_command("umount -l {0}".format(device), check=False)
+                    if not self._conn.detach_volume(volumes[0].id, instance_id=self.vm_id, device=k):
+                        raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
+                    # FIXME: Wait until the volume is actually detached.
+
+                if v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
+                    self._delete_volume(v['volumeId'])
+
+                self.update_block_device_mapping(k, None)
+
+        # Detect if volumes were manually detached.  If so, reattach
+        # them.
+        for k, v in self.block_device_mapping.items():
+            if k not in instance.block_device_mapping.keys() and not v.get('needsAttach', False) and v.get('volumeId', None):
+                self.warn("device ‘{0}’ was manually detached!".format(k))
+                v['needsAttach'] = True
+                self.update_block_device_mapping(k, v)
+
         # Create missing volumes.
         for k, v in defn.block_device_mapping.iteritems():
             if k in self.block_device_mapping: continue
 
             if v['disk'] == '':
                 self.log("creating {0} GiB volume...".format(v['size']))
-                self.connect()
                 (volume_type, iops) = self.disk_volume_options(v)
                 volume = self._conn.create_volume(size=v['size'], zone=self.zone, volume_type=volume_type, iops=iops)
                 v['volumeId'] = volume.id
@@ -676,7 +705,6 @@ class EC2State(MachineState):
         for k, v in self.block_device_mapping.items():
             if v.get('needsAttach', False):
                 self.log("attaching volume ‘{0}’ as ‘{1}’...".format(v['volumeId'], _sd_to_xvd(k)))
-                self.connect()
 
                 # Tag the volume.
                 volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
@@ -695,31 +723,6 @@ class EC2State(MachineState):
                 self.update_block_device_mapping(k, v)
 
         # FIXME: process changes to the deleteOnTermination flag.
-
-        # Detach volumes that are no longer in the deployment spec.
-        for k, v in self.block_device_mapping.items():
-            if k not in defn.block_device_mapping and not v.get('partOfImage', False):
-                self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
-                self.connect()
-                volumes = self._conn.get_all_volumes([], filters={'attachment.instance-id': self.vm_id, 'attachment.device': k})
-                assert len(volumes) <= 1
-
-                if len(volumes) == 1:
-                    device = _sd_to_xvd(k)
-                    if v.get('encrypt', False):
-                        dm = device.replace("/dev/", "/dev/mapper/")
-                        self.run_command("umount -l {0}".format(dm), check=False)
-                        self.run_command("cryptsetup luksClose {0}".format(device.replace("/dev/", "")), check=False)
-                    else:
-                        self.run_command("umount -l {0}".format(device), check=False)
-                    if not self._conn.detach_volume(volumes[0].id, instance_id=self.vm_id, device=k):
-                        raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
-                    # FIXME: Wait until the volume is actually detached.
-
-                if v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
-                    self._delete_volume(v['volumeId'])
-
-                self.update_block_device_mapping(k, None)
 
         # Auto-generate LUKS keys if the model didn't specify one.
         for k, v in self.block_device_mapping.items():
