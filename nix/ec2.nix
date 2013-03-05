@@ -36,7 +36,7 @@ let
       };
 
       fsType = mkOption {
-        default = "ext4";
+        default = "ext4"; # FIXME: this default doesn't work
         type = types.uniq types.string;
         description = ''
           Filesystem type for automatically created EBS volumes.
@@ -100,11 +100,11 @@ let
         '';
       };
 
-
     };
 
     config = {
-      deleteOnTermination = mkDefault (config.disk == "");
+      # Automatically delete volumes that are automatically created.
+      deleteOnTermination = mkDefault (config.disk == "" || substring 0 5 config.disk == "snap-");
     };
 
   };
@@ -298,7 +298,7 @@ in
       type = types.attrsOf types.optionSet;
       options = ec2DiskOptions;
       description = ''
-        Block device mapping.  Currently only supports ephemeral devices.
+        Block device mapping.  <filename>/dev/xvd[a-f]</filename> must be ephemeral devices.
       '';
     };
 
