@@ -707,15 +707,17 @@ class EC2State(MachineState):
             v['needsAttach'] = True
             self.update_block_device_mapping(k, v)
 
+        # Always apply tags to all volumes
+        for k, v in self.block_device_mapping.items():
+            # Tag the volume.
+            volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
+            volume_tags.update(common_tags)
+            self._conn.create_tags([v['volumeId']], volume_tags)
+
         # Attach missing volumes.
         for k, v in self.block_device_mapping.items():
             if v.get('needsAttach', False):
                 self.log("attaching volume ‘{0}’ as ‘{1}’...".format(v['volumeId'], _sd_to_xvd(k)))
-
-                # Tag the volume.
-                volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
-                volume_tags.update(common_tags)
-                self._conn.create_tags([v['volumeId']], volume_tags)
 
                 # Attach it.
                 self._conn.attach_volume(v['volumeId'], self.vm_id, k)
