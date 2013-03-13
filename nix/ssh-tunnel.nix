@@ -75,7 +75,7 @@ with pkgs.lib;
       # FIXME: ensure that the remote tunnel device is free
       exec =
         "ssh -i ${v.privateKey} -x"
-        + " -o StrictHostKeyChecking=no -o PermitLocalCommand=yes"
+        + " -o StrictHostKeyChecking=no -o PermitLocalCommand=yes -o ServerAliveInterval=20"
         + " -o LocalCommand='ifconfig tun${toString v.localTunnel} ${v.localIPv4} pointopoint ${v.remoteIPv4} netmask 255.255.255.255; route add ${v.remoteIPv4}/32 dev tun${toString v.localTunnel}'"
         + " -w ${toString v.localTunnel}:${toString v.remoteTunnel} ${v.target}"
         + " 'ifconfig tun${toString v.remoteTunnel} ${v.remoteIPv4} pointopoint ${v.localIPv4} netmask 255.255.255.255; route add ${v.localIPv4}/32 dev tun${toString v.remoteTunnel}'";
