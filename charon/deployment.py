@@ -579,6 +579,17 @@ class Deployment(object):
                 lines.append('        remoteIPv4 = "{0}";'.format(remote_ipv4))
                 lines.append('        privateKey = "/root/.ssh/id_charon_vpn";')
                 lines.append('      }};'.format(m2.name))
+
+                if hasattr(m2, 'public_host_key'):
+                    # Using references to files in same tempdir for now, until NixOS has support
+                    # for adding the keys directly as string. This way at least it is compatible
+                    # with older versions of NixOS as well.
+                    # TODO: after reasonable amount of time replace with string option
+                    lines.append('    services.openssh.knownHosts.{0} ='.format(m2.name))
+                    lines.append('      {{ hostNames = ["{0}-unencrypted" "{0}-encrypted" "{0}" ];'.format(m2.name))
+                    lines.append('        publicKeyFile = ./{0}.public_host_key;'.format(m2.name))
+                    lines.append('      }};'.format(m2.name))
+
                 # FIXME: set up the authorized_key file such that ‘m’
                 # can do nothing more than create a tunnel.
                 authorized_keys[m2.name].append('"' + m.public_vpn_key + '"')
@@ -632,6 +643,11 @@ class Deployment(object):
     def build_configs(self, include, exclude, dry_run=False):
         """Build the machine configurations in the Nix store."""
 
+        def write_temp_file(tmpfile, contents):
+            f = open(tmpfile, "w")
+            f.write(contents)
+            f.close()
+
         self.log("building all machine configurations...")
 
         # Set the NixOS version suffix, if we're building from Git.
@@ -644,11 +660,13 @@ class Deployment(object):
             self.nixos_version_suffix = subprocess.check_output(["/bin/sh", get_version_script] + self._nix_path_flags()).rstrip()
 
         phys_expr = self.tempdir + "/physical.nix"
-        f = open(phys_expr, "w")
         p = self.get_physical_spec()
-        f.write(p)
+        write_temp_file(phys_expr, p)
         if debug: print >> sys.stderr, "generated physical spec:\n" + p
-        f.close()
+
+        for m in self.active.itervalues():
+            if hasattr(m, "public_host_key"):
+                write_temp_file("{0}/{1}.public_host_key".format(self.tempdir,m.name), m.public_host_key)
 
         names = ['"' + m.name + '"' for m in self.active.itervalues() if should_do(m, include, exclude)]
 
