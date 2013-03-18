@@ -901,6 +901,7 @@ class EC2State(MachineState):
             self.warn("IP address has changed, you may need to run ‘charon deploy’")
 
         self.wait_for_ssh(check=True)
+        self.send_keys()
 
 
     def check(self):
