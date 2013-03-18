@@ -50,6 +50,10 @@ def get_access_key_id():
 
 
 def retry(f, error_codes=[]):
+    """
+        Retry function f up to 6 times. If error_codes argument is empty list, retry on all EC2 response errors,
+        otherwise, only on the specified error codes.
+    """
     i = 0
     num_retries = 6
     while i <= num_retries:
@@ -59,7 +63,7 @@ def retry(f, error_codes=[]):
         try:
             return f()
         except EC2ResponseError as e:
-            if i == num_retries or not e.error_code in error_codes:
+            if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
                 raise e
         except Exception as e:
             raise e
