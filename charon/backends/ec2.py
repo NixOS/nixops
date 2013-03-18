@@ -394,6 +394,36 @@ class EC2State(MachineState):
                 isinstance(r, charon.resources.iam_role.IAMRoleState)}
 
 
+    def attach_volume(self, device, volume_id):
+        self.log("attaching volume ‘{0}’ as ‘{1}’...".format(volume_id, _sd_to_xvd(device)))
+
+        volume = self._get_volume_by_id(volume_id)
+        if volume.status == "in-use" and \
+            self.depl.confirm("volume ‘{0}’ is in use by instance ‘{1}’, "
+                              "are you sure you want to attach this volume?".format(volume_id, volume.attach_data.instance_id)):
+
+            self.log("detaching volume ‘{0}’ from instance ‘{1}’...".format(volume_id, volume.attach_data.instance_id))
+            volume.detach()
+
+            def check_available():
+                res = volume.update()
+                sys.stderr.write("[{0}] ".format(res))
+                return res == 'available'
+
+            charon.util.check_wait(check_available)
+            if volume.update() != "available":
+                self.log("force detaching volume ‘{0}’ from instance ‘{1}’...".format(volume_id, volume.attach_data.instance_id))
+                volume.detach(True)
+                charon.util.check_wait(check_available)
+
+        # Attach it.
+        self._conn.attach_volume(volume_id, self.vm_id, device)
+        # Wait until the device is visible in the instance.
+        def check_dev():
+            res = self.run_command("test -e {0}".format(_sd_to_xvd(device)), check=False)
+            return res == 0
+        charon.util.check_wait(check_dev)
+
     def create(self, defn, check, allow_reboot):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
@@ -717,16 +747,7 @@ class EC2State(MachineState):
         # Attach missing volumes.
         for k, v in self.block_device_mapping.items():
             if v.get('needsAttach', False):
-                self.log("attaching volume ‘{0}’ as ‘{1}’...".format(v['volumeId'], _sd_to_xvd(k)))
-
-                # Attach it.
-                self._conn.attach_volume(v['volumeId'], self.vm_id, k)
-
-                # Wait until the device is visible in the instance.
-                def check_dev():
-                    res = self.run_command("test -e {0}".format(_sd_to_xvd(k)), check=False)
-                    return res == 0
-                charon.util.check_wait(check_dev)
+                self.attach_volume(k, v['volumeId'])
                 del v['needsAttach']
                 self.update_block_device_mapping(k, v)
 
