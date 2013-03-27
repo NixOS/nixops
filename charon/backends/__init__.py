@@ -185,10 +185,11 @@ class MachineState(charon.resources.ResourceState):
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True
 
-    def _open_ssh_master(self):
+    def _open_ssh_master(self, timeout=None):
         """Start an SSH master connection to speed up subsequent SSH sessions."""
         if self.ssh_master is not None: return
-        self.ssh_master = SSHMaster(self.depl.tempdir, self.name, self.get_ssh_name(), self.get_ssh_flags())
+        self.ssh_master = SSHMaster(self.depl.tempdir, self.name, self.get_ssh_name(),
+                                    self.get_ssh_flags() + (["-o", "ConnectTimeout={0}".format(timeout)] if timeout else []))
 
     def write_ssh_private_key(self, private_key):
         key_file = "{0}/id_charon-{1}".format(self.depl.tempdir, self.name)
@@ -263,10 +264,11 @@ class MachineState(charon.resources.ResourceState):
 
     def run_command(self, command, check=True, capture_stdout=False, stdin_string=None, timeout=None):
         """Execute a command on the machine via SSH."""
-        self._open_ssh_master()
+        # Note that the timeout is only respected if this is the first
+        # call to _open_ssh_master().
+        self._open_ssh_master(timeout=timeout)
         cmdline = (
             ["ssh", "-x", "root@" + self.get_ssh_name()] +
-            (["-o", "ConnectTimeout={0}".format(timeout)] if timeout else []) +
             self.ssh_master.opts + self.get_ssh_flags() + [command])
         return self._logged_exec(cmdline, check=check, capture_stdout=capture_stdout, stdin_string=stdin_string)
 
