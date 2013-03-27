@@ -81,18 +81,19 @@ in
   nodes =
     { coordinator =
         { config, pkgs, ... }:
-        { environment.systemPackages = [ charon pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox ];
+        { environment.systemPackages =
+            [ charon pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox pkgs.module_init_tools ];
           virtualisation.writableStore = true;
         };
 
-      target1 = 
+      target1 =
         { config, pkgs, ... }:
         { services.openssh.enable = true;
           virtualisation.writableStore = true;
           users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
         };
-        
-      target2 = 
+
+      target2 =
         { config, pkgs, ... }:
         { services.openssh.enable = true;
           virtualisation.writableStore = true;
@@ -104,7 +105,7 @@ in
     ''
       # Start all machines.
       startAll;
-      $coordinator->waitForJob("network-interfaces");
+      $coordinator->waitForJob("network-interfaces.target");
       $target1->waitForJob("sshd");
       $target2->waitForJob("sshd");
 
@@ -129,7 +130,7 @@ in
       subtest "info-before", sub {
         $coordinator->succeed("${env} charon info >&2");
       };
-      
+
       # Do a deployment.
       subtest "deploy-1", sub {
         $target1->fail("vim --version");
@@ -142,12 +143,12 @@ in
       subtest "info-after", sub {
         $coordinator->succeed("${env} charon info >&2");
       };
-      
+
       # Test ‘charon ssh’.
       subtest "ssh", sub {
         $coordinator->succeed("${env} charon ssh target1 -- -v ls / >&2");
       };
-      
+
       # Test ‘charon check’.
       subtest "check", sub {
         $coordinator->succeed("${env} charon check");
@@ -161,7 +162,7 @@ in
         $coordinator->succeed("curl --fail -v http://target1/ >&2");
         $coordinator->fail("curl --fail -v http://target1/foo >&2");
       };
-      
+
       # Deploy an Apache proxy to target1 and a backend to target2.
       subtest "deploy-3", sub {
         $coordinator->succeed("cp ${logical 3} logical.nix");
@@ -170,7 +171,7 @@ in
         $coordinator->succeed("curl --fail -v http://target2/ >&2");
         $coordinator->succeed("curl --fail -v http://target1/foo/ >&2");
       };
-      
+
     '';
-  
+
 })
