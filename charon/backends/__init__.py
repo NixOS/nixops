@@ -188,8 +188,16 @@ class MachineState(charon.resources.ResourceState):
     def _open_ssh_master(self, timeout=None):
         """Start an SSH master connection to speed up subsequent SSH sessions."""
         if self.ssh_master is not None: return
-        self.ssh_master = SSHMaster(self.depl.tempdir, self.name, self.get_ssh_name(),
-                                    self.get_ssh_flags() + (["-o", "ConnectTimeout={0}".format(timeout)] if timeout else []))
+        tries = 1 if timeout else 5
+        while True:
+            try:
+                self.ssh_master = SSHMaster(self.depl.tempdir, self.name, self.get_ssh_name(),
+                                            self.get_ssh_flags() + (["-o", "ConnectTimeout={0}".format(timeout)] if timeout else []))
+                break
+            except Exception:
+                tries = tries - 1
+                if tries == 0: raise
+                pass
 
     def write_ssh_private_key(self, private_key):
         key_file = "{0}/id_charon-{1}".format(self.depl.tempdir, self.name)
