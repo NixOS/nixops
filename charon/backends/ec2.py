@@ -938,7 +938,7 @@ class EC2State(MachineState):
         if not self.vm_id:
             raise Exception("cannot get console output of non-existant machine ‘{0}’".format(self.name))
         self.connect()
-        return self._conn.get_console_output(self.vm_id).output
+        return self._conn.get_console_output(self.vm_id).output or "(not available)"
 
 
 def _xvd_to_sd(dev):
