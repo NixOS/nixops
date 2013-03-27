@@ -34,6 +34,7 @@ class NoneState(MachineState):
         self.target_host = defn._target_host
 
     def get_ssh_name(self):
+        assert self.target_host
         return self.target_host
 
     def destroy(self):
