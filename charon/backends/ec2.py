@@ -854,7 +854,7 @@ class EC2State(MachineState):
             self.warn("cannot stop non-EBS-backed instance")
             return
 
-        self.log_start("stopping EC2 machine... ".format(self.name))
+        self.log_start("stopping EC2 machine... ")
 
         instance = self._get_instance_by_id(self.vm_id)
         instance.stop()  # no-op if the machine is already stopped
@@ -862,16 +862,29 @@ class EC2State(MachineState):
         self.state = self.STOPPING
 
         # Wait until it's really stopped.
-        while True:
+        def check_stopped():
             self.log_continue("({0}) ".format(instance.state))
             if instance.state == "stopped":
-                break
+                return True
             if instance.state not in {"running", "stopping"}:
                 raise Exception(
                     "EC2 instance ‘{0}’ failed to stop (state is ‘{1}’)"
                     .format(self.vm_id, instance.state))
-            time.sleep(3)
             instance.update()
+            return False
+
+        if not charon.util.check_wait(check_stopped, initial=3, max_tries=300, exception=False): # = 15 min
+            # If stopping times out, then do an unclean shutdown.
+            self.log_end("(timed out)")
+            self.log_start("force-stopping EC2 machine... ")
+            instance.stop(force=True)
+            if not charon.util.check_wait(check_stopped, initial=3, max_tries=100, exception=False): # = 5 min
+                # Amazon docs suggest doing a force stop twice...
+                self.log_end("(timed out)")
+                self.log_start("force-stopping EC2 machine... ")
+                instance.stop(force=True)
+                charon.util.check_wait(check_stopped, initial=3, max_tries=100) # = 5 min
+
         self.log_end("")
 
         self.state = self.STOPPED

@@ -17,7 +17,7 @@ import subprocess
 devnull = open(os.devnull, 'rw')
 
 
-def check_wait(test, initial=10, factor=1, max_tries=60):
+def check_wait(test, initial=10, factor=1, max_tries=60, exception=True):
     """Call function ‘test’ periodically until it returns True or a timeout occurs."""
     wait = initial
     tries = 0
@@ -26,7 +26,8 @@ def check_wait(test, initial=10, factor=1, max_tries=60):
         wait = wait * factor
         tries = tries + 1
         if tries == max_tries:
-            raise Exception("operation timed out")
+            if exception: raise Exception("operation timed out")
+            return False
     return True
 
 
@@ -113,6 +114,7 @@ def create_key_pair(key_name="Charon auto-generated key", type="dsa"):
     f = open(key_dir + "/key.pub"); public = f.read().rstrip(); f.close()
     shutil.rmtree(key_dir)
     return (private, public)
+
 
 class SelfDeletingDir(str):
     def __del__(self):
