@@ -721,6 +721,9 @@ class Deployment(object):
                     ("NIXOS_NO_SYNC=1 " if not sync else "") +
                     "/nix/var/nix/profiles/system/bin/switch-to-configuration " + ("boot" if force_reboot else "switch"),
                     check=False)
+                if res == 0:
+                    m.log("activation finished successfully...")
+
                 if res != 0 and res != 100:
                     raise Exception("unable to activate new configuration")
                 if res == 100 or force_reboot:
