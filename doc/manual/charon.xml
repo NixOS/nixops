@@ -413,6 +413,7 @@ $ charon delete -d foo</screen>
   <arg><option>--copy-only</option></arg>
   <arg><option>--check</option></arg>
   <arg><option>--allow-reboot</option></arg>
+  <arg><option>--force-reboot</option></arg>
   <arg>
     <option>--include</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
@@ -512,6 +513,14 @@ them.</para>
     For instance, if you change the type of an EC2 instance, Charon
     must stop, modify and restart the instance to effectuate this
     change.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--force-reboot</option></term>
+
+    <listitem><para>Reboot the machine to activate the new
+    configuration (using <command>nixos-rebuild
+    boot</command>).</para></listitem>
 
   </varlistentry>
 

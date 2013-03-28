@@ -275,6 +275,7 @@ def op_deploy():
                 include=args.include or [], exclude=args.exclude or [],
                 check=args.check, kill_obsolete=args.kill_obsolete,
                 allow_reboot=args.allow_reboot,
+                force_reboot=args.force_reboot,
                 max_concurrent_copy=args.max_concurrent_copy,
                 sync=not args.no_sync)
 
@@ -433,7 +434,7 @@ def op_rollback():
     depl = open_deployment()
     depl.rollback(args.generation,
                   include=args.include or [], exclude=args.exclude or [],
-                  check=args.check, allow_reboot=args.allow_reboot,
+                  check=args.check, allow_reboot=args.allow_reboot, force_reboot=args.force_reboot,
                   max_concurrent_copy=args.max_concurrent_copy,
                   sync=not args.no_sync)
 
@@ -517,6 +518,7 @@ def add_common_deployment_options(subparser):
     subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform deployment actions on the specified machines')
     subparser.add_argument('--check', action='store_true', help='do not assume that the recorded state is correct')
     subparser.add_argument('--allow-reboot', action='store_true', help='reboot machines if necessary')
+    subparser.add_argument('--force-reboot', action='store_true', help='reboot machines unconditionally')
     subparser.add_argument('--max-concurrent-copy', type=int, default=5, metavar='N', help='maximum number of concurrent nix-copy-closure processes')
     subparser.add_argument('--no-sync', action='store_true', help='do not flush buffers to disk')
 
