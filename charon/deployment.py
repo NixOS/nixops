@@ -716,10 +716,9 @@ class Deployment(object):
                 res = m.run_command(
                     # Set the system profile to the new configuration.
                     "set -e; nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + "; " +
-                    # In case the switch crashes the system, do a sync.
-                    ("sync; " if sync else "") +
                     # Run the switch script.  This will also update the
                     # GRUB boot loader.
+                    ("NIXOS_NO_SYNC=1 " if not sync else "") +
                     "/nix/var/nix/profiles/system/bin/switch-to-configuration switch",
                     check=False)
                 if res != 0 and res != 100:
