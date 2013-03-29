@@ -90,7 +90,7 @@ def op_import_json():
 def create_table(headers):
     tbl = PrettyTable([name for (name, align) in headers])
     for (name, align) in headers:
-        tbl.set_field_align(name, align)
+        tbl.align[name] = align
     return tbl
 
 
@@ -184,12 +184,15 @@ def op_info():
 def op_check():
     tbl = create_table(
         ([('Deployment', 'l')] if args.all else []) +
-        [('Name', 'l'), ('Exists', 'l'), ('Up', 'l'), ('Reachable', 'l'), ('Load avg.', 'l'), ('Failed services', 'l')])
+        [('Name', 'l'), ('Exists', 'l'), ('Up', 'l'), ('Reachable', 'l'), ('Load avg.', 'l'), ('Failed units', 'l')])
+
+    def warn(s):
+        return charon.util.ansi_warn(s, outfile=sys.stdout)
 
     def render_tristate(x):
         if x == None: return "N/A"
         elif x: return "Yes"
-        else: return "No"
+        else: return warn("No")
 
     def check(depl):
         for m in depl.active.itervalues():
@@ -201,7 +204,7 @@ def op_check():
                  render_tristate(res.is_up),
                  render_tristate(res.is_reachable),
                  '{0} {1} {2}'.format(res.load[0], res.load[1], res.load[2]) if res.load != None else "",
-                 ' '.join(res.failed_services) if res.failed_services != None else ""
+                 warn(' '.join(res.failed_units)) if res.failed_units != None else ""
                 ])
 
     if args.all:

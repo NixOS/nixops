@@ -118,12 +118,12 @@ class MachineState(charon.resources.ResourceState):
             res.is_reachable = True
             res.load = avg
 
-            # Get the systemd services that are in a failed state.
+            # Get the systemd units that are in a failed state.
             out = self.run_command("systemctl --failed --full", capture_stdout=True).split('\n')
-            res.failed_services = []
+            res.failed_units = []
             for l in out:
                 match = re.match("^([^ ]+) .* failed .*$", l)
-                if match: res.failed_services.append(match.group(1))
+                if match: res.failed_units.append(match.group(1))
 
     def restore(self, defn, backup_id):
         """Restore persistent disks to a given backup, if possible."""
@@ -389,14 +389,17 @@ class CheckResult(object):
         # in fact properly attached.
         self.disks_ok = None
 
-        # List of systemd services that are in a failed state.
-        self.failed_services = None
+        # List of systemd units that are in a failed state.
+        self.failed_units = None
 
         # Load average on the machine.
         self.load = None
 
         # Error messages.
         self.messages = []
+
+        # FIXME: add a check whether the active NixOS config on the
+        # machine is correct.
 
 
 import charon.backends.none
