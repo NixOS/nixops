@@ -213,7 +213,7 @@ def op_check():
     # Check all machines in parallel.
     def worker(m):
         res = m.check()
-        return ([m.depl.uuid] if args.all else []) + \
+        row = ([m.depl.uuid] if args.all else []) + \
             [m.name,
              render_tristate(res.exists),
              render_tristate(res.is_up),
@@ -223,15 +223,24 @@ def op_check():
              warn(' '.join(res.failed_units)) if res.failed_units != None else "",
              '\n'.join([warn(x) for x in res.messages])
             ]
+        status = 0
+        if not res.exists: status |= 1
+        if not res.is_up: status |= 2
+        if not res.is_reachable: status |= 4
+        if not res.disks_ok: status |= 8
+        if res.failed_units != []: status |= 16
+        return (m.depl.uuid, m.name, row, status)
 
     results = charon.parallel.run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
 
     # Sort the rows by deployment/machine.
-    def row_to_key(row):
-        return [row[0], row[1]] if args.all else row[0]
-    results = sorted(results, key=row_to_key)
-    for row in results: tbl.add_row(row)
+    status = 0
+    for res in sorted(results, key=lambda res: [res[0], res[1]]):
+        tbl.add_row(res[2])
+        status |= res[3]
     print tbl
+
+    sys.exit(status)
 
 
 def print_backups(depl, backups):
