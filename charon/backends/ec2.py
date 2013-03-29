@@ -703,7 +703,7 @@ class EC2State(MachineState):
         # them.
         for k, v in self.block_device_mapping.items():
             if k not in instance.block_device_mapping.keys() and not v.get('needsAttach', False) and v.get('volumeId', None):
-                self.warn("device ‘{0}’ was manually detached!".format(k))
+                self.warn("device ‘{0}’ was manually detached!".format(_sd_to_xvd(k)))
                 v['needsAttach'] = True
                 self.update_block_device_mapping(k, v)
 
@@ -921,30 +921,44 @@ class EC2State(MachineState):
         if not self.vm_id:
             res.exists = False
             return
+
         self.connect()
         instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
         old_state = self.state
         self.log("instance state is ‘{0}’".format(instance.state if instance else "gone"))
+
         if instance is None or instance.state in {"shutting-down", "terminated"}:
             self.state = self.MISSING
-        else:
-            res.exists = True
-            if instance.state == "pending":
-                res.is_up = False
-                self.state = self.STARTING
-            elif instance.state == "running":
-                res.is_up = True
-                if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:
-                    self.warn("IP address has changed, you may need to run ‘charon deploy’")
-                    self.private_ipv4 = instance.private_ip_address
-                    self.public_ipv4 = instance.ip_address
-                MachineState._check(self, res)
-            elif instance.state == "stopping":
-                res.is_up = False
-                self.state = self.STOPPING
-            elif instance.state == "stopped":
-                res.is_up = False
-                self.state = self.STOPPED
+            return
+
+        res.exists = True
+        if instance.state == "pending":
+            res.is_up = False
+            self.state = self.STARTING
+
+        elif instance.state == "running":
+            res.is_up = True
+
+            res.disks_ok = True
+            for k, v in self.block_device_mapping.items():
+                if k not in instance.block_device_mapping.keys() and not v.get('needsAttach', False) and v.get('volumeId', None):
+                    res.disks_ok = False
+                    res.messages.append("device ‘{0}’ is gone".format(_sd_to_xvd(k)))
+
+            if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:
+                self.warn("IP address has changed, you may need to run ‘charon deploy’")
+                self.private_ipv4 = instance.private_ip_address
+                self.public_ipv4 = instance.ip_address
+
+            MachineState._check(self, res)
+
+        elif instance.state == "stopping":
+            res.is_up = False
+            self.state = self.STOPPING
+
+        elif instance.state == "stopped":
+            res.is_up = False
+            self.state = self.STOPPED
 
 
     def reboot(self):

@@ -184,7 +184,8 @@ def op_info():
 def op_check():
     tbl = create_table(
         ([('Deployment', 'l')] if args.all else []) +
-        [('Name', 'l'), ('Exists', 'l'), ('Up', 'l'), ('Reachable', 'l'), ('Load avg.', 'l'), ('Failed units', 'l')])
+        [('Name', 'l'), ('Exists', 'l'), ('Up', 'l'), ('Reachable', 'l'),
+         ('Disks OK', 'l'), ('Load avg.', 'l'), ('Failed units', 'l'), ('Notes', 'l')])
 
     def warn(s):
         return charon.util.ansi_warn(s, outfile=sys.stdout)
@@ -217,8 +218,10 @@ def op_check():
              render_tristate(res.exists),
              render_tristate(res.is_up),
              render_tristate(res.is_reachable),
+             render_tristate(res.disks_ok),
              '{0} {1} {2}'.format(res.load[0], res.load[1], res.load[2]) if res.load != None else "",
-             warn(' '.join(res.failed_units)) if res.failed_units != None else ""
+             warn(' '.join(res.failed_units)) if res.failed_units != None else "",
+             '\n'.join([warn(x) for x in res.messages])
             ]
 
     results = charon.parallel.run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
