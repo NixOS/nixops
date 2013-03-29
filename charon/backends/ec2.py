@@ -917,8 +917,9 @@ class EC2State(MachineState):
         self.send_keys()
 
 
-    def check(self):
+    def _check(self, res):
         if not self.vm_id:
+            res.exists = False
             return
         self.connect()
         instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
@@ -926,18 +927,24 @@ class EC2State(MachineState):
         self.log("instance state is ‘{0}’".format(instance.state if instance else "gone"))
         if instance is None or instance.state in {"shutting-down", "terminated"}:
             self.state = self.MISSING
-        elif instance.state == "pending":
-            self.state = self.STARTING
-        elif instance.state == "running":
-            if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:
-                self.warn("IP address has changed, you may need to run ‘charon deploy’")
-                self.private_ipv4 = instance.private_ip_address
-                self.public_ipv4 = instance.ip_address
-            MachineState.check(self)
-        elif instance.state == "stopping":
-            self.state = self.STOPPING
-        elif instance.state == "stopped":
-            self.state = self.STOPPED
+        else:
+            res.exists = True
+            if instance.state == "pending":
+                res.is_up = False
+                self.state = self.STARTING
+            elif instance.state == "running":
+                res.is_up = True
+                if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:
+                    self.warn("IP address has changed, you may need to run ‘charon deploy’")
+                    self.private_ipv4 = instance.private_ip_address
+                    self.public_ipv4 = instance.ip_address
+                MachineState._check(self, res)
+            elif instance.state == "stopping":
+                res.is_up = False
+                self.state = self.STOPPING
+            elif instance.state == "stopped":
+                res.is_up = False
+                self.state = self.STOPPED
 
 
     def reboot(self):

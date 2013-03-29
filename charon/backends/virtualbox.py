@@ -340,14 +340,19 @@ class VirtualBoxState(MachineState):
         self.wait_for_ssh(check=True)
 
 
-    def check(self):
-        if not self.vm_id: return
+    def _check(self, res):
+        if not self.vm_id:
+            res.exists = False
+            return
         state = self._get_vm_state()
+        res.exists = True
         self.log("VM state is ‘{0}’".format(state))
         if state == "poweroff" or state == "aborted":
+            res.is_up = False
             self.state = self.STOPPED
         elif state == "running":
+            res.is_up = True
             self._update_ip()
-            MachineState.check(self)
+            MachineState._check(self, res)
         else:
             self.state = self.UNKNOWN

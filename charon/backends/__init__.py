@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import re
 import sys
 import time
 import shutil
@@ -31,7 +32,7 @@ class SSHMaster(object):
              "-M", "-N", "-f", '-oNumberOfPasswordPrompts=0']
             + ssh_flags)
         if res != 0:
-            raise Exception("unable to start SSH master connection to ‘{0}’".format(name))
+            raise SSHConnectionFailed("unable to start SSH master connection to ‘{0}’".format(name))
 
         self.opts = ["-S", self._control_socket]
 
@@ -92,21 +93,37 @@ class MachineState(charon.resources.ResourceState):
             res = self.run_command("cat /proc/loadavg", capture_stdout=True, timeout=15).rstrip().split(' ')
             assert len(res) >= 3
             return res
+        except SSHConnectionFailed:
+            return None
         except SSHCommandFailed:
             return None
 
+    # FIXME: Move this to ResourceState so that other kinds of
+    # resources can be checked.
     def check(self):
         """Check machine state."""
-        self.log_start("pinging SSH... ")
+        res = CheckResult()
+        self._check(res)
+        return res
+
+    def _check(self, res):
         avg = self.get_load_avg()
         if avg == None:
-            self.log_end("unreachable")
             if self.state == self.UP: self.state = self.UNREACHABLE
+            res.is_reachable = False
         else:
-            self.log_end("up [{0} {1} {2}]".format(avg[0], avg[1], avg[2]))
             self.state = self.UP
             self.ssh_pinged = True
             self._ssh_pinged_this_time = True
+            res.is_reachable = True
+            res.load = avg
+
+            # Get the systemd services that are in a failed state.
+            out = self.run_command("systemctl --failed --full", capture_stdout=True).split('\n')
+            res.failed_services = []
+            for l in out:
+                match = re.match("^([^ ]+) .* failed .*$", l)
+                if match: res.failed_services.append(match.group(1))
 
     def restore(self, defn, backup_id):
         """Restore persistent disks to a given backup, if possible."""
@@ -349,8 +366,37 @@ class MachineState(charon.resources.ResourceState):
         return "(not available for this machine type)\n"
 
 
+class SSHConnectionFailed(Exception):
+    pass
+
 class SSHCommandFailed(Exception):
     pass
+
+
+class CheckResult(object):
+    def __init__(self):
+        # Whether the resource exists.
+        self.exists = None
+
+        # Whether the resource is "up".  Generally only meaningful for
+        # machines.
+        self.is_up = None
+
+        # Whether the resource is reachable via SSH.
+        self.is_reachable = None
+
+        # Whether the disks that should be attached to a machine are
+        # in fact properly attached.
+        self.disks_ok = None
+
+        # List of systemd services that are in a failed state.
+        self.failed_services = None
+
+        # Load average on the machine.
+        self.load = None
+
+        # Error messages.
+        self.messages = []
 
 
 import charon.backends.none

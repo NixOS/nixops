@@ -87,16 +87,15 @@ def op_import_json():
     set_name(depl, args.name)
 
 
-def op_info():
-    table_header = ["Name", "Status", "Type", "Resource Id", "IP address"]
+def create_table(headers):
+    tbl = PrettyTable([name for (name, align) in headers])
+    for (name, align) in headers:
+        tbl.set_field_align(name, align)
+    return tbl
 
-    def make_table(extra_columns):
-        tbl = PrettyTable(extra_columns + table_header)
-        tbl.set_field_align("Name", "l")
-        tbl.set_field_align("Type", "l")
-        tbl.set_field_align("Resource Id", "l")
-        tbl.set_field_align("IP address", "l")
-        return tbl
+
+def op_info():
+    table_headers = [('Name', 'l'), ('Status', 'c'), ('Type', 'l'), ('Resource Id', 'l'), ('IP address', 'l')]
 
     def state(depl, d, m):
         if not d and (depl.definitions != None or m.obsolete): return "Obsolete"
@@ -154,9 +153,8 @@ def op_info():
     if args.all:
         db = deployment.open_database(args.state_file)
         uuids = deployment.query_deployments(db)
-        if not args.plain: 
-            tbl = make_table(["Deployment"])
-            tbl.set_field_align("Deployment", "l")
+        if not args.plain:
+            tbl = create_table([('Deployment', 'l')] + table_headers)
         for uuid in uuids:
             depl = deployment.open_deployment(db, uuid=uuid)
             do_eval(depl)
@@ -178,24 +176,44 @@ def op_info():
             if depl.rollback_enabled: print "Nix profile:", depl.get_profile()
             if depl.args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl.args.iteritems()])
             print
-            tbl = make_table([])
+            tbl = create_table(table_headers)
             print_deployment(depl)
             print tbl
 
 
 def op_check():
+    tbl = create_table(
+        ([('Deployment', 'l')] if args.all else []) +
+        [('Name', 'l'), ('Exists', 'l'), ('Up', 'l'), ('Reachable', 'l'), ('Load avg.', 'l'), ('Failed services', 'l')])
+
+    def render_tristate(x):
+        if x == None: return "N/A"
+        elif x: return "Yes"
+        else: return "No"
+
     def check(depl):
         for m in depl.active.itervalues():
-            m.check()
+            res = m.check()
+            tbl.add_row(
+                ([depl.uuid] if args.all else []) +
+                [m.name,
+                 render_tristate(res.exists),
+                 render_tristate(res.is_up),
+                 render_tristate(res.is_reachable),
+                 '{0} {1} {2}'.format(res.load[0], res.load[1], res.load[2]) if res.load != None else "",
+                 ' '.join(res.failed_services) if res.failed_services != None else ""
+                ])
+
     if args.all:
         db = deployment.open_database(args.state_file)
         uuids = deployment.query_deployments(db)
         for uuid in uuids:
             depl = deployment.open_deployment(db, uuid=uuid)
-            sys.stderr.write("{0}:\n".format(depl.name or depl.uuid))
             check(depl)
     else:
        check(open_deployment())
+
+    print tbl
 
 
 def print_backups(depl, backups):

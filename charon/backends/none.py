@@ -37,6 +37,12 @@ class NoneState(MachineState):
         assert self.target_host
         return self.target_host
 
+    def _check(self, res):
+        res.exists = True # can't really check
+        res.is_up = charon.util.ping_tcp_port(self.target_host, 22)
+        if res.is_up:
+            MachineState._check(self, res)
+
     def destroy(self):
         # No-op; just forget about the machine.
         return True
