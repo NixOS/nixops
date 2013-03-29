@@ -199,6 +199,7 @@ def op_check():
 
     def check(depl):
         for m in depl.active.itervalues():
+            if not charon.deployment.should_do(m, args.include or [], args.exclude or []): return
             machines.append(m)
 
     if args.all:
@@ -551,6 +552,8 @@ subparser.add_argument('--no-eval', action='store_true', help='do not evaluate t
 subparser = add_subparser('check', help='check the state of the machines in the network')
 subparser.set_defaults(op=op_check)
 subparser.add_argument('--all',  action='store_true', help='check all deployments')
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='check only the specified machines')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='check all except the specified machines')
 
 subparser = add_subparser('set-args', help='persistently set arguments to the deployment specification')
 subparser.set_defaults(op=op_set_args)
