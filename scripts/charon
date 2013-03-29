@@ -194,18 +194,11 @@ def op_check():
         elif x: return "Yes"
         else: return warn("No")
 
+    machines = []
+
     def check(depl):
         for m in depl.active.itervalues():
-            res = m.check()
-            tbl.add_row(
-                ([depl.uuid] if args.all else []) +
-                [m.name,
-                 render_tristate(res.exists),
-                 render_tristate(res.is_up),
-                 render_tristate(res.is_reachable),
-                 '{0} {1} {2}'.format(res.load[0], res.load[1], res.load[2]) if res.load != None else "",
-                 warn(' '.join(res.failed_units)) if res.failed_units != None else ""
-                ])
+            machines.append(m)
 
     if args.all:
         db = deployment.open_database(args.state_file)
@@ -216,6 +209,25 @@ def op_check():
     else:
        check(open_deployment())
 
+    # Check all machines in parallel.
+    def worker(m):
+        res = m.check()
+        return ([m.depl.uuid] if args.all else []) + \
+            [m.name,
+             render_tristate(res.exists),
+             render_tristate(res.is_up),
+             render_tristate(res.is_reachable),
+             '{0} {1} {2}'.format(res.load[0], res.load[1], res.load[2]) if res.load != None else "",
+             warn(' '.join(res.failed_units)) if res.failed_units != None else ""
+            ]
+
+    results = charon.parallel.run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
+
+    # Sort the rows by deployment/machine.
+    def row_to_key(row):
+        return [row[0], row[1]] if args.all else row[0]
+    results = sorted(results, key=row_to_key)
+    for row in results: tbl.add_row(row)
     print tbl
 
 
