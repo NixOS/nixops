@@ -721,17 +721,20 @@ class Deployment(object):
                     ("NIXOS_NO_SYNC=1 " if not sync else "") +
                     "/nix/var/nix/profiles/system/bin/switch-to-configuration " + ("boot" if force_reboot else "switch"),
                     check=False)
-                if res == 0:
-                    m.log("activation finished successfully...")
 
                 if res != 0 and res != 100:
                     raise Exception("unable to activate new configuration")
+
                 if res == 100 or force_reboot:
                     if not allow_reboot and not force_reboot:
                         raise Exception("the new configuration requires a reboot to take effect (hint: use ‘--allow-reboot’)".format(m.name))
                     m.reboot_sync()
+                    res = 0
                     # FIXME: should check which systemd services
                     # failed to start after the reboot.
+
+                if res == 0:
+                    m.log("activation finished successfully")
 
                 # Record that we switched this machine to the new
                 # configuration.
