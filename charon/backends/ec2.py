@@ -257,6 +257,7 @@ class EC2State(MachineState):
             self.log_continue("({0}) ".format(instance.state))
             if instance.state not in {"pending", "running", "scheduling", "launching", "stopped"}:
                 raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self.vm_id, instance.state))
+            if instance.state != "running": continue
             if instance.ip_address:
                 break
             time.sleep(3)
