@@ -225,11 +225,11 @@ def op_check():
              '\n'.join([warn(x) for x in res.messages])
             ]
         status = 0
-        if not res.exists: status |= 1
-        if not res.is_up: status |= 2
-        if not res.is_reachable: status |= 4
-        if not res.disks_ok: status |= 8
-        if res.failed_units != []: status |= 16
+        if res.exists == False: status |= 1
+        if res.is_up == False: status |= 2
+        if res.is_reachable == False: status |= 4
+        if res.disks_ok == False: status |= 8
+        if res.failed_units != None and res.failed_units != []: status |= 16
         return (m.depl.uuid, m.name, row, status)
 
     results = charon.parallel.run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
