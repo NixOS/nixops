@@ -119,11 +119,19 @@ class MachineState(charon.resources.ResourceState):
             res.load = avg
 
             # Get the systemd units that are in a failed state.
-            out = self.run_command("systemctl --failed --full", capture_stdout=True).split('\n')
+            out = self.run_command("systemctl --all --full", capture_stdout=True).split('\n')
             res.failed_units = []
             for l in out:
                 match = re.match("^([^ ]+) .* failed .*$", l)
                 if match: res.failed_units.append(match.group(1))
+                # Currently in systemd, failed mounts enter the
+                # "inactive" rather than "failed" state.  So check for
+                # that.  Hack: ignore special filesystems like
+                # /sys/kernel/config.  Systemd tries to mount these
+                # even when they don't exist.
+                match = re.match("^([^\.]+\.mount) .* inactive .*$", l)
+                if match and not match.group(1).startswith("sys-")  and not match.group(1).startswith("dev-"):
+                    res.failed_units.append(match.group(1))
 
     def restore(self, defn, backup_id):
         """Restore persistent disks to a given backup, if possible."""
