@@ -221,7 +221,7 @@ def op_check():
              render_tristate(res.is_reachable),
              render_tristate(res.disks_ok),
              '{0} {1} {2}'.format(res.load[0], res.load[1], res.load[2]) if res.load != None else "",
-             warn(' '.join(res.failed_units)) if res.failed_units != None else "",
+             '\n'.join([warn(x) for x in res.failed_units]) if res.failed_units != None else "",
              '\n'.join([warn(x) for x in res.messages])
             ]
         status = 0
