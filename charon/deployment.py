@@ -571,7 +571,7 @@ class Deployment(object):
                 remote_ipv4 = index_to_private_ip(m2.index)
                 local_tunnel = 10000 + m2.index
                 remote_tunnel = 10000 + m.index
-                lines.append('    networking.p2pTunnels.{0} ='.format(m2.name))
+                lines.append('    networking.p2pTunnels.ssh.{0} ='.format(m2.name))
                 lines.append('      {{ target = "{0}-unencrypted";'.format(m2.name))
                 lines.append('        localTunnel = {0};'.format(local_tunnel))
                 lines.append('        remoteTunnel = {0};'.format(remote_tunnel))

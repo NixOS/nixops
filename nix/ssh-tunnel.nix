@@ -8,7 +8,7 @@ with pkgs.lib;
 
   options = {
 
-    networking.p2pTunnels = mkOption {
+    networking.p2pTunnels.ssh = mkOption {
       default = { };
       example =
         { tunnel1 =
@@ -65,7 +65,7 @@ with pkgs.lib;
         wantedBy = [ "network.target" ];
       };
 
-    jobs = flip mapAttrs' config.networking.p2pTunnels (n: v: nameValuePair "ssh-tunnel-${n}" {
+    jobs = flip mapAttrs' config.networking.p2pTunnels.ssh (n: v: nameValuePair "ssh-tunnel-${n}" {
       wantedBy = [ "multi-user.target" "encrypted-links.target" ];
       partOf = [ "encrypted-links.target" ];
       startOn = "started network-interfaces";
