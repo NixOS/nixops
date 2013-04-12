@@ -167,6 +167,7 @@ class EC2State(MachineState):
     def get_physical_backup_spec(self, backupid):
         return [ '    deployment.ec2.blockDeviceMapping."{0}".disk = "{1}";'.format(_sd_to_xvd(dev), snap) for dev, snap in self.backups[backupid].items() if dev != "/dev/sda" ]
 
+
     def get_keys(self):
         keys = MachineState.get_keys(self)
         # Ugly: we have to add the generated keys because they're not
@@ -231,13 +232,17 @@ class EC2State(MachineState):
         return reservations[0].instances[0]
 
 
-    def _get_volume_by_id(self, volume_id):
+    def _get_volume_by_id(self, volume_id, allow_missing=False):
         """Get instance object by instance id."""
         self.connect()
-        volumes = self._conn.get_all_volumes([volume_id])
-        if len(volumes) != 1:
-            raise Exception("unable to find volume ‘{0}’".format(volume_id))
-        return volumes[0]
+        try:
+            volumes = self._conn.get_all_volumes([volume_id])
+            if len(volumes) != 1:
+                raise Exception("unable to find volume ‘{0}’".format(volume_id))
+            return volumes[0]
+        except boto.exception.EC2ResponseError as e:
+            if e.error_code != "InvalidVolume.NotFound": raise
+        return None
 
 
     def _get_snapshot_by_id(self, snapshot_id):
@@ -425,7 +430,8 @@ class EC2State(MachineState):
             return res == 0
         charon.util.check_wait(check_dev)
 
-    def create(self, defn, check, allow_reboot):
+
+    def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
 
@@ -454,6 +460,8 @@ class EC2State(MachineState):
             self.connect()
             instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
             if instance is None or instance.state in {"shutting-down", "terminated"}:
+                if not allow_recreate:
+                    raise Exception("EC2 instance ‘{0}’ went away; use ‘--allow-recreate’ to create a new one".format(self.name))
                 self.log("EC2 instance went away (state ‘{0}’), will recreate".format(instance.state if instance else "gone"))
                 self._reset_state()
             elif instance.state == "stopped":
@@ -708,6 +716,18 @@ class EC2State(MachineState):
                 v['needsAttach'] = True
                 self.update_block_device_mapping(k, v)
 
+        # Detect if volumes were manually destroyed.
+        for k, v in self.block_device_mapping.items():
+            if v.get('needsAttach', False):
+                volume = self._get_volume_by_id(v['volumeId'], allow_missing=True)
+                if volume: continue
+                if not allow_recreate:
+                    raise Exception("volume ‘{0}’ (used by EC2 instance ‘{1}’) no longer exists; "
+                                    "run ‘charon stop’, then ‘charon deploy --allow-recreate’ to create a new, empty volume"
+                                    .format(v['volumeId'], self.name))
+                self.warn("volume ‘{0}’ has disappeared; will create an empty volume to replace it".format(v['volumeId']))
+                self.update_block_device_mapping(k, None)
+
         # Create missing volumes.
         for k, v in defn.block_device_mapping.iteritems():
             if k in self.block_device_mapping: continue
@@ -797,18 +817,16 @@ class EC2State(MachineState):
         change.add_value(self.public_ipv4)
         changes.commit()
 
+
     def _delete_volume(self, volume_id):
         if not self.depl.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
             raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
         self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
-        try:
-            volume = self._get_volume_by_id(volume_id)
-            charon.util.check_wait(lambda: volume.update() == 'available')
-            volume.delete()
-        except boto.exception.EC2ResponseError as e:
-            # Ignore volumes that have disappeared already.
-            if e.error_code != "InvalidVolume.NotFound":
-                raise
+        volume = self._get_volume_by_id(volume_id, allow_missing=True)
+        if not volume: return
+        charon.util.check_wait(lambda: volume.update() == 'available')
+        volume.delete()
+
 
     def destroy(self):
         if not (self.vm_id or self.client_token): return True
@@ -926,7 +944,7 @@ class EC2State(MachineState):
         self.connect()
         instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
         old_state = self.state
-        self.log("instance state is ‘{0}’".format(instance.state if instance else "gone"))
+        #self.log("instance state is ‘{0}’".format(instance.state if instance else "gone"))
 
         if instance is None or instance.state in {"shutting-down", "terminated"}:
             self.state = self.MISSING
@@ -945,10 +963,8 @@ class EC2State(MachineState):
                 if k not in instance.block_device_mapping.keys() and v.get('volumeId', None):
                     res.disks_ok = False
                     res.messages.append("volume ‘{0}’ not attached to ‘{1}’".format(v['volumeId'], _sd_to_xvd(k)))
-                    try:
-                        self._get_volume_by_id(v['volumeId'])
-                    except boto.exception.EC2ResponseError as e:
-                        if e.error_code != "InvalidVolume.NotFound": raise
+                    volume = self._get_volume_by_id(v['volumeId'], allow_missing=True)
+                    if not volume:
                         res.messages.append("volume ‘{0}’ no longer exists".format(v['volumeId']))
 
             if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:

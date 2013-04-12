@@ -61,7 +61,7 @@ class EC2KeyPairState(charon.resources.ResourceState):
         self._conn = charon.ec2_utils.connect(self.region, self.access_key_id)
 
 
-    def create(self, defn, check, allow_reboot):
+    def create(self, defn, check, allow_reboot, allow_recreate):
 
         self.access_key_id = defn.access_key_id or charon.ec2_utils.get_access_key_id()
         if not self.access_key_id:

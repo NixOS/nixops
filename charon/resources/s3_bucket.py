@@ -62,7 +62,7 @@ class S3BucketState(charon.resources.ResourceState):
         self._conn = boto.s3.connection.S3Connection(aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
 
-    def create(self, defn, check, allow_reboot):
+    def create(self, defn, check, allow_reboot, allow_recreate):
 
         self.access_key_id = defn.access_key_id or charon.ec2_utils.get_access_key_id()
         if not self.access_key_id:

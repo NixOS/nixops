@@ -150,7 +150,7 @@ class VirtualBoxState(MachineState):
         charon.known_hosts.remove(self.private_ipv4)
 
 
-    def create(self, defn, check, allow_reboot):
+    def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, VirtualBoxDefinition)
 
         if self.state != self.UP or check: self.check()

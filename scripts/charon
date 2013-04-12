@@ -321,6 +321,7 @@ def op_deploy():
                 include=args.include or [], exclude=args.exclude or [],
                 check=args.check, kill_obsolete=args.kill_obsolete,
                 allow_reboot=args.allow_reboot,
+                allow_recreate=args.allow_recreate,
                 force_reboot=args.force_reboot,
                 max_concurrent_copy=args.max_concurrent_copy,
                 sync=not args.no_sync)
@@ -577,6 +578,7 @@ subparser.add_argument('--dry-run', action='store_true', help='show what would b
 subparser.add_argument('--build-only', action='store_true', help='build only; do not perform deployment actions')
 subparser.add_argument('--create-only', action='store_true', help='exit after creating missing machines')
 subparser.add_argument('--copy-only', action='store_true', help='exit after copying closures')
+subparser.add_argument('--allow-recreate', action='store_true', help='recreate resources machines that have disappeared')
 add_common_deployment_options(subparser)
 
 subparser = add_subparser('send-keys', help='send encryption keys')

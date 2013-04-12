@@ -128,7 +128,7 @@ class ResourceState(object):
         """Return a set of resources that should be created before this one."""
         return {}
 
-    def create(self, defn, check, allow_reboot):
+    def create(self, defn, check, allow_reboot, allow_recreate):
         """Create or update the resource defined by ‘defn’."""
         assert False
 

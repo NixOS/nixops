@@ -414,6 +414,7 @@ $ charon delete -d foo</screen>
   <arg><option>--check</option></arg>
   <arg><option>--allow-reboot</option></arg>
   <arg><option>--force-reboot</option></arg>
+  <arg><option>--allow-recreate</option></arg>
   <arg>
     <option>--include</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
@@ -521,6 +522,15 @@ them.</para>
     <listitem><para>Reboot the machine to activate the new
     configuration (using <command>nixos-rebuild
     boot</command>).</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--allow-recreate</option></term>
+
+    <listitem><para>Recreate resources that have disappeared
+    (e.g. destroyed through mechanisms outside of Charon).  Without
+    this flag, Charon will print an error if a resource that should
+    exist no longer does.</para></listitem>
 
   </varlistentry>
 
