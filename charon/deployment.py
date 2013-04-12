@@ -734,7 +734,7 @@ class Deployment(object):
                     # failed to start after the reboot.
 
                 if res == 0:
-                    m.log("activation finished successfully")
+                    m.success("activation finished successfully")
 
                 # Record that we switched this machine to the new
                 # configuration.

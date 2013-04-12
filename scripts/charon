@@ -94,6 +94,11 @@ def create_table(headers):
     return tbl
 
 
+def machine_to_key(depl, name, type):
+    xs = [int(x) if x.isdigit() else x for x in re.split('(\d+)', name)]
+    return [depl, type, xs]
+
+
 def op_info():
     table_headers = [('Name', 'l'), ('Status', 'c'), ('Type', 'l'), ('Resource Id', 'l'), ('IP address', 'l')]
 
@@ -118,10 +123,9 @@ def op_info():
         # Sort machines by type, then name.  Sort numbers in machine
         # names numerically (e.g. "foo10" comes after "foo9").
         def name_to_key(name):
-            xs = [int(x) if x.isdigit() else x for x in re.split('(\d+)', name)]
             d = definitions.get(name)
             r = depl.resources.get(name)
-            return [r.get_type(), xs] if r else [d.get_type(), xs]
+            return machine_to_key(depl.uuid, name, r.get_type()) if r else machine_to_key(depl.uuid, name, d.get_type)
         names = sorted(
             set(definitions.keys()) | set(depl.resources.keys()), 
             key=name_to_key
@@ -155,6 +159,7 @@ def op_info():
         uuids = deployment.query_deployments(db)
         if not args.plain:
             tbl = create_table([('Deployment', 'l')] + table_headers)
+        # FIXME: sort by deployment name/uuid.
         for uuid in uuids:
             depl = deployment.open_deployment(db, uuid=uuid)
             do_eval(depl)
@@ -192,7 +197,7 @@ def op_check():
 
     def render_tristate(x):
         if x == None: return "N/A"
-        elif x: return "Yes"
+        elif x: return charon.util.ansi_success("Yes", outfile=sys.stdout)
         else: return warn("No")
 
     machines = []
@@ -214,7 +219,7 @@ def op_check():
     # Check all machines in parallel.
     def worker(m):
         res = m.check()
-        row = ([m.depl.uuid] if args.all else []) + \
+        row = ([m.depl.name or m.depl.uuid] if args.all else []) + \
             [m.name,
              render_tristate(res.exists),
              render_tristate(res.is_up),
@@ -230,13 +235,13 @@ def op_check():
         if res.is_reachable == False: status |= 4
         if res.disks_ok == False: status |= 8
         if res.failed_units != None and res.failed_units != []: status |= 16
-        return (m.depl.uuid, m.name, row, status)
+        return (m.depl.name or m.depl.uuid, m, row, status)
 
     results = charon.parallel.run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
 
     # Sort the rows by deployment/machine.
     status = 0
-    for res in sorted(results, key=lambda res: [res[0], res[1]]):
+    for res in sorted(results, key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type())):
         tbl.add_row(res[2])
         status |= res[3]
     print tbl

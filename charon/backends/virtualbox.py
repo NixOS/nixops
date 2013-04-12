@@ -346,7 +346,7 @@ class VirtualBoxState(MachineState):
             return
         state = self._get_vm_state()
         res.exists = True
-        self.log("VM state is ‘{0}’".format(state))
+        #self.log("VM state is ‘{0}’".format(state))
         if state == "poweroff" or state == "aborted":
             res.is_up = False
             self.state = self.STOPPED

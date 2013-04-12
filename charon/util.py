@@ -77,6 +77,10 @@ def ansi_warn(s, outfile=sys.stderr):
     return "\033[1;31m" + s + "\033[0m" if outfile.isatty() else s
 
 
+def ansi_success(s, outfile=sys.stderr):
+    return "\033[1;32m" + s + "\033[0m" if outfile.isatty() else s
+
+
 def abs_nix_path(x):
     xs = x.split('=', 1)
     if len(xs) == 1: return os.path.abspath(x)

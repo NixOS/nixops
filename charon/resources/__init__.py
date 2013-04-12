@@ -97,6 +97,9 @@ class ResourceState(object):
     def warn(self, msg):
         self.log(charon.util.ansi_warn("warning: " + msg, outfile=self.depl._log_file))
 
+    def success(self, msg):
+        self.log(charon.util.ansi_success(msg, outfile=self.depl._log_file))
+
     def show_type(self):
         return self.get_type()
 
