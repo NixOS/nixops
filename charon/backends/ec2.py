@@ -945,6 +945,11 @@ class EC2State(MachineState):
                 if k not in instance.block_device_mapping.keys() and v.get('volumeId', None):
                     res.disks_ok = False
                     res.messages.append("volume ‘{0}’ not attached to ‘{1}’".format(v['volumeId'], _sd_to_xvd(k)))
+                    try:
+                        self._get_volume_by_id(v['volumeId'])
+                    except boto.exception.EC2ResponseError as e:
+                        if e.error_code != "InvalidVolume.NotFound": raise
+                        res.messages.append("volume ‘{0}’ no longer exists".format(v['volumeId']))
 
             if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:
                 self.warn("IP address has changed, you may need to run ‘charon deploy’")
