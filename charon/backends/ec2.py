@@ -942,9 +942,9 @@ class EC2State(MachineState):
 
             res.disks_ok = True
             for k, v in self.block_device_mapping.items():
-                if k not in instance.block_device_mapping.keys() and not v.get('needsAttach', False) and v.get('volumeId', None):
+                if k not in instance.block_device_mapping.keys() and v.get('volumeId', None):
                     res.disks_ok = False
-                    res.messages.append("device ‘{0}’ is gone".format(_sd_to_xvd(k)))
+                    res.messages.append("volume ‘{0}’ not attached to ‘{1}’".format(v['volumeId'], _sd_to_xvd(k)))
 
             if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:
                 self.warn("IP address has changed, you may need to run ‘charon deploy’")
