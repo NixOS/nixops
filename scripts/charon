@@ -689,17 +689,20 @@ add_common_deployment_options(subparser)
 
 
 # Parse the command line and execute the desired operation.
+def error(msg):
+    sys.stderr.write("error: " + charon.util.ansi_warn(msg) + "\n")
+
 args = parser.parse_args()
 try:
     charon.deployment.debug = args.debug
     args.op()
 except deployment.NixEvalError:
-    print >> sys.stderr, "error: evaluation of the deployment specification failed"
+    error("evaluation of the deployment specification failed")
     sys.exit(1)
 except KeyboardInterrupt:
-    print >> sys.stderr, "error: interrupted"
+    error("interrupted")
     sys.exit(1)
 except Exception as e:
     if args.debug or str(e) == "": raise
-    print >> sys.stderr, "error:", str(e)
+    error(str(e))
     sys.exit(1)
