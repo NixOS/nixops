@@ -51,14 +51,14 @@ def get_access_key_id():
 
 def retry(f, error_codes=[]):
     """
-        Retry function f up to 6 times. If error_codes argument is empty list, retry on all EC2 response errors,
+        Retry function f up to 7 times. If error_codes argument is empty list, retry on all EC2 response errors,
         otherwise, only on the specified error codes.
     """
     i = 0
-    num_retries = 6
+    num_retries = 7
     while i <= num_retries:
-        next_sleep = random.random() * (2 ** i)
         i += 1
+        next_sleep = 5 + random.random() * (2 ** i)
 
         try:
             return f()
