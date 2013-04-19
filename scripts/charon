@@ -177,7 +177,7 @@ def op_info():
             print "Network UUID:", depl.uuid
             print "Network description:", depl.description
             print "Nix expressions:", " ".join(depl.nix_exprs)
-            if depl.nix_path != []: print "Nix path:", ", ".join(depl.nix_path)
+            if depl.nix_path != []: print "Nix path:", " ".join(map(lambda x: "-I " + x, depl.nix_path))
             if depl.rollback_enabled: print "Nix profile:", depl.get_profile()
             if depl.args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl.args.iteritems()])
             print
