@@ -136,7 +136,7 @@ def op_info():
             r = depl.resources.get(name)
             if args.plain:
                 print "\t".join(
-                    ([depl.uuid] if args.all else []) +
+                    ([depl.uuid, depl.name or '(none)'] if args.all else []) +
                     [name,
                      state(depl, d, r).lower(),
                      r.show_type() if r else d.show_type(),
@@ -176,7 +176,7 @@ def op_info():
             print "Network name:", depl.name or "(none)"
             print "Network UUID:", depl.uuid
             print "Network description:", depl.description
-            print "Nix expressions:", ", ".join(depl.nix_exprs)
+            print "Nix expressions:", " ".join(depl.nix_exprs)
             if depl.nix_path != []: print "Nix path:", ", ".join(depl.nix_path)
             if depl.rollback_enabled: print "Nix profile:", depl.get_profile()
             if depl.args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl.args.iteritems()])
