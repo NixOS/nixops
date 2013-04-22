@@ -519,7 +519,7 @@ class Deployment(object):
         exprs = self.nix_exprs
         if include_physical:
             phys_expr = self.tempdir + "/physical.nix"
-            with open(phys_expr) as f:
+            with open(phys_expr, 'w') as f:
                 f.write(self.get_physical_spec())
             exprs.append(phys_expr)
 
