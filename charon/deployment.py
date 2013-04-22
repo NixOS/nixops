@@ -513,13 +513,20 @@ class Deployment(object):
             self.definitions[defn.name] = defn
 
 
-    def evaluate_option_value(self, machine_name, option_name, xml=False):
+    def evaluate_option_value(self, machine_name, option_name, xml=False, include_physical=False):
         """Evaluate a single option of a single machine in the deployment specification."""
+
+        exprs = self.nix_exprs
+        if include_physical:
+            phys_expr = self.tempdir + "/physical.nix"
+            with open(phys_expr) as f:
+                f.write(self.get_physical_spec())
+            exprs.append(phys_expr)
 
         try:
             return subprocess.check_output(
                 ["nix-instantiate"]
-                + self._eval_flags(self.nix_exprs) +
+                + self._eval_flags(exprs) +
                 ["--eval-only", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
                  "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
