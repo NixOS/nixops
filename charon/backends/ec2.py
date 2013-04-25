@@ -374,14 +374,10 @@ class EC2State(MachineState):
             self.log("creating volume from snapshot ‘{0}’".format(snapshot_id))
             new_volume = self._conn.create_volume(size=0, snapshot=snapshot_id, zone=self.zone)
 
-            # wait for available
-            while True:
-                sys.stderr.write("[{0}] ".format(volume.status))
-                if volume.status == "available":
-                    break
-                time.sleep(3)
-                volume.update()
-            sys.stderr.write("\n")
+            # check if original volume is available, aka detached from the machine
+            self.wait_for_volume_available(volume)
+            # check if new volume is available
+            self.wait_for_volume_available(new_volume)
 
             self.log("attaching volume ‘{0}’ to ‘{1}’".format(new_volume.id, self.name))
             new_volume.attach(self.vm_id, k)
@@ -407,6 +403,7 @@ class EC2State(MachineState):
 
         volume = self._get_volume_by_id(volume_id)
         if volume.status == "in-use" and \
+            self.vm_id != volume.attach_data.instance_id and \
             self.depl.confirm("volume ‘{0}’ is in use by instance ‘{1}’, "
                               "are you sure you want to attach this volume?".format(volume_id, volume.attach_data.instance_id)):
 
@@ -424,13 +421,23 @@ class EC2State(MachineState):
                 volume.detach(True)
                 charon.util.check_wait(check_available)
 
-        # Attach it.
-        self._conn.attach_volume(volume_id, self.vm_id, device)
+        if self.vm_id != volume.attach_data.instance_id:
+            # Attach it.
+            self._conn.attach_volume(volume_id, self.vm_id, device)
+
         # Wait until the device is visible in the instance.
         def check_dev():
             res = self.run_command("test -e {0}".format(_sd_to_xvd(device)), check=False)
             return res == 0
         charon.util.check_wait(check_dev)
+
+    def wait_for_volume_available(self, volume):
+        def check_available():
+            res = volume.update()
+            sys.stderr.write("[{0}] ".format(res))
+            return res == 'available'
+
+        charon.util.check_wait(check_available, max_tries=90)
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -734,6 +741,7 @@ class EC2State(MachineState):
         for k, v in defn.block_device_mapping.iteritems():
             if k in self.block_device_mapping: continue
 
+            volume = None
             if v['disk'] == '':
                 self.log("creating {0} GiB volume...".format(v['size']))
                 (volume_type, iops) = self.disk_volume_options(v)
@@ -746,8 +754,8 @@ class EC2State(MachineState):
             elif v['disk'].startswith("snap-"):
                 self.log("creating volume from snapshot ‘{0}’...".format(v['disk']))
                 (volume_type, iops) = self.disk_volume_options(v)
-                new_volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone, volume_type=volume_type, iops=iops)
-                v['volumeId'] = new_volume.id
+                volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone, volume_type=volume_type, iops=iops)
+                v['volumeId'] = volume.id
 
             else:
                 raise Exception("adding device mapping ‘{0}’ to a running instance is not (yet) supported".format(v['disk']))
@@ -759,6 +767,13 @@ class EC2State(MachineState):
             v['charonDeleteOnTermination'] = v['deleteOnTermination']
             v['needsAttach'] = True
             self.update_block_device_mapping(k, v)
+
+            # wait for volume to get to available state for newly created volumes only (amazon sometimes returns
+            # weird temporary states for newly created volumes, e.g. shortly in-use). doing this after updating the
+            # device mapping state, to make it recoverable in case an exception happens (e.g. in other machine's
+            # deployments).
+            if volume:
+                self.wait_for_volume_available(volume)
 
         # Always apply tags to all volumes
         for k, v in self.block_device_mapping.items():
