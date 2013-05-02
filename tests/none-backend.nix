@@ -1,4 +1,4 @@
-{ system, charon }:
+{ system, nixops }:
 
 with import <nixos/lib/testing.nix> { inherit system; };
 with pkgs.lib;
@@ -7,7 +7,7 @@ makeTest ({ pkgs, ... }:
 
 let
 
-  # Physical Charon model.
+  # Physical NixOps model.
   physical = pkgs.writeText "physical.nix"
     ''
       rec {
@@ -22,7 +22,7 @@ let
             deployment.targetEnv = "none";
             services.nixosManual.enable = false;
             boot.loader.grub.enable = false;
-            # Should Charon fill in extraHosts for the "none" backend?
+            # Should NixOps fill in extraHosts for the "none" backend?
             networking.extraHosts = "192.168.1.3 target2\n";
           };
 
@@ -30,7 +30,7 @@ let
       }
     '';
 
-  # Logical Charon model.
+  # Logical NixOps model.
   logical = n: pkgs.writeText "logical-${toString n}.nix"
     ''
       { network.description = "Testing";
@@ -82,7 +82,7 @@ in
     { coordinator =
         { config, pkgs, ... }:
         { environment.systemPackages =
-            [ charon pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox pkgs.module_init_tools ];
+            [ nixops pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox pkgs.module_init_tools ];
           virtualisation.writableStore = true;
         };
 
@@ -116,48 +116,48 @@ in
 
       # Test some trivial commands.
       subtest "trivia", sub {
-        $coordinator->succeed("charon --version 2>&1 | grep Charon");
-        $coordinator->succeed("charon --help");
+        $coordinator->succeed("nixops --version 2>&1 | grep NixOps");
+        $coordinator->succeed("nixops --help");
       };
 
       # Set up the state file.
       $coordinator->succeed("cp ${physical} physical.nix");
       $coordinator->succeed("cp ${logical 1} logical.nix");
       $coordinator->succeed("cp ${./id_test.pub} id_test.pub");
-      $coordinator->succeed("charon create ./physical.nix ./logical.nix");
+      $coordinator->succeed("nixops create ./physical.nix ./logical.nix");
 
-      # Test ‘charon info’.
+      # Test ‘nixops info’.
       subtest "info-before", sub {
-        $coordinator->succeed("${env} charon info >&2");
+        $coordinator->succeed("${env} nixops info >&2");
       };
 
       # Do a deployment.
       subtest "deploy-1", sub {
         $target1->fail("vim --version");
-        $coordinator->succeed("${env} charon deploy --build-only");
-        $coordinator->succeed("${env} charon deploy");
+        $coordinator->succeed("${env} nixops deploy --build-only");
+        $coordinator->succeed("${env} nixops deploy");
         $target1->succeed("vim --version >&2");
       };
 
-      # Test ‘charon info’.
+      # Test ‘nixops info’.
       subtest "info-after", sub {
-        $coordinator->succeed("${env} charon info >&2");
+        $coordinator->succeed("${env} nixops info >&2");
       };
 
-      # Test ‘charon ssh’.
+      # Test ‘nixops ssh’.
       subtest "ssh", sub {
-        $coordinator->succeed("${env} charon ssh target1 -- -v ls / >&2");
+        $coordinator->succeed("${env} nixops ssh target1 -- -v ls / >&2");
       };
 
-      # Test ‘charon check’.
+      # Test ‘nixops check’.
       subtest "check", sub {
-        $coordinator->succeed("${env} charon check");
+        $coordinator->succeed("${env} nixops check");
       };
 
       # Deploy Apache, remove vim.
       subtest "deploy-2", sub {
         $coordinator->succeed("cp ${logical 2} logical.nix");
-        $coordinator->succeed("${env} charon deploy");
+        $coordinator->succeed("${env} nixops deploy");
         $target1->fail("vim --version >&2");
         $coordinator->succeed("curl --fail -v http://target1/ >&2");
         $coordinator->fail("curl --fail -v http://target1/foo >&2");
@@ -166,7 +166,7 @@ in
       # Deploy an Apache proxy to target1 and a backend to target2.
       subtest "deploy-3", sub {
         $coordinator->succeed("cp ${logical 3} logical.nix");
-        $coordinator->succeed("${env} charon deploy");
+        $coordinator->succeed("${env} nixops deploy");
         $target1->waitForJob("httpd");
         $coordinator->succeed("curl --fail -v http://target2/ >&2");
         $coordinator->succeed("curl --fail -v http://target1/foo/ >&2");

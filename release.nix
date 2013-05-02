@@ -1,4 +1,4 @@
-{ charonSrc ? { outPath = ./.; revCount = 0; shortRev = "abcdef"; rev = "HEAD"; }
+{ nixopsSrc ? { outPath = ./.; revCount = 0; shortRev = "abcdef"; rev = "HEAD"; }
 , officialRelease ? false
 }:
 
@@ -7,15 +7,15 @@ let
   pkgs = import <nixpkgs> { };
 
   version = "0.1";
-  versionSuffix = if officialRelease then "" else "pre${toString charonSrc.revCount}_${charonSrc.shortRev}";
-  
+  versionSuffix = if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}";
+
 in
 
 rec {
 
   tarball = pkgs.releaseTools.sourceTarball {
-    name = "charon-tarball";
-    src = charonSrc;
+    name = "nixops-tarball";
+    src = nixopsSrc;
     inherit version versionSuffix officialRelease;
     buildInputs = [ pkgs.git ];
     postUnpack = ''
@@ -24,7 +24,7 @@ rec {
     '';
     distPhase =
       ''
-        releaseName=charon-$VERSION$VERSION_SUFFIX
+        releaseName=nixops-$VERSION$VERSION_SUFFIX
         mkdir ../$releaseName
         cp -prd . ../$releaseName
         rm -rf ../$releaseName/.git
@@ -35,11 +35,11 @@ rec {
 
   build = import ./default.nix {
     version = tarball.version;
-    revision = charonSrc.rev;
+    revision = nixopsSrc.rev;
   };
 
   tests.none_backend = (import ./tests/none-backend.nix {
-    charon = build;
+    nixops = build;
     system = "x86_64-linux";
   }).test;
 
