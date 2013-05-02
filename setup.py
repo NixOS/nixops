@@ -1,7 +1,7 @@
 from distutils.core import setup
 import glob
 
-setup(name='charon',
+setup(name='nixops',
       version='0.1',
       description='NixOS cloud deployment tool',
       url='https://github.com/NixOS/charon',
