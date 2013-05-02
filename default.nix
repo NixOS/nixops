@@ -40,8 +40,8 @@ pythonPackages.buildPythonPackage rec {
       make -C doc/manual install docbookxsl=${docbook5_xsl}/xml/xsl/docbook \
         docdir=$out/share/doc/nixops mandir=$out/share/man
 
-      mkdir -p $out/share/nix/charon
-      cp -av nix/* $out/share/nix/charon
+      mkdir -p $out/share/nix/nixops
+      cp -av nix/* $out/share/nix/nixops
 
       mkdir -p $out/nix-support
       echo "nix-build none $out" >> $out/nix-support/hydra-build-products

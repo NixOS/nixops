@@ -234,7 +234,7 @@ class Deployment(object):
 
         self._lock_file_path = None
 
-        self.expr_path = os.path.realpath(os.path.dirname(__file__) + "/../../../../../share/nix/charon")
+        self.expr_path = os.path.realpath(os.path.dirname(__file__) + "/../../../../../share/nix/nixops")
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
