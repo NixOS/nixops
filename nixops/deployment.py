@@ -127,14 +127,22 @@ def _upgrade_2_to_3(c):
 
 
 def get_default_state_file():
-    home = os.environ.get("HOME", "") + "/.charon"
-    if not os.path.exists(home): os.makedirs(home, 0700)
-    return os.environ.get("CHARON_STATE", home + "/deployments.charon")
+    home = os.environ.get("HOME", "") + "/.nixops"
+    if not os.path.exists(home):
+        old_home = os.environ.get("HOME", "") + "/.charon"
+        if os.path.exists(old_home):
+            sys.stderr.write("renaming ‘{0}’ to ‘{1}’...\n".format(old_home, home))
+            os.rename(old_home, home)
+            if os.path.exists(home + "/deployments.charon"):
+                os.rename(home + "/deployments.charon", home + "/deployments.nixops")
+        else:
+            os.makedirs(home, 0700)
+    return os.environ.get("CHARON_STATE", home + "/deployments.nixops")
 
 
 def open_database(db_file):
-    if os.path.splitext(db_file)[1] != '.charon':
-        raise Exception("state file ‘{0}’ should have extension ‘.charon’".format(db_file))
+    if os.path.splitext(db_file)[1] not in ['.nixops', '.charon']:
+        raise Exception("state file ‘{0}’ should have extension ‘.nixops’".format(db_file))
     db = sqlite3.connect(db_file, timeout=60, check_same_thread=False, factory=Connection) # FIXME
     db.db_file = db_file
 
@@ -310,7 +318,7 @@ class Deployment(object):
 
     def _get_deployment_lock(self):
         if self._lock_file_path is None:
-            lock_dir = os.environ.get("HOME", "") + "/.charon/locks"
+            lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
             if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)
             self._lock_file_path = lock_dir + "/" + self.uuid
         class DeploymentLock(object):
