@@ -3,7 +3,7 @@
 
   <info>
 
-    <title>Charon User's Guide</title>
+    <title>NixOps User's Guide</title>
 
     <author>
       <personname>
@@ -44,11 +44,11 @@
 
   <appendix>
     <title>Command Reference</title>
-    <xi:include href="charon.xml" />
+    <xi:include href="nixops.xml" />
   </appendix>
 
   <appendix xml:id="ch-options">
-    <title>Charon-specific Configuration Options</title>
+    <title>NixOps-specific Configuration Options</title>
     <xi:include href="options-db.xml" />
   </appendix>
 

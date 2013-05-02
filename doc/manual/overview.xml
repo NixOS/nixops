@@ -4,11 +4,11 @@
 
 <title>Overview</title>
 
-<para>This chapter gives a quick overview of how to use Charon.</para>
+<para>This chapter gives a quick overview of how to use NixOps.</para>
 
 <simplesect><title>Deploying a VirtualBox VM</title>
 
-<para>Charon deploys machines on the basis of a declarative
+<para>NixOps deploys machines on the basis of a declarative
 description of what those machines should do, and where they should be
 deployed to.  These descriptions are specified in the <emphasis>Nix
 expression language</emphasis> used by the Nix package manager.  <xref
@@ -45,7 +45,7 @@ machine <literal>webserver</literal> should have the Apache
 documentation of the Valgrind package.</para>
 
 <para>To deploy this machine, we also need to provide configuration
-options that tell Charon to what environment it should be deployed.
+options that tell NixOps to what environment it should be deployed.
 <xref linkend="ex-physical-vbox.nix" /> specifies that
 <literal>webserver</literal> should be deployed as a VirtualBox
 instance.</para>
@@ -64,7 +64,7 @@ instance.</para>
 </example>
 
 <para>Before we can deploy the network we need to use the command
-<command>charon create</command> to create a <emphasis>Charon
+<command>nixops create</command> to create a <emphasis>NixOps
 deployment</emphasis> that contains any state associated with the
 deployment (such as information about instantiated VMs).  At creation
 time, we need to specify the Nix expressions that constitute the
@@ -72,16 +72,16 @@ complete deployment specification.  So to create a deployment for
 deploying the Apache web server to VirtualBox, we would do:
 
 <screen>
-$ charon create ./trivial.nix ./trivial-vbox.nix --name trivial
+$ nixops create ./trivial.nix ./trivial-vbox.nix --name trivial
 33bced96-5f26-11e1-b9d7-9630d48abec1
 </screen>
 
 Deployments can be identified in two ways: using the UUID printed by
-<command>charon create</command>, or using the symbolic name specified
+<command>nixops create</command>, or using the symbolic name specified
 by you using the <option>--name</option> option.</para>
 
 <para>You can print a list of existing deployments using
-<command>charon list</command>:
+<command>nixops list</command>:
 
 <screen>
 +--------------------------------------+-----------+--------------+------------+------------+
@@ -92,11 +92,11 @@ by you using the <option>--name</option> option.</para>
 </screen>
 </para>
 
-<para>The command <command>charon info</command> shows the current
+<para>The command <command>nixops info</command> shows the current
 deployment state:
 
 <screen>
-$ charon info -d trivial
+$ nixops info -d trivial
 Network UUID: 33bced96-5f26-11e1-b9d7-9630d48abec1
 Network description: Web server
 
@@ -115,16 +115,16 @@ use the symbolic name (<literal>-d trivial</literal>) or the UUID
 can also set the the environment variable
 <envar>CHARON_DEPLOYMENT</envar>.</para>
 
-<para>The actual deployment is done by running <command>charon
+<para>The actual deployment is done by running <command>nixops
 deploy</command>:
 
 <screen>
-$ charon deploy -d trivial
+$ nixops deploy -d trivial
 creating VirtualBox VM ‘webserver’...
-Virtual machine 'charon-33bced96-5f26-11e1-b9d7-9630d48abec1-webserver' is created and registered.
+Virtual machine 'nixops-33bced96-5f26-11e1-b9d7-9630d48abec1-webserver' is created and registered.
 Clone hard disk created in format 'VDI'. UUID: 5a0b0771-7e03-4fab-9c2f-e95888b57db3
-Waiting for VM "charon-33bced96-5f26-11e1-b9d7-9630d48abec1-webserver" to power on...
-VM "charon-33bced96-5f26-11e1-b9d7-9630d48abec1-webserver" has been successfully started.
+Waiting for VM "nixops-33bced96-5f26-11e1-b9d7-9630d48abec1-webserver" to power on...
+VM "nixops-33bced96-5f26-11e1-b9d7-9630d48abec1-webserver" has been successfully started.
 waiting for IP address of ‘webserver’........................... 192.168.56.101
 waiting for SSH on ‘webserver’...
 building all machine configurations...
@@ -143,13 +143,13 @@ activating the configuration...
 starting new service ‘httpd’...
 </screen>
 
-Charon performs the following steps to do the deployment:
+NixOps performs the following steps to do the deployment:
 
 <itemizedlist>
 
   <listitem><para>It creates missing machines.  In this case, a
   VirtualBox instance for the logical machine
-  <literal>webserver</literal> is started.  Charon then waits to
+  <literal>webserver</literal> is started.  NixOps then waits to
   obtain its IP address.</para></listitem>
 
   <listitem><para>It builds the NixOS machine configurations locally.
@@ -169,18 +169,18 @@ Charon performs the following steps to do the deployment:
 
 </para>
 
-<para>The <command>charon info</command> command will show that a
+<para>The <command>nixops info</command> command will show that a
 machine was created:
 
 <screen>
-$ charon info -d trivial
+$ nixops info -d trivial
 Network UUID: 33bced96-5f26-11e1-b9d7-9630d48abec1
 Network description: Web server
 
 +-----------+--------+------------+-----------------------------------------------------+----------------+
 |   Name    | Status |    Type    |                    Resource Id                      |   IP address   |
 +-----------+--------+------------+-----------------------------------------------------+----------------+
-| webserver |   Up   | virtualbox | charon-33bced96-5f26-11e1-b9d7-9630d48abec1-machine | 192.168.56.101 |
+| webserver |   Up   | virtualbox | nixops-33bced96-5f26-11e1-b9d7-9630d48abec1-machine | 192.168.56.101 |
 +-----------+--------+------------+-----------------------------------------------------+----------------+
 </screen>
 
@@ -191,27 +191,27 @@ should now show the Valgrind documentation.  You can also log in to
 the virtual machine as <literal>root</literal>:
 
 <screen>
-$ charon ssh -d trivial webserver
+$ nixops ssh -d trivial webserver
 connecting to 192.168.56.101...
 [root@webserver:~]#
 </screen>
 
-The command <command>charon ssh</command> is a convenience wrapper
+The command <command>nixops ssh</command> is a convenience wrapper
 around <command>ssh</command> that passes the right IP address and SSH
-identity for the specified logical machine.  (Charon automatically
+identity for the specified logical machine.  (NixOps automatically
 creates a unique SSH key pair for communicating with each VirtualBox
 instance.)</para>
 
 <para>Redeployment after making a change to the specification is
-simply a matter of running <command>charon deploy</command> again.  If
-we do this for the example, Charon will notice that the
+simply a matter of running <command>nixops deploy</command> again.  If
+we do this for the example, NixOps will notice that the
 <literal>webserver</literal> machine already exists and that most or
 all dependencies are already present, so it won’t create a new
 VirtualBox instance or need to build and copy a lot of dependencies.
 Thus redeployment typically only takes a few seconds:
 
 <screen>
-$ time charon deploy -d trivial
+$ time nixops deploy -d trivial
 building all machine configurations...
 copying closure to machine ‘webserver’...
 activating new configuration on machine ‘webserver’...
@@ -221,11 +221,11 @@ real    0m3.700s
 </para>
 
 <para>If you want to get rid of the virtual machines created by
-Charon, you can run <command>charon destroy</command>:
+NixOps, you can run <command>nixops destroy</command>:
 
 <screen>
 warning: are you sure you want to destroy EC2 machine ‘webserver’? (y/N) y
-$ charon destroy -d trivial
+$ nixops destroy -d trivial
 destroying VirtualBox VM ‘webserver’...
 </screen>
 
@@ -253,7 +253,7 @@ to the logical name of the machine, as in the line
 BalancerMember http://backend1 retry=0
 </programlisting>
 
-This works because Charon generates a <filename>/etc/hosts</filename>
+This works because NixOps generates a <filename>/etc/hosts</filename>
 file that contains entries for all the logical machines in the
 network, mapping names to each machine’s IP address.  Also note that
 because the two backend machines have identical configurations, we can
@@ -303,11 +303,11 @@ in
 linkend="ex-physical-multi.nix" />.  Deployment is as follows:
 
 <screen>
-$ charon create ./load-balancer.nix ./load-balancer-vbox.nix --name load-balancer-vbox
-$ charon deploy -d load-balancer-vbox
+$ nixops create ./load-balancer.nix ./load-balancer-vbox.nix --name load-balancer-vbox
+$ nixops deploy -d load-balancer-vbox
 </screen>
 
-Note that Charon creates and deploys the VMs in parallel to speed
+Note that NixOps creates and deploys the VMs in parallel to speed
 things up.</para>
 
 <example xml:id="ex-physical-multi.nix">
@@ -355,18 +355,18 @@ in
 <para>Deployment is as follows:
 
 <screen>
-$ charon create ./load-balancer.nix ./load-balancer-ec2.nix --name load-balancer-ec2
-$ charon deploy -d load-balancer-ec2
+$ nixops create ./load-balancer.nix ./load-balancer-ec2.nix --name load-balancer-ec2
+$ nixops deploy -d load-balancer-ec2
 </screen>
 
 This will start three instance-store backed instances running a
 default NixOS AMI.  Other than that, deployment is the same as for
-VirtualBox: Charon builds the machine configurations, copies their
+VirtualBox: NixOps builds the machine configurations, copies their
 closure over to the EC2 instances, and activates the new
 configurations.  The instances can be terminated by running:
 
 <screen>
-$ charon destroy -d load-balancer-ec2
+$ nixops destroy -d load-balancer-ec2
 </screen>
 
 </para>
@@ -401,7 +401,7 @@ AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ # my AWS developme
 
   <listitem><para>You need to ensure that your EC2 security groups are
   set up to allow (at the very least) SSH traffic from your network.
-  By default, Charon uses the security group
+  By default, NixOps uses the security group
   <literal>default</literal>.  You can set the option
   <varname>deployment.ec2.securityGroups</varname> to use other
   security groups:

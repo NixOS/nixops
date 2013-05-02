@@ -15,7 +15,7 @@ with pkgs.lib;
     fileSystems = mkOption {
       type = types.list types.optionSet;
       description = ''
-        Charon extends NixOS' <option>fileSystem</option> option to
+        NixOps extends NixOS' <option>fileSystem</option> option to
         allow convenient attaching of EC2 volumes.
       '';
     };

@@ -4,18 +4,18 @@
 
 <title>Introduction</title>
 
-<para>Charon is a tool for deploying NixOS machines in a network or
+<para>NixOps is a tool for deploying NixOS machines in a network or
 cloud.  It takes as input a declarative specification of a set of
 “logical” machines and then performs any necessary steps actions to
 realise that specification: instantiate cloud machines, build and
-download dependencies, stop and start services, and so on.  Charon has
+download dependencies, stop and start services, and so on.  NixOps has
 several nice properties:</para>
 
 <itemizedlist>
 
-  <listitem><para>It’s <emphasis>declarative</emphasis>: Charon
+  <listitem><para>It’s <emphasis>declarative</emphasis>: NixOps
   specifications state the desired configuration of the machines, and
-  Charon then figures out the actions necessary to realise that
+  NixOps then figures out the actions necessary to realise that
   configuration.  So there is no difference between doing a new
   deployment or doing a redeployment: the resulting machine
   configurations will be the same.</para></listitem>
@@ -45,17 +45,17 @@ several nice properties:</para>
   previous configurations, and more.</para></listitem>
 
   <listitem><para>It’s <emphasis>multi-cloud</emphasis>.  Machines in
-  a single Charon deployment can be deployed to different target
+  a single NixOps deployment can be deployed to different target
   environment.  For instance, one logical machine can be deployed to a
   local “physical” machine, another to an automatically instantiated
   Amazon EC2 instance in the <literal>eu-west-1</literal> region,
   another in the <literal>us-east-1</literal> region, and so on.
-  Charon arranges the necessary network configuration to ensure that
+  NixOps arranges the necessary network configuration to ensure that
   these machines can communicate securely with each other (e.g. by
   setting up encrypted tunnels).</para></listitem>
 
   <listitem><para>It supports <emphasis>separation of “logical” and
-  “physical” aspects</emphasis> of a deployment.  Charon
+  “physical” aspects</emphasis> of a deployment.  NixOps
   specifications are modular, and this makes it easy to separate the
   parts that say <emphasis>what</emphasis> logical machines should do
   from <emphasis>where</emphasis> they should do it.  For instance,
@@ -78,15 +78,15 @@ several nice properties:</para>
   provisioning.  Provisioning affects configuration management: for
   instance, if we instantiate an EC2 machine as part of a larger
   deployment, it may be necessary to put the IP address or hostname of
-  that machine in a configuration file on another machine.  Charon
+  that machine in a configuration file on another machine.  NixOps
   takes care of this automatically.</para></listitem>
   
 </itemizedlist>
 
 <para>This manual describes how to <link
-linkend="chap-installation">install Charon</link> and how to <link
+linkend="chap-installation">install NixOps</link> and how to <link
 linkend="chap-overview">use it</link>.  The appendix contains a copy
-of the Charon manual page, which is also available by running
-<command>man charon</command>.</para>
+of the NixOps manual page, which is also available by running
+<command>man nixops</command>.</para>
 
 </chapter>

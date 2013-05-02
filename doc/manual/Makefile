@@ -17,15 +17,15 @@ manual.html: *.xml
 	  $(docbookxsl)/profiling/profile.xsl manual.xml | \
 	  $(xsltproc) --output manual.html $(docbookxsl)/html/docbook.xsl -
 
-man: charon.1
+man: nixops.1
 
-charon.1: *.xml
+nixops.1: *.xml
 	$(xsltproc) --xinclude --stringparam profile.condition manpage \
 	  $(docbookxsl)/profiling/profile.xsl manual.xml | \
 	  $(xsltproc) $(docbookxsl)/manpages/docbook.xsl -
 
 install: all
 	mkdir -p $(mandir)/man1
-	cp charon.1 $(mandir)/man1
+	cp nixops.1 $(mandir)/man1
 	mkdir -p $(docdir)
 	cp manual.html style.css $(docdir)

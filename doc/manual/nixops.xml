@@ -1,22 +1,22 @@
 <refentry xmlns="http://docbook.org/ns/docbook"
           xmlns:xlink="http://www.w3.org/1999/xlink"
           xmlns:xi="http://www.w3.org/2001/XInclude"
-          xml:id="sec-charon">
+          xml:id="sec-nixops">
 
 <refmeta>
-  <refentrytitle>charon</refentrytitle>
+  <refentrytitle>nixops</refentrytitle>
   <manvolnum>1</manvolnum>
-  <refmiscinfo class="source">Charon</refmiscinfo>
+  <refmiscinfo class="source">NixOps</refmiscinfo>
 </refmeta>
 
 <refnamediv>
-  <refname>charon</refname>
+  <refname>nixops</refname>
   <refpurpose>deploy a set of NixOS machines</refpurpose>
 </refnamediv>
 
 <refsynopsisdiv>
   <cmdsynopsis>
-    <command>charon</command>
+    <command>nixops</command>
     <group choice='req'>
       <arg choice='plain'><option>--version</option></arg>
       <arg choice='plain'><option>--help</option></arg>
@@ -44,7 +44,7 @@
 
 <refsection><title>Description</title>
 
-<para>Charon is a tool for deploying NixOS machines in a network or
+<para>NixOps is a tool for deploying NixOS machines in a network or
 cloud.</para>
 
 </refsection>
@@ -91,21 +91,21 @@ cloud.</para>
   <varlistentry><term><option>--debug</option></term>
 
     <listitem><para>Turn on debugging output.  In particular, this
-    causes Charon to print a Python stack trace if an unhandled
+    causes NixOps to print a Python stack trace if an unhandled
     exception occurs.</para></listitem>
 
   </varlistentry>
 
   <varlistentry><term><option>--help</option></term>
 
-    <listitem><para>Print a brief summary of Charon’s
+    <listitem><para>Print a brief summary of NixOps’s
     command line syntax.</para></listitem>
 
   </varlistentry>
 
   <varlistentry><term><option>--version</option></term>
 
-    <listitem><para>Print Charon’s version number.</para></listitem>
+    <listitem><para>Print NixOps’s version number.</para></listitem>
 
   </varlistentry>
 
@@ -186,7 +186,7 @@ deployment.ec2.accessKeyId = "prod";
 
     This is useful if you have an AWS account with multiple user
     accounts and you don’t want to hard-code an Access Key ID in
-    a Charon specification.</para>
+    a NixOps specification.</para>
 
     </listitem>
 
@@ -197,12 +197,12 @@ deployment.ec2.accessKeyId = "prod";
 </refsection>
 
 
-<refsection><title>Command <option>charon create</option></title>
+<refsection><title>Command <option>nixops create</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon create</command>
+  <command>nixops create</command>
   <arg choice='plain' rep='repeat'><replaceable>nixexprs</replaceable></arg>
   <arg>
     <group choice='req'>
@@ -221,7 +221,7 @@ deployment.ec2.accessKeyId = "prod";
 
 <refsection><title>Description</title>
 
-<para>This command creates a new deployment state record in Charon’s
+<para>This command creates a new deployment state record in NixOps’s
 database.  The paths of the Nix expressions that specify the desired
 deployment (<replaceable>nixexprs</replaceable>) are stored in the
 state file.  The UUID of the new deployment is printed on standard
@@ -237,7 +237,7 @@ output.</para>
 
     <listitem><para>Add <replaceable>path</replaceable> to the Nix
     expression search path for all future evaluations of the
-    deployment specification.  Charon stores
+    deployment specification.  NixOps stores
     <replaceable>path</replaceable> in the state file.  This option
     may be given multiple times.  See the description of the
     <option>-I</option> option in
@@ -254,10 +254,10 @@ output.</para>
     <replaceable>name</replaceable></literal> or the environment
     variable
     <literal>CHARON_DEPLOYMENT=<replaceable>name</replaceable></literal>
-    to subsequent Charon invocations.  This is typically more
+    to subsequent NixOps invocations.  This is typically more
     convenient than using the deployment’s UUID.  However, names are
     not required to be unique; if you create multiple deployments with
-    the same name, Charon will complain.</para></listitem>
+    the same name, NixOps will complain.</para></listitem>
 
   </varlistentry>
 
@@ -268,20 +268,20 @@ output.</para>
 <refsection><title>Examples</title>
 
 <screen>
-$ charon create expr1.nix expr2.nix --name foo
-$ charon deploy -d foo</screen>
+$ nixops create expr1.nix expr2.nix --name foo
+$ nixops deploy -d foo</screen>
 
 </refsection>
 
 </refsection>
 
 
-<refsection><title>Command <option>charon modify</option></title>
+<refsection><title>Command <option>nixops modify</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon modify</command>
+  <command>nixops modify</command>
   <arg choice='plain' rep='repeat'><replaceable>nixexprs</replaceable></arg>
   <arg>
     <group choice='req'>
@@ -301,7 +301,7 @@ $ charon deploy -d foo</screen>
 <refsection><title>Description</title>
 
 <para>This command modifies an existing deployment.  The options are
-the same as for <command>charon create</command>.</para>
+the same as for <command>nixops create</command>.</para>
 
 </refsection>
 
@@ -311,7 +311,7 @@ the same as for <command>charon create</command>.</para>
 rename it from <literal>foo</literal> to <literal>bar</literal>:
 
 <screen>
-$ charon rename -d foo -n bar expr3.nix expr4.nix</screen>
+$ nixops rename -d foo -n bar expr3.nix expr4.nix</screen>
 
 Note that <option>-d</option> identifies the existing deployment,
 while <option>-n</option> specifies its new name.</para>
@@ -321,12 +321,12 @@ while <option>-n</option> specifies its new name.</para>
 </refsection>
 
 
-<refsection><title>Command <option>charon clone</option></title>
+<refsection><title>Command <option>nixops clone</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon clone</command>
+  <command>nixops clone</command>
   <arg>
     <group choice='req'>
       <arg choice='plain'><option>--name</option></arg>
@@ -343,9 +343,9 @@ while <option>-n</option> specifies its new name.</para>
 <para>This command clones an existing deployment; that is, it create a
 new deployment that has the same deployment specification and
 parameters, but a different UUID and (optionally) name.  Note that
-<command>charon clone</command> does not currently clone the state of
+<command>nixops clone</command> does not currently clone the state of
 the machines in the existing deployment.  Thus, when you first run
-<command>charon deploy</command> on the cloned deployment, Charon will
+<command>nixops deploy</command> on the cloned deployment, NixOps will
 create new instances from scratch.</para>
 
 </refsection>
@@ -356,7 +356,7 @@ create new instances from scratch.</para>
 deployment <literal>foo</literal>:
 
 <screen>
-$ charon clone -d foo -n bar</screen>
+$ nixops clone -d foo -n bar</screen>
 
 </para>
 
@@ -365,12 +365,12 @@ $ charon clone -d foo -n bar</screen>
 </refsection>
 
 
-<refsection><title>Command <option>charon delete</option></title>
+<refsection><title>Command <option>nixops delete</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon delete</command>
+  <command>nixops delete</command>
 </cmdsynopsis>
 
 </refsection>
@@ -378,7 +378,7 @@ $ charon clone -d foo -n bar</screen>
 <refsection><title>Description</title>
 
 <para>This command deletes a deployment from the state file.  You must
-run <command>charon destroy</command> first to get rid of any
+run <command>nixops destroy</command> first to get rid of any
 previously instantiated machines in the deployment.</para>
 
 </refsection>
@@ -388,7 +388,7 @@ previously instantiated machines in the deployment.</para>
 <para>To delete the deployment named <literal>foo</literal>:
 
 <screen>
-$ charon delete -d foo</screen>
+$ nixops delete -d foo</screen>
 
 </para>
 
@@ -397,12 +397,12 @@ $ charon delete -d foo</screen>
 </refsection>
 
 
-<refsection><title>Command <option>charon deploy</option></title>
+<refsection><title>Command <option>nixops deploy</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon deploy</command>
+  <command>nixops deploy</command>
   <group>
     <arg choice='plain'><option>--kill-obsolete</option></arg>
     <arg choice='plain'><option>-k</option></arg>
@@ -439,7 +439,7 @@ $ charon delete -d foo</screen>
 
 <para>This command deploys a set of machines on the basis of the
 specification described by the Nix expressions given in the preceding
-<command>charon create</command> call.  It creates missing virtual
+<command>nixops create</command> call.  It creates missing virtual
 machines, builds each machine configuration, copies the closure of
 each configuration to the corresponding machine, and activates
 them.</para>
@@ -457,7 +457,7 @@ them.</para>
     previously created as part of this deployment, but are obsolete
     because they are no longer mentioned in the deployment
     specification.  This happens if you remove a machine from the
-    specification after having run <command>charon deploy</command> to
+    specification after having run <command>nixops deploy</command> to
     create it.  Without this flag, such obsolete machines are left
     untouched.</para></listitem>
 
@@ -497,21 +497,21 @@ them.</para>
 
   <varlistentry><term><option>--check</option></term>
 
-    <listitem><para>Normally, Charon assumes that the deployment state
+    <listitem><para>Normally, NixOps assumes that the deployment state
     of machines doesn’t change behind its back.  For instance, it
     assumes that a VirtualBox VM, once started, will continue to run
-    unless you run <command>charon destroy</command> to terminate it.
+    unless you run <command>nixops destroy</command> to terminate it.
     If this is not the case, e.g., because you shut down or destroyed
     a machine through other means, you should pass the
-    <option>--check</option> option to tell Charon to verify its
+    <option>--check</option> option to tell NixOps to verify its
     current knowledge.</para></listitem>
 
   </varlistentry>
 
   <varlistentry><term><option>--allow-reboot</option></term>
 
-    <listitem><para>Allow Charon to reboot the instance if necessary.
-    For instance, if you change the type of an EC2 instance, Charon
+    <listitem><para>Allow NixOps to reboot the instance if necessary.
+    For instance, if you change the type of an EC2 instance, NixOps
     must stop, modify and restart the instance to effectuate this
     change.</para></listitem>
 
@@ -528,8 +528,8 @@ them.</para>
   <varlistentry><term><option>--allow-recreate</option></term>
 
     <listitem><para>Recreate resources that have disappeared
-    (e.g. destroyed through mechanisms outside of Charon).  Without
-    this flag, Charon will print an error if a resource that should
+    (e.g. destroyed through mechanisms outside of NixOps).  Without
+    this flag, NixOps will print an error if a resource that should
     exist no longer does.</para></listitem>
 
   </varlistentry>
@@ -555,7 +555,7 @@ them.</para>
     <listitem><para>Add <replaceable>path</replaceable> to the Nix
     expression search path.  This option may be given multiple times
     and takes precedence over the <option>-I</option> flags used in
-    the preceding <command>charon create</command> invocation.  See
+    the preceding <command>nixops create</command> invocation.  See
     the description of the <option>-I</option> option in
     <citerefentry><refentrytitle>nix-instantiate</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     for details.</para></listitem>
@@ -580,7 +580,7 @@ them.</para>
 <para>To deploy all machines:
 
 <screen>
-$ charon deploy</screen>
+$ nixops deploy</screen>
 
 </para>
 
@@ -589,7 +589,7 @@ $ charon deploy</screen>
 state is correct:
 
 <screen>
-$ charon deploy --check --include foo bar</screen>
+$ nixops deploy --check --include foo bar</screen>
 
 </para>
 
@@ -597,7 +597,7 @@ $ charon deploy --check --include foo bar</screen>
 without doing anything else:
 
 <screen>
-$ charon deploy --create-only --exclude foo</screen>
+$ nixops deploy --create-only --exclude foo</screen>
 
 </para>
 
@@ -606,12 +606,12 @@ $ charon deploy --create-only --exclude foo</screen>
 </refsection>
 
 
-<refsection><title>Command <option>charon destroy</option></title>
+<refsection><title>Command <option>nixops destroy</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon destroy</command>
+  <command>nixops destroy</command>
   <arg>
     <option>--include</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
@@ -634,7 +634,7 @@ approve every machine destruction.</para>
 <para>This command has no effect on machines that cannot be destroyed
 automatically; for instance, machines in the <literal>none</literal>
 target environment (such as physical machines, or virtual machines not
-created by Charon).</para>
+created by NixOps).</para>
 
 </refsection>
 
@@ -667,14 +667,14 @@ created by Charon).</para>
 <para>To destroy all machines:
 
 <screen>
-$ charon destroy</screen>
+$ nixops destroy</screen>
 
 </para>
 
 <para>To destroy the machine named <literal>foo</literal>:
 
 <screen>
-$ charon destroy foo</screen>
+$ nixops destroy foo</screen>
 
 </para>
 
@@ -683,12 +683,12 @@ $ charon destroy foo</screen>
 </refsection>
 
 
-<refsection><title>Command <option>charon stop</option></title>
+<refsection><title>Command <option>nixops stop</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon stop</command>
+  <command>nixops stop</command>
   <arg>
     <option>--include</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
@@ -705,7 +705,7 @@ $ charon destroy foo</screen>
 <para>This command stops (shuts down) all non-obsolete machines that
 can be automatically started.  This includes EC2 and VirtualBox
 machines, but not machines using the <literal>none</literal> backend
-(because Charon doesn’t know how to start them automatically).</para>
+(because NixOps doesn’t know how to start them automatically).</para>
 
 </refsection>
 
@@ -738,7 +738,7 @@ machines, but not machines using the <literal>none</literal> backend
 <para>To stop all machines that support being stopped:
 
 <screen>
-$ charon stop</screen>
+$ nixops stop</screen>
 
 </para>
 
@@ -747,12 +747,12 @@ $ charon stop</screen>
 </refsection>
 
 
-<refsection><title>Command <option>charon start</option></title>
+<refsection><title>Command <option>nixops start</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon start</command>
+  <command>nixops start</command>
   <arg>
     <option>--include</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
@@ -767,7 +767,7 @@ $ charon stop</screen>
 <refsection><title>Description</title>
 
 <para>This command starts all non-obsolete machines previously stopped
-using <command>charon stop</command>.</para>
+using <command>nixops stop</command>.</para>
 
 </refsection>
 
@@ -800,7 +800,7 @@ using <command>charon stop</command>.</para>
 <para>To start all machines that were previously stopped:
 
 <screen>
-$ charon start</screen>
+$ nixops start</screen>
 
 </para>
 
@@ -809,12 +809,12 @@ $ charon start</screen>
 </refsection>
 
 
-<refsection><title>Command <option>charon list</option></title>
+<refsection><title>Command <option>nixops list</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon list</command>
+  <command>nixops list</command>
 </cmdsynopsis>
 </refsection>
 
@@ -829,12 +829,12 @@ or stopped machines, and the types of those machines.</para>
 <refsection><title>Examples</title>
 
 <screen>
-$ charon list
+$ nixops list
 +--------------------------------------+------------------------+------------------------+------------+------------+
 |                 UUID                 |          Name          |      Description       | # Machines |    Type    |
 +--------------------------------------+------------------------+------------------------+------------+------------+
 | 80dc8e11-287d-11e2-b05a-a810fd2f513f |          test          |      Test network      |     4      |    ec2     |
-| 79fe0e26-d1ec-11e1-8ba3-a1d56c8a5447 |   nixos-systemd-test   | Unnamed Charon network |     1      | virtualbox |
+| 79fe0e26-d1ec-11e1-8ba3-a1d56c8a5447 |   nixos-systemd-test   | Unnamed NixOps network |     1      | virtualbox |
 | 742c2a4f-0817-11e2-9889-49d70558c59e |       xorg-test        | NixOS X11 Updates Test |     0      |            |
 +--------------------------------------+------------------------+------------------------+------------+------------+
 </screen>
@@ -844,12 +844,12 @@ $ charon list
 </refsection>
 
 
-<refsection><title>Command <option>charon info</option></title>
+<refsection><title>Command <option>nixops info</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon info</command>
+  <command>nixops info</command>
   <arg><option>--all</option></arg>
   <arg><option>--plain</option></arg>
   <arg><option>--no-eval</option></arg>
@@ -868,7 +868,7 @@ the deployment.  For each machine, it prints:
   (not deployed yet), <literal>Up</literal> (created and up to date),
   <literal>Outdated</literal> (created but not up to date with the
   current configuration, e.g. due to use of the
-  <option>--exclude</option> option to <command>charon
+  <option>--exclude</option> option to <command>nixops
   deploy</command>) and <literal>Obsolete</literal> (created but no
   longer present in the configuration).</para></listitem>
 
@@ -928,7 +928,7 @@ the deployment.  For each machine, it prints:
 <refsection><title>Examples</title>
 
 <screen>
-$ charon info -d foo
+$ nixops info -d foo
 Network name: test
 Network UUID: 80dc8e11-287d-11e2-b05a-a810fd2f513f
 Network description: Test network
@@ -949,12 +949,12 @@ Nix expressions: /home/alice/test-network.nix
 </refsection>
 
 
-<refsection><title>Command <option>charon check</option></title>
+<refsection><title>Command <option>nixops check</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon check</command>
+  <command>nixops check</command>
   <arg><option>--all</option></arg>
 </cmdsynopsis>
 </refsection>
@@ -964,7 +964,7 @@ Nix expressions: /home/alice/test-network.nix
 <para>This command checks and prints the status of each machine in the
 deployment.  For instance, for an EC2 machine, it will ask EC2 whether
 the machine is running or stopped.  If a machine is supposed to be up,
-Charon will try to connect to the machine via SSH and get the current
+NixOps will try to connect to the machine via SSH and get the current
 load average statistics.</para>
 
 </refsection>
@@ -986,15 +986,15 @@ load average statistics.</para>
 
 <refsection><title>Examples</title>
 
-<para>For a running VirtualBox instance, Charon will print something
+<para>For a running VirtualBox instance, NixOps will print something
 like:
 <screen>
-$ charon status
+$ nixops status
 machine> VM state is ‘running’
 machine> pinging SSH... up [1.03 0.34 0.12]</screen>
 </para>
 
-<para>For a stopped EC2 instance, Charon might show:
+<para>For a stopped EC2 instance, NixOps might show:
 <screen>
 machine> instance state is ‘stopped’</screen>
 </para>
@@ -1004,12 +1004,12 @@ machine> instance state is ‘stopped’</screen>
 </refsection>
 
 
-<refsection><title>Command <option>charon ssh</option></title>
+<refsection><title>Command <option>nixops ssh</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon ssh</command>
+  <command>nixops ssh</command>
   <arg choice='plain'>
     <arg><replaceable>username</replaceable>@</arg><replaceable>machine</replaceable>
   </arg>
@@ -1033,14 +1033,14 @@ interactive shell is started.</para>
 <para>To start a shell on machine <literal>foo</literal>:
 
 <screen>
-$ charon ssh foo</screen>
+$ nixops ssh foo</screen>
 
 </para>
 
 <para>To run Emacs on machine <literal>bar</literal>:
 
 <screen>
-$ charon ssh bar -- -X emacs</screen>
+$ nixops ssh bar -- -X emacs</screen>
 
 Note the use of <literal>--</literal> to force the flag
 <literal>-X</literal> (“enable X11 forwarding”) to be passed to SSH.</para>
@@ -1050,12 +1050,12 @@ Note the use of <literal>--</literal> to force the flag
 </refsection>
 
 
-<refsection><title>Command <option>charon ssh-for-each</option></title>
+<refsection><title>Command <option>nixops ssh-for-each</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon ssh-for-each</command>
+  <command>nixops ssh-for-each</command>
   <group>
     <arg choice='plain'><option>--parallel</option></arg>
     <arg choice='plain'><option>-p</option></arg>
@@ -1118,7 +1118,7 @@ non-obsolete machines.</para>
 <para>To reboot all machines in parallel:
 
 <screen>
-$ charon ssh-for-each -p reboot</screen>
+$ nixops ssh-for-each -p reboot</screen>
 
 </para>
 
@@ -1127,12 +1127,12 @@ $ charon ssh-for-each -p reboot</screen>
 </refsection>
 
 
-<refsection><title>Command <option>charon reboot</option></title>
+<refsection><title>Command <option>nixops reboot</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon reboot</command>
+  <command>nixops reboot</command>
   <arg>
     <option>--include</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
@@ -1195,7 +1195,7 @@ machines in parallel; otherwise, it’s executed sequentially.</para>
 until they’re up again, that is, are reachable via SSH again:
 
 <screen>
-$ charon reboot --exclude foo</screen>
+$ nixops reboot --exclude foo</screen>
 
 </para>
 
@@ -1204,12 +1204,12 @@ $ charon reboot --exclude foo</screen>
 </refsection>
 
 
-<refsection><title>Command <option>charon backup</option></title>
+<refsection><title>Command <option>nixops backup</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon backup</command>
+  <command>nixops backup</command>
   <arg>
     <option>--include</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
@@ -1256,7 +1256,7 @@ $ charon reboot --exclude foo</screen>
 <para>To backup the persistent disks of all machines:
 
 <screen>
-$ charon backup</screen>
+$ nixops backup</screen>
 
 </para>
 
@@ -1265,12 +1265,12 @@ $ charon backup</screen>
 </refsection>
 
 
-<refsection><title>Command <option>charon restore</option></title>
+<refsection><title>Command <option>nixops restore</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon restore</command>
+  <command>nixops restore</command>
   <arg>
     <option>--include</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
@@ -1325,8 +1325,8 @@ $ charon backup</screen>
 <para>To list the available backups and restore the persistent disks of all machines to a given backup:
 
 <screen>
-$ charon backup-status
-$ charon restore 20120803151302</screen>
+$ nixops backup-status
+$ nixops restore 20120803151302</screen>
 
 </para>
 
@@ -1335,12 +1335,12 @@ $ charon restore 20120803151302</screen>
 </refsection>
 
 
-<refsection><title>Command <option>charon show-option</option></title>
+<refsection><title>Command <option>nixops show-option</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon show-option</command>
+  <command>nixops show-option</command>
   <arg><option>--xml</option></arg>
   <arg choice='plain'><replaceable>machine</replaceable></arg>
   <arg choice='plain'><replaceable>option</replaceable></arg>
@@ -1357,10 +1357,10 @@ configuration option for the specified machine.</para>
 <refsection><title>Examples</title>
 
 <screen>
-$ charon show-option machine services.xserver.enable
+$ nixops show-option machine services.xserver.enable
 false
 
-$ charon show-option --xml machine boot.initrd.availableKernelModules
+$ nixops show-option --xml machine boot.initrd.availableKernelModules
 &lt;?xml version='1.0' encoding='utf-8'?>
 &lt;expr>
   &lt;list>
@@ -1376,12 +1376,12 @@ $ charon show-option --xml machine boot.initrd.availableKernelModules
 </refsection>
 
 
-<refsection><title>Command <option>charon set-args</option></title>
+<refsection><title>Command <option>nixops set-args</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon set-args</command>
+  <command>nixops set-args</command>
   <arg rep='repeat'>
     <option>--arg</option>
     <replaceable>name</replaceable>
@@ -1467,23 +1467,23 @@ identical VirtualBox VMs that run the Apache web server if
 without Apache:
 
 <screen>
-$ charon create servers.nix
-$ charon set-args --arg nrMachines 10 --arg active false
-$ charon deploy
+$ nixops create servers.nix
+$ nixops set-args --arg nrMachines 10 --arg active false
+$ nixops deploy
 </screen>
 
 Next we can enable Apache on the existing machines:
 
 <screen>
-$ charon set-args --arg active true
-$ charon deploy
+$ nixops set-args --arg active true
+$ nixops deploy
 </screen>
 
 or provision additional machines:
 
 <screen>
-$ charon set-args --arg nrMachines 20
-$ charon deploy
+$ nixops set-args --arg nrMachines 20
+$ nixops deploy
 </screen>
 
 </para>
@@ -1493,12 +1493,12 @@ $ charon deploy
 </refsection>
 
 
-<refsection><title>Command <option>charon show-console-output</option></title>
+<refsection><title>Command <option>nixops show-console-output</option></title>
 
 <refsection><title>Synopsis</title>
 
 <cmdsynopsis>
-  <command>charon show-console-output</command>
+  <command>nixops show-console-output</command>
   <arg choice='plain'>
     <replaceable>machine</replaceable>
   </arg>
@@ -1516,7 +1516,7 @@ backend.</para>
 <refsection><title>Examples</title>
 
 <screen>
-$ charon show-console-output machine
+$ nixops show-console-output machine
 Xen Minimal OS!
 [    0.000000] Initializing cgroup subsys cpuset
 [    0.000000] Initializing cgroup subsys cpu
