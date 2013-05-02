@@ -3,7 +3,7 @@
 with import <nixpkgs> {};
 with lib;
 
-runCommand "charon-machines" {}
+runCommand "nixops-machines" {}
   ''
     mkdir -p $out
     ${concatStrings (mapAttrsToList (n: v: ''

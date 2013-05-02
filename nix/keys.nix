@@ -15,10 +15,10 @@ with pkgs.lib;
         If true (default), secret information such as LUKS encryption
         keys or SSL private keys is stored on the root disk of the
         machine, allowing the machine to do unattended reboots.  If
-        false, secrets are not stored; Charon supplies them to the
+        false, secrets are not stored; NixOps supplies them to the
         machine at mount time.  This means that a reboot will not
-        complete entirely until you run <command>charon
-        deploy</command> or <command>charon send-keys</command>.
+        complete entirely until you run <command>nixops
+        deploy</command> or <command>nixops send-keys</command>.
       '';
     };
 
@@ -45,7 +45,7 @@ with pkgs.lib;
 
   config = {
 
-    system.activationScripts.charon-keys =
+    system.activationScripts.nixops-keys =
       ''
         mkdir -p /run/keys -m 0700
 
@@ -64,8 +64,8 @@ with pkgs.lib;
         }
       '';
 
-    systemd.services.charon-keys =
-      { description = "Waiting for Charon Keys";
+    systemd.services.nixops-keys =
+      { description = "Waiting for NixOps Keys";
         wantedBy = [ "keys.target" ];
         before = [ "keys.target" ];
         unitConfig.DefaultDependencies = false; # needed to prevent a cycle

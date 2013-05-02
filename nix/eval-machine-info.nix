@@ -41,8 +41,8 @@ rec {
           modules =
             modules ++
             defaults ++
-            [ { key = "charon-stuff";
-                # Make Charon's deployment.* options available.
+            [ { key = "nixops-stuff";
+                # Make NixOps's deployment.* options available.
                 require = [ ./options.nix ];
                 # Provide a default hostname and deployment target equal
                 # to the attribute name of the machine in the model.
@@ -97,7 +97,7 @@ rec {
   # Phase 2: build complete machine configurations.
   machines = { names }:
     let nodes' = filterAttrs (n: v: elem n names) nodes; in
-    runCommand "charon-machines"
+    runCommand "nixops-machines"
       { preferLocalBuild = true; }
       ''
         mkdir -p $out
