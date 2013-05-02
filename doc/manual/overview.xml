@@ -113,7 +113,7 @@ machine <literal>webserver</literal> hasn’t been created yet.  The
 use the symbolic name (<literal>-d trivial</literal>) or the UUID
 (<literal>--uuid 33bced96-5f26-11e1-b9d7-9630d48abec1</literal>).  You
 can also set the the environment variable
-<envar>CHARON_DEPLOYMENT</envar>.</para>
+<envar>NIXOPS_DEPLOYMENT</envar>.</para>
 
 <para>The actual deployment is done by running <command>nixops
 deploy</command>:

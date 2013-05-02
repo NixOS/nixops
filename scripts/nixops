@@ -509,7 +509,7 @@ def add_subparser(name, help):
     subparser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
                            default=deployment.get_default_state_file(), help='path to state file')
     subparser.add_argument('--deployment', '-d', dest='deployment', metavar='UUID',
-                           default=os.environ.get("CHARON_DEPLOYMENT", None), help='UUID of the deployment')
+                           default=os.environ.get("NIXOPS_DEPLOYMENT", os.environ.get("CHARON_DEPLOYMENT", None)), help='UUID of the deployment')
     subparser.add_argument('--debug', action='store_true', help='enable debug output')
     subparser.add_argument('--confirm', action='store_true', help='confirm dangerous operations; do not ask')
 

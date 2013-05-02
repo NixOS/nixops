@@ -74,7 +74,7 @@ cloud.</para>
 
     <listitem><para>UUID or symbolic name of the deployment on which
     to operate.  Defaults to the value of the
-    <envar>CHARON_DEPLOYMENT</envar> environment
+    <envar>NIXOPS_DEPLOYMENT</envar> environment
     variable.</para></listitem>
 
   </varlistentry>
@@ -126,7 +126,7 @@ cloud.</para>
 
   </varlistentry>
 
-  <varlistentry><term><envar>CHARON_DEPLOYMENT</envar></term>
+  <varlistentry><term><envar>NIXOPS_DEPLOYMENT</envar></term>
 
     <listitem><para>UUID or symbolic name of the deployment on which
     to operate.  Can be overriden using the <option>-d</option>
@@ -253,7 +253,7 @@ output.</para>
     passing the option <literal>-d
     <replaceable>name</replaceable></literal> or the environment
     variable
-    <literal>CHARON_DEPLOYMENT=<replaceable>name</replaceable></literal>
+    <literal>NIXOPS_DEPLOYMENT=<replaceable>name</replaceable></literal>
     to subsequent NixOps invocations.  This is typically more
     convenient than using the deployment’s UUID.  However, names are
     not required to be unique; if you create multiple deployments with
