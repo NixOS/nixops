@@ -5,13 +5,13 @@
 import time
 import boto
 import boto.iam
-import charon.util
-import charon.resources
-import charon.ec2_utils
+import nixops.util
+import nixops.resources
+import nixops.ec2_utils
 from xml.etree import ElementTree
 from pprint import pprint
 
-class IAMRoleDefinition(charon.resources.ResourceDefinition):
+class IAMRoleDefinition(nixops.resources.ResourceDefinition):
     """Definition of an IAM Role."""
 
     @classmethod
@@ -19,7 +19,7 @@ class IAMRoleDefinition(charon.resources.ResourceDefinition):
         return "iam-role"
 
     def __init__(self, xml):
-        charon.resources.ResourceDefinition.__init__(self, xml)
+        nixops.resources.ResourceDefinition.__init__(self, xml)
         self.role_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
         self.policy = xml.find("attrs/attr[@name='policy']/string").get("value")
@@ -28,13 +28,13 @@ class IAMRoleDefinition(charon.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class IAMRoleState(charon.resources.ResourceState):
+class IAMRoleState(nixops.resources.ResourceState):
     """State of an IAM Role."""
 
-    state = charon.util.attr_property("state", charon.resources.ResourceState.MISSING, int)
-    role_name = charon.util.attr_property("ec2.roleName", None)
-    access_key_id = charon.util.attr_property("ec2.accessKeyId", None)
-    policy = charon.util.attr_property("ec2.policy", None)
+    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    role_name = nixops.util.attr_property("ec2.roleName", None)
+    access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
+    policy = nixops.util.attr_property("ec2.policy", None)
 
     @classmethod
     def get_type(cls):
@@ -42,7 +42,7 @@ class IAMRoleState(charon.resources.ResourceState):
 
 
     def __init__(self, depl, name, id):
-        charon.resources.ResourceState.__init__(self, depl, name, id)
+        nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._conn = None
 
 
@@ -58,7 +58,7 @@ class IAMRoleState(charon.resources.ResourceState):
 
     def connect(self):
         if self._conn: return
-        (access_key_id, secret_access_key) = charon.ec2_utils.fetch_aws_secret_key(self.access_key_id)
+        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
         self._conn = boto.connect_iam(
             aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
@@ -105,12 +105,12 @@ class IAMRoleState(charon.resources.ResourceState):
     def create_after(self, resources):
         # IAM roles can refer to S3 buckets.
         return {r for r in resources if
-                isinstance(r, charon.resources.s3_bucket.S3BucketState)}
+                isinstance(r, nixops.resources.s3_bucket.S3BucketState)}
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
 
-        self.access_key_id = defn.access_key_id or charon.ec2_utils.get_access_key_id()
+        self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 

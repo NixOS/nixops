@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 import re
-import charon.util
+import nixops.util
 
 
 class ResourceDefinition(object):
-    """Base class for Charon resource definitions."""
+    """Base class for NixOps resource definitions."""
 
     @classmethod
     def get_type(cls):
@@ -22,7 +22,7 @@ class ResourceDefinition(object):
 
 
 class ResourceState(object):
-    """Base class for Charon resource state objects."""
+    """Base class for NixOps resource state objects."""
 
     @classmethod
     def get_type(cls):
@@ -38,9 +38,9 @@ class ResourceState(object):
     STOPPED=5 # machine is down
     UNREACHABLE=6 # machine should be up, but is unreachable
 
-    state = charon.util.attr_property("state", UNKNOWN, int)
-    index = charon.util.attr_property("index", None, int)
-    obsolete = charon.util.attr_property("obsolete", False, bool)
+    state = nixops.util.attr_property("state", UNKNOWN, int)
+    index = nixops.util.attr_property("index", None, int)
+    obsolete = nixops.util.attr_property("obsolete", False, bool)
 
     def __init__(self, depl, name, id):
         self.depl = depl
@@ -68,14 +68,14 @@ class ResourceState(object):
         with self.depl._db:
             self.depl._db.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, name))
 
-    def _get_attr(self, name, default=charon.util.undefined):
+    def _get_attr(self, name, default=nixops.util.undefined):
         """Get a machine attribute from the state file."""
         with self.depl._db:
             c = self.depl._db.cursor()
             c.execute("select value from ResourceAttrs where machine = ? and name = ?", (self.id, name))
             row = c.fetchone()
             if row != None: return row[0]
-            return charon.util.undefined
+            return nixops.util.undefined
 
     def set_log_prefix(self, length):
         self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))
@@ -95,10 +95,10 @@ class ResourceState(object):
         self.depl.log_end(self._log_prefix, msg)
 
     def warn(self, msg):
-        self.log(charon.util.ansi_warn("warning: " + msg, outfile=self.depl._log_file))
+        self.log(nixops.util.ansi_warn("warning: " + msg, outfile=self.depl._log_file))
 
     def success(self, msg):
-        self.log(charon.util.ansi_success(msg, outfile=self.depl._log_file))
+        self.log(nixops.util.ansi_success(msg, outfile=self.depl._log_file))
 
     def show_type(self):
         return self.get_type()

@@ -10,10 +10,10 @@ import getpass
 import shutil
 import boto.ec2
 import boto.ec2.blockdevicemapping
-from charon.backends import MachineDefinition, MachineState
-import charon.util
-import charon.ec2_utils
-import charon.known_hosts
+from nixops.backends import MachineDefinition, MachineState
+import nixops.util
+import nixops.ec2_utils
+import nixops.known_hosts
 from xml import etree
 
 class EC2InstanceDisappeared(Exception):
@@ -74,30 +74,30 @@ class EC2State(MachineState):
     def get_type(cls):
         return "ec2"
 
-    state = charon.util.attr_property("state", MachineState.MISSING, int)  # override
-    public_ipv4 = charon.util.attr_property("publicIpv4", None)
-    private_ipv4 = charon.util.attr_property("privateIpv4", None)
-    elastic_ipv4 = charon.util.attr_property("ec2.elasticIpv4", None)
-    access_key_id = charon.util.attr_property("ec2.accessKeyId", None)
-    region = charon.util.attr_property("ec2.region", None)
-    zone = charon.util.attr_property("ec2.zone", None)
-    controller = charon.util.attr_property("ec2.controller", None)  # FIXME: not used
-    ami = charon.util.attr_property("ec2.ami", None)
-    instance_type = charon.util.attr_property("ec2.instanceType", None)
-    key_pair = charon.util.attr_property("ec2.keyPair", None)
-    public_host_key = charon.util.attr_property("ec2.publicHostKey", None)
-    private_host_key = charon.util.attr_property("ec2.privateHostKey", None)
-    private_key_file = charon.util.attr_property("ec2.privateKeyFile", None)
-    instance_profile = charon.util.attr_property("ec2.instanceProfile", None)
-    security_groups = charon.util.attr_property("ec2.securityGroups", None, 'json')
-    tags = charon.util.attr_property("ec2.tags", {}, 'json')
-    block_device_mapping = charon.util.attr_property("ec2.blockDeviceMapping", {}, 'json')
-    root_device_type = charon.util.attr_property("ec2.rootDeviceType", None)
-    backups = charon.util.attr_property("ec2.backups", {}, 'json')
-    dns_hostname = charon.util.attr_property("route53.hostName", None)
-    dns_ttl = charon.util.attr_property("route53.ttl", None, int)
-    route53_access_key_id = charon.util.attr_property("route53.accessKeyId", None)
-    client_token = charon.util.attr_property("ec2.clientToken", None)
+    state = nixops.util.attr_property("state", MachineState.MISSING, int)  # override
+    public_ipv4 = nixops.util.attr_property("publicIpv4", None)
+    private_ipv4 = nixops.util.attr_property("privateIpv4", None)
+    elastic_ipv4 = nixops.util.attr_property("ec2.elasticIpv4", None)
+    access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
+    region = nixops.util.attr_property("ec2.region", None)
+    zone = nixops.util.attr_property("ec2.zone", None)
+    controller = nixops.util.attr_property("ec2.controller", None)  # FIXME: not used
+    ami = nixops.util.attr_property("ec2.ami", None)
+    instance_type = nixops.util.attr_property("ec2.instanceType", None)
+    key_pair = nixops.util.attr_property("ec2.keyPair", None)
+    public_host_key = nixops.util.attr_property("ec2.publicHostKey", None)
+    private_host_key = nixops.util.attr_property("ec2.privateHostKey", None)
+    private_key_file = nixops.util.attr_property("ec2.privateKeyFile", None)
+    instance_profile = nixops.util.attr_property("ec2.instanceProfile", None)
+    security_groups = nixops.util.attr_property("ec2.securityGroups", None, 'json')
+    tags = nixops.util.attr_property("ec2.tags", {}, 'json')
+    block_device_mapping = nixops.util.attr_property("ec2.blockDeviceMapping", {}, 'json')
+    root_device_type = nixops.util.attr_property("ec2.rootDeviceType", None)
+    backups = nixops.util.attr_property("ec2.backups", {}, 'json')
+    dns_hostname = nixops.util.attr_property("route53.hostName", None)
+    dns_ttl = nixops.util.attr_property("route53.ttl", None, int)
+    route53_access_key_id = nixops.util.attr_property("route53.accessKeyId", None)
+    client_token = nixops.util.attr_property("ec2.clientToken", None)
 
 
     def __init__(self, depl, name, id):
@@ -142,8 +142,8 @@ class EC2State(MachineState):
         if self.private_key_file: return self.private_key_file
         if self._ssh_private_key_file: return self._ssh_private_key_file
         for r in self.depl.active_resources.itervalues():
-            if isinstance(r, charon.resources.ec2_keypair.EC2KeyPairState) and \
-                    r.state == charon.resources.ec2_keypair.EC2KeyPairState.UP and \
+            if isinstance(r, nixops.resources.ec2_keypair.EC2KeyPairState) and \
+                    r.state == nixops.resources.ec2_keypair.EC2KeyPairState.UP and \
                     r.keypair_name == self.key_pair:
                 return self.write_ssh_private_key(r.private_key)
         return None
@@ -208,7 +208,7 @@ class EC2State(MachineState):
 
     def connect(self):
         if self._conn: return
-        self._conn = charon.ec2_utils.connect(self.region, self.access_key_id)
+        self._conn = nixops.ec2_utils.connect(self.region, self.access_key_id)
 
 
     def connect_route53(self):
@@ -216,7 +216,7 @@ class EC2State(MachineState):
             return
 
         # Get the secret access key from the environment or from ~/.ec2-keys.
-        (access_key_id, secret_access_key) = charon.ec2_utils.fetch_aws_secret_key(self.route53_access_key_id)
+        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.route53_access_key_id)
 
         self._conn_route53 = boto.connect_route53(access_key_id, secret_access_key)
 
@@ -271,7 +271,7 @@ class EC2State(MachineState):
 
         self.log_end("{0} / {1}".format(instance.ip_address, instance.private_ip_address))
 
-        charon.known_hosts.add(instance.ip_address, self.public_host_key)
+        nixops.known_hosts.add(instance.ip_address, self.public_host_key)
 
         self.private_ipv4 = instance.private_ip_address
         self.public_ipv4 = instance.ip_address
@@ -394,8 +394,8 @@ class EC2State(MachineState):
         # only depend on the specific key pair / role needed for this
         # instance.
         return {r for r in resources if
-                isinstance(r, charon.resources.ec2_keypair.EC2KeyPairState) or
-                isinstance(r, charon.resources.iam_role.IAMRoleState)}
+                isinstance(r, nixops.resources.ec2_keypair.EC2KeyPairState) or
+                isinstance(r, nixops.resources.iam_role.IAMRoleState)}
 
 
     def attach_volume(self, device, volume_id):
@@ -415,11 +415,11 @@ class EC2State(MachineState):
                 sys.stderr.write("[{0}] ".format(res))
                 return res == 'available'
 
-            charon.util.check_wait(check_available)
+            nixops.util.check_wait(check_available)
             if volume.update() != "available":
                 self.log("force detaching volume ‘{0}’ from instance ‘{1}’...".format(volume_id, volume.attach_data.instance_id))
                 volume.detach(True)
-                charon.util.check_wait(check_available)
+                nixops.util.check_wait(check_available)
 
         if self.vm_id != volume.attach_data.instance_id:
             # Attach it.
@@ -429,7 +429,7 @@ class EC2State(MachineState):
         def check_dev():
             res = self.run_command("test -e {0}".format(_sd_to_xvd(device)), check=False)
             return res == 0
-        charon.util.check_wait(check_dev)
+        nixops.util.check_wait(check_dev)
 
     def wait_for_volume_available(self, volume):
         def check_available():
@@ -437,7 +437,7 @@ class EC2State(MachineState):
             sys.stderr.write("[{0}] ".format(res))
             return res == 'available'
 
-        charon.util.check_wait(check_available, max_tries=90)
+        nixops.util.check_wait(check_available, max_tries=90)
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -450,7 +450,7 @@ class EC2State(MachineState):
         self.set_common_state(defn)
 
         # Figure out the access key.
-        self.access_key_id = defn.access_key_id or charon.ec2_utils.get_access_key_id()
+        self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
@@ -539,7 +539,7 @@ class EC2State(MachineState):
 
             # Generate a public/private host key.
             if not self.public_host_key:
-                (private, public) = charon.util.create_key_pair()
+                (private, public) = nixops.util.create_key_pair()
                 with self.depl._db:
                     self.public_host_key = public
                     self.private_host_key = private
@@ -553,10 +553,10 @@ class EC2State(MachineState):
             # next run.
             if not self.client_token:
                 with self.depl._db:
-                    self.client_token = charon.util.generate_random_string(length=48) # = 64 ASCII chars
+                    self.client_token = nixops.util.generate_random_string(length=48) # = 64 ASCII chars
                     self.state = self.STARTING
 
-            reservation = charon.ec2_utils.retry(lambda: self._conn.run_instances(
+            reservation = nixops.ec2_utils.retry(lambda: self._conn.run_instances(
                 client_token=self.client_token,
                 instance_type=defn.instance_type,
                 placement=zone,
@@ -655,7 +655,7 @@ class EC2State(MachineState):
                         instance.update()
                     self.log_end("")
 
-                charon.known_hosts.add(defn.elastic_ipv4, self.public_host_key)
+                nixops.known_hosts.add(defn.elastic_ipv4, self.public_host_key)
                 with self.depl._db:
                     self.elastic_ipv4 = defn.elastic_ipv4
                     self.public_ipv4 = defn.elastic_ipv4
@@ -732,7 +732,7 @@ class EC2State(MachineState):
                 if volume: continue
                 if not allow_recreate:
                     raise Exception("volume ‘{0}’ (used by EC2 instance ‘{1}’) no longer exists; "
-                                    "run ‘charon stop’, then ‘charon deploy --allow-recreate’ to create a new, empty volume"
+                                    "run ‘nixops stop’, then ‘nixops deploy --allow-recreate’ to create a new, empty volume"
                                     .format(v['volumeId'], self.name))
                 self.warn("volume ‘{0}’ has disappeared; will create an empty volume to replace it".format(v['volumeId']))
                 self.update_block_device_mapping(k, None)
@@ -794,7 +794,7 @@ class EC2State(MachineState):
         # Auto-generate LUKS keys if the model didn't specify one.
         for k, v in self.block_device_mapping.items():
             if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") == "":
-                v['generatedKey'] = charon.util.generate_random_string(length=256)
+                v['generatedKey'] = nixops.util.generate_random_string(length=256)
                 self.update_block_device_mapping(k, v)
 
 
@@ -841,7 +841,7 @@ class EC2State(MachineState):
         self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
         volume = self._get_volume_by_id(volume_id, allow_missing=True)
         if not volume: return
-        charon.util.check_wait(lambda: volume.update() == 'available')
+        nixops.util.check_wait(lambda: volume.update() == 'available')
         volume.delete()
 
 
@@ -909,17 +909,17 @@ class EC2State(MachineState):
             instance.update()
             return False
 
-        if not charon.util.check_wait(check_stopped, initial=3, max_tries=300, exception=False): # = 15 min
+        if not nixops.util.check_wait(check_stopped, initial=3, max_tries=300, exception=False): # = 15 min
             # If stopping times out, then do an unclean shutdown.
             self.log_end("(timed out)")
             self.log_start("force-stopping EC2 machine... ")
             instance.stop(force=True)
-            if not charon.util.check_wait(check_stopped, initial=3, max_tries=100, exception=False): # = 5 min
+            if not nixops.util.check_wait(check_stopped, initial=3, max_tries=100, exception=False): # = 5 min
                 # Amazon docs suggest doing a force stop twice...
                 self.log_end("(timed out)")
                 self.log_start("force-stopping EC2 machine... ")
                 instance.stop(force=True)
-                charon.util.check_wait(check_stopped, initial=3, max_tries=100) # = 5 min
+                nixops.util.check_wait(check_stopped, initial=3, max_tries=100) # = 5 min
 
         self.log_end("")
 
@@ -947,7 +947,7 @@ class EC2State(MachineState):
         self._wait_for_ip(instance)
 
         if prev_private_ipv4 != self.private_ipv4 or prev_public_ipv4 != self.public_ipv4:
-            self.warn("IP address has changed, you may need to run ‘charon deploy’")
+            self.warn("IP address has changed, you may need to run ‘nixops deploy’")
 
         self.wait_for_ssh(check=True)
         self.send_keys()
@@ -985,7 +985,7 @@ class EC2State(MachineState):
                         res.messages.append("volume ‘{0}’ no longer exists".format(v['volumeId']))
 
             if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:
-                self.warn("IP address has changed, you may need to run ‘charon deploy’")
+                self.warn("IP address has changed, you may need to run ‘nixops deploy’")
                 self.private_ipv4 = instance.private_ip_address
                 self.public_ipv4 = instance.ip_address
 

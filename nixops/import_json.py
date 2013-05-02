@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
 
-import charon.deployment
-import charon.backends
+import nixops.deployment
+import nixops.backends
 import json
 
 def import_json(db_file, json_file):
     f = open(json_file, 'r')
     state = json.load(f)
 
-    db = charon.deployment.open_database(db_file)
+    db = nixops.deployment.open_database(db_file)
 
     with db:
 
-        depl = charon.deployment.create_deployment(db, uuid=state['uuid'])
+        depl = nixops.deployment.create_deployment(db, uuid=state['uuid'])
         depl.nix_exprs = state['networkExprs']
         depl.nix_path = state.get('nixPath', [])
         depl.args = state.get('args', {})
@@ -27,11 +27,11 @@ def import_json(db_file, json_file):
                       (depl.uuid, n, "machine", type))
             id = c.lastrowid
 
-            m = charon.backends.create_state(depl, type, n, id)
+            m = nixops.backends.create_state(depl, type, n, id)
             depl.machines[n] = m
 
             m.index = x.get('index', None)
-            m.state = x.get('state', charon.backends.MachineState.UNKNOWN)
+            m.state = x.get('state', nixops.backends.MachineState.UNKNOWN)
             m.obsolete = x.get('obsolete', False)
             m.vm_id = x.get('vmId', None)
             m.ssh_pinged = x.get('sshPinged', False)

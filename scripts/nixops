@@ -1,16 +1,16 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from charon import deployment
+from nixops import deployment
 from prettytable import PrettyTable
 import argparse
 import os
 import re
 import sys
 import subprocess
-import charon.parallel
-import charon.util
-import charon.import_json
+import nixops.parallel
+import nixops.util
+import nixops.import_json
 import time
 from pprint import pprint
 
@@ -52,7 +52,7 @@ def set_name(depl, name):
 
 def modify_deployment(depl):
     depl.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in args.nix_exprs]
-    depl.nix_path = [charon.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
+    depl.nix_path = [nixops.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
     set_name(depl, args.name)
 
 
@@ -83,7 +83,7 @@ def op_delete():
 
 
 def op_import_json():
-    depl = charon.import_json.import_json(args.state_file, args.json_file)
+    depl = nixops.import_json.import_json(args.state_file, args.json_file)
     set_name(depl, args.name)
 
 
@@ -113,8 +113,8 @@ def op_info():
         if not args.no_eval:
             try:
                 depl.evaluate()
-            except charon.deployment.NixEvalError:
-                sys.stderr.write(charon.util.ansi_warn("warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"))
+            except nixops.deployment.NixEvalError:
+                sys.stderr.write(nixops.util.ansi_warn("warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"))
                 depl.definitions = None
 
     def print_deployment(depl):
@@ -193,18 +193,18 @@ def op_check():
          ('Disks OK', 'l'), ('Load avg.', 'l'), ('Failed units', 'l'), ('Notes', 'l')])
 
     def warn(s):
-        return charon.util.ansi_warn(s, outfile=sys.stdout)
+        return nixops.util.ansi_warn(s, outfile=sys.stdout)
 
     def render_tristate(x):
         if x == None: return "N/A"
-        elif x: return charon.util.ansi_success("Yes", outfile=sys.stdout)
+        elif x: return nixops.util.ansi_success("Yes", outfile=sys.stdout)
         else: return warn("No")
 
     machines = []
 
     def check(depl):
         for m in depl.active.itervalues():
-            if not charon.deployment.should_do(m, args.include or [], args.exclude or []): return
+            if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): return
             machines.append(m)
 
     if args.all:
@@ -237,7 +237,7 @@ def op_check():
         if res.failed_units != None and res.failed_units != []: status |= 16
         return (m.depl.name or m.depl.uuid, m, row, status)
 
-    results = charon.parallel.run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
+    results = nixops.parallel.run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
 
     # Sort the rows by deployment/machine.
     status = 0
@@ -447,9 +447,9 @@ def op_ssh_for_each():
     res2 = 0
     jobs = args.parallel if args.parallel else 1
     def worker(m):
-        if not charon.deployment.should_do(m, args.include or [], args.exclude or []): return
+        if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): return
         return m._logged_exec(["ssh", "root@" + m.get_ssh_name()] + m.get_ssh_flags() + args.args, check=False)
-    results = charon.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
+    results = nixops.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
     sys.exit(max(results) if results != [] else 0)
 
 
@@ -697,11 +697,11 @@ add_common_deployment_options(subparser)
 
 # Parse the command line and execute the desired operation.
 def error(msg):
-    sys.stderr.write("error: " + charon.util.ansi_warn(msg) + "\n")
+    sys.stderr.write("error: " + nixops.util.ansi_warn(msg) + "\n")
 
 args = parser.parse_args()
 try:
-    charon.deployment.debug = args.debug
+    nixops.deployment.debug = args.debug
     args.op()
 except deployment.NixEvalError:
     error("evaluation of the deployment specification failed")

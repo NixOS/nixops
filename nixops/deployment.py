@@ -11,11 +11,11 @@ import threading
 import exceptions
 import errno
 from xml.etree import ElementTree
-import charon.backends
-import charon.parallel
-import charon.resources.ec2_keypair
-import charon.resources.sqs_queue
-import charon.resources.iam_role
+import nixops.backends
+import nixops.parallel
+import nixops.resources.ec2_keypair
+import nixops.resources.sqs_queue
+import nixops.resources.iam_role
 import re
 from datetime import datetime
 import getpass
@@ -163,7 +163,7 @@ def open_database(db_file):
             if version <= 2: _upgrade_2_to_3(c)
             c.execute("update SchemaVersion set version = ?", (current_schema,))
         else:
-            raise Exception("this Charon version is too old to deal with schema version {0}".format(version))
+            raise Exception("this NixOps version is too old to deal with schema version {0}".format(version))
 
     return db
 
@@ -207,17 +207,17 @@ def open_deployment(db, uuid=None):
 
 
 class Deployment(object):
-    """Charon top-level deployment manager."""
+    """NixOps top-level deployment manager."""
 
-    default_description = "Unnamed Charon network"
+    default_description = "Unnamed NixOps network"
 
-    name = charon.util.attr_property("name", None)
-    nix_exprs = charon.util.attr_property("nixExprs", [], 'json')
-    nix_path = charon.util.attr_property("nixPath", [], 'json')
-    args = charon.util.attr_property("args", {}, 'json')
-    description = charon.util.attr_property("description", default_description)
-    configs_path = charon.util.attr_property("configsPath", None)
-    rollback_enabled = charon.util.attr_property("rollbackEnabled", False)
+    name = nixops.util.attr_property("name", None)
+    nix_exprs = nixops.util.attr_property("nixExprs", [], 'json')
+    nix_path = nixops.util.attr_property("nixPath", [], 'json')
+    args = nixops.util.attr_property("args", {}, 'json')
+    description = nixops.util.attr_property("description", default_description)
+    configs_path = nixops.util.attr_property("configsPath", None)
+    rollback_enabled = nixops.util.attr_property("rollbackEnabled", False)
 
     def __init__(self, db, uuid, log_file=sys.stderr):
         self._db = db
@@ -238,14 +238,14 @@ class Deployment(object):
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
-        self.tempdir = charon.util.SelfDeletingDir(tempfile.mkdtemp(prefix="charon-tmp"))
+        self.tempdir = nixops.util.SelfDeletingDir(tempfile.mkdtemp(prefix="nixops-tmp"))
 
         self.resources = {}
         with self._db:
             c = self._db.cursor()
             c.execute("select id, name, type from Resources where deployment = ?", (self.uuid,))
             for (id, name, type) in c.fetchall():
-                r = charon.backends.create_state(self, type, name, id)
+                r = nixops.backends.create_state(self, type, name, id)
                 self.resources[name] = r
         self.set_log_prefixes()
 
@@ -288,14 +288,14 @@ class Deployment(object):
             self._db.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
 
 
-    def _get_attr(self, name, default=charon.util.undefined):
+    def _get_attr(self, name, default=nixops.util.undefined):
         """Get a deployment attribute from the state file."""
         with self._db:
             c = self._db.cursor()
             c.execute("select value from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
             row = c.fetchone()
             if row != None: return row[0]
-            return charon.util.undefined
+            return nixops.util.undefined
 
 
     def clone(self):
@@ -392,7 +392,7 @@ class Deployment(object):
 
 
     def warn(self, msg):
-        self.log(charon.util.ansi_warn("warning: " + msg, outfile=self._log_file))
+        self.log(nixops.util.ansi_warn("warning: " + msg, outfile=self._log_file))
 
 
     def confirm(self, question):
@@ -401,7 +401,7 @@ class Deployment(object):
                 if self._last_log_prefix != None:
                     self._log_file.write("\n")
                     self._last_log_prefix = None
-                self._log_file.write(charon.util.ansi_warn("warning: {0} (y/N) ".format(question), outfile=self._log_file))
+                self._log_file.write(nixops.util.ansi_warn("warning: {0} (y/N) ".format(question), outfile=self._log_file))
                 if self.auto_response != None:
                     self._log_file.write("{0}\n".format(self.auto_response))
                     return self.auto_response == "y"
@@ -414,7 +414,7 @@ class Deployment(object):
 
     def _nix_path_flags(self):
         flags = list(itertools.chain(*[["-I", x] for x in (self.extra_nix_path + self.nix_path)])) + self.extra_nix_flags
-        flags.extend(["-I", "charon=" + self.expr_path])
+        flags.extend(["-I", "nixops=" + self.expr_path])
         return flags
 
 
@@ -425,7 +425,7 @@ class Deployment(object):
              "--arg", "args", self._args_to_attrs(),
              "--argstr", "uuid", self.uuid,
              "--show-trace",
-             "<charon/eval-machine-info.nix>"])
+             "<nixops/eval-machine-info.nix>"])
         return flags
 
 
@@ -490,26 +490,26 @@ class Deployment(object):
 
         # Extract machine information.
         for x in tree.find("attrs/attr[@name='machines']/attrs").findall("attr"):
-            defn = charon.backends.create_definition(x)
+            defn = nixops.backends.create_definition(x)
             self.definitions[defn.name] = defn
 
         # Extract info about other kinds of resources.
         res = tree.find("attrs/attr[@name='resources']/attrs")
 
         for x in res.find("attr[@name='ec2KeyPairs']/attrs").findall("attr"):
-            defn = charon.resources.ec2_keypair.EC2KeyPairDefinition(x)
+            defn = nixops.resources.ec2_keypair.EC2KeyPairDefinition(x)
             self.definitions[defn.name] = defn
 
         for x in res.find("attr[@name='sqsQueues']/attrs").findall("attr"):
-            defn = charon.resources.sqs_queue.SQSQueueDefinition(x)
+            defn = nixops.resources.sqs_queue.SQSQueueDefinition(x)
             self.definitions[defn.name] = defn
 
         for x in res.find("attr[@name='iamRoles']/attrs").findall("attr"):
-            defn = charon.resources.iam_role.IAMRoleDefinition(x)
+            defn = nixops.resources.iam_role.IAMRoleDefinition(x)
             self.definitions[defn.name] = defn
 
         for x in res.find("attr[@name='s3Buckets']/attrs").findall("attr"):
-            defn = charon.resources.s3_bucket.S3BucketDefinition(x)
+            defn = nixops.resources.s3_bucket.S3BucketDefinition(x)
             self.definitions[defn.name] = defn
 
 
@@ -706,7 +706,7 @@ class Deployment(object):
                 raise Exception("can't find closure of machine ‘{0}’".format(m.name))
             m.copy_closure_to(m.new_toplevel)
 
-        charon.parallel.run_tasks(
+        nixops.parallel.run_tasks(
             nr_workers=max_concurrent_copy,
             tasks=self.active.itervalues(), worker_fun=worker)
 
@@ -750,13 +750,13 @@ class Deployment(object):
 
             except Exception as e:
                 # This thread shouldn't throw an exception because
-                # that will cause Charon to exit and interrupt
+                # that will cause NixOps to exit and interrupt
                 # activation on the other machines.
                 m.log(str(e))
                 return m.name
             return None
 
-        res = charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
+        res = nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
         failed = [x for x in res if x != None]
         if failed != []:
             raise Exception("activation of {0} of {1} machines failed (namely on {2})"
@@ -810,7 +810,7 @@ class Deployment(object):
             def worker(m):
                 m.remove_backup(backup_id)
 
-            charon.parallel.run_tasks(nr_workers=len(self.active), tasks=self.machines.itervalues(), worker_fun=worker)
+            nixops.parallel.run_tasks(nr_workers=len(self.active), tasks=self.machines.itervalues(), worker_fun=worker)
 
 
     def backup(self, include=[], exclude=[]):
@@ -825,7 +825,7 @@ class Deployment(object):
                 m.log("Running sync failed on {0}.".format(m.name))
             m.backup(backup_id)
 
-        charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
+        nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
         return backup_id
 
@@ -838,9 +838,9 @@ class Deployment(object):
                 if not should_do(m, include, exclude): return
                 m.restore(self.definitions[m.name], backup_id)
 
-            charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
+            nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
             self.start_machines(include=include, exclude=exclude)
-            self.warn("restore finished; please note that you might need to run ‘charon deploy’ to fix configuration issues regarding changed IP addresses")
+            self.warn("restore finished; please note that you might need to run ‘nixops deploy’ to fix configuration issues regarding changed IP addresses")
 
 
     def evaluate_active(self, include=[], exclude=[], kill_obsolete=False):
@@ -857,7 +857,7 @@ class Deployment(object):
                     c.execute("insert into Resources(deployment, name, type) values (?, ?, ?)",
                               (self.uuid, m.name, m.get_type()))
                     id = c.lastrowid
-                    self.resources[m.name] = charon.backends.create_state(self, m.get_type(), m.name, id)
+                    self.resources[m.name] = nixops.backends.create_state(self, m.get_type(), m.name, id)
 
         self.set_log_prefixes()
 
@@ -923,7 +923,7 @@ class Deployment(object):
 
                 r._created_event.set()
 
-            charon.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=worker)
+            nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=worker)
 
         if create_only: return
 
@@ -1005,7 +1005,7 @@ class Deployment(object):
                 if not should_do(m, include, exclude): return
                 if m.destroy(): self.delete_resource(m)
 
-            charon.parallel.run_tasks(nr_workers=-1, tasks=self.resources.values(), worker_fun=worker)
+            nixops.parallel.run_tasks(nr_workers=-1, tasks=self.resources.values(), worker_fun=worker)
 
         # Remove the destroyed machines from the rollback profile.
         # This way, a subsequent "nix-env --delete-generations old" or
@@ -1015,8 +1015,8 @@ class Deployment(object):
             profile = self.create_profile()
             attrs = ["\"{0}\" = builtins.storePath {1};".format(m.name, m.cur_toplevel) for m in self.active.itervalues() if m.cur_toplevel]
             if subprocess.call(
-                ["nix-env", "-p", profile, "--set", "*", "-I", "charon=" + self.expr_path,
-                 "-f", "<charon/update-profile.nix>",
+                ["nix-env", "-p", profile, "--set", "*", "-I", "nixops=" + self.expr_path,
+                 "-f", "<nixops/update-profile.nix>",
                  "--arg", "machines", "{ " + " ".join(attrs) + " }"]) != 0:
                 raise Exception("cannot update profile ‘{0}’".format(profile))
 
@@ -1031,7 +1031,7 @@ class Deployment(object):
             else:
                 m.reboot()
 
-        charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
+        nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
 
     def stop_machines(self, include=[], exclude=[]):
@@ -1041,7 +1041,7 @@ class Deployment(object):
             if not should_do(m, include, exclude): return
             m.stop()
 
-        charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
+        nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
 
     def start_machines(self, include=[], exclude=[]):
@@ -1051,7 +1051,7 @@ class Deployment(object):
             if not should_do(m, include, exclude): return
             m.start()
 
-        charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
+        nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
 
     def is_valid_resource_name(self, name):
@@ -1083,7 +1083,7 @@ class Deployment(object):
             if not should_do(m, include, exclude): return
             m.send_keys()
 
-        charon.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
+        nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
 
 class NixEvalError(Exception):
@@ -1099,7 +1099,7 @@ def should_do_n(name, include, exclude):
     return name in include
 
 def is_machine(r):
-    return isinstance(r, charon.backends.MachineState)
+    return isinstance(r, nixops.backends.MachineState)
 
 def is_machine_defn(r):
-    return isinstance(r, charon.backends.MachineDefinition)
+    return isinstance(r, nixops.backends.MachineDefinition)

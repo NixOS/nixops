@@ -5,8 +5,8 @@ import sys
 import time
 import shutil
 import stat
-from charon.backends import MachineDefinition, MachineState
-import charon.known_hosts
+from nixops.backends import MachineDefinition, MachineState
+import nixops.known_hosts
 
 
 sata_ports = 8
@@ -41,17 +41,17 @@ class VirtualBoxState(MachineState):
     def get_type(cls):
         return "virtualbox"
 
-    state = charon.util.attr_property("state", MachineState.MISSING, int) # override
-    private_ipv4 = charon.util.attr_property("privateIpv4", None)
-    disks = charon.util.attr_property("virtualbox.disks", {}, 'json')
-    _client_private_key = charon.util.attr_property("virtualbox.clientPrivateKey", None)
-    _client_public_key = charon.util.attr_property("virtualbox.clientPublicKey", None)
-    _headless = charon.util.attr_property("virtualbox.headless", False, bool)
-    sata_controller_created = charon.util.attr_property("virtualbox.sataControllerCreated", False, bool)
+    state = nixops.util.attr_property("state", MachineState.MISSING, int) # override
+    private_ipv4 = nixops.util.attr_property("privateIpv4", None)
+    disks = nixops.util.attr_property("virtualbox.disks", {}, 'json')
+    _client_private_key = nixops.util.attr_property("virtualbox.clientPrivateKey", None)
+    _client_public_key = nixops.util.attr_property("virtualbox.clientPublicKey", None)
+    _headless = nixops.util.attr_property("virtualbox.headless", False, bool)
+    sata_controller_created = nixops.util.attr_property("virtualbox.sataControllerCreated", False, bool)
 
     # Obsolete.
-    disk = charon.util.attr_property("virtualbox.disk", None)
-    disk_attached = charon.util.attr_property("virtualbox.diskAttached", False, bool)
+    disk = nixops.util.attr_property("virtualbox.disk", None)
+    disk_attached = nixops.util.attr_property("virtualbox.diskAttached", False, bool)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -71,7 +71,7 @@ class VirtualBoxState(MachineState):
         return ["-o", "StrictHostKeyChecking=no", "-i", self._ssh_private_key_file]
 
     def get_physical_spec(self):
-        return ['    require = [ <charon/virtualbox-image-charon.nix> ];']
+        return ['    require = [ <nixops/virtualbox-image-charon.nix> ];']
 
 
     def address_to(self, m):
@@ -147,7 +147,7 @@ class VirtualBoxState(MachineState):
             time.sleep(1)
             self.log_continue(".")
         self.log_end(" " + self.private_ipv4)
-        charon.known_hosts.remove(self.private_ipv4)
+        nixops.known_hosts.remove(self.private_ipv4)
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -266,7 +266,7 @@ class VirtualBoxState(MachineState):
                 self._update_disk(disk_name, None)
 
         if not self._client_private_key:
-            (self._client_private_key, self._client_public_key) = charon.util.create_key_pair()
+            (self._client_private_key, self._client_public_key) = nixops.util.create_key_pair()
 
         if not self.started:
             self._logged_exec(
@@ -335,7 +335,7 @@ class VirtualBoxState(MachineState):
         self._wait_for_ip()
 
         if prev_ipv4 != self.private_ipv4:
-            self.warn("IP address has changed, you may need to run ‘charon deploy’")
+            self.warn("IP address has changed, you may need to run ‘nixops deploy’")
 
         self.wait_for_ssh(check=True)
 

@@ -7,15 +7,15 @@ import time
 import shutil
 import select
 import subprocess
-import charon.util
-import charon.resources
+import nixops.util
+import nixops.resources
 
 
-class MachineDefinition(charon.resources.ResourceDefinition):
-    """Base class for Charon machine definitions."""
+class MachineDefinition(nixops.resources.ResourceDefinition):
+    """Base class for NixOps machine definitions."""
 
     def __init__(self, xml):
-        charon.resources.ResourceDefinition.__init__(self, xml)
+        nixops.resources.ResourceDefinition.__init__(self, xml)
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
         self.keys = {k.get("name"): k.find("string").get("value") for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")}
@@ -39,30 +39,30 @@ class SSHMaster(object):
     def __del__(self):
         subprocess.call(
             ["ssh", "root@" + self._ssh_name,
-             "-S", self._control_socket, "-O", "exit"], stderr=charon.util.devnull)
+             "-S", self._control_socket, "-O", "exit"], stderr=nixops.util.devnull)
 
 
-class MachineState(charon.resources.ResourceState):
-    """Base class for Charon machine state objects."""
+class MachineState(nixops.resources.ResourceState):
+    """Base class for NixOps machine state objects."""
 
-    vm_id = charon.util.attr_property("vmId", None)
-    ssh_pinged = charon.util.attr_property("sshPinged", False, bool)
-    public_vpn_key = charon.util.attr_property("publicVpnKey", None)
-    store_keys_on_machine = charon.util.attr_property("storeKeysOnMachine", True, bool)
-    keys = charon.util.attr_property("keys", [], 'json')
-    owners = charon.util.attr_property("owners", [], 'json')
+    vm_id = nixops.util.attr_property("vmId", None)
+    ssh_pinged = nixops.util.attr_property("sshPinged", False, bool)
+    public_vpn_key = nixops.util.attr_property("publicVpnKey", None)
+    store_keys_on_machine = nixops.util.attr_property("storeKeysOnMachine", True, bool)
+    keys = nixops.util.attr_property("keys", [], 'json')
+    owners = nixops.util.attr_property("owners", [], 'json')
 
     # Nix store path of the last global configuration deployed to this
     # machine.  Used to check whether this machine is up to date with
     # respect to the global configuration.
-    cur_configs_path = charon.util.attr_property("configsPath", None)
+    cur_configs_path = nixops.util.attr_property("configsPath", None)
 
     # Nix store path of the last machine configuration deployed to
     # this machine.
-    cur_toplevel = charon.util.attr_property("toplevel", None)
+    cur_toplevel = nixops.util.attr_property("toplevel", None)
 
     def __init__(self, depl, name, id):
-        charon.resources.ResourceState.__init__(self, depl, name, id)
+        nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
         self.ssh_master = None
         self._ssh_private_key_file = None
@@ -157,9 +157,9 @@ class MachineState(charon.resources.ResourceState):
         """Reboot this machine and wait until it's up again."""
         self.reboot()
         self.log_start("waiting for the machine to finish rebooting...")
-        charon.util.wait_for_tcp_port(self.get_ssh_name(), 22, open=False, callback=lambda: self.log_continue("."))
+        nixops.util.wait_for_tcp_port(self.get_ssh_name(), 22, open=False, callback=lambda: self.log_continue("."))
         self.log_continue("[down]")
-        charon.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
+        nixops.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
         self.log_end("[up]")
         self.state = self.UP
         self.ssh_pinged = True
@@ -204,7 +204,7 @@ class MachineState(charon.resources.ResourceState):
         """Wait until the SSH port is open on this machine."""
         if self.ssh_pinged and (not check or self._ssh_pinged_this_time): return
         self.log_start("waiting for SSH...")
-        charon.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
+        nixops.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
         self.log_end("")
         self.state = self.UP
         self.ssh_pinged = True
@@ -225,14 +225,14 @@ class MachineState(charon.resources.ResourceState):
                 pass
 
     def write_ssh_private_key(self, private_key):
-        key_file = "{0}/id_charon-{1}".format(self.depl.tempdir, self.name)
+        key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
         with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0600), "w") as f:
             f.write(private_key)
         self._ssh_private_key_file = key_file
         return key_file
 
     def _logged_exec(self, command, check=True, capture_stdout=False, stdin_string=None, env=None):
-        stdin = subprocess.PIPE if stdin_string != None else charon.util.devnull
+        stdin = subprocess.PIPE if stdin_string != None else nixops.util.devnull
 
         if capture_stdout:
             process = subprocess.Popen(command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
@@ -247,7 +247,7 @@ class MachineState(charon.resources.ResourceState):
         # kernel pipe buffer.
         if stdin_string != None: process.stdin.write(stdin_string)
 
-        for fd in fds: charon.util.make_non_blocking(fd)
+        for fd in fds: nixops.util.make_non_blocking(fd)
 
         at_new_line = True
         stdout = ""
@@ -336,7 +336,7 @@ class MachineState(charon.resources.ResourceState):
             _vpn_key_exists = False
 
         if self.public_vpn_key and _vpn_key_exists: return
-        (private, public) = charon.util.create_key_pair(key_name="Charon VPN key of {0}".format(self.name))
+        (private, public) = nixops.util.create_key_pair(key_name="NixOps VPN key of {0}".format(self.name))
         f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
         f.write(private)
         f.seek(0)
@@ -410,33 +410,33 @@ class CheckResult(object):
         # machine is correct.
 
 
-import charon.backends.none
-import charon.backends.virtualbox
-import charon.backends.ec2
-import charon.resources.ec2_keypair
-import charon.resources.sqs_queue
-import charon.resources.s3_bucket
-import charon.resources.iam_role
+import nixops.backends.none
+import nixops.backends.virtualbox
+import nixops.backends.ec2
+import nixops.resources.ec2_keypair
+import nixops.resources.sqs_queue
+import nixops.resources.s3_bucket
+import nixops.resources.iam_role
 
 def create_definition(xml):
     """Create a machine definition object from the given XML representation of the machine's attributes."""
     target_env = xml.find("attrs/attr[@name='targetEnv']/string").get("value")
-    for i in [charon.backends.none.NoneDefinition,
-              charon.backends.virtualbox.VirtualBoxDefinition,
-              charon.backends.ec2.EC2Definition]:
+    for i in [nixops.backends.none.NoneDefinition,
+              nixops.backends.virtualbox.VirtualBoxDefinition,
+              nixops.backends.ec2.EC2Definition]:
         if target_env == i.get_type():
             return i(xml)
     raise Exception("unknown backend type ‘{0}’".format(target_env))
 
 def create_state(depl, type, name, id):
     """Create a machine state object of the desired backend type."""
-    for i in [charon.backends.none.NoneState,
-              charon.backends.virtualbox.VirtualBoxState,
-              charon.backends.ec2.EC2State,
-              charon.resources.ec2_keypair.EC2KeyPairState,
-              charon.resources.sqs_queue.SQSQueueState,
-              charon.resources.iam_role.IAMRoleState,
-              charon.resources.s3_bucket.S3BucketState]:
+    for i in [nixops.backends.none.NoneState,
+              nixops.backends.virtualbox.VirtualBoxState,
+              nixops.backends.ec2.EC2State,
+              nixops.resources.ec2_keypair.EC2KeyPairState,
+              nixops.resources.sqs_queue.SQSQueueState,
+              nixops.resources.iam_role.IAMRoleState,
+              nixops.resources.s3_bucket.S3BucketState]:
         if type == i.get_type():
             return i(depl, name, id)
     raise Exception("unknown backend type ‘{0}’".format(type))

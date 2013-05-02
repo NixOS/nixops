@@ -2,7 +2,7 @@ import os
 import threading
 from os import path
 
-from charon import deployment
+from nixops import deployment
 
 _multiprocess_shared_ = True
 

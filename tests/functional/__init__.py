@@ -2,7 +2,7 @@ import os
 from os import path
 import sqlite3
 
-from charon import deployment
+from nixops import deployment
 
 from tests import db_file
 

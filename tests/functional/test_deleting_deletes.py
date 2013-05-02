@@ -1,5 +1,5 @@
 from nose import tools
-from charon import deployment
+from nixops import deployment
 
 from tests.functional import single_machine_test
 

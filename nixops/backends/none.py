@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from charon.backends import MachineDefinition, MachineState
-import charon.util
+from nixops.backends import MachineDefinition, MachineState
+import nixops.util
 import sys
 
 class NoneDefinition(MachineDefinition):
@@ -23,7 +23,7 @@ class NoneState(MachineState):
     def get_type(cls):
         return "none"
 
-    target_host = charon.util.attr_property("targetHost", None)
+    target_host = nixops.util.attr_property("targetHost", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -39,7 +39,7 @@ class NoneState(MachineState):
 
     def _check(self, res):
         res.exists = True # can't really check
-        res.is_up = charon.util.ping_tcp_port(self.target_host, 22)
+        res.is_up = nixops.util.ping_tcp_port(self.target_host, 22)
         if res.is_up:
             MachineState._check(self, res)
 

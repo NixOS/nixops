@@ -4,12 +4,12 @@
 
 import time
 import boto.s3.connection
-import charon.util
-import charon.resources
-import charon.ec2_utils
+import nixops.util
+import nixops.resources
+import nixops.ec2_utils
 
 
-class S3BucketDefinition(charon.resources.ResourceDefinition):
+class S3BucketDefinition(nixops.resources.ResourceDefinition):
     """Definition of an S3 bucket."""
 
     @classmethod
@@ -17,7 +17,7 @@ class S3BucketDefinition(charon.resources.ResourceDefinition):
         return "s3-bucket"
 
     def __init__(self, xml):
-        charon.resources.ResourceDefinition.__init__(self, xml)
+        nixops.resources.ResourceDefinition.__init__(self, xml)
         self.bucket_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
@@ -26,13 +26,13 @@ class S3BucketDefinition(charon.resources.ResourceDefinition):
         return "{0} [{1}]".format(self.get_type(), self.region)
 
 
-class S3BucketState(charon.resources.ResourceState):
+class S3BucketState(nixops.resources.ResourceState):
     """State of an S3 bucket."""
 
-    state = charon.util.attr_property("state", charon.resources.ResourceState.MISSING, int)
-    bucket_name = charon.util.attr_property("ec2.bucketName", None)
-    access_key_id = charon.util.attr_property("ec2.accessKeyId", None)
-    region = charon.util.attr_property("ec2.region", None)
+    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    bucket_name = nixops.util.attr_property("ec2.bucketName", None)
+    access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
+    region = nixops.util.attr_property("ec2.region", None)
 
 
     @classmethod
@@ -41,7 +41,7 @@ class S3BucketState(charon.resources.ResourceState):
 
 
     def __init__(self, depl, name, id):
-        charon.resources.ResourceState.__init__(self, depl, name, id)
+        nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._conn = None
 
 
@@ -58,13 +58,13 @@ class S3BucketState(charon.resources.ResourceState):
 
     def connect(self):
         if self._conn: return
-        (access_key_id, secret_access_key) = charon.ec2_utils.fetch_aws_secret_key(self.access_key_id)
+        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
         self._conn = boto.s3.connection.S3Connection(aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
 
-        self.access_key_id = defn.access_key_id or charon.ec2_utils.get_access_key_id()
+        self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 

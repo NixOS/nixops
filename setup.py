@@ -8,5 +8,5 @@ setup(name='nixops',
       author='Eelco Dolstra',
       author_email='eelco.dolstra@logicblox.com',
       scripts=['scripts/nixops'],
-      packages=['charon', 'charon.resources', 'charon.backends'],
+      packages=['nixops', 'nixops.resources', 'nixops.backends'],
       )

@@ -1,6 +1,6 @@
 import os
 import subprocess
-from charon import deployment
+from nixops import deployment
 
 from tests.functional import DatabaseUsingTest
 

@@ -1,7 +1,7 @@
 from os import path
 from nose import tools
 from tests.functional import generic_deployment_test
-from charon import backends
+from nixops import backends
 import sys
 import time
 import signal

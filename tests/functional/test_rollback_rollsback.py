@@ -3,7 +3,7 @@ from nose import tools
 
 from tests.functional import single_machine_test
 
-from charon import backends
+from nixops import backends
 
 parent_dir = path.dirname(__file__)
 

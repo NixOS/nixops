@@ -4,12 +4,12 @@
 
 import time
 import boto.sqs
-import charon.util
-import charon.resources
-import charon.ec2_utils
+import nixops.util
+import nixops.resources
+import nixops.ec2_utils
 
 
-class SQSQueueDefinition(charon.resources.ResourceDefinition):
+class SQSQueueDefinition(nixops.resources.ResourceDefinition):
     """Definition of an SQS queue."""
 
     @classmethod
@@ -17,7 +17,7 @@ class SQSQueueDefinition(charon.resources.ResourceDefinition):
         return "sqs-queue"
 
     def __init__(self, xml):
-        charon.resources.ResourceDefinition.__init__(self, xml)
+        nixops.resources.ResourceDefinition.__init__(self, xml)
         self.queue_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
@@ -27,16 +27,16 @@ class SQSQueueDefinition(charon.resources.ResourceDefinition):
         return "{0} [{1}]".format(self.get_type(), self.region)
 
 
-class SQSQueueState(charon.resources.ResourceState):
+class SQSQueueState(nixops.resources.ResourceState):
     """State of an SQS queue."""
 
-    state = charon.util.attr_property("state", charon.resources.ResourceState.MISSING, int)
-    queue_name = charon.util.attr_property("ec2.queueName", None)
-    access_key_id = charon.util.attr_property("ec2.accessKeyId", None)
-    region = charon.util.attr_property("ec2.region", None)
-    visibility_timeout = charon.util.attr_property("ec2.queueVisibilityTimeout", None)
-    url = charon.util.attr_property("ec2.queueURL", None)
-    arn = charon.util.attr_property("ec2.queueARN", None)
+    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    queue_name = nixops.util.attr_property("ec2.queueName", None)
+    access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
+    region = nixops.util.attr_property("ec2.region", None)
+    visibility_timeout = nixops.util.attr_property("ec2.queueVisibilityTimeout", None)
+    url = nixops.util.attr_property("ec2.queueURL", None)
+    arn = nixops.util.attr_property("ec2.queueARN", None)
 
     @classmethod
     def get_type(cls):
@@ -44,7 +44,7 @@ class SQSQueueState(charon.resources.ResourceState):
 
 
     def __init__(self, depl, name, id):
-        charon.resources.ResourceState.__init__(self, depl, name, id)
+        nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._conn = None
 
 
@@ -72,7 +72,7 @@ class SQSQueueState(charon.resources.ResourceState):
     def connect(self):
         if self._conn: return
         assert self.region
-        (access_key_id, secret_access_key) = charon.ec2_utils.fetch_aws_secret_key(self.access_key_id)
+        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
         self._conn = boto.sqs.connect_to_region(
             region_name=self.region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
@@ -96,7 +96,7 @@ class SQSQueueState(charon.resources.ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
 
-        self.access_key_id = defn.access_key_id or charon.ec2_utils.get_access_key_id()
+        self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 

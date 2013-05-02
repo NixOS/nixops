@@ -1,4 +1,4 @@
-from charon import deployment
+from nixops import deployment
 from nose import tools
 
 from tests.functional import DatabaseUsingTest
