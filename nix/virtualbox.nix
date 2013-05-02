@@ -76,15 +76,15 @@ with pkgs.lib;
         size = 0;
         baseImage = mkDefault (
           let
-            unpack = name: sha256: pkgs.runCommand "virtualbox-charon-${name}.vdi" {}
+            unpack = name: sha256: pkgs.runCommand "virtualbox-nixops-${name}.vdi" {}
               ''
                 xz -d < ${pkgs.fetchurl {
-                  url = "http://nixos.org/releases/nixos/virtualbox-charon-images/virtualbox-charon-${name}.vdi.xz";
+                  url = "http://nixos.org/releases/nixos/virtualbox-nixops-images/virtualbox-nixops-${name}.vdi.xz";
                   inherit sha256;
                 }} > $out
               '';
           in if config.nixpkgs.system == "x86_64-linux" then
-            unpack "0.2pre4416_001ddd1-337d2f4" "0c6472f162e6edb6d9b946fe9f107a34985d27209230772528be4d8c8124b4fa"
+            unpack "0.2pre4657_af0e751-e7b1dfd" "6bd146381c95f420ef8740a6dbf9082357e753858d10aedcb8cabf0fc360ba6a"
           else
             throw "Unsupported VirtualBox system type!"
         );

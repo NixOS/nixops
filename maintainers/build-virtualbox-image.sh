@@ -1,5 +1,5 @@
 #! /bin/sh -e
-export NIXOS_CONFIG=/home/eelco/Dev/charon/nix/virtualbox-image-nixops.nix
+export NIXOS_CONFIG=/home/eelco/Dev/nixops/nix/virtualbox-image-nixops.nix
 version=$(nix-instantiate --eval-only '<nixos>' -A config.system.nixosVersion | sed s/'"'//g)
 echo "version = $version"
 nix-build '<nixos>' -A config.system.build.virtualBoxImage
