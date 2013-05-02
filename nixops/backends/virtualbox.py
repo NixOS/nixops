@@ -71,7 +71,7 @@ class VirtualBoxState(MachineState):
         return ["-o", "StrictHostKeyChecking=no", "-i", self._ssh_private_key_file]
 
     def get_physical_spec(self):
-        return ['    require = [ <nixops/virtualbox-image-charon.nix> ];']
+        return ['    require = [ <nixops/virtualbox-image-nixops.nix> ];']
 
 
     def address_to(self, m):

@@ -2,7 +2,7 @@
 
 let
 
-  clientKeyPath = "/root/.vbox-charon-client-key";
+  clientKeyPath = "/root/.vbox-nixops-client-key";
 
 in
 
@@ -10,8 +10,8 @@ in
 
   services.openssh.enable = true;
 
-  jobs."get-vbox-charon-client-key" =
-    { description = "Get Charon SSH Key";
+  jobs."get-vbox-nixops-client-key" =
+    { description = "Get NixOps SSH Key";
       wantedBy = [ "multi-user.target" ];
       before = [ "sshd.service" ];
       requires = [ "dev-vboxguest.device" ];
@@ -25,7 +25,7 @@ in
         '';
     };
 
-  services.openssh.authorizedKeysFiles = [ ".vbox-charon-client-key" ];
+  services.openssh.authorizedKeysFiles = [ ".vbox-nixops-client-key" ];
 
   boot.vesa = false;
 
