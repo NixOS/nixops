@@ -85,7 +85,7 @@ let
           the device.  If left empty, a passphrase is generated
           automatically; this passphrase is lost when you destroy the
           machine or remove the volume, unless you copy it from
-          Charon's state file.  Note that the passphrase is stored in
+          NixOps's state file.  Note that the passphrase is stored in
           the Nix store of the instance, so an attacker who gains
           access to the EBS volume or instance store that contains the
           Nix store can subsequently decrypt the encrypted volume.
@@ -263,7 +263,7 @@ in
       type = types.uniq types.string;
       description = ''
         Path of the SSH private key file corresponding with
-        <option>deployment.ec2.keyPair</option>.  Charon will use this
+        <option>deployment.ec2.keyPair</option>.  NixOps will use this
         private key if set; otherwise, the key must be findable by SSH
         through its normal mechanisms (e.g. it should be listed in
         <filename>~/.ssh/config</filename> or added to the

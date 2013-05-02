@@ -60,12 +60,12 @@ cloud.</para>
     <listitem><para>Path to the state file that contains the
     deployments.  It defaults to the value of the
     <envar>NIXOPS_STATE</envar> environment variable, or
-    <filename>~/.charon/deployments.charon</filename> if that one is
-    not defined.  It must have extension <literal>.charon</literal>.
+    <filename>~/.nixops/deployments.nixops</filename> if that one is
+    not defined.  It must have extension <literal>.nixops</literal>.
     The state file is actually a SQLite database that can be inspected
     using the <command>sqlite3</command> command (for example,
-    <literal>sqlite3 network.charon .dump</literal>).  If it does not
-    exist, it is created automatically.</para></listitem>
+    <literal>sqlite3 deployments.nixops .dump</literal>).  If it does
+    not exist, it is created automatically.</para></listitem>
 
   </varlistentry>
 
@@ -122,7 +122,7 @@ cloud.</para>
 
     <listitem><para>The location of the state file if
     <option>--state</option> is not used.  It defaults to
-    <filename>./network.charon</filename>.</para></listitem>
+    <filename>~/.nixops/deployments.nixops</filename>.</para></listitem>
 
   </varlistentry>
 

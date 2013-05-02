@@ -1,7 +1,7 @@
-Charon
+NixOps
 ====
 
-Charon is a tool for deploying NixOS machines in a network or cloud.
+NixOps is a tool for deploying NixOS machines in a network or cloud.
 
 * [Manual](http://hydra.nixos.org/job/charon/master/build/latest/download/2/charon/manual.html)
 * [Installation instructions](http://hydra.nixos.org/job/charon/master/build/latest/download/2/charon/manual.html#chap-installation)

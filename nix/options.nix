@@ -29,7 +29,7 @@ in
       type = types.uniq types.string;
       description = ''
         This option specifies the type of the environment in which the
-        machine is to be deployed by Charon.  Currently, it can have
+        machine is to be deployed by NixOps.  Currently, it can have
         the following values. <literal>"none"</literal> means
         deploying to a pre-existing physical or virtual NixOS machine,
         reachable via SSH under the hostname or IP address specified
@@ -43,7 +43,7 @@ in
         means that a virtual machine should be instantiated by
         executing certain commands via SSH on a cloud controller
         machine (see <option>deployment.adhoc.*</option>).  This is
-        primarily useful for debugging Charon.
+        primarily useful for debugging NixOps.
       '';
     };
 
@@ -51,7 +51,7 @@ in
       type = types.uniq types.string;
       description = ''
         This option specifies the hostname or IP address to be used by
-        Charon to execute remote deployment operations.
+        NixOps to execute remote deployment operations.
       '';
     };
 
@@ -59,10 +59,10 @@ in
       default = [];
       type = types.list types.string;
       description = ''
-        Charon will set up an encrypted tunnel (via SSH) to the
+        NixOps will set up an encrypted tunnel (via SSH) to the
         machines listed here.  Since this is a two-way (peer to peer)
         connection, it is not necessary to set this option on both
-        endpoints.  Charon will set up <filename>/etc/hosts</filename>
+        endpoints.  NixOps will set up <filename>/etc/hosts</filename>
         so that the host names of the machines listed here resolve to
         the IP addresses of the tunnels.  It will also add the alias
         <literal><replaceable>machine</replaceable>-encrypted</literal>
@@ -77,7 +77,7 @@ in
       example = "cloud.example.org";
       type = types.uniq types.string;
       description = ''
-        Hostname or IP addres of the machine to which Charon should
+        Hostname or IP addres of the machine to which NixOps should
         connect (via SSH) to execute commands to start VMs or query
         their status.
       '';

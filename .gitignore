@@ -3,7 +3,7 @@
 examples/*.json
 examples/*.lock
 result
-tests/test.charon*
+tests/test.nixops*
 .coverage
 coverage.xml
 html/

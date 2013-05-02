@@ -1,5 +1,5 @@
 {
-  network.description = "Charon Test";
+  network.description = "NixOps Test";
 
   machine = {};
 }

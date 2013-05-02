@@ -54,7 +54,7 @@ with utils;
           the volume.  If left empty, a passphrase is generated
           automatically; this passphrase is lost when you destroy the
           machine or underlying device, unless you copy it from
-          Charon's state file.  Note that unless
+          NixOps's state file.  Note that unless
           <option>deployment.storeKeysOnMachine</option> is set to
           <literal>false</literal>, the passphrase is stored in the
           Nix store of the instance, so an attacker who gains access

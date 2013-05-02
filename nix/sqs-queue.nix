@@ -35,13 +35,13 @@ with pkgs.lib;
     url = mkOption {
       default = ""; # FIXME: don't set a default
       type = types.uniq types.string;
-      description = "URL of the queue. This is set by Charon.";
+      description = "URL of the queue. This is set by NixOps.";
     };
 
     arn = mkOption {
       default = ""; # FIXME: don't set a default
       type = types.uniq types.string;
-      description = "Amazon Resource Name (ARN) of the queue. This is set by Charon.";
+      description = "Amazon Resource Name (ARN) of the queue. This is set by NixOps.";
     };
 
   };

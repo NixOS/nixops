@@ -24,10 +24,10 @@
           ec2.size = 1;
           ec2.encrypt = true;
           # You can specify a passphrase (encryption key), or let
-          # Charon generate one.  It's stored on the root volume of
+          # NixOps generate one.  It's stored on the root volume of
           # the instance, unless you set the option
           # ‘deployment.storeKeysOnMachine’.  In that case, unattended
-          # reboots will block until you run the command ‘charon
+          # reboots will block until you run the command ‘nixops
           # send-keys’.
           #ec2.passphrase = "fubar";
         };

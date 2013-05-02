@@ -90,7 +90,7 @@ def abs_nix_path(x):
 undefined = object()
 
 def attr_property(name, default, type=str):
-    """Define a property that corresponds to a value in the Charon state file."""
+    """Define a property that corresponds to a value in the NixOps state file."""
     def get(self):
         s = self._get_attr(name, default)
         if s == undefined:
@@ -109,8 +109,8 @@ def attr_property(name, default, type=str):
     return property(get, set)
 
 
-def create_key_pair(key_name="Charon auto-generated key", type="dsa"):
-    key_dir = tempfile.mkdtemp(prefix="charon-tmp")
+def create_key_pair(key_name="NixOps auto-generated key", type="dsa"):
+    key_dir = tempfile.mkdtemp(prefix="nixops-tmp")
     res = subprocess.call(["ssh-keygen", "-t", type, "-f", key_dir + "/key", "-N", '', "-C", key_name],
                           stdout=devnull)
     if res != 0: raise Exception("unable to generate an SSH key")
