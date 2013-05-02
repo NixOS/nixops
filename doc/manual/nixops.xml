@@ -59,7 +59,7 @@ cloud.</para>
 
     <listitem><para>Path to the state file that contains the
     deployments.  It defaults to the value of the
-    <envar>CHARON_STATE</envar> environment variable, or
+    <envar>NIXOPS_STATE</envar> environment variable, or
     <filename>~/.charon/deployments.charon</filename> if that one is
     not defined.  It must have extension <literal>.charon</literal>.
     The state file is actually a SQLite database that can be inspected
@@ -118,7 +118,7 @@ cloud.</para>
 
 <variablelist>
 
-  <varlistentry><term><envar>CHARON_STATE</envar></term>
+  <varlistentry><term><envar>NIXOPS_STATE</envar></term>
 
     <listitem><para>The location of the state file if
     <option>--state</option> is not used.  It defaults to

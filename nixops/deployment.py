@@ -137,7 +137,7 @@ def get_default_state_file():
                 os.rename(home + "/deployments.charon", home + "/deployments.nixops")
         else:
             os.makedirs(home, 0700)
-    return os.environ.get("CHARON_STATE", home + "/deployments.nixops")
+    return os.environ.get("NIXOPS_STATE", os.environ.get("CHARON_STATE", home + "/deployments.nixops"))
 
 
 def open_database(db_file):
