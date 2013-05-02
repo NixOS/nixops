@@ -499,8 +499,8 @@ def op_show_console_output():
 
 
 # Set up the parser.
-parser = argparse.ArgumentParser(description='NixOS cloud deployment tool', prog='charon')
-parser.add_argument('--version', action='version', version='Charon 0.1')
+parser = argparse.ArgumentParser(description='NixOS cloud deployment tool', prog='nixops')
+parser.add_argument('--version', action='version', version='NixOps 0.1')
 
 subparsers = parser.add_subparsers(help='sub-command help')
 
@@ -681,7 +681,7 @@ subparser.set_defaults(op=op_list_generations)
 
 subparser = add_subparser('rollback', help='roll back to a previous configuration')
 subparser.set_defaults(op=op_rollback)
-subparser.add_argument('generation', type=int, metavar='GENERATION', help='number of the desired configuration (see ‘charon list-generations’)')
+subparser.add_argument('generation', type=int, metavar='GENERATION', help='number of the desired configuration (see ‘nixops list-generations’)')
 add_common_deployment_options(subparser)
 
 subparser = add_subparser('show-console-output', help='print the machine\'s console output on stdout')

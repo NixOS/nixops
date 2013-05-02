@@ -20,7 +20,7 @@ pythonPackages.buildPythonPackage rec {
   # copying source from store to tmp build directory or python zip
   # knows how to handle epoch 0
   preConfigure = ''
-    find . |xargs touch
+    find . | xargs touch
   '';
 
   postUnpack = ''
@@ -32,6 +32,9 @@ pythonPackages.buildPythonPackage rec {
 
   postInstall =
     ''
+      # Backward compatibility symlink.
+      ln -s nixops $out/bin/charon
+
       cp ${import ./doc/manual { inherit revision; }} doc/manual/options-db.xml
 
       make -C doc/manual install docbookxsl=${docbook5_xsl}/xml/xsl/docbook \

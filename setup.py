@@ -7,6 +7,6 @@ setup(name='charon',
       url='https://github.com/NixOS/charon',
       author='Eelco Dolstra',
       author_email='eelco.dolstra@logicblox.com',
-      scripts=['scripts/charon'],
+      scripts=['scripts/nixops'],
       packages=['charon', 'charon.resources', 'charon.backends'],
       )
