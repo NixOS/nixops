@@ -645,7 +645,10 @@ class Deployment(object):
 
 
     def get_profile(self):
-        return "/nix/var/nix/profiles/per-user/{0}/charon/{1}".format(getpass.getuser(), self.uuid)
+        profile_dir = "/nix/var/nix/profiles/per-user/" + getpass.getuser()
+        if os.path.exists(profile_dir + "/charon") and not os.path.exists(profile_dir + "/nixops"):
+            os.rename(profile_dir + "/charon", profile_dir + "/nixops")
+        return profile_dir + "/nixops/" + self.uuid
 
 
     def create_profile(self):
