@@ -56,15 +56,15 @@ $ nix-pull http://nixos.org/releases/nixos/channels/nixos-unstable/MANIFEST
   this is to get NixOps’s source from Git and build it:
 
 <screen>
-$ git clone git://github.com/NixOS/charon.git
-$ cd charon
+$ git clone git://github.com/NixOS/nixops.git
+$ cd nixops
 $ nix-env -f . -i nixops
 $ nixops --version
 NixOps 0.1
 </screen>
 
   Another way is to install the <link
-  xlink:href="http://hydra.nixos.org/job/charon/master/build/latest-for/x86_64-linux">latest
+  xlink:href="http://hydra.nixos.org/job/nixops/master/build/latest-for/x86_64-linux">latest
   build</link>, e.g.
 
 <screen>
