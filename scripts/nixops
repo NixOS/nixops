@@ -698,6 +698,10 @@ subparser.set_defaults(op=op_dump_nix_paths)
 add_common_deployment_options(subparser)
 
 
+if os.path.basename(sys.argv[0]) == "charon":
+    sys.stderr.write(nixops.util.ansi_warn("warning: ‘charon’ is now called ‘nixops’") + "\n")
+
+
 # Parse the command line and execute the desired operation.
 def error(msg):
     sys.stderr.write("error: " + nixops.util.ansi_warn(msg) + "\n")
