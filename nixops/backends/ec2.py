@@ -999,6 +999,15 @@ class EC2State(MachineState):
             res.is_up = False
             self.state = self.STOPPED
 
+        # check for scheduled events
+        instance_status = self._conn.get_all_instance_status(instance_ids=[instance.id])
+        for ist in instance_status:
+            if ist.events:
+                for e in ist.events:
+                    res.messages.append("Event ‘{0}’:".format(e.code))
+                    res.messages.append("  * {0}".format(e.description))
+                    res.messages.append("  * {0} - {1}".format(e.not_before, e.not_after))
+
 
     def reboot(self):
         self.log("rebooting EC2 machine...")
