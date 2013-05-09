@@ -111,7 +111,7 @@ The machine status <literal>New</literal> indicates that the logical
 machine <literal>webserver</literal> hasn’t been created yet.  The
 <option>-d</option> option specifies which deployment to use; you can
 use the symbolic name (<literal>-d trivial</literal>) or the UUID
-(<literal>--uuid 33bced96-5f26-11e1-b9d7-9630d48abec1</literal>).  You
+(<literal>-d 33bced96-5f26-11e1-b9d7-9630d48abec1</literal>).  You
 can also set the the environment variable
 <envar>NIXOPS_DEPLOYMENT</envar>.</para>
 
