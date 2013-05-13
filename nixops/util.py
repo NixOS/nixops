@@ -12,7 +12,7 @@ import struct
 import shutil
 import tempfile
 import subprocess
-
+import logging
 
 devnull = open(os.devnull, 'rw')
 
@@ -127,3 +127,31 @@ class SelfDeletingDir(str):
             super(SelfDeletingDir,self).__del__()
         except AttributeError:
             pass
+
+class TeeStderr(object):
+    def __init__(self, logger):
+        self.stderr = sys.stderr
+        self.logger = logger
+        sys.stderr = self
+    def __del__(self):
+        sys.stderr = self.stderr
+    def write(self, data):
+        self.stderr.write(data)
+        for l in data.split('\n'):
+            self.logger.error(l)
+    def isatty(self):
+        return self.stderr.isatty()
+
+class TeeStdout(object):
+    def __init__(self, logger):
+        self.stdout = sys.stdout
+        self.logger = logger
+        sys.stdout = self
+    def __del__(self):
+        sys.stdout = self.stdout
+    def write(self, data):
+        self.stdout.write(data)
+        for l in data.split('\n'):
+            self.logger.info(l)
+    def isatty(self):
+        return self.stdout.isatty()

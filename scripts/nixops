@@ -5,6 +5,7 @@ from nixops import deployment
 from prettytable import PrettyTable
 import argparse
 import os
+import pwd
 import re
 import sys
 import subprocess
@@ -12,8 +13,11 @@ import nixops.parallel
 import nixops.util
 import nixops.import_json
 import time
+from datetime import datetime
 from pprint import pprint
-
+import logging
+import logging.handlers
+import syslog
 
 def op_list_deployments():
     db = deployment.open_database(args.state_file)
@@ -500,6 +504,41 @@ def op_show_console_output():
     sys.stdout.write(m.get_console_output())
 
 
+# Set up logging of all commands and output
+def setup_logging(args):
+    if os.path.exists('/dev/log') \
+        and not args.op in [
+                op_ssh,
+                op_ssh_for_each,
+                op_info,
+                op_list_deployments,
+                op_list_generations,
+                op_backup_status,
+                op_show_console_output,
+                op_dump_nix_paths,
+                op_import_json,
+                op_show_physical
+            ]:
+        # determine user
+        try:
+            user = subprocess.check_output(['logname'],stderr=subprocess.PIPE).strip()
+        except:
+            user = pwd.getpwuid(os.getuid())[0]
+
+        logger = logging.getLogger('root')
+        logger.setLevel(logging.INFO)
+
+        handler = logging.handlers.SysLogHandler(address='/dev/log')
+        formatter = logging.Formatter('nixops: %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+        logger.info('User: {0}, Command: {1}'.format(user, ' '.join(sys.argv)))
+
+        # pass all stdout/stderr to the logger as well
+        nixops.util.TeeStderr(logger)
+        nixops.util.TeeStdout(logger)
+
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool', prog='nixops')
 parser.add_argument('--version', action='version', version='NixOps 0.1')
@@ -701,12 +740,13 @@ add_common_deployment_options(subparser)
 if os.path.basename(sys.argv[0]) == "charon":
     sys.stderr.write(nixops.util.ansi_warn("warning: ‘charon’ is now called ‘nixops’") + "\n")
 
-
 # Parse the command line and execute the desired operation.
 def error(msg):
     sys.stderr.write("error: " + nixops.util.ansi_warn(msg) + "\n")
 
 args = parser.parse_args()
+setup_logging(args)
+
 try:
     nixops.deployment.debug = args.debug
     args.op()
