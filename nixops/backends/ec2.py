@@ -621,7 +621,7 @@ class EC2State(MachineState):
             self.tags = tags
 
         # Assign or release an elastic IP address, if given.
-        if (self.elastic_ipv4 or "") != defn.elastic_ipv4 or check:
+        if (self.elastic_ipv4 or "") != defn.elastic_ipv4 or (instance.ip_address != defn.elastic_ipv4) or check:
             if defn.elastic_ipv4 != "":
                 # wait until machine is in running state
                 self.log_start("waiting for machine to be in running state... ".format(self.name))
