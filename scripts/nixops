@@ -510,6 +510,7 @@ def setup_logging(args):
         and not args.op in [
                 op_ssh,
                 op_ssh_for_each,
+                op_scp,
                 op_info,
                 op_list_deployments,
                 op_list_generations,
@@ -536,8 +537,8 @@ def setup_logging(args):
         logger.info('User: {0}, Command: {1}'.format(user, ' '.join(sys.argv)))
 
         # pass all stdout/stderr to the logger as well
-        nixops.util.TeeStderr(logger)
-        nixops.util.TeeStdout(logger)
+        nixops.util.TeeStderr()
+        nixops.util.TeeStdout()
 
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool', prog='nixops')
