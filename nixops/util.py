@@ -13,6 +13,7 @@ import shutil
 import tempfile
 import subprocess
 import logging
+from StringIO import StringIO
 
 devnull = open(os.devnull, 'rw')
 
@@ -128,24 +129,30 @@ class SelfDeletingDir(str):
         except AttributeError:
             pass
 
-class TeeStderr(object):
-    def __init__(self, logger):
+class TeeStderr(StringIO):
+    stderr = None
+    def __init__(self):
+        StringIO.__init__(self)
         self.stderr = sys.stderr
-        self.logger = logger
+        self.logger = logging.getLogger('root')
         sys.stderr = self
     def __del__(self):
         sys.stderr = self.stderr
     def write(self, data):
         self.stderr.write(data)
         for l in data.split('\n'):
-            self.logger.error(l)
+            self.logger.warning(l)
+    def fileno(self):
+        return self.stderr.fileno()
     def isatty(self):
         return self.stderr.isatty()
 
-class TeeStdout(object):
-    def __init__(self, logger):
+class TeeStdout(StringIO):
+    stdout = None
+    def __init__(self):
+        StringIO.__init__(self)
         self.stdout = sys.stdout
-        self.logger = logger
+        self.logger = logging.getLogger('root')
         sys.stdout = self
     def __del__(self):
         sys.stdout = self.stdout
@@ -153,5 +160,7 @@ class TeeStdout(object):
         self.stdout.write(data)
         for l in data.split('\n'):
             self.logger.info(l)
+    def fileno(self):
+        return self.stdout.fileno()
     def isatty(self):
         return self.stdout.isatty()

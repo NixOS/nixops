@@ -194,7 +194,7 @@ def _find_deployment(db, uuid=None):
     if len(res) == 0: return None
     if len(res) > 1:
         raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘-d’")
-    return Deployment(db, res[0][0])
+    return Deployment(db, res[0][0], sys.stderr)
 
 
 def create_deployment(db, uuid=None):
@@ -204,7 +204,7 @@ def create_deployment(db, uuid=None):
         uuid = str(uuid.uuid1())
     with db:
         db.execute("insert into Deployments(uuid) values (?)", (uuid,))
-    return Deployment(db, uuid)
+    return Deployment(db, uuid, sys.stderr)
 
 
 def open_deployment(db, uuid=None):
