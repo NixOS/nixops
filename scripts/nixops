@@ -490,7 +490,7 @@ def op_list_generations():
 
 def op_rollback():
     depl = open_deployment()
-    depl.rollback(args.generation,
+    depl.rollback(generation=args.generation,
                   include=args.include or [], exclude=args.exclude or [],
                   check=args.check, allow_reboot=args.allow_reboot, force_reboot=args.force_reboot,
                   max_concurrent_copy=args.max_concurrent_copy,
