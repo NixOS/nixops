@@ -231,6 +231,9 @@ class MachineState(nixops.resources.ResourceState):
         self._ssh_private_key_file = key_file
         return key_file
 
+    def get_ssh_private_key_file(self):
+        return None
+
     def _logged_exec(self, command, check=True, capture_stdout=False, stdin_string=None, env=None):
         stdin = subprocess.PIPE if stdin_string != None else nixops.util.devnull
 

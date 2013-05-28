@@ -24,6 +24,7 @@ import traceback
 import glob
 import fcntl
 import itertools
+import platform
 
 
 debug = False
@@ -686,7 +687,32 @@ class Deployment(object):
             if hasattr(m, "public_host_key"):
                 write_temp_file("{0}/{1}.public_host_key".format(self.tempdir,m.name), m.public_host_key + "\n")
 
-        names = ['"' + m.name + '"' for m in self.active.itervalues() if should_do(m, include, exclude)]
+        selected = [m for m in self.active.itervalues() if should_do(m, include, exclude)]
+
+        names = ['"' + m.name + '"' for m in selected]
+
+        # If we're not running on Linux, then perform the build on the
+        # target machines.  FIXME: Also enable this if we're on 32-bit
+        # and want to deploy to 64-bit.
+        if platform.system() != 'Linux' and os.environ.get('NIX_REMOTE') != 'daemon':
+            remote_machines = []
+            for m in selected:
+                key_file = m.get_ssh_private_key_file()
+                if not key_file: raise Exception("do not know private SSH key for machine ‘{0}’".format(m.name))
+                # FIXME: Figure out the correct machine type of ‘m’ (it might not be x86_64-linux).
+                remote_machines.append("root@{0} {1} {2} 2 1\n".format(m.get_ssh_name(), 'i686-linux,x86_64-linux', key_file))
+            remote_machines_file = "{0}/nix.machines".format(self.tempdir)
+            with open(remote_machines_file, "w") as f:
+                f.write("".join(remote_machines))
+            os.environ['NIX_REMOTE_SYSTEMS'] = remote_machines_file
+
+            # FIXME: Use ‘--option use-build-hook true’ instead of setting
+            # $NIX_BUILD_HOOK, once Nix supports that.
+            os.environ['NIX_BUILD_HOOK'] = os.path.dirname(os.path.realpath(nixops.util.which("nix-build"))) + "/../libexec/nix/build-remote.pl"
+
+            load_dir = "{0}/current-load".format(self.tempdir)
+            if not os.path.exists(load_dir): os.makedirs(load_dir, 0700)
+            os.environ['NIX_CURRENT_LOAD'] = load_dir
 
         try:
             configs_path = subprocess.check_output(

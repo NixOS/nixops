@@ -131,7 +131,7 @@ def op_info():
             r = depl.resources.get(name)
             return machine_to_key(depl.uuid, name, r.get_type()) if r else machine_to_key(depl.uuid, name, d.get_type)
         names = sorted(
-            set(definitions.keys()) | set(depl.resources.keys()), 
+            set(definitions.keys()) | set(depl.resources.keys()),
             key=name_to_key
             )
 

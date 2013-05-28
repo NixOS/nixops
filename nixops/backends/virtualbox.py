@@ -65,10 +65,11 @@ class VirtualBoxState(MachineState):
         assert self.private_ipv4
         return self.private_ipv4
 
+    def get_ssh_private_key_file(self):
+        return self._ssh_private_key_file or self.write_ssh_private_key(self._client_private_key)
+
     def get_ssh_flags(self):
-        if not self._ssh_private_key_file:
-            self.write_ssh_private_key(self._client_private_key)
-        return ["-o", "StrictHostKeyChecking=no", "-i", self._ssh_private_key_file]
+        return ["-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file()]
 
     def get_physical_spec(self):
         return ['    require = [ <nixops/virtualbox-image-nixops.nix> ];']

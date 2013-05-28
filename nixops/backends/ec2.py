@@ -138,7 +138,7 @@ class EC2State(MachineState):
         return self.public_ipv4
 
 
-    def get_private_key_file(self):
+    def get_ssh_private_key_file(self):
         if self.private_key_file: return self.private_key_file
         if self._ssh_private_key_file: return self._ssh_private_key_file
         for r in self.depl.active_resources.itervalues():
@@ -150,7 +150,7 @@ class EC2State(MachineState):
 
 
     def get_ssh_flags(self):
-        file = self.get_private_key_file()
+        file = self.get_ssh_private_key_file()
         return ["-i", file] if file else []
 
 
