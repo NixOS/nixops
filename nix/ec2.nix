@@ -343,6 +343,8 @@ in
 
   config = mkIf (config.deployment.targetEnv == "ec2") {
 
+    nixpkgs.system = mkOverride 900 "x86_64-linux";
+
     boot.loader.grub.extraPerEntryConfig = mkIf isEc2Hvm ( mkOverride 10 "root (hd0,0)" );
 
     deployment.ec2.controller = mkDefault "https://ec2.${cfg.region}.amazonaws.com/";
