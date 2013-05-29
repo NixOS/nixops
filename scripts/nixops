@@ -530,7 +530,7 @@ def setup_logging(args):
         logger.setLevel(logging.INFO)
 
         handler = logging.handlers.SysLogHandler(address='/dev/log')
-        formatter = logging.Formatter('nixops: %(message)s')
+        formatter = logging.Formatter('nixops[{0}]: %(message)s'.format(os.getpid()))
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
