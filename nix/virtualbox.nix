@@ -2,6 +2,14 @@
 
 with pkgs.lib;
 
+let
+
+  # Do the fetching and unpacking of the VirtualBox guest image
+  # locally so that it works on non-Linux hosts.
+  pkgsNative = import <nixpkgs> { system = builtins.currentSystem; };
+
+in
+
 {
 
   ###### interface
@@ -76,9 +84,9 @@ with pkgs.lib;
         size = 0;
         baseImage = mkDefault (
           let
-            unpack = name: sha256: pkgs.runCommand "virtualbox-nixops-${name}.vdi" {}
+            unpack = name: sha256: pkgsNative.runCommand "virtualbox-nixops-${name}.vdi" {}
               ''
-                xz -d < ${pkgs.fetchurl {
+                xz -d < ${pkgsNative.fetchurl {
                   url = "http://nixos.org/releases/nixos/virtualbox-nixops-images/virtualbox-nixops-${name}.vdi.xz";
                   inherit sha256;
                 }} > $out
