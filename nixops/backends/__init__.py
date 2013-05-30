@@ -29,7 +29,7 @@ class SSHMaster(object):
         self._ssh_name = ssh_name
         res = subprocess.call(
             ["ssh", "-x", "root@" + self._ssh_name, "-S", self._control_socket,
-             "-M", "-N", "-f", '-oNumberOfPasswordPrompts=0']
+             "-M", "-N", "-f", '-oNumberOfPasswordPrompts=0', '-oServerAliveInterval=60']
             + ssh_flags)
         if res != 0:
             raise SSHConnectionFailed("unable to start SSH master connection to ‘{0}’".format(name))
