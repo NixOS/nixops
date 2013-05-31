@@ -378,12 +378,14 @@ class EC2State(MachineState):
 
 
     def create_after(self, resources):
-        # EC2 instances can require key pairs and IAM roles.  FIXME:
-        # only depend on the specific key pair / role needed for this
-        # instance.
+        # EC2 instances can require key pairs, IAM roles, EBS volumes
+        # and elastic IPs.  FIXME: only depend on the specific key
+        # pair / role needed for this instance.
         return {r for r in resources if
                 isinstance(r, nixops.resources.ec2_keypair.EC2KeyPairState) or
-                isinstance(r, nixops.resources.iam_role.IAMRoleState)}
+                isinstance(r, nixops.resources.iam_role.IAMRoleState) or
+                isinstance(r, nixops.resources.ebs_volume.EBSVolumeState) or
+                isinstance(r, nixops.resources.elastic_ip.ElasticIPState)}
 
 
     def attach_volume(self, device, volume_id):
@@ -824,9 +826,9 @@ class EC2State(MachineState):
 
 
     def _delete_volume(self, volume_id):
-        if not self.depl.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
-            raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
-        self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
+        if not self.depl.confirm("are you sure you want to destroy EBS volume ‘{0}’?".format(volume_id)):
+            raise Exception("not destroying EBS volume ‘{0}’".format(volume_id))
+        self.log("destroying EBS volume ‘{0}’...".format(volume_id))
         volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id, allow_missing=True)
         if not volume: return
         nixops.util.check_wait(lambda: volume.update() == 'available')

@@ -104,5 +104,6 @@ class EBSVolumeState(nixops.resources.ResourceState):
             volume = nixops.ec2_utils.get_volume_by_id(self._conn, self.volume_id, allow_missing=True)
             if volume:
                 if not self.depl.confirm("are you sure you want to destroy EBS volume ‘{0}’?".format(self.name)): return False
+                self.log("destroying EBS volume ‘{0}’...".format(self.volume_id))
                 volume.delete()
         return True
