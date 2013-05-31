@@ -690,8 +690,8 @@ class Deployment(object):
         if debug: print >> sys.stderr, "generated physical spec:\n" + p
 
         for m in self.active.itervalues():
-            if hasattr(m, "public_host_key"):
-                write_temp_file("{0}/{1}.public_host_key".format(self.tempdir,m.name), m.public_host_key + "\n")
+            if hasattr(m, "public_host_key") and m.public_host_key: # FIXME: use a method in MachineState.
+                write_temp_file("{0}/{1}.public_host_key".format(self.tempdir, m.name), m.public_host_key + "\n")
 
         selected = [m for m in self.active.itervalues() if should_do(m, include, exclude)]
 
