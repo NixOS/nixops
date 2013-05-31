@@ -2,7 +2,7 @@
 let
   inherit (lib) mkOption;
 
-  inherit (lib.types) attrsOf optionSet string bool;
+  inherit (lib.types) attrsOf optionSet string bool attrs;
 in {
   options = {
     resources = {
@@ -54,6 +54,18 @@ in {
         default = false;
 
         type = bool;
+      };
+
+    };
+    deployment = {
+      arguments = mkOption {
+        description = "The deployment arguments (set by nixops set-args)";
+
+        type = attrs;
+
+        default = {};
+
+        internal = true;
       };
     };
   };
