@@ -440,6 +440,58 @@ class EC2State(MachineState):
         nixops.util.check_wait(check_available, max_tries=90)
 
 
+    def assign_elastic_ip(self, elastic_ipv4, instance, check):
+        # Assign or release an elastic IP address, if given.
+        if (self.elastic_ipv4 or "") != elastic_ipv4 or (instance.ip_address != elastic_ipv4) or check:
+            if elastic_ipv4 != "":
+                # wait until machine is in running state
+                self.log_start("waiting for machine to be in running state... ".format(self.name))
+                while True:
+                    self.log_continue("({0}) ".format(instance.state))
+                    if instance.state == "running":
+                        break
+                    if instance.state not in {"running", "pending"}:
+                        raise Exception(
+                            "EC2 instance ‘{0}’ failed to reach running state (state is ‘{1}’)"
+                            .format(self.vm_id, instance.state))
+                    time.sleep(3)
+                    instance.update()
+                self.log_end("")
+
+                addresses = self._conn.get_all_addresses(addresses=[elastic_ipv4])
+                if addresses[0].instance_id != "" \
+                    and addresses[0].instance_id != self.vm_id \
+                    and not self.depl.confirm(
+                                "are you sure you want to associate IP address ‘{0}’, which is currently in use by instance ‘{1}’?".format(
+                                        elastic_ipv4, addresses[0].instance_id)):
+                    raise Exception("elastic IP ‘{0}’ already in use...".format(elastic_ipv4))
+                else:
+                    self.log("associating IP address ‘{0}’...".format(elastic_ipv4))
+                    addresses[0].associate(self.vm_id)
+                    self.log_start("waiting for address to be associated with this machine...")
+                    instance.update()
+                    while True:
+                        self.log_continue("({0}) ".format(instance.ip_address))
+                        if instance.ip_address == elastic_ipv4:
+                            break
+                        time.sleep(3)
+                        instance.update()
+                    self.log_end("")
+
+                nixops.known_hosts.add(elastic_ipv4, self.public_host_key)
+                with self.depl._db:
+                    self.elastic_ipv4 = elastic_ipv4
+                    self.public_ipv4 = elastic_ipv4
+                    self.ssh_pinged = False
+
+            elif self.elastic_ipv4 != None:
+                self.log("disassociating IP address ‘{0}’...".format(self.elastic_ipv4))
+                self._conn.disassociate_address(public_ip=self.elastic_ipv4)
+                with self.depl._db:
+                    self.elastic_ipv4 = None
+                    self.public_ipv4 = None
+                    self.ssh_pinged = False
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
@@ -620,54 +672,7 @@ class EC2State(MachineState):
             # TODO: remove obsolete tags?
             self.tags = tags
 
-        # Assign or release an elastic IP address, if given.
-        if (self.elastic_ipv4 or "") != defn.elastic_ipv4 or (instance.ip_address != defn.elastic_ipv4) or check:
-            if defn.elastic_ipv4 != "":
-                # wait until machine is in running state
-                self.log_start("waiting for machine to be in running state... ".format(self.name))
-                while True:
-                    self.log_continue("({0}) ".format(instance.state))
-                    if instance.state == "running":
-                        break
-                    if instance.state not in {"running", "pending"}:
-                        raise Exception(
-                            "EC2 instance ‘{0}’ failed to reach running state (state is ‘{1}’)"
-                            .format(self.vm_id, instance.state))
-                    time.sleep(3)
-                    instance.update()
-                self.log_end("")
-
-                addresses = self._conn.get_all_addresses(addresses=[defn.elastic_ipv4])
-                if addresses[0].instance_id != "" \
-                   and addresses[0].instance_id != self.vm_id \
-                   and not self.depl.confirm("are you sure you want to associate IP address ‘{0}’, which is currently in use by instance ‘{1}’?".format(defn.elastic_ipv4, addresses[0].instance_id)):
-                    raise Exception("elastic IP ‘{0}’ already in use...".format(defn.elastic_ipv4))
-                else:
-                    self.log("associating IP address ‘{0}’...".format(defn.elastic_ipv4))
-                    addresses[0].associate(self.vm_id)
-                    self.log_start("waiting for address to be associated with this machine...")
-                    instance.update()
-                    while True:
-                        self.log_continue("({0}) ".format(instance.ip_address))
-                        if instance.ip_address == defn.elastic_ipv4:
-                            break
-                        time.sleep(3)
-                        instance.update()
-                    self.log_end("")
-
-                nixops.known_hosts.add(defn.elastic_ipv4, self.public_host_key)
-                with self.depl._db:
-                    self.elastic_ipv4 = defn.elastic_ipv4
-                    self.public_ipv4 = defn.elastic_ipv4
-                    self.ssh_pinged = False
-
-            elif self.elastic_ipv4 != None:
-                self.log("disassociating IP address ‘{0}’...".format(self.elastic_ipv4))
-                self._conn.disassociate_address(public_ip=self.elastic_ipv4)
-                with self.depl._db:
-                    self.elastic_ipv4 = None
-                    self.public_ipv4 = None
-                    self.ssh_pinged = False
+        self.assign_elastic_ip(defn.elastic_ipv4, instance, check)
 
         # Wait for the IP address.
         if not self.public_ipv4 or check:
@@ -943,6 +948,10 @@ class EC2State(MachineState):
         # is generally the case).
         prev_private_ipv4 = self.private_ipv4
         prev_public_ipv4 = self.public_ipv4
+
+        if self.elastic_ipv4:
+            self.log("restoring previously attached elastic IP")
+            self.assign_elastic_ip(self.elastic_ipv4, instance, True)
 
         self._wait_for_ip(instance)
 
