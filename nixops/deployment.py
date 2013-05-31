@@ -16,6 +16,8 @@ import nixops.parallel
 import nixops.resources.ec2_keypair
 import nixops.resources.sqs_queue
 import nixops.resources.iam_role
+import nixops.resources.s3_bucket
+import nixops.resources.ebs_volume
 import re
 from datetime import datetime
 import getpass
@@ -519,6 +521,10 @@ class Deployment(object):
 
         for x in res.find("attr[@name='s3Buckets']/attrs").findall("attr"):
             defn = nixops.resources.s3_bucket.S3BucketDefinition(x)
+            self.definitions[defn.name] = defn
+
+        for x in res.find("attr[@name='ebsVolumes']/attrs").findall("attr"):
+            defn = nixops.resources.ebs_volume.EBSVolumeDefinition(x)
             self.definitions[defn.name] = defn
 
 

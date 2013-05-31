@@ -439,7 +439,8 @@ def create_state(depl, type, name, id):
               nixops.resources.ec2_keypair.EC2KeyPairState,
               nixops.resources.sqs_queue.SQSQueueState,
               nixops.resources.iam_role.IAMRoleState,
-              nixops.resources.s3_bucket.S3BucketState]:
+              nixops.resources.s3_bucket.S3BucketState,
+              nixops.resources.ebs_volume.EBSVolumeState]:
         if type == i.get_type():
             return i(depl, name, id)
     raise Exception("unknown backend type ‘{0}’".format(type))

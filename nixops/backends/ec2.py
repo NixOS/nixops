@@ -207,8 +207,9 @@ class EC2State(MachineState):
 
 
     def connect(self):
-        if self._conn: return
+        if self._conn: return self._conn
         self._conn = nixops.ec2_utils.connect(self.region, self.access_key_id)
+        return self._conn
 
 
     def connect_route53(self):
@@ -230,19 +231,6 @@ class EC2State(MachineState):
                 return None
             raise EC2InstanceDisappeared("EC2 instance ‘{0}’ disappeared!".format(instance_id))
         return reservations[0].instances[0]
-
-
-    def _get_volume_by_id(self, volume_id, allow_missing=False):
-        """Get instance object by instance id."""
-        self.connect()
-        try:
-            volumes = self._conn.get_all_volumes([volume_id])
-            if len(volumes) != 1:
-                raise Exception("unable to find volume ‘{0}’".format(volume_id))
-            return volumes[0]
-        except boto.exception.EC2ResponseError as e:
-            if e.error_code != "InvalidVolume.NotFound": raise
-        return None
 
 
     def _get_snapshot_by_id(self, snapshot_id):
@@ -364,7 +352,7 @@ class EC2State(MachineState):
 
         for k, v in self.block_device_mapping.items():
             # detach disks
-            volume = self._get_volume_by_id(v['volumeId'])
+            volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'])
             if volume.update() == "in-use":
                 self.log("detaching volume from ‘{0}’".format(self.name))
                 volume.detach()
@@ -401,7 +389,7 @@ class EC2State(MachineState):
     def attach_volume(self, device, volume_id):
         self.log("attaching volume ‘{0}’ as ‘{1}’...".format(volume_id, _sd_to_xvd(device)))
 
-        volume = self._get_volume_by_id(volume_id)
+        volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id)
         if volume.status == "in-use" and \
             self.vm_id != volume.attach_data.instance_id and \
             self.depl.confirm("volume ‘{0}’ is in use by instance ‘{1}’, "
@@ -522,7 +510,7 @@ class EC2State(MachineState):
             for k, v in defn.block_device_mapping.iteritems():
                 if not v['disk'].startswith("vol-"): continue
                 # Make note of the placement zone of the volume.
-                volume = self._get_volume_by_id(v['disk'])
+                volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['disk'])
                 if not zone:
                     self.log("starting EC2 instance in zone ‘{0}’ due to volume ‘{1}’".format(
                             volume.zone, v['disk']))
@@ -728,7 +716,7 @@ class EC2State(MachineState):
         # Detect if volumes were manually destroyed.
         for k, v in self.block_device_mapping.items():
             if v.get('needsAttach', False):
-                volume = self._get_volume_by_id(v['volumeId'], allow_missing=True)
+                volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'], allow_missing=True)
                 if volume: continue
                 if not allow_recreate:
                     raise Exception("volume ‘{0}’ (used by EC2 instance ‘{1}’) no longer exists; "
@@ -839,7 +827,7 @@ class EC2State(MachineState):
         if not self.depl.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
             raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
         self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
-        volume = self._get_volume_by_id(volume_id, allow_missing=True)
+        volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id, allow_missing=True)
         if not volume: return
         nixops.util.check_wait(lambda: volume.update() == 'available')
         volume.delete()
@@ -980,7 +968,7 @@ class EC2State(MachineState):
                 if k not in instance.block_device_mapping.keys() and v.get('volumeId', None):
                     res.disks_ok = False
                     res.messages.append("volume ‘{0}’ not attached to ‘{1}’".format(v['volumeId'], _sd_to_xvd(k)))
-                    volume = self._get_volume_by_id(v['volumeId'], allow_missing=True)
+                    volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'], allow_missing=True)
                     if not volume:
                         res.messages.append("volume ‘{0}’ no longer exists".format(v['volumeId']))
 

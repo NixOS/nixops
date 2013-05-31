@@ -30,7 +30,7 @@ let
         default = 0;
         type = types.uniq types.int;
         description = ''
-          Filesystem size (in gigabytes) for automatically created
+          Volume size (in gigabytes) for automatically created
           EBS volumes.
         '';
       };
