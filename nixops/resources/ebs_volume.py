@@ -77,7 +77,7 @@ class EBSVolumeState(nixops.resources.ResourceState):
         if self.state == self.UP and (self.size != defn.size):
             raise Exception("changing the size an EBS volume is currently not supported")
 
-        if check or self.state != self.UP:
+        if self.state != self.UP:
 
             self.connect(defn.region)
 
