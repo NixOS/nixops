@@ -1,6 +1,6 @@
 { lib, ... }:
 let
-  inherit (lib) mkOption;
+  inherit (lib) mkOption mkOverride;
 
   inherit (lib.types) attrsOf optionSet string bool attrs;
 in {
@@ -11,7 +11,14 @@ in {
 
         type = attrsOf optionSet;
 
-        options.imports = [ ./options.nix ] ++ import <nixos/modules/module-list.nix>;
+        options = { name, ... }: {
+          imports = [ ./options.nix ] ++ import <nixos/modules/module-list.nix>;
+
+          config = {
+            networking.hostName = mkOverride 900 name;
+            deployment.targetHost = mkOverride 900 name;
+          };
+        };
       };
 
       ec2KeyPairs = mkOption {
