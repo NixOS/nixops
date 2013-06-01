@@ -11,7 +11,7 @@ in {
 
         type = attrsOf optionSet;
 
-        options.imports = import <nixos/modules/module-list.nix>;
+        options.imports = [ ./options.nix ] ++ import <nixos/modules/module-list.nix>;
       };
 
       ec2KeyPairs = mkOption {
@@ -57,13 +57,24 @@ in {
       };
 
     };
+
     deployment = {
       arguments = mkOption {
-        description = "The deployment arguments (set by nixops set-args)";
+        description = "The deployment arguments";
 
         type = attrs;
 
         default = {};
+
+        internal = true;
+      };
+
+      uuid = mkOption {
+        description = "The deployment uuid";
+
+        type = string;
+
+        default = "";
 
         internal = true;
       };
