@@ -2,7 +2,7 @@
 let
   inherit (pkgs.lib) mkOption mkOverride types;
 
-  inherit (types) attrsOf optionSet string bool attrs;
+  inherit (types) attrsOf optionSet string bool attrs uniq;
 in {
   options = {
     resources = {
@@ -69,9 +69,7 @@ in {
       arguments = mkOption {
         description = "The deployment arguments";
 
-        type = attrs;
-
-        default = {};
+        type = uniq attrs;
 
         internal = true;
       };
@@ -79,9 +77,7 @@ in {
       uuid = mkOption {
         description = "The deployment uuid";
 
-        type = string;
-
-        default = "";
+        type = uniq string;
 
         internal = true;
       };
@@ -89,9 +85,9 @@ in {
       checkConfigurationOptions = mkOption {
         description = "Whether to check the validity of the entire configuration";
 
-        type = bool;
+        type = uniq bool;
 
-        default = true;
+        internal = true;
       };
     };
   };
