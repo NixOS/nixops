@@ -324,15 +324,16 @@ class EC2State(MachineState):
         _backups = self.backups
         if not backup_id in _backups.keys():
             self.warn('backup {0} not found, skipping'.format(backup_id))
-        for dev, snapshot_id in _backups[backup_id].items():
-            snapshot = None
-            try:
-                snapshot = self._get_snapshot_by_id(snapshot_id)
-            except:
-                self.warn('snapshot {0} not found, skipping'.format(snapshot_id))
-            if not snapshot is None:
-                self.log('removing snapshot {0}'.format(snapshot_id))
-                snapshot.delete()
+        else:
+            for dev, snapshot_id in _backups[backup_id].items():
+                snapshot = None
+                try:
+                    snapshot = self._get_snapshot_by_id(snapshot_id)
+                except:
+                    self.warn('snapshot {0} not found, skipping'.format(snapshot_id))
+                if not snapshot is None:
+                    self.log('removing snapshot {0}'.format(snapshot_id))
+                    snapshot.delete()
 
         _backups.pop(backup_id)
         self.backups = _backups

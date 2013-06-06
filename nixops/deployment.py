@@ -826,11 +826,16 @@ class Deployment(object):
             backup = backups[backup_id]
             for m in self.active.itervalues():
                 if should_do(m, include, exclude):
-                    backup['machines'][m.name] = machine_backups[m.name][backup_id]
-                    backup['info'].extend(backup['machines'][m.name]['info'])
-                    # status is always running when one of the backups is still running
-                    if backup['machines'][m.name]['status'] != "complete" and backup['status'] != "running":
-                        backup['status'] = backup['machines'][m.name]['status']
+                    if backup_id in machine_backups[m.name].keys():
+                        backup['machines'][m.name] = machine_backups[m.name][backup_id]
+                        backup['info'].extend(backup['machines'][m.name]['info'])
+                        # status is always running when one of the backups is still running
+                        if backup['machines'][m.name]['status'] != "complete" and backup['status'] != "running":
+                            backup['status'] = backup['machines'][m.name]['status']
+                    else:
+                        backup['status'] = 'incomplete'
+                        backup['info'].extend(["No backup available for {0}".format(m.name)]);
+
         return backups
 
     def clean_backups(self, keep=10):
