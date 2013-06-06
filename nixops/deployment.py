@@ -867,13 +867,13 @@ class Deployment(object):
         return backup_id
 
 
-    def restore(self, include=[], exclude=[], backup_id=None):
+    def restore(self, include=[], exclude=[], backup_id=None, devices=[]):
         with self._get_deployment_lock():
 
             self.evaluate_active(include, exclude)
             def worker(m):
                 if not should_do(m, include, exclude): return
-                m.restore(self.definitions[m.name], backup_id)
+                m.restore(self.definitions[m.name], backup_id, devices)
 
             nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
             self.start_machines(include=include, exclude=exclude)

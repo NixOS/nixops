@@ -357,36 +357,39 @@ class EC2State(MachineState):
         self.backups = _backups
 
 
-    def restore(self, defn, backup_id):
+    def restore(self, defn, backup_id, devices=[]):
         self.stop()
 
         self.log("restoring machine ‘{0}’ to backup ‘{1}’".format(self.name, backup_id))
+        for d in devices:
+            self.log(" - {0}".format(d))
 
         for k, v in self.block_device_mapping.items():
-            # detach disks
-            volume = self._get_volume_by_id(v['volumeId'])
-            if volume.update() == "in-use":
-                self.log("detaching volume from ‘{0}’".format(self.name))
-                volume.detach()
+            if devices == [] or _sd_to_xvd(k) in devices:
+                # detach disks
+                volume = self._get_volume_by_id(v['volumeId'])
+                if volume.update() == "in-use":
+                    self.log("detaching volume from ‘{0}’".format(self.name))
+                    volume.detach()
 
-            # attach backup disks
-            snapshot_id = self.backups[backup_id][k]
-            self.log("creating volume from snapshot ‘{0}’".format(snapshot_id))
-            new_volume = self._conn.create_volume(size=0, snapshot=snapshot_id, zone=self.zone)
+                # attach backup disks
+                snapshot_id = self.backups[backup_id][k]
+                self.log("creating volume from snapshot ‘{0}’".format(snapshot_id))
+                new_volume = self._conn.create_volume(size=0, snapshot=snapshot_id, zone=self.zone)
 
-            # check if original volume is available, aka detached from the machine
-            self.wait_for_volume_available(volume)
-            # check if new volume is available
-            self.wait_for_volume_available(new_volume)
+                # check if original volume is available, aka detached from the machine
+                self.wait_for_volume_available(volume)
+                # check if new volume is available
+                self.wait_for_volume_available(new_volume)
 
-            self.log("attaching volume ‘{0}’ to ‘{1}’".format(new_volume.id, self.name))
-            new_volume.attach(self.vm_id, k)
-            new_v = self.block_device_mapping[k]
-            if v.get('partOfImage', False) or v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
-                new_v['charonDeleteOnTermination'] = True
-                self._delete_volume(v['volumeId'])
-            new_v['volumeId'] = new_volume.id
-            self.update_block_device_mapping(k, new_v)
+                self.log("attaching volume ‘{0}’ to ‘{1}’".format(new_volume.id, self.name))
+                new_volume.attach(self.vm_id, k)
+                new_v = self.block_device_mapping[k]
+                if v.get('partOfImage', False) or v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
+                    new_v['charonDeleteOnTermination'] = True
+                    self._delete_volume(v['volumeId'])
+                new_v['volumeId'] = new_volume.id
+                self.update_block_device_mapping(k, new_v)
 
 
     def create_after(self, resources):

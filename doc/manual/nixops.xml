@@ -1279,7 +1279,10 @@ $ nixops backup</screen>
     <option>--exclude</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
   </arg>
-  <arg choice='plain'><replaceable>backup-id</replaceable></arg>
+    <arg>
+        <option>--backupid</option>
+        <arg choice='plain' rep='repeat'><replaceable>backupid</replaceable></arg>
+    </arg>
 </cmdsynopsis>
 </refsection>
 
@@ -1301,15 +1304,22 @@ $ nixops backup</screen>
 
   </varlistentry>
 
-  <varlistentry><term><option>--exclude</option>
-    <replaceable>machine-name...</replaceable></term>
+    <varlistentry><term><option>--exclude</option>
+        <replaceable>machine-name...</replaceable></term>
 
-    <listitem><para>Restore the persistent disks of all machines to a given backup except the ones listed
-    here.</para></listitem>
+        <listitem><para>Restore the persistent disks of all machines to a given backup except the ones listed
+            here.</para></listitem>
 
-  </varlistentry>
+    </varlistentry>
 
-  <varlistentry><term><replaceable>backup-id...</replaceable></term>
+    <varlistentry><term><option>--devices</option>
+        <replaceable>device-name...</replaceable></term>
+
+        <listitem><para>Restore only the persistent disks which are mapped to the specified device names.</para></listitem>
+
+    </varlistentry>
+
+    <varlistentry><term><option>--backup-id</option><replaceable>backup-id</replaceable></term>
 
     <listitem><para>Restore the persistent disks of all machines to a given backup except the ones listed
     here.</para></listitem>
@@ -1322,13 +1332,19 @@ $ nixops backup</screen>
 
 <refsection><title>Examples</title>
 
-<para>To list the available backups and restore the persistent disks of all machines to a given backup:
+    <para>To list the available backups and restore the persistent disks of all machines to a given backup:
 
-<screen>
-$ nixops backup-status
-$ nixops restore 20120803151302</screen>
+        <screen>
+            $ nixops backup-status
+            $ nixops restore --backup-id 20120803151302</screen>
 
-</para>
+    </para>
+
+    <para>Restore the persistent disks at device /dev/xvdf of all machines to a given backup:
+
+        <screen>
+            $ nixops restore --devices /dev/xvdf --backup-id 20120803151302</screen>
+    </para>
 
 </refsection>
 

@@ -133,7 +133,7 @@ class MachineState(nixops.resources.ResourceState):
                 if match and not match.group(1).startswith("sys-")  and not match.group(1).startswith("dev-"):
                     res.failed_units.append(match.group(1))
 
-    def restore(self, defn, backup_id):
+    def restore(self, defn, backup_id, devices=[]):
         """Restore persistent disks to a given backup, if possible."""
         self.warn("don't know how to restore disks from backup for machine ‘{0}’".format(self.name))
 

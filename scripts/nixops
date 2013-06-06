@@ -319,7 +319,7 @@ def op_backup_status():
 
 def op_restore():
     depl = open_deployment()
-    depl.restore(include=args.include or [], exclude=args.exclude or [], backup_id=args.backupid)
+    depl.restore(include=args.include or [], exclude=args.exclude or [], backup_id=args.backup_id, devices=args.devices or [])
 
 
 def op_deploy():
@@ -708,9 +708,10 @@ subparser.add_argument('--keep', dest="keep", type=int, default=10, help='number
 
 subparser = add_subparser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
 subparser.set_defaults(op=op_restore)
-subparser.add_argument('backupid', default=None, help='use specified backup in stead of latest')
+subparser.add_argument('--backup-id', default=None, help='use specified backup in stead of latest')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
+subparser.add_argument('--devices', nargs='+', metavar='DEVICE-NAME', help='only restore the specified devices')
 
 subparser = add_subparser('show-option', help='print the value of a configuration option')
 subparser.set_defaults(op=op_show_option)
