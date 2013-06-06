@@ -399,31 +399,42 @@ class EC2State(MachineState):
 
 
     def attach_volume(self, device, volume_id):
-        self.log("attaching volume ‘{0}’ as ‘{1}’...".format(volume_id, _sd_to_xvd(device)))
-
         volume = self._get_volume_by_id(volume_id)
         if volume.status == "in-use" and \
             self.vm_id != volume.attach_data.instance_id and \
             self.depl.confirm("volume ‘{0}’ is in use by instance ‘{1}’, "
                               "are you sure you want to attach this volume?".format(volume_id, volume.attach_data.instance_id)):
 
-            self.log("detaching volume ‘{0}’ from instance ‘{1}’...".format(volume_id, volume.attach_data.instance_id))
+            self.log_start("detaching volume ‘{0}’ from instance ‘{1}’...".format(volume_id, volume.attach_data.instance_id))
             volume.detach()
 
             def check_available():
                 res = volume.update()
-                sys.stderr.write("[{0}] ".format(res))
+                self.log_continue("[{0}] ".format(res))
                 return res == 'available'
 
             nixops.util.check_wait(check_available)
+            self.log_end('')
+
             if volume.update() != "available":
                 self.log("force detaching volume ‘{0}’ from instance ‘{1}’...".format(volume_id, volume.attach_data.instance_id))
                 volume.detach(True)
                 nixops.util.check_wait(check_available)
 
+        self.log_start("attaching volume ‘{0}’ as ‘{1}’...".format(volume_id, _sd_to_xvd(device)))
         if self.vm_id != volume.attach_data.instance_id:
             # Attach it.
             self._conn.attach_volume(volume_id, self.vm_id, device)
+
+        def check_attached():
+            volume.update()
+            res = volume.attach_data.status
+            self.log_continue("[{0}] ".format(res))
+            return res == 'attached'
+
+        # If volume is not in attached state, wait for it before going on.
+        if volume.attach_data.status != "attached":
+            nixops.util.check_wait(check_attached)
 
         # Wait until the device is visible in the instance.
         def check_dev():
@@ -431,13 +442,16 @@ class EC2State(MachineState):
             return res == 0
         nixops.util.check_wait(check_dev)
 
+        self.log_end('')
+
     def wait_for_volume_available(self, volume):
         def check_available():
             res = volume.update()
-            sys.stderr.write("[{0}] ".format(res))
+            self.log_continue("[{0}] ".format(res))
             return res == 'available'
 
         nixops.util.check_wait(check_available, max_tries=90)
+        self.log_end('')
 
 
     def assign_elastic_ip(self, elastic_ipv4, instance, check):
