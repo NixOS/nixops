@@ -1007,6 +1007,11 @@ class EC2State(MachineState):
                     if not volume:
                         res.messages.append("volume ‘{0}’ no longer exists".format(v['volumeId']))
 
+                if k in instance.block_device_mapping.keys() and instance.block_device_mapping[k].status != 'attached' :
+                    res.disks_ok = False
+                    res.messages.append("volume ‘{0}’ on device ‘{1}’ has unexpected state: ‘{2}’".format(v['volumeId'], _sd_to_xvd(k), instance.block_device_mapping[k].status))
+
+
             if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:
                 self.warn("IP address has changed, you may need to run ‘nixops deploy’")
                 self.private_ipv4 = instance.private_ip_address
