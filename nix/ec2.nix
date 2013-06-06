@@ -122,15 +122,18 @@ let
     else dev;
 
   amis = {
-    "eu-west-1".ebs = "ami-24e8e150";
-    "eu-west-1".s3  = "ami-a2eae3d6";
-    "us-east-1".ebs = "ami-dc48d9b5";
-    "us-east-1".s3  = "ami-da4edfb3";
-    "us-east-1".hvm = "ami-004adb69";
-    "us-west-1".ebs = "ami-22715367";
-    "us-west-1".s3  = "ami-967153d3";
-    "us-west-2".ebs = "ami-8a7af0ba";
-    "us-west-2".s3  = "ami-be7bf18e";
+    "eu-west-1".ebs = "ami-8badbdff";
+    "eu-west-1".s3  = "ami-83afbff7";
+    "eu-west-1".hvm = "ami-0bafbf7f";
+    "us-east-1".ebs = "ami-efcebb86";
+    "us-east-1".s3  = "ami-6534400c";
+    "us-east-1".hvm = "ami-89c8bde0";
+    "us-west-1".ebs = "ami-75f1df30";
+    "us-west-1".s3  = "ami-aff1dfea";
+    "us-west-1".hvm = "ami-e1f1dfa4";
+    "us-west-2".ebs = "ami-fd0998cd";
+    "us-west-2".s3  = "ami-870899b7";
+    "us-west-2".hvm = "ami-7d08994d";
   };
 
 in
