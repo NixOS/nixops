@@ -1280,8 +1280,8 @@ $ nixops backup</screen>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
   </arg>
     <arg>
-        <option>--backupid</option>
-        <arg choice='plain' rep='repeat'><replaceable>backupid</replaceable></arg>
+        <option>--backup-id</option>
+        <arg choice='plain' rep='repeat'><replaceable>backup-id</replaceable></arg>
     </arg>
 </cmdsynopsis>
 </refsection>
