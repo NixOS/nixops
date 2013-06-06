@@ -345,7 +345,7 @@ class EC2State(MachineState):
         backup = {}
         _backups = self.backups
         for k, v in self.block_device_mapping.items():
-            snapshot = self._conn.create_snapshot(volume_id=v['volumeId'])
+            snapshot = nixops.ec2_utils.retry(lambda: self._conn.create_snapshot(volume_id=v['volumeId']))
             self.log("+ created snapshot of volume ‘{0}’: ‘{1}’".format(v['volumeId'], snapshot.id))
 
             common_tags = {'CharonNetworkUUID': str(self.depl.uuid), 'CharonMachineName': self.name, 'CharonBackupID': backup_id, 'CharonBackupDevice': k}
