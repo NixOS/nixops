@@ -18,6 +18,7 @@ in {
 
           config = {
             networking.hostName = mkOverride 900 name;
+
             deployment.targetHost = mkOverride 900 name;
           };
         };
@@ -30,7 +31,9 @@ in {
 
         type = attrsOf optionSet;
 
-        options.imports = ./ec2-keypair.nix;
+        options.imports = [ ./ec2-keypair.nix ];
+
+        options.options = {};
       };
 
       s3Buckets = mkOption {
@@ -40,7 +43,9 @@ in {
 
         type = attrsOf optionSet;
 
-        options.imports = ./s3-bucket.nix;
+        options.imports = [ ./s3-bucket.nix ];
+
+        options.options = {};
       };
 
       iamRoles = mkOption {
@@ -50,7 +55,9 @@ in {
 
         type = attrsOf optionSet;
 
-        options.imports = ./iam-role.nix;
+        options.imports = [ ./iam-role.nix ];
+
+        options.options = {};
       };
     };
 
