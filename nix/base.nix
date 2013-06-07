@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ lib, config, ... }:
 let
   inherit (lib) mkOption mkOverride types;
 
@@ -31,6 +31,8 @@ in {
 
         type = attrsOf optionSet;
 
+        extraArgs = { inherit lib; uuid = config.deployment.uuid; };
+
         options.imports = [ ./ec2-keypair.nix ];
 
         options.options = {};
@@ -43,6 +45,8 @@ in {
 
         type = attrsOf optionSet;
 
+        extraArgs = { inherit lib; uuid = config.deployment.uuid; };
+
         options.imports = [ ./s3-bucket.nix ];
 
         options.options = {};
@@ -54,6 +58,8 @@ in {
         description = "The IAM roles in the network";
 
         type = attrsOf optionSet;
+
+        extraArgs = { inherit lib; uuid = config.deployment.uuid; };
 
         options.imports = [ ./iam-role.nix ];
 
