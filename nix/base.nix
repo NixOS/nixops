@@ -112,14 +112,6 @@ in {
 
         internal = true;
       };
-
-      checkConfigurationOptions = mkOption {
-        description = "Whether to check the validity of the entire configuration";
-
-        type = uniq bool;
-
-        internal = true;
-      };
     };
   };
 }
