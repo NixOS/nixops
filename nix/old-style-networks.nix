@@ -3,9 +3,12 @@
 let
   networkExprs = config.oldStyleNetworkExpressions;
 
-  inherit (lib) mkOption zipAttrs mkIf types mapAttrs;
+  inherit (lib) mkOption zipAttrs types mapAttrs fold catAttrs hasAttr
+    getAttr listToAttrs applyIfFunction flip concatLists;
 
   inherit (types) listOf path;
+
+  call = flip applyIfFunction config.deployment.arguments;
 
   networks =
     let
@@ -20,9 +23,16 @@ let
       };
     in map ({ key }: getNetworkFromExpr key // { inherit key; }) networkExprClosure;
 
-  call = x: if builtins.isFunction x then x config.deployment.arguments else x;
+  defaults = concatLists (zipAttrs networks).defaults or [];
 
-  defaults = (zipAttrs networks).defaults;
+  machines = zipAttrs (map (network:
+    mapAttrs (name: value: {
+      key = network.key or "<unknown-old-style-network>";
+
+      inherit value;
+    }) (removeAttrs network [ "network" "defaults" "resources" "require" "key" ])
+  ) networks);
+
 in {
   options = {
     oldStyleNetworkExpressions = mkOption {
@@ -33,37 +43,43 @@ in {
       default = [];
     };
 
-    resources.machines.options.imports = defaults;
+    resources.machines.options = {
+      imports = defaults;
+
+      options = {};
+    };
   };
 
-  imports = map (network: {
-    inherit (network) key;
+  config = {
+    network = fold (as: bs: as // bs) {} (catAttrs "network" networks);
 
-    config = {
-      network = mkIf (network ? network) network.network;
+    resources = listToAttrs (map (name: {
+      inherit name;
+      value = mapAttrs (name: values: args: {
+        key = "<inline-nonsense>";
+        imports =
+          let
+            arguments = args // {
+              nodes = config.resources.machines;
 
-      resources = mapAttrs (name: value: builtins.listToAttrs [ {
-        inherit name;
+              resources = removeAttrs config.resources [ "machines" ];
 
-        value = mapAttrs (name: value: builtins.listToAttrs [ {
-          inherit name;
+              uuid = config.deployment.uuid;
+            };
+          in map ({ key, value}: { inherit key; } // (applyIfFunction value arguments)) values;
 
-          value = args:
-            let
-              arguments = args // {
-                nodes = config.resources.machines;
+        config = {};
 
-                resources = removeAttrs config.resources [ "machines" ];
+        options = {};
+      }) (if name == "machines"
+        then machines
+        else zipAttrs (map (network:
+          mapAttrs (name: value: {
+            key = network.key or "<unknown-old-style-network>";
 
-                uuid = config.deployment.uuid;
-
-                inherit name;
-              };
-            in if builtins.isFunction value then value arguments else value;
-        } ]) value;
-      } ]) (network.resources // {
-        machines = removeAttrs network [ "network" "defaults" "resources" "require" ];
-      });
-    };
-  }) networks;
+            inherit value;
+          }) (if hasAttr name (network.resources or {}) then getAttr name network.resources else {})
+        ) networks));
+    }) [ "machines" "ec2KeyPairs" "s3Buckets" "sqsQueues" "iamRoles" ]);
+  };
 }
