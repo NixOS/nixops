@@ -1,6 +1,6 @@
-{ config, pkgs, uuid, name, ... }:
+{ config, uuid, name, ... }:
 
-with pkgs.lib;
+with lib;
 
 {
 

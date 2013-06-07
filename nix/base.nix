@@ -1,6 +1,6 @@
-{ pkgs, ... }:
+{ lib, ... }:
 let
-  inherit (pkgs.lib) mkOption mkOverride types;
+  inherit (lib) mkOption mkOverride types;
 
   inherit (types) attrsOf optionSet string bool attrs uniq;
 in {

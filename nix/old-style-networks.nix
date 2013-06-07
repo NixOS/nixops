@@ -1,9 +1,9 @@
-{ config, pkgs, ... }:
+{ config, lib, ... }:
 
 let
   networkExprs = config.oldStyleNetworkExpressions;
 
-  inherit (pkgs.lib) mkOption zipAttrs mkIf types mapAttrs;
+  inherit (lib) mkOption zipAttrs mkIf types mapAttrs;
 
   inherit (types) listOf path;
 
