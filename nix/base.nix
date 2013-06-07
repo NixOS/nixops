@@ -7,6 +7,8 @@ in {
   options = {
     resources = {
       machines = mkOption {
+        default = {};
+
         description = "The machines in the network";
 
         type = attrsOf optionSet;
@@ -22,6 +24,8 @@ in {
       };
 
       ec2KeyPairs = mkOption {
+        default = {};
+
         description = "The EC2 key pairs in the network";
 
         type = attrsOf optionSet;
@@ -30,6 +34,8 @@ in {
       };
 
       s3Buckets = mkOption {
+        default = {};
+
         description = "The S3 buckets in the network";
 
         type = attrsOf optionSet;
@@ -38,6 +44,8 @@ in {
       };
 
       iamRoles = mkOption {
+        default = {};
+
         description = "The IAM roles in the network";
 
         type = attrsOf optionSet;
