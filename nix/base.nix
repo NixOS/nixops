@@ -62,6 +62,20 @@ in {
         options.options = {};
       };
 
+      sqsQueues = mkOption {
+        default = {};
+
+        description = "The SQS queues in the network";
+
+        type = attrsOf optionSet;
+
+        extraArgs = { inherit lib; uuid = config.deployment.uuid; };
+
+        options.imports = [ ./sqs-queue.nix ];
+
+        options.options = {};
+      };
+
       iamRoles = mkOption {
         default = {};
 
