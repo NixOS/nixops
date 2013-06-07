@@ -44,6 +44,7 @@ class EC2Definition(MachineDefinition):
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
         self.instance_profile = x.find("attr[@name='instanceProfile']/string").get("value")
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
+        self.root_disk_size = int(x.find("attr[@name='ebsInitialRootDiskSize']/int").get("value"))
 
         def f(xml):
             return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
@@ -560,6 +561,8 @@ class EC2State(MachineState):
 
                 self.state = self.STARTING
 
+        resize_root = False
+
         # Create the instance.
         if not self.vm_id:
             self.log("creating EC2 instance (AMI ‘{0}’, type ‘{1}’, region ‘{2}’)...".format(
@@ -571,8 +574,10 @@ class EC2State(MachineState):
 
             # Figure out whether this AMI is EBS-backed.
             ami = self._conn.get_all_images([defn.ami])[0]
-
             self.root_device_type = ami.root_device_type
+
+            # Check if we need to resize the root disk
+            resize_root = defn.root_disk_size != 0 and ami.root_device_type == 'ebs'
 
             # Set the initial block device mapping to the ephemeral
             # devices defined in the spec.  These cannot be changed
@@ -585,6 +590,11 @@ class EC2State(MachineState):
                 if v['disk'].startswith("ephemeral"):
                     devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v['disk'])
                     self.update_block_device_mapping(k, v)
+
+            root_device = ami.root_device_name
+            if resize_root:
+                devmap[root_device] = ami.block_device_mapping[root_device]
+                devmap[root_device].size = defn.root_disk_size
 
             # If we're attaching any EBS volumes, then make sure that
             # we create the instance in the right placement zone.
@@ -702,6 +712,10 @@ class EC2State(MachineState):
 
         # Wait until the instance is reachable via SSH.
         self.wait_for_ssh(check=check)
+
+        if resize_root:
+            self.log('resizing root disk...')
+            self.run_command("resize2fs {0}".format(_sd_to_xvd(root_device)))
 
         # Add disks that were in the original device mapping of image.
         for k, dm in instance.block_device_mapping.items():

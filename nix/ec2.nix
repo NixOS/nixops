@@ -220,6 +220,16 @@ in
       '';
     };
 
+    deployment.ec2.ebsInitialRootDiskSize = mkOption {
+      default = 0;
+      type = types.int;
+      description = ''
+        Preferred size (G) of the root disk of the EBS-backed instance. By
+        default, EBS-backed images have a root disk of 20G. Only supported
+        on creation of the instance.
+      '';
+    };
+
     deployment.ec2.ami = mkOption {
       example = "ami-ecb49e98";
       type = types.uniq types.string;
