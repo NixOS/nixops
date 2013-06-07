@@ -3,6 +3,8 @@ let
   inherit (lib) mkOption mkOverride types;
 
   inherit (types) attrsOf optionSet string bool attrs uniq;
+
+  baseModules = [ ./options.nix ] ++ import <nixos/modules/module-list.nix>;
 in {
   options = {
     resources = {
@@ -13,8 +15,16 @@ in {
 
         type = attrsOf optionSet;
 
+        extraArgs = {
+          inherit baseModules;
+
+          modules = []; #!!! What makes sense here?
+
+          modulesPath = <nixos/modules>;
+        };
+
         options = { name, ... }: {
-          imports = [ ./options.nix ] ++ import <nixos/modules/module-list.nix>;
+          imports = baseModules;
 
           config = {
             networking.hostName = mkOverride 900 name;
