@@ -20,13 +20,20 @@ import logging.handlers
 import syslog
 
 
+def create_table(headers):
+    tbl = prettytable.PrettyTable([name for (name, align) in headers])
+    for (name, align) in headers:
+        tbl.align[name] = align
+    return tbl
+
+
 def sort_deployments(depls):
     return sorted(depls, key=lambda depl: (depl.name, depl.uuid))
 
 
 def op_list_deployments():
     sf = nixops.statefile.StateFile(args.state_file)
-    tbl = prettytable.PrettyTable(["UUID", "Name", "Description", "# Machines", "Type"])
+    tbl = create_table([("UUID", 'l'), ("Name", 'l'), ("Description", 'l'), ("# Machines", 'r'), ("Type", 'c')])
     for depl in sort_deployments(sf.get_all_deployments()):
         tbl.add_row(
             [depl.uuid, depl.name or "(none)",
@@ -87,13 +94,6 @@ def op_clone():
 def op_delete():
     depl = open_deployment()
     depl.delete()
-
-
-def create_table(headers):
-    tbl = prettytable.PrettyTable([name for (name, align) in headers])
-    for (name, align) in headers:
-        tbl.align[name] = align
-    return tbl
 
 
 def machine_to_key(depl, name, type):
