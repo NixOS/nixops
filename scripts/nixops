@@ -19,12 +19,12 @@ import logging.handlers
 import syslog
 
 def op_list_deployments():
-    db = deployment.open_database(args.state_file)
-    uuids = deployment.query_deployments(db)
+    sf = deployment.StateFile(args.state_file)
+    uuids = sf.query_deployments()
     tbl = PrettyTable(["UUID", "Name", "Description", "# Machines", "Type"])
     for uuid in uuids:
         try:
-            depl = deployment.open_deployment(db, uuid=uuid)
+            depl = sf.open_deployment(uuid=uuid)
             tbl.add_row(
                 [uuid, depl.name or "(none)",
                  depl.description, len(depl.machines),
@@ -36,8 +36,8 @@ def op_list_deployments():
 
 
 def open_deployment():
-    db = deployment.open_database(args.state_file)
-    depl = deployment.open_deployment(db, uuid=args.deployment)
+    sf = deployment.StateFile(args.state_file)
+    depl = sf.open_deployment(uuid=args.deployment)
 
     depl.extra_nix_path = sum(args.nix_path or [], [])
     for (n, v) in args.nix_options or []: depl.extra_nix_flags.extend(["--option", n, v])
@@ -63,8 +63,8 @@ def modify_deployment(depl):
 
 
 def op_create():
-    db = deployment.open_database(args.state_file)
-    depl = deployment.create_deployment(db)
+    sf = deployment.StateFile(args.state_file)
+    depl = sf.create_deployment()
     sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
     modify_deployment(depl)
     sys.stdout.write(depl.uuid + "\n")
@@ -156,13 +156,13 @@ def op_info():
                     ])
 
     if args.all:
-        db = deployment.open_database(args.state_file)
-        uuids = deployment.query_deployments(db)
+        sf = deployment.StateFile(args.state_file)
+        uuids = sf.query_deployments()
         if not args.plain:
             tbl = create_table([('Deployment', 'l')] + table_headers)
         # FIXME: sort by deployment name/uuid.
         for uuid in uuids:
-            depl = deployment.open_deployment(db, uuid=uuid)
+            depl = sf.open_deployment(uuid=uuid)
             do_eval(depl)
             print_deployment(depl)
         if not args.plain: print tbl
@@ -209,10 +209,10 @@ def op_check():
             machines.append(m)
 
     if args.all:
-        db = deployment.open_database(args.state_file)
-        uuids = deployment.query_deployments(db)
+        sf = deployment.StateFile(args.state_file)
+        uuids = sf.query_deployments()
         for uuid in uuids:
-            depl = deployment.open_deployment(db, uuid=uuid)
+            depl = sf.open_deployment(uuid=uuid)
             check(depl)
     else:
        check(open_deployment())
@@ -390,6 +390,7 @@ def op_show_physical():
     depl.evaluate()
     sys.stdout.write(depl.get_physical_spec())
 
+
 def op_dump_nix_paths():
     def get_nix_path(p):
         if p is None:
@@ -416,10 +417,10 @@ def op_dump_nix_paths():
     paths = []
 
     if args.all:
-        db = deployment.open_database(args.state_file)
-        uuids = deployment.query_deployments(db)
+        sf = deployment.StateFile(args.state_file)
+        uuids = sf.query_deployments()
         for uuid in uuids:
-            depl = deployment.open_deployment(db, uuid=uuid)
+            depl = sf.open_deployment(uuid=uuid)
             paths.extend(nix_paths(depl))
     else:
         depl = open_deployment()
@@ -427,6 +428,7 @@ def op_dump_nix_paths():
 
     for p in paths:
         print p
+
 
 def parse_machine(name):
     return ("root", name) if name.find("@") == -1 else name.split("@", 1)

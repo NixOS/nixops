@@ -70,70 +70,6 @@ class Connection(sqlite3.Connection):
         self.lock.release()
 
 
-def _table_exists(c, table):
-    c.execute("select 1 from sqlite_master where name = ? and type='table'", (table,));
-    return c.fetchone() != None
-
-
-current_schema = 3
-
-
-def _create_schemaversion(c):
-    c.execute(
-        '''create table if not exists SchemaVersion(
-             version integer not null
-           );''')
-
-    c.execute("insert into SchemaVersion(version) values (?)", (current_schema,))
-
-
-def _create_schema(c):
-    _create_schemaversion(c)
-
-    c.execute(
-        '''create table if not exists Deployments(
-             uuid text primary key
-           );''')
-
-    c.execute(
-        '''create table if not exists DeploymentAttrs(
-             deployment text not null,
-             name text not null,
-             value text not null,
-             primary key(deployment, name),
-             foreign key(deployment) references Deployments(uuid) on delete cascade
-           );''')
-
-    c.execute(
-        '''create table if not exists Resources(
-             id integer primary key autoincrement,
-             deployment text not null,
-             name text not null,
-             type text not null,
-             foreign key(deployment) references Deployments(uuid) on delete cascade
-           );''')
-
-    c.execute(
-        '''create table if not exists ResourceAttrs(
-             machine integer not null,
-             name text not null,
-             value text not null,
-             primary key(machine, name),
-             foreign key(machine) references Resources(id) on delete cascade
-           );''')
-
-
-def _upgrade_1_to_2(c):
-    sys.stderr.write("updating database schema from version 1 to 2...\n")
-    _create_schemaversion(c)
-
-
-def _upgrade_2_to_3(c):
-    sys.stderr.write("updating database schema from version 2 to 3...\n")
-    c.execute("alter table Machines rename to Resources")
-    c.execute("alter table MachineAttrs rename to ResourceAttrs")
-
-
 def get_default_state_file():
     home = os.environ.get("HOME", "") + "/.nixops"
     if not os.path.exists(home):
@@ -148,78 +84,137 @@ def get_default_state_file():
     return os.environ.get("NIXOPS_STATE", os.environ.get("CHARON_STATE", home + "/deployments.nixops"))
 
 
-def open_database(db_file):
-    if os.path.splitext(db_file)[1] not in ['.nixops', '.charon']:
-        raise Exception("state file ‘{0}’ should have extension ‘.nixops’".format(db_file))
-    db = sqlite3.connect(db_file, timeout=60, check_same_thread=False, factory=Connection) # FIXME
-    db.db_file = db_file
+class StateFile(object):
+    """NixOps state file."""
 
-    db.execute("pragma journal_mode = wal")
-    db.execute("pragma foreign_keys = 1")
+    current_schema = 3
 
-    # FIXME: this is not actually transactional, because pysqlite (not
-    # sqlite) does an implicit commit before "create table".
-    with db:
-        c = db.cursor()
+    def __init__(self, db_file):
+        self.db_file = db_file
 
-        # Get the schema version.
-        version = 0 # new database
-        if _table_exists(c, 'SchemaVersion'):
-            c.execute("select version from SchemaVersion")
-            version = c.fetchone()[0]
-        elif _table_exists(c, 'Deployments'):
-            version = 1
+        if os.path.splitext(db_file)[1] not in ['.nixops', '.charon']:
+            raise Exception("state file ‘{0}’ should have extension ‘.nixops’".format(db_file))
+        db = sqlite3.connect(db_file, timeout=60, check_same_thread=False, factory=Connection) # FIXME
+        db.db_file = db_file
 
-        if version == current_schema:
-            pass
-        elif version == 0:
-            _create_schema(c)
-        elif version < current_schema:
-            if version <= 1: _upgrade_1_to_2(c)
-            if version <= 2: _upgrade_2_to_3(c)
-            c.execute("update SchemaVersion set version = ?", (current_schema,))
-        else:
-            raise Exception("this NixOps version is too old to deal with schema version {0}".format(version))
+        db.execute("pragma journal_mode = wal")
+        db.execute("pragma foreign_keys = 1")
 
-    return db
+        # FIXME: this is not actually transactional, because pysqlite (not
+        # sqlite) does an implicit commit before "create table".
+        with db:
+            c = db.cursor()
 
+            # Get the schema version.
+            version = 0 # new database
+            if self._table_exists(c, 'SchemaVersion'):
+                c.execute("select version from SchemaVersion")
+                version = c.fetchone()[0]
+            elif self._table_exists(c, 'Deployments'):
+                version = 1
 
-def query_deployments(db):
-    """Return the UUIDs of all deployments in the database."""
-    c = db.cursor()
-    c.execute("select uuid from Deployments")
-    res = c.fetchall()
-    return [x[0] for x in res]
+            if version == self.current_schema:
+                pass
+            elif version == 0:
+                self._create_schema(c)
+            elif version < self.current_schema:
+                if version <= 1: self._upgrade_1_to_2(c)
+                if version <= 2: self._upgrade_2_to_3(c)
+                c.execute("update SchemaVersion set version = ?", (self.current_schema,))
+            else:
+                raise Exception("this NixOps version is too old to deal with schema version {0}".format(version))
 
+        self._db = db
 
-def _find_deployment(db, uuid=None):
-    c = db.cursor()
-    if not uuid:
+    def query_deployments(self):
+        """Return the UUIDs of all deployments in the database."""
+        c = self._db.cursor()
         c.execute("select uuid from Deployments")
-    else:
-        c.execute("select uuid from Deployments d where uuid = ? or exists (select 1 from DeploymentAttrs where deployment = d.uuid and name = 'name' and value = ?)", (uuid, uuid))
-    res = c.fetchall()
-    if len(res) == 0: return None
-    if len(res) > 1:
-        raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘-d’")
-    return Deployment(db, res[0][0], sys.stderr)
+        res = c.fetchall()
+        return [x[0] for x in res]
 
+    def _find_deployment(self, uuid=None):
+        c = self._db.cursor()
+        if not uuid:
+            c.execute("select uuid from Deployments")
+        else:
+            c.execute("select uuid from Deployments d where uuid = ? or exists (select 1 from DeploymentAttrs where deployment = d.uuid and name = 'name' and value = ?)", (uuid, uuid))
+        res = c.fetchall()
+        if len(res) == 0: return None
+        if len(res) > 1:
+            raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘-d’")
+        return Deployment(self._db, res[0][0], sys.stderr)
 
-def create_deployment(db, uuid=None):
-    """Create a new deployment."""
-    if not uuid:
-        import uuid
-        uuid = str(uuid.uuid1())
-    with db:
-        db.execute("insert into Deployments(uuid) values (?)", (uuid,))
-    return Deployment(db, uuid, sys.stderr)
+    def open_deployment(self, uuid=None):
+        """Open an existing deployment."""
+        deployment = self._find_deployment(uuid=uuid)
+        if deployment: return deployment
+        raise Exception("could not find specified deployment in state file ‘{0}’".format(self.db_file))
 
+    def create_deployment(self, uuid=None):
+        """Create a new deployment."""
+        if not uuid:
+            import uuid
+            uuid = str(uuid.uuid1())
+        with self._db:
+            self._db.execute("insert into Deployments(uuid) values (?)", (uuid,))
+        return Deployment(self._db, uuid, sys.stderr)
 
-def open_deployment(db, uuid=None):
-    """Open an existing deployment."""
-    deployment = _find_deployment(db, uuid=uuid)
-    if deployment: return deployment
-    raise Exception("could not find specified deployment in state file ‘{0}’".format(db.db_file))
+    def _table_exists(self, c, table):
+        c.execute("select 1 from sqlite_master where name = ? and type='table'", (table,));
+        return c.fetchone() != None
+
+    def _create_schemaversion(self, c):
+        c.execute(
+            '''create table if not exists SchemaVersion(
+                 version integer not null
+               );''')
+
+        c.execute("insert into SchemaVersion(version) values (?)", (self.current_schema,))
+
+    def _create_schema(self, c):
+        self._create_schemaversion(c)
+
+        c.execute(
+            '''create table if not exists Deployments(
+                 uuid text primary key
+               );''')
+
+        c.execute(
+            '''create table if not exists DeploymentAttrs(
+                 deployment text not null,
+                 name text not null,
+                 value text not null,
+                 primary key(deployment, name),
+                 foreign key(deployment) references Deployments(uuid) on delete cascade
+               );''')
+
+        c.execute(
+            '''create table if not exists Resources(
+                 id integer primary key autoincrement,
+                 deployment text not null,
+                 name text not null,
+                 type text not null,
+                 foreign key(deployment) references Deployments(uuid) on delete cascade
+               );''')
+
+        c.execute(
+            '''create table if not exists ResourceAttrs(
+                 machine integer not null,
+                 name text not null,
+                 value text not null,
+                 primary key(machine, name),
+                 foreign key(machine) references Resources(id) on delete cascade
+               );''')
+
+    def _upgrade_1_to_2(self, c):
+        sys.stderr.write("updating database schema from version 1 to 2...\n")
+        self._create_schemaversion(c)
+
+    def _upgrade_2_to_3(self, c):
+        sys.stderr.write("updating database schema from version 2 to 3...\n")
+        c.execute("alter table Machines rename to Resources")
+        c.execute("alter table MachineAttrs rename to ResourceAttrs")
 
 
 class Deployment(object):
