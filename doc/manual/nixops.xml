@@ -1545,4 +1545,68 @@ Xen Minimal OS!
 </refsection>
 
 
+<refsection><title>Command <option>nixops export</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>nixops export</command>
+  <arg><option>--all</option></arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command exports the state of the specified deployment, or
+all deployments if <option>--all</option> is given, as a JSON
+represention to standard output.  The deployment(s) can be imported
+into another state file using <command>nixops import</command>.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To export a specific deployment, and import it into the state
+file <filename>other.nixops</filename>:
+
+<screen>
+$ nixops export -d foo > foo.json
+$ nixops import -s other.nixops &lt; foo.json
+added deployment ‘2bbaddca-01cb-11e2-88b2-19d91ca51c50’
+</screen>
+
+</para>
+
+<para>To export all deployments:
+
+<screen>
+$ nixops export --all > all.json
+</screen>
+</para>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>nixops import</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>nixops import</command>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command creates deployments from the state data exported by
+<command>nixops export</command>.  The state is read from standard
+input.  See <command>nixops export</command> for examples.</para>
+
+</refsection>
+
+</refsection>
+
+
 </refentry>
