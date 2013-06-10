@@ -128,6 +128,16 @@ class Deployment(object):
             return nixops.util.undefined
 
 
+    def dump(self):
+        with self._db:
+            c = self._db.cursor()
+            c.execute("select name, value from DeploymentAttrs where deployment = ?", (self.uuid,))
+            rows = c.fetchall()
+            res = {row[0]: row[1] for row in rows}
+            res['resources'] = {r.name: r.dump() for r in self.resources.itervalues()}
+            return res
+
+
     def clone(self):
         with self._db:
             new = create_deployment(self._db)

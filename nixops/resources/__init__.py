@@ -77,6 +77,13 @@ class ResourceState(object):
             if row != None: return row[0]
             return nixops.util.undefined
 
+    def dump(self):
+        with self.depl._db:
+            c = self.depl._db.cursor()
+            c.execute("select name, value from ResourceAttrs where machine = ?", (self.id,))
+            rows = c.fetchall()
+            return {row[0]: row[1] for row in rows}
+
     def set_log_prefix(self, length):
         self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))
         if self.depl._log_file.isatty() and self.index != None:

@@ -18,6 +18,7 @@ from pprint import pprint
 import logging
 import logging.handlers
 import syslog
+import json
 
 
 def create_table(headers):
@@ -423,6 +424,18 @@ def op_dump_nix_paths():
         print p
 
 
+def op_dump_state():
+    res = {}
+    if args.all:
+        sf = nixops.statefile.StateFile(args.state_file)
+        for depl in sf.get_all_deployments():
+            res[depl.uuid] = depl.dump()
+    else:
+        depl = open_deployment()
+        res[depl.uuid] = depl.dump()
+    print json.dumps(res, indent=2)
+
+
 def parse_machine(name):
     return ("root", name) if name.find("@") == -1 else name.split("@", 1)
 
@@ -719,14 +732,19 @@ subparser.set_defaults(op=op_show_console_output)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
 add_common_deployment_options(subparser)
 
-subparser = add_subparser('dump-nix-paths', help='dump nix paths referenced in deployments')
-subparser.add_argument('--all',  action='store_true', help='dump nix paths for all deployments')
+subparser = add_subparser('dump-nix-paths', help='dump Nix paths referenced in deployments')
+subparser.add_argument('--all',  action='store_true', help='dump Nix paths for all deployments')
 subparser.set_defaults(op=op_dump_nix_paths)
 add_common_deployment_options(subparser)
+
+subparser = add_subparser('dump-state', help='dump the state of a deployment')
+subparser.add_argument('--all',  action='store_true', help='dump all deployments')
+subparser.set_defaults(op=op_dump_state)
 
 
 if os.path.basename(sys.argv[0]) == "charon":
     sys.stderr.write(nixops.util.ansi_warn("warning: ‘charon’ is now called ‘nixops’") + "\n")
+
 
 # Parse the command line and execute the desired operation.
 def error(msg):
