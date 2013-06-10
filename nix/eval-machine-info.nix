@@ -5,96 +5,86 @@
 , args
 }:
 
-with import <nixos/lib/testing.nix> { inherit system; };
-with pkgs;
-with lib;
+let
+  pkgs = import <nixpkgs> { inherit system; };
 
+  inherit (pkgs) lib runCommand;
 
-rec {
+  inherit (lib) fixMergeModules scrubOptionValue mkOption mapAttrs mapAttrsToList filterAttrs elem optionalAttrs isDerivation attrValues getAttr listToAttrs;
 
-  networks =
-    let
-      getNetworkFromExpr = networkExpr: call (import networkExpr);
+  makeSystemModule = machines: fixMergeModules [ {
+    key = ./eval-machine-info.nix;
 
-      exprToKey = key: { inherit key; };
+    imports = [ ./old-style-networks.nix ]; # Required here because this will eventually only be used for backwards-compat
 
-      networkExprClosure = builtins.genericClosure {
-        startSet = map exprToKey networkExprs;
-        operator = { key }: map exprToKey ((getNetworkFromExpr key).require or []);
-      };
-    in map ({ key }: getNetworkFromExpr key) networkExprClosure;
+    options = {
+      resources.machines = mkOption {
+        extraArgs = rec {
+          pkgs = import <nixpkgs> { config = {}; inherit system; };
 
-  call = x: if builtins.isFunction x then x args else x;
+          pkgs_i686 = pkgs.pkgsi686Linux;
 
-  network = zipAttrs networks;
-
-  defaults = network.defaults or [];
-
-  # Compute the definitions of the machines.
-  nodes =
-    listToAttrs (map (machineName:
-      let
-        modules = getAttr machineName network;
-      in
-      { name = machineName;
-        value = import <nixos/lib/eval-config.nix> {
-          modules =
-            modules ++
-            defaults ++
-            [ { key = "nixops-stuff";
-                # Make NixOps's deployment.* options available.
-                require = [ ./options.nix ];
-                # Provide a default hostname and deployment target equal
-                # to the attribute name of the machine in the model.
-                networking.hostName = mkOverride 900 machineName;
-                deployment.targetHost = mkOverride 900 machineName;
-                environment.checkConfigurationOptions = mkOverride 900 checkConfigurationOptions;
-              }
-            ];
-          extraArgs = { inherit nodes resources; };
+          utils = import <nixos/lib/utils.nix> pkgs;
         };
-      }
-    ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" ])));
 
-  # Compute the definitions of the non-machine resources.
-  resourcesByType = zipAttrs (network.resources or []);
+        individualExtraArgs = mapAttrs (name: config: rec {
+          pkgs = import <nixpkgs> { inherit (config.nixpkgs) system config; };
 
-  evalResources = mainModule: _resources:
-    mapAttrs (name: defs:
-      (fixMergeModules
-        ([ mainModule ] ++ defs)
-        { inherit pkgs uuid name resources; }
-      ).config) _resources;
+          pkgs_i686 = pkgs.pkgsi686Linux;
 
-  resources.sqsQueues = evalResources ./sqs-queue.nix (zipAttrs resourcesByType.sqsQueues or []);
-  resources.ec2KeyPairs = evalResources ./ec2-keypair.nix (zipAttrs resourcesByType.ec2KeyPairs or []);
-  resources.s3Buckets = evalResources ./s3-bucket.nix (zipAttrs resourcesByType.s3Buckets or []);
-  resources.iamRoles = evalResources ./iam-role.nix (zipAttrs resourcesByType.iamRoles or []);
+          utils = import <nixos/lib/utils.nix> pkgs;
+        } ) machines;
+      };
+    };
 
-  # Phase 1: evaluate only the deployment attributes.
+    config = {
+      oldStyleNetworkExpressions = networkExprs;
+
+      deployment = {
+        arguments = args;
+
+        inherit uuid;
+      };
+    };
+  } ./base.nix ] { inherit lib; };
+
+  stage1SystemModule = makeSystemModule {};
+
+  eval = makeSystemModule stage1SystemModule.config.resources.machines;
+
+  config = assert checkConfigurationOptions -> lib.checkModule "" eval; eval.config;
+in rec {
+  nodes = listToAttrs (map (name: {
+    inherit name;
+
+    value = {
+      config = getAttr name config.resources.machines;
+
+      options = getAttr name eval.options.resources.machines;
+    };
+  }) (builtins.attrNames config.resources.machines));
+
+  resources = removeAttrs config.resources [ "machines" ];
+
   info = {
+    machines = mapAttrs (n: v': let v = scrubOptionValue v'; in
+      { inherit (v.config.deployment) targetEnv targetHost encryptedLinksTo storeKeysOnMachine owners keys;
+        adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
+        ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
+        route53 = v.config.deployment.route53;
+        virtualbox =
+          let cfg = v.config.deployment.virtualbox; in
+          optionalAttrs (v.config.deployment.targetEnv == "virtualbox") (cfg
+            // { disks = mapAttrs (n: v: v //
+              { baseImage = if isDerivation v.baseImage then "drv" else toString v.baseImage; }) cfg.disks; });
+      }
+    ) nodes;
 
-    machines =
-      flip mapAttrs nodes (n: v': let v = scrubOptionValue v'; in
-        { inherit (v.config.deployment) targetEnv targetHost encryptedLinksTo storeKeysOnMachine owners keys;
-          adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
-          ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
-          route53 = v.config.deployment.route53;
-          virtualbox =
-            let cfg = v.config.deployment.virtualbox; in
-            optionalAttrs (v.config.deployment.targetEnv == "virtualbox") (cfg
-              // { disks = mapAttrs (n: v: v //
-                { baseImage = if isDerivation v.baseImage then "drv" else toString v.baseImage; }) cfg.disks; });
-        }
-      );
-
-    network = fold (as: bs: as // bs) {} (network.network or []);
+    network = config.network;
 
     inherit resources;
-
   };
 
-  # Phase 2: build complete machine configurations.
   machines = { names }:
     let nodes' = filterAttrs (n: v: elem n names) nodes; in
     runCommand "nixops-machines"
@@ -105,5 +95,4 @@ rec {
           ln -s ${v.config.system.build.toplevel} $out/${n}
         '') nodes'))}
       '';
-
 }
