@@ -19,20 +19,16 @@ import logging
 import logging.handlers
 import syslog
 
+
 def op_list_deployments():
     sf = nixops.statefile.StateFile(args.state_file)
-    uuids = sf.query_deployments()
     tbl = prettytable.PrettyTable(["UUID", "Name", "Description", "# Machines", "Type"])
-    for uuid in uuids:
-        try:
-            depl = sf.open_deployment(uuid=uuid)
-            tbl.add_row(
-                [uuid, depl.name or "(none)",
-                 depl.description, len(depl.machines),
-                 ", ".join(set([m.get_type() for m in depl.machines.itervalues()]))
-             ])
-        except nixops.deployment.UnknownBackend as e:
-            sys.stderr.write("skipping deployment ‘{0}’: {1}\n".format(uuid, str(e)))
+    for depl in sf.get_all_deployments():
+        tbl.add_row(
+            [depl.uuid, depl.name or "(none)",
+             depl.description, len(depl.machines),
+             ", ".join(set([m.get_type() for m in depl.machines.itervalues()]))
+         ])
     print tbl
 
 
@@ -158,12 +154,10 @@ def op_info():
 
     if args.all:
         sf = nixops.statefile.StateFile(args.state_file)
-        uuids = sf.query_deployments()
         if not args.plain:
             tbl = create_table([('Deployment', 'l')] + table_headers)
         # FIXME: sort by deployment name/uuid.
-        for uuid in uuids:
-            depl = sf.open_deployment(uuid=uuid)
+        for depl in sf.get_all_deployments():
             do_eval(depl)
             print_deployment(depl)
         if not args.plain: print tbl
@@ -211,10 +205,7 @@ def op_check():
 
     if args.all:
         sf = nixops.statefile.StateFile(args.state_file)
-        uuids = sf.query_deployments()
-        for uuid in uuids:
-            depl = sf.open_deployment(uuid=uuid)
-            check(depl)
+        for depl in sf.get_all_deployments(): check(depl)
     else:
        check(open_deployment())
 
@@ -419,9 +410,7 @@ def op_dump_nix_paths():
 
     if args.all:
         sf = nixops.statefile.StateFile(args.state_file)
-        uuids = sf.query_deployments()
-        for uuid in uuids:
-            depl = sf.open_deployment(uuid=uuid)
+        for depl in sf.get_all_deployments():
             paths.extend(nix_paths(depl))
     else:
         depl = open_deployment()

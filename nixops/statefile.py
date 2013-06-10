@@ -104,6 +104,17 @@ class StateFile(object):
         res = c.fetchall()
         return [x[0] for x in res]
 
+    def get_all_deployments(self):
+        """Return Deployment objects for every deployment in the database."""
+        uuids = self.query_deployments()
+        res = []
+        for uuid in uuids:
+            try:
+                res.append(self.open_deployment(uuid=uuid))
+            except nixops.deployment.UnknownBackend as e:
+                sys.stderr.write("skipping deployment ‘{0}’: {1}\n".format(uuid, str(e)))
+        return res
+
     def _find_deployment(self, uuid=None):
         c = self._db.cursor()
         if not uuid:
