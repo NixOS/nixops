@@ -426,7 +426,7 @@ def op_dump_nix_paths():
         print p
 
 
-def op_dump_state():
+def op_export():
     res = {}
     for depl in one_or_all():
         res[depl.uuid] = depl.dump()
@@ -735,9 +735,9 @@ subparser.add_argument('--all',  action='store_true', help='dump Nix paths for a
 subparser.set_defaults(op=op_dump_nix_paths)
 add_common_deployment_options(subparser)
 
-subparser = add_subparser('dump-state', help='dump the state of a deployment')
-subparser.add_argument('--all',  action='store_true', help='dump all deployments')
-subparser.set_defaults(op=op_dump_state)
+subparser = add_subparser('export', help='export the state of a deployment')
+subparser.add_argument('--all',  action='store_true', help='export all deployments')
+subparser.set_defaults(op=op_export)
 
 
 if os.path.basename(sys.argv[0]) == "charon":
