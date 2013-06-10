@@ -437,7 +437,7 @@ class Deployment(object):
     def _eval_flags(self, exprs):
         flags = self._nix_path_flags()
         flags.extend(
-            ["--arg", "networkExprs", "[ " + string.join([nixops.util.make_nix_string(s) for s in exprs]) + " ]",
+            ["--arg", "networkExprs", "[ " + " ".join([nixops.util.make_nix_string(s) for s in exprs]) + " ]",
              "--arg", "args", self._args_to_attrs(),
              "--argstr", "uuid", self.uuid,
              "--show-trace",

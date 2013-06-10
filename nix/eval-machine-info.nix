@@ -16,7 +16,7 @@ rec {
     let
       getNetworkFromExpr = networkExpr: call (import networkExpr);
 
-      exprToKey = key: { inherit key; };
+      exprToKey = key: { key = toString key; };
 
       networkExprClosure = builtins.genericClosure {
         startSet = map exprToKey networkExprs;
