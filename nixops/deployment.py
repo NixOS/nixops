@@ -415,7 +415,6 @@ class Deployment(object):
         for m in active_machines.itervalues():
             hosts[m.name] = {m.name + "-encrypted": "127.0.0.1"}
             for m2 in active_machines.itervalues():
-                if m == m2: continue
                 ip = m.address_to(m2)
                 if ip: hosts[m.name][m2.name] = hosts[m.name][m2.name + "-unencrypted"] = ip
 
