@@ -32,6 +32,17 @@ def sort_deployments(depls):
     return sorted(depls, key=lambda depl: (depl.name, depl.uuid))
 
 
+# Handle the --all switch: if --all is given, return all deployments;
+# otherwise, return the deployment specified by -d /
+# $NIXOPS_DEPLOYMENT.
+def one_or_all():
+    if args.all:
+        sf = nixops.statefile.StateFile(args.state_file)
+        return sf.get_all_deployments()
+    else:
+        return [open_deployment()]
+
+
 def op_list_deployments():
     sf = nixops.statefile.StateFile(args.state_file)
     tbl = create_table([("UUID", 'l'), ("Name", 'l'), ("Description", 'l'), ("# Machines", 'r'), ("Type", 'c')])
@@ -207,11 +218,7 @@ def op_check():
             if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): return
             machines.append(m)
 
-    if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
-        for depl in sf.get_all_deployments(): check(depl)
-    else:
-       check(open_deployment())
+    for depl in one_or_all(): check(depl)
 
     # Check all machines in parallel.
     def worker(m):
@@ -412,12 +419,7 @@ def op_dump_nix_paths():
 
     paths = []
 
-    if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
-        for depl in sf.get_all_deployments():
-            paths.extend(nix_paths(depl))
-    else:
-        depl = open_deployment()
+    for depl in one_or_all():
         paths.extend(nix_paths(depl))
 
     for p in paths:
@@ -426,12 +428,7 @@ def op_dump_nix_paths():
 
 def op_dump_state():
     res = {}
-    if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
-        for depl in sf.get_all_deployments():
-            res[depl.uuid] = depl.dump()
-    else:
-        depl = open_deployment()
+    for depl in one_or_all():
         res[depl.uuid] = depl.dump()
     print json.dumps(res, indent=2)
 
@@ -543,6 +540,7 @@ def setup_logging(args):
         # pass all stdout/stderr to the logger as well
         nixops.util.TeeStderr()
         nixops.util.TeeStdout()
+
 
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool', prog='nixops')
