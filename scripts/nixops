@@ -23,12 +23,15 @@ def op_list_deployments():
     uuids = deployment.query_deployments(db)
     tbl = PrettyTable(["UUID", "Name", "Description", "# Machines", "Type"])
     for uuid in uuids:
-        depl = deployment.open_deployment(db, uuid=uuid)
-        tbl.add_row(
-            [uuid, depl.name or "(none)",
-             depl.description, len(depl.machines),
-             ", ".join(set([m.get_type() for m in depl.machines.itervalues()]))
-            ])
+        try:
+            depl = deployment.open_deployment(db, uuid=uuid)
+            tbl.add_row(
+                [uuid, depl.name or "(none)",
+                 depl.description, len(depl.machines),
+                 ", ".join(set([m.get_type() for m in depl.machines.itervalues()]))
+             ])
+        except nixops.deployment.UnknownBackend as e:
+            sys.stderr.write("skipping deployment ‘{0}’: {1}\n".format(uuid, str(e)))
     print tbl
 
 

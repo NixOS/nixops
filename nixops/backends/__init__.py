@@ -429,7 +429,7 @@ def create_definition(xml):
               nixops.backends.ec2.EC2Definition]:
         if target_env == i.get_type():
             return i(xml)
-    raise Exception("unknown backend type ‘{0}’".format(target_env))
+    raise nixops.deployment.UnknownBackend("unknown backend type ‘{0}’".format(target_env))
 
 def create_state(depl, type, name, id):
     """Create a machine state object of the desired backend type."""
@@ -442,4 +442,4 @@ def create_state(depl, type, name, id):
               nixops.resources.s3_bucket.S3BucketState]:
         if type == i.get_type():
             return i(depl, name, id)
-    raise Exception("unknown backend type ‘{0}’".format(type))
+    raise nixops.deployment.UnknownBackend("unknown backend type ‘{0}’".format(type))

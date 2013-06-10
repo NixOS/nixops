@@ -27,6 +27,13 @@ import itertools
 import platform
 
 
+class NixEvalError(Exception):
+    pass
+
+class UnknownBackend(Exception):
+    pass
+
+
 debug = False
 
 
@@ -1128,10 +1135,6 @@ class Deployment(object):
             m.send_keys()
 
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
-
-
-class NixEvalError(Exception):
-    pass
 
 
 def should_do(m, include, exclude):
