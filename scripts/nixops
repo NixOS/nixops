@@ -20,10 +20,14 @@ import logging.handlers
 import syslog
 
 
+def sort_deployments(depls):
+    return sorted(depls, key=lambda depl: (depl.name, depl.uuid))
+
+
 def op_list_deployments():
     sf = nixops.statefile.StateFile(args.state_file)
     tbl = prettytable.PrettyTable(["UUID", "Name", "Description", "# Machines", "Type"])
-    for depl in sf.get_all_deployments():
+    for depl in sort_deployments(sf.get_all_deployments()):
         tbl.add_row(
             [depl.uuid, depl.name or "(none)",
              depl.description, len(depl.machines),
@@ -156,8 +160,7 @@ def op_info():
         sf = nixops.statefile.StateFile(args.state_file)
         if not args.plain:
             tbl = create_table([('Deployment', 'l')] + table_headers)
-        # FIXME: sort by deployment name/uuid.
-        for depl in sf.get_all_deployments():
+        for depl in sort_deployments(sf.get_all_deployments()):
             do_eval(depl)
             print_deployment(depl)
         if not args.plain: print tbl
