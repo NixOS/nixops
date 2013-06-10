@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 from nixops import deployment
-from prettytable import PrettyTable
+import nixops.statefile
+import prettytable
 import argparse
 import os
 import pwd
@@ -19,9 +20,9 @@ import logging.handlers
 import syslog
 
 def op_list_deployments():
-    sf = deployment.StateFile(args.state_file)
+    sf = nixops.statefile.StateFile(args.state_file)
     uuids = sf.query_deployments()
-    tbl = PrettyTable(["UUID", "Name", "Description", "# Machines", "Type"])
+    tbl = prettytable.PrettyTable(["UUID", "Name", "Description", "# Machines", "Type"])
     for uuid in uuids:
         try:
             depl = sf.open_deployment(uuid=uuid)
@@ -36,7 +37,7 @@ def op_list_deployments():
 
 
 def open_deployment():
-    sf = deployment.StateFile(args.state_file)
+    sf = nixops.statefile.StateFile(args.state_file)
     depl = sf.open_deployment(uuid=args.deployment)
 
     depl.extra_nix_path = sum(args.nix_path or [], [])
@@ -63,7 +64,7 @@ def modify_deployment(depl):
 
 
 def op_create():
-    sf = deployment.StateFile(args.state_file)
+    sf = nixops.statefile.StateFile(args.state_file)
     depl = sf.create_deployment()
     sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
     modify_deployment(depl)
@@ -89,7 +90,7 @@ def op_delete():
 
 
 def create_table(headers):
-    tbl = PrettyTable([name for (name, align) in headers])
+    tbl = prettytable.PrettyTable([name for (name, align) in headers])
     for (name, align) in headers:
         tbl.align[name] = align
     return tbl
@@ -156,7 +157,7 @@ def op_info():
                     ])
 
     if args.all:
-        sf = deployment.StateFile(args.state_file)
+        sf = nixops.statefile.StateFile(args.state_file)
         uuids = sf.query_deployments()
         if not args.plain:
             tbl = create_table([('Deployment', 'l')] + table_headers)
@@ -209,7 +210,7 @@ def op_check():
             machines.append(m)
 
     if args.all:
-        sf = deployment.StateFile(args.state_file)
+        sf = nixops.statefile.StateFile(args.state_file)
         uuids = sf.query_deployments()
         for uuid in uuids:
             depl = sf.open_deployment(uuid=uuid)
@@ -253,7 +254,7 @@ def op_check():
 def print_backups(depl, backups):
     print "Network UUID:", depl.uuid
     print "Network description:", depl.description
-    tbl = PrettyTable(["Backup ID", "Status", "Info"])
+    tbl = prettytable.PrettyTable(["Backup ID", "Status", "Info"])
     for k, v in sorted(backups.items(), reverse=True):
         fst = v['info'][0] if len(v['info']) > 0 else ""
         tbl.add_row([k,v['status'], fst])
@@ -417,7 +418,7 @@ def op_dump_nix_paths():
     paths = []
 
     if args.all:
-        sf = deployment.StateFile(args.state_file)
+        sf = nixops.statefile.StateFile(args.state_file)
         uuids = sf.query_deployments()
         for uuid in uuids:
             depl = sf.open_deployment(uuid=uuid)
@@ -547,7 +548,7 @@ subparsers = parser.add_subparsers(help='sub-command help')
 def add_subparser(name, help):
     subparser = subparsers.add_parser(name, help=help)
     subparser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
-                           default=deployment.get_default_state_file(), help='path to state file')
+                           default=nixops.statefile.get_default_state_file(), help='path to state file')
     subparser.add_argument('--deployment', '-d', dest='deployment', metavar='UUID',
                            default=os.environ.get("NIXOPS_DEPLOYMENT", os.environ.get("CHARON_DEPLOYMENT", None)), help='UUID of the deployment')
     subparser.add_argument('--debug', action='store_true', help='enable debug output')
