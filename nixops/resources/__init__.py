@@ -77,12 +77,20 @@ class ResourceState(object):
             if row != None: return row[0]
             return nixops.util.undefined
 
-    def dump(self):
+    def export(self):
         with self.depl._db:
             c = self.depl._db.cursor()
             c.execute("select name, value from ResourceAttrs where machine = ?", (self.id,))
             rows = c.fetchall()
-            return {row[0]: row[1] for row in rows}
+            res = {row[0]: row[1] for row in rows}
+            res['type'] = self.get_type()
+            return res
+
+    def import_(self, attrs):
+        with self.depl._db:
+            for k, v in attrs.iteritems():
+                if k == 'type': continue
+                self._set_attr(k, v)
 
     def set_log_prefix(self, length):
         self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))

@@ -128,14 +128,38 @@ class Deployment(object):
             return nixops.util.undefined
 
 
-    def dump(self):
+    def _create_resource(self, name, type):
+        c = self._db.cursor()
+        c.execute("select 1 from Resources where deployment = ? and name = ?", (self.uuid, name))
+        if len(c.fetchall()) != 0:
+            raise Exception("resource already exists in database!")
+        c.execute("insert into Resources(deployment, name, type) values (?, ?, ?)",
+                  (self.uuid, name, type))
+        id = c.lastrowid
+        r = nixops.backends.create_state(self, type, name, id)
+        self.resources[name] = r
+        return r
+
+
+    def export(self):
         with self._db:
             c = self._db.cursor()
             c.execute("select name, value from DeploymentAttrs where deployment = ?", (self.uuid,))
             rows = c.fetchall()
             res = {row[0]: row[1] for row in rows}
-            res['resources'] = {r.name: r.dump() for r in self.resources.itervalues()}
+            res['resources'] = {r.name: r.export() for r in self.resources.itervalues()}
             return res
+
+
+    def import_(self, attrs):
+        with self._db:
+            for k, v in attrs.iteritems():
+                if k == 'resources': continue
+                self._set_attr(k, v)
+            for k, v in attrs['resources'].iteritems():
+                if 'type' not in v: raise Exception("imported resource lacks a type")
+                r = self._create_resource(k, v['type'])
+                r.import_(v)
 
 
     def clone(self):
@@ -725,14 +749,7 @@ class Deployment(object):
         with self._db:
             for m in self.definitions.itervalues():
                 if m.name not in self.resources:
-                    c = self._db.cursor()
-                    c.execute("select 1 from Resources where deployment = ? and name = ?", (self.uuid, m.name))
-                    if len(c.fetchall()) != 0:
-                        raise Exception("resource already exists in database!")
-                    c.execute("insert into Resources(deployment, name, type) values (?, ?, ?)",
-                              (self.uuid, m.name, m.get_type()))
-                    id = c.lastrowid
-                    self.resources[m.name] = nixops.backends.create_state(self, m.get_type(), m.name, id)
+                    self._create_resource(m.name, m.get_type())
 
         self.set_log_prefixes()
 

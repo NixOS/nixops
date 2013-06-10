@@ -429,8 +429,23 @@ def op_dump_nix_paths():
 def op_export():
     res = {}
     for depl in one_or_all():
-        res[depl.uuid] = depl.dump()
-    print json.dumps(res, indent=2)
+        res[depl.uuid] = depl.export()
+    print json.dumps(res, indent=2, sort_keys=True)
+
+
+def op_import():
+    sf = nixops.statefile.StateFile(args.state_file)
+    existing = set(sf.query_deployments())
+
+    dump = json.loads(sys.stdin.read())
+
+    for uuid, attrs in dump.iteritems():
+        if uuid in existing:
+            raise Exception("state file already contains a deployment with UUID ‘{0}’".format(uuid))
+        with sf._db:
+            depl = sf.create_deployment(uuid=uuid)
+            depl.import_(attrs)
+        sys.stderr.write("added deployment ‘{0}’\n".format(uuid))
 
 
 def parse_machine(name):
@@ -738,6 +753,9 @@ add_common_deployment_options(subparser)
 subparser = add_subparser('export', help='export the state of a deployment')
 subparser.add_argument('--all',  action='store_true', help='export all deployments')
 subparser.set_defaults(op=op_export)
+
+subparser = add_subparser('import', help='import deployments into the state file')
+subparser.set_defaults(op=op_import)
 
 
 if os.path.basename(sys.argv[0]) == "charon":
