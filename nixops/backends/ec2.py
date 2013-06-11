@@ -370,7 +370,7 @@ class EC2State(MachineState):
             if devices == [] or _sd_to_xvd(k) in devices:
                 # detach disks
                 volume = self._get_volume_by_id(v['volumeId'])
-                if volume.update() == "in-use":
+                if volume and volume.update() == "in-use":
                     self.log("detaching volume from ‘{0}’".format(self.name))
                     volume.detach()
 
