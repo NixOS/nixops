@@ -534,6 +534,7 @@ def setup_logging(args):
                 op_backup_status,
                 op_show_console_output,
                 op_dump_nix_paths,
+                op_export,
                 op_show_physical
             ]:
         # determine user
