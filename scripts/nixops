@@ -105,7 +105,7 @@ def op_clone():
 
 def op_delete():
     depl = open_deployment()
-    depl.delete()
+    depl.delete(force=args.force or False)
 
 
 def machine_to_key(depl, name, type):
@@ -602,6 +602,7 @@ subparser.set_defaults(op=op_clone)
 subparser.add_argument('--name', '-n', dest='name', metavar='NAME', help='symbolic name of the cloned deployment')
 
 subparser = add_subparser('delete', help='delete a deployment')
+subparser.add_argument('--force', action='store_true', help='force deletion even if resources still exist')
 subparser.set_defaults(op=op_delete)
 
 subparser = add_subparser('info', help='show the state of the deployment')

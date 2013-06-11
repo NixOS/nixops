@@ -201,12 +201,10 @@ class Deployment(object):
             self._db.execute("delete from Resources where deployment = ? and id = ?", (self.uuid, m.id))
 
 
-    def delete(self):
+    def delete(self, force=False):
         """Delete this deployment from the state file."""
-        if len(self.resources) > 0:
-            raise Exception("cannot delete this deployment because it still has resources")
         with self._db:
-            if len(self.resources) > 0:
+            if not force and len(self.resources) > 0:
                 raise Exception("cannot delete this deployment because it still has resources")
 
             # Delete the profile, if any.

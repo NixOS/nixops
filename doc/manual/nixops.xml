@@ -371,15 +371,20 @@ $ nixops clone -d foo -n bar</screen>
 
 <cmdsynopsis>
   <command>nixops delete</command>
+  <arg><option>--force</option></arg>
 </cmdsynopsis>
 
 </refsection>
 
 <refsection><title>Description</title>
 
-<para>This command deletes a deployment from the state file.  You must
-run <command>nixops destroy</command> first to get rid of any
-previously instantiated machines in the deployment.</para>
+<para>This command deletes a deployment from the state file.  NixOps
+will normally refuse to delete the deployment if any resources
+belonging to the deployment (such as virtual machines) still exist.
+You must run <command>nixops destroy</command> first to get rid of any
+such resources.  However, if you pass <option>--force</option>, NixOps
+will forget about any still-existing resources; this should be used
+with caution.</para>
 
 </refsection>
 
@@ -1574,6 +1579,12 @@ $ nixops export -d foo > foo.json
 $ nixops import -s other.nixops &lt; foo.json
 added deployment ‘2bbaddca-01cb-11e2-88b2-19d91ca51c50’
 </screen>
+
+If desired, you can then remove the deployment from the old state
+file:
+
+<screen>
+$ nixops delete -d foo --force</screen>
 
 </para>
 
