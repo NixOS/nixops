@@ -79,7 +79,6 @@ def set_name(depl, name):
 def modify_deployment(depl):
     depl.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in args.nix_exprs]
     depl.nix_path = [nixops.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
-    set_name(depl, args.name)
 
 
 def op_create():
@@ -87,12 +86,14 @@ def op_create():
     depl = sf.create_deployment()
     sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
     modify_deployment(depl)
+    if args.name or args.deployment: set_name(depl, args.name or args.deployment)
     sys.stdout.write(depl.uuid + "\n")
 
 
 def op_modify():
     depl = open_deployment()
     modify_deployment(depl)
+    if args.name: set_name(depl, args.name)
 
 
 def op_clone():
@@ -568,8 +569,8 @@ def add_subparser(name, help):
     subparser = subparsers.add_parser(name, help=help)
     subparser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
                            default=nixops.statefile.get_default_state_file(), help='path to state file')
-    subparser.add_argument('--deployment', '-d', dest='deployment', metavar='UUID',
-                           default=os.environ.get("NIXOPS_DEPLOYMENT", os.environ.get("CHARON_DEPLOYMENT", None)), help='UUID of the deployment')
+    subparser.add_argument('--deployment', '-d', dest='deployment', metavar='UUID_OR_NAME',
+                           default=os.environ.get("NIXOPS_DEPLOYMENT", os.environ.get("CHARON_DEPLOYMENT", None)), help='UUID or symbolic name of the deployment')
     subparser.add_argument('--debug', action='store_true', help='enable debug output')
     subparser.add_argument('--confirm', action='store_true', help='confirm dangerous operations; do not ask')
 
@@ -587,14 +588,15 @@ subparser.set_defaults(op=op_list_deployments)
 
 def add_common_modify_options(subparser):
     subparser.add_argument('nix_exprs', nargs='+', metavar='NIX-FILE', help='Nix expression(s) defining the network')
-    subparser.add_argument('--name', '-n', dest='name', metavar='NAME', help='symbolic name of deployment')
 
 subparser = add_subparser('create', help='create a new deployment')
 subparser.set_defaults(op=op_create)
+subparser.add_argument('--name', '-n', dest='name', metavar='NAME', help=argparse.SUPPRESS) # obsolete, use -d instead
 add_common_modify_options(subparser)
 
 subparser = add_subparser('modify', help='modify an existing deployment')
 subparser.set_defaults(op=op_modify)
+subparser.add_argument('--name', '-n', dest='name', metavar='NAME', help='new symbolic name of deployment')
 add_common_modify_options(subparser)
 
 subparser = add_subparser('clone', help='clone an existing deployment')

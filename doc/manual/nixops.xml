@@ -204,13 +204,6 @@ deployment.ec2.accessKeyId = "prod";
 <cmdsynopsis>
   <command>nixops create</command>
   <arg choice='plain' rep='repeat'><replaceable>nixexprs</replaceable></arg>
-  <arg>
-    <group choice='req'>
-      <arg choice='plain'><option>--name</option></arg>
-      <arg choice='plain'><option>-n</option></arg>
-    </group>
-    <replaceable>name</replaceable>
-  </arg>
   <arg rep='repeat'>
     <option>-I</option>
     <replaceable>path</replaceable>
@@ -246,9 +239,9 @@ output.</para>
 
   </varlistentry>
 
-  <varlistentry><term><option>--name</option></term><term><option>-n</option></term>
+  <varlistentry><term><option>--deployment</option></term><term><option>-d</option></term>
 
-    <listitem><para>Set the symbolic name of the deployment to the
+    <listitem><para>Set the symbolic name of the new deployment to the
     given string.  The name can be used to refer to the deployment by
     passing the option <literal>-d
     <replaceable>name</replaceable></literal> or the environment
@@ -267,9 +260,16 @@ output.</para>
 
 <refsection><title>Examples</title>
 
+<para>To create a deployment with symbolic name
+<literal>foo</literal>, and then perform the actual deployment:
+
 <screen>
-$ nixops create expr1.nix expr2.nix --name foo
+$ nixops create expr1.nix expr2.nix -d foo
+created deployment ‘32b06868-d27c-11e2-a055-81d7beb7925e’
+
 $ nixops deploy -d foo</screen>
+
+</para>
 
 </refsection>
 
@@ -301,7 +301,9 @@ $ nixops deploy -d foo</screen>
 <refsection><title>Description</title>
 
 <para>This command modifies an existing deployment.  The options are
-the same as for <command>nixops create</command>.</para>
+the same as for <command>nixops create</command>.  The symbolic name
+of the deployment can be changed using the <option>--name</option>
+flag.</para>
 
 </refsection>
 
