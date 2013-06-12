@@ -7,6 +7,7 @@ import random
 
 from boto.exception import EC2ResponseError
 from boto.exception import SQSError
+from boto.exception import BotoServerError
 
 def fetch_aws_secret_key(access_key_id):
     """Fetch the secret access key corresponding to the given access key ID from the environment or from ~/.ec2-keys"""
@@ -67,6 +68,9 @@ def retry(f, error_codes=[]):
             if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
                 raise e
         except SQSError as e:
+            if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
+                raise e
+        except BotoServerError as e:
             if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
                 raise e
         except Exception as e:

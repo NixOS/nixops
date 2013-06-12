@@ -334,10 +334,10 @@ class EC2State(MachineState):
                     self.warn('snapshot {0} not found, skipping'.format(snapshot_id))
                 if not snapshot is None:
                     self.log('removing snapshot {0}'.format(snapshot_id))
-                    snapshot.delete()
+                    nixops.ec2_utils.retry(lambda: snapshot.delete())
 
-        _backups.pop(backup_id)
-        self.backups = _backups
+            _backups.pop(backup_id)
+            self.backups = _backups
 
 
     def backup(self, backup_id):
