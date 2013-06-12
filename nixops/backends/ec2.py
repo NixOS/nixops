@@ -340,7 +340,12 @@ class EC2State(MachineState):
             self.backups = _backups
 
 
-    def backup(self, backup_id):
+    def get_common_tags(self):
+        return {'CharonNetworkUUID': self.depl.uuid,
+                'CharonMachineName': self.name,
+                'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file)}
+
+    def backup(self, defn, backup_id):
         self.connect()
 
         self.log("backing up machine ‘{0}’ using id ‘{1}’".format(self.name, backup_id))
@@ -350,9 +355,11 @@ class EC2State(MachineState):
             snapshot = nixops.ec2_utils.retry(lambda: self._conn.create_snapshot(volume_id=v['volumeId']))
             self.log("+ created snapshot of volume ‘{0}’: ‘{1}’".format(v['volumeId'], snapshot.id))
 
-            common_tags = {'CharonNetworkUUID': str(self.depl.uuid), 'CharonMachineName': self.name, 'CharonBackupID': backup_id, 'CharonBackupDevice': k}
+
             snapshot_tags = {'Name': "{0} - {3} [{1} - {2}]".format(self.depl.description, self.name, k, backup_id)}
-            snapshot_tags.update(common_tags)
+            snapshot_tags.update(defn.tags)
+            snapshot_tags.update(self.get_common_tags())
+
             self._conn.create_tags([snapshot.id], snapshot_tags)
             backup[k] = snapshot.id
         _backups[backup_id] = backup
@@ -685,9 +692,7 @@ class EC2State(MachineState):
             self.warn("cannot change availability zone of a running instance")
 
         # Reapply tags if they have changed.
-        common_tags = {'CharonNetworkUUID': self.depl.uuid,
-                       'CharonMachineName': self.name,
-                       'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file)}
+        common_tags = self.get_common_tags()
 
         if self.owners != []:
             common_tags['Owners'] = ", ".join(self.owners)

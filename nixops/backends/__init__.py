@@ -141,7 +141,7 @@ class MachineState(nixops.resources.ResourceState):
         """Remove a given backup of persistent disks, if possible."""
         self.warn("don't know how to remove a backup for machine ‘{0}’".format(self.name))
 
-    def backup(self, backup_id):
+    def backup(self, defn, backup_id):
         """Make backup of persistent disks, if possible."""
         self.warn("don't know how to make backup of disks for machine ‘{0}’".format(self.name))
 
