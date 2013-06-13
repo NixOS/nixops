@@ -216,7 +216,7 @@ def op_check():
 
     def check(depl):
         for m in depl.active.itervalues():
-            if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): return
+            if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): continue
             machines.append(m)
 
     for depl in one_or_all(): check(depl)
