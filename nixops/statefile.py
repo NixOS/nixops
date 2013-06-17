@@ -127,7 +127,7 @@ class StateFile(object):
             if uuid:
                 raise Exception("state file contains multiple deployments with the same name, so you should specify one using its UUID")
             else:
-                raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘-d’")
+                raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘-d’, or set the environment variable NIXOPS_DEPLOYMENT.")
         return nixops.deployment.Deployment(self._db, res[0][0], sys.stderr)
 
     def open_deployment(self, uuid=None):
