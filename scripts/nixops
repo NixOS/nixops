@@ -18,6 +18,9 @@ from pprint import pprint
 import logging
 import logging.handlers
 import syslog
+import json
+import pipes
+
 
 def op_list_deployments():
     db = deployment.open_database(args.state_file)
@@ -504,6 +507,13 @@ def op_show_console_output():
     sys.stdout.write(m.get_console_output())
 
 
+def op_edit():
+    depl = open_deployment()
+    editor = os.environ.get('EDITOR')
+    if not editor: raise Exception("the $EDITOR environment variable is not set")
+    os.system("$EDITOR " + " ".join([pipes.quote(x) for x in depl.nix_exprs]))
+
+
 # Set up logging of all commands and output
 def setup_logging(args):
     if os.path.exists('/dev/log') \
@@ -736,6 +746,9 @@ subparser = add_subparser('dump-nix-paths', help='dump nix paths referenced in d
 subparser.add_argument('--all',  action='store_true', help='dump nix paths for all deployments')
 subparser.set_defaults(op=op_dump_nix_paths)
 add_common_deployment_options(subparser)
+
+subparser = add_subparser('edit', help='open the deployment specification in $EDITOR')
+subparser.set_defaults(op=op_edit)
 
 
 if os.path.basename(sys.argv[0]) == "charon":
