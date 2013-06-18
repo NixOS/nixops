@@ -11,6 +11,7 @@ import threading
 import exceptions
 import errno
 from xml.etree import ElementTree
+import nixops.statefile
 import nixops.backends
 import nixops.parallel
 import nixops.resources.ec2_keypair
@@ -164,7 +165,7 @@ class Deployment(object):
 
     def clone(self):
         with self._db:
-            new = create_deployment(self._db)
+            new = nixops.statefile.StateFile(self._db).create_deployment()
             self._db.execute("insert into DeploymentAttrs (deployment, name, value) " +
                              "select ?, name, value from DeploymentAttrs where deployment = ?",
                              (new.uuid, self.uuid))
