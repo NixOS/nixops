@@ -1,0 +1,36 @@
+<appendix xmlns="http://docbook.org/ns/docbook"
+          xmlns:xlink="http://www.w3.org/1999/xlink"
+          xml:id="chap-hacking">
+
+<title>Hacking</title>
+
+<para>This section provides some notes on how to hack on NixOps.  To
+get the latest version of NixOps from GitHub:
+<screen>
+$ git clone git://github.com/NixOS/nixops.git
+$ cd nixops
+</screen>
+</para>
+
+<para>To build it and its dependencies:
+<screen>
+$ nix-build
+</screen>
+The resulting NixOps can be run as
+<filename>./result/bin/nixops</filename>.</para>
+
+<para>To build all dependencies and start a shell in which all
+environment variables (such as <envar>PYTHONPATH</envar>) are set up
+so that those dependencies can be found:
+<screen>
+$ nix-build --run-env
+$ echo $PYTHONPATH
+/nix/store/yzj6p5f7iyh247pwxrg97y3klm6d0cni-python-2.7.3/lib/python2.7/site-packages:<replaceable>...</replaceable>
+</screen>
+You can then run the NixOps in your source tree as follows:
+<screen>
+$ nixops
+</screen>
+</para>
+
+</appendix>

@@ -101,6 +101,8 @@
 
   </appendix>
 
+  <xi:include href="hacking.xml" />
+
   <appendix xml:id="sec-relnotes">
     <title>Release Notes</title>
     <xi:include href="release-notes.xml"
