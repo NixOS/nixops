@@ -16,6 +16,12 @@ pythonPackages.buildPythonPackage rec {
       pythonPackages.sqlite3
     ];
 
+  # For "nix-build --run-env".
+  postHook = ''
+    export PYTHONPATH=$(pwd):$PYTHONPATH
+    export PATH=$(pwd)/scripts:$PATH
+  '';
+
   # XXX: needed until nix stops to preserve the epoch 0 timestamp when
   # copying source from store to tmp build directory or python zip
   # knows how to handle epoch 0
