@@ -39,11 +39,11 @@ in
         (see <option>deployment.ec2.*</option>).
         <literal>"virtualbox"</literal> causes a VirtualBox VM to be
         created on your machine.  (This requires VirtualBox to be
-        configured on your system.)  <literal>"adhoc-cloud"</literal>
+        configured on your system.)  <!-- <literal>"adhoc-cloud"</literal>
         means that a virtual machine should be instantiated by
         executing certain commands via SSH on a cloud controller
         machine (see <option>deployment.adhoc.*</option>).  This is
-        primarily useful for debugging NixOps.
+        primarily useful for debugging NixOps. -->
       '';
     };
 
@@ -67,47 +67,6 @@ in
         the IP addresses of the tunnels.  It will also add the alias
         <literal><replaceable>machine</replaceable>-encrypted</literal>
         for each machine.
-      '';
-    };
-
-
-    # Ad hoc cloud options.
-
-    deployment.adhoc.controller = mkOption {
-      example = "cloud.example.org";
-      type = types.uniq types.string;
-      description = ''
-        Hostname or IP addres of the machine to which NixOps should
-        connect (via SSH) to execute commands to start VMs or query
-        their status.
-      '';
-    };
-
-    deployment.adhoc.createVMCommand = mkOption {
-      default = "create-vm";
-      type = types.uniq types.string;
-      description = ''
-        Remote command to create a NixOS virtual machine.  It should
-        print an identifier denoting the VM on standard output.
-      '';
-    };
-
-    deployment.adhoc.destroyVMCommand = mkOption {
-      default = "destroy-vm";
-      type = types.uniq types.string;
-      description = ''
-        Remote command to destroy a previously created NixOS virtual
-        machine.
-      '';
-    };
-
-    deployment.adhoc.queryVMCommand = mkOption {
-      default = "query-vm";
-      type = types.uniq types.string;
-      description = ''
-        Remote command to query information about a previously created
-        NixOS virtual machine.  It should print the IPv6 address of
-        the VM on standard output.
       '';
     };
 
