@@ -2,7 +2,7 @@ from distutils.core import setup
 import glob
 
 setup(name='nixops',
-      version='0.1',
+      version='@version@',
       description='NixOS cloud deployment tool',
       url='https://github.com/NixOS/nixops',
       author='Eelco Dolstra',

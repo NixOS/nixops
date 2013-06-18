@@ -27,6 +27,9 @@ pythonPackages.buildPythonPackage rec {
   # knows how to handle epoch 0
   preConfigure = ''
     find . | xargs touch
+
+    substituteInPlace scripts/nixops --subst-var-by version ${version}
+    substituteInPlace setup.py --subst-var-by version ${version}
   '';
 
   postUnpack = ''

@@ -561,7 +561,7 @@ def setup_logging(args):
 
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool', prog='nixops')
-parser.add_argument('--version', action='version', version='NixOps 0.1')
+parser.add_argument('--version', action='version', version='NixOps @version@')
 
 subparsers = parser.add_subparsers(help='sub-command help')
 

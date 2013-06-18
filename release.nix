@@ -6,8 +6,7 @@ let
 
   pkgs = import <nixpkgs> { };
 
-  version = "0.1";
-  versionSuffix = if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}";
+  version = "1.0" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
 
 in
 
@@ -16,7 +15,8 @@ rec {
   tarball = pkgs.releaseTools.sourceTarball {
     name = "nixops-tarball";
     src = nixopsSrc;
-    inherit version versionSuffix officialRelease;
+    inherit version;
+    officialRelease = true; # hack
     buildInputs = [ pkgs.git ];
     postUnpack = ''
       # Clean up when building from a working tree.
@@ -24,7 +24,10 @@ rec {
     '';
     distPhase =
       ''
-        releaseName=nixops-$VERSION$VERSION_SUFFIX
+        substituteInPlace scripts/nixops --subst-var-by version ${version}
+        substituteInPlace setup.py --subst-var-by version ${version}
+
+        releaseName=nixops-$VERSION
         mkdir ../$releaseName
         cp -prd . ../$releaseName
         rm -rf ../$releaseName/.git
