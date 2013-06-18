@@ -162,9 +162,9 @@ NixOps performs the following steps to do the deployment:
   to the corresponding machine.</para></listitem>
 
   <listitem><para>It activates the configuration on each machine.  For
-  instance, it starts the <literal>httpd</literal> Upstart job on the
-  <literal>webserver</literal> machine.  This is the only step that
-  has a visible effect; all prior steps do not affect the active
+  instance, it starts the <literal>httpd</literal> systemd service on
+  the <literal>webserver</literal> machine.  This is the only step
+  that has a visible effect; all prior steps do not affect the active
   configuration of the machines.</para></listitem>
 
 </itemizedlist>
@@ -332,24 +332,38 @@ in
 
 <para><xref linkend="ex-physical-multi-ec2.nix" /> shows a physical
 specification that deploys the load balancer network to Amazon’s
-Elastic Compute Cloud (EC2).</para>
+Elastic Compute Cloud (EC2).  It states that the three machines need
+to be instantiated in EC2 region <literal>eu-west-1</literal>.  It
+also specifies a non-machine cloud resource: namely, the EC2 key pair
+to be used to access the machine via SSH.  (It is possible to use
+manually created EC2 key pairs, but it’s easier to let NixOps
+provision them.)</para>
 
 <example xml:id="ex-physical-multi-ec2.nix">
   <title><filename>load-balancer-ec2.nix</filename>: EC2 physical network specification</title>
 <programlisting>
 let
+
+  region = "eu-west-1";
+  accessKeyId = "dev"; # symbolic name looked up in ~/.ec2-keys
+
   ec2 =
+    { resources, ... }:
     { deployment.targetEnv = "ec2";
-      deployment.ec2.region = "eu-west-1";
+      deployment.ec2.accessKeyId = accessKeyId;
+      deployment.ec2.region = region;
       deployment.ec2.instanceType = "m1.small";
-      deployment.ec2.accessKeyId = "AKIAIUTDLWJKSLSJDLDQ";
-      deployment.ec2.keyPair = "my-key-pair";
-      deployment.ec2.privateKey = "/home/alice/.ssh/id_rsa-my-key-pair";
+      deployment.ec2.keyPair = resources.ec2KeyPairs.my-key-pair.name;
     };
+
 in
 { proxy    = ec2;
   backend1 = ec2;
   backend2 = ec2;
+
+  # Provision an EC2 key pair.
+  resources.ec2KeyPairs.my-key-pair =
+    { inherit region accessKeyId; };
 }
 </programlisting>
 </example>
@@ -357,21 +371,49 @@ in
 <para>Deployment is as follows:
 
 <screen>
-$ nixops create ./load-balancer.nix ./load-balancer-ec2.nix --d load-balancer-ec2
+$ nixops create ./load-balancer.nix ./load-balancer-ec2.nix -d load-balancer-ec2
 $ nixops deploy -d load-balancer-ec2
+my-key-pair> uploading EC2 key pair ‘charon-8e50b4b5-d7f9-11e2-b91c-23f8eaf468f4-my-key-pair’...
+backend1...> creating EC2 instance (AMI ‘ami-8badbdff’, type ‘m1.small’, region ‘eu-west-1’)...
+backend2...> creating EC2 instance (AMI ‘ami-8badbdff’, type ‘m1.small’, region ‘eu-west-1’)...
+proxy......> creating EC2 instance (AMI ‘ami-8badbdff’, type ‘m1.small’, region ‘eu-west-1’)...
+backend2...> waiting for IP address...
+<replaceable>...</replaceable>
+proxy......> activation finished successfully
+backend2...> activation finished successfully
+backend1...> activation finished successfully
 </screen>
 
-This will start three instance-store backed instances running a
-default NixOS AMI.  Other than that, deployment is the same as for
-VirtualBox: NixOps builds the machine configurations, copies their
-closure over to the EC2 instances, and activates the new
-configurations.  The instances can be terminated by running:
+Here NixOps has created an EC2 key pair and started three EBS-backed
+instances running the default NixOS AMI.  Other than that, deployment
+is the same as for VirtualBox: NixOps builds the machine
+configurations, copies their closure over to the EC2 instances, and
+activates the new configurations.</para>
+
+<para>The command <command>nixops info</command> shows all provisioned
+resources, not just machines:
+
+<screen>
+$ nixops info -d load-balancer-ec2
+<replaceable>...</replaceable>
++-------------+-----------------+----------------------------+---------------------------------------------------------+----------------+
+| Name        |      Status     | Type                       | Resource Id                                             | IP address     |
++-------------+-----------------+----------------------------+---------------------------------------------------------+----------------+
+| backend1    | Up / Up-to-date | ec2 [eu-west-1a; m1.small] | i-0ec4bc43                                              | 54.228.61.132  |
+| backend2    | Up / Up-to-date | ec2 [eu-west-1a; m1.small] | i-0cc4bc41                                              | 54.216.26.111  |
+| proxy       | Up / Up-to-date | ec2 [eu-west-1a; m1.small] | i-08c4bc45                                              | 54.216.171.138 |
+| my-key-pair | Up / Up-to-date | ec2-keypair [eu-west-1]    | charon-8e50b4b5-d7f9-11e2-b91c-23f8eaf468f4-my-key-pair |                |
++-------------+-----------------+----------------------------+---------------------------------------------------------+----------------+
+</screen>
+</para>
+
+<para>The resources can be destroyed by running:
 
 <screen>
 $ nixops destroy -d load-balancer-ec2
 </screen>
 
-</para>
+This terminates the EC2 instances and deletes the EC2 key pair.</para>
 
 <para>Deployment to EC2 has some prerequisites.
 
@@ -379,27 +421,29 @@ $ nixops destroy -d load-balancer-ec2
 
   <listitem><para>Obviously, you need an EC2 account.</para></listitem>
 
-  <listitem><para>You need to set your AWS access key ID in the option
-  <varname>deployment.ec2.accessKeyId</varname> or in the environment
-  variable <envar>EC2_ACCESS_KEY</envar>.</para></listitem>
-
-  <listitem><para>You need to set you AWS secret key in the
-  environment variable <envar>EC2_SECRET_KEY</envar> or by creating a
-  file <filename>~/.ec2-keys</filename> that maps access key IDs to
-  secret keys:
+  <listitem><para>You need to add your AWS access key ID and secret
+  key to the file <filename>~/.ec2-keys</filename>, as follows:
 
 <programlisting>
-AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ # my AWS development account
+AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ dev # my AWS development account
 </programlisting>
 
-  </para></listitem>
+  Here <literal>dev</literal> is a symbolic name for the AWS account,
+  which you can use in
+  <varname>deployment.ec2.accessKeyId</varname>.</para>
 
+  <para>Alternatively, you can set the environment variables
+  <envar>EC2_ACCESS_KEY</envar> and
+  <envar>EC2_SECRET_KEY</envar>.</para></listitem>
+
+  <!--
   <listitem><para>You need to create an SSH key pair using the
   <command>ec2-create-keypair</command> command line tool or using the
   AWS web interface, set <varname>deployment.ec2.keyPair</varname> to
   the name of the key pair, and set
   <varname>deployment.ec2.privateKey</varname> to the path of the
   private key.</para></listitem>
+  -->
 
   <listitem><para>You need to ensure that your EC2 security groups are
   set up to allow (at the very least) SSH traffic from your network.
@@ -422,6 +466,61 @@ deployment.ec2.securityGroups = [ "allow-ssh" "allow-http" ];
 </itemizedlist>
 
 </para>
+
+</simplesect>
+
+
+<simplesect><title>Accessing machines</title>
+
+<para>We have seen above that you can login to individual machines by
+doing <literal>nixops ssh <replaceable>name</replaceable></literal>,
+where <replaceable>name</replaceable> is the name of the
+machine.</para>
+
+<para>It’s also possible to perform a command on all machines:
+
+<screen>
+$ nixops ssh-for-each -d load-balancer-ec2 -- df /tmp
+backend1...> /dev/xvdb      153899044 192084 145889336   1% /tmp
+proxy......> /dev/xvdb      153899044 192084 145889336   1% /tmp
+backend2...> /dev/xvdb      153899044 192084 145889336   1% /tmp
+</screen>
+
+By default, the command is executed sequentially on each machine.  You
+can add the flag <option>-p</option> to execute it in parallel.</para>
+
+</simplesect>
+
+
+<simplesect><title>Checking machine status</title>
+
+<para>The command <command>nixops check</command> checks the status of
+each machine in a deployment.  It verifies that the machine still
+exists (i.e. hasn’t been destroyed outside of NixOps), is up (i.e. the
+instance has been started) and is reachable via SSH.  It also checks
+that any attached disks (such as EBS volumes) are not in a failed
+state, and prints the names of any systemd units that are in a failed
+state.</para>
+
+<para>For example, for the 3-machine EC2 network shown above, it might
+show:
+
+<screen>
+$ nixops check -d load-balancer-ec2
++----------+--------+-----+-----------+----------+----------------+---------------+-------+
+| Name     | Exists | Up  | Reachable | Disks OK | Load avg.      | Failed units  | Notes |
++----------+--------+-----+-----------+----------+----------------+---------------+-------+
+| backend1 | Yes    | Yes | Yes       | Yes      | 0.03 0.03 0.05 | httpd.service |       |
+| backend2 | Yes    | No  | N/A       | N/A      |                |               |       |
+| proxy    | Yes    | Yes | Yes       | Yes      | 0.00 0.01 0.05 |               |       |
++----------+--------+-----+-----------+----------+----------------+---------------+-------+
+</screen>
+
+This indicates that Apache httpd has failed on
+<literal>backend1</literal> and that machine
+<literal>backend</literal> is not running at all.  In this situation,
+you should run <command>nixops deploy --check</command> to repair the
+deployment.</para>
 
 </simplesect>
 

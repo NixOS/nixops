@@ -11,7 +11,7 @@ platform.)  Installing it requires the following steps:</para>
 <orderedlist>
 
   <listitem><para>Install the Nix package manager.  You need at least
-  version 1.0.  It’s available from the <link
+  version 1.5.  It’s available from the <link
   xlink:href="http://nixos.org/nix/download.html">Nix website</link>
   in binary form for several platforms.  Please refer to the <link
   xlink:href="http://hydra.nixos.org/view/nix/trunk/latest/tarball/download-by-type/doc/manual#chap-installation">installation
@@ -25,7 +25,7 @@ platform.)  Installing it requires the following steps:</para>
   doesn’t have to compile everything locally:
 
 <screen>
-$ nix-channel --add http://nixos.org/releases/nixos/channels/nixos-unstable
+$ nix-channel --add http://nixos.org/channels/nixos-unstable
 $ nix-channel --update
 $ export NIX_PATH=/nix/var/nix/profiles/per-user/root/channels/nixos
 </screen>
@@ -43,14 +43,7 @@ $ git clone git://github.com/NixOS/nixpkgs.git
 $ export NIX_PATH=/some/dir
 </screen>
 
-  In this case you’ll probably want to do
-
-<screen>
-$ nix-pull http://nixos.org/releases/nixos/channels/nixos-unstable/MANIFEST
-</screen>
-
-  to tell Nix to use the pre-built binaries in the
-  <literal>nixos-unstable</literal> channel.</para></listitem>
+  </para></listitem>
 
   <listitem><para>Install the latest version of NixOps.  One way to do
   this is to get NixOps’s source from Git and build it:
@@ -75,11 +68,9 @@ $ nix-install-package --non-interactive --url http://hydra.nixos.org/build/26621
 
 </orderedlist>
 
-<para>FIXME: document how to set up distributed builds on Mac OS X.
-This is necessary because NixOps builds and deploys Linux (NixOS)
-machines and Macs cannot natively do Linux builds.</para>
-
+<!--
 <para>FIXME: VirtualBox configuration (vboxnet0 host-only networking
 interface).</para>
+-->
 
 </chapter>
