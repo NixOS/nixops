@@ -1,4 +1,5 @@
 <book xmlns="http://docbook.org/ns/docbook"
+      xmlns:xlink="http://www.w3.org/1999/xlink"
       xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <info>
@@ -34,7 +35,7 @@
       <holder>Rob Vermaas</holder>
     </copyright>
 
-    <date>January 2013</date>
+    <date>June 2013</date>
 
   </info>
 
@@ -48,8 +49,56 @@
   </appendix>
 
   <appendix xml:id="ch-options">
-    <title>NixOps-specific Configuration Options</title>
-    <xi:include href="options-db.xml" />
+    <title>Configuration Options</title>
+
+    <section>
+      <title>Machines</title>
+      <para>NixOps adds several options to the NixOS machine
+      configuration system.  For the standard NixOS configuration
+      options, please see <link
+      xlink:href="http://hydra.nixos.org/job/nixos/trunk/manual/latest/download">the
+      NixOS manual</link> or the
+      <citerefentry><refentrytitle>configuration.nix</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      man page.</para>
+      <xi:include href="machine-options.xml" />
+    </section>
+
+    <section>
+      <title>SQS Queues</title>
+      <para>An Amazon SQS queue is defined by setting
+      <literal>resources.sqsQueues.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="sqs-queue-options.xml" />
+    </section>
+
+    <section>
+      <title>EC2 Keypairs</title>
+      <para>An Amazon EC2 keypair is defined by setting
+      <literal>resources.ec2KeyPairs.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="ec2-keypair-options.xml" />
+    </section>
+
+    <section>
+      <title>S3 Buckets</title>
+      <para>An Amazon S3 bucket is defined by setting
+      <literal>resources.s3Buckets.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="s3-bucket-options.xml" />
+    </section>
+
+    <section>
+      <title>IAM Roles</title>
+      <para>An Amazon IAM role is defined by setting
+      <literal>resources.iamRoles.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="iam-role-options.xml" />
+    </section>
+
   </appendix>
 
 </book>

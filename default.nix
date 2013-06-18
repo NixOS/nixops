@@ -35,7 +35,10 @@ pythonPackages.buildPythonPackage rec {
       # Backward compatibility symlink.
       ln -s nixops $out/bin/charon
 
-      cp ${import ./doc/manual { inherit revision; }} doc/manual/options-db.xml
+      cp ${import ./doc/manual { inherit revision; }} doc/manual/machine-options.xml
+      ${stdenv.lib.concatMapStrings (fn: ''
+        cp ${import ./doc/manual/resource.nix { inherit revision; module = ./nix + ("/" + fn + ".nix"); }} doc/manual/${fn}-options.xml
+      '') [ "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" ]}
 
       make -C doc/manual install docbookxsl=${docbook5_xsl}/xml/xsl/docbook \
         docdir=$out/share/doc/nixops mandir=$out/share/man
