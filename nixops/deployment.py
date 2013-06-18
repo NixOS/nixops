@@ -50,8 +50,9 @@ class Deployment(object):
     configs_path = nixops.util.attr_property("configsPath", None)
     rollback_enabled = nixops.util.attr_property("rollbackEnabled", False)
 
-    def __init__(self, db, uuid, log_file=sys.stderr):
-        self._db = db
+    def __init__(self, statefile, uuid, log_file=sys.stderr):
+        self._statefile = statefile
+        self._db = statefile._db
         self.uuid = uuid
 
         self._last_log_prefix = None
@@ -165,7 +166,7 @@ class Deployment(object):
 
     def clone(self):
         with self._db:
-            new = nixops.statefile.StateFile(self._db.db_file).create_deployment()
+            new = self._statefile.create_deployment()
             self._db.execute("insert into DeploymentAttrs (deployment, name, value) " +
                              "select ?, name, value from DeploymentAttrs where deployment = ?",
                              (new.uuid, self.uuid))

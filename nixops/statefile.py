@@ -131,7 +131,7 @@ class StateFile(object):
                 raise Exception("state file contains multiple deployments with the same name, so you should specify one using its UUID")
             else:
                 raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘-d’, or set the environment variable NIXOPS_DEPLOYMENT")
-        return nixops.deployment.Deployment(self._db, res[0][0], sys.stderr)
+        return nixops.deployment.Deployment(self, res[0][0], sys.stderr)
 
     def open_deployment(self, uuid=None):
         """Open an existing deployment."""
@@ -146,7 +146,7 @@ class StateFile(object):
             uuid = str(uuid.uuid1())
         with self._db:
             self._db.execute("insert into Deployments(uuid) values (?)", (uuid,))
-        return nixops.deployment.Deployment(self._db, uuid, sys.stderr)
+        return nixops.deployment.Deployment(self, uuid, sys.stderr)
 
     def _table_exists(self, c, table):
         c.execute("select 1 from sqlite_master where name = ? and type='table'", (table,));
