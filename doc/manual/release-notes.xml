@@ -1,0 +1,16 @@
+<article xmlns="http://docbook.org/ns/docbook"
+         xmlns:xlink="http://www.w3.org/1999/xlink">
+
+<title>NixOps Release Notes</title>
+
+
+<!--==================================================================-->
+
+<section xml:id="ssec-relnotes-1.0"><title>Release 1.0 (June 18, 2013)</title>
+
+<para>Initial release.</para>
+
+</section>
+
+
+</article>

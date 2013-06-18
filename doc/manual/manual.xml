@@ -101,4 +101,10 @@
 
   </appendix>
 
+  <appendix xml:id="sec-relnotes">
+    <title>Release Notes</title>
+    <xi:include href="release-notes.xml"
+                xpointer="xmlns(x=http://docbook.org/ns/docbook)xpointer(x:article/x:section)" />
+  </appendix>
+
 </book>
