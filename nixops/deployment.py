@@ -165,7 +165,7 @@ class Deployment(object):
 
     def clone(self):
         with self._db:
-            new = nixops.statefile.StateFile(self._db).create_deployment()
+            new = nixops.statefile.StateFile(self._db.db_file).create_deployment()
             self._db.execute("insert into DeploymentAttrs (deployment, name, value) " +
                              "select ?, name, value from DeploymentAttrs where deployment = ?",
                              (new.uuid, self.uuid))

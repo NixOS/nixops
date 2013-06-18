@@ -61,10 +61,6 @@ class StateFile(object):
     current_schema = 3
 
     def __init__(self, db_file):
-        if not isinstance(db_file, basestring):
-            self._db = db_file
-            self.db_file = db_file.db_file
-            return
         self.db_file = db_file
 
         if os.path.splitext(db_file)[1] not in ['.nixops', '.charon']:
