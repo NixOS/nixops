@@ -59,4 +59,6 @@ pythonPackages.buildPythonPackage rec {
       echo "nix-build none $out" >> $out/nix-support/hydra-build-products
       echo "doc manual $out/share/doc/nixops manual.html" >> $out/nix-support/hydra-build-products
     '';
+
+  meta.description = "Nix package for ${stdenv.system}";
 }
