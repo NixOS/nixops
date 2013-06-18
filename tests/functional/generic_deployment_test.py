@@ -1,13 +1,13 @@
 import os
 import subprocess
-from nixops import deployment
+import nixops.statefile
 
 from tests.functional import DatabaseUsingTest
 
 class GenericDeploymentTest(DatabaseUsingTest):
     def setup(self):
         super(GenericDeploymentTest,self).setup()
-        self.depl = deployment.create_deployment(self.db)
+        self.depl = self.sf.create_deployment()
         self.depl.auto_response = "y"
 
     def set_ec2_args(self):

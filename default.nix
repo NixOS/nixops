@@ -8,7 +8,7 @@ pythonPackages.buildPythonPackage rec {
 
   src = ./.;
 
-  buildInputs = [ git libxslt docbook_xsl pythonPackages.nose pythonPackages.coverage];
+  buildInputs = [ git libxslt docbook_xsl pythonPackages.nose pythonPackages.coverage ];
 
   propagatedBuildInputs =
     [ pythonPackages.prettytable

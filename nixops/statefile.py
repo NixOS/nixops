@@ -97,6 +97,9 @@ class StateFile(object):
 
         self._db = db
 
+    def close(self):
+        self._db.close()
+
     def query_deployments(self):
         """Return the UUIDs of all deployments in the database."""
         c = self._db.cursor()
