@@ -723,7 +723,7 @@ class Deployment(object):
                 m.log("Running sync failed on {0}.".format(m.name))
             m.backup(self.definitions[m.name], backup_id)
 
-        nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
+        nixops.parallel.run_tasks(nr_workers=5, tasks=self.active.itervalues(), worker_fun=worker)
 
         return backup_id
 
