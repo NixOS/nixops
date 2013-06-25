@@ -94,7 +94,7 @@ rec {
     });
 
   tests.none_backend = (import ./tests/none-backend.nix {
-    nixops = build;
+    nixops = build.x86_64-linux;
     system = "x86_64-linux";
   }).test;
 
