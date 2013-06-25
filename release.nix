@@ -36,7 +36,8 @@ rec {
           cp ${import ./doc/manual/resource.nix { revision = nixopsSrc.rev; module = ./nix + ("/" + fn + ".nix"); }} doc/manual/${fn}-options.xml
         '') [ "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" ]}
 
-        make -C doc/manual docbookxsl=${pkgs.docbook5_xsl}/xml/xsl/docbook
+        make -C doc/manual install docbookxsl=${pkgs.docbook5_xsl}/xml/xsl/docbook \
+            docdir=$out/manual mandir=$TMPDIR/man
 
         substituteInPlace scripts/nixops --subst-var-by version ${version}
         substituteInPlace setup.py --subst-var-by version ${version}
@@ -48,7 +49,7 @@ rec {
         mkdir $out/tarballs
         tar  cvfj $out/tarballs/$releaseName.tar.bz2 -C .. $releaseName
 
-        echo "doc manual $out/share/doc/nixops manual.html" >> $out/nix-support/hydra-build-products
+        echo "doc manual $out/manual manual.html" >> $out/nix-support/hydra-build-products
       '';
   };
 
@@ -87,10 +88,6 @@ rec {
 
           mkdir -p $out/share/nix/nixops
           cp -av nix/* $out/share/nix/nixops
-
-          mkdir -p $out/nix-support
-          echo "nix-build none $out" >> $out/nix-support/hydra-build-products
-          echo "doc manual $out/share/doc/nixops manual.html" >> $out/nix-support/hydra-build-products
         ''; # */
 
       meta.description = "Nix package for ${stdenv.system}";
