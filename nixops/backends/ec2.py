@@ -823,8 +823,11 @@ class EC2State(MachineState):
         # Always apply tags to all volumes
         for k, v in self.block_device_mapping.items():
             # Tag the volume.
-            volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
+            volume_tags = {}
             volume_tags.update(common_tags)
+            volume_tags.update(defn.tags)
+            volume_tags['Name'] = "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))
+
             self._conn.create_tags([v['volumeId']], volume_tags)
 
         # Attach missing volumes.
