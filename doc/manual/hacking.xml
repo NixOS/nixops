@@ -14,7 +14,7 @@ $ cd nixops
 
 <para>To build it and its dependencies:
 <screen>
-$ nix-build
+$ nix-build release.nix -A build.x86_64-linux
 </screen>
 The resulting NixOps can be run as
 <filename>./result/bin/nixops</filename>.</para>
@@ -23,7 +23,7 @@ The resulting NixOps can be run as
 environment variables (such as <envar>PYTHONPATH</envar>) are set up
 so that those dependencies can be found:
 <screen>
-$ nix-build --run-env
+$ nix-build --run-env release.nix -A build.x86_64-linux --exclude tarball
 $ echo $PYTHONPATH
 /nix/store/yzj6p5f7iyh247pwxrg97y3klm6d0cni-python-2.7.3/lib/python2.7/site-packages:<replaceable>...</replaceable>
 </screen>
