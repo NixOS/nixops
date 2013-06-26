@@ -354,9 +354,9 @@ class MachineState(nixops.resources.ResourceState):
         self._open_ssh_master()
         # FIXME: use ssh master
         if recursive:
-            recursive_cmdline = [ '-r' ]
+            recursive_cmdline = ['-r']
         else:
-            recursive_cmdline = [ ]
+            recursive_cmdline = []
         cmdline = ["scp"] +  self.get_ssh_flags() + recursive_cmdline + [source, "root@" + self.get_ssh_name() + ":" + target]
         return self._logged_exec(cmdline)
 
@@ -364,9 +364,9 @@ class MachineState(nixops.resources.ResourceState):
         self._open_ssh_master()
         # FIXME: use ssh master
         if recursive:
-            recursive_cmdline = [ '-r' ]
+            recursive_cmdline = ['-r']
         else:
-            recursive_cmdline = [ ]
+            recursive_cmdline = []
         cmdline = ["scp"] +  self.get_ssh_flags() + recursive_cmdline + ["root@" + self.get_ssh_name() + ":" + source, target]
         return self._logged_exec(cmdline)
 

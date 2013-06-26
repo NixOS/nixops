@@ -162,7 +162,7 @@ class EC2State(MachineState):
 
     def get_physical_backup_spec(self, backupid):
         if backupid in self.backups:
-            return [ '    deployment.ec2.blockDeviceMapping."{0}".disk = pkgs.lib.mkStrict "{1}";'.format(_sd_to_xvd(dev), snap) for dev, snap in self.backups[backupid].items() if dev != "/dev/sda" ]
+            return ['    deployment.ec2.blockDeviceMapping."{0}".disk = pkgs.lib.mkStrict "{1}";'.format(_sd_to_xvd(dev), snap) for dev, snap in self.backups[backupid].items() if dev != "/dev/sda"]
         else:
             return ["    # No backup found for id '{0}'".format(backupid)]
 
@@ -651,7 +651,7 @@ class EC2State(MachineState):
                 user_data=user_data,
                 image_id=defn.ami,
                 instance_profile_name=defn.instance_profile,
-                ebs_optimized=ebs_optimized), error_codes = ['InvalidParameterValue', 'UnauthorizedOperation' ])
+                ebs_optimized=ebs_optimized), error_codes=['InvalidParameterValue', 'UnauthorizedOperation'])
 
             assert len(reservation.instances) == 1
             instance = reservation.instances[0]
@@ -1031,7 +1031,7 @@ class EC2State(MachineState):
                     if not volume:
                         res.messages.append("volume ‘{0}’ no longer exists".format(v['volumeId']))
 
-                if k in instance.block_device_mapping.keys() and instance.block_device_mapping[k].status != 'attached' :
+                if k in instance.block_device_mapping.keys() and instance.block_device_mapping[k].status != 'attached':
                     res.disks_ok = False
                     res.messages.append("volume ‘{0}’ on device ‘{1}’ has unexpected state: ‘{2}’".format(v['volumeId'], _sd_to_xvd(k), instance.block_device_mapping[k].status))
 

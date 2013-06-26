@@ -28,7 +28,7 @@ def teardown():
         uuids = sf.query_deployments()
         threads = []
         for uuid in uuids:
-            threads.append(threading.Thread(target=destroy,args=(sf, uuid)))
+            threads.append(threading.Thread(target=destroy, args=(sf, uuid)))
         for thread in threads:
             thread.start()
         for thread in threads:

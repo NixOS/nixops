@@ -30,13 +30,13 @@ class ResourceState(object):
 
     # Valid values for self.state.  Not all of these make sense for
     # all resource types.
-    UNKNOWN=0 # state unknown
-    MISSING=1 # instance destroyed or not yet created
-    STARTING=2 # boot initiated
-    UP=3 # machine is reachable
-    STOPPING=4 # shutdown initiated
-    STOPPED=5 # machine is down
-    UNREACHABLE=6 # machine should be up, but is unreachable
+    UNKNOWN = 0  # state unknown
+    MISSING = 1  # instance destroyed or not yet created
+    STARTING = 2  # boot initiated
+    UP = 3  # machine is reachable
+    STOPPING = 4  # shutdown initiated
+    STOPPED = 5  # machine is down
+    UNREACHABLE = 6  # machine should be up, but is unreachable
 
     state = nixops.util.attr_property("state", UNKNOWN, int)
     index = nixops.util.attr_property("index", None, int)

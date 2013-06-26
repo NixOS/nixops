@@ -56,7 +56,6 @@ class SQSQueueState(nixops.resources.ResourceState):
 
     def get_definition_prefix(self):
         return "resources.sqsQueues."
-        
 
     def get_physical_spec(self):
         return ['    url = "{0}";'.format(self.url),

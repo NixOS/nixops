@@ -138,7 +138,7 @@ class SelfDeletingDir(str):
     def __del__(self):
         shutil.rmtree(self)
         try:
-            super(SelfDeletingDir,self).__del__()
+            super(SelfDeletingDir, self).__del__()
         except AttributeError:
             pass
 

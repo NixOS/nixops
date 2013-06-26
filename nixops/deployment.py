@@ -534,7 +534,7 @@ class Deployment(object):
 
         for m in self.active.itervalues():
             if hasattr(m, "public_host_key"):
-                write_temp_file("{0}/{1}.public_host_key".format(self.tempdir,m.name), m.public_host_key + "\n")
+                write_temp_file("{0}/{1}.public_host_key".format(self.tempdir, m.name), m.public_host_key + "\n")
 
         selected = [m for m in self.active.itervalues() if should_do(m, include, exclude)]
 

@@ -12,9 +12,9 @@ class TestBackups(generic_deployment_test.GenericDeploymentTest):
     _multiprocess_can_split_ = True
 
     def setup(self):
-        super(TestBackups,self).setup()
+        super(TestBackups, self).setup()
         self.set_ec2_args()
-        self.depl.nix_exprs = [ logical_spec,
+        self.depl.nix_exprs = [logical_spec,
                 '%s/single_machine_ec2_ebs.nix' % (parent_dir),
                 '%s/single_machine_ec2_base.nix' % (parent_dir)
                 ]
@@ -35,7 +35,7 @@ class TestBackups(generic_deployment_test.GenericDeploymentTest):
         self.backup_and_restore_path()
 
     def test_raid_restore(self):
-        self.depl.nix_exprs = self.depl.nix_exprs + [ '%s/single_machine_ec2_raid-0.nix' % (parent_dir) ]
+        self.depl.nix_exprs = self.depl.nix_exprs + ['%s/single_machine_ec2_raid-0.nix' % (parent_dir)]
         self.backup_and_restore_path("/data")
 
     def check_command(self, command):

@@ -11,8 +11,8 @@ logical_spec = '%s/encrypted-links.nix' % (parent_dir)
 class TestEncryptedLinks(generic_deployment_test.GenericDeploymentTest):
 
     def setup(self):
-        super(TestEncryptedLinks,self).setup()
-        self.depl.nix_exprs = [ logical_spec ]
+        super(TestEncryptedLinks, self).setup()
+        self.depl.nix_exprs = [logical_spec]
 
     def test_deploy(self):
         self.depl.debug = True
