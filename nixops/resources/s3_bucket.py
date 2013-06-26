@@ -2,7 +2,6 @@
 
 # Automatic provisioning of AWS S3 buckets.
 
-import time
 import boto.s3.connection
 import nixops.util
 import nixops.resources

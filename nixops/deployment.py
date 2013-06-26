@@ -3,13 +3,9 @@
 import sys
 import os.path
 import subprocess
-import json
 import string
 import tempfile
-import shutil
 import threading
-import exceptions
-import errno
 from xml.etree import ElementTree
 import nixops.statefile
 import nixops.backends
@@ -20,7 +16,6 @@ import nixops.resources.iam_role
 import re
 from datetime import datetime
 import getpass
-import traceback
 import glob
 import fcntl
 import itertools

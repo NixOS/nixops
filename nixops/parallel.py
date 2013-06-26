@@ -1,7 +1,6 @@
 import threading
 import sys
 import Queue
-import random
 
 def run_tasks(nr_workers, tasks, worker_fun):
     task_queue = Queue.Queue()

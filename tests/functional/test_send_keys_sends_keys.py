@@ -1,5 +1,4 @@
 from os import path
-from nose import tools
 
 from tests.functional import single_machine_test
 

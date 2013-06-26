@@ -1,10 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
-import sys
 import time
-import shutil
-import stat
 from nixops.backends import MachineDefinition, MachineState
 import nixops.known_hosts
 

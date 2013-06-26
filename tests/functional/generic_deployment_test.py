@@ -1,6 +1,4 @@
 import os
-import subprocess
-import nixops.statefile
 
 from tests.functional import DatabaseUsingTest
 

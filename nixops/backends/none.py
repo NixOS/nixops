@@ -2,7 +2,6 @@
 
 from nixops.backends import MachineDefinition, MachineState
 import nixops.util
-import sys
 
 class NoneDefinition(MachineDefinition):
     """Definition of a trivial machine."""

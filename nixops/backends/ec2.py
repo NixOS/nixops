@@ -1,20 +1,15 @@
 # -*- coding: utf-8 -*-
 
-import os
-import os.path
-import sys
 import re
 import time
 import socket
 import getpass
-import shutil
 import boto.ec2
 import boto.ec2.blockdevicemapping
 from nixops.backends import MachineDefinition, MachineState
 import nixops.util
 import nixops.ec2_utils
 import nixops.known_hosts
-from xml import etree
 
 class EC2InstanceDisappeared(Exception):
     pass

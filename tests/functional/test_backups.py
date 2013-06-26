@@ -2,8 +2,6 @@ import time
 
 from os import path
 
-from nose import tools
-
 from tests.functional import generic_deployment_test
 
 parent_dir = path.dirname(__file__)

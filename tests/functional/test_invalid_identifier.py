@@ -1,6 +1,5 @@
 from os import path
 
-from nose import tools
 from nose.tools import raises
 from tests.functional import generic_deployment_test
 

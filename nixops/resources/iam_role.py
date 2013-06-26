@@ -2,14 +2,11 @@
 
 # Automatic provisioning of AWS IAM roles.
 
-import time
 import boto
 import boto.iam
 import nixops.util
 import nixops.resources
 import nixops.ec2_utils
-from xml.etree import ElementTree
-from pprint import pprint
 
 class IAMRoleDefinition(nixops.resources.ResourceDefinition):
     """Definition of an IAM Role."""
