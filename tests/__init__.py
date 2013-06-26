@@ -7,8 +7,10 @@ _multiprocess_shared_ = True
 
 db_file = '%s/test.nixops' % (path.dirname(__file__))
 
+
 def setup():
     nixops.statefile.StateFile(db_file).close()
+
 
 def destroy(sf, uuid):
     depl = sf.open_deployment(uuid)
@@ -21,6 +23,7 @@ def destroy(sf, uuid):
         depl.destroy_resources()
     except Exception:
         pass
+
 
 def teardown():
     try:

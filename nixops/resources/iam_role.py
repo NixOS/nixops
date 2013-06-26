@@ -8,6 +8,7 @@ import nixops.util
 import nixops.resources
 import nixops.ec2_utils
 
+
 class IAMRoleDefinition(nixops.resources.ResourceDefinition):
     """Definition of an IAM Role."""
 
@@ -37,28 +38,23 @@ class IAMRoleState(nixops.resources.ResourceState):
     def get_type(cls):
         return "iam-role"
 
-
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._conn = None
-
 
     def show_type(self):
         s = super(IAMRoleState, self).show_type()
         return s
 
-
     @property
     def resource_id(self):
         return self.role_name
-
 
     def connect(self):
         if self._conn: return
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
         self._conn = boto.connect_iam(
             aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
-
 
     def _destroy(self):
         if self.state != self.UP: return
@@ -91,19 +87,16 @@ class IAMRoleState(nixops.resources.ResourceState):
         except:
             self.log("Could not find instance profile")
 
-
         with self.depl._db:
             self.state = self.MISSING
             self.role_name = None
             self.access_key_id = None
             self.policy = None
 
-
     def create_after(self, resources):
         # IAM roles can refer to S3 buckets.
         return {r for r in resources if
                 isinstance(r, nixops.resources.s3_bucket.S3BucketState)}
-
 
     def create(self, defn, check, allow_reboot, allow_recreate):
 
@@ -138,7 +131,6 @@ class IAMRoleState(nixops.resources.ResourceState):
                 self.state = self.UP
                 self.role_name = defn.role_name
                 self.policy = defn.policy
-
 
     def destroy(self):
         self._destroy()

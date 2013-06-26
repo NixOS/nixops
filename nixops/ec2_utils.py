@@ -9,6 +9,7 @@ from boto.exception import EC2ResponseError
 from boto.exception import SQSError
 from boto.exception import BotoServerError
 
+
 def fetch_aws_secret_key(access_key_id):
     """Fetch the secret access key corresponding to the given access key ID from the environment or from ~/.ec2-keys"""
     secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')

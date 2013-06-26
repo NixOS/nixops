@@ -103,6 +103,7 @@ def make_nix_string(s):
 
 undefined = object()
 
+
 def attr_property(name, default, type=str):
     """Define a property that corresponds to a value in the NixOps state file."""
     def get(self):
@@ -142,6 +143,7 @@ class SelfDeletingDir(str):
         except AttributeError:
             pass
 
+
 class TeeStderr(StringIO):
     stderr = None
     def __init__(self):
@@ -159,6 +161,7 @@ class TeeStderr(StringIO):
         return self.stderr.fileno()
     def isatty(self):
         return self.stderr.isatty()
+
 
 class TeeStdout(StringIO):
     stdout = None

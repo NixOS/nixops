@@ -8,6 +8,7 @@ parent_dir = path.dirname(__file__)
 
 logical_spec = '%s/encrypted-links.nix' % (parent_dir)
 
+
 class TestEncryptedLinks(generic_deployment_test.GenericDeploymentTest):
 
     def setup(self):

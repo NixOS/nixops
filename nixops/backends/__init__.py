@@ -377,6 +377,7 @@ class MachineState(nixops.resources.ResourceState):
 class SSHConnectionFailed(Exception):
     pass
 
+
 class SSHCommandFailed(Exception):
     pass
 
@@ -418,6 +419,7 @@ import nixops.resources.sqs_queue
 import nixops.resources.s3_bucket
 import nixops.resources.iam_role
 
+
 def create_definition(xml):
     """Create a machine definition object from the given XML representation of the machine's attributes."""
     target_env = xml.find("attrs/attr[@name='targetEnv']/string").get("value")
@@ -427,6 +429,7 @@ def create_definition(xml):
         if target_env == i.get_type():
             return i(xml)
     raise nixops.deployment.UnknownBackend("unknown backend type ‘{0}’".format(target_env))
+
 
 def create_state(depl, type, name, id):
     """Create a machine state object of the desired backend type."""

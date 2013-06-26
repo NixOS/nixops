@@ -6,6 +6,7 @@ parent_dir = path.dirname(__file__)
 
 secret_key_spec = '%s/single_machine_secret_key.nix' % (parent_dir)
 
+
 class TestSendKeysSendsKeys(single_machine_test.SingleMachineTest):
     _multiprocess_can_split_ = True
 

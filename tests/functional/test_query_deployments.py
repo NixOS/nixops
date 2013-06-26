@@ -2,6 +2,7 @@ from nose import tools
 
 from tests.functional import DatabaseUsingTest
 
+
 class TestQueryDeployments(DatabaseUsingTest):
     def test_shows_all_deployments(self):
         depls = []

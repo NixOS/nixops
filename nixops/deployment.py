@@ -25,6 +25,7 @@ import platform
 class NixEvalError(Exception):
     pass
 
+
 class UnknownBackend(Exception):
     pass
 
@@ -78,7 +79,6 @@ class Deployment(object):
 
         self.definitions = None
 
-
     @property
     def machines(self):
         return {n: r for n, r in self.resources.items() if is_machine(r)}
@@ -91,7 +91,6 @@ class Deployment(object):
     def active_resources(self):
         return {n: r for n, r in self.resources.items() if not r.obsolete}
 
-
     def _set_attrs(self, attrs):
         """Update deployment attributes in the state file."""
         with self._db:
@@ -103,17 +102,14 @@ class Deployment(object):
                     c.execute("insert or replace into DeploymentAttrs(deployment, name, value) values (?, ?, ?)",
                               (self.uuid, n, v))
 
-
     def _set_attr(self, name, value):
         """Update one deployment attribute in the state file."""
         self._set_attrs({name: value})
-
 
     def _del_attr(self, name):
         """Delete a deployment attribute from the state file."""
         with self._db:
             self._db.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
-
 
     def _get_attr(self, name, default=nixops.util.undefined):
         """Get a deployment attribute from the state file."""
@@ -123,7 +119,6 @@ class Deployment(object):
             row = c.fetchone()
             if row != None: return row[0]
             return nixops.util.undefined
-
 
     def _create_resource(self, name, type):
         c = self._db.cursor()
@@ -137,7 +132,6 @@ class Deployment(object):
         self.resources[name] = r
         return r
 
-
     def export(self):
         with self._db:
             c = self._db.cursor()
@@ -146,7 +140,6 @@ class Deployment(object):
             res = {row[0]: row[1] for row in rows}
             res['resources'] = {r.name: r.export() for r in self.resources.itervalues()}
             return res
-
 
     def import_(self, attrs):
         with self._db:
@@ -158,7 +151,6 @@ class Deployment(object):
                 r = self._create_resource(k, v['type'])
                 r.import_(v)
 
-
     def clone(self):
         with self._db:
             new = self._statefile.create_deployment()
@@ -167,7 +159,6 @@ class Deployment(object):
                              (new.uuid, self.uuid))
             new.configs_path = None
             return new
-
 
     def _get_deployment_lock(self):
         if self._lock_file_path is None:
@@ -191,12 +182,10 @@ class Deployment(object):
                 self._lock_file.close()
         return DeploymentLock(self)
 
-
     def delete_resource(self, m):
         del self.resources[m.name]
         with self._db:
             self._db.execute("delete from Resources where deployment = ? and id = ?", (self.uuid, m.id))
-
 
     def delete(self, force=False):
         """Delete this deployment from the state file."""
@@ -213,14 +202,12 @@ class Deployment(object):
             # Delete the deployment from the database.
             self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
 
-
     def log(self, msg):
         with self._log_lock:
             if self._last_log_prefix != None:
                 self._log_file.write("\n")
                 self._last_log_prefix = None
             self._log_file.write(msg + "\n")
-
 
     def log_start(self, prefix, msg):
         with self._log_lock:
@@ -230,7 +217,6 @@ class Deployment(object):
                 self._log_file.write(prefix)
             self._log_file.write(msg)
             self._last_log_prefix = prefix
-
 
     def log_end(self, prefix, msg):
         with self._log_lock:
@@ -243,16 +229,13 @@ class Deployment(object):
                 self._log_file.write(prefix)
             self._log_file.write(msg + "\n")
 
-
     def set_log_prefixes(self):
         max_len = max([len(r.name) for r in self.resources.itervalues()] or [0])
         for r in self.resources.itervalues():
             r.set_log_prefix(max_len)
 
-
     def warn(self, msg):
         self.log(nixops.util.ansi_warn("warning: " + msg, outfile=self._log_file))
-
 
     def confirm(self, question):
         while True:
@@ -270,12 +253,10 @@ class Deployment(object):
                 if response == "y": return True
                 if response == "n" or response == "": return False
 
-
     def _nix_path_flags(self):
         flags = list(itertools.chain(*[["-I", x] for x in (self.extra_nix_path + self.nix_path)])) + self.extra_nix_flags
         flags.extend(["-I", "nixops=" + self.expr_path])
         return flags
-
 
     def _eval_flags(self, exprs):
         flags = self._nix_path_flags()
@@ -287,7 +268,6 @@ class Deployment(object):
              "<nixops/eval-machine-info.nix>"])
         return flags
 
-
     def set_arg(self, name, value):
         """Set a persistent argument to the deployment specification."""
         assert isinstance(name, basestring)
@@ -295,7 +275,6 @@ class Deployment(object):
         args = self.args
         args[name] = value
         self.args = args
-
 
     def set_argstr(self, name, value):
         """Set a persistent argument to the deployment specification."""
@@ -308,7 +287,6 @@ class Deployment(object):
             else: s += c
         self.set_arg(name, '"' + s + '"')
 
-
     def unset_arg(self, name):
         """Unset a persistent argument to the deployment specification."""
         assert isinstance(name, str)
@@ -316,10 +294,8 @@ class Deployment(object):
         args.pop(name, None)
         self.args = args
 
-
     def _args_to_attrs(self):
         return "{ " + string.join([n + " = " + v + "; " for n, v in self.args.iteritems()]) + "}"
-
 
     def evaluate(self):
         """Evaluate the Nix expressions belonging to this deployment into a deployment specification."""
@@ -371,7 +347,6 @@ class Deployment(object):
             defn = nixops.resources.s3_bucket.S3BucketDefinition(x)
             self.definitions[defn.name] = defn
 
-
     def evaluate_option_value(self, machine_name, option_name, xml=False, include_physical=False):
         """Evaluate a single option of a single machine in the deployment specification."""
 
@@ -393,7 +368,6 @@ class Deployment(object):
                 stderr=self._log_file)
         except subprocess.CalledProcessError:
             raise NixEvalError
-
 
     def get_physical_spec(self):
         """Compute the contents of the Nix expression specifying the computed physical deployment attributes"""
@@ -493,20 +467,17 @@ class Deployment(object):
 
         return "".join(["{\n"] + [emit_resource(r) for r in active_resources.itervalues()] + ["}\n"])
 
-
     def get_profile(self):
         profile_dir = "/nix/var/nix/profiles/per-user/" + getpass.getuser()
         if os.path.exists(profile_dir + "/charon") and not os.path.exists(profile_dir + "/nixops"):
             os.rename(profile_dir + "/charon", profile_dir + "/nixops")
         return profile_dir + "/nixops/" + self.uuid
 
-
     def create_profile(self):
         profile = self.get_profile()
         dir = os.path.dirname(profile)
         if not os.path.exists(dir): os.makedirs(dir, 0755)
         return profile
-
 
     def build_configs(self, include, exclude, dry_run=False):
         """Build the machine configurations in the Nix store."""
@@ -582,7 +553,6 @@ class Deployment(object):
 
         return configs_path
 
-
     def copy_closures(self, configs_path, include, exclude, max_concurrent_copy):
         """Copy the closure of each machine configuration to the corresponding machine."""
 
@@ -597,7 +567,6 @@ class Deployment(object):
         nixops.parallel.run_tasks(
             nr_workers=max_concurrent_copy,
             tasks=self.active.itervalues(), worker_fun=worker)
-
 
     def activate_configs(self, configs_path, include, exclude, allow_reboot, force_reboot, check, sync):
         """Activate the new configuration on a machine."""
@@ -650,14 +619,12 @@ class Deployment(object):
             raise Exception("activation of {0} of {1} machines failed (namely on {2})"
                             .format(len(failed), len(res), ", ".join(["‘{0}’".format(x) for x in failed])))
 
-
     def _get_free_resource_index(self):
         index = 0
         for r in self.resources.itervalues():
             if r.index != None and index <= r.index:
                 index = r.index + 1
         return index
-
 
     def get_backups(self, include=[], exclude=[]):
         self.evaluate_active(include, exclude) # unnecessary?
@@ -705,7 +672,6 @@ class Deployment(object):
 
             nixops.parallel.run_tasks(nr_workers=len(self.active), tasks=self.machines.itervalues(), worker_fun=worker)
 
-
     def backup(self, include=[], exclude=[]):
         self.evaluate_active(include, exclude) # unnecessary?
         backup_id = datetime.now().strftime("%Y%m%d%H%M%S");
@@ -722,7 +688,6 @@ class Deployment(object):
 
         return backup_id
 
-
     def restore(self, include=[], exclude=[], backup_id=None, devices=[]):
         with self._get_deployment_lock():
 
@@ -734,7 +699,6 @@ class Deployment(object):
             nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
             self.start_machines(include=include, exclude=exclude)
             self.warn("restore finished; please note that you might need to run ‘nixops deploy’ to fix configuration issues regarding changed IP addresses")
-
 
     def evaluate_active(self, include=[], exclude=[], kill_obsolete=False):
         self.evaluate()
@@ -760,7 +724,6 @@ class Deployment(object):
                 if not m.obsolete: m.obsolete = True
                 if not should_do(m, include, exclude): continue
                 if kill_obsolete and m.destroy(): self.delete_resource(m)
-
 
     def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
                 include=[], exclude=[], check=False, kill_obsolete=False,
@@ -835,11 +798,9 @@ class Deployment(object):
         self.activate_configs(self.configs_path, include=include, exclude=exclude,
                               allow_reboot=allow_reboot, force_reboot=force_reboot, check=check, sync=sync)
 
-
     def deploy(self, **kwargs):
         with self._get_deployment_lock():
             self._deploy(**kwargs)
-
 
     def _rollback(self, generation, include=[], exclude=[], check=False,
                  allow_reboot=False, force_reboot=False, max_concurrent_copy=5, sync=True):
@@ -876,11 +837,9 @@ class Deployment(object):
         self.activate_configs(self.configs_path, include=include, exclude=exclude,
                               allow_reboot=allow_reboot, force_reboot=force_reboot, check=check, sync=sync)
 
-
     def rollback(self, **kwargs):
         with self._get_deployment_lock():
             self._rollback(**kwargs)
-
 
     def destroy_resources(self, include=[], exclude=[]):
         """Destroy all active or obsolete resources."""
@@ -906,7 +865,6 @@ class Deployment(object):
                  "--arg", "machines", "{ " + " ".join(attrs) + " }"]) != 0:
                 raise Exception("cannot update profile ‘{0}’".format(profile))
 
-
     def reboot_machines(self, include=[], exclude=[], wait=False):
         """Reboot all active machines."""
 
@@ -919,7 +877,6 @@ class Deployment(object):
 
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
-
     def stop_machines(self, include=[], exclude=[]):
         """Stop all active machines."""
 
@@ -928,7 +885,6 @@ class Deployment(object):
             m.stop()
 
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
-
 
     def start_machines(self, include=[], exclude=[]):
         """Start all active machines."""
@@ -939,11 +895,9 @@ class Deployment(object):
 
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
-
     def is_valid_resource_name(self, name):
         p = re.compile('^\w+$')
         return not p.match(name) is None
-
 
     def rename(self, name, new_name):
         if not name in self.resources:
@@ -961,7 +915,6 @@ class Deployment(object):
         with self._db:
             self._db.execute("update Resources set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
 
-
     def send_keys(self, include=[], exclude=[]):
         """Send LUKS encryption keys to machines."""
 
@@ -975,13 +928,16 @@ class Deployment(object):
 def should_do(m, include, exclude):
     return should_do_n(m.name, include, exclude)
 
+
 def should_do_n(name, include, exclude):
     if name in exclude: return False
     if include == []: return True
     return name in include
 
+
 def is_machine(r):
     return isinstance(r, nixops.backends.MachineState)
+
 
 def is_machine_defn(r):
     return isinstance(r, nixops.backends.MachineDefinition)

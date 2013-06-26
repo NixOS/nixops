@@ -71,16 +71,13 @@ class VirtualBoxState(MachineState):
     def get_physical_spec(self):
         return ['    require = [ <nixops/virtualbox-image-nixops.nix> ];']
 
-
     def address_to(self, m):
         if isinstance(m, VirtualBoxState):
             return m.private_ipv4
         return MachineState.address_to(self, m)
 
-
     def has_really_fast_connection(self):
         return True
-
 
     def _get_vm_info(self):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
@@ -98,14 +95,12 @@ class VirtualBoxState(MachineState):
             vminfo[k] = v
         return vminfo
 
-
     def _get_vm_state(self):
         '''Return the state ("running", etc.) of a VM.'''
         vminfo = self._get_vm_info()
         if 'VMState' not in vminfo:
             raise Exception("unable to get state of VirtualBox VM ‘{0}’".format(self.name))
         return vminfo['VMState'].replace('"', '')
-
 
     def _start(self):
         self._logged_exec(
@@ -119,14 +114,12 @@ class VirtualBoxState(MachineState):
 
         self.state = self.STARTING
 
-
     def _update_ip(self):
         res = self._logged_exec(
             ["VBoxManage", "guestproperty", "get", self.vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP"],
             capture_stdout=True).rstrip()
         if res[0:7] != "Value: ": return
         self.private_ipv4 = res[7:]
-
 
     def _update_disk(self, name, state):
         disks = self.disks
@@ -135,7 +128,6 @@ class VirtualBoxState(MachineState):
         else:
             disks[name] = state
         self.disks = disks
-
 
     def _wait_for_ip(self):
         self.log_start("waiting for IP address...")
@@ -146,7 +138,6 @@ class VirtualBoxState(MachineState):
             self.log_continue(".")
         self.log_end(" " + self.private_ipv4)
         nixops.known_hosts.remove(self.private_ipv4)
-
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, VirtualBoxDefinition)
@@ -280,7 +271,6 @@ class VirtualBoxState(MachineState):
         if not self.private_ipv4 or check:
             self._wait_for_ip()
 
-
     def destroy(self):
         if not self.vm_id: return True
 
@@ -302,7 +292,6 @@ class VirtualBoxState(MachineState):
 
         return True
 
-
     def stop(self):
         if self._get_vm_state() != 'running': return
 
@@ -322,7 +311,6 @@ class VirtualBoxState(MachineState):
         self.state = self.STOPPED
         self.ssh_master = None
 
-
     def start(self):
         if self._get_vm_state() == 'running': return
         self.log("restarting...")
@@ -336,7 +324,6 @@ class VirtualBoxState(MachineState):
             self.warn("IP address has changed, you may need to run ‘nixops deploy’")
 
         self.wait_for_ssh(check=True)
-
 
     def _check(self, res):
         if not self.vm_id:

@@ -2,6 +2,7 @@ import os
 
 from tests.functional import DatabaseUsingTest
 
+
 class GenericDeploymentTest(DatabaseUsingTest):
     def setup(self):
         super(GenericDeploymentTest, self).setup()

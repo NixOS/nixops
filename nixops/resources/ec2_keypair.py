@@ -34,32 +34,26 @@ class EC2KeyPairState(nixops.resources.ResourceState):
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
     region = nixops.util.attr_property("ec2.region", None)
 
-
     @classmethod
     def get_type(cls):
         return "ec2-keypair"
 
-
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._conn = None
-
 
     def show_type(self):
         s = super(EC2KeyPairState, self).show_type()
         if self.region: s = "{0} [{1}]".format(s, self.region)
         return s
 
-
     @property
     def resource_id(self):
         return self.keypair_name
 
-
     def connect(self):
         if self._conn: return
         self._conn = nixops.ec2_utils.connect(self.region, self.access_key_id)
-
 
     def create(self, defn, check, allow_reboot, allow_recreate):
 
@@ -91,7 +85,6 @@ class EC2KeyPairState(nixops.resources.ResourceState):
             with self.depl._db:
                 self.state = self.UP
                 self.keypair_name = defn.keypair_name
-
 
     def destroy(self):
         if self.state == self.UP:

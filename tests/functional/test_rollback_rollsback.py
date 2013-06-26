@@ -11,6 +11,7 @@ has_hello_spec = '%s/single_machine_has_hello.nix' % (parent_dir)
 
 rollback_spec = '%s/single_machine_rollback.nix' % (parent_dir)
 
+
 class TestRollbackRollsback(single_machine_test.SingleMachineTest):
     _multiprocess_can_split_ = True
 

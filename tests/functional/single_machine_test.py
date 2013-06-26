@@ -6,6 +6,7 @@ parent_dir = path.dirname(__file__)
 
 logical_spec = '%s/single_machine_logical_base.nix' % (parent_dir)
 
+
 class SingleMachineTest(generic_deployment_test.GenericDeploymentTest):
     _multiprocess_can_split_ = True
 
