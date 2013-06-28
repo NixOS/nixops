@@ -416,6 +416,7 @@ class CheckResult(object):
 import nixops.backends.none
 import nixops.backends.virtualbox
 import nixops.backends.ec2
+import nixops.backends.hetzner
 import nixops.resources.ec2_keypair
 import nixops.resources.sqs_queue
 import nixops.resources.s3_bucket
@@ -426,7 +427,8 @@ def create_definition(xml):
     target_env = xml.find("attrs/attr[@name='targetEnv']/string").get("value")
     for i in [nixops.backends.none.NoneDefinition,
               nixops.backends.virtualbox.VirtualBoxDefinition,
-              nixops.backends.ec2.EC2Definition]:
+              nixops.backends.ec2.EC2Definition,
+              nixops.backends.hetzner.HetznerDefinition]:
         if target_env == i.get_type():
             return i(xml)
     raise nixops.deployment.UnknownBackend("unknown backend type ‘{0}’".format(target_env))
@@ -436,6 +438,7 @@ def create_state(depl, type, name, id):
     for i in [nixops.backends.none.NoneState,
               nixops.backends.virtualbox.VirtualBoxState,
               nixops.backends.ec2.EC2State,
+              nixops.backends.hetzner.HetznerState,
               nixops.resources.ec2_keypair.EC2KeyPairState,
               nixops.resources.sqs_queue.SQSQueueState,
               nixops.resources.iam_role.IAMRoleState,
