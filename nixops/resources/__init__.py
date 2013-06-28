@@ -37,6 +37,7 @@ class ResourceState(object):
     STOPPING=4 # shutdown initiated
     STOPPED=5 # machine is down
     UNREACHABLE=6 # machine should be up, but is unreachable
+    RESCUE=7 # rescue system is active for the machine
 
     state = nixops.util.attr_property("state", UNKNOWN, int)
     index = nixops.util.attr_property("index", None, int)
@@ -127,6 +128,7 @@ class ResourceState(object):
         elif state == self.STOPPING: return "Stopping"
         elif state == self.STOPPED: return "Stopped"
         elif state == self.UNREACHABLE: return "Unreachable"
+        elif state == self.RESCUE: return "In rescue system"
         else: raise Exception("machine is in unknown state")
 
     def get_definition_prefix(self):
