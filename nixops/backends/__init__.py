@@ -309,7 +309,9 @@ class MachineState(nixops.resources.ResourceState):
 
         # Any remaining paths are copied from the local machine.
         env = dict(os.environ)
-        env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags());
+        self._open_ssh_master()
+        env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags() +
+                                      self.ssh_master.opts)
         self._logged_exec(
             ["nix-copy-closure", "--to", "root@" + self.get_ssh_name(), path]
             + ([] if self.has_really_fast_connection() else ["--gzip"]),
