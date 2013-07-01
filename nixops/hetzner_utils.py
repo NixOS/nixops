@@ -8,8 +8,6 @@ from base64 import b64encode
 from urllib import urlencode
 from httplib import HTTPSConnection, BadStatusLine
 
-import paramiko
-
 ROBOT_HOST = "robot-ws.your-server.de"
 
 
@@ -85,24 +83,6 @@ class RobotConnection(object):
     delete = lambda s, p, d: s.request('DELETE', p, d)
 
 
-class RescueConnection(object):
-    def __init__(self, ip, passwd):
-        self.client = paramiko.SSHClient()
-        # just ignore the host key
-        self.client.set_missing_host_key_policy(paramiko.MissingHostKeyPolicy())
-        try:
-            self.client.connect(ip, username="root", password=passwd,
-                                allow_agent=False, look_for_keys=False)
-        except paramiko.SSHException as e:
-            raise ConnectError(e)
-
-    def execute(self, cmd):
-        return self.client.exec_command(cmd)
-
-    def close(self):
-        self.client.close()
-
-
 class RescueSystem(object):
     def __init__(self, server):
         self.server = server
@@ -130,10 +110,6 @@ class RescueSystem(object):
             return self._password
         self._fetch_status()
         return self._password
-
-    def connect(self):
-        transport = paramiko.Transport((self.server.ip, 22))
-        return RescueConnection(self.server.ip, self.password)
 
     def _rescue_action(self, method, opts=None):
         reply = self.conn.request(
