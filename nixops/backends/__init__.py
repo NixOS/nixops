@@ -386,9 +386,10 @@ class MachineState(nixops.resources.ResourceState):
         f.write(private)
         f.seek(0)
         # FIXME: use run_command
+        self._open_ssh_master()
         res = subprocess.call(
             ["ssh", "-x", "root@" + self.get_ssh_name()]
-            + self.get_ssh_flags() +
+            + self.get_ssh_flags() + self.ssh_master.opts +
             ["umask 077 && mkdir -p /root/.ssh && cat > /root/.ssh/id_charon_vpn"],
             stdin=f)
         f.close()
