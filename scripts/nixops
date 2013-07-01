@@ -379,7 +379,7 @@ def print_physical_backup_spec(backupid):
     depl = open_deployment()
     print "{"
     for m in depl.active.itervalues():
-        print '  "{0}" = {{'.format(m.name)
+        print '  "{0}" = {{ config, pkgs, ...}}: {{'.format(m.name)
         for l in m.get_physical_backup_spec(backupid):
             print l
         print '  };'

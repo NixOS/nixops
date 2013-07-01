@@ -167,7 +167,7 @@ class EC2State(MachineState):
 
     def get_physical_backup_spec(self, backupid):
         if backupid in self.backups:
-            return [ '    deployment.ec2.blockDeviceMapping."{0}".disk = "{1}";'.format(_sd_to_xvd(dev), snap) for dev, snap in self.backups[backupid].items() if dev != "/dev/sda" ]
+            return [ '    deployment.ec2.blockDeviceMapping."{0}".disk = pkgs.lib.mkStrict "{1}";'.format(_sd_to_xvd(dev), snap) for dev, snap in self.backups[backupid].items() if dev != "/dev/sda" ]
         else:
             return ["    # No backup found for id '{0}'".format(backupid)]
 
