@@ -3,12 +3,12 @@
 import os
 import re
 import sys
-import time
-import shutil
 import select
 import subprocess
 import nixops.util
 import nixops.resources
+
+from nixops.ssh_util import SSHMaster
 
 
 class MachineDefinition(nixops.resources.ResourceDefinition):
@@ -20,61 +20,6 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
         self.keys = {k.get("name"): k.find("string").get("value") for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")}
         self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
-
-
-class SSHMaster(object):
-    def __init__(self, tempdir, name, ssh_name, ssh_flags, password=None):
-        self._tempdir = tempdir
-        self._askpass_helper = None
-        self._control_socket = tempdir + "/ssh-master-" + name
-        self._ssh_name = ssh_name
-        pass_prompts = 0
-        kwargs = {}
-        if password is not None:
-            self._askpass_helper = self._make_askpass_helper()
-            newenv = dict(os.environ)
-            newenv.update({
-                'DISPLAY': ':666',
-                'SSH_ASKPASS': self._askpass_helper,
-                'NIXOPS_SSH_PASSWORD': password,
-            })
-            kwargs['env'] = newenv
-            kwargs['stdin'] = nixops.util.devnull
-            kwargs['preexec_fn'] = os.setsid
-            pass_prompts = 1
-        cmd = ["ssh", "-x", "root@" + self._ssh_name, "-S",
-               self._control_socket, "-M", "-N", "-f",
-               '-oNumberOfPasswordPrompts={0}'.format(pass_prompts),
-               '-oServerAliveInterval=60']
-        res = subprocess.call(cmd + ssh_flags, **kwargs)
-        if res != 0:
-            raise SSHConnectionFailed(
-                "unable to start SSH master connection to ‘{0}’".format(name)
-            )
-        self.opts = ["-S", self._control_socket]
-
-    def _make_askpass_helper(self):
-        """
-        Create a SSH_ASKPASS helper script, which just outputs the contents of
-        the environment variable NIXOPS_SSH_PASSWORD.
-        """
-        path = os.path.join(self._tempdir, 'nixops-askpass-helper')
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0777)
-        os.write(fd, "#!{0}\necho -n \"$NIXOPS_SSH_PASSWORD\"".format(
-            nixops.util.which("sh")
-        ))
-        os.close(fd)
-        return path
-
-    def __del__(self):
-        if self._askpass_helper is not None:
-            try:
-                os.unlink(self._askpass_helper)
-            except OSError:
-                pass
-        subprocess.call(["ssh", "root@" + self._ssh_name, "-S",
-                         self._control_socket, "-O", "exit"],
-                        stderr=nixops.util.devnull)
 
 
 class MachineState(nixops.resources.ResourceState):
