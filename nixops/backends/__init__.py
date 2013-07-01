@@ -5,10 +5,10 @@ import re
 import sys
 import select
 import subprocess
+
 import nixops.util
 import nixops.resources
-
-from nixops.ssh_util import SSHMaster
+import nixops.ssh_util
 
 
 class MachineDefinition(nixops.resources.ResourceDefinition):
@@ -73,9 +73,9 @@ class MachineState(nixops.resources.ResourceState):
             res = self.run_command("cat /proc/loadavg", capture_stdout=True, timeout=15).rstrip().split(' ')
             assert len(res) >= 3
             return res
-        except SSHConnectionFailed:
+        except nixops.ssh_util.SSHConnectionFailed:
             return None
-        except SSHCommandFailed:
+        except nixops.ssh_util.SSHCommandFailed:
             return None
 
     # FIXME: Move this to ResourceState so that other kinds of
@@ -202,9 +202,10 @@ class MachineState(nixops.resources.ResourceState):
         )
         while True:
             try:
-                self.ssh_master = SSHMaster(self.depl.tempdir, self.name,
-                                            self.get_ssh_name(), flags,
-                                            self.get_ssh_password())
+                self.ssh_master = nixops.ssh_util.SSHMaster(
+                    self.depl.tempdir, self.name, self.get_ssh_name(), flags,
+                    self.get_ssh_password()
+                )
                 break
             except Exception:
                 tries = tries - 1
@@ -282,7 +283,9 @@ class MachineState(nixops.resources.ResourceState):
 
         if stdin_string != None: process.stdin.close()
         if check and res != 0:
-            raise SSHCommandFailed("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
+            msg = "command ‘{0}’ failed on machine ‘{1}’"
+            err = msg.format(command, self.name)
+            raise nixops.ssh_util.SSHCommandFailed(err)
         return stdout if capture_stdout else res
 
     def run_command(self, command, check=True, capture_stdout=False, stdin_string=None, timeout=None):
@@ -324,7 +327,7 @@ class MachineState(nixops.resources.ResourceState):
         try:
             self.run_command("test -f /root/.ssh/id_charon_vpn")
             _vpn_key_exists = True
-        except SSHCommandFailed:
+        except nixops.ssh_util.SSHCommandFailed:
             _vpn_key_exists = False
 
         if self.public_vpn_key and _vpn_key_exists: return
@@ -365,13 +368,6 @@ class MachineState(nixops.resources.ResourceState):
 
     def get_console_output(self):
         return "(not available for this machine type)\n"
-
-
-class SSHConnectionFailed(Exception):
-    pass
-
-class SSHCommandFailed(Exception):
-    pass
 
 
 class CheckResult(object):

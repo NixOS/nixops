@@ -1,7 +1,7 @@
 from os import path
 from nose import tools
 from tests.functional import generic_deployment_test
-from nixops import backends
+from nixops.ssh_util import SSHCommandFailed
 import sys
 import time
 import signal
@@ -26,9 +26,9 @@ class TestEncryptedLinks(generic_deployment_test.GenericDeploymentTest):
         self.ping("machine1", "machine2")
         self.ping("machine2", "machine1")
         self.depl.machines["machine1"].run_command("systemctl stop encrypted-links.target")
-        with tools.assert_raises(backends.SSHCommandFailed):
+        with tools.assert_raises(SSHCommandFailed):
             self.ping("machine1", "machine2")
-        with tools.assert_raises(backends.SSHCommandFailed):
+        with tools.assert_raises(SSHCommandFailed):
             self.ping("machine2", "machine1")
 
     def ping(self, machine1, machine2):

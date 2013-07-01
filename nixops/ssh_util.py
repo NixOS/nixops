@@ -3,6 +3,15 @@ import subprocess
 
 import nixops.util
 
+
+class SSHConnectionFailed(Exception):
+    pass
+
+
+class SSHCommandFailed(Exception):
+    pass
+
+
 class SSHMaster(object):
     def __init__(self, tempdir, name, ssh_name, ssh_flags, password=None):
         self._tempdir = tempdir
