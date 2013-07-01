@@ -44,7 +44,7 @@ class HetznerState(MachineState):
     robot_pass = nixops.util.attr_property("hetzner.robotPass", None)
     partitions = nixops.util.attr_property("hetzner.partitions", None)
 
-    public_ipv4 = nixops.util.attr_property("publicIpv4", None)
+    rescue_passwd = nixops.util.attr_property("rescuePasswd", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -58,8 +58,12 @@ class HetznerState(MachineState):
         """
         Connect to the Hetzner robot.
         """
-        if self._robot is not None: return
+        if self._robot is not None:
+            return True
+        elif self.robot_user is None or self.robot_pass is None:
+            return False
         self._robot = Robot(self.robot_user, self.robot_pass)
+        return True
 
     def _wait_for_rescue(self, ip):
         self.log_start("waiting for rescue system...")
@@ -71,24 +75,41 @@ class HetznerState(MachineState):
         self.log_end("[up]")
         self.state = self.RESCUE
 
+    def _boot_into_rescue(self):
+        if self.state == self.RESCUE:
+            return
+
+        self.log("rebooting machine ‘{0}’ ({1}) into rescue"
+                 .format(self.name, self.main_ipv4))
+        server = self._get_server_by_ip(self.main_ipv4)
+        server.rescue.activate()
+        rescue_passwd = server.rescue.password
+        server.reboot('hard')
+        self._wait_for_rescue(self.main_ipv4)
+        self.rescue_passwd = rescue_passwd
+        self.state = self.RESCUE
+
+    def _install_base_system(self):
+        if self.state != self.RESCUE:
+            return
+        # TODO!
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, HetznerDefinition)
+
+        if self.state not in (self.RESCUE, self.UP) or check:
+            self.check()
+
         self.set_common_state(defn)
+        self.robot_user = defn.robot_user
+        self.robot_pass = defn.robot_pass
+        self.main_ipv4 = defn.main_ipv4
 
-        if not self.vm_id:
-            self.robot_user = defn.robot_user
-            self.robot_pass = defn.robot_pass
-            server = self._get_server_by_ip(defn.main_ipv4)
-
-            if not server.rescue.active:
-                self.log("rebooting machine ‘{0}’ ({1}) into rescue"
-                         .format(self.name, defn.main_ipv4))
-                server.rescue.activate()
-                server.reboot('hard')
-                self._wait_for_rescue(defn.main_ipv4)
-
-            connection = server.rescue.connect()
-            connection.close()
+        if self.vm_id is None:
+            self.log("installing machine...")
+            vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
+            self._boot_into_rescue()
+            self._install_base_system()
 
     def start(self):
         server = self._get_server_by_ip(defn.main_ipv4)
@@ -101,24 +122,36 @@ class HetznerState(MachineState):
         pass
 
     def get_ssh_name(self):
-        assert self.public_ipv4
-        return self.public_ipv4
+        assert self.main_ipv4
+        return self.main_ipv4
+
+    def get_ssh_password(self):
+        if self.state == self.RESCUE:
+            return self.rescue_passwd
+        else:
+            return None
 
     def _get_server_by_ip(self, ip):
         """
         Return the server robot instance by its main IPv4 address.
         """
-        self.connect()
-        return self._robot.servers.get(ip)
+        if self.connect():
+            return self._robot.servers.get(ip)
+        else:
+            return None
 
     def _check(self, res):
-        if not self.vm_id:
+        if self.vm_id is None:
             res.exists = False
             return
 
-        self.connect()
         server = self._get_server_by_ip(self.main_ipv4)
-        # TODO...
+        if server.rescue.active and self.rescue_passwd is not None:
+            res.is_up = True
+            self.state = self.RESCUE
+        else:
+            res.is_up = nixops.util.ping_tcp_port(self.main_ipv4, 22)
+            MachineState._check(self, res)
 
     def destroy(self):
         return True
