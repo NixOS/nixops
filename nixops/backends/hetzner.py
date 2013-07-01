@@ -22,7 +22,8 @@ class HetznerDefinition(MachineDefinition):
         assert x is not None
         for var, name, valtype in [("main_ipv4", "mainIPv4", "string"),
                                    ("robot_user", "robotUser", "string"),
-                                   ("robot_pass", "robotPass", "string")]:
+                                   ("robot_pass", "robotPass", "string"),
+                                   ("partitions", "partitions", "string")]:
             value = x.find("attr[@name='" + name + "']/" + valtype).get("value")
             setattr(self, var, value)
 
@@ -41,6 +42,7 @@ class HetznerState(MachineState):
     main_ipv4 = nixops.util.attr_property("hetzner.mainIPv4", None)
     robot_user = nixops.util.attr_property("hetzner.robotUser", None)
     robot_pass = nixops.util.attr_property("hetzner.robotPass", None)
+    partitions = nixops.util.attr_property("hetzner.partitions", None)
 
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
 
