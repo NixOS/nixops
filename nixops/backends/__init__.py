@@ -222,8 +222,9 @@ class MachineState(nixops.resources.ResourceState):
     def get_ssh_private_key_file(self):
         return None
 
-    def _logged_exec(self, command, check=True, capture_stdout=False, stdin_string=None, env=None):
-        stdin = subprocess.PIPE if stdin_string != None else nixops.util.devnull
+    def _logged_exec(self, command, check=True, capture_stdout=False, stdin=None, env=None):
+        if stdin is None:
+            stdin = nixops.util.devnull
 
         if capture_stdout:
             process = subprocess.Popen(command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
@@ -233,10 +234,6 @@ class MachineState(nixops.resources.ResourceState):
             process = subprocess.Popen(command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
             fds = [process.stdout]
             log_fd = process.stdout
-
-        # FIXME: this can deadlock if stdin_string doesn't fit in the
-        # kernel pipe buffer.
-        if stdin_string != None: process.stdin.write(stdin_string)
 
         for fd in fds: nixops.util.make_non_blocking(fd)
 
@@ -281,14 +278,13 @@ class MachineState(nixops.resources.ResourceState):
 
         res = process.wait()
 
-        if stdin_string != None: process.stdin.close()
         if check and res != 0:
             msg = "command ‘{0}’ failed on machine ‘{1}’"
             err = msg.format(command, self.name)
             raise nixops.ssh_util.SSHCommandFailed(err)
         return stdout if capture_stdout else res
 
-    def run_command(self, command, check=True, capture_stdout=False, stdin_string=None, timeout=None):
+    def run_command(self, command, check=True, capture_stdout=False, stdin=None, timeout=None):
         """Execute a command on the machine via SSH."""
         # Note that the timeout is only respected if this is the first
         # call to _open_ssh_master().
@@ -296,7 +292,7 @@ class MachineState(nixops.resources.ResourceState):
         cmdline = (
             ["ssh", "-x", "root@" + self.get_ssh_name()] +
             self.ssh_master.opts + self.get_ssh_flags() + [command])
-        return self._logged_exec(cmdline, check=check, capture_stdout=capture_stdout, stdin_string=stdin_string)
+        return self._logged_exec(cmdline, check=check, capture_stdout=capture_stdout, stdin=stdin)
 
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
@@ -335,14 +331,9 @@ class MachineState(nixops.resources.ResourceState):
         f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
         f.write(private)
         f.seek(0)
-        # FIXME: use run_command
-        self._open_ssh_master()
-        res = subprocess.call(
-            ["ssh", "-x", "root@" + self.get_ssh_name()]
-            + self.get_ssh_flags() + self.ssh_master.opts +
-            ["umask 077 && mkdir -p /root/.ssh && cat > /root/.ssh/id_charon_vpn"],
-            stdin=f)
-        f.close()
+        res = self.run_command("umask 077 && mkdir -p /root/.ssh &&"
+                               " cat > /root/.ssh/id_charon_vpn",
+                               check=False, stdin=f)
         if res != 0: raise Exception("unable to upload VPN key to ‘{0}’".format(self.name))
         self.public_vpn_key = public
 
