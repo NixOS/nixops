@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import sys
 import subprocess
 
@@ -45,6 +46,7 @@ class HetznerState(MachineState):
     partitions = nixops.util.attr_property("hetzner.partitions", None)
 
     rescue_passwd = nixops.util.attr_property("rescuePasswd", None)
+    partitioner = nixops.util.attr_property("rescuePartitioner", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -87,12 +89,46 @@ class HetznerState(MachineState):
         server.reboot('hard')
         self._wait_for_rescue(self.main_ipv4)
         self.rescue_passwd = rescue_passwd
+        self.has_partitioner = None
         self.state = self.RESCUE
+
+    def _build_partitioner(self):
+        return subprocess.check_output([
+            "nix-build", "<nixpkgs>", "--no-out-link",
+            "-A", "pythonPackages.nixpartHetzner"
+        ]).rstrip()
+
+    def _install_partitioner(self):
+        self.log_start("building partitioner...")
+        nixpart = self._build_partitioner()
+        self.log_end("done ({0})".format(nixpart))
+
+        if self.partitioner is not None and self.partitioner == nixpart:
+            return nixpart
+
+        self.log_start("copying partitioner to rescue...")
+        paths = subprocess.check_output(['nix-store', '-qR', nixpart])
+        local_tar = subprocess.Popen(['tar', 'cJ'] + paths.splitlines(),
+                                     stdout=subprocess.PIPE)
+        self.run_command("tar xJ -C /", stdin=local_tar.stdout)
+        self.log_end("done.")
+
+        self.partitioner = nixpart
+        return nixpart
 
     def _install_base_system(self):
         if self.state != self.RESCUE:
             return
-        # TODO!
+
+        nixpart = self._install_partitioner()
+
+        self.log_start("partitioning disks...")
+        nixpart_bin = os.path.join(nixpart, "bin/nixpart")
+        out = self.run_command("{0} -".format(nixpart_bin),
+                               capture_stdout=True,
+                               stdin_string=self.partitions)
+        self.log_end("done.")
+        self.log("partitioner output: {0}".format(out))
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, HetznerDefinition)
@@ -104,8 +140,9 @@ class HetznerState(MachineState):
         self.robot_user = defn.robot_user
         self.robot_pass = defn.robot_pass
         self.main_ipv4 = defn.main_ipv4
+        self.partitions = defn.partitions
 
-        if self.vm_id is None:
+        if not self.vm_id:
             self.log("installing machine...")
             vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
             self._boot_into_rescue()
@@ -141,7 +178,7 @@ class HetznerState(MachineState):
             return None
 
     def _check(self, res):
-        if self.vm_id is None:
+        if not self.vm_id:
             res.exists = False
             return
 
