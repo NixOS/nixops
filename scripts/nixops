@@ -460,7 +460,9 @@ def op_ssh():
     if not m: raise Exception("unknown machine ‘{0}’".format(machine))
     ssh_name = m.get_ssh_name()
     print >> sys.stderr, "connecting to {0}...".format(ssh_name)
-    res = subprocess.call(["ssh", username + "@" + ssh_name] + m.get_ssh_flags() + args.args)
+    m._open_ssh_master()
+    res = subprocess.call(["ssh", username + "@" + ssh_name] + m.get_ssh_flags()
+                          + m.ssh_master.opts + args.args)
     sys.exit(res)
 
 
@@ -470,7 +472,10 @@ def op_ssh_for_each():
     jobs = args.parallel if args.parallel else 1
     def worker(m):
         if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): return
-        return m._logged_exec(["ssh", "root@" + m.get_ssh_name()] + m.get_ssh_flags() + args.args, check=False)
+        m._open_ssh_master()
+        return m._logged_exec(["ssh", "root@" + m.get_ssh_name()] +
+                              m.get_ssh_flags() + m.ssh_master.opts + args.args,
+                              check=False)
     results = nixops.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
     sys.exit(max(results) if results != [] else 0)
 
