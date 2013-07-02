@@ -25,8 +25,8 @@ class HetznerDefinition(MachineDefinition):
                                    ("robot_user", "robotUser", "string"),
                                    ("robot_pass", "robotPass", "string"),
                                    ("partitions", "partitions", "string")]:
-            value = x.find("attr[@name='" + name + "']/" + valtype).get("value")
-            setattr(self, var, value)
+            attr = x.find("attr[@name='" + name + "']/" + valtype)
+            setattr(self, var, attr.get("value"))
 
 
 class HetznerState(MachineState):
