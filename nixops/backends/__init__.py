@@ -222,8 +222,11 @@ class MachineState(nixops.resources.ResourceState):
     def get_ssh_private_key_file(self):
         return None
 
-    def _logged_exec(self, command, check=True, capture_stdout=False, stdin=None, env=None):
-        if stdin is None:
+    def _logged_exec(self, command, check=True, capture_stdout=False,
+                     stdin=None, stdin_string=None, env=None):
+        if stdin_string is not None:
+            stdin = subprocess.PIPE
+        elif stdin is None:
             stdin = nixops.util.devnull
 
         if capture_stdout:
@@ -234,6 +237,12 @@ class MachineState(nixops.resources.ResourceState):
             process = subprocess.Popen(command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
             fds = [process.stdout]
             log_fd = process.stdout
+
+        # FIXME: this can deadlock if stdin_string doesn't fit in the
+        # kernel pipe buffer.
+        if stdin_string is not None:
+            process.stdin.write(stdin_string)
+            process.stdin.close()
 
         for fd in fds: nixops.util.make_non_blocking(fd)
 
@@ -284,7 +293,8 @@ class MachineState(nixops.resources.ResourceState):
             raise nixops.ssh_util.SSHCommandFailed(err)
         return stdout if capture_stdout else res
 
-    def run_command(self, command, check=True, capture_stdout=False, stdin=None, timeout=None):
+    def run_command(self, command, check=True, capture_stdout=False, stdin=None,
+                    stdin_string=None, timeout=None):
         """Execute a command on the machine via SSH."""
         # Note that the timeout is only respected if this is the first
         # call to _open_ssh_master().
@@ -292,7 +302,9 @@ class MachineState(nixops.resources.ResourceState):
         cmdline = (
             ["ssh", "-x", "root@" + self.get_ssh_name()] +
             self.ssh_master.opts + self.get_ssh_flags() + [command])
-        return self._logged_exec(cmdline, check=check, capture_stdout=capture_stdout, stdin=stdin)
+        return self._logged_exec(cmdline, check=check,
+                                 capture_stdout=capture_stdout, stdin=stdin,
+                                 stdin_string=stdin_string)
 
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
