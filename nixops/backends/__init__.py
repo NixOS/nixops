@@ -189,7 +189,8 @@ class MachineState(nixops.resources.ResourceState):
         self.log_start("waiting for SSH...")
         nixops.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
         self.log_end("")
-        self.state = self.UP
+        if self.state != self.RESCUE:
+            self.state = self.UP
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True
 
