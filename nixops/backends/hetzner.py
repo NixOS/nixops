@@ -82,7 +82,7 @@ class HetznerState(MachineState):
         if self.state == self.RESCUE:
             return
 
-        self.log("rebooting machine ‘{0}’ ({1}) into rescue"
+        self.log("rebooting machine ‘{0}’ ({1}) into rescue system"
                  .format(self.name, self.main_ipv4))
         server = self._get_server_by_ip(self.main_ipv4)
         server.rescue.activate()
@@ -93,29 +93,83 @@ class HetznerState(MachineState):
         self.has_partitioner = None
         self.state = self.RESCUE
 
-    def _build_partitioner(self):
+    def _build_locally(self, path):
         return subprocess.check_output([
-            "nix-build", "<nixpkgs>", "--no-out-link",
-            "-A", "pythonPackages.nixpartHetzner"
+            "nix-build", "<nixpkgs>", "--no-out-link", "-A", path
         ]).rstrip()
+
+    def _copy_shallow_closure(self, path, basepath="/"):
+        paths = subprocess.check_output(['nix-store', '-qR', path])
+        local_tar = subprocess.Popen(['tar', 'cJ'] + paths.splitlines(),
+                                     stdout=subprocess.PIPE)
+        self.run_command("tar xJ -C {0}".format(basepath),
+                         stdin=local_tar.stdout)
+        local_tar.wait()
 
     def _install_partitioner(self):
         self.log_start("building partitioner...")
-        nixpart = self._build_partitioner()
+        nixpart = self._build_locally("pythonPackages.nixpartHetzner")
         self.log_end("done ({0})".format(nixpart))
 
         if self.partitioner is not None and self.partitioner == nixpart:
             return nixpart
 
-        self.log_start("copying partitioner to rescue...")
-        paths = subprocess.check_output(['nix-store', '-qR', nixpart])
-        local_tar = subprocess.Popen(['tar', 'cJ'] + paths.splitlines(),
-                                     stdout=subprocess.PIPE)
-        self.run_command("tar xJ -C /", stdin=local_tar.stdout)
+        self.log_start("copying partitioner to rescue system...")
+        self._copy_shallow_closure(nixpart)
         self.log_end("done.")
 
         self.partitioner = nixpart
         return nixpart
+
+    def _install_nix_mnt(self):
+        self.log_start("building Nix...")
+        nix = self._build_locally("nix")
+        self.log_end("done ({0})".format(nix))
+
+        self.log_start("copying Nix to /mnt in rescue system...")
+        self._copy_shallow_closure(nix, "/mnt")
+        self.log_end("done.")
+
+        self.log("creating chroot wrappers in /usr/bin:")
+        self.run_command('; '.join([
+            'for i in /mnt{0}/bin/*'.format(nix),
+            'do storepath="${i#/mnt}"',
+            '   echo -n "Creating $target from $i..." >&2',
+            '   target="/usr/bin/$(basename "$i")"',
+            '   echo "#!/bin/sh" > "$target"',
+            r'   echo "chroot /mnt \"$storepath\" \$@" >> "$target"',
+            '   chmod +x "$target"',
+            '   echo " done." >&2',
+            'done',
+        ]))
+
+        self.log_start("creating chroot wrapper for activation script...")
+        activator = "/nix/var/nix/profiles/system/bin/switch-to-configuration"
+        cmd = ' && '.join(['mkdir -p "{0}"',
+                           'echo "#!/bin/sh" > "{1}"',
+                           r'echo "chroot /mnt \"{1}\" \$@" >> "{1}"',
+                           'chmod +x "{1}"'])
+
+        self.run_command(cmd.format(os.path.dirname(activator), activator))
+        self.log_end("done.")
+
+    def _install_bin_sh(self):
+        self.log_start("building bash...")
+        bash = self._build_locally("bash")
+        self.log_end("done ({0})".format(bash))
+
+        self.log_start("copying bash to /mnt in rescue system...")
+        self._copy_shallow_closure(bash, "/mnt")
+        self.log_end("done.")
+
+        msg = "creating symlink from /mnt/bin/sh to {0}..."
+        self.log_start(msg.format(bash))
+        self.run_command('ln -sf "{0}/bin/bash" /mnt/bin/sh'.format(bash))
+        self.log_end("done.")
+
+    def has_really_fast_connection(self):
+        # XXX: Remove me after it's possible to use substitutes.
+        return True
 
     def _install_base_system(self):
         if self.state != self.RESCUE:
@@ -130,6 +184,38 @@ class HetznerState(MachineState):
                                stdin_string=self.partitions)
         self.fs_info = '\n'.join(out.splitlines()[1:-1])
         self.log_end("done.")
+
+        self.log_start("creating missing directories...")
+        cmds = ["mkdir -m 1777 -p /mnt/tmp /mnt/nix/store"]
+        mntdirs = ["var", "dev", "proc", "sys", "etc", "bin",
+                   "nix/var/nix/gcroots", "nix/var/nix/temproots",
+                   "nix/var/nix/manifests", "nix/var/nix/userpool",
+                   "nix/var/nix/profiles", "nix/var/nix/db",
+                   "nix/var/log/nix/drvs"]
+        to_create = ' '.join(map(lambda d: os.path.join("/mnt", d), mntdirs))
+        cmds.append("mkdir -m 0755 -p {0}".format(to_create))
+        self.run_command(' && '.join(cmds))
+        self.log_end("done.")
+
+        self.log_start("bind-mounting files in /etc...")
+        for etcfile in ("resolv.conf", "passwd", "group"):
+            self.log_continue("{0}...".format(etcfile))
+            cmd = ("if ! test -e /mnt/etc/{0}; then"
+                   " touch /mnt/etc/{0} && mount --bind /etc/{0} /mnt/etc/{0};"
+                   " fi").format(etcfile)
+            self.run_command(cmd)
+        self.log_end("done.")
+
+        self.log_start("bind-mounting other filesystems...")
+        for mountpoint in ("/proc", "/dev", "/dev/shm", "/sys"):
+            self.log_continue("{0}...".format(mountpoint))
+            cmd = "mount --bind {0} /mnt{0}".format(mountpoint)
+            self.run_command(cmd)
+        self.log_end("done.")
+
+        self.run_command("touch /mnt/etc/NIXOS")
+        self._install_bin_sh()
+        self._install_nix_mnt()
 
     def get_physical_spec(self):
         return self.fs_info.splitlines()
@@ -148,9 +234,9 @@ class HetznerState(MachineState):
 
         if not self.vm_id:
             self.log("installing machine...")
-            vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
             self._boot_into_rescue()
             self._install_base_system()
+            self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
     def start(self):
         server = self._get_server_by_ip(defn.main_ipv4)
