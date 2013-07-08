@@ -60,6 +60,7 @@ with pkgs.lib;
   config = mkIf (config.deployment.targetEnv == "hetzner") {
     nixpkgs.system = mkOverride 900 "x86_64-linux";
     fileSystems = {};
+    boot.loader.grub.version = 2;
     boot.loader.grub.devices = [ "/dev/sda" "/dev/sdb" ];
   };
 }
