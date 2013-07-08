@@ -50,6 +50,9 @@ class HetznerState(MachineState):
     fs_info = nixops.util.attr_property("fsInfo", None)
     net_info = nixops.util.attr_property("networkInfo", None)
 
+    main_ssh_private_key = nixops.util.attr_property("sshPrivateKey", None)
+    main_ssh_public_key = nixops.util.attr_property("sshPublicKey", None)
+
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
         self._robot = None
@@ -68,6 +71,18 @@ class HetznerState(MachineState):
             return False
         self._robot = Robot(self.robot_user, self.robot_pass)
         return True
+
+    def get_ssh_private_key_file(self):
+        if self._ssh_private_key_file:
+            return self._ssh_private_key_file
+        else:
+            return self.write_ssh_private_key(self.main_ssh_private_key)
+
+    def get_ssh_flags(self):
+        if self.state == self.RESCUE:
+            return []
+        else:
+            return ["-i", self.get_ssh_private_key_file()]
 
     def _wait_for_rescue(self, ip):
         self.log_start("waiting for rescue system...")
@@ -172,6 +187,19 @@ class HetznerState(MachineState):
         # XXX: Remove me after it's possible to use substitutes.
         return True
 
+    def _install_main_ssh_keys(self):
+        """
+        Create a SSH private/public keypair and put the public key into the
+        chroot.
+        """
+        private, public = nixops.util.create_key_pair(
+            key_name="NixOps client key of {0}".format(self.name)
+        )
+        self.main_ssh_private_key, self.main_ssh_public_key = private, public
+        res = self.run_command("umask 077 && mkdir -p /mnt/root/.ssh &&"
+                               " cat > /mnt/root/.ssh/authorized_keys",
+                               stdin_string=public)
+
     def _install_base_system(self):
         if self.state != self.RESCUE:
             return
@@ -217,6 +245,7 @@ class HetznerState(MachineState):
         self.run_command("touch /mnt/etc/NIXOS")
         self._install_bin_sh()
         self._install_nix_mnt()
+        self._install_main_ssh_keys()
         self._gen_network_spec()
 
     def pre_activation_command(self):
