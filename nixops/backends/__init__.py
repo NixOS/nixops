@@ -297,6 +297,10 @@ class MachineState(nixops.resources.ResourceState):
     def run_command(self, command, check=True, capture_stdout=False, stdin=None,
                     stdin_string=None, timeout=None, env=None):
         """Execute a command on the machine via SSH."""
+        # If we are in rescue state, unset locale specific stuff, because we're
+        # mainly operating in a chroot environment.
+        if self.state == self.RESCUE:
+            command = "export LANG= LC_ALL= LC_TIME=; " + command
         # Note that the timeout is only respected if this is the first
         # call to _open_ssh_master().
         self._open_ssh_master(timeout=timeout)
