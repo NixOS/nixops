@@ -266,6 +266,10 @@ class HetznerState(MachineState):
         return self.run_command(cmd, capture_stdout=True).splitlines()
 
     def _get_udev_rule_for(self, interface):
+        """
+        Get lines suitable for services.udev.extraRules for 'interface',
+        and thus essentially map the device name to a hardware address.
+        """
         cmd = "ip addr show \"{0}\" | sed -n -e 's|^.*link/ether  *||p'"
         cmd += " | cut -d' ' -f1"
         mac_addr = self.run_command(cmd.format(interface),
