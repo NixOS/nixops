@@ -64,5 +64,6 @@ with pkgs.lib;
     boot.loader.grub.devices = [ "/dev/sda" "/dev/sdb" ];
     # FIXME: This should be detected by the installer!
     boot.kernelModules = [ "r8169" ];
+    services.openssh.enable = true;
   };
 }
