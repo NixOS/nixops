@@ -219,6 +219,18 @@ class HetznerState(MachineState):
         self._install_nix_mnt()
         self._gen_network_spec()
 
+    def pre_activation_command(self):
+        if self.state == self.RESCUE:
+            # Use 'if' here instead of '&&' because we're in set -e mode.
+            # We cannot use the mountpoint command here, because it's unable to
+            # detect bind mounts on files, so we just go ahead and try to
+            # unmount.
+            umount = 'if umount "{0}" 2> /dev/null; then rm -f "{0}"; fi'
+            return '; '.join([umount.format(os.path.join("/mnt/etc", mnt))
+                              for mnt in ("resolv.conf", "passwd", "group")])
+        else:
+            return ""
+
     def _get_ethernet_interfaces(self):
         # We don't use \(\) here to ensure this works even without GNU sed.
         cmd = "ip addr show | sed -n -e 's/^[0-9]*: *//p' | cut -d: -f1"
