@@ -186,12 +186,17 @@ class HetznerState(MachineState):
             res.exists = False
             return
 
-        server = self._get_server_by_ip(self.main_ipv4)
-        if server.rescue.active and self.rescue_passwd is not None:
-            res.is_up = True
+        avg = self.get_load_avg()
+        if avg is None:
+            if self.state in (self.UP, self.RESCUE):
+                self.state = self.UNREACHABLE
+            res.is_reachable = False
+        elif self.run_command("test -f /etc/NIXOS", check=False) != 0:
             self.state = self.RESCUE
+            self.ssh_pinged = True
+            self._ssh_pinged_this_time = True
+            res.is_reachable = True
         else:
-            res.is_up = nixops.util.ping_tcp_port(self.main_ipv4, 22)
             MachineState._check(self, res)
 
     def destroy(self):
