@@ -218,7 +218,7 @@ class HetznerState(MachineState):
         self._install_nix_mnt()
 
     def get_physical_spec(self):
-        return self.fs_info.splitlines()
+        return map(lambda l: "  " + l, self.fs_info.splitlines())
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, HetznerDefinition)
