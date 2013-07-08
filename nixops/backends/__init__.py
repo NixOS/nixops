@@ -311,6 +311,9 @@ class MachineState(nixops.resources.ResourceState):
                                  capture_stdout=capture_stdout, stdin=stdin,
                                  stdin_string=stdin_string, env=env)
 
+    def pre_activation_command(self):
+        return ""
+
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
 
