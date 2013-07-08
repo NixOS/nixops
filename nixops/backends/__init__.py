@@ -295,7 +295,7 @@ class MachineState(nixops.resources.ResourceState):
         return stdout if capture_stdout else res
 
     def run_command(self, command, check=True, capture_stdout=False, stdin=None,
-                    stdin_string=None, timeout=None):
+                    stdin_string=None, timeout=None, env=None):
         """Execute a command on the machine via SSH."""
         # Note that the timeout is only respected if this is the first
         # call to _open_ssh_master().
@@ -305,7 +305,7 @@ class MachineState(nixops.resources.ResourceState):
             self.ssh_master.opts + self.get_ssh_flags() + [command])
         return self._logged_exec(cmdline, check=check,
                                  capture_stdout=capture_stdout, stdin=stdin,
-                                 stdin_string=stdin_string)
+                                 stdin_string=stdin_string, env=env)
 
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
