@@ -613,21 +613,31 @@ class Deployment(object):
             try:
                 m.send_keys()
 
+                switcher = ("/nix/var/nix/profiles/system/bin/"
+                            "switch-to-configuration ")
+
+                if force_reboot or m.state == m.RESCUE:
+                    switcher += "boot"
+                else:
+                    switcher += "switch"
+
                 res = m.run_command(
                     # Set the system profile to the new configuration.
-                    "set -e; nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + "; " +
+                    "set -e; nix-env -p /nix/var/nix/profiles/system --set " +
+                    m.new_toplevel + "; " +
                     # Run the switch script.  This will also update the
                     # GRUB boot loader.
-                    ("NIXOS_NO_SYNC=1 " if not sync else "") +
-                    "/nix/var/nix/profiles/system/bin/switch-to-configuration " + ("boot" if force_reboot else "switch"),
+                    ("NIXOS_NO_SYNC=1 " if not sync else "") + switcher,
                     check=False)
 
                 if res != 0 and res != 100:
                     raise Exception("unable to activate new configuration")
 
-                if res == 100 or force_reboot:
+                if res == 100 or force_reboot or m.state == m.RESCUE:
                     if not allow_reboot and not force_reboot:
-                        raise Exception("the new configuration requires a reboot to take effect (hint: use ‘--allow-reboot’)".format(m.name))
+                        raise Exception("the new configuration requires a "
+                                        "reboot to take effect (hint: use "
+                                        "‘--allow-reboot’)".format(m.name))
                     m.reboot_sync()
                     res = 0
                     # FIXME: should check which systemd services
