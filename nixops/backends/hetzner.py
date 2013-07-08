@@ -48,6 +48,7 @@ class HetznerState(MachineState):
     rescue_passwd = nixops.util.attr_property("rescuePasswd", None)
     partitioner = nixops.util.attr_property("rescuePartitioner", None)
     fs_info = nixops.util.attr_property("fsInfo", None)
+    net_info = nixops.util.attr_property("networkInfo", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -216,9 +217,81 @@ class HetznerState(MachineState):
         self.run_command("touch /mnt/etc/NIXOS")
         self._install_bin_sh()
         self._install_nix_mnt()
+        self._gen_network_spec()
+
+    def _get_ethernet_interfaces(self):
+        # We don't use \(\) here to ensure this works even without GNU sed.
+        cmd = "ip addr show | sed -n -e 's/^[0-9]*: *//p' | cut -d: -f1"
+        return self.run_command(cmd, capture_stdout=True).splitlines()
+
+    def _get_udev_rule_for(self, interface):
+        cmd = "ip addr show \"{0}\" | sed -n -e 's|^.*link/ether  *||p'"
+        cmd += " | cut -d' ' -f1"
+        mac_addr = self.run_command(cmd.format(interface),
+                                    capture_stdout=True).strip()
+
+        rule = 'ACTION=="add", SUBSYSTEM=="net", ATTR{{address}}=="{0}", '
+        rule += 'NAME="{1}"'
+        return rule.format(mac_addr, interface)
+
+    def _get_ipv4_addr_and_prefix_for(self, interface):
+        cmd = "ip addr show \"{0}\" | sed -n -e 's/^.*inet  *//p'"
+        cmd += " | cut -d' ' -f1"
+        ipv4_addr_prefix = self.run_command(cmd.format(interface),
+                                            capture_stdout=True).strip()
+        return ipv4_addr_prefix.split('/', 1)
+
+    def _get_default_gw(self):
+        cmd = "ip route list | sed -n -e 's/^default  *via  *//p'"
+        cmd += " | cut -d' ' -f1"
+        return self.run_command(cmd, capture_stdout=True).strip()
+
+    def _get_nameservers(self):
+        cmd = "cat /etc/resolv.conf | sed -n -e 's/^nameserver  *//p'"
+        return self.run_command(cmd, capture_stdout=True).splitlines()
+
+    def _indent(self, lines, level=1):
+        """
+        Indent list of lines by the specified level (one level = two spaces).
+        """
+        return map(lambda line: "  " + line, lines)
+
+    def _gen_network_spec(self):
+        udev_rules = []
+        iface_attrs = []
+
+        # interface-specific networking options
+        for iface in self._get_ethernet_interfaces():
+            if iface == "lo":
+                continue
+
+            udev_rules.append(self._get_udev_rule_for(iface))
+            ipv4, prefix = self._get_ipv4_addr_and_prefix_for(iface)
+            quotedipv4 = '"{0}"'.format(ipv4)
+            baseattr = 'networking.interfaces.{0}.{1} = {2};'
+            iface_attrs.append(baseattr.format(iface, "ipAddress", quotedipv4))
+            iface_attrs.append(baseattr.format(iface, "prefixLength", prefix))
+
+        # global networking options
+        defgw = self._get_default_gw()
+        nameservers = self._get_nameservers()
+
+        udev_attrs = ["services.udev.extraRules = ''"]
+        udev_attrs += self._indent(udev_rules)
+        udev_attrs += ["'';"]
+
+        attrs = iface_attrs + udev_attrs + [
+            'networking.defaultGateway = "{0}";'.format(defgw),
+            'networking.nameservers = [ {0} ];'.format(
+                ' '.join(map(lambda ns: '"{0}"'.format(ns), nameservers))
+            ),
+        ]
+        self.net_info = "\n".join(self._indent(attrs))
 
     def get_physical_spec(self):
-        return map(lambda l: "  " + l, self.fs_info.splitlines())
+        return self._indent(
+            self.net_info.splitlines() + self.fs_info.splitlines()
+        )
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, HetznerDefinition)
