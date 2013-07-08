@@ -47,6 +47,7 @@ class HetznerState(MachineState):
 
     rescue_passwd = nixops.util.attr_property("rescuePasswd", None)
     partitioner = nixops.util.attr_property("rescuePartitioner", None)
+    fs_info = nixops.util.attr_property("fsInfo", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -127,8 +128,11 @@ class HetznerState(MachineState):
         out = self.run_command("{0} -".format(nixpart_bin),
                                capture_stdout=True,
                                stdin_string=self.partitions)
+        self.fs_info = '\n'.join(out.splitlines()[1:-1])
         self.log_end("done.")
-        self.log("partitioner output: {0}".format(out))
+
+    def get_physical_spec(self):
+        return self.fs_info.splitlines()
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, HetznerDefinition)
