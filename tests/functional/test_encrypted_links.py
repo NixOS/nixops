@@ -24,11 +24,13 @@ class TestEncryptedLinks(generic_deployment_test.GenericDeploymentTest):
         time.sleep(1)
         self.ping("machine1", "machine2")
         self.ping("machine2", "machine1")
-        self.depl.machines["machine1"].run_command("systemctl stop encrypted-links.target")
+        self.depl.machines["machine1"].run_command(
+            "systemctl stop encrypted-links.target")
         with tools.assert_raises(backends.SSHCommandFailed):
             self.ping("machine1", "machine2")
         with tools.assert_raises(backends.SSHCommandFailed):
             self.ping("machine2", "machine1")
 
     def ping(self, machine1, machine2):
-        self.depl.machines[machine1].run_command("ping -c1 {0}-encrypted".format(machine2))
+        self.depl.machines[machine1].run_command(
+            "ping -c1 {0}-encrypted".format(machine2))

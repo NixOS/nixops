@@ -19,7 +19,9 @@ devnull = open(os.devnull, 'rw')
 
 
 def check_wait(test, initial=10, factor=1, max_tries=60, exception=True):
-    """Call function ‘test’ periodically until it returns True or a timeout occurs."""
+    """Call function ‘test’ periodically until it returns True or a timeout
+       occurs.
+    """
     wait = initial
     tries = 0
     while tries < max_tries and not test():
@@ -27,7 +29,8 @@ def check_wait(test, initial=10, factor=1, max_tries=60, exception=True):
         wait = wait * factor
         tries = tries + 1
         if tries == max_tries:
-            if exception: raise Exception("operation timed out")
+            if exception:
+                raise Exception("operation timed out")
             return False
     return True
 
@@ -41,7 +44,8 @@ def generate_random_string(length=256):
 
 
 def make_non_blocking(fd):
-    fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)
+    fcntl.fcntl(fd, fcntl.F_SETFL,
+                fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)
 
 
 def ping_tcp_port(ip, port, timeout=1, ensure_timeout=False):
@@ -56,7 +60,8 @@ def ping_tcp_port(ip, port, timeout=1, ensure_timeout=False):
         # FIXME: check that we got a transient error (like connection
         # refused or no route to host). For any other error, throw an
         # exception.
-        if ensure_timeout: time.sleep(timeout)
+        if ensure_timeout:
+            time.sleep(timeout)
         return False
     s.shutdown(socket.SHUT_RDWR)
     return True
@@ -66,11 +71,15 @@ def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
     """Wait until the specified TCP port is open or closed."""
     n = 0
     while True:
-        if ping_tcp_port(ip, port, ensure_timeout=True) == open: return True
-        if not open: time.sleep(1)
+        if ping_tcp_port(ip, port, ensure_timeout=True) == open:
+            return True
+        if not open:
+            time.sleep(1)
         n = n + 1
-        if timeout != -1 and n >= timeout: break
-        if callback: callback()
+        if timeout != -1 and n >= timeout:
+            break
+        if callback:
+            callback()
     raise Exception("timed out waiting for port {0} on ‘{1}’".format(port, ip))
 
 
@@ -84,19 +93,26 @@ def ansi_success(s, outfile=sys.stderr):
 
 def abs_nix_path(x):
     xs = x.split('=', 1)
-    if len(xs) == 1: return os.path.abspath(x)
+    if len(xs) == 1:
+        return os.path.abspath(x)
     return xs[0] + '=' + os.path.abspath(xs[1])
 
 
 def make_nix_string(s):
     t = '"'
     for c in s:
-        if c == '\\': t += "\\\\"
-        elif c == '\n': t += "\\n"
-        elif c == '\r': t += "\\r"
-        elif c == '\t': t += "\\t"
-        elif c == '"': t += '\\"'
-        else: t += c
+        if c == '\\':
+            t += "\\\\"
+        elif c == '\n':
+            t += "\\n"
+        elif c == '\r':
+            t += "\\r"
+        elif c == '\t':
+            t += "\\t"
+        elif c == '"':
+            t += '\\"'
+        else:
+            t += c
     t += '"'
     return t
 
@@ -105,32 +121,55 @@ undefined = object()
 
 
 def attr_property(name, default, type=str):
-    """Define a property that corresponds to a value in the NixOps state file."""
+    """Define a property that corresponds to a value in the NixOps state file.
+    """
     def get(self):
         s = self._get_attr(name, default)
         if s == undefined:
-            if default != undefined: return copy.deepcopy(default)
-            raise Exception("deployment attribute ‘{0}’ missing from state file".format(name))
-        if s == None: return None
-        elif type is str: return s
-        elif type is int: return int(s)
-        elif type is bool: return True if s == "1" else False
-        elif type is 'json': return json.loads(s)
-        else: assert False
+            if default != undefined:
+                return copy.deepcopy(default)
+            raise Exception("deployment attribute ‘{0}’ missing from state "
+                            "file".format(name))
+        if s is None:
+            return None
+        elif type is str:
+            return s
+        elif type is int:
+            return int(s)
+        elif type is bool:
+            return True if s == "1" else False
+        elif type is 'json':
+            return json.loads(s)
+        else:
+            assert False
+
     def set(self, x):
-        if x == default: self._del_attr(name)
-        elif type is 'json': self._set_attr(name, json.dumps(x))
-        else: self._set_attr(name, x)
+        if x == default:
+            self._del_attr(name)
+        elif type is 'json':
+            self._set_attr(name, json.dumps(x))
+        else:
+            self._set_attr(name, x)
+
     return property(get, set)
 
 
 def create_key_pair(key_name="NixOps auto-generated key", type="dsa"):
     key_dir = tempfile.mkdtemp(prefix="nixops-tmp")
-    res = subprocess.call(["ssh-keygen", "-t", type, "-f", key_dir + "/key", "-N", '', "-C", key_name],
+    res = subprocess.call(["ssh-keygen", "-t", type,
+                           "-f", key_dir + "/key", "-N", '', "-C", key_name],
                           stdout=devnull)
-    if res != 0: raise Exception("unable to generate an SSH key")
-    f = open(key_dir + "/key"); private = f.read(); f.close()
-    f = open(key_dir + "/key.pub"); public = f.read().rstrip(); f.close()
+    if res != 0:
+        raise Exception("unable to generate an SSH key")
+
+    f = open(key_dir + "/key")
+    private = f.read()
+    f.close()
+
+    f = open(key_dir + "/key.pub")
+    public = f.read().rstrip()
+    f.close()
+
     shutil.rmtree(key_dir)
     return (private, public)
 
@@ -146,45 +185,57 @@ class SelfDeletingDir(str):
 
 class TeeStderr(StringIO):
     stderr = None
+
     def __init__(self):
         StringIO.__init__(self)
         self.stderr = sys.stderr
         self.logger = logging.getLogger('root')
         sys.stderr = self
+
     def __del__(self):
         sys.stderr = self.stderr
+
     def write(self, data):
         self.stderr.write(data)
         for l in data.split('\n'):
             self.logger.warning(l)
+
     def fileno(self):
         return self.stderr.fileno()
+
     def isatty(self):
         return self.stderr.isatty()
 
 
 class TeeStdout(StringIO):
     stdout = None
+
     def __init__(self):
         StringIO.__init__(self)
         self.stdout = sys.stdout
         self.logger = logging.getLogger('root')
         sys.stdout = self
+
     def __del__(self):
         sys.stdout = self.stdout
+
     def write(self, data):
         self.stdout.write(data)
         for l in data.split('\n'):
             self.logger.info(l)
+
     def fileno(self):
         return self.stdout.fileno()
+
     def isatty(self):
         return self.stdout.isatty()
 
 
-# Borrowed from http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python.
+# Borrowed from
+# http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python
 def which(program):
     import os
+
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 

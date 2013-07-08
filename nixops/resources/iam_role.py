@@ -18,9 +18,12 @@ class IAMRoleDefinition(nixops.resources.ResourceDefinition):
 
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
-        self.role_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
-        self.policy = xml.find("attrs/attr[@name='policy']/string").get("value")
+        self.role_name = xml.find(
+            "attrs/attr[@name='name']/string").get("value")
+        self.access_key_id = xml.find(
+            "attrs/attr[@name='accessKeyId']/string").get("value")
+        self.policy = xml.find(
+            "attrs/attr[@name='policy']/string").get("value")
 
     def show_type(self):
         return "{0}".format(self.get_type())
@@ -29,7 +32,8 @@ class IAMRoleDefinition(nixops.resources.ResourceDefinition):
 class IAMRoleState(nixops.resources.ResourceState):
     """State of an IAM Role."""
 
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property(
+        "state", nixops.resources.ResourceState.MISSING, int)
     role_name = nixops.util.attr_property("ec2.roleName", None)
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
     policy = nixops.util.attr_property("ec2.policy", None)
@@ -51,21 +55,27 @@ class IAMRoleState(nixops.resources.ResourceState):
         return self.role_name
 
     def connect(self):
-        if self._conn: return
-        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
+        if self._conn:
+            return
+        (access_key_id, secret_access_key) =\
+            nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
         self._conn = boto.connect_iam(
-            aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+            aws_access_key_id=access_key_id,
+            aws_secret_access_key=secret_access_key)
 
     def _destroy(self):
-        if self.state != self.UP: return
+        if self.state != self.UP:
+            return
         self.connect()
 
         try:
-            ip = self._conn.get_instance_profile(self.role_name)
+            self._conn.get_instance_profile(self.role_name)
             try:
-                self._conn.remove_role_from_instance_profile(self.role_name, self.role_name)
+                self._conn.remove_role_from_instance_profile(self.role_name,
+                                                             self.role_name)
             except:
-                self.log("Could not remove role from instance profile. Perhaps already gone.")
+                self.log("Could not remove role from instance profile. "
+                         "Perhaps already gone.")
 
             try:
                 self._conn.get_role_policy(self.role_name, self.role_name)
@@ -100,9 +110,11 @@ class IAMRoleState(nixops.resources.ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
 
-        self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
+        self.access_key_id = defn.access_key_id or\
+            nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
-            raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
+            raise Exception("please set ‘accessKeyId’, "
+                            "$EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         if self.state == self.UP and (self.role_name != defn.role_name):
             self.log("role definition changed, recreating...")
@@ -119,13 +131,17 @@ class IAMRoleState(nixops.resources.ResourceState):
 
             if not r or self.state != self.UP:
                 if r:
-                    self.log("deleting role ‘{0}’ (and ...".format(defn.role_name))
+                    self.log("deleting role ‘{0}’ (and "
+                             "...".format(defn.role_name))
                     self._destroy()
                 self.log("creating IAM role ‘{0}’...".format(defn.role_name))
-                profile = self._conn.create_instance_profile(defn.role_name, '/')
-                role = self._conn.create_role(defn.role_name)
-                self._conn.add_role_to_instance_profile(defn.role_name, defn.role_name)
-                self._conn.put_role_policy(defn.role_name, defn.role_name, defn.policy)
+                self._conn.create_instance_profile(defn.role_name, '/')
+                self._conn.create_role(defn.role_name)
+                self._conn.add_role_to_instance_profile(defn.role_name,
+                                                        defn.role_name)
+                self._conn.put_role_policy(defn.role_name,
+                                           defn.role_name,
+                                           defn.policy)
 
             with self.depl._db:
                 self.state = self.UP

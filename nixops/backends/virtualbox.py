@@ -21,14 +21,20 @@ class VirtualBoxDefinition(MachineDefinition):
         x = xml.find("attrs/attr[@name='virtualbox']/attrs")
         assert x is not None
         self.memory_size = x.find("attr[@name='memorySize']/int").get("value")
-        self.headless = x.find("attr[@name='headless']/bool").get("value") == "true"
+        self.headless = x.find(
+            "attr[@name='headless']/bool").get("value") == "true"
 
         def f(xml):
-            return {'port': int(xml.find("attrs/attr[@name='port']/int").get("value")),
-                    'size': int(xml.find("attrs/attr[@name='size']/int").get("value")),
-                    'baseImage': xml.find("attrs/attr[@name='baseImage']/string").get("value")}
+            return {
+                'port': int(xml.find(
+                    "attrs/attr[@name='port']/int").get("value")),
+                'size': int(xml.find(
+                    "attrs/attr[@name='size']/int").get("value")),
+                'baseImage': xml.find(
+                    "attrs/attr[@name='baseImage']/string").get("value")}
 
-        self.disks = {k.get("name"): f(k) for k in x.findall("attr[@name='disks']/attrs/attr")}
+        self.disks = {k.get("name"): f(k)
+                      for k in x.findall("attr[@name='disks']/attrs/attr")}
 
 
 class VirtualBoxState(MachineState):
@@ -38,17 +44,22 @@ class VirtualBoxState(MachineState):
     def get_type(cls):
         return "virtualbox"
 
-    state = nixops.util.attr_property("state", MachineState.MISSING, int) # override
+    state = nixops.util.attr_property(
+        "state", MachineState.MISSING, int)  # override
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
     disks = nixops.util.attr_property("virtualbox.disks", {}, 'json')
-    _client_private_key = nixops.util.attr_property("virtualbox.clientPrivateKey", None)
-    _client_public_key = nixops.util.attr_property("virtualbox.clientPublicKey", None)
+    _client_private_key = nixops.util.attr_property(
+        "virtualbox.clientPrivateKey", None)
+    _client_public_key = nixops.util.attr_property(
+        "virtualbox.clientPublicKey", None)
     _headless = nixops.util.attr_property("virtualbox.headless", False, bool)
-    sata_controller_created = nixops.util.attr_property("virtualbox.sataControllerCreated", False, bool)
+    sata_controller_created = nixops.util.attr_property(
+        "virtualbox.sataControllerCreated", False, bool)
 
     # Obsolete.
     disk = nixops.util.attr_property("virtualbox.disk", None)
-    disk_attached = nixops.util.attr_property("virtualbox.diskAttached", False, bool)
+    disk_attached = nixops.util.attr_property(
+        "virtualbox.diskAttached", False, bool)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -63,10 +74,12 @@ class VirtualBoxState(MachineState):
         return self.private_ipv4
 
     def get_ssh_private_key_file(self):
-        return self._ssh_private_key_file or self.write_ssh_private_key(self._client_private_key)
+        return self._ssh_private_key_file or\
+            self.write_ssh_private_key(self._client_private_key)
 
     def get_ssh_flags(self):
-        return ["-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file()]
+        return ["-o", "StrictHostKeyChecking=no",
+                "-i", self.get_ssh_private_key_file()]
 
     def get_physical_spec(self):
         return ['    require = [ <nixops/virtualbox-image-nixops.nix> ];']
@@ -88,7 +101,8 @@ class VirtualBoxState(MachineState):
         # shutting down (even though the necessary info is returned on
         # stdout).
         if len(lines) == 0:
-            raise Exception("unable to get info on VirtualBox VM ‘{0}’".format(self.name))
+            raise Exception("unable to get info on VirtualBox VM "
+                            "‘{0}’".format(self.name))
         vminfo = {}
         for l in lines:
             (k, v) = l.split("=", 1)
@@ -99,15 +113,19 @@ class VirtualBoxState(MachineState):
         '''Return the state ("running", etc.) of a VM.'''
         vminfo = self._get_vm_info()
         if 'VMState' not in vminfo:
-            raise Exception("unable to get state of VirtualBox VM ‘{0}’".format(self.name))
+            raise Exception("unable to get state of VirtualBox VM "
+                            "‘{0}’".format(self.name))
         return vminfo['VMState'].replace('"', '')
 
     def _start(self):
         self._logged_exec(
-            ["VBoxManage", "guestproperty", "set", self.vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP", ''])
+            ["VBoxManage", "guestproperty", "set", self.vm_id,
+             "/VirtualBox/GuestInfo/Net/1/V4/IP", ''])
 
         self._logged_exec(
-            ["VBoxManage", "guestproperty", "set", self.vm_id, "/VirtualBox/GuestInfo/Charon/ClientPublicKey", self._client_public_key])
+            ["VBoxManage", "guestproperty", "set", self.vm_id,
+             "/VirtualBox/GuestInfo/Charon/ClientPublicKey",
+             self._client_public_key])
 
         self._logged_exec(["VBoxManage", "startvm", self.vm_id] +
                           (["--type", "headless"] if self._headless else []))
@@ -116,14 +134,15 @@ class VirtualBoxState(MachineState):
 
     def _update_ip(self):
         res = self._logged_exec(
-            ["VBoxManage", "guestproperty", "get", self.vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP"],
+            ["VBoxManage", "guestproperty", "get", self.vm_id,
+             "/VirtualBox/GuestInfo/Net/1/V4/IP"],
             capture_stdout=True).rstrip()
         if res[0:7] != "Value: ": return
         self.private_ipv4 = res[7:]
 
     def _update_disk(self, name, state):
         disks = self.disks
-        if state == None:
+        if state is None:
             disks.pop(name, None)
         else:
             disks[name] = state
@@ -133,7 +152,8 @@ class VirtualBoxState(MachineState):
         self.log_start("waiting for IP address...")
         while True:
             self._update_ip()
-            if self.private_ipv4 != None: break
+            if self.private_ipv4 is not None:
+                break
             time.sleep(1)
             self.log_continue(".")
         self.log_end(" " + self.private_ipv4)
@@ -142,14 +162,16 @@ class VirtualBoxState(MachineState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, VirtualBoxDefinition)
 
-        if self.state != self.UP or check: self.check()
+        if self.state != self.UP or check:
+            self.check()
 
         self.set_common_state(defn)
 
         if not self.vm_id:
             self.log("creating VirtualBox VM...")
             vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
-            self._logged_exec(["VBoxManage", "createvm", "--name", vm_id, "--ostype", "Linux", "--register"])
+            self._logged_exec(["VBoxManage", "createvm", "--name", vm_id,
+                               "--ostype", "Linux", "--register"])
             self.vm_id = vm_id
             self.state = self.STOPPED
 
@@ -167,13 +189,14 @@ class VirtualBoxState(MachineState):
         if not self.sata_controller_created:
             self._logged_exec(
                 ["VBoxManage", "storagectl", self.vm_id,
-                 "--name", "SATA", "--add", "sata", "--sataportcount", str(sata_ports),
-                 "--bootable", "on", "--hostiocache", "on"])
+                 "--name", "SATA", "--add", "sata", "--sataportcount",
+                 str(sata_ports), "--bootable", "on", "--hostiocache", "on"])
             self.sata_controller_created = True
 
         vm_dir = os.environ['HOME'] + "/VirtualBox VMs/" + self.vm_id
         if not os.path.isdir(vm_dir):
-            raise Exception("can't find directory of VirtualBox VM ‘{0}’".format(self.name))
+            raise Exception("can't find directory of VirtualBox VM "
+                            "‘{0}’".format(self.name))
 
         # Create missing disks.
         for disk_name, disk_def in defn.disks.items():
@@ -193,15 +216,22 @@ class VirtualBoxState(MachineState):
                             ["nix-build"]
                             + self.depl._eval_flags(self.depl.nix_exprs) +
                             ["--arg", "checkConfigurationOptions", "false",
-                             "-A", "nodes.{0}.config.deployment.virtualbox.disks.{1}.baseImage".format(self.name, disk_name),
-                             "-o", "{0}/vbox-image-{1}".format(self.depl.tempdir, self.name)],
+                             "-A", "nodes.{0}.config.deployment.virtualbox."
+                                   "disks.{1}.baseImage".format(
+                                       self.name, disk_name),
+                             "-o", "{0}/vbox-image-{1}".format(
+                                 self.depl.tempdir, self.name)],
                             capture_stdout=True).rstrip()
-                    self._logged_exec(["VBoxManage", "clonehd", base_image, disk_path])
+                    self._logged_exec(["VBoxManage", "clonehd", base_image,
+                                       disk_path])
                 else:
                     # Create an empty disk.
                     if disk_def['size'] <= 0:
-                        raise Exception("size of VirtualBox disk ‘{0}’ must be positive".format(disk_name))
-                    self._logged_exec(["VBoxManage", "createhd", "--filename", disk_path, "--size", str(disk_def['size'])])
+                        raise Exception("size of VirtualBox disk ‘{0}’ must "
+                                        "be positive".format(disk_name))
+                    self._logged_exec(["VBoxManage", "createhd",
+                                       "--filename", disk_path,
+                                       "--size", str(disk_def['size'])])
                     disk_state['size'] = disk_def['size']
 
                 disk_state['created'] = True
@@ -212,17 +242,26 @@ class VirtualBoxState(MachineState):
                 self.log("attaching disk ‘{0}’...".format(disk_name))
 
                 if disk_def['port'] >= sata_ports:
-                    raise Exception("SATA port number {0} of disk ‘{1}’ exceeds maximum ({2})".format(disk_def['port'], disk_name, sata_ports))
+                    raise Exception("SATA port number {0} of disk ‘{1}’ "
+                                    "exceeds maximum ({2})".format(
+                                        disk_def['port'],
+                                        disk_name,
+                                        sata_ports))
 
                 for disk_name2, disk_state2 in self.disks.items():
-                    if disk_name != disk_name2 and disk_state2.get('attached', False) and \
+                    if disk_name != disk_name2 and\
+                            disk_state2.get('attached', False) and \
                             disk_state2['port'] == disk_def['port']:
-                        raise Exception("cannot attach disks ‘{0}’ and ‘{1}’ to the same SATA port on VirtualBox machine ‘{2}’".format(disk_name, disk_name2, self.name))
+                        raise Exception("cannot attach disks ‘{0}’ and ‘{1}’ "
+                                        "to the same SATA port on VirtualBox "
+                                        "machine ‘{2}’".format(
+                                            disk_name, disk_name2, self.name))
 
                 self._logged_exec(
                     ["VBoxManage", "storageattach", self.vm_id,
-                     "--storagectl", "SATA", "--port", str(disk_def['port']), "--device", "0",
-                     "--type", "hdd", "--medium", disk_state['path']])
+                     "--storagectl", "SATA", "--port", str(disk_def['port']),
+                     "--device", "0", "--type", "hdd",
+                     "--medium", disk_state['path']])
                 disk_state['attached'] = True
                 disk_state['port'] = disk_def['port']
                 self._update_disk(disk_name, disk_state)
@@ -233,8 +272,12 @@ class VirtualBoxState(MachineState):
         # Destroy obsolete disks.
         for disk_name, disk_state in self.disks.items():
             if disk_name not in defn.disks:
-                if not self.depl.confirm("are you sure you want to destroy disk ‘{0}’ of VirtualBox instance ‘{1}’?".format(disk_name, self.name)):
-                    raise Exception("not destroying VirtualBox disk ‘{0}’".format(disk_name))
+                if not self.depl.confirm(
+                        "are you sure you want to destroy disk ‘{0}’ of "
+                        "VirtualBox instance ‘{1}’"
+                        "?".format(disk_name, self.name)):
+                    raise Exception("not destroying VirtualBox disk "
+                                    "‘{0}’".format(disk_name))
                 self.log("destroying disk ‘{0}’".format(disk_name))
 
                 if disk_state.get('attached', False):
@@ -242,7 +285,8 @@ class VirtualBoxState(MachineState):
                     # attached (and remove check=False).
                     self._logged_exec(
                         ["VBoxManage", "storageattach", self.vm_id,
-                         "--storagectl", "SATA", "--port", str(disk_state['port']), "--device", "0",
+                         "--storagectl", "SATA",
+                         "--port", str(disk_state['port']), "--device", "0",
                          "--type", "hdd", "--medium", "none"], check=False)
                     disk_state['attached'] = False
                     disk_state.pop('port')
@@ -250,12 +294,14 @@ class VirtualBoxState(MachineState):
 
                 if disk_state['created']:
                     self._logged_exec(
-                        ["VBoxManage", "closemedium", "disk", disk_state['path'], "--delete"])
+                        ["VBoxManage", "closemedium", "disk",
+                         disk_state['path'], "--delete"])
 
                 self._update_disk(disk_name, None)
 
         if not self._client_private_key:
-            (self._client_private_key, self._client_public_key) = nixops.util.create_key_pair()
+            (self._client_private_key, self._client_public_key) =\
+                nixops.util.create_key_pair()
 
         if not self.started:
             self._logged_exec(
@@ -272,28 +318,35 @@ class VirtualBoxState(MachineState):
             self._wait_for_ip()
 
     def destroy(self):
-        if not self.vm_id: return True
+        if not self.vm_id:
+            return True
 
-        if not self.depl.confirm("are you sure you want to destroy VirtualBox VM ‘{0}’?".format(self.name)): return False
+        if not self.depl.confirm(
+                "are you sure you want to destroy VirtualBox VM ‘{0}’"
+                "?".format(self.name)):
+            return False
 
         self.log("destroying VirtualBox VM...")
 
         if self._get_vm_state() == 'running':
-            self._logged_exec(["VBoxManage", "controlvm", self.vm_id, "poweroff"], check=False)
+            self._logged_exec(["VBoxManage", "controlvm", self.vm_id,
+                               "poweroff"], check=False)
 
         while self._get_vm_state() not in ['poweroff', 'aborted']:
             time.sleep(1)
 
         self.state = self.STOPPED
 
-        time.sleep(1) # hack to work around "machine locked" errors
+        time.sleep(1)  # hack to work around "machine locked" errors
 
-        self._logged_exec(["VBoxManage", "unregistervm", "--delete", self.vm_id])
+        self._logged_exec(["VBoxManage", "unregistervm",
+                           "--delete", self.vm_id])
 
         return True
 
     def stop(self):
-        if self._get_vm_state() != 'running': return
+        if self._get_vm_state() != 'running':
+            return
 
         self.log_start("shutting down... ")
 
@@ -303,7 +356,8 @@ class VirtualBoxState(MachineState):
         while True:
             state = self._get_vm_state()
             self.log_continue("({0}) ".format(state))
-            if state == 'poweroff': break
+            if state == 'poweroff':
+                break
             time.sleep(1)
 
         self.log_end("")
@@ -312,7 +366,8 @@ class VirtualBoxState(MachineState):
         self.ssh_master = None
 
     def start(self):
-        if self._get_vm_state() == 'running': return
+        if self._get_vm_state() == 'running':
+            return
         self.log("restarting...")
 
         prev_ipv4 = self.private_ipv4
@@ -321,7 +376,8 @@ class VirtualBoxState(MachineState):
         self._wait_for_ip()
 
         if prev_ipv4 != self.private_ipv4:
-            self.warn("IP address has changed, you may need to run ‘nixops deploy’")
+            self.warn("IP address has changed, you may need to run "
+                      "‘nixops deploy’")
 
         self.wait_for_ssh(check=True)
 
