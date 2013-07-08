@@ -62,5 +62,7 @@ with pkgs.lib;
     fileSystems = {};
     boot.loader.grub.version = 2;
     boot.loader.grub.devices = [ "/dev/sda" "/dev/sdb" ];
+    # FIXME: This should be detected by the installer!
+    boot.kernelModules = [ "r8169" ];
   };
 }
