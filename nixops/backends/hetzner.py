@@ -46,7 +46,6 @@ class HetznerState(MachineState):
     partitions = nixops.util.attr_property("hetzner.partitions", None)
 
     rescue_passwd = nixops.util.attr_property("rescuePasswd", None)
-    partitioner = nixops.util.attr_property("rescuePartitioner", None)
     fs_info = nixops.util.attr_property("fsInfo", None)
     net_info = nixops.util.attr_property("networkInfo", None)
 
@@ -109,84 +108,6 @@ class HetznerState(MachineState):
         self.has_partitioner = None
         self.state = self.RESCUE
 
-    def _build_locally(self, path):
-        return subprocess.check_output([
-            "nix-build", "<nixpkgs>", "--no-out-link", "-A", path
-        ]).rstrip()
-
-    def _copy_shallow_closure(self, path, basepath="/"):
-        paths = subprocess.check_output(['nix-store', '-qR', path])
-        local_tar = subprocess.Popen(['tar', 'cJ'] + paths.splitlines(),
-                                     stdout=subprocess.PIPE)
-        self.run_command("tar xJ -C {0}".format(basepath),
-                         stdin=local_tar.stdout)
-        local_tar.wait()
-
-    def _install_partitioner(self):
-        self.log_start("building partitioner...")
-        nixpart = self._build_locally("pythonPackages.nixpartHetzner")
-        self.log_end("done ({0})".format(nixpart))
-
-        if self.partitioner is not None and self.partitioner == nixpart:
-            return nixpart
-
-        self.log_start("copying partitioner to rescue system...")
-        self._copy_shallow_closure(nixpart)
-        self.log_end("done.")
-
-        self.partitioner = nixpart
-        return nixpart
-
-    def _install_nix_mnt(self):
-        self.log_start("building Nix...")
-        nix = self._build_locally("nix")
-        self.log_end("done ({0})".format(nix))
-
-        self.log_start("copying Nix to /mnt in rescue system...")
-        self._copy_shallow_closure(nix, "/mnt")
-        self.log_end("done.")
-
-        self.log("creating chroot wrappers in /usr/bin:")
-        self.run_command('; '.join([
-            'for i in /mnt{0}/bin/*'.format(nix),
-            'do storepath="${i#/mnt}"',
-            '   echo -n "Creating $target from $i..." >&2',
-            '   target="/usr/bin/$(basename "$i")"',
-            '   echo "#!/bin/sh" > "$target"',
-            r'   echo "chroot /mnt \"$storepath\" \$@" >> "$target"',
-            '   chmod +x "$target"',
-            '   echo " done." >&2',
-            'done',
-        ]))
-
-        self.log_start("creating chroot wrapper for activation script...")
-        activator = "/nix/var/nix/profiles/system/bin/switch-to-configuration"
-        cmd = ' && '.join(['mkdir -p "{0}"',
-                           'echo "#!/bin/sh" > "{1}"',
-                           r'echo "chroot /mnt \"{1}\" \$@" >> "{1}"',
-                           'chmod +x "{1}"'])
-
-        self.run_command(cmd.format(os.path.dirname(activator), activator))
-        self.log_end("done.")
-
-    def _install_bin_sh(self):
-        self.log_start("building bash...")
-        bash = self._build_locally("bash")
-        self.log_end("done ({0})".format(bash))
-
-        self.log_start("copying bash to /mnt in rescue system...")
-        self._copy_shallow_closure(bash, "/mnt")
-        self.log_end("done.")
-
-        msg = "creating symlink from /mnt/bin/sh to {0}..."
-        self.log_start(msg.format(bash))
-        self.run_command('ln -sf "{0}/bin/bash" /mnt/bin/sh'.format(bash))
-        self.log_end("done.")
-
-    def has_really_fast_connection(self):
-        # XXX: Remove me after it's possible to use substitutes.
-        return True
-
     def _install_main_ssh_keys(self):
         """
         Create a SSH private/public keypair and put the public key into the
@@ -204,12 +125,27 @@ class HetznerState(MachineState):
         if self.state != self.RESCUE:
             return
 
-        nixpart = self._install_partitioner()
+        self.log_start("building Nix bootstrap installer...")
+        bootstrap =  subprocess.check_output([
+            "nix-build", "<nixpkgs>", "--no-out-link", "-A",
+            "hetznerNixOpsInstaller"
+        ]).rstrip()
+        self.log_end("done. ({0})".format(bootstrap))
+
+        self.log_start("copying bootstrap files to rescue system...")
+        tarstream = subprocess.Popen([bootstrap], stdout=subprocess.PIPE)
+        if not self.has_really_fast_connection():
+            stream = subprocess.Popen(["gzip", "-c"], stdin=tarstream.stdout,
+                                      stdout=subprocess.PIPE)
+            self.run_command("tar xz -C /", stdin=stream.stdout)
+            stream.wait()
+        else:
+            self.run_command("tar x -C /", stdin=tarstream.stdout)
+        tarstream.wait()
+        self.log_end("done.")
 
         self.log_start("partitioning disks...")
-        nixpart_bin = os.path.join(nixpart, "bin/nixpart")
-        out = self.run_command("{0} -".format(nixpart_bin),
-                               capture_stdout=True,
+        out = self.run_command("nixpart -", capture_stdout=True,
                                stdin_string=self.partitions)
         self.fs_info = '\n'.join(out.splitlines()[1:-1])
         self.log_end("done.")
@@ -243,8 +179,18 @@ class HetznerState(MachineState):
         self.log_end("done.")
 
         self.run_command("touch /mnt/etc/NIXOS")
-        self._install_bin_sh()
-        self._install_nix_mnt()
+        self.run_command("activate-remote")
+
+        # XXX: Make overridable switch_to_configuration()!
+        self.log_start("creating chroot wrapper for activation script...")
+        activator = "/nix/var/nix/profiles/system/bin/switch-to-configuration"
+        cmd = ' && '.join(['mkdir -p "{0}"',
+                           'echo "#!/bin/sh" > "{1}"',
+                           r'echo "chroot /mnt \"{1}\" \$@" >> "{1}"',
+                           'chmod +x "{1}"'])
+        self.run_command(cmd.format(os.path.dirname(activator), activator))
+        self.log_end("done.")
+
         self._install_main_ssh_keys()
         self._gen_network_spec()
 
