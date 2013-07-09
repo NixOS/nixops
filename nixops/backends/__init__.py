@@ -311,8 +311,19 @@ class MachineState(nixops.resources.ResourceState):
                                  capture_stdout=capture_stdout, stdin=stdin,
                                  stdin_string=stdin_string, env=env)
 
-    def pre_activation_command(self):
-        return ""
+    def switch_to_configuration(self, method, sync, command=None):
+        """
+        Execute the script to switch to new configuration.
+        This function has to return an integer, which is the return value of the
+        actual script.
+        """
+        cmd = ("NIXOS_NO_SYNC=1 " if not sync else "")
+        if command is None:
+            cmd += "/nix/var/nix/profiles/system/bin/switch-to-configuration"
+        else:
+            cmd += command
+        cmd += " " + method
+        return self.run_command(cmd, check=False)
 
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""

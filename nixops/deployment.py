@@ -613,30 +613,20 @@ class Deployment(object):
             try:
                 m.send_keys()
 
-                switcher = ("/nix/var/nix/profiles/system/bin/"
-                            "switch-to-configuration ")
+                m.run_command(
+                    # Set the system profile to the new configuration.
+                    "nix-env -p /nix/var/nix/profiles/system --set " +
+                    m.new_toplevel
+                )
 
                 if force_reboot or m.state == m.RESCUE:
-                    switcher += "boot"
+                    switch_method = "boot"
                 else:
-                    switcher += "switch"
+                    switch_method = "switch"
 
-                pre_activation = m.pre_activation_command()
-                if pre_activation != "":
-                    pre_activation += "; "
-
-                res = m.run_command(
-                    # Set the system profile to the new configuration.
-                    "set -e; nix-env -p /nix/var/nix/profiles/system --set " +
-                    m.new_toplevel + "; " +
-                    # Run machine-specific command prior to activation. For
-                    # example, this is useful for cleaning up bind mounts in
-                    # /etc.
-                    pre_activation +
-                    # Run the switch script.  This will also update the
-                    # GRUB boot loader.
-                    ("NIXOS_NO_SYNC=1 " if not sync else "") + switcher,
-                    check=False)
+                # Run the switch script.  This will also update the
+                # GRUB boot loader.
+                res = m.switch_to_configuration(switch_method, sync)
 
                 if res != 0 and res != 100:
                     raise Exception("unable to activate new configuration")
