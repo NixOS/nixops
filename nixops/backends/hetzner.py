@@ -180,31 +180,24 @@ class HetznerState(MachineState):
 
         self.run_command("touch /mnt/etc/NIXOS")
         self.run_command("activate-remote")
-
-        # XXX: Make overridable switch_to_configuration()!
-        self.log_start("creating chroot wrapper for activation script...")
-        activator = "/nix/var/nix/profiles/system/bin/switch-to-configuration"
-        cmd = ' && '.join(['mkdir -p "{0}"',
-                           'echo "#!/bin/sh" > "{1}"',
-                           r'echo "chroot /mnt \"{1}\" \$@" >> "{1}"',
-                           'chmod +x "{1}"'])
-        self.run_command(cmd.format(os.path.dirname(activator), activator))
-        self.log_end("done.")
-
         self._install_main_ssh_keys()
         self._gen_network_spec()
 
-    def pre_activation_command(self):
+    def switch_to_configuration(self, method, sync, command=None):
         if self.state == self.RESCUE:
-            # Use 'if' here instead of '&&' because we're in set -e mode.
             # We cannot use the mountpoint command here, because it's unable to
             # detect bind mounts on files, so we just go ahead and try to
             # unmount.
             umount = 'if umount "{0}" 2> /dev/null; then rm -f "{0}"; fi'
-            return '; '.join([umount.format(os.path.join("/mnt/etc", mnt))
-                              for mnt in ("resolv.conf", "passwd", "group")])
-        else:
-            return ""
+            cmd = '; '.join([umount.format(os.path.join("/mnt/etc", mnt))
+                             for mnt in ("resolv.conf", "passwd", "group")])
+            self.run_command(cmd)
+
+            command = "chroot /mnt /nix/var/nix/profiles/system/bin/"
+            command += "switch-to-configuration"
+
+        return MachineState.switch_to_configuration(self, method, sync,
+                                                    command)
 
     def _get_ethernet_interfaces(self):
         # We don't use \(\) here to ensure this works even without GNU sed.
