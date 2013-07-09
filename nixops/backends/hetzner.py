@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+
 import os
 import sys
 import subprocess
 
+from hetzner.robot import Robot
+
 import nixops.util
-from nixops.hetzner_utils import Robot
 from nixops.backends import MachineDefinition, MachineState
 
 

@@ -67,6 +67,7 @@ rec {
       propagatedBuildInputs =
         [ pythonPackages.prettytable
           pythonPackages.boto
+          pythonPackages.hetzner
           pythonPackages.sqlite3
         ];
 
