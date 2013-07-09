@@ -82,7 +82,7 @@ class HetznerState(MachineState):
 
     def get_ssh_flags(self):
         if self.state == self.RESCUE:
-            return []
+            return ["-o", "LogLevel=quiet"]
         else:
             return ["-i", self.get_ssh_private_key_file()]
 
