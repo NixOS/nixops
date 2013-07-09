@@ -126,7 +126,7 @@ class HetznerState(MachineState):
             return
 
         self.log_start("building Nix bootstrap installer...")
-        bootstrap =  subprocess.check_output([
+        bootstrap = subprocess.check_output([
             "nix-build", "<nixpkgs>", "--no-out-link", "-A",
             "hetznerNixOpsInstaller"
         ]).rstrip()
