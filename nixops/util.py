@@ -37,20 +37,14 @@ class CommandFailed(Exception):
     pass
 
 
-def logged_exec(command, log=None, log_start=None, log_end=None, check=True,
-                capture_stdout=False, stdin=None, stdin_string=None, env=None,
-                machine_name=None):
+def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
+                stdin_string=None, env=None):
     """
-    Execute a command with logging using the functions specified by log,
-    log_start and log_end. These functions should only take one argument which
-    is the content you want to be logged.
+    Execute a command with logging using the specified logger.
 
     The command itself has to be an iterable of strings, just like
     subprocess.Popen without shell=True. Keywords stdin and env have the same
     functionality as well.
-
-    Specifying a machine_name will reference it in the description provided to
-    CommandFailed in case there is an error.
 
     When calling with capture_stdout=True, a string is returned, which contains
     everything the programm wrote to stdout.
@@ -107,23 +101,22 @@ def logged_exec(command, log=None, log_start=None, log_end=None, check=True,
         if log_fd in r:
             data = log_fd.read()
             if data == "":
-                if not at_new_line and log_end is not None:
-                    log_end("")
+                if not at_new_line:
+                    logger.log_end("")
                 fds.remove(log_fd)
             else:
                 start = 0
                 while start < len(data):
                     end = data.find('\n', start)
                     if end == -1:
-                        if log_start is not None:
-                            log_start(data[start:])
+                        logger.log_start(data[start:])
                         at_new_line = False
                     else:
                         s = data[start:end]
-                        if at_new_line and log is not None:
-                            log(s)
-                        elif log_end is not None:
-                            log_end(s)
+                        if at_new_line:
+                            logger.log(s)
+                        else:
+                            logger.log_end(s)
                         at_new_line = True
                     if end == -1:
                         break
@@ -132,11 +125,8 @@ def logged_exec(command, log=None, log_start=None, log_end=None, check=True,
     res = process.wait()
 
     if check and res != 0:
-        if machine_name is not None:
-            msg = "command ‘{0}’ failed on machine ‘{1}’"
-            err = msg.format(command, machine_name)
-        else:
-            err = "command ‘{0}’ failed".format(command)
+        msg = "command ‘{0}’ failed on machine ‘{1}’"
+        err = msg.format(command, logger.machine_name)
         raise CommandFailed(err)
     return stdout if capture_stdout else res
 

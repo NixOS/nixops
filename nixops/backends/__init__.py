@@ -222,12 +222,8 @@ class MachineState(nixops.resources.ResourceState):
     def get_ssh_private_key_file(self):
         return None
 
-    def _logged_exec(self, *args, **kwargs):
-        kwargs['log'] = self.log
-        kwargs['log_start'] = self.log_start
-        kwargs['log_end'] = self.log_end
-        kwargs['machine_name'] = self.name
-        return nixops.util.logged_exec(*args, **kwargs)
+    def _logged_exec(self, command, **kwargs):
+        return nixops.util.logged_exec(command, self.logger, **kwargs)
 
     def run_command(self, command, check=True, capture_stdout=False, stdin=None,
                     stdin_string=None, timeout=None, env=None):
