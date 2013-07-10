@@ -13,6 +13,7 @@ import errno
 from xml.etree import ElementTree
 import nixops.statefile
 import nixops.backends
+import nixops.logger
 import nixops.parallel
 import nixops.resources.ec2_keypair
 import nixops.resources.sqs_queue
@@ -61,8 +62,7 @@ class Deployment(object):
         self.extra_nix_flags = []
         self.nixos_version_suffix = None
 
-        self._log_lock = threading.Lock()
-        self._log_file = log_file
+        self.logger = nixops.logger.Logger(log_file)
 
         self._lock_file_path = None
 
@@ -79,7 +79,7 @@ class Deployment(object):
             for (id, name, type) in c.fetchall():
                 r = nixops.backends.create_state(self, type, name, id)
                 self.resources[name] = r
-        self.set_log_prefixes()
+        self.logger.update_log_prefixes()
 
         self.definitions = None
 
@@ -182,7 +182,7 @@ class Deployment(object):
         class DeploymentLock(object):
             def __init__(self, depl):
                 self._lock_file_path = depl._lock_file_path
-                self._log = depl.log
+                self._logger = depl.logger
                 self._lock_file = None
             def __enter__(self):
                 self._lock_file = open(self._lock_file_path, "w")
@@ -190,7 +190,9 @@ class Deployment(object):
                 try:
                     fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except IOError:
-                    self._log("waiting for exclusive deployment lock...")
+                    self._logger.log(
+                        "waiting for exclusive deployment lock..."
+                    )
                     fcntl.flock(self._lock_file, fcntl.LOCK_EX)
             def __exit__(self, exception_type, exception_value, exception_traceback):
                 self._lock_file.close()
@@ -217,63 +219,6 @@ class Deployment(object):
 
             # Delete the deployment from the database.
             self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
-
-
-    def log(self, msg):
-        with self._log_lock:
-            if self._last_log_prefix != None:
-                self._log_file.write("\n")
-                self._last_log_prefix = None
-            self._log_file.write(msg + "\n")
-
-
-    def log_start(self, prefix, msg):
-        with self._log_lock:
-            if self._last_log_prefix != prefix:
-                if self._last_log_prefix != None:
-                    self._log_file.write("\n")
-                self._log_file.write(prefix)
-            self._log_file.write(msg)
-            self._last_log_prefix = prefix
-
-
-    def log_end(self, prefix, msg):
-        with self._log_lock:
-            last = self._last_log_prefix
-            self._last_log_prefix = None
-            if last != prefix:
-                if last != None:
-                    self._log_file.write("\n")
-                if msg == "": return
-                self._log_file.write(prefix)
-            self._log_file.write(msg + "\n")
-
-
-    def set_log_prefixes(self):
-        max_len = max([len(r.name) for r in self.resources.itervalues()] or [0])
-        for r in self.resources.itervalues():
-            r.set_log_prefix(max_len)
-
-
-    def warn(self, msg):
-        self.log(nixops.util.ansi_warn("warning: " + msg, outfile=self._log_file))
-
-
-    def confirm(self, question):
-        while True:
-            with self._log_lock:
-                if self._last_log_prefix != None:
-                    self._log_file.write("\n")
-                    self._last_log_prefix = None
-                self._log_file.write(nixops.util.ansi_warn("warning: {0} (y/N) ".format(question), outfile=self._log_file))
-                if self.auto_response != None:
-                    self._log_file.write("{0}\n".format(self.auto_response))
-                    return self.auto_response == "y"
-                response = sys.stdin.readline()
-                if response == "": return False
-                response = response.rstrip().lower()
-                if response == "y": return True
-                if response == "n" or response == "": return False
 
 
     def _nix_path_flags(self):
@@ -337,7 +282,7 @@ class Deployment(object):
                 + self._eval_flags(self.nix_exprs) +
                 ["--eval-only", "--xml", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
-                 "-A", "info"], stderr=self._log_file)
+                 "-A", "info"], stderr=self.logger.log_file)
             if debug: print >> sys.stderr, "XML output of nix-instantiate:\n" + xml
         except subprocess.CalledProcessError:
             raise NixEvalError
@@ -395,7 +340,7 @@ class Deployment(object):
                  "--arg", "checkConfigurationOptions", "false",
                  "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
                 + (["--xml"] if xml else []),
-                stderr=self._log_file)
+                stderr=self.logger.log_file)
         except subprocess.CalledProcessError:
             raise NixEvalError
 
@@ -521,7 +466,7 @@ class Deployment(object):
             f.write(contents)
             f.close()
 
-        self.log("building all machine configurations...")
+        self.logger.log("building all machine configurations...")
 
         # Set the NixOS version suffix, if we're building from Git.
         # That way ‘nixos-version’ will show something useful on the
@@ -576,7 +521,8 @@ class Deployment(object):
                 + self._eval_flags(self.nix_exprs + [phys_expr]) +
                 ["--arg", "names", "[ " + " ".join(names) + " ]",
                  "-A", "machines", "-o", self.tempdir + "/configs"]
-                + (["--dry-run"] if dry_run else []), stderr=self._log_file).rstrip()
+                + (["--dry-run"] if dry_run else []),
+                stderr=self.logger.log_file).rstrip()
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
 
@@ -593,7 +539,7 @@ class Deployment(object):
 
         def worker(m):
             if not should_do(m, include, exclude): return
-            m.log("copying closure...")
+            m.logger.log("copying closure...")
             m.new_toplevel = os.path.realpath(configs_path + "/" + m.name)
             if not os.path.exists(m.new_toplevel):
                 raise Exception("can't find closure of machine ‘{0}’".format(m.name))
@@ -653,7 +599,7 @@ class Deployment(object):
                 # This thread shouldn't throw an exception because
                 # that will cause NixOps to exit and interrupt
                 # activation on the other machines.
-                m.log(str(e))
+                m.logger.log(str(e))
                 return m.name
             return None
 
@@ -728,7 +674,7 @@ class Deployment(object):
             ssh_name = m.get_ssh_name()
             res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + ["sync"])
             if res != 0:
-                m.log("Running sync failed on {0}.".format(m.name))
+                m.logger.log("Running sync failed on {0}.".format(m.name))
             m.backup(self.definitions[m.name], backup_id)
 
         nixops.parallel.run_tasks(nr_workers=5, tasks=self.active.itervalues(), worker_fun=worker)
@@ -758,7 +704,7 @@ class Deployment(object):
                 if m.name not in self.resources:
                     self._create_resource(m.name, m.get_type())
 
-        self.set_log_prefixes()
+        self.logger.update_log_prefixes()
 
         # Determine the set of active resources.  (We can't just
         # delete obsolete resources from ‘self.resources’ because they
@@ -766,10 +712,10 @@ class Deployment(object):
         for m in self.resources.values():
             if m.name in self.definitions:
                 if m.obsolete:
-                    self.log("resource ‘{0}’ is no longer obsolete".format(m.name))
+                    self.logger.log("resource ‘{0}’ is no longer obsolete".format(m.name))
                     m.obsolete = False
             else:
-                self.log("resource ‘{0}’ is obsolete".format(m.name))
+                self.logger.log("resource ‘{0}’ is obsolete".format(m.name))
                 if not m.obsolete: m.obsolete = True
                 if not should_do(m, include, exclude): continue
                 if kill_obsolete and m.destroy(): self.delete_resource(m)
@@ -788,7 +734,7 @@ class Deployment(object):
             if r.index == None:
                 r.index = self._get_free_resource_index()
 
-        self.set_log_prefixes()
+        self.logger.update_log_prefixes()
 
         # Start or update the active resources.  Non-machine resources
         # are created first, because machines may depend on them
@@ -877,10 +823,10 @@ class Deployment(object):
         for m in self.machines.values():
             if m.name in names:
                 if m.obsolete:
-                    self.log("machine ‘{0}’ is no longer obsolete".format(m.name))
+                    self.logger.log("machine ‘{0}’ is no longer obsolete".format(m.name))
                     m.obsolete = False
             else:
-                self.log("machine ‘{0}’ is obsolete".format(m.name))
+                self.logger.log("machine ‘{0}’ is obsolete".format(m.name))
                 if not m.obsolete: m.obsolete = True
 
         self.copy_closures(self.configs_path, include=include, exclude=exclude,
@@ -966,7 +912,7 @@ class Deployment(object):
         if not self.is_valid_resource_name(new_name):
             raise Exception("{0} is not a valid resource identifier".format(new_name))
 
-        self.log("renaming resource ‘{0}’ to ‘{1}’...".format(name, new_name))
+        self.logger.log("renaming resource ‘{0}’ to ‘{1}’...".format(name, new_name))
 
         m = self.resources.pop(name)
         self.resources[new_name] = m

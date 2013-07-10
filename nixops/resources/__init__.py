@@ -47,7 +47,7 @@ class ResourceState(object):
         self.depl = depl
         self.name = name
         self.id = id
-        self.set_log_prefix(0)
+        self.logger = depl.logger.get_logger_for(name, self.index)
 
     def _set_attrs(self, attrs):
         """Update machine attributes in the state file."""
@@ -93,28 +93,13 @@ class ResourceState(object):
                 if k == 'type': continue
                 self._set_attr(k, v)
 
-    def set_log_prefix(self, length):
-        self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))
-        if self.depl._log_file.isatty() and self.index != None:
-            self._log_prefix = "\033[1;{0}m{1}\033[0m".format(31 + self.index % 7, self._log_prefix)
-
-    def log(self, msg):
-        self.depl.log(self._log_prefix + msg)
-
-    def log_start(self, msg):
-        self.depl.log_start(self._log_prefix, msg)
-
-    def log_continue(self, msg):
-        self.depl.log_start(self._log_prefix, msg)
-
-    def log_end(self, msg):
-        self.depl.log_end(self._log_prefix, msg)
-
-    def warn(self, msg):
-        self.log(nixops.util.ansi_warn("warning: " + msg, outfile=self.depl._log_file))
-
-    def success(self, msg):
-        self.log(nixops.util.ansi_success(msg, outfile=self.depl._log_file))
+    # XXX: Deprecated, use self.logger.* instead!
+    log = lambda s, m: s.logger.log(m)
+    log_start = lambda s, m: s.logger.log_start(m)
+    log_continue = lambda s, m: s.logger.log_continue(m)
+    log_end = lambda s, m: s.logger.log_end(m)
+    warn = lambda s, m: s.logger.warn(m)
+    success = lambda s, m: s.logger.success(m)
 
     def show_type(self):
         return self.get_type()
@@ -154,5 +139,7 @@ class ResourceState(object):
 
     def destroy(self):
         """Destroy this resource, if possible."""
-        self.warn("don't know how to destroy resource ‘{0}’".format(self.name))
+        self.logger.warn(
+            "don't know how to destroy resource ‘{0}’".format(self.name)
+        )
         return False
