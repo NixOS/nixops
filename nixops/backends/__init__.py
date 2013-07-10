@@ -3,7 +3,6 @@
 import os
 import re
 import sys
-import select
 import subprocess
 
 import nixops.util
@@ -223,76 +222,12 @@ class MachineState(nixops.resources.ResourceState):
     def get_ssh_private_key_file(self):
         return None
 
-    def _logged_exec(self, command, check=True, capture_stdout=False,
-                     stdin=None, stdin_string=None, env=None):
-        if stdin_string is not None:
-            stdin = subprocess.PIPE
-        elif stdin is None:
-            stdin = nixops.util.devnull
-
-        if capture_stdout:
-            process = subprocess.Popen(command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-            fds = [process.stdout, process.stderr]
-            log_fd = process.stderr
-        else:
-            process = subprocess.Popen(command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
-            fds = [process.stdout]
-            log_fd = process.stdout
-
-        # FIXME: this can deadlock if stdin_string doesn't fit in the
-        # kernel pipe buffer.
-        if stdin_string is not None:
-            process.stdin.write(stdin_string)
-            process.stdin.close()
-
-        for fd in fds: nixops.util.make_non_blocking(fd)
-
-        at_new_line = True
-        stdout = ""
-
-        while len(fds) > 0:
-            # The timeout/poll is to deal with processes (like
-            # VBoxManage) that start children that go into the
-            # background but keep the parent's stdout/stderr open,
-            # preventing an EOF.  FIXME: Would be better to catch
-            # SIGCHLD.
-            (r, w, x) = select.select(fds, [], [], 1)
-            if len(r) == 0 and process.poll() != None: break
-            if capture_stdout and process.stdout in r:
-                data = process.stdout.read()
-                if data == "":
-                    fds.remove(process.stdout)
-                else:
-                    stdout += data
-            if log_fd in r:
-                data = log_fd.read()
-                if data == "":
-                    if not at_new_line: self.log_end("")
-                    fds.remove(log_fd)
-                else:
-                    start = 0
-                    while start < len(data):
-                        end = data.find('\n', start)
-                        if end == -1:
-                            self.log_start(data[start:])
-                            at_new_line = False
-                        else:
-                            s = data[start:end]
-                            if at_new_line:
-                                self.log(s)
-                            else:
-                                self.log_end(s)
-                            at_new_line = True
-                        if end == -1: break
-                        start = end + 1
-
-        res = process.wait()
-
-        if check and res != 0:
-            msg = "command ‘{0}’ failed on machine ‘{1}’"
-            err = msg.format(command, self.name)
-            raise nixops.ssh_util.SSHCommandFailed(err)
-        return stdout if capture_stdout else res
+    def _logged_exec(self, *args, **kwargs):
+        kwargs['log'] = self.log
+        kwargs['log_start'] = self.log_start
+        kwargs['log_end'] = self.log_end
+        kwargs['machine_name'] = self.name
+        return nixops.util.logged_exec(*args, **kwargs)
 
     def run_command(self, command, check=True, capture_stdout=False, stdin=None,
                     stdin_string=None, timeout=None, env=None):
@@ -307,9 +242,12 @@ class MachineState(nixops.resources.ResourceState):
         cmdline = (
             ["ssh", "-x", "root@" + self.get_ssh_name()] +
             self.ssh_master.opts + self.get_ssh_flags() + [command])
-        return self._logged_exec(cmdline, check=check,
-                                 capture_stdout=capture_stdout, stdin=stdin,
-                                 stdin_string=stdin_string, env=env)
+        try:
+            return self._logged_exec(cmdline, check=check, env=env,
+                                     capture_stdout=capture_stdout,
+                                     stdin=stdin, stdin_string=stdin_string)
+        except nixops.util.CommandFailed as e:
+            raise nixops.ssh_util.SSHCommandFailed(e)
 
     def switch_to_configuration(self, method, sync, command=None):
         """
