@@ -96,6 +96,9 @@ class HetznerState(MachineState):
         self.state = self.RESCUE
 
     def _boot_into_rescue(self):
+        """
+        Use the Robot to activate the rescue system and reboot the system.
+        """
         if self.state == self.RESCUE:
             return
 
@@ -202,6 +205,9 @@ class HetznerState(MachineState):
                                                     command)
 
     def _get_ethernet_interfaces(self):
+        """
+        Return a list of all the ethernet interfaces active on the machine.
+        """
         # We don't use \(\) here to ensure this works even without GNU sed.
         cmd = "ip addr show | sed -n -e 's/^[0-9]*: *//p' | cut -d: -f1"
         return self.run_command(cmd, capture_stdout=True).splitlines()
@@ -221,6 +227,10 @@ class HetznerState(MachineState):
         return rule.format(mac_addr, interface)
 
     def _get_ipv4_addr_and_prefix_for(self, interface):
+        """
+        Return a tuple of (ipv4_address, prefix_length) for the specified
+        interface.
+        """
         cmd = "ip addr show \"{0}\" | sed -n -e 's/^.*inet  *//p'"
         cmd += " | cut -d' ' -f1"
         ipv4_addr_prefix = self.run_command(cmd.format(interface),
@@ -228,11 +238,18 @@ class HetznerState(MachineState):
         return ipv4_addr_prefix.split('/', 1)
 
     def _get_default_gw(self):
+        """
+        Return the default gateway of the currently running machine.
+        """
         cmd = "ip route list | sed -n -e 's/^default  *via  *//p'"
         cmd += " | cut -d' ' -f1"
         return self.run_command(cmd, capture_stdout=True).strip()
 
     def _get_nameservers(self):
+        """
+        Return a list of all nameservers defined on the currently running
+        machine.
+        """
         cmd = "cat /etc/resolv.conf | sed -n -e 's/^nameserver  *//p'"
         return self.run_command(cmd, capture_stdout=True).splitlines()
 
@@ -243,6 +260,11 @@ class HetznerState(MachineState):
         return map(lambda line: "  " + line, lines)
 
     def _gen_network_spec(self):
+        """
+        Generate Nix expressions related to networking configuration based on
+        the currently running machine (most likely in RESCUE state) and set the
+        resulting string to self.net_info.
+        """
         udev_rules = []
         iface_attrs = []
 
@@ -305,6 +327,7 @@ class HetznerState(MachineState):
         """
         "Stops" the server by putting it into the rescue system.
         """
+        # TODO!
         pass
 
     def get_ssh_name(self):
@@ -319,7 +342,8 @@ class HetznerState(MachineState):
 
     def _get_server_by_ip(self, ip):
         """
-        Return the server robot instance by its main IPv4 address.
+        Queries the robot for the given ip address and returns the Server
+        instance if it was found.
         """
         if self.connect():
             return self._robot.servers.get(ip)
@@ -345,4 +369,5 @@ class HetznerState(MachineState):
             MachineState._check(self, res)
 
     def destroy(self):
+        # TODO!
         return True
