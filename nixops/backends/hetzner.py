@@ -48,12 +48,14 @@ class HetznerState(MachineState):
     robot_pass = nixops.util.attr_property("hetzner.robotPass", None)
     partitions = nixops.util.attr_property("hetzner.partitions", None)
 
-    rescue_passwd = nixops.util.attr_property("rescuePasswd", None)
-    fs_info = nixops.util.attr_property("fsInfo", None)
-    net_info = nixops.util.attr_property("networkInfo", None)
+    rescue_passwd = nixops.util.attr_property("hetzner.rescuePasswd", None)
+    fs_info = nixops.util.attr_property("hetzner.fsInfo", None)
+    net_info = nixops.util.attr_property("hetzner.networkInfo", None)
 
-    main_ssh_private_key = nixops.util.attr_property("sshPrivateKey", None)
-    main_ssh_public_key = nixops.util.attr_property("sshPublicKey", None)
+    main_ssh_private_key = nixops.util.attr_property("hetzner.sshPrivateKey",
+                                                     None)
+    main_ssh_public_key = nixops.util.attr_property("hetzner.sshPublicKey",
+                                                    None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
