@@ -7,7 +7,7 @@ import subprocess
 
 from hetzner.robot import Robot
 
-import nixops.util
+from nixops.util import attr_property, wait_for_tcp_port, create_key_pair
 from nixops.backends import MachineDefinition, MachineState
 
 
@@ -41,21 +41,19 @@ class HetznerState(MachineState):
     def get_type(cls):
         return "hetzner"
 
-    state = nixops.util.attr_property("state", MachineState.UNKNOWN, int)
+    state = attr_property("state", MachineState.UNKNOWN, int)
 
-    main_ipv4 = nixops.util.attr_property("hetzner.mainIPv4", None)
-    robot_user = nixops.util.attr_property("hetzner.robotUser", None)
-    robot_pass = nixops.util.attr_property("hetzner.robotPass", None)
-    partitions = nixops.util.attr_property("hetzner.partitions", None)
+    main_ipv4 = attr_property("hetzner.mainIPv4", None)
+    robot_user = attr_property("hetzner.robotUser", None)
+    robot_pass = attr_property("hetzner.robotPass", None)
+    partitions = attr_property("hetzner.partitions", None)
 
-    rescue_passwd = nixops.util.attr_property("hetzner.rescuePasswd", None)
-    fs_info = nixops.util.attr_property("hetzner.fsInfo", None)
-    net_info = nixops.util.attr_property("hetzner.networkInfo", None)
+    rescue_passwd = attr_property("hetzner.rescuePasswd", None)
+    fs_info = attr_property("hetzner.fsInfo", None)
+    net_info = attr_property("hetzner.networkInfo", None)
 
-    main_ssh_private_key = nixops.util.attr_property("hetzner.sshPrivateKey",
-                                                     None)
-    main_ssh_public_key = nixops.util.attr_property("hetzner.sshPublicKey",
-                                                    None)
+    main_ssh_private_key = attr_property("hetzner.sshPrivateKey", None)
+    main_ssh_public_key = attr_property("hetzner.sshPublicKey", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -90,11 +88,10 @@ class HetznerState(MachineState):
 
     def _wait_for_rescue(self, ip):
         self.log_start("waiting for rescue system...")
-        nixops.util.wait_for_tcp_port(ip, 22, open=False,
-                                      callback=lambda: self.log_continue("."))
+        dotlog = lambda: self.log_continue(".")
+        wait_for_tcp_port(ip, 22, open=False, callback=dotlog)
         self.log_continue("[down]")
-        nixops.util.wait_for_tcp_port(ip, 22,
-                                      callback=lambda: self.log_continue("."))
+        wait_for_tcp_port(ip, 22, callback=dotlog)
         self.log_end("[up]")
         self.state = self.RESCUE
 
@@ -118,7 +115,7 @@ class HetznerState(MachineState):
         Create a SSH private/public keypair and put the public key into the
         chroot.
         """
-        private, public = nixops.util.create_key_pair(
+        private, public = create_key_pair(
             key_name="NixOps client key of {0}".format(self.name)
         )
         self.main_ssh_private_key, self.main_ssh_public_key = private, public
