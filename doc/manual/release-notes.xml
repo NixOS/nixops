@@ -6,6 +6,25 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.0.1"><title>Release 1.0.1 (July 11, 2013)</title>
+
+<para>This is a minor bugfix release.</para>
+
+<itemizedlist>
+
+  <listitem><para>Reduce parallelism for running EC2 backups, to
+  prevent hammering the AWS API in case of many
+  disks.</para></listitem>
+
+  <listitem><para>Propagate the instance tags to the EBS volumes
+  (except for Name tag, which is overriden with a detailed description
+  of the volume and its use).</para></listitem>
+
+</itemizedlist>
+
+
+</section>
+
 <section xml:id="ssec-relnotes-1.0"><title>Release 1.0 (June 18, 2013)</title>
 
 <para>Initial release.</para>
