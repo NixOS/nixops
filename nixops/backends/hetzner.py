@@ -95,43 +95,12 @@ class HetznerState(MachineState):
         self.log_end("[up]")
         self.state = self.RESCUE
 
-    def reboot_rescue(self):
+    def _bootstrap_rescue(self, install):
         """
-        Use the Robot to activate the rescue system and reboot the system.
+        Bootstrap everything needed in order to get Nix and the partitioner
+        usable in the rescue system. The latter is not only for partitioning
+        but also for mounting partitions.
         """
-        if self.state == self.RESCUE:
-            return
-
-        self.log("rebooting machine ‘{0}’ ({1}) into rescue system"
-                 .format(self.name, self.main_ipv4))
-        server = self._get_server_by_ip(self.main_ipv4)
-        server.rescue.activate()
-        rescue_passwd = server.rescue.password
-        # XXX: Very bad idea, this is the same as physically hitting the reset
-        # switch on the machine.
-        server.reboot('hard')
-        self._wait_for_rescue(self.main_ipv4)
-        self.rescue_passwd = rescue_passwd
-        self.has_partitioner = None
-        self.state = self.RESCUE
-
-    def _install_main_ssh_keys(self):
-        """
-        Create a SSH private/public keypair and put the public key into the
-        chroot.
-        """
-        private, public = create_key_pair(
-            key_name="NixOps client key of {0}".format(self.name)
-        )
-        self.main_ssh_private_key, self.main_ssh_public_key = private, public
-        res = self.run_command("umask 077 && mkdir -p /mnt/root/.ssh &&"
-                               " cat > /mnt/root/.ssh/authorized_keys",
-                               stdin_string=public)
-
-    def _install_base_system(self):
-        if self.state != self.RESCUE:
-            return
-
         self.log_start("building Nix bootstrap installer...")
         bootstrap = subprocess.check_output([
             "nix-build", "<nixpkgs>", "--no-out-link", "-A",
@@ -151,19 +120,71 @@ class HetznerState(MachineState):
         tarstream.wait()
         self.log_end("done.")
 
-        self.log_start("partitioning disks...")
-        out = self.run_command("nixpart -", capture_stdout=True,
-                               stdin_string=self.partitions)
-        self.fs_info = '\n'.join(out.splitlines()[1:-1])
+        if install:
+            self.log_start("partitioning disks...")
+            out = self.run_command("nixpart -", capture_stdout=True,
+                                   stdin_string=self.partitions)
+            self.fs_info = '\n'.join(out.splitlines()[1:-1])
+        else:
+            self.log_start("mounting filesystems...")
+            self.run_command("nixpart -m -", stdin_string=self.partitions)
         self.log_end("done.")
 
+        if not install:
+            self.log_start("checking if system in /mnt is NixOS...")
+            res = self.run_command("test -e /mnt/etc/NIXOS", check=False)
+            if res == 0:
+                self.log_end("yes.")
+            else:
+                self.log_end("NO! Not mounting special filesystems.")
+                return
+
+        self.log_start("bind-mounting special filesystems...")
+        for mountpoint in ("/proc", "/dev", "/dev/shm", "/sys"):
+            self.log_continue("{0}...".format(mountpoint))
+            cmd = "mkdir -m 0755 -p /mnt{0} && ".format(mountpoint)
+            cmd += "mount --bind {0} /mnt{0}".format(mountpoint)
+            self.run_command(cmd)
+        self.log_end("done.")
+
+    def reboot_rescue(self, install=False):
+        """
+        Use the Robot to activate the rescue system and reboot the system. By
+        default, only mount partitions and do not partition or wipe anything.
+        """
+        self.log("rebooting machine ‘{0}’ ({1}) into rescue system"
+                 .format(self.name, self.main_ipv4))
+        server = self._get_server_by_ip(self.main_ipv4)
+        server.rescue.activate()
+        rescue_passwd = server.rescue.password
+        # XXX: Very bad idea, this is the same as physically hitting the reset
+        # switch on the machine.
+        server.reboot('hard')
+        self._wait_for_rescue(self.main_ipv4)
+        self.rescue_passwd = rescue_passwd
+        self.state = self.RESCUE
+        self._bootstrap_rescue(install)
+
+    def _install_main_ssh_keys(self):
+        """
+        Create a SSH private/public keypair and put the public key into the
+        chroot.
+        """
+        private, public = create_key_pair(
+            key_name="NixOps client key of {0}".format(self.name)
+        )
+        self.main_ssh_private_key, self.main_ssh_public_key = private, public
+        res = self.run_command("umask 077 && mkdir -p /mnt/root/.ssh &&"
+                               " cat > /mnt/root/.ssh/authorized_keys",
+                               stdin_string=public)
+
+    def _install_base_system(self):
         self.log_start("creating missing directories...")
         cmds = ["mkdir -m 1777 -p /mnt/tmp /mnt/nix/store"]
-        mntdirs = ["var", "dev", "proc", "sys", "etc", "bin",
-                   "nix/var/nix/gcroots", "nix/var/nix/temproots",
-                   "nix/var/nix/manifests", "nix/var/nix/userpool",
-                   "nix/var/nix/profiles", "nix/var/nix/db",
-                   "nix/var/log/nix/drvs"]
+        mntdirs = ["var", "etc", "bin", "nix/var/nix/gcroots",
+                   "nix/var/nix/temproots", "nix/var/nix/manifests",
+                   "nix/var/nix/userpool", "nix/var/nix/profiles",
+                   "nix/var/nix/db", "nix/var/log/nix/drvs"]
         to_create = ' '.join(map(lambda d: os.path.join("/mnt", d), mntdirs))
         cmds.append("mkdir -m 0755 -p {0}".format(to_create))
         self.run_command(' && '.join(cmds))
@@ -175,13 +196,6 @@ class HetznerState(MachineState):
             cmd = ("if ! test -e /mnt/etc/{0}; then"
                    " touch /mnt/etc/{0} && mount --bind /etc/{0} /mnt/etc/{0};"
                    " fi").format(etcfile)
-            self.run_command(cmd)
-        self.log_end("done.")
-
-        self.log_start("bind-mounting other filesystems...")
-        for mountpoint in ("/proc", "/dev", "/dev/shm", "/sys"):
-            self.log_continue("{0}...".format(mountpoint))
-            cmd = "mount --bind {0} /mnt{0}".format(mountpoint)
             self.run_command(cmd)
         self.log_end("done.")
 
@@ -317,7 +331,7 @@ class HetznerState(MachineState):
 
         if not self.vm_id:
             self.log("installing machine...")
-            self.reboot_rescue()
+            self.reboot_rescue(install=True)
             self._install_base_system()
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
