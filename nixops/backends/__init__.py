@@ -43,7 +43,10 @@ class MachineState(nixops.resources.ResourceState):
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
-        self.ssh_master = None
+        self.ssh = nixops.ssh_util.SSH(self.logger)
+        self.ssh.register_flag_fun(self.get_ssh_flags)
+        self.ssh.register_host_fun(self.get_ssh_name)
+        self.ssh.register_passwd_fun(self.get_ssh_password)
         self._ssh_private_key_file = None
 
     def get_definition_prefix(self):
@@ -193,25 +196,6 @@ class MachineState(nixops.resources.ResourceState):
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True
 
-    def _open_ssh_master(self, timeout=None):
-        """Start an SSH master connection to speed up subsequent SSH sessions."""
-        if self.ssh_master is not None: return
-        tries = 1 if timeout else 5
-        flags = self.get_ssh_flags() + (
-            ["-o", "ConnectTimeout={0}".format(timeout)] if timeout else []
-        )
-        while True:
-            try:
-                self.ssh_master = nixops.ssh_util.SSHMaster(
-                    self.depl.tempdir, self.name, self.get_ssh_name(), flags,
-                    self.get_ssh_password()
-                )
-                break
-            except Exception:
-                tries = tries - 1
-                if tries == 0: raise
-                pass
-
     def write_ssh_private_key(self, private_key):
         key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
         with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0600), "w") as f:
@@ -225,25 +209,18 @@ class MachineState(nixops.resources.ResourceState):
     def _logged_exec(self, command, **kwargs):
         return nixops.util.logged_exec(command, self.logger, **kwargs)
 
-    def run_command(self, command, check=True, capture_stdout=False, stdin=None,
-                    stdin_string=None, timeout=None, env=None):
-        """Execute a command on the machine via SSH."""
+    def run_command(self, command, **kwargs):
+        """
+        Execute a command on the machine via SSH.
+
+        For possible keyword arguments, please have a look at
+        nixops.ssh_util.SSH.run_command().
+        """
         # If we are in rescue state, unset locale specific stuff, because we're
         # mainly operating in a chroot environment.
         if self.state == self.RESCUE:
             command = "export LANG= LC_ALL= LC_TIME=; " + command
-        # Note that the timeout is only respected if this is the first
-        # call to _open_ssh_master().
-        self._open_ssh_master(timeout=timeout)
-        cmdline = (
-            ["ssh", "-x", "root@" + self.get_ssh_name()] +
-            self.ssh_master.opts + self.get_ssh_flags() + [command])
-        try:
-            return self._logged_exec(cmdline, check=check, env=env,
-                                     capture_stdout=capture_stdout,
-                                     stdin=stdin, stdin_string=stdin_string)
-        except nixops.util.CommandFailed as e:
-            raise nixops.ssh_util.SSHCommandFailed(e)
+        return self.ssh.run_command(command, self.get_ssh_flags(), **kwargs)
 
     def switch_to_configuration(self, method, sync, command=None):
         """
@@ -273,9 +250,8 @@ class MachineState(nixops.resources.ResourceState):
 
         # Any remaining paths are copied from the local machine.
         env = dict(os.environ)
-        self._open_ssh_master()
-        env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags() +
-                                      self.ssh_master.opts)
+        master = self.ssh.get_master()
+        env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags() + master.opts)
         self._logged_exec(
             ["nix-copy-closure", "--to", "root@" + self.get_ssh_name(), path]
             + ([] if self.has_really_fast_connection() else ["--gzip"]),
@@ -303,23 +279,19 @@ class MachineState(nixops.resources.ResourceState):
         self.public_vpn_key = public
 
     def upload_file(self, source, target, recursive=False):
-        self._open_ssh_master()
-        # FIXME: use ssh master
+        master = self.ssh.get_master()
+        cmdline = ["scp"] + self.get_ssh_flags() + master.opts
         if recursive:
-            recursive_cmdline = [ '-r' ]
-        else:
-            recursive_cmdline = [ ]
-        cmdline = ["scp"] +  self.get_ssh_flags() + recursive_cmdline + [source, "root@" + self.get_ssh_name() + ":" + target]
+            cmdline += ['-r']
+        cmdline += [source, "root@" + self.get_ssh_name() + ":" + target]
         return self._logged_exec(cmdline)
 
     def download_file(self, source, target, recursive=False):
-        self._open_ssh_master()
-        # FIXME: use ssh master
+        master = self.ssh.get_master()
+        cmdline = ["scp"] + self.get_ssh_flags() + master.opts
         if recursive:
-            recursive_cmdline = [ '-r' ]
-        else:
-            recursive_cmdline = [ ]
-        cmdline = ["scp"] +  self.get_ssh_flags() + recursive_cmdline + ["root@" + self.get_ssh_name() + ":" + source, target]
+            cmdline += ['-r']
+        cmdline += ["root@" + self.get_ssh_name() + ":" + source, target]
         return self._logged_exec(cmdline)
 
     def get_console_output(self):
