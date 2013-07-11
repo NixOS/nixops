@@ -148,6 +148,13 @@ class MachineState(nixops.resources.ResourceState):
         self._ssh_pinged_this_time = True
         self.send_keys()
 
+    def reboot_rescue(self):
+        """
+        Reboot machine into rescue system and wait until it is active.
+        """
+        self.warn("machine ‘{0}’ doesn't have a rescue"
+                  " system.".format(self.name))
+
     def send_keys(self):
         if self.store_keys_on_machine: return
         self.run_command("mkdir -m 0700 -p /run/keys")

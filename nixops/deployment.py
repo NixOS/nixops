@@ -869,12 +869,15 @@ class Deployment(object):
                 raise Exception("cannot update profile ‘{0}’".format(profile))
 
 
-    def reboot_machines(self, include=[], exclude=[], wait=False):
+    def reboot_machines(self, include=[], exclude=[], wait=False,
+                        rescue=False):
         """Reboot all active machines."""
 
         def worker(m):
             if not should_do(m, include, exclude): return
-            if wait:
+            if rescue:
+                m.reboot_rescue()
+            elif wait:
                 m.reboot_sync()
             else:
                 m.reboot()
