@@ -33,8 +33,8 @@ class RootLoggerTest(unittest.TestCase):
 class MachineLoggerTest(RootLoggerTest):
     def setUp(self):
         RootLoggerTest.setUp(self)
-        self.m1_logger = self.root_logger.get_logger_for("machine1", 1)
-        self.m2_logger = self.root_logger.get_logger_for("machine2", 2)
+        self.m1_logger = self.root_logger.get_logger_for("machine1")
+        self.m2_logger = self.root_logger.get_logger_for("machine2")
 
     def test_simple(self):
         self.m2_logger.success("success!")

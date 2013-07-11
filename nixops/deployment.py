@@ -733,6 +733,9 @@ class Deployment(object):
         for r in self.active_resources.itervalues():
             if r.index == None:
                 r.index = self._get_free_resource_index()
+                # FIXME: Logger should be able to do coloring without the need
+                #        for an index maybe?
+                r.logger.register_index(r.index)
 
         self.logger.update_log_prefixes()
 

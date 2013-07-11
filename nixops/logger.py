@@ -49,11 +49,11 @@ class Logger(object):
                 self._log_file.write(prefix)
             self._log_file.write(msg + "\n")
 
-    def get_logger_for(self, machine_name, index):
+    def get_logger_for(self, machine_name):
         """
         Returns a logger instance for a specific machine name.
         """
-        machine_logger = MachineLogger(self, machine_name, index)
+        machine_logger = MachineLogger(self, machine_name)
         self.machine_loggers.append(machine_logger)
         self.update_log_prefixes()
         return machine_logger
@@ -91,11 +91,15 @@ class Logger(object):
 
 
 class MachineLogger(object):
-    def __init__(self, main_logger, machine_name, index):
+    def __init__(self, main_logger, machine_name):
         self.main_logger = main_logger
         self.machine_name = machine_name
-        self.index = index
+        self.index = None
         self.update_log_prefix(0)
+
+    def register_index(self, index):
+        # FIXME Find a good way to do coloring based on machine name only.
+        self.index = index
 
     def update_log_prefix(self, length):
         self._log_prefix = "{0}{1}> ".format(
