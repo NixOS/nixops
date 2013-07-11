@@ -384,18 +384,21 @@ class HetznerState(MachineState):
         if not self.vm_id:
             res.exists = False
             return
-
+        res.exists = True
         avg = self.get_load_avg()
         if avg is None:
             if self.state in (self.UP, self.RESCUE):
                 self.state = self.UNREACHABLE
             res.is_reachable = False
+            res.is_up = False
         elif self.run_command("test -f /etc/NIXOS", check=False) != 0:
             self.state = self.RESCUE
             self.ssh_pinged = True
             self._ssh_pinged_this_time = True
             res.is_reachable = True
+            res.is_up = False
         else:
+            res.is_up = True
             MachineState._check(self, res)
 
     def destroy(self):
