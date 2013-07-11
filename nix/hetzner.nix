@@ -62,6 +62,7 @@ with pkgs.lib;
     fileSystems = {};
     boot.loader.grub.version = 2;
     boot.loader.grub.devices = [ "/dev/sda" "/dev/sdb" ];
+    boot.loader.grub.timeout = 1;
     # FIXME: This should be detected by the installer!
     boot.kernelModules = [ "r8169" ];
     services.openssh.enable = true;
