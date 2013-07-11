@@ -167,6 +167,7 @@ class HetznerState(MachineState):
         self._wait_for_rescue(self.main_ipv4)
         self.rescue_passwd = rescue_passwd
         self.state = self.RESCUE
+        self.ssh.reset()
         self._bootstrap_rescue(install)
 
     def _install_main_ssh_keys(self):
