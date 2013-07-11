@@ -64,6 +64,10 @@ class HetznerState(MachineState):
     def resource_id(self):
         return self.vm_id
 
+    @property
+    def public_ipv4(self):
+        return self.main_ipv4
+
     def connect(self):
         """
         Connect to the Hetzner robot.
