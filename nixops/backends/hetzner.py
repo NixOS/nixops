@@ -48,6 +48,7 @@ class HetznerState(MachineState):
     robot_pass = attr_property("hetzner.robotPass", None)
     partitions = attr_property("hetzner.partitions", None)
 
+    just_installed = attr_property("hetzner.justInstalled", False, bool)
     rescue_passwd = attr_property("hetzner.rescuePasswd", None)
     fs_info = attr_property("hetzner.fsInfo", None)
     net_info = attr_property("hetzner.networkInfo", None)
@@ -222,8 +223,11 @@ class HetznerState(MachineState):
             command = "chroot /mnt /nix/var/nix/profiles/system/bin/"
             command += "switch-to-configuration"
 
-        return MachineState.switch_to_configuration(self, method, sync,
-                                                    command)
+        res = MachineState.switch_to_configuration(self, method, sync, command)
+        if self.state == self.RESCUE and self.just_installed:
+            self.reboot_sync()
+            self.just_installed = False
+        return res
 
     def _get_ethernet_interfaces(self):
         """
@@ -339,6 +343,7 @@ class HetznerState(MachineState):
             self.reboot_rescue(install=True)
             self._install_base_system()
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
+            self.just_installed = True
 
     def start(self):
         server = self._get_server_by_ip(defn.main_ipv4)
