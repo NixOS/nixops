@@ -157,9 +157,13 @@ class HetznerState(MachineState):
         server = self._get_server_by_ip(self.main_ipv4)
         server.rescue.activate()
         rescue_passwd = server.rescue.password
-        # XXX: Very bad idea, this is the same as physically hitting the reset
-        # switch on the machine.
-        server.reboot('hard')
+        if install or self.state not in (self.UP, self.RESCUE):
+            self.log_start("sending hard reset to robot...")
+            server.reboot('hard')
+        else:
+            self.log_start("sending reboot command...")
+            self.run_command("(sleep 2; reboot) &")
+        self.log_end("done.")
         self._wait_for_rescue(self.main_ipv4)
         self.rescue_passwd = rescue_passwd
         self.state = self.RESCUE
