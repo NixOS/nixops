@@ -2,6 +2,7 @@
 import os
 import shlex
 import subprocess
+import weakref
 
 from tempfile import mkdtemp
 
@@ -66,7 +67,10 @@ class SSHMaster(object):
         os.close(fd)
         return path
 
-    def __del__(self):
+    def shutdown(self):
+        """
+        Shutdown master process and clean up temporary files.
+        """
         subprocess.call(["ssh", self._ssh_target, "-S",
                          self._control_socket, "-O", "exit"],
                         stderr=nixops.util.devnull)
@@ -77,7 +81,13 @@ class SSHMaster(object):
                 os.unlink(to_unlink)
             except OSError:
                 pass
-        os.rmdir(self._tempdir)
+        try:
+            os.rmdir(self._tempdir)
+        except OSError:
+            pass
+
+    def __del__(self):
+        self.shutdown()
 
 
 class SSH(object):
@@ -127,6 +137,14 @@ class SSH(object):
     def _get_passwd(self):
         return self._passwd_fun()
 
+    def reset(self):
+        """
+        Reset SSH master connection.
+        """
+        if self._ssh_master is not None:
+            self._ssh_master.shutdown()
+            self._ssh_master = None
+
     def get_master(self, flags=[], tries=5):
         """
         Start (if necessary) an SSH master connection to speed up subsequent
@@ -134,7 +152,7 @@ class SSH(object):
         """
         flags += self._get_flags()
         if self._ssh_master is not None:
-            return self._ssh_master
+            return weakref.proxy(self._ssh_master)
 
         while True:
             try:
@@ -146,7 +164,7 @@ class SSH(object):
                 if tries == 0:
                     raise
                 pass
-        return self._ssh_master
+        return weakref.proxy(self._ssh_master)
 
     def _sanitize_command(self, command, allow_ssh_args):
         """
