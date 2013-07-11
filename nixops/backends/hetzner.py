@@ -123,7 +123,7 @@ class HetznerState(MachineState):
 
         if install:
             self.log_start("partitioning disks...")
-            out = self.run_command("nixpart -", capture_stdout=True,
+            out = self.run_command("nixpart -p -", capture_stdout=True,
                                    stdin_string=self.partitions)
             self.fs_info = '\n'.join(out.splitlines()[1:-1])
         else:
