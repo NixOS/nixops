@@ -134,6 +134,7 @@ class MachineState(nixops.resources.ResourceState):
         # session to hang.
         self.run_command("(sleep 2; reboot) &")
         self.state = self.STARTING
+        self.ssh.reset()
 
     def reboot_sync(self):
         """Reboot this machine and wait until it's up again."""
