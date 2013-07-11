@@ -95,7 +95,7 @@ class HetznerState(MachineState):
         self.log_end("[up]")
         self.state = self.RESCUE
 
-    def _boot_into_rescue(self):
+    def reboot_rescue(self):
         """
         Use the Robot to activate the rescue system and reboot the system.
         """
@@ -107,6 +107,8 @@ class HetznerState(MachineState):
         server = self._get_server_by_ip(self.main_ipv4)
         server.rescue.activate()
         rescue_passwd = server.rescue.password
+        # XXX: Very bad idea, this is the same as physically hitting the reset
+        # switch on the machine.
         server.reboot('hard')
         self._wait_for_rescue(self.main_ipv4)
         self.rescue_passwd = rescue_passwd
@@ -315,7 +317,7 @@ class HetznerState(MachineState):
 
         if not self.vm_id:
             self.log("installing machine...")
-            self._boot_into_rescue()
+            self.reboot_rescue()
             self._install_base_system()
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
