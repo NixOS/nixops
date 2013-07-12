@@ -69,6 +69,8 @@ with pkgs.lib;
     boot.loader.grub.timeout = 1;
     # FIXME: This should be detected by the installer!
     boot.kernelModules = [ "r8169" ];
+    # Blacklist nvidiafb by default as it causes issues with some GPUs.
+    boot.blacklistedKernelModules = [ "nvidiafb" ];
     services.openssh.enable = true;
   };
 }
