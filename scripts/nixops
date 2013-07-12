@@ -463,7 +463,8 @@ def op_ssh():
     if not m: raise Exception("unknown machine ‘{0}’".format(machine))
     ssh_name = m.get_ssh_name()
     print >> sys.stderr, "connecting to {0}...".format(ssh_name)
-    res = m.ssh.run_command(args.args, allow_ssh_args=True, logged=False)
+    res = m.ssh.run_command(args.args, allow_ssh_args=True, logged=False,
+                            check=False)
     sys.exit(res)
 
 

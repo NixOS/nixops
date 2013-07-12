@@ -218,8 +218,9 @@ class SSH(object):
             except nixops.util.CommandFailed as e:
                 raise nixops.ssh_util.SSHCommandFailed(e)
         else:
+            check = kwargs.pop('check', True)
             res = subprocess.call(cmd, **kwargs)
-            if kwargs.get('check', True) and res != 0:
+            if check and res != 0:
                 msg = "command ‘{0}’ failed on host ‘{1}’"
                 err = msg.format(cmd, self._get_target())
                 raise nixops.ssh_util.SSHCommandFailed(err)
