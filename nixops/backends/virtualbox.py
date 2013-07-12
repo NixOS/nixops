@@ -311,7 +311,7 @@ class VirtualBoxState(MachineState):
 
         self.log_start("shutting down... ")
 
-        self.run_command("(sleep 2; poweroff) &")
+        self.run_command("systemctl poweroff", check=False)
         self.state = self.STOPPING
 
         while True:

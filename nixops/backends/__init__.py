@@ -130,9 +130,14 @@ class MachineState(nixops.resources.ResourceState):
     def reboot(self):
         """Reboot this machine."""
         self.log("rebooting...")
-        # The sleep is to prevent the reboot from causing the SSH
-        # session to hang.
-        self.run_command("(sleep 2; reboot) &")
+        if self.state == self.RESCUE:
+            # We're on non-NixOS here, so systemd might not be available.
+            # The sleep is to prevent the reboot from causing the SSH
+            # session to hang.
+            reboot_command = "(sleep 2; reboot) &"
+        else:
+            reboot_command = "systemctl reboot"
+        self.run_command(reboot_command, check=False)
         self.state = self.STARTING
         self.ssh.reset()
 
