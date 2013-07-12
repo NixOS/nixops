@@ -1,6 +1,3 @@
-import os
-from os import path
-import sqlite3
 import nixops.statefile
 from tests import db_file
 

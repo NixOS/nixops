@@ -1,6 +1,5 @@
-from nose import tools
-
 from tests.functional import single_machine_test
+
 
 class TestDeploysNixos(single_machine_test.SingleMachineTest):
     def run_check(self):

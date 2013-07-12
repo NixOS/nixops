@@ -7,8 +7,10 @@ _multiprocess_shared_ = True
 
 db_file = '%s/test.nixops' % (path.dirname(__file__))
 
+
 def setup():
     nixops.statefile.StateFile(db_file).close()
+
 
 def destroy(sf, uuid):
     depl = sf.open_deployment(uuid)
@@ -22,13 +24,14 @@ def destroy(sf, uuid):
     except Exception:
         pass
 
+
 def teardown():
     try:
         sf = nixops.statefile.StateFile(db_file)
         uuids = sf.query_deployments()
         threads = []
         for uuid in uuids:
-            threads.append(threading.Thread(target=destroy,args=(sf, uuid)))
+            threads.append(threading.Thread(target=destroy, args=(sf, uuid)))
         for thread in threads:
             thread.start()
         for thread in threads:

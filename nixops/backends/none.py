@@ -2,7 +2,7 @@
 
 from nixops.backends import MachineDefinition, MachineState
 import nixops.util
-import sys
+
 
 class NoneDefinition(MachineDefinition):
     """Definition of a trivial machine."""
@@ -13,7 +13,8 @@ class NoneDefinition(MachineDefinition):
 
     def __init__(self, xml):
         MachineDefinition.__init__(self, xml)
-        self._target_host = xml.find("attrs/attr[@name='targetHost']/string").get("value")
+        self._target_host = xml.find(
+            "attrs/attr[@name='targetHost']/string").get("value")
 
 
 class NoneState(MachineState):
@@ -38,7 +39,7 @@ class NoneState(MachineState):
         return self.target_host
 
     def _check(self, res):
-        res.exists = True # can't really check
+        res.exists = True  # can't really check
         res.is_up = nixops.util.ping_tcp_port(self.target_host, 22)
         if res.is_up:
             MachineState._check(self, res)

@@ -30,13 +30,13 @@ class ResourceState(object):
 
     # Valid values for self.state.  Not all of these make sense for
     # all resource types.
-    UNKNOWN=0 # state unknown
-    MISSING=1 # instance destroyed or not yet created
-    STARTING=2 # boot initiated
-    UP=3 # machine is reachable
-    STOPPING=4 # shutdown initiated
-    STOPPED=5 # machine is down
-    UNREACHABLE=6 # machine should be up, but is unreachable
+    UNKNOWN = 0  # state unknown
+    MISSING = 1  # instance destroyed or not yet created
+    STARTING = 2  # boot initiated
+    UP = 3  # machine is reachable
+    STOPPING = 4  # shutdown initiated
+    STOPPED = 5  # machine is down
+    UNREACHABLE = 6  # machine should be up, but is unreachable
 
     state = nixops.util.attr_property("state", UNKNOWN, int)
     index = nixops.util.attr_property("index", None, int)
@@ -53,10 +53,12 @@ class ResourceState(object):
         with self.depl._db:
             c = self.depl._db.cursor()
             for n, v in attrs.iteritems():
-                if v == None:
-                    c.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, n))
+                if v is None:
+                    c.execute("delete from ResourceAttrs where machine = ? "
+                              "and name = ?", (self.id, n))
                 else:
-                    c.execute("insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
+                    c.execute("insert or replace into ResourceAttrs(machine, "
+                              "name, value) values (?, ?, ?)",
                               (self.id, n, v))
 
     def _set_attr(self, name, value):
@@ -66,21 +68,25 @@ class ResourceState(object):
     def _del_attr(self, name):
         """Delete a machine attribute from the state file."""
         with self.depl._db:
-            self.depl._db.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, name))
+            self.depl._db.execute("delete from ResourceAttrs where "
+                                  "machine = ? and name = ?", (self.id, name))
 
     def _get_attr(self, name, default=nixops.util.undefined):
         """Get a machine attribute from the state file."""
         with self.depl._db:
             c = self.depl._db.cursor()
-            c.execute("select value from ResourceAttrs where machine = ? and name = ?", (self.id, name))
+            c.execute("select value from ResourceAttrs where "
+                      "machine = ? and name = ?", (self.id, name))
             row = c.fetchone()
-            if row != None: return row[0]
+            if row is not None:
+                return row[0]
             return nixops.util.undefined
 
     def export(self):
         with self.depl._db:
             c = self.depl._db.cursor()
-            c.execute("select name, value from ResourceAttrs where machine = ?", (self.id,))
+            c.execute("select name, value from ResourceAttrs where "
+                      "machine = ?", (self.id,))
             rows = c.fetchall()
             res = {row[0]: row[1] for row in rows}
             res['type'] = self.get_type()
@@ -89,13 +95,16 @@ class ResourceState(object):
     def import_(self, attrs):
         with self.depl._db:
             for k, v in attrs.iteritems():
-                if k == 'type': continue
+                if k == 'type':
+                    continue
                 self._set_attr(k, v)
 
     def set_log_prefix(self, length):
-        self._log_prefix = "{0}{1}> ".format(self.name, '.' * (length - len(self.name)))
-        if self.depl._log_file.isatty() and self.index != None:
-            self._log_prefix = "\033[1;{0}m{1}\033[0m".format(31 + self.index % 7, self._log_prefix)
+        self._log_prefix = "{0}{1}> ".format(self.name,
+                                             '.' * (length - len(self.name)))
+        if self.depl._log_file.isatty() and self.index is not None:
+            self._log_prefix = "\033[1;{0}m{1}\033[0m".format(
+                31 + self.index % 7, self._log_prefix)
 
     def log(self, msg):
         self.depl.log(self._log_prefix + msg)
@@ -110,7 +119,8 @@ class ResourceState(object):
         self.depl.log_end(self._log_prefix, msg)
 
     def warn(self, msg):
-        self.log(nixops.util.ansi_warn("warning: " + msg, outfile=self.depl._log_file))
+        self.log(nixops.util.ansi_warn("warning: " + msg,
+                                       outfile=self.depl._log_file))
 
     def success(self, msg):
         self.log(nixops.util.ansi_success(msg, outfile=self.depl._log_file))
@@ -120,14 +130,22 @@ class ResourceState(object):
 
     def show_state(self):
         state = self.state
-        if state == self.UNKNOWN: return "Unknown"
-        elif state == self.MISSING: return "Missing"
-        elif state == self.STARTING: return "Starting"
-        elif state == self.UP: return "Up"
-        elif state == self.STOPPING: return "Stopping"
-        elif state == self.STOPPED: return "Stopped"
-        elif state == self.UNREACHABLE: return "Unreachable"
-        else: raise Exception("machine is in unknown state")
+        if state == self.UNKNOWN:
+            return "Unknown"
+        elif state == self.MISSING:
+            return "Missing"
+        elif state == self.STARTING:
+            return "Starting"
+        elif state == self.UP:
+            return "Up"
+        elif state == self.STOPPING:
+            return "Stopping"
+        elif state == self.STOPPED:
+            return "Stopped"
+        elif state == self.UNREACHABLE:
+            return "Unreachable"
+        else:
+            raise Exception("machine is in unknown state")
 
     def get_definition_prefix(self):
         raise Exception("not implemented")
