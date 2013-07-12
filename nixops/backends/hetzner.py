@@ -7,6 +7,7 @@ import subprocess
 
 from hetzner.robot import Robot
 
+from nixops import known_hosts
 from nixops.util import attr_property, wait_for_tcp_port, create_key_pair
 from nixops.backends import MachineDefinition, MachineState
 
@@ -89,7 +90,13 @@ class HetznerState(MachineState):
         if self.state == self.RESCUE:
             return ["-o", "LogLevel=quiet"]
         else:
-            return ["-i", self.get_ssh_private_key_file()]
+            # XXX: Disabling strict host key checking will only impact the
+            # behaviour on *new* keys, so it should be "reasonably" safe to do
+            # this until we have a better way of managing host keys in
+            # ssh_util. So far this at least avoids to accept every damn host
+            # key on a large deployment.
+            return ["-o", "StrictHostKeyChecking=no",
+                    "-i", self.get_ssh_private_key_file()]
 
     def _wait_for_rescue(self, ip):
         self.log_start("waiting for rescue system...")
@@ -347,6 +354,7 @@ class HetznerState(MachineState):
             self.reboot_rescue(install=True)
             self._install_base_system()
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
+            known_hosts.remove(self.main_ipv4)
             self.just_installed = True
 
     def start(self):
