@@ -70,16 +70,57 @@ class HetznerState(MachineState):
     def public_ipv4(self):
         return self.main_ipv4
 
-    def connect(self):
+    def _fetch_robot_credentials(self, defn):
+        """
+        Fetch and set robot credentials to self.robot_user and self.robot_pass
+        from either the definition passed as an argument or by their
+        correspoinging environment variables. If neither the definition nor the
+        environment variables contain values, nothing is done and the existing
+        state remains.
+        """
+        if len(defn.robot_user) > 0:
+            robot_user = defn.robot_user
+        else:
+            robot_user = os.environ.get('HETZNER_ROBOT_USER', None)
+
+        if len(defn.robot_pass) > 0:
+            robot_pass = defn.robot_pass
+        else:
+            robot_pass = os.environ.get('HETZNER_ROBOT_PASS', None)
+
+        if not self.robot_user and robot_user is None:
+            raise Exception("please either set ‘deployment.hetzner.robotUser’"
+                            " or $HETZNER_ROBOT_USER for machine"
+                            " ‘{0}’".format(self.name))
+        elif not self.robot_pass and robot_pass is None:
+            raise Exception("please either set ‘deployment.hetzner.robotPass’"
+                            " or $HETZNER_ROBOT_PASS for machine"
+                            " ‘{0}’".format(self.name))
+        elif robot_user is not None and robot_pass is not None:
+            with self.depl._db:
+                self.robot_user = robot_user
+                self.robot_pass = robot_pass
+
+    def connect(self, defn=None):
         """
         Connect to the Hetzner robot.
         """
         if self._robot is not None:
-            return True
-        elif self.robot_user is None or self.robot_pass is None:
-            return False
+            return self._robot
+
+        if defn is not None:
+            self._fetch_robot_credentials(defn)
+
         self._robot = Robot(self.robot_user, self.robot_pass)
-        return True
+        return self._robot
+
+    def _get_server_by_ip(self, ip):
+        """
+        Queries the robot for the given ip address and returns the Server
+        instance if it was found.
+        """
+        robot = self.connect()
+        return robot.servers.get(ip)
 
     def get_ssh_private_key_file(self):
         if self._ssh_private_key_file:
@@ -358,6 +399,9 @@ class HetznerState(MachineState):
         self.robot_pass = defn.robot_pass
         self.main_ipv4 = defn.main_ipv4
 
+        # Connect and fetch robot credentials
+        self.connect(defn)
+
         if not self.vm_id:
             self.log("installing machine...")
             self.reboot_rescue(install=True, partitions=defn.partitions)
@@ -415,16 +459,6 @@ class HetznerState(MachineState):
     def get_ssh_password(self):
         if self.state == self.RESCUE:
             return self.rescue_passwd
-        else:
-            return None
-
-    def _get_server_by_ip(self, ip):
-        """
-        Queries the robot for the given ip address and returns the Server
-        instance if it was found.
-        """
-        if self.connect():
-            return self._robot.servers.get(ip)
         else:
             return None
 

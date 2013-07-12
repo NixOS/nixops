@@ -18,18 +18,24 @@ with pkgs.lib;
     };
 
     robotUser = mkOption {
-      default = null;
+      default = "";
       type = types.nullOr types.string;
       description = ''
         Username of the Hetzner robot account.
+
+        If left empty, the value of the environment variable
+        <envar>HETZNER_ROBOT_USER</envar> is used instead.
       '';
     };
 
     robotPass = mkOption {
-      default = null;
+      default = "";
       type = types.nullOr types.string;
       description = ''
         Password of the Hetzner robot account.
+
+        If left empty, the value of the environment variable
+        <envar>HETZNER_ROBOT_PASS</envar> is used instead.
       '';
     };
 
