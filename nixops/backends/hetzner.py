@@ -10,6 +10,7 @@ from hetzner.robot import Robot
 from nixops import known_hosts
 from nixops.util import wait_for_tcp_port, ping_tcp_port
 from nixops.util import attr_property, create_key_pair
+from nixops.ssh_util import SSHCommandFailed
 from nixops.backends import MachineDefinition, MachineState
 
 
@@ -177,8 +178,18 @@ class HetznerState(MachineState):
 
         if install:
             self.log_start("partitioning disks...")
-            out = self.run_command("nixpart -p -", capture_stdout=True,
-                                   stdin_string=partitions)
+            try:
+                out = self.run_command("nixpart -p -", capture_stdout=True,
+                                       stdin_string=partitions)
+            except SSHCommandFailed as cmd:
+                # Exit code 100 is when the partitioner requires a reboot.
+                if cmd.exitcode == 100:
+                    self.log(cmd.message)
+                    self.reboot_rescue(install, partitions)
+                    return
+                else:
+                    raise
+
             # This is the *only* place to set self.partitions unless we have
             # implemented a way to repartition the system!
             self.partitions = partitions
@@ -286,6 +297,8 @@ class HetznerState(MachineState):
             command += "switch-to-configuration"
 
         res = MachineState.switch_to_configuration(self, method, sync, command)
+        if res not in (0, 100):
+            return res
         if self.state == self.RESCUE and self.just_installed:
             self.reboot_sync()
             self.just_installed = False
