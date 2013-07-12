@@ -89,6 +89,7 @@ in
       target1 =
         { config, pkgs, ... }:
         { services.openssh.enable = true;
+          virtualisation.memorySize = 512;
           virtualisation.writableStore = true;
           users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
         };
@@ -96,6 +97,7 @@ in
       target2 =
         { config, pkgs, ... }:
         { services.openssh.enable = true;
+          virtualisation.memorySize = 512;
           virtualisation.writableStore = true;
           users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
         };
