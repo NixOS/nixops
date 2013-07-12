@@ -384,9 +384,11 @@ class HetznerState(MachineState):
         self.net_info = "\n".join(self._indent(attrs))
 
     def get_physical_spec(self):
-        return self._indent(
-            self.net_info.splitlines() + self.fs_info.splitlines()
-        )
+        if self.net_info and self.fs_info:
+            return self._indent(self.net_info.splitlines() +
+                                self.fs_info.splitlines())
+        else:
+            return []
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, HetznerDefinition)
