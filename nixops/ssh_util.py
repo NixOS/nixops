@@ -15,7 +15,7 @@ class SSHConnectionFailed(Exception):
     pass
 
 
-class SSHCommandFailed(Exception):
+class SSHCommandFailed(nixops.util.CommandFailed):
     pass
 
 
@@ -215,14 +215,14 @@ class SSH(object):
         if logged:
             try:
                 return nixops.util.logged_exec(cmd, self._logger, **kwargs)
-            except nixops.util.CommandFailed as e:
-                raise nixops.ssh_util.SSHCommandFailed(e)
+            except nixops.util.CommandFailed as exc:
+                raise SSHCommandFailed(exc.message, exc.exitcode)
         else:
             check = kwargs.pop('check', True)
             res = subprocess.call(cmd, **kwargs)
             if check and res != 0:
                 msg = "command ‘{0}’ failed on host ‘{1}’"
                 err = msg.format(cmd, self._get_target())
-                raise nixops.ssh_util.SSHCommandFailed(err)
+                raise SSHCommandFailed(err, res)
             else:
                 return res

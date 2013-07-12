@@ -34,7 +34,12 @@ def check_wait(test, initial=10, factor=1, max_tries=60, exception=True):
 
 
 class CommandFailed(Exception):
-    pass
+    def __init__(self, message, exitcode):
+        self.message = message
+        self.exitcode = exitcode
+
+    def __str__(self):
+        return "{0} (exit code {1}".format(self.message, self.exitcode)
 
 
 def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
@@ -127,7 +132,7 @@ def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
     if check and res != 0:
         msg = "command ‘{0}’ failed on machine ‘{1}’"
         err = msg.format(command, logger.machine_name)
-        raise CommandFailed(err)
+        raise CommandFailed(err, res)
     return stdout if capture_stdout else res
 
 
