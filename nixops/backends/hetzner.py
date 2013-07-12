@@ -108,11 +108,12 @@ class HetznerState(MachineState):
         self.log_end("[up]")
         self.state = self.RESCUE
 
-    def _bootstrap_rescue(self, install):
+    def _bootstrap_rescue(self, install, partitions):
         """
         Bootstrap everything needed in order to get Nix and the partitioner
-        usable in the rescue system. The latter is not only for partitioning
-        but also for mounting partitions.
+        usable in the rescue system. The keyword arguments are only for
+        partitioning, see reboot_rescue() for description, if not given we will
+        only mount based on information provided in self.partitions.
         """
         self.log_start("building Nix bootstrap installer...")
         bootstrap = subprocess.check_output([
@@ -136,7 +137,10 @@ class HetznerState(MachineState):
         if install:
             self.log_start("partitioning disks...")
             out = self.run_command("nixpart -p -", capture_stdout=True,
-                                   stdin_string=self.partitions)
+                                   stdin_string=partitions)
+            # This is the *only* place to set self.partitions unless we have
+            # implemented a way to repartition the system!
+            self.partitions = partitions
             self.fs_info = '\n'.join(out.splitlines()[1:-1])
         else:
             self.log_start("mounting filesystems...")
@@ -160,10 +164,15 @@ class HetznerState(MachineState):
             self.run_command(cmd)
         self.log_end("done.")
 
-    def reboot_rescue(self, install=False):
+    def reboot_rescue(self, install=False, partitions=None):
         """
         Use the Robot to activate the rescue system and reboot the system. By
         default, only mount partitions and do not partition or wipe anything.
+
+        On installation, both 'installed' has to be set to True and partitions
+        should contain a Kickstart configuration, otherwise it's read from
+        self.partitions if available (which it shouldn't if you're not doing
+        something nasty).
         """
         self.log("rebooting machine ‘{0}’ ({1}) into rescue system"
                  .format(self.name, self.main_ipv4))
@@ -175,13 +184,13 @@ class HetznerState(MachineState):
             server.reboot('hard')
         else:
             self.log_start("sending reboot command...")
-            self.run_command("(sleep 2; reboot) &")
+            self.run_command("systemctl reboot", check=False)
         self.log_end("done.")
         self._wait_for_rescue(self.main_ipv4)
         self.rescue_passwd = rescue_passwd
         self.state = self.RESCUE
         self.ssh.reset()
-        self._bootstrap_rescue(install)
+        self._bootstrap_rescue(install, partitions)
 
     def _install_main_ssh_keys(self):
         """
@@ -348,11 +357,10 @@ class HetznerState(MachineState):
         self.robot_user = defn.robot_user
         self.robot_pass = defn.robot_pass
         self.main_ipv4 = defn.main_ipv4
-        self.partitions = defn.partitions
 
         if not self.vm_id:
             self.log("installing machine...")
-            self.reboot_rescue(install=True)
+            self.reboot_rescue(install=True, partitions=defn.partitions)
             self._install_base_system()
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
             known_hosts.remove(self.main_ipv4)
