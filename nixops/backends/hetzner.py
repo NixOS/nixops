@@ -8,7 +8,8 @@ import subprocess
 from hetzner.robot import Robot
 
 from nixops import known_hosts
-from nixops.util import attr_property, wait_for_tcp_port, create_key_pair
+from nixops.util import wait_for_tcp_port, ping_tcp_port
+from nixops.util import attr_property, create_key_pair
 from nixops.backends import MachineDefinition, MachineState
 
 
@@ -358,15 +359,46 @@ class HetznerState(MachineState):
             self.just_installed = True
 
     def start(self):
-        server = self._get_server_by_ip(defn.main_ipv4)
-        server.reboot()
+        """
+        Start the server into the normal system (a reboot is done if the rescue
+        system is active).
+        """
+        if self.state == self.UP:
+            return
+        elif self.state == self.RESCUE:
+            self.reboot()
+        elif self.state in (self.STOPPED, self.UNREACHABLE):
+            self.log_start("server was shut down, sending hard reset...")
+            server = self._get_server_by_ip(self.main_ipv4)
+            server.reboot("hard")
+            self.log_end("done.")
+            self.state = self.STARTING
+        self.wait_for_ssh(check=True)
+        self.send_keys()
+
+    def _wait_stop(self):
+        """
+        Wait for the system to shutdown and set state STOPPED afterwards.
+        """
+        self.log_start("waiting for system to shutdown...")
+        dotlog = lambda: self.log_continue(".")
+        wait_for_tcp_port(self.main_ipv4, 22, open=False, callback=dotlog)
+        self.log_continue("[down]")
+
+        self.state = self.STOPPED
 
     def stop(self):
         """
-        "Stops" the server by putting it into the rescue system.
+        Stops the server by shutting it down without powering it off.
         """
-        # TODO!
-        pass
+        if self.state not in (self.RESCUE, self.UP):
+            return
+        self.log_start("shutting down system...")
+        self.run_command("systemctl halt", check=False)
+        self.log_end("done.")
+
+        self.state = self.STOPPING
+        self._wait_stop()
 
     def get_ssh_name(self):
         assert self.main_ipv4
@@ -392,6 +424,14 @@ class HetznerState(MachineState):
         if not self.vm_id:
             res.exists = False
             return
+
+        if self.state in (self.STOPPED, self.STOPPING):
+            res.is_up = ping_tcp_port(self.main_ipv4, 22)
+            if not res.is_up:
+                self.state = self.STOPPED
+                res.is_reachable = False
+                return
+
         res.exists = True
         avg = self.get_load_avg()
         if avg is None:
