@@ -421,7 +421,10 @@ class HetznerState(MachineState):
             self.log("installing machine...")
             self.reboot_rescue(install=True, partitions=defn.partitions)
             self._install_base_system()
-            self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
+            server = self._get_server_by_ip(self.main_ipv4)
+            vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
+            server.set_name(vm_id)
+            self.vm_id = vm_id
             known_hosts.remove(self.main_ipv4)
             self.just_installed = True
 
