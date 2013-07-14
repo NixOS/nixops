@@ -10,6 +10,7 @@ import shutil
 import threading
 import exceptions
 import errno
+from collections import defaultdict
 from xml.etree import ElementTree
 import nixops.statefile
 import nixops.backends
@@ -355,13 +356,29 @@ class Deployment(object):
         authorized_keys = {m.name: [] for m in active_machines.itervalues()}
         kernel_modules = {m.name: set() for m in active_machines.itervalues()}
         trusted_interfaces = {m.name: set() for m in active_machines.itervalues()}
-        hosts = {}
+
+        # Hostnames should be accumulated like this:
+        #
+        #   hosts[local_name][remote_ip] = [name1, name2, ...]
+        #
+        # This makes hosts deterministic and is more in accordance to the
+        # format in hosts(5), which is like this:
+        #
+        #   ip_address canonical_hostname [aliases...]
+        #
+        # This is critical for example when using host names for access
+        # control, because the canonical_hostname is returned in reverse
+        # lookups.
+        hosts = defaultdict(lambda: defaultdict(list))
 
         for m in active_machines.itervalues():
-            hosts[m.name] = {m.name + "-encrypted": "127.0.0.1"}
             for m2 in active_machines.itervalues():
                 ip = m.address_to(m2)
-                if ip: hosts[m.name][m2.name] = hosts[m.name][m2.name + "-unencrypted"] = ip
+                if ip:
+                    hosts[m.name][ip] += [m2.name, m2.name + "-unencrypted"]
+            # Always use the encrypted/unencrypted suffixes for aliases rather
+            # than for the canonical name!
+            hosts[m.name]["127.0.0.1"].append(m.name + "-encrypted")
 
         def index_to_private_ip(index):
             n = 105 + index / 256
@@ -410,8 +427,8 @@ class Deployment(object):
                 authorized_keys[m2.name].append('"' + m.public_vpn_key + '"')
                 kernel_modules[m.name].add('"tun"')
                 kernel_modules[m2.name].add('"tun"')
-                hosts[m.name][m2.name] = hosts[m.name][m2.name + "-encrypted"] = remote_ipv4
-                hosts[m2.name][m.name] = hosts[m2.name][m.name + "-encrypted"] = local_ipv4
+                hosts[m.name][remote_ipv4] += [m2.name, m2.name + "-encrypted"]
+                hosts[m2.name][local_ipv4] += [m.name, m.name + "-encrypted"]
                 trusted_interfaces[m.name].add('"tun' + str(local_tunnel) + '"')
                 trusted_interfaces[m2.name].add('"tun' + str(remote_tunnel) + '"')
 
@@ -430,12 +447,20 @@ class Deployment(object):
             lines.extend(r.get_physical_spec())
             lines.extend(lines_per_resource[r.name])
             if is_machine(r):
+                # Sort the hosts by its canonical host names.
+                sorted_hosts = sorted(hosts[r.name].iteritems(),
+                                      key=lambda item: item[1][0])
+                # Just to remember the format:
+                #   ip_address canonical_hostname [aliases...]
+                extra_hosts = ["{0} {1}".format(ip, ' '.join(names))
+                               for ip, names in sorted_hosts]
+
                 if authorized_keys[r.name]:
                     lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys[r.name])))
                     lines.append('    services.openssh.extraConfig = "PermitTunnel yes\\n";')
                 lines.append('    boot.kernelModules = [ {0} ];'.format(" ".join(kernel_modules[r.name])))
                 lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces[r.name])))
-                lines.append('    networking.extraHosts = "{0}\\n";'.format('\\n'.join([hosts[r.name][m2] + " " + m2 for m2 in hosts[r.name]])))
+                lines.append('    networking.extraHosts = "{0}\\n";'.format(r'\n'.join(extra_hosts)))
             if lines == []: return ""
             lines.insert(0, '  {0}"{1}" = {{ config, pkgs, ... }}: {{'.format(r.get_definition_prefix(), r.name))
             lines.append("  };\n")
