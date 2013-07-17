@@ -423,7 +423,10 @@ class HetznerState(MachineState):
             self._install_base_system()
             server = self._get_server_by_ip(self.main_ipv4)
             vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
-            server.set_name(vm_id)
+            # XXX: Truncated to 50 chars until the Robot allows more.
+            #      And this also means, that this field is unreliable so we
+            #      can't use it for uniquely identifying machine UUIDs.
+            server.set_name(vm_id[:50])
             self.vm_id = vm_id
             known_hosts.remove(self.main_ipv4)
             self.just_installed = True
