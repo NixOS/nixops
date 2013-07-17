@@ -18,7 +18,6 @@ class HetznerDefinition(MachineDefinition):
     """
     Definition of a Hetzner machine.
     """
-
     @classmethod
     def get_type(cls):
         return "hetzner"
@@ -39,7 +38,6 @@ class HetznerState(MachineState):
     """
     State of a Hetzner machine.
     """
-
     @classmethod
     def get_type(cls):
         return "hetzner"
@@ -47,8 +45,8 @@ class HetznerState(MachineState):
     state = attr_property("state", MachineState.UNKNOWN, int)
 
     main_ipv4 = attr_property("hetzner.mainIPv4", None)
-    robot_user = attr_property("hetzner.robotUser", None)
-    robot_pass = attr_property("hetzner.robotPass", None)
+    robot_admin_user = attr_property("hetzner.robotUser", None)
+    robot_admin_pass = attr_property("hetzner.robotPass", None)
     partitions = attr_property("hetzner.partitions", None)
 
     just_installed = attr_property("hetzner.justInstalled", False, bool)
@@ -71,13 +69,23 @@ class HetznerState(MachineState):
     def public_ipv4(self):
         return self.main_ipv4
 
-    def _fetch_robot_credentials(self, defn):
+    def connect(self):
         """
-        Fetch and set robot credentials to self.robot_user and self.robot_pass
-        from either the definition passed as an argument or by their
-        correspoinging environment variables. If neither the definition nor the
-        environment variables contain values, nothing is done and the existing
-        state remains.
+        Connect to the Hetzner robot by using the admin credetials in
+        'self.robot_admin_user' and 'self.robot_admin_pass'.
+        """
+        if self._robot is not None:
+            return self._robot
+
+        self._robot = Robot(self.robot_admin_user, self.robot_admin_pass)
+        return self._robot
+
+    def _get_server_from_main_robot(self, defn, ip):
+        """
+        Fetch the server instance using the main robot user and passwords
+        from the MachineDefinition passed by 'defn'. If the definition does not
+        contain these credentials, it is tried to fetch it from environment
+        variables.
         """
         if len(defn.robot_user) > 0:
             robot_user = defn.robot_user
@@ -89,31 +97,17 @@ class HetznerState(MachineState):
         else:
             robot_pass = os.environ.get('HETZNER_ROBOT_PASS', None)
 
-        if not self.robot_user and robot_user is None:
+        if robot_user is None:
             raise Exception("please either set ‘deployment.hetzner.robotUser’"
                             " or $HETZNER_ROBOT_USER for machine"
                             " ‘{0}’".format(self.name))
-        elif not self.robot_pass and robot_pass is None:
+        elif robot_pass is None:
             raise Exception("please either set ‘deployment.hetzner.robotPass’"
                             " or $HETZNER_ROBOT_PASS for machine"
                             " ‘{0}’".format(self.name))
-        elif robot_user is not None and robot_pass is not None:
-            with self.depl._db:
-                self.robot_user = robot_user
-                self.robot_pass = robot_pass
 
-    def connect(self, defn=None):
-        """
-        Connect to the Hetzner robot.
-        """
-        if self._robot is not None:
-            return self._robot
-
-        if defn is not None:
-            self._fetch_robot_credentials(defn)
-
-        self._robot = Robot(self.robot_user, self.robot_pass)
-        return self._robot
+        robot = Robot(robot_user, robot_pass)
+        return robot.servers.get(ip)
 
     def _get_server_by_ip(self, ip):
         """
@@ -410,12 +404,17 @@ class HetznerState(MachineState):
             self.check()
 
         self.set_common_state(defn)
-        self.robot_user = defn.robot_user
-        self.robot_pass = defn.robot_pass
         self.main_ipv4 = defn.main_ipv4
 
-        # Connect and fetch robot credentials
-        self.connect(defn)
+        if not self.robot_admin_user or not self.robot_admin_pass:
+            self.log_start("creating an exclusive robot admin account for "
+                           "‘{0}’...".format(self.name))
+            # Create a new Admin account exclusively for this machine.
+            server = self._get_server_from_main_robot(defn, self.main_ipv4)
+            with self.depl._db:
+                (self.robot_admin_user,
+                 self.robot_admin_pass) = server.admin.create()
+            self.log_end("done. ({0})".format(self.robot_admin_user))
 
         if not self.vm_id:
             self.log("installing machine...")
