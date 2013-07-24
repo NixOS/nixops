@@ -230,7 +230,10 @@ class HetznerState(MachineState):
             server.reboot('hard')
         else:
             self.log_start("sending reboot command...")
-            self.run_command("systemctl reboot", check=False)
+            if self.state == self.RESCUE:
+                self.run_command("(sleep 2; reboot) &", check=False)
+            else:
+                self.run_command("systemctl reboot", check=False)
         self.log_end("done.")
         self._wait_for_rescue(self.main_ipv4)
         self.rescue_passwd = rescue_passwd
