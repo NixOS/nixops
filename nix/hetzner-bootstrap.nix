@@ -1,4 +1,4 @@
-{ stdenv, perl, gnutar, pathsFromGraph, nix, pythonPackages }:
+with import <nixpkgs> {};
 
 let
   nixpart = pythonPackages.nixpart.override {

@@ -154,10 +154,9 @@ class HetznerState(MachineState):
         only mount based on information provided in self.partitions.
         """
         self.log_start("building Nix bootstrap installer...")
-        bootstrap = subprocess.check_output([
-            "nix-build", "<nixpkgs>", "--no-out-link", "-A",
-            "hetznerNixOpsInstaller"
-        ]).rstrip()
+        expr = os.path.join(self.depl.expr_path, "hetzner-bootstrap.nix")
+        bootstrap = subprocess.check_output(["nix-build", expr,
+                                             "--no-out-link"]).rstrip()
         self.log_end("done. ({0})".format(bootstrap))
 
         self.log_start("copying bootstrap files to rescue system...")
