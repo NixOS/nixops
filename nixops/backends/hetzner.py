@@ -82,19 +82,19 @@ class HetznerState(MachineState):
         self._robot = Robot(self.robot_admin_user, self.robot_admin_pass)
         return self._robot
 
-    def _get_server_from_main_robot(self, defn, ip):
+    def _get_server_from_main_robot(self, ip, defn=None):
         """
         Fetch the server instance using the main robot user and passwords
         from the MachineDefinition passed by 'defn'. If the definition does not
-        contain these credentials, it is tried to fetch it from environment
-        variables.
+        contain these credentials or is None, it is tried to fetch it from
+        environment variables.
         """
-        if len(defn.robot_user) > 0:
+        if defn is not None and len(defn.robot_user) > 0:
             robot_user = defn.robot_user
         else:
             robot_user = os.environ.get('HETZNER_ROBOT_USER', None)
 
-        if len(defn.robot_pass) > 0:
+        if defn is not None and len(defn.robot_pass) > 0:
             robot_pass = defn.robot_pass
         else:
             robot_pass = os.environ.get('HETZNER_ROBOT_PASS', None)
@@ -212,7 +212,7 @@ class HetznerState(MachineState):
             self.run_command(cmd)
         self.log_end("done.")
 
-    def reboot_rescue(self, install=False, partitions=None):
+    def reboot_rescue(self, install=False, partitions=None, bootstrap=True):
         """
         Use the Robot to activate the rescue system and reboot the system. By
         default, only mount partitions and do not partition or wipe anything.
@@ -241,7 +241,8 @@ class HetznerState(MachineState):
         self.rescue_passwd = rescue_passwd
         self.state = self.RESCUE
         self.ssh.reset()
-        self._bootstrap_rescue(install, partitions)
+        if bootstrap:
+            self._bootstrap_rescue(install, partitions)
 
     def _install_main_ssh_keys(self):
         """
@@ -456,7 +457,7 @@ class HetznerState(MachineState):
             self.log_start("creating an exclusive robot admin account for "
                            "‘{0}’...".format(self.name))
             # Create a new Admin account exclusively for this machine.
-            server = self._get_server_from_main_robot(defn, self.main_ipv4)
+            server = self._get_server_from_main_robot(self.main_ipv4, defn)
             with self.depl._db:
                 (self.robot_admin_user,
                  self.robot_admin_pass) = server.admin.create()
@@ -557,6 +558,39 @@ class HetznerState(MachineState):
             res.is_up = True
             MachineState._check(self, res)
 
-    def destroy(self, wipe=False):
-        # TODO!
+    def _destroy(self, server, wipe):
+        if self.state != self.RESCUE:
+            self.reboot_rescue(bootstrap=False)
+        if wipe:
+            self.log_start("erasing all data on disk...")
+            # Let it run in the background because it will take a long time.
+            cmd = "nohup shred /dev/[sh]d? &> /dev/null < /dev/null &"
+            self.run_command(cmd)
+            self.log_end("done. (backgrounded)")
+        self.log_start("unsetting server name...")
+        server.set_name("")
+        self.log_end("done.")
+        self.log_start("removing admin account...")
+        server.admin.delete()
+        self.log_start("done.")
+        self.log("machine left in rescue, password: "
+                 "{0}".format(self.rescue_passwd))
         return True
+
+    def destroy(self, wipe=False):
+        if not self.vm_id:
+            return True
+
+        # Create the instance as early as possible because if we don't have the
+        # needed credentials, we really don't have to even ask for destruction.
+        server = self._get_server_from_main_robot(self.main_ipv4)
+
+        if wipe:
+            question = "are you sure you want to destroy {0}?"
+        else:
+            question = "are you sure you want to completely erase {0}?"
+        question_target = "Hetzner machine ‘{0}’?".format(self.name)
+        if not self.depl.logger.confirm(question.format(question_target)):
+            return False
+
+        return self._destroy(server, wipe)
