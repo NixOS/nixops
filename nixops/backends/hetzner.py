@@ -376,9 +376,13 @@ class HetznerState(MachineState):
         udev_rules = []
         iface_attrs = []
         extra_routes = []
+        ipv6_commands = []
+
+        server = self._get_server_by_ip(self.main_ipv4)
 
         # global networking options
         defgw = self._get_default_gw()
+        v6defgw = None
         nameservers = self._get_nameservers()
 
         # interface-specific networking options
@@ -397,10 +401,27 @@ class HetznerState(MachineState):
             net = self._calculate_ipv4_subnet(ipv4, int(prefix))
             extra_routes.append(("{0}/{1}".format(net, prefix), defgw, iface))
 
+            # IPv6 subnets only for eth0 (XXX: more flexibility here?)
+            v6addr_command = "ip -6 addr add '{0}' dev '{1}' || true"
+            for subnet in server.subnets:
+                if "." in subnet.net_ip:
+                    # skip IPv4 addresses
+                    continue
+                v6addr = "{0}/{1}".format(subnet.net_ip, subnet.mask)
+                ipv6_commands.append(v6addr_command.format(v6addr, iface))
+                assert v6defgw is None or v6defgw == subnet.gateway
+                v6defgw = subnet.gateway
+
         # extra routes
-        route_cmd = "ip route change '{0}' via '{1}' dev '{2}' || true"
-        local_commands = r'\n'.join([route_cmd.format(net, gw, iface)
-                                     for net, gw, iface in extra_routes])
+        route4_cmd = "ip -4 route change '{0}' via '{1}' dev '{2}' || true"
+        route_commands = [route4_cmd.format(net, gw, iface)
+                          for net, gw, iface in extra_routes]
+
+        # IPv6 configuration
+        route6_cmd = "ip -6 route add default via '{0}' dev eth0 || true"
+        route_commands.append(route6_cmd.format(v6defgw))
+
+        local_commands = r'\n'.join(ipv6_commands + route_commands)
 
         udev_attrs = ["services.udev.extraRules = ''"]
         udev_attrs += self._indent(udev_rules)
