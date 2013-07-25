@@ -58,7 +58,6 @@ class Deployment(object):
         self.uuid = uuid
 
         self._last_log_prefix = None
-        self.auto_response = None
         self.extra_nix_path = []
         self.extra_nix_flags = []
         self.nixos_version_suffix = None

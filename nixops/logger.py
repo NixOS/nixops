@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import sys
 import threading
 
 from nixops.util import ansi_warn, ansi_success
@@ -11,6 +12,7 @@ class Logger(object):
         self._last_log_prefix = None  # XXX!
         self._log_lock = threading.Lock()
         self._log_file = log_file
+        self._auto_response = None
         self.machine_loggers = []
 
     @property
@@ -58,6 +60,13 @@ class Logger(object):
         self.update_log_prefixes()
         return machine_logger
 
+    def set_autoresponse(self, response):
+        """
+        Automatically respond to all confirmations with the response given by
+        'response'.
+        """
+        self._auto_response = response
+
     def update_log_prefixes(self):
         max_len = max([len(ml.machine_name)
                        for ml in self.machine_loggers] or [0])
@@ -67,15 +76,19 @@ class Logger(object):
     def warn(self, msg):
         self.log(ansi_warn("warning: " + msg, outfile=self._log_file))
 
-    def confirm_once(self, question, autoresponse=None):
+    def confirm_once(self, question):
         with self._log_lock:
             if self._last_log_prefix is not None:
                 self._log_file.write("\n")
                 self._last_log_prefix = None
-            self.warn("warning: {0} (y/N) ".format(question))
-            if auto_response is not None:
-                self._log_file.write("{0}\n".format(self.auto_response))
-                return auto_response == "y"
+            # XXX: This should be DRY!
+            self._log_file.write(ansi_warn(
+                "warning: {0} (y/N) ".format(question),
+                outfile=self._log_file
+            ))
+            if self._auto_response is not None:
+                self._log_file.write("{0}\n".format(self._auto_response))
+                return self._auto_response == "y"
             response = sys.stdin.readline()
             if response == "":
                 return False
@@ -84,10 +97,13 @@ class Logger(object):
                 return True
             if response == "n" or response == "":
                 return False
+        return None
 
-    def confirm(self, question, autoresponse=None):
-        while True:
-            self.confirm_once(question, autoresponse)
+    def confirm(self, question):
+        ret = None
+        while ret is None:
+            ret = self.confirm_once(question)
+        return ret
 
 
 class MachineLogger(object):

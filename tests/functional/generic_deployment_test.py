@@ -8,7 +8,7 @@ class GenericDeploymentTest(DatabaseUsingTest):
     def setup(self):
         super(GenericDeploymentTest,self).setup()
         self.depl = self.sf.create_deployment()
-        self.depl.auto_response = "y"
+        self.depl.logger.set_autoresponse("y")
 
     def set_ec2_args(self):
         assert os.getenv("EC2_SECURITY_GROUP") is not None, "The EC2_SECURITY_GROUP env var must be set to the name of an ec2 security group with inbound ssh access"
