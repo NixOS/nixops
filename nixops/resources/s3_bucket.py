@@ -84,7 +84,7 @@ class S3BucketState(nixops.resources.ResourceState):
                 self.region = defn.region
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         if self.state == self.UP:
             self.connect()
             try:

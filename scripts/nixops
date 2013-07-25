@@ -354,7 +354,9 @@ def op_destroy():
     depl = open_deployment()
     if args.confirm:
         depl.logger.set_autoresponse("y")
-    depl.destroy_resources(include=args.include or [], exclude=args.exclude or [])
+    depl.destroy_resources(include=args.include or [],
+                           exclude=args.exclude or [],
+                           wipe=args.wipe)
 
 
 def op_reboot():
@@ -659,6 +661,8 @@ subparser = add_subparser('destroy', help='destroy all virtual machines in the n
 subparser.set_defaults(op=op_destroy)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='destroy only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='destroy all except the specified machines')
+subparser.add_argument('--wipe', action='store_true',
+                       help='securely wipe data on the machines')
 
 subparser = add_subparser('stop', help='stop all virtual machines in the network')
 subparser.set_defaults(op=op_stop)

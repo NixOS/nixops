@@ -284,7 +284,7 @@ class VirtualBoxState(MachineState):
             self._wait_for_ip()
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         if not self.vm_id: return True
 
         if not self.depl.logger.confirm("are you sure you want to destroy VirtualBox VM ‘{0}’?".format(self.name)): return False

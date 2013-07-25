@@ -893,7 +893,7 @@ class EC2State(MachineState):
         volume.delete()
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         if not (self.vm_id or self.client_token): return True
         if not self.depl.logger.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
 

@@ -93,7 +93,7 @@ class EC2KeyPairState(nixops.resources.ResourceState):
                 self.keypair_name = defn.keypair_name
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         if self.state == self.UP:
             self.log("deleting EC2 key pair ‘{0}’...".format(self.keypair_name))
             self.connect()

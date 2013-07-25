@@ -138,7 +138,7 @@ class ResourceState(object):
         """Create or update the resource defined by ‘defn’."""
         assert False
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         """Destroy this resource, if possible."""
         self.logger.warn(
             "don't know how to destroy resource ‘{0}’".format(self.name)

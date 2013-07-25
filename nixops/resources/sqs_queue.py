@@ -128,6 +128,6 @@ class SQSQueueState(nixops.resources.ResourceState):
                 self.url = q.url
                 self.arn = q.get_attributes()['QueueArn']
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         self._destroy()
         return True

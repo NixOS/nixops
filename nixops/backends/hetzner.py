@@ -557,6 +557,6 @@ class HetznerState(MachineState):
             res.is_up = True
             MachineState._check(self, res)
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         # TODO!
         return True

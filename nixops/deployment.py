@@ -868,14 +868,14 @@ class Deployment(object):
             self._rollback(**kwargs)
 
 
-    def destroy_resources(self, include=[], exclude=[]):
+    def destroy_resources(self, include=[], exclude=[], wipe=False):
         """Destroy all active or obsolete resources."""
 
         with self._get_deployment_lock():
 
             def worker(m):
                 if not should_do(m, include, exclude): return
-                if m.destroy(): self.delete_resource(m)
+                if m.destroy(wipe=wipe): self.delete_resource(m)
 
             nixops.parallel.run_tasks(nr_workers=-1, tasks=self.resources.values(), worker_fun=worker)
 
