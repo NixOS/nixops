@@ -3,6 +3,8 @@ from __future__ import absolute_import
 
 import os
 import sys
+import socket
+import struct
 import subprocess
 
 from hetzner.robot import Robot
@@ -356,6 +358,15 @@ class HetznerState(MachineState):
         """
         return map(lambda line: "  " + line, lines)
 
+    def _calculate_ipv4_subnet(self, ipv4, prefix_len):
+        """
+        Returns the address of the subnet for the given 'ipv4' and
+        'prefix_len'.
+        """
+        bits = struct.unpack('!L', socket.inet_aton(ipv4))[0]
+        mask = 0xffffffff >> (32 - prefix_len) << (32 - prefix_len)
+        return socket.inet_ntoa(struct.pack('!L', bits & mask))
+
     def _gen_network_spec(self):
         """
         Generate Nix expressions related to networking configuration based on
@@ -364,6 +375,11 @@ class HetznerState(MachineState):
         """
         udev_rules = []
         iface_attrs = []
+        extra_routes = []
+
+        # global networking options
+        defgw = self._get_default_gw()
+        nameservers = self._get_nameservers()
 
         # interface-specific networking options
         for iface in self._get_ethernet_interfaces():
@@ -377,9 +393,14 @@ class HetznerState(MachineState):
             iface_attrs.append(baseattr.format(iface, "ipAddress", quotedipv4))
             iface_attrs.append(baseattr.format(iface, "prefixLength", prefix))
 
-        # global networking options
-        defgw = self._get_default_gw()
-        nameservers = self._get_nameservers()
+            # extra route for accessing own subnet
+            net = self._calculate_ipv4_subnet(ipv4, int(prefix))
+            extra_routes.append(("{0}/{1}".format(net, prefix), defgw, iface))
+
+        # extra routes
+        route_cmd = "ip route change '{0}' via '{1}' dev '{2}' || true"
+        local_commands = r'\n'.join([route_cmd.format(net, gw, iface)
+                                     for net, gw, iface in extra_routes])
 
         udev_attrs = ["services.udev.extraRules = ''"]
         udev_attrs += self._indent(udev_rules)
@@ -390,6 +411,7 @@ class HetznerState(MachineState):
             'networking.nameservers = [ {0} ];'.format(
                 ' '.join(map(lambda ns: '"{0}"'.format(ns), nameservers))
             ),
+            'networking.localCommands = "{0}";'.format(local_commands),
         ]
         self.net_info = "\n".join(self._indent(attrs))
 
