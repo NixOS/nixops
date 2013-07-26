@@ -443,7 +443,6 @@ class Deployment(object):
 
         def emit_resource(r):
             lines = []
-            lines.extend(r.get_physical_spec())
             lines.extend(lines_per_resource[r.name])
             if is_machine(r):
                 # Sort the hosts by its canonical host names.
@@ -460,9 +459,24 @@ class Deployment(object):
                 lines.append('    boot.kernelModules = [ {0} ];'.format(" ".join(kernel_modules[r.name])))
                 lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces[r.name])))
                 lines.append('    networking.extraHosts = "{0}\\n";'.format(r'\n'.join(extra_hosts)))
-            if lines == []: return ""
-            lines.insert(0, '  {0}"{1}" = {{ config, pkgs, ... }}: {{'.format(r.get_definition_prefix(), r.name))
-            lines.append("  };\n")
+
+            # Ensure that we don't clash with any of the physical attributes
+            # from the resource.
+            # TODO: In the long term it would make much more sense to pretty
+            # print the physical spec out of Python dicts, lists, strings and
+            # whatnot, so we can properly merge the attributes on our side.
+            res_physical = r.get_physical_spec()
+            first_format = '  {0}"{1}" = {{ config, pkgs, ... }}:'
+            first = first_format.format(r.get_definition_prefix(), r.name)
+            if len(res_physical) > 0:
+                merger = 'pkgs.lib.mergeAttrByFunc'
+                lines.insert(0, first + ' ' + merger + ' {')
+                lines += ["  } {"] + res_physical + ["  };\n"]
+            elif len(lines) == 0:
+                return ""
+            else:
+                lines.insert(0, first + ' {')
+                lines.append("  };\n")
             return "\n".join(lines)
 
         return "".join(["{\n"] + [emit_resource(r) for r in active_resources.itervalues()] + ["}\n"])
