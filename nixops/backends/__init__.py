@@ -174,6 +174,7 @@ class MachineState(nixops.resources.ResourceState):
             tmp = self.depl.tempdir + "/key-" + self.name
             f = open(tmp, "w+"); f.write(v); f.close()
             self.upload_file(tmp, "/run/keys/" + k)
+            self.run_command("chmod 600 /run/keys/" + k)
             os.remove(tmp)
         self.run_command("touch /run/keys/done")
 
