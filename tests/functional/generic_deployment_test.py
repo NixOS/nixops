@@ -2,6 +2,8 @@ import os
 import subprocess
 import nixops.statefile
 
+from nose import SkipTest
+
 from tests.functional import DatabaseUsingTest
 
 class GenericDeploymentTest(DatabaseUsingTest):
@@ -11,9 +13,16 @@ class GenericDeploymentTest(DatabaseUsingTest):
         self.depl.logger.set_autoresponse("y")
 
     def set_ec2_args(self):
-        assert os.getenv("EC2_SECURITY_GROUP") is not None, "The EC2_SECURITY_GROUP env var must be set to the name of an ec2 security group with inbound ssh access"
-        assert os.getenv("EC2_KEY_PAIR") is not None, "The EC2_KEY_PAIR env var must be set to the name of an ec2 keypair"
-        assert os.getenv("EC2_PRIVATE_KEY_FILE") is not None, "The EC2_PRIVATE_KEY_FILE env var must be set to the private key of an ec2 keypair"
+        if os.getenv("EC2_SECURITY_GROUP") is None:
+            raise SkipTest("The EC2_SECURITY_GROUP env var must be set to the"
+                           " name of an EC2 security group with inbound ssh"
+                           " access")
+        if os.getenv("EC2_KEY_PAIR") is None:
+            raise SkipTest("The EC2_KEY_PAIR env var must be set to the name"
+                           " of an EC2 keypair")
+        if os.getenv("EC2_PRIVATE_KEY_FILE") is None:
+            raise SkipTest("The EC2_PRIVATE_KEY_FILE env var must be set to"
+                           " the private key of an EC2 keypair")
 
         self.depl.set_argstr("securityGroup", os.getenv("EC2_SECURITY_GROUP"))
         self.depl.set_argstr("keyPair", os.getenv("EC2_KEY_PAIR"))
