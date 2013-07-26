@@ -77,7 +77,7 @@ rec {
         export PATH=$(pwd)/scripts:$PATH
       '';
 
-      doCheck = false;
+      doCheck = true;
 
       postInstall =
         ''
