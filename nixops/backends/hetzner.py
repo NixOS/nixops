@@ -55,6 +55,7 @@ class HetznerState(MachineState):
     rescue_passwd = attr_property("hetzner.rescuePasswd", None)
     fs_info = attr_property("hetzner.fsInfo", None)
     net_info = attr_property("hetzner.networkInfo", None)
+    hw_info = attr_property("hetzner.hardwareInfo", None)
 
     main_ssh_private_key = attr_property("hetzner.sshPrivateKey", None)
     main_ssh_public_key = attr_property("hetzner.sshPublicKey", None)
@@ -282,6 +283,13 @@ class HetznerState(MachineState):
         self._install_main_ssh_keys()
         self._gen_network_spec()
 
+    def _detect_hardware(self):
+        self.log_start("detecting hardware...")
+        hardware = self.run_command("nixos-hardware-scan", capture_stdout=True)
+        attrs = filter(lambda l: l.startswith("  "), hardware.splitlines())
+        self.hw_info = "\n".join(attrs)
+        self.log_end("done.")
+
     def switch_to_configuration(self, method, sync, command=None):
         if self.state == self.RESCUE:
             # We cannot use the mountpoint command here, because it's unable to
@@ -437,9 +445,10 @@ class HetznerState(MachineState):
         self.net_info = "\n".join(self._indent(attrs))
 
     def get_physical_spec(self):
-        if self.net_info and self.fs_info:
+        if self.net_info and self.fs_info and self.hw_info:
             return self._indent(self.net_info.splitlines() +
-                                self.fs_info.splitlines())
+                                self.fs_info.splitlines() +
+                                self.hw_info.splitlines())
         else:
             return []
 
@@ -466,6 +475,7 @@ class HetznerState(MachineState):
             self.log("installing machine...")
             self.reboot_rescue(install=True, partitions=defn.partitions)
             self._install_base_system()
+            self._detect_hardware()
             server = self._get_server_by_ip(self.main_ipv4)
             vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
             # XXX: Truncated to 50 chars until the Robot allows more.
