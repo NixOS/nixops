@@ -67,10 +67,9 @@ with pkgs.lib;
     nixpkgs.system = mkOverride 900 "x86_64-linux";
     boot.loader.grub.version = 2;
     boot.loader.grub.timeout = 1;
-    # FIXME: This should be detected by the installer!
-    boot.kernelModules = [ "r8169" ];
+    services.openssh.enable = true;
+
     # Blacklist nvidiafb by default as it causes issues with some GPUs.
     boot.blacklistedKernelModules = [ "nvidiafb" ];
-    services.openssh.enable = true;
   };
 }
