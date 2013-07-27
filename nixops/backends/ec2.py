@@ -363,7 +363,7 @@ class EC2State(MachineState):
             snapshot_tags.update(defn.tags)
             snapshot_tags.update(self.get_common_tags())
 
-            self._conn.create_tags([snapshot.id], snapshot_tags)
+            nixops.ec2_utils.retry(lambda: self._conn.create_tags([snapshot.id], snapshot_tags))
             backup[k] = snapshot.id
         _backups[backup_id] = backup
         self.backups = _backups
@@ -704,7 +704,7 @@ class EC2State(MachineState):
         tags.update(defn.tags)
         tags.update(common_tags)
         if check or self.tags != tags:
-            self._conn.create_tags([self.vm_id], tags)
+            nixops.ec2_utils.retry(lambda: self._conn.create_tags([self.vm_id], tags))
             # TODO: remove obsolete tags?
             self.tags = tags
 
@@ -828,7 +828,7 @@ class EC2State(MachineState):
             volume_tags.update(defn.tags)
             volume_tags['Name'] = "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))
 
-            self._conn.create_tags([v['volumeId']], volume_tags)
+            nixops.ec2_utils.retry(lambda: self._conn.create_tags([v['volumeId']], volume_tags))
 
         # Attach missing volumes.
         for k, v in self.block_device_mapping.items():
