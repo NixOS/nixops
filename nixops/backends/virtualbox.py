@@ -205,7 +205,7 @@ class VirtualBoxState(MachineState):
                             ["nix-build"]
                             + self.depl._eval_flags(self.depl.nix_exprs) +
                             ["--arg", "checkConfigurationOptions", "false",
-                             "-A", 'nodes."{0}".config.deployment.virtualbox.disks.{1}.baseImage'.format(self.name, disk_name),
+                             "-A", "nodes.{0}.config.deployment.virtualbox.disks.{1}.baseImage".format(self.name, disk_name),
                              "-o", "{0}/vbox-image-{1}".format(self.depl.tempdir, self.name)],
                             capture_stdout=True).rstrip()
                     self._logged_exec(["VBoxManage", "clonehd", base_image, disk_path])
