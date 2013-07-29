@@ -393,7 +393,7 @@ class Deployment(object):
                 + self._eval_flags(exprs) +
                 ["--eval-only", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
-                 "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
+                 "-A", 'nodes."{0}".config.{1}'.format(machine_name, option_name)]
                 + (["--xml"] if xml else []),
                 stderr=self._log_file)
         except subprocess.CalledProcessError:
