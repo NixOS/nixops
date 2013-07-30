@@ -12,7 +12,7 @@ let
     "apt" "hostname" "tasksel" "openssh-server" "makedev" "locales" "kbd"
     "linux-image-2.6-amd64" "live-initramfs" "console-setup" "console-common"
     "eject" "file" "user-setup" "sudo" "squashfs-tools" "syslinux" "genisoimage"
-    "live-boot" "zsync" "librsvg2-bin" "net-tools"
+    "live-boot" "zsync" "librsvg2-bin" "net-tools" "dctrl-tools"
   ];
 
   # Debian packages for the rescue live system (Squeeze).
@@ -73,10 +73,7 @@ let
                                  -l /dev/null \
                                  -i "$(pwd)/thttpd.pid"
 
-      # TODO: --hostname rescue
-
       lb config --memtest none \
-                --tasks ssh-server \
                 --binary-images iso \
                 --distribution squeeze \
                 --bootstrap cdebootstrap \
@@ -109,6 +106,8 @@ let
 
       echo 'T0:23:respawn:/usr/local/bin/backdoor' >> /etc/inittab
       BACKDOOR
+
+      echo openssh-server > config/package-lists/ssh.list.chroot
 
       cat > config/hooks/1000-isolinux_timeout.binary <<ISOLINUX
       sed -i -e 's/timeout 0/timeout 1/' binary/isolinux/isolinux.cfg
