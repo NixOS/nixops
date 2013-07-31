@@ -9,16 +9,21 @@ let
 
   # Packages needed by live-build (Debian Squeeze)
   rescuePackages = pkgs.vmTools.debDistros.debian60x86_64.packages ++ [
-    "apt" "hostname" "tasksel" "openssh-server" "makedev" "locales" "kbd"
-    "linux-image-2.6-amd64" "live-initramfs" "console-setup" "console-common"
-    "eject" "file" "user-setup" "sudo" "squashfs-tools" "syslinux" "genisoimage"
-    "live-boot" "zsync" "librsvg2-bin" "net-tools" "dctrl-tools"
+    "apt" "hostname" "tasksel" "makedev" "locales" "kbd" "linux-image-2.6-amd64"
+    "live-initramfs" "console-setup" "console-common" "eject" "file"
+    "user-setup" "sudo" "squashfs-tools" "syslinux" "genisoimage" "live-boot"
+    "zsync" "librsvg2-bin" "net-tools" "dctrl-tools"
+  ];
+
+  # Packages to be explicitely installed into the live system.
+  additionalRescuePackages = [
+    "openssh-server" "e2fsprogs" "mdadm" "btrfs-tools" "dmsetup" "iproute"
   ];
 
   # Debian packages for the rescue live system (Squeeze).
   rescueDebs = let
     expr = pkgs.vmTools.debClosureGenerator {
-      packages = rescuePackages;
+      packages = rescuePackages ++ additionalRescuePackages;
       inherit (pkgs.vmTools.debDistros.debian60x86_64) name urlPrefix;
       packagesLists = [pkgs.vmTools.debDistros.debian60x86_64.packagesList];
     };
@@ -35,6 +40,7 @@ let
     memSize = 768;
 
     inherit rescueDebs;
+    inherit additionalRescuePackages;
 
     bootOptions = [
       "boot=live"
@@ -107,7 +113,8 @@ let
       echo 'T0:23:respawn:/usr/local/bin/backdoor' >> /etc/inittab
       BACKDOOR
 
-      echo openssh-server > config/package-lists/ssh.list.chroot
+      echo $additionalRescuePackages \
+        > config/package-lists/additional.list.chroot
 
       cat > config/hooks/1000-isolinux_timeout.binary <<ISOLINUX
       sed -i -e 's/timeout 0/timeout 1/' binary/isolinux/isolinux.cfg
