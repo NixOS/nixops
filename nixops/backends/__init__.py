@@ -127,7 +127,7 @@ class MachineState(nixops.resources.ResourceState):
         """Make backup of persistent disks, if possible."""
         self.warn("don't know how to make backup of disks for machine ‘{0}’".format(self.name))
 
-    def reboot(self):
+    def reboot(self, hard=False):
         """Reboot this machine."""
         self.log("rebooting...")
         if self.state == self.RESCUE:
@@ -141,9 +141,9 @@ class MachineState(nixops.resources.ResourceState):
         self.state = self.STARTING
         self.ssh.reset()
 
-    def reboot_sync(self):
+    def reboot_sync(self, hard=False):
         """Reboot this machine and wait until it's up again."""
-        self.reboot()
+        self.reboot(hard=hard)
         self.log_start("waiting for the machine to finish rebooting...")
         nixops.util.wait_for_tcp_port(self.get_ssh_name(), 22, open=False, callback=lambda: self.log_continue("."))
         self.log_continue("[down]")
@@ -154,7 +154,7 @@ class MachineState(nixops.resources.ResourceState):
         self._ssh_pinged_this_time = True
         self.send_keys()
 
-    def reboot_rescue(self):
+    def reboot_rescue(self, hard=False):
         """
         Reboot machine into rescue system and wait until it is active.
         """

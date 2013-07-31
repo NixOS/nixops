@@ -908,7 +908,7 @@ class Deployment(object):
 
 
     def reboot_machines(self, include=[], exclude=[], wait=False,
-                        rescue=False):
+                        rescue=False, hard=False):
         """Reboot all active machines."""
 
         def worker(m):
@@ -916,9 +916,9 @@ class Deployment(object):
             if rescue:
                 m.reboot_rescue()
             elif wait:
-                m.reboot_sync()
+                m.reboot_sync(hard=hard)
             else:
-                m.reboot()
+                m.reboot(hard=hard)
 
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 

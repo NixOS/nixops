@@ -1066,7 +1066,7 @@ class EC2State(MachineState):
                     res.messages.append("  * {0} - {1}".format(e.not_before, e.not_after))
 
 
-    def reboot(self):
+    def reboot(self, hard=False):
         self.log("rebooting EC2 machine...")
         instance = self._get_instance_by_id(self.vm_id)
         instance.reboot()

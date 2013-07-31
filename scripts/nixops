@@ -364,7 +364,8 @@ def op_reboot():
     depl.reboot_machines(include=args.include or [],
                          exclude=args.exclude or [],
                          wait=(not args.no_wait),
-                         rescue=args.rescue)
+                         rescue=args.rescue,
+                         hard=args.hard)
 
 
 def op_stop():
@@ -685,6 +686,9 @@ subparser.add_argument('--no-wait', action='store_true',
                        help='do not wait until the machines are up again')
 subparser.add_argument('--rescue', action='store_true',
                        help='reboot machines into the rescue system'
+                            ' (if available)')
+subparser.add_argument('--hard', action='store_true',
+                       help='send a hard reset (power switch) to the machines'
                             ' (if available)')
 
 subparser = add_subparser('show-physical', help='print the physical network expression')

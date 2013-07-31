@@ -216,7 +216,19 @@ class HetznerState(MachineState):
             self.run_command(cmd)
         self.log_end("done.")
 
-    def reboot_rescue(self, install=False, partitions=None, bootstrap=True):
+    def reboot(self, hard=False):
+        if hard:
+            self.log_start("sending hard reset to robot...")
+            server = self._get_server_by_ip(self.main_ipv4)
+            server.reboot('hard')
+            self.log_end("done.")
+            self.state = self.STARTING
+            self.ssh.reset()
+        else:
+            MachineState.reboot(self, hard=hard)
+
+    def reboot_rescue(self, install=False, partitions=None, bootstrap=True,
+                      hard=False):
         """
         Use the Robot to activate the rescue system and reboot the system. By
         default, only mount partitions and do not partition or wipe anything.
@@ -231,7 +243,7 @@ class HetznerState(MachineState):
         server = self._get_server_by_ip(self.main_ipv4)
         server.rescue.activate()
         rescue_passwd = server.rescue.password
-        if install or self.state not in (self.UP, self.RESCUE):
+        if install or hard or self.state not in (self.UP, self.RESCUE):
             self.log_start("sending hard reset to robot...")
             server.reboot('hard')
         else:
