@@ -524,6 +524,69 @@ deployment.</para>
 
 </simplesect>
 
+<simplesect><title>Network arguments</title>
+
+<para>In NixOps you can pass in arguments from outside the nix
+expression. The network file can be a nix function, which takes a set
+of arguments which are passed in externally and can be used to change
+configuration values, or even to generate a variable number of
+machines in the network.</para>
+
+<para>Here is an example of a network with network arguments:
+
+<screen>
+{ maintenance ? false
+}:
+{
+  machine =
+    { config, pkgs, ... }:
+    { services.httpd.enable = maintenance;
+      ...
+    };
+}
+</screen>
+
+This network has a <emphasis>maintenance</emphasis> argument that
+defaults to <code>false</code>. This value can be used inside the
+network expression to set NixOS option, in this case whether or not
+Apache HTTPD should be enabled on the system.
+</para>
+
+<para>
+You can pass network arguments using the <code>set-args</code> nixops
+command. For example, if we want to set the <code>maintenance</code>
+argument to <code>true</code> in the previous example, you can run:
+
+<screen>
+  $ nixops set-args --arg maintenance true -d &lt;name&gt;
+</screen>
+
+The arguments that have been set will show up:
+
+<screen>
+$ nixops info -d argtest
+Network name: argtest
+Network UUID: 634d6273-f9f6-11e2-a004-15393537e5ff
+Network description: Unnamed NixOps network
+Nix expressions: .../network-arguments.nix
+<emphasis>Nix arguments: maintenance = true</emphasis>
+
++---------+---------------+------+-------------+------------+
+| Name    |     Status    | Type | Resource Id | IP address |
++---------+---------------+------+-------------+------------+
+| machine | Missing / New | none |             |            |
++---------+---------------+------+-------------+------------+
+
+</screen>
+
+Running <code>nixops deploy</code> after changing the arguments will
+deploy the new configuration.
+
+</para>
+
+
+
+</simplesect>
 
 <!--
 
