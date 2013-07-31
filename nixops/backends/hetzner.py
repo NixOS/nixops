@@ -15,6 +15,28 @@ from nixops.util import attr_property, create_key_pair
 from nixops.ssh_util import SSHCommandFailed
 from nixops.backends import MachineDefinition, MachineState
 
+# This is set to True by tests/hetzner-backend.nix. If it's in effect, no
+# attempt is made to connect to the real Robot API and the API calls only
+# return dummy objects.
+TEST_MODE = False
+
+
+class TestModeServer(object):
+    """
+    Server object from the Hetzner API but mocked up to return only dummy
+    values.
+    """
+    reboot = lambda s, method: None
+    set_name = lambda s, name: None
+
+    class admin(object):
+        create = classmethod(lambda cls: ('test_user', 'test_pass'))
+        delete = classmethod(lambda cls: None)
+
+    class rescue(object):
+        activate = classmethod(lambda cls: None)
+        password = "abcd1234"
+
 
 class HetznerDefinition(MachineDefinition):
     """
@@ -109,6 +131,9 @@ class HetznerState(MachineState):
                             " or $HETZNER_ROBOT_PASS for machine"
                             " ‘{0}’".format(self.name))
 
+        if TEST_MODE:
+            return TestModeServer()
+
         robot = Robot(robot_user, robot_pass)
         return robot.servers.get(ip)
 
@@ -117,6 +142,9 @@ class HetznerState(MachineState):
         Queries the robot for the given ip address and returns the Server
         instance if it was found.
         """
+        if TEST_MODE:
+            return TestModeServer()
+
         robot = self.connect()
         return robot.servers.get(ip)
 
@@ -139,12 +167,16 @@ class HetznerState(MachineState):
                     "-i", self.get_ssh_private_key_file()]
 
     def _wait_for_rescue(self, ip):
-        self.log_start("waiting for rescue system...")
-        dotlog = lambda: self.log_continue(".")
-        wait_for_tcp_port(ip, 22, open=False, callback=dotlog)
-        self.log_continue("[down]")
-        wait_for_tcp_port(ip, 22, callback=dotlog)
-        self.log_end("[up]")
+        if not TEST_MODE:
+            # In test mode, the target machine really doesn't go down at all,
+            # so only wait for the reboot to finish when deploying real
+            # systems.
+            self.log_start("waiting for rescue system...")
+            dotlog = lambda: self.log_continue(".")
+            wait_for_tcp_port(ip, 22, open=False, callback=dotlog)
+            self.log_continue("[down]")
+            wait_for_tcp_port(ip, 22, callback=dotlog)
+            self.log_end("[up]")
         self.state = self.RESCUE
 
     def _bootstrap_rescue(self, install, partitions):
@@ -429,6 +461,10 @@ class HetznerState(MachineState):
             baseattr = 'networking.interfaces.{0}.{1} = {2};'
             iface_attrs.append(baseattr.format(iface, "ipAddress", quotedipv4))
             iface_attrs.append(baseattr.format(iface, "prefixLength", prefix))
+
+            # We can't handle Hetzner-specific networking info in test mode.
+            if TEST_MODE:
+                continue
 
             # Extra route for accessing own subnet
             net = self._calculate_ipv4_subnet(ipv4, int(prefix))
