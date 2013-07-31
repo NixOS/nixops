@@ -8,10 +8,36 @@ let
   rescuePasswd = "abcd1234";
 
   network = pkgs.writeText "network.nix" ''
-    {
+    let
+      withCommonOptions = otherOpts: { config, ... }: {
+        require = [
+          <nixos/modules/profiles/qemu-guest.nix>
+          <nixos/modules/testing/test-instrumentation.nix>
+        ];
+
+        # We don't want to include everything from qemu-vm.nix,
+        # so we're going to just pick the options we need (and
+        # qemu-guest.nix above in the require attribute).
+        services.ntp.enable = false;
+        system.requiredKernelConfig = with config.lib.kernelConfig; [
+          (isEnabled "VIRTIO_BLK")
+          (isEnabled "VIRTIO_PCI")
+          (isEnabled "VIRTIO_NET")
+          (isEnabled "EXT4_FS")
+          (isEnabled "BTRFS_FS")
+          (isYes "BLK_DEV")
+          (isYes "PCI")
+          (isYes "EXPERIMENTAL")
+          (isYes "NETDEVICES")
+          (isYes "NET_CORE")
+          (isYes "INET")
+          (isYes "NETWORK_FILESYSTEMS")
+        ];
+      } // otherOpts;
+    in {
       network.description = "Hetzner test";
 
-      target1 = {
+      target1 = withCommonOptions {
         deployment.targetEnv = "hetzner";
         deployment.hetzner.mainIPv4 = "192.168.1.2";
         deployment.hetzner.partitions = '''
@@ -28,7 +54,7 @@ let
         ''';
       };
 
-      target2 = {
+      target2 = withCommonOptions {
         deployment.targetEnv = "hetzner";
         deployment.hetzner.mainIPv4 = "192.168.1.3";
         deployment.hetzner.partitions = '''
