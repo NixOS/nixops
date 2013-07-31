@@ -15,6 +15,8 @@ let
           <nixos/modules/testing/test-instrumentation.nix>
         ];
 
+        networking.useDHCP = false;
+
         # We don't want to include everything from qemu-vm.nix,
         # so we're going to just pick the options we need (and
         # qemu-guest.nix above in the require attribute).
