@@ -322,5 +322,15 @@ in makeTest ({ pkgs, ... }:
     # Bring everything up-to-date.
     $coordinator->succeed("${env} nixops deploy");
     $coordinator->succeed("${env} nixops info >&2");
+
+    # Check if we have the right file systems by using NixOps...
+    $coordinator->succeed("${env} nixops ssh target1 -- " .
+                          "mount | grep -F 'on / type ext4'");
+    $coordinator->succeed("${env} nixops ssh target2 -- " .
+                          "mount | grep -F 'on / type btrfs'");
+
+    # ... and directly without using NixOps.
+    $target1->succeed("mount | grep -F 'on / type ext4'");
+    $target2->succeed("mount | grep -F 'on / type btrfs'");
   '';
 })
