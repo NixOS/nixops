@@ -7,6 +7,46 @@ with pkgs.lib;
 let
   rescuePasswd = "abcd1234";
 
+  network = pkgs.writeText "network.nix" ''
+    {
+      network.description = "Hetzner test";
+
+      target1 = {
+        deployment.targetEnv = "hetzner";
+        deployment.hetzner.mainIPv4 = "192.168.1.2";
+        deployment.hetzner.partitions = '''
+          clearpart --all --initlabel --drives=vda,vdb
+
+          part swap1 --recommended --label=swap1 --fstype=swap --ondisk=vda
+          part swap1 --recommended --label=swap2 --fstype=swap --ondisk=vdb
+
+          part raid.1 --grow --ondisk=vda
+          part raid.2 --grow --ondisk=vdb
+
+          raid / --level=1 --device=md0 --fstype=ext4 \
+                 --label=root raid.1 raid.2
+        ''';
+      };
+
+      target2 = {
+        deployment.targetEnv = "hetzner";
+        deployment.hetzner.mainIPv4 = "192.168.1.3";
+        deployment.hetzner.partitions = '''
+          clearpart --all --initlabel --drives=vda,vdb
+
+          part swap1 --recommended --label=swap1 --fstype=swap --ondisk=vda
+          part swap2 --recommended --label=swap2 --fstype=swap --ondisk=vdb
+
+          part btrfs.1 --grow --ondisk=vda
+          part btrfs.2 --grow --ondisk=vdb
+
+          btrfs / --data=1 --metadata=1 \
+                  --label=root btrfs.1 btrfs.2
+        ''';
+      };
+    }
+  '';
+
   # Packages needed by live-build (Debian Squeeze)
   rescuePackages = pkgs.vmTools.debDistros.debian60x86_64.packages ++ [
     "apt" "hostname" "tasksel" "makedev" "locales" "kbd" "linux-image-2.6-amd64"
@@ -137,6 +177,24 @@ let
     '';
   });
 
+  env = "NIX_PATH=nixos=${<nixos>}:nixpkgs=${<nixpkgs>}"
+      + " HETZNER_ROBOT_USER=none HETZNER_ROBOT_PASS=none";
+
+  targetQemuFlags = targetId: let
+    mkDrive = file: "-drive " + (concatStringsSep "," [
+      "file='.$imgdir.'/${file}"
+      "if=virtio"
+      "cache=writeback"
+      "werror=report"
+    ]);
+    flags = [
+      "-m 512"
+      "-cpu kvm64"
+      (mkDrive "harddisk${toString targetId}_2")
+      (mkDrive "cacheimg${toString targetId}")
+    ] ++ (qemuNICFlags 1 1 (builtins.add targetId 1));
+  in concatStringsSep " " flags;
+
 in makeTest ({ pkgs, ... }:
 {
   nodes = {
@@ -148,31 +206,61 @@ in makeTest ({ pkgs, ... }:
   testScript = ''
     $coordinator->start;
 
-    createDisk("harddisk1", 4 * 1024);
-    createDisk("harddisk2", 4 * 1024);
+    createDisk("harddisk1_1", 4 * 1024);
+    createDisk("harddisk1_2", 4 * 1024);
+
+    createDisk("harddisk2_1", 4 * 1024);
+    createDisk("harddisk2_2", 4 * 1024);
+
+    # Temporary Nix stores for the partitioner.
+    createDisk("cacheimg1", 1024);
+    createDisk("cacheimg2", 1024);
+
+    my $imgdir = `pwd`;
+    chomp($imgdir);
 
     my $target1 = createMachine({
       name => "target1",
-      hda => "harddisk1",
+      hda => "harddisk1_1",
       cdrom => "${rescueISO}/rescue.iso",
-      qemuFlags => '${toString (qemuNICFlags 1 1 2)} -cpu kvm64',
+      qemuFlags => '${targetQemuFlags 1}',
+      allowReboot => 1,
     });
 
     $target1->start;
-    $target1->succeed("/sbin/ifconfig eth1 192.168.1.2");
+    $target1->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
+    $target1->succeed("mkfs.ext4 /dev/vdc");
+    $target1->succeed("mkdir -p /nix && mount /dev/vdc /nix");
+    $target1->succeed("ifconfig eth1 192.168.1.2");
+    $target1->succeed("modprobe dm-mod");
 
     my $target2 = createMachine({
       name => "target2",
-      hda => "harddisk2",
+      hda => "harddisk2_1",
       cdrom => "${rescueISO}/rescue.iso",
-      qemuFlags => '${toString (qemuNICFlags 1 1 3)} -cpu kvm64',
+      qemuFlags => '${targetQemuFlags 2}',
+      allowReboot => 1,
     });
 
     $target2->start;
-    $target2->succeed("/sbin/ifconfig eth1 192.168.1.3");
+    $target2->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
+    $target2->succeed("mkfs.ext4 /dev/vdc");
+    $target2->succeed("mkdir -p /nix && mount /dev/vdc /nix");
+    $target2->succeed("ifconfig eth1 192.168.1.3");
+    $target2->succeed("modprobe dm-mod");
 
     $coordinator->waitForJob("network-interfaces.target");
     $coordinator->succeed("ping -c1 192.168.1.2");
     $coordinator->succeed("ping -c1 192.168.1.3");
+
+    $coordinator->succeed("cp ${network} network.nix");
+    $coordinator->succeed("nixops create network.nix");
+
+    # Do deployment on one target at a time to avoid running out of memory.
+    $coordinator->succeed("${env} nixops info >&2");
+    $coordinator->succeed("${env} nixops deploy --include=target1");
+    $coordinator->succeed("${env} nixops info >&2");
+    $coordinator->succeed("${env} nixops deploy --include=target2");
+    $coordinator->succeed("${env} nixops info >&2");
   '';
 })
