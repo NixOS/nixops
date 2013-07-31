@@ -160,15 +160,19 @@ class HetznerState(MachineState):
                                              "--no-out-link"]).rstrip()
         self.log_end("done. ({0})".format(bootstrap))
 
+        # The command to retrieve our split TAR archive on the other side.
+        recv = 'read -d: tarsize; head -c "$tarsize" | tar x -C /; tar x -C /'
+
         self.log_start("copying bootstrap files to rescue system...")
         tarstream = subprocess.Popen([bootstrap], stdout=subprocess.PIPE)
         if not self.has_really_fast_connection():
             stream = subprocess.Popen(["gzip", "-c"], stdin=tarstream.stdout,
                                       stdout=subprocess.PIPE)
-            self.run_command("tar xz -C /", stdin=stream.stdout)
+            self.run_command("gzip -d | ({0})".format(recv),
+                             stdin=stream.stdout)
             stream.wait()
         else:
-            self.run_command("tar x -C /", stdin=tarstream.stdout)
+            self.run_command(recv, stdin=tarstream.stdout)
         tarstream.wait()
         self.log_end("done.")
 

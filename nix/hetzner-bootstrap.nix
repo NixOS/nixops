@@ -64,20 +64,27 @@ in stdenv.mkDerivation {
     chmod +x "usr/bin/activate-remote"
 
     full_storepaths="$("${perl}/bin/perl" "${pathsFromGraph}" refs-*)"
-    stripped_full_storepaths="$(echo "$full_storepaths" | sed 's|/*||')"
+    stripped_full_storepaths="$(echo "$full_storepaths" | sed -e 's|/*||')"
 
     # Reset timestamps to those of 'nix-store' to prevent annoying warnings.
     find usr -exec touch -h -r "${nix}/bin/nix-store" {} +
 
+    # This is to be extracted on the other end using:
+    #
+    #   read -d: tarsize; head -c "$tarsize" | tar x; tar x
+    #
+    # The reason for the split is because I don't know of any method to
+    # concatenate TAR archives from/to stdin/stdout without introducing new
+    # dependencies.
     ( echo "#!${stdenv.shell}"
-      echo 'tarfile="$(mktemp)"'
-      echo 'trap "rm -f $tarfile" EXIT'
       echo "lnum=\"\$(grep -m1 -an '^EXISTING_TAR${"\$"}' \"$out\")\""
-      echo 'tail -n +$((''${lnum%%:*} + 1)) "'"$out"'" > "$tarfile"'
+      echo 'scriptheadsize="$(head -n ''${lnum%%:*} "'"$out"'" | wc -c)"'
+      echo 'scriptsize="$(stat -c %s "'"$out"'")"'
+      echo 'tarsize="$(($scriptsize - $scriptheadsize))"'
+      echo 'echo -n "$tarsize:"; tail -n +$((''${lnum%%:*} + 1)) "'"$out"'"'
       # As before, don't quote here!
-      echo '${gnutar}/bin/tar rf "$tarfile" -C /' $stripped_full_storepaths
-      echo 'cat "$tarfile"'
-      echo "exit 0"
+      echo '${gnutar}/bin/tar c -C /' $stripped_full_storepaths
+      echo exit 0
       echo EXISTING_TAR
       tar c usr
     ) > "$out"
