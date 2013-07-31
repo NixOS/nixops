@@ -408,12 +408,12 @@ class HetznerState(MachineState):
 
         server = self._get_server_by_ip(self.main_ipv4)
 
-        # global networking options
+        # Global networking options
         defgw = self._get_default_gw()
         v6defgw = None
         nameservers = self._get_nameservers()
 
-        # interface-specific networking options
+        # Interface-specific networking options
         for iface in self._get_ethernet_interfaces():
             if iface == "lo":
                 continue
@@ -430,7 +430,7 @@ class HetznerState(MachineState):
             iface_attrs.append(baseattr.format(iface, "ipAddress", quotedipv4))
             iface_attrs.append(baseattr.format(iface, "prefixLength", prefix))
 
-            # extra route for accessing own subnet
+            # Extra route for accessing own subnet
             net = self._calculate_ipv4_subnet(ipv4, int(prefix))
             extra_routes.append(("{0}/{1}".format(net, prefix), defgw, iface))
 
@@ -445,7 +445,7 @@ class HetznerState(MachineState):
                 assert v6defgw is None or v6defgw == subnet.gateway
                 v6defgw = subnet.gateway
 
-        # extra routes
+        # Extra routes
         route4_cmd = "ip -4 route change '{0}' via '{1}' dev '{2}' || true"
         route_commands = [route4_cmd.format(net, gw, iface)
                           for net, gw, iface in extra_routes]
