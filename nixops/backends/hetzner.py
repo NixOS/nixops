@@ -358,7 +358,11 @@ class HetznerState(MachineState):
         cmd += " | cut -d' ' -f1"
         ipv4_addr_prefix = self.run_command(cmd.format(interface),
                                             capture_stdout=True).strip()
-        return ipv4_addr_prefix.split('/', 1)
+        if "/" not in ipv4_addr_prefix:
+            # No IP address set for this interface.
+            return None
+        else:
+            return ipv4_addr_prefix.split('/', 1)
 
     def _get_default_gw(self):
         """
@@ -414,8 +418,13 @@ class HetznerState(MachineState):
             if iface == "lo":
                 continue
 
+            result = self._get_ipv4_addr_and_prefix_for(iface)
+            if result is None:
+                continue
+
             udev_rules.append(self._get_udev_rule_for(iface))
-            ipv4, prefix = self._get_ipv4_addr_and_prefix_for(iface)
+
+            ipv4, prefix = result
             quotedipv4 = '"{0}"'.format(ipv4)
             baseattr = 'networking.interfaces.{0}.{1} = {2};'
             iface_attrs.append(baseattr.format(iface, "ipAddress", quotedipv4))
