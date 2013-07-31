@@ -290,5 +290,9 @@ in makeTest ({ pkgs, ... }:
     $coordinator->succeed("${env} nixops info >&2");
     $coordinator->succeed("${env} nixops deploy --include=target2");
     $coordinator->succeed("${env} nixops info >&2");
+
+    # Bring everything up-to-date.
+    $coordinator->succeed("${env} nixops deploy");
+    $coordinator->succeed("${env} nixops info >&2");
   '';
 })
