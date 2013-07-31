@@ -197,10 +197,38 @@ let
 
 in makeTest ({ pkgs, ... }:
 {
-  nodes = {
-    coordinator = {
-      environment.systemPackages = [ nixops ];
-    };
+  nodes.coordinator = {
+    environment.systemPackages = let
+      testNixops = overrideDerivation nixops (o: {
+        postPatch = ''
+          sed -i -e 's/^TEST_MODE.*/TEST_MODE = True/' \
+            nixops/backends/hetzner.py
+        '';
+      });
+      # XXX: Workaround to prepopulate the Nix store of the coordinator.
+      collection = pkgs.myEnvFun {
+        name = "prepopulate";
+        buildInputs = [
+          # This is to have the bootstrap installer prebuilt inside the Nix
+          # store of the target machine.
+          (import ../nix/hetzner-bootstrap.nix)
+          # ... and this is for other requirements for a basic deployment.
+          pkgs.stdenv pkgs.busybox pkgs.module_init_tools pkgs.grub2
+          pkgs.xfsprogs pkgs.btrfsProgs pkgs.docbook_xsl_ns pkgs.libxslt
+          pkgs.docbook5 pkgs.ntp
+          # Firmware used in <nixos/modules/installer/scan/not-detected.nix>
+          pkgs.iwlwifi4965ucodeV2
+          pkgs.iwlwifi5000ucode
+          pkgs.iwlwifi5150ucode
+          pkgs.iwlwifi6000ucode
+          pkgs.iwlwifi6000g2aucode
+          pkgs.iwlwifi6000g2bucode
+          pkgs.bcm43xx
+        ];
+      };
+    in [ testNixops collection ];
+    virtualisation.writableStore = true;
+    virtualisation.memorySize = 1280;
   };
 
   testScript = ''
