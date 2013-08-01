@@ -46,7 +46,7 @@ let
           clearpart --all --initlabel --drives=vda,vdb
 
           part swap1 --recommended --label=swap1 --fstype=swap --ondisk=vda
-          part swap1 --recommended --label=swap2 --fstype=swap --ondisk=vdb
+          part swap2 --recommended --label=swap2 --fstype=swap --ondisk=vdb
 
           part raid.1 --grow --ondisk=vda
           part raid.2 --grow --ondisk=vdb
