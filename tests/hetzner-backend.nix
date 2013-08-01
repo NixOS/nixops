@@ -256,6 +256,7 @@ in makeTest ({ pkgs, ... }:
       };
     in [ testNixops collection ];
     virtualisation.writableStore = true;
+    virtualisation.writableStoreUseTmpfs = false;
     virtualisation.memorySize = 1280;
   };
 
