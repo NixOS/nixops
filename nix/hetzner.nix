@@ -41,7 +41,7 @@ with pkgs.lib;
 
     partitions = mkOption {
       default = ''
-        clearpart --all --initlabel
+        clearpart --all --initlabel --drives=sda,sdb
 
         part swap1 --recommended --label=swap1 --fstype=swap --ondisk=sda
         part swap2 --recommended --label=swap2 --fstype=swap --ondisk=sdb
