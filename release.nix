@@ -94,6 +94,11 @@ rec {
       meta.description = "Nix package for ${stdenv.system}";
     });
 
+  # This is included here, so it's easier to fetch by the newly installed
+  # Hetzner machine directly instead of waiting for ages if you have a
+  # connection with slow upload speed.
+  hetznerBootstrap = import ./nix/hetzner-bootstrap.nix;
+
   tests.none_backend = (import ./tests/none-backend.nix {
     nixops = build.x86_64-linux;
     system = "x86_64-linux";
