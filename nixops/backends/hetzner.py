@@ -188,8 +188,9 @@ class HetznerState(MachineState):
         """
         self.log_start("building Nix bootstrap installer...")
         expr = os.path.join(self.depl.expr_path, "hetzner-bootstrap.nix")
-        bootstrap = subprocess.check_output(["nix-build", expr,
-                                             "--no-out-link"]).rstrip()
+        bootstrap_out = subprocess.check_output(["nix-build", expr,
+                                                 "--no-out-link"]).rstrip()
+        bootstrap = os.path.join(bootstrap_out, 'bin/hetzner-bootstrap')
         self.log_end("done. ({0})".format(bootstrap))
 
         # The command to retrieve our split TAR archive on the other side.

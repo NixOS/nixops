@@ -32,7 +32,8 @@ in stdenv.mkDerivation {
   ];
 
   buildCommand = ''
-    ensureDir "usr/bin"
+    ensureDir "usr/bin" "$out/bin"
+    installer="$out/bin/hetzner-bootstrap"
 
     # Create the chroot wrappers for Nix
     for path in "${nix}"/bin/*; do
@@ -77,18 +78,19 @@ in stdenv.mkDerivation {
     # concatenate TAR archives from/to stdin/stdout without introducing new
     # dependencies.
     ( echo "#!${stdenv.shell}"
-      echo "lnum=\"\$(grep -m1 -an '^EXISTING_TAR${"\$"}' \"$out\")\""
-      echo 'scriptheadsize="$(head -n ''${lnum%%:*} "'"$out"'" | wc -c)"'
-      echo 'scriptsize="$(stat -c %s "'"$out"'")"'
+      echo "lnum=\"\$(grep -m1 -an '^EXISTING_TAR${"\$"}' \"$installer\")\""
+      echo 'scriptheadsize="$(head -n ''${lnum%%:*} "'"$installer"'" | wc -c)"'
+      echo 'scriptsize="$(stat -c %s "'"$installer"'")"'
       echo 'tarsize="$(($scriptsize - $scriptheadsize))"'
-      echo 'echo -n "$tarsize:"; tail -n +$((''${lnum%%:*} + 1)) "'"$out"'"'
+      echo 'echo -n "$tarsize:"'
+      echo 'tail -n +$((''${lnum%%:*} + 1)) "'"$installer"'"'
       # As before, don't quote here!
       echo '${gnutar}/bin/tar c -C /' $stripped_full_storepaths
       echo exit 0
       echo EXISTING_TAR
       tar c usr
-    ) > "$out"
-    chmod +x "$out"
+    ) > "$installer"
+    chmod +x "$installer"
   '';
 
   meta = {
@@ -103,14 +105,16 @@ in stdenv.mkDerivation {
       itself only contains everything necessary in order to get a Nix
       bootstrapped, like Nix itself and a shell linked to /mnt/bin/sh.
 
-      From outside the mountpoint, we just provide a small derivation which
-      contains a partitioner, an activate-remote and a script which is the
-      output of this derivation. In detail:
+      From outside the mountpoint, we just provide a small script (hetzner-
+      bootstrap) which contains a partitioner, activate-remote and a script
+      which is the output of this derivation. In detail:
 
-      $out: Creates a tarball of of the full closure of the base derivation and
-            its reference information, the partitioner and activate-remote. The
-            script outputs the tarball on stdout, so it's easy for NixOps to
-            pipe it to the remote system.
+      hetzner-bootstrap: Creates a tarball of of the full closure of the base
+                         derivation and its reference information, the
+                         partitioner and activate-remote. The script outputs two
+                         tarballs on stdout (the first one being prepended by
+                         its size, like so: <size_first>:<first><second>) so
+                         it's easy for NixOps to pipe it to the remote system.
 
       activate-remote: Copies the base derivation into /mnt and registers it
                        with the Nix database. Afterwards, it creates the
