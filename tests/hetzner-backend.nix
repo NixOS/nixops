@@ -116,7 +116,6 @@ let
       "console=ttyS0,9600"
       "hostname=rescue"
       "timezone=Europe/Berlin"
-      # We're going to eject silently on our own, see chroot hooks below.
       "noeject"
       "quickreboot"
     ];
@@ -184,11 +183,6 @@ let
       echo 'T0:23:respawn:/usr/local/bin/backdoor' >> /etc/inittab
       BACKDOOR
 
-      # Patch reboot command to always eject the ISO silently.
-      cat > config/hooks/1002-patch_reboot.chroot <<PATCHREBOOT
-      sed -i -e '/^do_stop/a eject -m /dev/scd0' /etc/init.d/reboot
-      PATCHREBOOT
-
       echo $additionalRescuePackages \
         > config/package-lists/additional.list.chroot
 
@@ -218,6 +212,7 @@ let
     flags = [
       "-m 512"
       "-cpu kvm64"
+      "-boot order=c,once=d"
       (mkDrive "harddisk${toString targetId}_2")
       (mkDrive "cacheimg${toString targetId}")
     ] ++ (qemuNICFlags 1 1 (builtins.add targetId 1));
