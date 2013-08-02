@@ -43,8 +43,8 @@ with pkgs.lib;
       default = ''
         clearpart --all --initlabel
 
-        part swap --recommended --label=swap1 --ondisk=sda
-        part swap --recommended --label=swap2 --ondisk=sdb
+        part swap1 --recommended --label=swap1 --fstype=swap --ondisk=sda
+        part swap2 --recommended --label=swap2 --fstype=swap --ondisk=sdb
 
         part raid.1 --grow --ondisk=sda
         part raid.2 --grow --ondisk=sdb
