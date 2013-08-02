@@ -284,12 +284,14 @@ in makeTest ({ pkgs, ... }:
       allowReboot => 1,
     });
 
-    $target1->start;
-    $target1->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
-    $target1->succeed("mkfs.ext4 /dev/vdc");
-    $target1->succeed("mkdir -p /nix && mount /dev/vdc /nix");
-    $target1->succeed("ifconfig eth1 192.168.1.2");
-    $target1->succeed("modprobe dm-mod");
+    subtest "start virtual rescue for target 1", sub {
+      $target1->start;
+      $target1->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
+      $target1->succeed("mkfs.ext4 /dev/vdc");
+      $target1->succeed("mkdir -p /nix && mount /dev/vdc /nix");
+      $target1->succeed("ifconfig eth1 192.168.1.2");
+      $target1->succeed("modprobe dm-mod");
+    };
 
     my $target2 = createMachine({
       name => "target2",
@@ -299,39 +301,56 @@ in makeTest ({ pkgs, ... }:
       allowReboot => 1,
     });
 
-    $target2->start;
-    $target2->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
-    $target2->succeed("mkfs.ext4 /dev/vdc");
-    $target2->succeed("mkdir -p /nix && mount /dev/vdc /nix");
-    $target2->succeed("ifconfig eth1 192.168.1.3");
-    $target2->succeed("modprobe dm-mod");
+    subtest "start virtual rescue for target 2", sub {
+      $target2->start;
+      $target2->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
+      $target2->succeed("mkfs.ext4 /dev/vdc");
+      $target2->succeed("mkdir -p /nix && mount /dev/vdc /nix");
+      $target2->succeed("ifconfig eth1 192.168.1.3");
+      $target2->succeed("modprobe dm-mod");
+    };
 
     $coordinator->waitForJob("network-interfaces.target");
-    $coordinator->succeed("ping -c1 192.168.1.2");
-    $coordinator->succeed("ping -c1 192.168.1.3");
 
-    $coordinator->succeed("cp ${network} network.nix");
-    $coordinator->succeed("nixops create network.nix");
+    subtest "targets reachable", sub {
+      $coordinator->succeed("ping -c1 192.168.1.2");
+      $coordinator->succeed("ping -c1 192.168.1.3");
+    };
+
+    subtest "create deployment", sub {
+      $coordinator->succeed("cp ${network} network.nix");
+      $coordinator->succeed("nixops create network.nix");
+    };
 
     # Do deployment on one target at a time to avoid running out of memory.
-    $coordinator->succeed("${env} nixops info >&2");
-    $coordinator->succeed("${env} nixops deploy --include=target1");
-    $coordinator->succeed("${env} nixops info >&2");
-    $coordinator->succeed("${env} nixops deploy --include=target2");
-    $coordinator->succeed("${env} nixops info >&2");
+    subtest "deploy target 1", sub {
+      $coordinator->succeed("${env} nixops info >&2");
+      $coordinator->succeed("${env} nixops deploy --include=target1");
+    };
+
+    subtest "deploy target 2", sub {
+      $coordinator->succeed("${env} nixops info >&2");
+      $coordinator->succeed("${env} nixops deploy --include=target2");
+    };
+
 
     # Bring everything up-to-date.
-    $coordinator->succeed("${env} nixops deploy");
-    $coordinator->succeed("${env} nixops info >&2");
+    subtest "deploy all targets", sub {
+      $coordinator->succeed("${env} nixops info >&2");
+      $coordinator->succeed("${env} nixops deploy");
+      $coordinator->succeed("${env} nixops info >&2");
+    };
 
-    # Check if we have the right file systems by using NixOps...
-    $coordinator->succeed("${env} nixops ssh target1 -- " .
-                          "mount | grep -F 'on / type ext4'");
-    $coordinator->succeed("${env} nixops ssh target2 -- " .
-                          "mount | grep -F 'on / type btrfs'");
+    subtest "filesystems", sub {
+      # Check if we have the right file systems by using NixOps...
+      $coordinator->succeed("${env} nixops ssh target1 -- " .
+                            "mount | grep -F 'on / type ext4'");
+      $coordinator->succeed("${env} nixops ssh target2 -- " .
+                            "mount | grep -F 'on / type btrfs'");
 
-    # ... and directly without using NixOps.
-    $target1->succeed("mount | grep -F 'on / type ext4'");
-    $target2->succeed("mount | grep -F 'on / type btrfs'");
+      # ... and directly without using NixOps.
+      $target1->succeed("mount | grep -F 'on / type ext4'");
+      $target2->succeed("mount | grep -F 'on / type btrfs'");
+    };
   '';
 })
