@@ -743,7 +743,7 @@ class Deployment(object):
 
             nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
             self.start_machines(include=include, exclude=exclude)
-            self.warn("restore finished; please note that you might need to run ‘nixops deploy’ to fix configuration issues regarding changed IP addresses")
+            self.logger.warn("restore finished; please note that you might need to run ‘nixops deploy’ to fix configuration issues regarding changed IP addresses")
 
 
     def evaluate_active(self, include=[], exclude=[], kill_obsolete=False):
