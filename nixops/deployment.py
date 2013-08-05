@@ -466,8 +466,6 @@ class Deployment(object):
             # print the physical spec out of Python dicts, lists, strings and
             # whatnot, so we can properly merge the attributes on our side.
             res_physical = r.get_physical_spec()
-            first_format = '  {0}"{1}" = {{ config, pkgs, ... }}:'
-            first = first_format.format(r.get_definition_prefix(), r.name)
             if len(res_physical) > 0:
                 lines += ['    require = ['
                           '(builtins.toFile "physical-resource.nix" "{']
@@ -488,6 +486,8 @@ class Deployment(object):
             if len(lines) == 0:
                 return ""
             else:
+                first_format = '  {0}"{1}" = {{ config, pkgs, ... }}:'
+                first = first_format.format(r.get_definition_prefix(), r.name)
                 lines.insert(0, first + ' {')
                 lines.append("  };\n")
             return "\n".join(lines)
