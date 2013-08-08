@@ -1,7 +1,7 @@
 with import <nixpkgs> {};
 
 let
-  nixpart = pythonPackages.nixpart.override {
+  nixpart = pythonPackages.nixpart0.override {
     useNixUdev = false;
     udevSoMajor = 0;
   };
