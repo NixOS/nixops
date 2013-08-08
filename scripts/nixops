@@ -20,6 +20,7 @@ import logging.handlers
 import syslog
 import json
 
+from nixops.parallel import MultipleExceptions, run_tasks
 
 def create_table(headers):
     tbl = prettytable.PrettyTable([name for (name, align) in headers])
@@ -242,7 +243,7 @@ def op_check():
         if res.failed_units != None and res.failed_units != []: status |= 16
         return (m.depl.name or m.depl.uuid, m, row, status)
 
-    results = nixops.parallel.run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
+    results = run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
 
     # Sort the rows by deployment/machine.
     status = 0
@@ -471,7 +472,7 @@ def op_ssh_for_each():
     def worker(m):
         if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): return
         return m._logged_exec(["ssh", "root@" + m.get_ssh_name()] + m.get_ssh_flags() + args.args, check=False)
-    results = nixops.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
+    results = run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
     sys.exit(max(results) if results != [] else 0)
 
 
@@ -781,6 +782,11 @@ except deployment.NixEvalError:
     sys.exit(1)
 except KeyboardInterrupt:
     error("interrupted")
+    sys.exit(1)
+except MultipleExceptions as e:
+    error(str(e))
+    if debug or str(e) == "":
+        e.print_all_backtraces()
     sys.exit(1)
 except Exception as e:
     if args.debug or str(e) == "": raise
