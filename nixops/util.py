@@ -7,6 +7,7 @@ import json
 import copy
 import fcntl
 import base64
+import select
 import socket
 import struct
 import shutil
@@ -30,6 +31,109 @@ def check_wait(test, initial=10, factor=1, max_tries=60, exception=True):
             if exception: raise Exception("operation timed out")
             return False
     return True
+
+
+class CommandFailed(Exception):
+    def __init__(self, message, exitcode):
+        self.message = message
+        self.exitcode = exitcode
+
+    def __str__(self):
+        return "{0} (exit code {1}".format(self.message, self.exitcode)
+
+
+def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
+                stdin_string=None, env=None):
+    """
+    Execute a command with logging using the specified logger.
+
+    The command itself has to be an iterable of strings, just like
+    subprocess.Popen without shell=True. Keywords stdin and env have the same
+    functionality as well.
+
+    When calling with capture_stdout=True, a string is returned, which contains
+    everything the programm wrote to stdout.
+
+    When calling with check=False, the return code isn't checked and the
+    function will return an integer which represents the return code of the
+    program, otherwise a CommandFailed exception is thrown.
+    """
+    if stdin_string is not None:
+        stdin = subprocess.PIPE
+    elif stdin is None:
+        stdin = devnull
+
+    if capture_stdout:
+        process = subprocess.Popen(command, env=env, stdin=stdin,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        fds = [process.stdout, process.stderr]
+        log_fd = process.stderr
+    else:
+        process = subprocess.Popen(command, env=env, stdin=stdin,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT)
+        fds = [process.stdout]
+        log_fd = process.stdout
+
+    # FIXME: this can deadlock if stdin_string doesn't fit in the
+    # kernel pipe buffer.
+    if stdin_string is not None:
+        process.stdin.write(stdin_string)
+        process.stdin.close()
+
+    for fd in fds:
+        make_non_blocking(fd)
+
+    at_new_line = True
+    stdout = ""
+
+    while len(fds) > 0:
+        # The timeout/poll is to deal with processes (like
+        # VBoxManage) that start children that go into the
+        # background but keep the parent's stdout/stderr open,
+        # preventing an EOF.  FIXME: Would be better to catch
+        # SIGCHLD.
+        (r, w, x) = select.select(fds, [], [], 1)
+        if len(r) == 0 and process.poll() is not None:
+            break
+        if capture_stdout and process.stdout in r:
+            data = process.stdout.read()
+            if data == "":
+                fds.remove(process.stdout)
+            else:
+                stdout += data
+        if log_fd in r:
+            data = log_fd.read()
+            if data == "":
+                if not at_new_line:
+                    logger.log_end("")
+                fds.remove(log_fd)
+            else:
+                start = 0
+                while start < len(data):
+                    end = data.find('\n', start)
+                    if end == -1:
+                        logger.log_start(data[start:])
+                        at_new_line = False
+                    else:
+                        s = data[start:end]
+                        if at_new_line:
+                            logger.log(s)
+                        else:
+                            logger.log_end(s)
+                        at_new_line = True
+                    if end == -1:
+                        break
+                    start = end + 1
+
+    res = process.wait()
+
+    if check and res != 0:
+        msg = "command ‘{0}’ failed on machine ‘{1}’"
+        err = msg.format(command, logger.machine_name)
+        raise CommandFailed(err, res)
+    return stdout if capture_stdout else res
 
 
 def generate_random_string(length=256):

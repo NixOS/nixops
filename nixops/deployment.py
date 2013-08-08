@@ -10,9 +10,11 @@ import shutil
 import threading
 import exceptions
 import errno
+from collections import defaultdict
 from xml.etree import ElementTree
 import nixops.statefile
 import nixops.backends
+import nixops.logger
 import nixops.parallel
 import nixops.resources.ec2_keypair
 import nixops.resources.sqs_queue
@@ -56,13 +58,11 @@ class Deployment(object):
         self.uuid = uuid
 
         self._last_log_prefix = None
-        self.auto_response = None
         self.extra_nix_path = []
         self.extra_nix_flags = []
         self.nixos_version_suffix = None
 
-        self._log_lock = threading.Lock()
-        self._log_file = log_file
+        self.logger = nixops.logger.Logger(log_file)
 
         self._lock_file_path = None
 
@@ -79,7 +79,7 @@ class Deployment(object):
             for (id, name, type) in c.fetchall():
                 r = nixops.backends.create_state(self, type, name, id)
                 self.resources[name] = r
-        self.set_log_prefixes()
+        self.logger.update_log_prefixes()
 
         self.definitions = None
 
@@ -182,7 +182,7 @@ class Deployment(object):
         class DeploymentLock(object):
             def __init__(self, depl):
                 self._lock_file_path = depl._lock_file_path
-                self._log = depl.log
+                self._logger = depl.logger
                 self._lock_file = None
             def __enter__(self):
                 self._lock_file = open(self._lock_file_path, "w")
@@ -190,7 +190,9 @@ class Deployment(object):
                 try:
                     fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except IOError:
-                    self._log("waiting for exclusive deployment lock...")
+                    self._logger.log(
+                        "waiting for exclusive deployment lock..."
+                    )
                     fcntl.flock(self._lock_file, fcntl.LOCK_EX)
             def __exit__(self, exception_type, exception_value, exception_traceback):
                 self._lock_file.close()
@@ -217,63 +219,6 @@ class Deployment(object):
 
             # Delete the deployment from the database.
             self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
-
-
-    def log(self, msg):
-        with self._log_lock:
-            if self._last_log_prefix != None:
-                self._log_file.write("\n")
-                self._last_log_prefix = None
-            self._log_file.write(msg + "\n")
-
-
-    def log_start(self, prefix, msg):
-        with self._log_lock:
-            if self._last_log_prefix != prefix:
-                if self._last_log_prefix != None:
-                    self._log_file.write("\n")
-                self._log_file.write(prefix)
-            self._log_file.write(msg)
-            self._last_log_prefix = prefix
-
-
-    def log_end(self, prefix, msg):
-        with self._log_lock:
-            last = self._last_log_prefix
-            self._last_log_prefix = None
-            if last != prefix:
-                if last != None:
-                    self._log_file.write("\n")
-                if msg == "": return
-                self._log_file.write(prefix)
-            self._log_file.write(msg + "\n")
-
-
-    def set_log_prefixes(self):
-        max_len = max([len(r.name) for r in self.resources.itervalues()] or [0])
-        for r in self.resources.itervalues():
-            r.set_log_prefix(max_len)
-
-
-    def warn(self, msg):
-        self.log(nixops.util.ansi_warn("warning: " + msg, outfile=self._log_file))
-
-
-    def confirm(self, question):
-        while True:
-            with self._log_lock:
-                if self._last_log_prefix != None:
-                    self._log_file.write("\n")
-                    self._last_log_prefix = None
-                self._log_file.write(nixops.util.ansi_warn("warning: {0} (y/N) ".format(question), outfile=self._log_file))
-                if self.auto_response != None:
-                    self._log_file.write("{0}\n".format(self.auto_response))
-                    return self.auto_response == "y"
-                response = sys.stdin.readline()
-                if response == "": return False
-                response = response.rstrip().lower()
-                if response == "y": return True
-                if response == "n" or response == "": return False
 
 
     def _nix_path_flags(self):
@@ -337,7 +282,7 @@ class Deployment(object):
                 + self._eval_flags(self.nix_exprs) +
                 ["--eval-only", "--xml", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
-                 "-A", "info"], stderr=self._log_file)
+                 "-A", "info"], stderr=self.logger.log_file)
             if debug: print >> sys.stderr, "XML output of nix-instantiate:\n" + xml
         except subprocess.CalledProcessError:
             raise NixEvalError
@@ -395,7 +340,7 @@ class Deployment(object):
                  "--arg", "checkConfigurationOptions", "false",
                  "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
                 + (["--xml"] if xml else []),
-                stderr=self._log_file)
+                stderr=self.logger.log_file)
         except subprocess.CalledProcessError:
             raise NixEvalError
 
@@ -410,13 +355,29 @@ class Deployment(object):
         authorized_keys = {m.name: [] for m in active_machines.itervalues()}
         kernel_modules = {m.name: set() for m in active_machines.itervalues()}
         trusted_interfaces = {m.name: set() for m in active_machines.itervalues()}
-        hosts = {}
+
+        # Hostnames should be accumulated like this:
+        #
+        #   hosts[local_name][remote_ip] = [name1, name2, ...]
+        #
+        # This makes hosts deterministic and is more in accordance to the
+        # format in hosts(5), which is like this:
+        #
+        #   ip_address canonical_hostname [aliases...]
+        #
+        # This is critical for example when using host names for access
+        # control, because the canonical_hostname is returned in reverse
+        # lookups.
+        hosts = defaultdict(lambda: defaultdict(list))
 
         for m in active_machines.itervalues():
-            hosts[m.name] = {m.name + "-encrypted": "127.0.0.1"}
             for m2 in active_machines.itervalues():
                 ip = m.address_to(m2)
-                if ip: hosts[m.name][m2.name] = hosts[m.name][m2.name + "-unencrypted"] = ip
+                if ip:
+                    hosts[m.name][ip] += [m2.name, m2.name + "-unencrypted"]
+            # Always use the encrypted/unencrypted suffixes for aliases rather
+            # than for the canonical name!
+            hosts[m.name]["127.0.0.1"].append(m.name + "-encrypted")
 
         def index_to_private_ip(index):
             n = 105 + index / 256
@@ -465,8 +426,8 @@ class Deployment(object):
                 authorized_keys[m2.name].append('"' + m.public_vpn_key + '"')
                 kernel_modules[m.name].add('"tun"')
                 kernel_modules[m2.name].add('"tun"')
-                hosts[m.name][m2.name] = hosts[m.name][m2.name + "-encrypted"] = remote_ipv4
-                hosts[m2.name][m.name] = hosts[m2.name][m.name + "-encrypted"] = local_ipv4
+                hosts[m.name][remote_ipv4] += [m2.name, m2.name + "-encrypted"]
+                hosts[m2.name][local_ipv4] += [m.name, m.name + "-encrypted"]
                 trusted_interfaces[m.name].add('"tun' + str(local_tunnel) + '"')
                 trusted_interfaces[m2.name].add('"tun' + str(remote_tunnel) + '"')
 
@@ -482,18 +443,53 @@ class Deployment(object):
 
         def emit_resource(r):
             lines = []
-            lines.extend(r.get_physical_spec())
             lines.extend(lines_per_resource[r.name])
             if is_machine(r):
+                # Sort the hosts by its canonical host names.
+                sorted_hosts = sorted(hosts[r.name].iteritems(),
+                                      key=lambda item: item[1][0])
+                # Just to remember the format:
+                #   ip_address canonical_hostname [aliases...]
+                extra_hosts = ["{0} {1}".format(ip, ' '.join(names))
+                               for ip, names in sorted_hosts]
+
                 if authorized_keys[r.name]:
                     lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys[r.name])))
                     lines.append('    services.openssh.extraConfig = "PermitTunnel yes\\n";')
                 lines.append('    boot.kernelModules = [ {0} ];'.format(" ".join(kernel_modules[r.name])))
                 lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces[r.name])))
-                lines.append('    networking.extraHosts = "{0}\\n";'.format('\\n'.join([hosts[r.name][m2] + " " + m2 for m2 in hosts[r.name]])))
-            if lines == []: return ""
-            lines.insert(0, '  {0}"{1}" = {{ config, pkgs, ... }}: {{'.format(r.get_definition_prefix(), r.name))
-            lines.append("  };\n")
+                lines.append('    networking.extraHosts = "{0}\\n";'.format(r'\n'.join(extra_hosts)))
+
+            # Ensure that we don't clash with any of the physical attributes
+            # from the resource.
+            # TODO: In the long term it would make much more sense to pretty
+            # print the physical spec out of Python dicts, lists, strings and
+            # whatnot, so we can properly merge the attributes on our side.
+            res_physical = r.get_physical_spec()
+            if len(res_physical) > 0:
+                lines += ['    require = ['
+                          '(builtins.toFile "physical-resource.nix" "{']
+                for line in res_physical:
+                    # Escape every line according to the double quoted string
+                    # escaping rules of Nix (section 5.2.1 of the Nix manual):
+                    #
+                    # The special characters " and \ and the character sequence
+                    # ${ must be escaped by prefixing them with a backslash
+                    # (\).
+                    escaped_line = ''.join([
+                        ('\\' + char if char in ('"', '\\', '${') else char)
+                        for char in line
+                    ])
+                    lines.append("  " + escaped_line)
+                lines.append('    }")];')
+
+            if len(lines) == 0:
+                return ""
+            else:
+                first_format = '  {0}"{1}" = {{ config, pkgs, ... }}:'
+                first = first_format.format(r.get_definition_prefix(), r.name)
+                lines.insert(0, first + ' {')
+                lines.append("  };\n")
             return "\n".join(lines)
 
         return "".join(["{\n"] + [emit_resource(r) for r in active_resources.itervalues()] + ["}\n"])
@@ -521,7 +517,7 @@ class Deployment(object):
             f.write(contents)
             f.close()
 
-        self.log("building all machine configurations...")
+        self.logger.log("building all machine configurations...")
 
         # Set the NixOS version suffix, if we're building from Git.
         # That way ‘nixos-version’ will show something useful on the
@@ -576,7 +572,8 @@ class Deployment(object):
                 + self._eval_flags(self.nix_exprs + [phys_expr]) +
                 ["--arg", "names", "[ " + " ".join(names) + " ]",
                  "-A", "machines", "-o", self.tempdir + "/configs"]
-                + (["--dry-run"] if dry_run else []), stderr=self._log_file).rstrip()
+                + (["--dry-run"] if dry_run else []),
+                stderr=self.logger.log_file).rstrip()
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
 
@@ -593,7 +590,7 @@ class Deployment(object):
 
         def worker(m):
             if not should_do(m, include, exclude): return
-            m.log("copying closure...")
+            m.logger.log("copying closure...")
             m.new_toplevel = os.path.realpath(configs_path + "/" + m.name)
             if not os.path.exists(m.new_toplevel):
                 raise Exception("can't find closure of machine ‘{0}’".format(m.name))
@@ -613,21 +610,29 @@ class Deployment(object):
             try:
                 m.send_keys()
 
-                res = m.run_command(
+                m.run_command(
                     # Set the system profile to the new configuration.
-                    "set -e; nix-env -p /nix/var/nix/profiles/system --set " + m.new_toplevel + "; " +
-                    # Run the switch script.  This will also update the
-                    # GRUB boot loader.
-                    ("NIXOS_NO_SYNC=1 " if not sync else "") +
-                    "/nix/var/nix/profiles/system/bin/switch-to-configuration " + ("boot" if force_reboot else "switch"),
-                    check=False)
+                    "nix-env -p /nix/var/nix/profiles/system --set " +
+                    m.new_toplevel
+                )
+
+                if force_reboot or m.state == m.RESCUE:
+                    switch_method = "boot"
+                else:
+                    switch_method = "switch"
+
+                # Run the switch script.  This will also update the
+                # GRUB boot loader.
+                res = m.switch_to_configuration(switch_method, sync)
 
                 if res != 0 and res != 100:
                     raise Exception("unable to activate new configuration")
 
-                if res == 100 or force_reboot:
+                if res == 100 or force_reboot or m.state == m.RESCUE:
                     if not allow_reboot and not force_reboot:
-                        raise Exception("the new configuration requires a reboot to take effect (hint: use ‘--allow-reboot’)".format(m.name))
+                        raise Exception("the new configuration requires a "
+                                        "reboot to take effect (hint: use "
+                                        "‘--allow-reboot’)".format(m.name))
                     m.reboot_sync()
                     res = 0
                     # FIXME: should check which systemd services
@@ -645,7 +650,7 @@ class Deployment(object):
                 # This thread shouldn't throw an exception because
                 # that will cause NixOps to exit and interrupt
                 # activation on the other machines.
-                m.log(str(e))
+                m.logger.log(str(e))
                 return m.name
             return None
 
@@ -720,7 +725,7 @@ class Deployment(object):
             ssh_name = m.get_ssh_name()
             res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + ["sync"])
             if res != 0:
-                m.log("Running sync failed on {0}.".format(m.name))
+                m.logger.log("Running sync failed on {0}.".format(m.name))
             m.backup(self.definitions[m.name], backup_id)
 
         nixops.parallel.run_tasks(nr_workers=5, tasks=self.active.itervalues(), worker_fun=worker)
@@ -738,7 +743,7 @@ class Deployment(object):
 
             nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
             self.start_machines(include=include, exclude=exclude)
-            self.warn("restore finished; please note that you might need to run ‘nixops deploy’ to fix configuration issues regarding changed IP addresses")
+            self.logger.warn("restore finished; please note that you might need to run ‘nixops deploy’ to fix configuration issues regarding changed IP addresses")
 
 
     def evaluate_active(self, include=[], exclude=[], kill_obsolete=False):
@@ -750,7 +755,7 @@ class Deployment(object):
                 if m.name not in self.resources:
                     self._create_resource(m.name, m.get_type())
 
-        self.set_log_prefixes()
+        self.logger.update_log_prefixes()
 
         # Determine the set of active resources.  (We can't just
         # delete obsolete resources from ‘self.resources’ because they
@@ -758,10 +763,10 @@ class Deployment(object):
         for m in self.resources.values():
             if m.name in self.definitions:
                 if m.obsolete:
-                    self.log("resource ‘{0}’ is no longer obsolete".format(m.name))
+                    self.logger.log("resource ‘{0}’ is no longer obsolete".format(m.name))
                     m.obsolete = False
             else:
-                self.log("resource ‘{0}’ is obsolete".format(m.name))
+                self.logger.log("resource ‘{0}’ is obsolete".format(m.name))
                 if not m.obsolete: m.obsolete = True
                 if not should_do(m, include, exclude): continue
                 if kill_obsolete and m.destroy(): self.delete_resource(m)
@@ -779,8 +784,11 @@ class Deployment(object):
         for r in self.active_resources.itervalues():
             if r.index == None:
                 r.index = self._get_free_resource_index()
+                # FIXME: Logger should be able to do coloring without the need
+                #        for an index maybe?
+                r.logger.register_index(r.index)
 
-        self.set_log_prefixes()
+        self.logger.update_log_prefixes()
 
         # Start or update the active resources.  Non-machine resources
         # are created first, because machines may depend on them
@@ -869,10 +877,10 @@ class Deployment(object):
         for m in self.machines.values():
             if m.name in names:
                 if m.obsolete:
-                    self.log("machine ‘{0}’ is no longer obsolete".format(m.name))
+                    self.logger.log("machine ‘{0}’ is no longer obsolete".format(m.name))
                     m.obsolete = False
             else:
-                self.log("machine ‘{0}’ is obsolete".format(m.name))
+                self.logger.log("machine ‘{0}’ is obsolete".format(m.name))
                 if not m.obsolete: m.obsolete = True
 
         self.copy_closures(self.configs_path, include=include, exclude=exclude,
@@ -887,14 +895,14 @@ class Deployment(object):
             self._rollback(**kwargs)
 
 
-    def destroy_resources(self, include=[], exclude=[]):
+    def destroy_resources(self, include=[], exclude=[], wipe=False):
         """Destroy all active or obsolete resources."""
 
         with self._get_deployment_lock():
 
             def worker(m):
                 if not should_do(m, include, exclude): return
-                if m.destroy(): self.delete_resource(m)
+                if m.destroy(wipe=wipe): self.delete_resource(m)
 
             nixops.parallel.run_tasks(nr_workers=-1, tasks=self.resources.values(), worker_fun=worker)
 
@@ -912,15 +920,18 @@ class Deployment(object):
                 raise Exception("cannot update profile ‘{0}’".format(profile))
 
 
-    def reboot_machines(self, include=[], exclude=[], wait=False):
+    def reboot_machines(self, include=[], exclude=[], wait=False,
+                        rescue=False, hard=False):
         """Reboot all active machines."""
 
         def worker(m):
             if not should_do(m, include, exclude): return
-            if wait:
-                m.reboot_sync()
+            if rescue:
+                m.reboot_rescue()
+            elif wait:
+                m.reboot_sync(hard=hard)
             else:
-                m.reboot()
+                m.reboot(hard=hard)
 
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
@@ -958,7 +969,7 @@ class Deployment(object):
         if not self.is_valid_resource_name(new_name):
             raise Exception("{0} is not a valid resource identifier".format(new_name))
 
-        self.log("renaming resource ‘{0}’ to ‘{1}’...".format(name, new_name))
+        self.logger.log("renaming resource ‘{0}’ to ‘{1}’...".format(name, new_name))
 
         m = self.resources.pop(name)
         self.resources[new_name] = m

@@ -79,6 +79,7 @@ rec {
         { inherit (v.config.deployment) targetEnv targetHost encryptedLinksTo storeKeysOnMachine owners keys;
           #adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
+          hetzner = optionalAttrs (v.config.deployment.targetEnv == "hetzner") v.config.deployment.hetzner;
           route53 = v.config.deployment.route53;
           virtualbox =
             let cfg = v.config.deployment.virtualbox; in

@@ -3,12 +3,11 @@
 import os
 import re
 import sys
-import time
-import shutil
-import select
 import subprocess
+
 import nixops.util
 import nixops.resources
+import nixops.ssh_util
 
 
 class MachineDefinition(nixops.resources.ResourceDefinition):
@@ -20,26 +19,6 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
         self.keys = {k.get("name"): k.find("string").get("value") for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")}
         self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
-
-
-class SSHMaster(object):
-    def __init__(self, tempdir, name, ssh_name, ssh_flags):
-        self._tempdir = tempdir
-        self._control_socket = tempdir + "/ssh-master-" + name
-        self._ssh_name = ssh_name
-        res = subprocess.call(
-            ["ssh", "-x", "root@" + self._ssh_name, "-S", self._control_socket,
-             "-M", "-N", "-f", '-oNumberOfPasswordPrompts=0', '-oServerAliveInterval=60']
-            + ssh_flags)
-        if res != 0:
-            raise SSHConnectionFailed("unable to start SSH master connection to ‘{0}’".format(name))
-
-        self.opts = ["-S", self._control_socket]
-
-    def __del__(self):
-        subprocess.call(
-            ["ssh", "root@" + self._ssh_name,
-             "-S", self._control_socket, "-O", "exit"], stderr=nixops.util.devnull)
 
 
 class MachineState(nixops.resources.ResourceState):
@@ -64,7 +43,10 @@ class MachineState(nixops.resources.ResourceState):
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
-        self.ssh_master = None
+        self.ssh = nixops.ssh_util.SSH(self.logger)
+        self.ssh.register_flag_fun(self.get_ssh_flags)
+        self.ssh.register_host_fun(self.get_ssh_name)
+        self.ssh.register_passwd_fun(self.get_ssh_password)
         self._ssh_private_key_file = None
 
     def get_definition_prefix(self):
@@ -93,9 +75,9 @@ class MachineState(nixops.resources.ResourceState):
             res = self.run_command("cat /proc/loadavg", capture_stdout=True, timeout=15).rstrip().split(' ')
             assert len(res) >= 3
             return res
-        except SSHConnectionFailed:
+        except nixops.ssh_util.SSHConnectionFailed:
             return None
-        except SSHCommandFailed:
+        except nixops.ssh_util.SSHCommandFailed:
             return None
 
     # FIXME: Move this to ResourceState so that other kinds of
@@ -145,17 +127,23 @@ class MachineState(nixops.resources.ResourceState):
         """Make backup of persistent disks, if possible."""
         self.warn("don't know how to make backup of disks for machine ‘{0}’".format(self.name))
 
-    def reboot(self):
+    def reboot(self, hard=False):
         """Reboot this machine."""
         self.log("rebooting...")
-        # The sleep is to prevent the reboot from causing the SSH
-        # session to hang.
-        self.run_command("(sleep 2; reboot) &")
+        if self.state == self.RESCUE:
+            # We're on non-NixOS here, so systemd might not be available.
+            # The sleep is to prevent the reboot from causing the SSH
+            # session to hang.
+            reboot_command = "(sleep 2; reboot) &"
+        else:
+            reboot_command = "systemctl reboot"
+        self.run_command(reboot_command, check=False)
         self.state = self.STARTING
+        self.ssh.reset()
 
-    def reboot_sync(self):
+    def reboot_sync(self, hard=False):
         """Reboot this machine and wait until it's up again."""
-        self.reboot()
+        self.reboot(hard=hard)
         self.log_start("waiting for the machine to finish rebooting...")
         nixops.util.wait_for_tcp_port(self.get_ssh_name(), 22, open=False, callback=lambda: self.log_continue("."))
         self.log_continue("[down]")
@@ -165,6 +153,13 @@ class MachineState(nixops.resources.ResourceState):
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True
         self.send_keys()
+
+    def reboot_rescue(self, hard=False):
+        """
+        Reboot machine into rescue system and wait until it is active.
+        """
+        self.warn("machine ‘{0}’ doesn't have a rescue"
+                  " system.".format(self.name))
 
     def send_keys(self):
         if self.store_keys_on_machine: return
@@ -187,6 +182,9 @@ class MachineState(nixops.resources.ResourceState):
     def get_ssh_flags(self):
         return []
 
+    def get_ssh_password(self):
+        return None
+
     @property
     def public_ipv4(self):
         return None
@@ -207,23 +205,10 @@ class MachineState(nixops.resources.ResourceState):
         self.log_start("waiting for SSH...")
         nixops.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
         self.log_end("")
-        self.state = self.UP
+        if self.state != self.RESCUE:
+            self.state = self.UP
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True
-
-    def _open_ssh_master(self, timeout=None):
-        """Start an SSH master connection to speed up subsequent SSH sessions."""
-        if self.ssh_master is not None: return
-        tries = 1 if timeout else 5
-        while True:
-            try:
-                self.ssh_master = SSHMaster(self.depl.tempdir, self.name, self.get_ssh_name(),
-                                            self.get_ssh_flags() + (["-o", "ConnectTimeout={0}".format(timeout)] if timeout else []))
-                break
-            except Exception:
-                tries = tries - 1
-                if tries == 0: raise
-                pass
 
     def write_ssh_private_key(self, private_key):
         key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
@@ -235,79 +220,35 @@ class MachineState(nixops.resources.ResourceState):
     def get_ssh_private_key_file(self):
         return None
 
-    def _logged_exec(self, command, check=True, capture_stdout=False, stdin_string=None, env=None):
-        stdin = subprocess.PIPE if stdin_string != None else nixops.util.devnull
+    def _logged_exec(self, command, **kwargs):
+        return nixops.util.logged_exec(command, self.logger, **kwargs)
 
-        if capture_stdout:
-            process = subprocess.Popen(command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-            fds = [process.stdout, process.stderr]
-            log_fd = process.stderr
+    def run_command(self, command, **kwargs):
+        """
+        Execute a command on the machine via SSH.
+
+        For possible keyword arguments, please have a look at
+        nixops.ssh_util.SSH.run_command().
+        """
+        # If we are in rescue state, unset locale specific stuff, because we're
+        # mainly operating in a chroot environment.
+        if self.state == self.RESCUE:
+            command = "export LANG= LC_ALL= LC_TIME=; " + command
+        return self.ssh.run_command(command, self.get_ssh_flags(), **kwargs)
+
+    def switch_to_configuration(self, method, sync, command=None):
+        """
+        Execute the script to switch to new configuration.
+        This function has to return an integer, which is the return value of the
+        actual script.
+        """
+        cmd = ("NIXOS_NO_SYNC=1 " if not sync else "")
+        if command is None:
+            cmd += "/nix/var/nix/profiles/system/bin/switch-to-configuration"
         else:
-            process = subprocess.Popen(command, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
-            fds = [process.stdout]
-            log_fd = process.stdout
-
-        # FIXME: this can deadlock if stdin_string doesn't fit in the
-        # kernel pipe buffer.
-        if stdin_string != None: process.stdin.write(stdin_string)
-
-        for fd in fds: nixops.util.make_non_blocking(fd)
-
-        at_new_line = True
-        stdout = ""
-
-        while len(fds) > 0:
-            # The timeout/poll is to deal with processes (like
-            # VBoxManage) that start children that go into the
-            # background but keep the parent's stdout/stderr open,
-            # preventing an EOF.  FIXME: Would be better to catch
-            # SIGCHLD.
-            (r, w, x) = select.select(fds, [], [], 1)
-            if len(r) == 0 and process.poll() != None: break
-            if capture_stdout and process.stdout in r:
-                data = process.stdout.read()
-                if data == "":
-                    fds.remove(process.stdout)
-                else:
-                    stdout += data
-            if log_fd in r:
-                data = log_fd.read()
-                if data == "":
-                    if not at_new_line: self.log_end("")
-                    fds.remove(log_fd)
-                else:
-                    start = 0
-                    while start < len(data):
-                        end = data.find('\n', start)
-                        if end == -1:
-                            self.log_start(data[start:])
-                            at_new_line = False
-                        else:
-                            s = data[start:end]
-                            if at_new_line:
-                                self.log(s)
-                            else:
-                                self.log_end(s)
-                            at_new_line = True
-                        if end == -1: break
-                        start = end + 1
-
-        res = process.wait()
-
-        if stdin_string != None: process.stdin.close()
-        if check and res != 0:
-            raise SSHCommandFailed("command ‘{0}’ failed on machine ‘{1}’".format(command, self.name))
-        return stdout if capture_stdout else res
-
-    def run_command(self, command, check=True, capture_stdout=False, stdin_string=None, timeout=None):
-        """Execute a command on the machine via SSH."""
-        # Note that the timeout is only respected if this is the first
-        # call to _open_ssh_master().
-        self._open_ssh_master(timeout=timeout)
-        cmdline = (
-            ["ssh", "-x", "root@" + self.get_ssh_name()] +
-            self.ssh_master.opts + self.get_ssh_flags() + [command])
-        return self._logged_exec(cmdline, check=check, capture_stdout=capture_stdout, stdin_string=stdin_string)
+            cmd += command
+        cmd += " " + method
+        return self.run_command(cmd, check=False)
 
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
@@ -323,7 +264,8 @@ class MachineState(nixops.resources.ResourceState):
 
         # Any remaining paths are copied from the local machine.
         env = dict(os.environ)
-        env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags());
+        master = self.ssh.get_master()
+        env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags() + master.opts)
         self._logged_exec(
             ["nix-copy-closure", "--to", "root@" + self.get_ssh_name(), path]
             + ([] if self.has_really_fast_connection() else ["--gzip"]),
@@ -336,7 +278,7 @@ class MachineState(nixops.resources.ResourceState):
         try:
             self.run_command("test -f /root/.ssh/id_charon_vpn")
             _vpn_key_exists = True
-        except SSHCommandFailed:
+        except nixops.ssh_util.SSHCommandFailed:
             _vpn_key_exists = False
 
         if self.public_vpn_key and _vpn_key_exists: return
@@ -344,45 +286,30 @@ class MachineState(nixops.resources.ResourceState):
         f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
         f.write(private)
         f.seek(0)
-        # FIXME: use run_command
-        res = subprocess.call(
-            ["ssh", "-x", "root@" + self.get_ssh_name()]
-            + self.get_ssh_flags() +
-            ["umask 077 && mkdir -p /root/.ssh && cat > /root/.ssh/id_charon_vpn"],
-            stdin=f)
-        f.close()
+        res = self.run_command("umask 077 && mkdir -p /root/.ssh &&"
+                               " cat > /root/.ssh/id_charon_vpn",
+                               check=False, stdin=f)
         if res != 0: raise Exception("unable to upload VPN key to ‘{0}’".format(self.name))
         self.public_vpn_key = public
 
     def upload_file(self, source, target, recursive=False):
-        self._open_ssh_master()
-        # FIXME: use ssh master
+        master = self.ssh.get_master()
+        cmdline = ["scp"] + self.get_ssh_flags() + master.opts
         if recursive:
-            recursive_cmdline = [ '-r' ]
-        else:
-            recursive_cmdline = [ ]
-        cmdline = ["scp"] +  self.get_ssh_flags() + recursive_cmdline + [source, "root@" + self.get_ssh_name() + ":" + target]
+            cmdline += ['-r']
+        cmdline += [source, "root@" + self.get_ssh_name() + ":" + target]
         return self._logged_exec(cmdline)
 
     def download_file(self, source, target, recursive=False):
-        self._open_ssh_master()
-        # FIXME: use ssh master
+        master = self.ssh.get_master()
+        cmdline = ["scp"] + self.get_ssh_flags() + master.opts
         if recursive:
-            recursive_cmdline = [ '-r' ]
-        else:
-            recursive_cmdline = [ ]
-        cmdline = ["scp"] +  self.get_ssh_flags() + recursive_cmdline + ["root@" + self.get_ssh_name() + ":" + source, target]
+            cmdline += ['-r']
+        cmdline += ["root@" + self.get_ssh_name() + ":" + source, target]
         return self._logged_exec(cmdline)
 
     def get_console_output(self):
         return "(not available for this machine type)\n"
-
-
-class SSHConnectionFailed(Exception):
-    pass
-
-class SSHCommandFailed(Exception):
-    pass
 
 
 class CheckResult(object):
@@ -417,6 +344,7 @@ class CheckResult(object):
 import nixops.backends.none
 import nixops.backends.virtualbox
 import nixops.backends.ec2
+import nixops.backends.hetzner
 import nixops.resources.ec2_keypair
 import nixops.resources.sqs_queue
 import nixops.resources.s3_bucket
@@ -427,7 +355,8 @@ def create_definition(xml):
     target_env = xml.find("attrs/attr[@name='targetEnv']/string").get("value")
     for i in [nixops.backends.none.NoneDefinition,
               nixops.backends.virtualbox.VirtualBoxDefinition,
-              nixops.backends.ec2.EC2Definition]:
+              nixops.backends.ec2.EC2Definition,
+              nixops.backends.hetzner.HetznerDefinition]:
         if target_env == i.get_type():
             return i(xml)
     raise nixops.deployment.UnknownBackend("unknown backend type ‘{0}’".format(target_env))
@@ -437,6 +366,7 @@ def create_state(depl, type, name, id):
     for i in [nixops.backends.none.NoneState,
               nixops.backends.virtualbox.VirtualBoxState,
               nixops.backends.ec2.EC2State,
+              nixops.backends.hetzner.HetznerState,
               nixops.resources.ec2_keypair.EC2KeyPairState,
               nixops.resources.sqs_queue.SQSQueueState,
               nixops.resources.iam_role.IAMRoleState,

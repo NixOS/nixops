@@ -1,5 +1,22 @@
-from distutils.core import setup
-import glob
+import sys
+import subprocess
+
+from distutils.core import setup, Command
+
+
+class TestCommand(Command):
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        ret = subprocess.call([sys.executable, 'tests.py', 'tests/unit'])
+        raise SystemExit(ret)
+
 
 setup(name='nixops',
       version='@version@',
@@ -9,4 +26,5 @@ setup(name='nixops',
       author_email='eelco.dolstra@logicblox.com',
       scripts=['scripts/nixops'],
       packages=['nixops', 'nixops.resources', 'nixops.backends'],
+      cmdclass={'test': TestCommand}
       )

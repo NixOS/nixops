@@ -470,6 +470,69 @@ deployment.ec2.securityGroups = [ "allow-ssh" "allow-http" ];
 </simplesect>
 
 
+<simplesect><title>Deploying to Hetzner physical machines</title>
+
+<para>In order to deploy to Hetzner machines, you need to have a valid account
+to their server management interface, called the <link
+xlink:href="https://robot.your-server.de/">Robot</link>. This account is
+<emphasis>only</emphasis> used for the initial deployment and the destruction of
+a machine. In particular the initial deployment creates a separate Robot account
+just for the machine that's going to be created, so a person who has access to
+your deployment will only have access to the machines within the deployment and
+not <emphasis>all</emphasis> machines that are associated with your main Robot
+account. When destroying a machine, the separate admin account is removed as
+well.</para>
+
+<para>Of course you need machines where you can deploy to, which can only be
+ordered by the Robot's web interface. In the expression of the NixOps network,
+you reference these machines by setting
+<varname>deployment.hetzner.mainIPv4</varname> to the corresponding main IP
+address, to be found in the list of the <literal>Server</literal> tab in the
+Robot.</para>
+
+<para>Partitioning of a machine is currently done by using Anaconda's <link
+xlink:href="https://fedoraproject.org/wiki/Anaconda/Kickstart">Kickstart</link>
+format. By default, it consists of two disks with two swap partitions, one on
+each disk and one big ext4 array with RAID1, similiar to the default layout
+Hetzner is using for installing their Debian machines. If you want to change the
+default, you can use <varname>deployment.hetzner.partitions</varname> to change
+the default layout. For example to install a machine with btrfs:
+
+<programlisting>
+{
+  example = {
+    deployment.targetEnv = "hetzner";
+    deployment.mainIPv4 = "1.2.3.4";
+    deployment.hetzner.partitions = ''
+      clearpart --all --initlabel --drives=sda,sdb
+
+      part swap1 --recommended --label=swap1 --fstype=swap --ondisk=sda
+      part swap2 --recommended --label=swap2 --fstype=swap --ondisk=sdb
+
+      part btrfs.1 --grow --ondisk=sda
+      part btrfs.2 --grow --ondisk=sdb
+
+      btrfs / --data=1 --metadata=1 --label=root btrfs.1 btrfs.2
+    '';
+  };
+}
+</programlisting>
+
+This will install NixOS on a machine with the main IP
+<replaceable>1.2.3.4</replaceable>, using a swap partition for each drive and
+use everything else for a single btrfs volume.</para>
+
+<para>In the previous example, there is no occurence of
+<varname>deployment.hetzner.robotUser</varname> and
+<varname>deployment.hetzner.robotPass</varname>, you can set the credentials to
+your main Robot account there, however it is recommended to use the environment
+variables <envar>HETZNER_ROBOT_USER</envar> and
+<envar>HETZNER_ROBOT_PASS</envar>, as you only need them for initial deployment
+and destruction.</para>
+
+</simplesect>
+
+
 <simplesect><title>Accessing machines</title>
 
 <para>We have seen above that you can login to individual machines by

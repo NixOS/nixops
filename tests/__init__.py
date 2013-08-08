@@ -12,7 +12,7 @@ def setup():
 
 def destroy(sf, uuid):
     depl = sf.open_deployment(uuid)
-    depl.auto_response = "y"
+    depl.logger.set_autoresponse("y")
     try:
         depl.clean_backups(keep=0)
     except Exception:
