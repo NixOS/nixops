@@ -260,23 +260,30 @@ class MachineState(nixops.resources.ResourceState):
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
 
-        # !!! Implement copying between cloud machines, as in the Perl
+        closure = subprocess.check_output(["nix-store", "-qR",
+                                           path]).splitlines()
+
+        if not self.has_really_fast_connection():
+            self.log("trying to fetch substitutes...")
+            self.run_command("xargs nix-store -j 4 -r --ignore-unknown",
+                             stdin_string='\n'.join(closure), check=False)
+
+        # TODO: Implement copying between cloud machines, as in the Perl
         # version.
 
-        # It's usually faster to let the target machine download
-        # substitutes from nixos.org, so try that first.
-        if not self.has_really_fast_connection():
-            closure = subprocess.check_output(["nix-store", "-qR", path]).splitlines()
-            self.run_command("nix-store -j 4 -r --ignore-unknown " + ' '.join(closure), check=False)
+        self.log("copying missing store paths...")
 
-        # Any remaining paths are copied from the local machine.
-        env = dict(os.environ)
-        master = self.ssh.get_master()
-        env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags() + master.opts)
-        self._logged_exec(
-            ["nix-copy-closure", "--to", "root@" + self.get_ssh_name(), path]
-            + ([] if self.has_really_fast_connection() else ["--gzip"]),
-            env=env)
+        checker_cmd = "xargs nix-store --check-validity --print-invalid"
+        missing = self.run_command(checker_cmd,
+                                   stdin_string='\n'.join(closure),
+                                   capture_stdout=True).splitlines()
+
+        export = subprocess.Popen(["nix-store", "--export"] + missing,
+                                  stdin=nixops.util.devnull,
+                                  stdout=subprocess.PIPE)
+
+        self.run_command("nix-store --import", stdin=export.stdout)
+        export.wait()
 
     def has_really_fast_connection(self):
         return False
