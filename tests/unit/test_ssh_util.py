@@ -61,6 +61,11 @@ class SSHTest(unittest.TestCase):
 
         channel = self.transport.accept(10)
         command = self.transport.server_object.command
+
+        if command == 'reboot':
+            channel.close()
+            return
+
         for i in itertools.count():
             data = channel.recv(self.BUFSIZE)
             if len(data) == 0:
@@ -147,3 +152,8 @@ class SSHTest(unittest.TestCase):
 
         self.assertEqual(len(output), 0)
         self.assert_textdiff(payload, ''.join(stderr))
+
+    def test_channel_closed(self):
+        client = self.connect_client()
+        result = client.run_command("reboot", check=False)
+        self.assertEqual(result, -1)

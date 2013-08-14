@@ -89,7 +89,7 @@ class SSHConnection(object):
         stdin_done = stdin_string is None and stdin is None
         stdout = ""
         buf = ""
-        while not channel.eof_received:
+        while not channel.eof_received and not channel.closed:
             if not stdin_done and channel.send_ready():
                 if stdin_string is not None:
                     sent = channel.send(stdin_string[:bufsize])
