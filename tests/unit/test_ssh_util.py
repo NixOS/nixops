@@ -26,7 +26,19 @@ class TestSSHServer(paramiko.ServerInterface):
         return paramiko.OPEN_SUCCEEDED
 
     def check_channel_exec_request(self, channel, command):
+        self.command = command
         return True
+
+
+class StringLogger(object):
+    """
+    A dummy Logger implementation that just gathers all data into a string.
+    """
+    def __init__(self):
+        self.data = ""
+
+    def log_start(self, msg):
+        self.data += msg
 
 
 class SSHTest(unittest.TestCase):
@@ -59,13 +71,19 @@ class SSHTest(unittest.TestCase):
         self.transport.start_server(self.trigger, TestSSHServer())
 
         channel = self.transport.accept(10)
+        command = self.transport.server_object.command
         for i in itertools.count():
             data = channel.recv(self.BUFSIZE)
             if len(data) == 0:
                 break
-            if i % 2 == 0:
+            if command == 'oddeven':
+                if i % 2 == 0:
+                    channel.send(data)
+                else:
+                    channel.send_stderr(data)
+            elif command == 'stdout':
                 channel.send(data)
-            else:
+            elif command == 'stderr':
                 channel.send_stderr(data)
         channel.send_exit_status(0)
         channel.close()
@@ -109,14 +127,32 @@ class SSHTest(unittest.TestCase):
         client = self.connect_client()
         payload = ('A' * self.BUFSIZE + 'B' * self.BUFSIZE) * 100
         stdin = StringIO(payload)
-        output = client.run_command("dummy", stdin=stdin, capture_stdout=True)
+        output = client.run_command("oddeven", stdin=stdin,
+                                    capture_stdout=True)
 
         self.assert_textdiff('A' * self.BUFSIZE * 100, output)
 
     def test_string_passthrough(self):
         client = self.connect_client()
         payload = ('A' * self.BUFSIZE + 'B' * self.BUFSIZE) * 100
-        output = client.run_command("dummy", stdin_string=payload,
+        output = client.run_command("oddeven", stdin_string=payload,
                                     capture_stdout=True)
 
         self.assert_textdiff('A' * self.BUFSIZE * 100, output)
+
+    def test_stdout_only(self):
+        client = self.connect_client()
+        payload = 'O' * self.BUFSIZE * 100
+        output = client.run_command("stdout", stdin_string=payload,
+                                    capture_stdout=True)
+
+        self.assert_textdiff(payload, output)
+
+    def test_stderr_only(self):
+        client = self.connect_client()
+        payload = 'E' * self.BUFSIZE * 100
+        stderr = StringLogger()
+        output = client.run_command("stderr", stdin_string=payload,
+                                    capture_stdout=True, logger=stderr)
+
+        self.assert_textdiff(payload, stderr.data)

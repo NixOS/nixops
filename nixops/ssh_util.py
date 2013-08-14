@@ -107,19 +107,17 @@ class SSHConnection(object):
                 if stdin_done:
                     channel.shutdown_write()
 
-                if not channel.recv_ready():
-                    continue
-
             if capture_stdout and channel.recv_stderr_ready():
                 data = channel.recv_stderr(bufsize)
                 if logger is not None:
                     logger.log_start(data)
 
-            data = channel.recv(bufsize)
-            if capture_stdout:
-                stdout += data
-            elif logger is not None:
-                logger.log_start(data)
+            if channel.recv_ready():
+                data = channel.recv(bufsize)
+                if capture_stdout:
+                    stdout += data
+                elif logger is not None:
+                    logger.log_start(data)
 
         exitcode = channel.recv_exit_status()
         if check and exitcode != 0:
