@@ -257,7 +257,6 @@ class HetznerState(MachineState):
             server.reboot('hard')
             self.log_end("done.")
             self.state = self.STARTING
-            self.ssh.reset()
         else:
             MachineState.reboot(self, hard=hard)
 
@@ -290,7 +289,6 @@ class HetznerState(MachineState):
         self._wait_for_rescue(self.main_ipv4)
         self.rescue_passwd = rescue_passwd
         self.state = self.RESCUE
-        self.ssh.reset()
         if bootstrap:
             self._bootstrap_rescue(install, partitions)
 

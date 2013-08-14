@@ -44,10 +44,7 @@ class MachineState(nixops.resources.ResourceState):
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
-        self.ssh = nixops.ssh_util.SSH(self.logger)
-        self.ssh.register_flag_fun(self.get_ssh_flags)
-        self.ssh.register_host_fun(self.get_ssh_name)
-        self.ssh.register_passwd_fun(self.get_ssh_password)
+        self.ssh = nixops.ssh_util.SSH()
         self._ssh_private_key_file = None
 
     def prefix_definition(self, attr):
@@ -146,7 +143,6 @@ class MachineState(nixops.resources.ResourceState):
             reboot_command = "systemctl reboot"
         self.run_command(reboot_command, check=False)
         self.state = self.STARTING
-        self.ssh.reset()
 
     def reboot_sync(self, hard=False):
         """Reboot this machine and wait until it's up again."""
@@ -230,18 +226,34 @@ class MachineState(nixops.resources.ResourceState):
     def _logged_exec(self, command, **kwargs):
         return nixops.util.logged_exec(command, self.logger, **kwargs)
 
+    def _connect_ssh(self):
+        """
+        Establish a new SSH connection and return the SSHConnection instance.
+        """
+        passwd = self.get_ssh_password()
+        # Only fetch private key if we don't use password authentication.
+        privkey = self.get_ssh_private_key_file() if passwd is None else None
+        return self.ssh.connect(self.get_ssh_name(), privkey=privkey,
+                                passwd=passwd)
+
     def run_command(self, command, **kwargs):
         """
         Execute a command on the machine via SSH.
 
         For possible keyword arguments, please have a look at
-        nixops.ssh_util.SSH.run_command().
+        nixops.ssh_util.SSHConnection.run_command().
         """
         # If we are in rescue state, unset locale specific stuff, because we're
         # mainly operating in a chroot environment.
         if self.state == self.RESCUE:
             command = "export LANG= LC_ALL= LC_TIME=; " + command
-        return self.ssh.run_command(command, self.get_ssh_flags(), **kwargs)
+
+        return self._connect_ssh().run_command(command,
+                                               log_cb=self.logger.log_raw,
+                                               **kwargs)
+
+    def invoke_shell(self):
+        return self._connect_ssh().invoke_shell()
 
     def switch_to_configuration(self, method, sync, command=None):
         """
