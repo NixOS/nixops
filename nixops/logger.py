@@ -51,6 +51,13 @@ class Logger(object):
                 self._log_file.write(prefix)
             self._log_file.write(msg + "\n")
 
+    def log_raw(self, prefix, msg):
+        for line in msg.splitlines(True):
+            if line.endswith(('\n', '\r')):
+                self.log_end(prefix, line.rstrip('\r\n'))
+            else:
+                self.log_start(prefix, line)
+
     def get_logger_for(self, machine_name):
         """
         Returns a logger instance for a specific machine name.
@@ -141,6 +148,9 @@ class MachineLogger(object):
 
     def log_end(self, msg):
         self.main_logger.log_end(self._log_prefix, msg)
+
+    def log_raw(self, msg):
+        self.main_logger.log_raw(self._log_prefix, msg)
 
     def warn(self, msg):
         self.log(ansi_warn("warning: " + msg,
