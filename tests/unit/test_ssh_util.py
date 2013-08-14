@@ -30,17 +30,6 @@ class TestSSHServer(paramiko.ServerInterface):
         return True
 
 
-class StringLogger(object):
-    """
-    A dummy Logger implementation that just gathers all data into a string.
-    """
-    def __init__(self):
-        self.data = ""
-
-    def log_start(self, msg):
-        self.data += msg
-
-
 class SSHTest(unittest.TestCase):
     HOST_KEY = paramiko.RSAKey.generate(1024)
     BUFSIZE = 1024
@@ -151,8 +140,10 @@ class SSHTest(unittest.TestCase):
     def test_stderr_only(self):
         client = self.connect_client()
         payload = 'E' * self.BUFSIZE * 100
-        stderr = StringLogger()
+        stderr = []
         output = client.run_command("stderr", stdin_string=payload,
-                                    capture_stdout=True, logger=stderr)
+                                    capture_stdout=True,
+                                    log_cb=lambda data: stderr.append(data))
 
-        self.assert_textdiff(payload, stderr.data)
+        self.assertEqual(len(output), 0)
+        self.assert_textdiff(payload, ''.join(stderr))

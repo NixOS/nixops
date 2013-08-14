@@ -65,7 +65,7 @@ class SSHConnection(object):
         finally:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
 
-    def run_command(self, command, timeout=None, logger=None, bufsize=4096,
+    def run_command(self, command, timeout=None, log_cb=None, bufsize=4096,
                     stdin_string=None, stdin=None, capture_stdout=False,
                     check=True):
         """
@@ -75,9 +75,9 @@ class SSHConnection(object):
 
         TODO: document keyword arguments!
 
-        'logger' is either None for no logging or a valid Logger instance,
-        which then is used to log stdout (if 'capture_stdout' is False) and
-        stderr of the command.
+        'log_cb' is either None for no logging or a function which is called
+        whenever there is data on either stdout (if 'capture_stdout' is False)
+        or stderr of the command.
         """
         transport = self.ssh.get_transport()
         channel = transport.open_session()
@@ -109,15 +109,15 @@ class SSHConnection(object):
 
             if capture_stdout and channel.recv_stderr_ready():
                 data = channel.recv_stderr(bufsize)
-                if logger is not None:
-                    logger.log_start(data)
+                if log_cb is not None:
+                    log_cb(data)
 
             if channel.recv_ready():
                 data = channel.recv(bufsize)
                 if capture_stdout:
                     stdout += data
-                elif logger is not None:
-                    logger.log_start(data)
+                elif log_cb is not None:
+                    log_cb(data)
 
         exitcode = channel.recv_exit_status()
         if check and exitcode != 0:
