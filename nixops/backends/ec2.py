@@ -45,6 +45,7 @@ class EC2Definition(MachineDefinition):
         self.instance_profile = x.find("attr[@name='instanceProfile']/string").get("value")
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
         self.root_disk_size = int(x.find("attr[@name='ebsInitialRootDiskSize']/int").get("value"))
+        self.spot_instance_price = int(x.find("attr[@name='spotInstancePrice']/int").get("value"))
 
         def f(xml):
             return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
@@ -99,7 +100,8 @@ class EC2State(MachineState):
     dns_ttl = nixops.util.attr_property("route53.ttl", None, int)
     route53_access_key_id = nixops.util.attr_property("route53.accessKeyId", None)
     client_token = nixops.util.attr_property("ec2.clientToken", None)
-
+    spot_instance_request_id = nixops.util.attr_property("ec2.spotInstanceRequestId", None)
+    spot_instance_price = nixops.util.attr_property("ec2.spotInstancePrice", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -223,6 +225,16 @@ class EC2State(MachineState):
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.route53_access_key_id)
 
         self._conn_route53 = boto.connect_route53(access_key_id, secret_access_key)
+
+    def _get_spot_instance_request_by_id(self, request_id, allow_missing=False):
+        """Get spot instance request object by id."""
+        self.connect()
+        result = self._conn.get_all_spot_instance_requests([request_id])
+        if len(result) == 0:
+            if allow_missing:
+                return None
+            raise EC2InstanceDisappeared("Spot instance request ‘{0}’ disappeared!".format(request_id))
+        return result[0]
 
 
     def _get_instance_by_id(self, instance_id, allow_missing=False):
@@ -521,6 +533,62 @@ class EC2State(MachineState):
                     self.public_ipv4 = None
                     self.ssh_pinged = False
 
+
+
+    def create_instance(self, defn, zone, devmap, user_data, ebs_optimized):
+        common_args = dict(
+            instance_type=defn.instance_type,
+            placement=zone,
+            key_name=defn.key_pair,
+            security_groups=defn.security_groups,
+            block_device_map=devmap,
+            user_data=user_data,
+            image_id=defn.ami,
+            instance_profile_name=defn.instance_profile,
+            ebs_optimized=ebs_optimized
+        )
+
+        if defn.spot_instance_price:
+            request = nixops.ec2_utils.retry(
+                lambda: self._conn.request_spot_instances(price=defn.spot_instance_price/100.0, **common_args)
+            )[0]
+
+            common_tags = self.get_common_tags()
+            tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
+            tags.update(defn.tags)
+            tags.update(common_tags)
+            nixops.ec2_utils.retry(lambda: self._conn.create_tags([request.id], tags))
+
+            self.spot_instance_price = defn.spot_instance_price
+            self.spot_instance_request_id = request.id
+
+            self.log_start("Waiting for spot instance request to be fulfilled. ")
+            def check_request():
+                req = self._get_spot_instance_request_by_id(request.id)
+                self.log_continue("({0}) ".format(req.status.code))
+                return req.status.code == "fulfilled"
+            self.log_end("")
+
+            try:
+                nixops.util.check_wait(test=check_request)
+            finally:
+                # cancel spot instance request, it isn't needed after instance is provisioned
+                self.spot_instance_request_id = None
+                self._conn.cancel_spot_instance_requests([request.id])
+
+            request = self._get_spot_instance_request_by_id(request.id)
+
+            instance = nixops.ec2_utils.retry(lambda: self._get_instance_by_id(request.instance_id))
+
+            return instance
+        else:
+            reservation = nixops.ec2_utils.retry(lambda: self._conn.run_instances(
+                client_token=self.client_token, **common_args), error_codes = ['InvalidParameterValue', 'UnauthorizedOperation' ])
+
+            assert len(reservation.instances) == 1
+            return reservation.instances[0]
+
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, EC2Definition)
         assert defn.type == "ec2"
@@ -646,20 +714,7 @@ class EC2State(MachineState):
                     self.client_token = nixops.util.generate_random_string(length=48) # = 64 ASCII chars
                     self.state = self.STARTING
 
-            reservation = nixops.ec2_utils.retry(lambda: self._conn.run_instances(
-                client_token=self.client_token,
-                instance_type=defn.instance_type,
-                placement=zone,
-                key_name=defn.key_pair,
-                security_groups=defn.security_groups,
-                block_device_map=devmap,
-                user_data=user_data,
-                image_id=defn.ami,
-                instance_profile_name=defn.instance_profile,
-                ebs_optimized=ebs_optimized), error_codes = ['InvalidParameterValue', 'UnauthorizedOperation' ])
-
-            assert len(reservation.instances) == 1
-            instance = reservation.instances[0]
+            instance = self.create_instance(defn, zone, devmap, user_data, ebs_optimized)
 
             with self.depl._db:
                 self.vm_id = instance.id

@@ -333,6 +333,15 @@ in
       '';
     };
 
+    deployment.ec2.spotInstancePrice = mkOption {
+      default = 0;
+      type = types.int;
+      description = ''
+        Price (in dollar cents per hour) to use for spot instances request for the machine.
+        If the value is equal to 0 (default), then spot instances are not used.
+      '';
+    };
+
     fileSystems = mkOption {
       options = {
         ec2 = mkOption {
