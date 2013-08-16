@@ -16,6 +16,7 @@ import nixops.statefile
 import nixops.backends
 import nixops.logger
 import nixops.parallel
+import nixops.resources.ssh_keypair
 import nixops.resources.ec2_keypair
 import nixops.resources.sqs_queue
 import nixops.resources.iam_role
@@ -307,6 +308,10 @@ class Deployment(object):
 
         for x in res.find("attr[@name='ec2KeyPairs']/attrs").findall("attr"):
             defn = nixops.resources.ec2_keypair.EC2KeyPairDefinition(x)
+            self.definitions[defn.name] = defn
+
+        for x in res.find("attr[@name='sshKeyPairs']/attrs").findall("attr"):
+            defn = nixops.resources.ssh_keypair.SSHKeyPairDefinition(x)
             self.definitions[defn.name] = defn
 
         for x in res.find("attr[@name='sqsQueues']/attrs").findall("attr"):

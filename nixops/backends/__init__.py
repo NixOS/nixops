@@ -346,6 +346,7 @@ import nixops.backends.virtualbox
 import nixops.backends.ec2
 import nixops.backends.hetzner
 import nixops.resources.ec2_keypair
+import nixops.resources.ssh_keypair
 import nixops.resources.sqs_queue
 import nixops.resources.s3_bucket
 import nixops.resources.iam_role
@@ -368,6 +369,7 @@ def create_state(depl, type, name, id):
               nixops.backends.ec2.EC2State,
               nixops.backends.hetzner.HetznerState,
               nixops.resources.ec2_keypair.EC2KeyPairState,
+              nixops.resources.ssh_keypair.SSHKeyPairState,
               nixops.resources.sqs_queue.SQSQueueState,
               nixops.resources.iam_role.IAMRoleState,
               nixops.resources.s3_bucket.S3BucketState]:
