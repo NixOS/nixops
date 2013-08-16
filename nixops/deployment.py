@@ -467,23 +467,10 @@ class Deployment(object):
             # whatnot, so we can properly merge the attributes on our side.
             res_physical = r.get_physical_spec()
             if len(res_physical) > 0:
-                lines += ['    require = ['
-                          '(builtins.toFile "physical-resource.nix" "{']
-                for line in res_physical:
-                    # Escape every line according to the double quoted string
-                    # escaping rules of Nix (section 5.2.1 of the Nix manual):
-                    #
-                    # The special characters " and \ and the character sequence
-                    # ${ must be escaped by prefixing them with a backslash
-                    # (\).
-                    escaped_line = ''.join([
-                        ('\\' + char if char in ('"', '\\', '${') else char)
-                        for char in line
-                    ])
-                    lines.append("  " + escaped_line)
-                lines.append('    }")];')
-
-            if len(lines) == 0:
+                merger = 'pkgs.lib.mergeAttrByFunc'
+                lines.insert(0, first + ' ' + merger + ' {')
+                lines += ["  } {"] + res_physical + ["  };\n"]
+            elif len(lines) == 0:
                 return ""
             else:
                 first_format = '  {0}"{1}" = {{ config, pkgs, ... }}:'
