@@ -466,6 +466,9 @@ class Deployment(object):
             # print the physical spec out of Python dicts, lists, strings and
             # whatnot, so we can properly merge the attributes on our side.
             res_physical = r.get_physical_spec()
+            first_format = '  {0}"{1}" = {{ config, pkgs, ... }}:'
+            first = first_format.format(r.get_definition_prefix(), r.name)
+
             if len(res_physical) > 0:
                 merger = 'pkgs.lib.mergeAttrByFunc'
                 lines.insert(0, first + ' ' + merger + ' {')
