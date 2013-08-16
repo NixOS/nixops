@@ -24,13 +24,13 @@ class PPrintTest(unittest.TestCase):
         self.assertEqual(py2nix("xyz"), '"xyz"')
         self.assertEqual(py2nix("a'b\"c"), r'''"a'b\"c"''')
         self.assertEqual(py2nix("abc\ndef\nghi"), r'"abc\ndef\nghi"')
-        self.assertEqual(py2nix("abc\ndef\nghi\n"),
+        self.assertEqual(py2nix("abc\ndef\nghi\n", maxwidth=5),
                          "''\n  abc\n  def\n  ghi\n''")
         self.assertEqual(py2nix("\\foo"), r'"\\foo"')
         self.assertEqual(py2nix("xx${yy}zz"), r'"xx\${yy}zz"')
-        self.assertEqual(py2nix("xx\n${yy}\nzz\n"),
+        self.assertEqual(py2nix("xx\n${yy}\nzz\n", maxwidth=5),
                          "''\n  xx\n  ''${yy}\n  zz\n''")
-        self.assertEqual(py2nix("xx\n''yy\nzz\n"),
+        self.assertEqual(py2nix("xx\n''yy\nzz\n", maxwidth=5),
                          "''\n  xx\n  '''yy\n  zz\n''")
 
     def test_list(self):
@@ -38,7 +38,7 @@ class PPrintTest(unittest.TestCase):
         self.assertEqual(py2nix(["a", "b", "c"]), '[ "a" "b" "c" ]')
         self.assertEqual(py2nix(["a\na\na\n", "b\nb\n", "c"]),
                          r'[ "a\na\na\n" "b\nb\n" "c" ]')
-        self.assertEqual(py2nix(["a\na\na\n", "b\nb\n", "c"], width=10),
+        self.assertEqual(py2nix(["a\na\na\n", "b\nb\n", "c"], maxwidth=10),
                          '[\n  "a\\na\\na\\n"\n  "b\\nb\\n"\n  "c"\n]')
 
     def test_attrkeys(self):
