@@ -143,6 +143,6 @@ class IAMRoleState(nixops.resources.ResourceState):
                 self.policy = defn.policy
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         self._destroy()
         return True

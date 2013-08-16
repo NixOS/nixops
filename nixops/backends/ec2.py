@@ -429,8 +429,8 @@ class EC2State(MachineState):
         volume = self._get_volume_by_id(volume_id)
         if volume.status == "in-use" and \
             self.vm_id != volume.attach_data.instance_id and \
-            self.depl.confirm("volume ‘{0}’ is in use by instance ‘{1}’, "
-                              "are you sure you want to attach this volume?".format(volume_id, volume.attach_data.instance_id)):
+            self.depl.logger.confirm("volume ‘{0}’ is in use by instance ‘{1}’, "
+                                     "are you sure you want to attach this volume?".format(volume_id, volume.attach_data.instance_id)):
 
             self.log_start("detaching volume ‘{0}’ from instance ‘{1}’...".format(volume_id, volume.attach_data.instance_id))
             volume.detach()
@@ -502,9 +502,9 @@ class EC2State(MachineState):
                 addresses = self._conn.get_all_addresses(addresses=[elastic_ipv4])
                 if addresses[0].instance_id != "" \
                     and addresses[0].instance_id != self.vm_id \
-                    and not self.depl.confirm(
-                                "are you sure you want to associate IP address ‘{0}’, which is currently in use by instance ‘{1}’?".format(
-                                        elastic_ipv4, addresses[0].instance_id)):
+                    and not self.depl.logger.confirm(
+                        "are you sure you want to associate IP address ‘{0}’, which is currently in use by instance ‘{1}’?".format(
+                            elastic_ipv4, addresses[0].instance_id)):
                     raise Exception("elastic IP ‘{0}’ already in use...".format(elastic_ipv4))
                 else:
                     self.log("associating IP address ‘{0}’...".format(elastic_ipv4))
@@ -939,7 +939,7 @@ class EC2State(MachineState):
 
 
     def _delete_volume(self, volume_id):
-        if not self.depl.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
+        if not self.depl.logger.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
             raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
         self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
         volume = self._get_volume_by_id(volume_id, allow_missing=True)
@@ -948,9 +948,9 @@ class EC2State(MachineState):
         volume.delete()
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         if not (self.vm_id or self.client_token): return True
-        if not self.depl.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
+        if not self.depl.logger.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
 
         self.log_start("destroying EC2 machine... ".format(self.name))
 
@@ -1121,7 +1121,7 @@ class EC2State(MachineState):
                     res.messages.append("  * {0} - {1}".format(e.not_before, e.not_after))
 
 
-    def reboot(self):
+    def reboot(self, hard=False):
         self.log("rebooting EC2 machine...")
         instance = self._get_instance_by_id(self.vm_id)
         instance.reboot()

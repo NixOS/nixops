@@ -154,6 +154,14 @@ cloud.</para>
 
   </varlistentry>
 
+  <varlistentry><term><envar>HETZNER_ROBOT_USER</envar></term>
+    <term><envar>HETZNER_ROBOT_PASS</envar></term>
+
+    <listitem><para>Username and password used to access the Robot for
+    Hetzner deployments.</para></listitem>
+
+  </varlistentry>
+
 </variablelist>
 
 

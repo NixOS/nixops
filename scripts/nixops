@@ -326,7 +326,8 @@ def op_restore():
 
 def op_deploy():
     depl = open_deployment()
-    if args.confirm: depl.auto_response = "y"
+    if args.confirm:
+        depl.logger.set_autoresponse("y")
     depl.deploy(dry_run=args.dry_run, build_only=args.build_only,
                 create_only=args.create_only, copy_only=args.copy_only,
                 include=args.include or [], exclude=args.exclude or [],
@@ -352,13 +353,20 @@ def op_set_args():
 
 def op_destroy():
     depl = open_deployment()
-    if args.confirm: depl.auto_response = "y"
-    depl.destroy_resources(include=args.include or [], exclude=args.exclude or [])
+    if args.confirm:
+        depl.logger.set_autoresponse("y")
+    depl.destroy_resources(include=args.include or [],
+                           exclude=args.exclude or [],
+                           wipe=args.wipe)
 
 
 def op_reboot():
     depl = open_deployment()
-    depl.reboot_machines(include=args.include or [], exclude=args.exclude or [], wait=(not args.no_wait))
+    depl.reboot_machines(include=args.include or [],
+                         exclude=args.exclude or [],
+                         wait=(not args.no_wait),
+                         rescue=args.rescue,
+                         hard=args.hard)
 
 
 def op_stop():
@@ -461,7 +469,8 @@ def op_ssh():
     if not m: raise Exception("unknown machine ‘{0}’".format(machine))
     ssh_name = m.get_ssh_name()
     print >> sys.stderr, "connecting to {0}...".format(ssh_name)
-    res = subprocess.call(["ssh", username + "@" + ssh_name] + m.get_ssh_flags() + args.args)
+    res = m.ssh.run_command(args.args, allow_ssh_args=True, logged=False,
+                            check=False)
     sys.exit(res)
 
 
@@ -471,8 +480,8 @@ def op_ssh_for_each():
     jobs = args.parallel if args.parallel else 1
     def worker(m):
         if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): return
-        return m._logged_exec(["ssh", "root@" + m.get_ssh_name()] + m.get_ssh_flags() + args.args, check=False)
-    results = run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
+        return m.ssh.run_command(args.args, allow_ssh_args=True, check=False)
+    results = nixops.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
     sys.exit(max(results) if results != [] else 0)
 
 
@@ -654,6 +663,8 @@ subparser = add_subparser('destroy', help='destroy all virtual machines in the n
 subparser.set_defaults(op=op_destroy)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='destroy only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='destroy all except the specified machines')
+subparser.add_argument('--wipe', action='store_true',
+                       help='securely wipe data on the machines')
 
 subparser = add_subparser('stop', help='stop all virtual machines in the network')
 subparser.set_defaults(op=op_stop)
@@ -665,11 +676,21 @@ subparser.set_defaults(op=op_start)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='start only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='start all except the specified machines')
 
-subparser = add_subparser('reboot', help='reboot all virtual machines in the network')
+subparser = add_subparser('reboot',
+                          help='reboot all virtual machines in the network')
 subparser.set_defaults(op=op_reboot)
-subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='reboot only the specified machines')
-subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='reboot all except the specified machines')
-subparser.add_argument('--no-wait', action='store_true', help='do not wait until the machines are up again')
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME',
+                       help='reboot only the specified machines')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME',
+                       help='reboot all except the specified machines')
+subparser.add_argument('--no-wait', action='store_true',
+                       help='do not wait until the machines are up again')
+subparser.add_argument('--rescue', action='store_true',
+                       help='reboot machines into the rescue system'
+                            ' (if available)')
+subparser.add_argument('--hard', action='store_true',
+                       help='send a hard reset (power switch) to the machines'
+                            ' (if available)')
 
 subparser = add_subparser('show-physical', help='print the physical network expression')
 subparser.add_argument('--backup', dest='backupid', default=None, help='print physical network expression for given backup id')

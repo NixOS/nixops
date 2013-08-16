@@ -2,7 +2,7 @@ from nose import tools
 
 from tests.functional import single_machine_test
 
-from nixops import backends
+from nixops.ssh_util import SSHCommandFailed
 
 class TestRebootingReboots(single_machine_test.SingleMachineTest):
     def run_check(self):
@@ -12,5 +12,5 @@ class TestRebootingReboots(single_machine_test.SingleMachineTest):
         m = self.depl.active.values()[0]
         m.check()
         tools.assert_equal(m.state, m.UP)
-        with tools.assert_raises(backends.SSHCommandFailed):
+        with tools.assert_raises(SSHCommandFailed):
             self.check_command("test -f /run/not-rebooted")

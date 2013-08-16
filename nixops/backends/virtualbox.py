@@ -245,7 +245,7 @@ class VirtualBoxState(MachineState):
         # Destroy obsolete disks.
         for disk_name, disk_state in self.disks.items():
             if disk_name not in defn.disks:
-                if not self.depl.confirm("are you sure you want to destroy disk ‘{0}’ of VirtualBox instance ‘{1}’?".format(disk_name, self.name)):
+                if not self.depl.logger.confirm("are you sure you want to destroy disk ‘{0}’ of VirtualBox instance ‘{1}’?".format(disk_name, self.name)):
                     raise Exception("not destroying VirtualBox disk ‘{0}’".format(disk_name))
                 self.log("destroying disk ‘{0}’".format(disk_name))
 
@@ -284,10 +284,10 @@ class VirtualBoxState(MachineState):
             self._wait_for_ip()
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         if not self.vm_id: return True
 
-        if not self.depl.confirm("are you sure you want to destroy VirtualBox VM ‘{0}’?".format(self.name)): return False
+        if not self.depl.logger.confirm("are you sure you want to destroy VirtualBox VM ‘{0}’?".format(self.name)): return False
 
         self.log("destroying VirtualBox VM...")
 
@@ -311,7 +311,7 @@ class VirtualBoxState(MachineState):
 
         self.log_start("shutting down... ")
 
-        self.run_command("(sleep 2; poweroff) &")
+        self.run_command("systemctl poweroff", check=False)
         self.state = self.STOPPING
 
         while True:
