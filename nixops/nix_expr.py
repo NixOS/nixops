@@ -49,6 +49,10 @@ class Container(object):
 def py2nix(value, initial_indentation=0, maxwidth=80):
     """
     Return the given value as a Nix expression string.
+    IF initial_indentation is to a specific level (two spaces per level), don't
+    inline fewer than that. Also, 'maxwidth' specifies the maximum line width
+    which is enforced whenever it is possible to break an expression. Set to 0
+    if you want to break on every occasion possible.
     """
     def _fold_string(value, rules):
         folder = lambda val, rule: val.replace(rule[0], rule[1])
