@@ -1,5 +1,7 @@
 import unittest
 
+from textwrap import dedent
+
 from nixops.nix_expr import py2nix
 
 
@@ -40,6 +42,44 @@ class PPrintTest(unittest.TestCase):
                          r'[ "a\na\na\n" "b\nb\n" "c" ]')
         self.assertEqual(py2nix(["a\na\na\n", "b\nb\n", "c"], maxwidth=15),
                          '[\n  "a\\na\\na\\n"\n  "b\\nb\\n"\n  "c"\n]')
+
+    def test_nested_list(self):
+        match = dedent('''
+        [
+          [ 1 2 3 ]
+          [ 4 5 6 ]
+          [
+            [
+              6
+              6
+              6
+            ]
+            [
+              [
+                7
+                7
+                7
+              ]
+              [
+                8
+                8
+                8
+              ]
+              [
+                9
+                9
+                9
+              ]
+            ]
+          ]
+        ]
+        ''').strip()
+
+        self.assertEqual(py2nix([
+            [1, 2, 3],
+            [4, 5, 6],
+            [[6, 6, 6], [[7, 7, 7], [8, 8, 8], [9, 9, 9]]]
+        ], maxwidth=12), match)
 
     def test_attrkeys(self):
         self.assertEqual(py2nix({'aaa': 123}), '{ aaa = 123; }')
