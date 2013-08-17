@@ -96,35 +96,45 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
     def _enc_list(node):
         return Container("[", map(_enc, node), "]")
 
+    def _enc_key(key):
+        if not isinstance(key, basestring):
+            raise KeyError("Key {0} is not a string.".format(repr(key)))
+        elif len(key) == 0:
+            raise KeyError("Key name has zero length.")
+
+        if all(char in string.letters + string.digits + '_'
+               for char in key):
+            return key
+        else:
+            return _enc_str(key, for_attribute=True)
+
     def _enc_attrset(node):
         nodes = []
         for key, value in sorted(node.items()):
-            if not isinstance(key, basestring):
-                raise KeyError("Key {0} is not a string.".format(repr(key)))
-            elif len(key) == 0:
-                raise KeyError("Key name has zero length.")
+            encoded_key = _enc_key(key)
 
-            if all(char in string.letters + string.digits + '_'
-                   for char in key):
-                encoded_key = key
-            else:
-                encoded_key = _enc_str(key, for_attribute=True)
+            # If the children are attrsets as well and only contain one
+            # attribute, recursively merge them with a dot, like "a.b.c".
+            child_key, child_value = key, value
+            while isinstance(child_value, dict) and len(child_value) == 1:
+                child_key, child_value = child_value.items()[0]
+                encoded_key += "." + child_key
 
-            encoded = _enc(value)
+            contents = _enc(child_value)
             prefix = "{0} = ".format(encoded_key)
             suffix = ";"
 
-            if isinstance(encoded, RawValue):
-                node = RawValue(prefix + encoded.value + suffix)
+            if isinstance(contents, RawValue):
+                node = RawValue(prefix + contents.value + suffix)
             else:
-                if encoded.inline_variant is not None:
+                if contents.inline_variant is not None:
                     new_inline = RawValue(
-                        prefix + encoded.inline_variant.value + suffix
+                        prefix + contents.inline_variant.value + suffix
                     )
                 else:
                     new_inline = None
-                node = Container(prefix + encoded.prefix, encoded.children,
-                                 encoded.suffix + suffix, new_inline)
+                node = Container(prefix + contents.prefix, contents.children,
+                                 contents.suffix + suffix, new_inline)
             nodes.append(node)
         return Container("{", nodes, "}")
 
