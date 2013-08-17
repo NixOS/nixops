@@ -137,7 +137,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             return Atom("null")
         elif isinstance(node, (int, long)):
             return _enc_int(node)
-        elif isinstance(node, str):
+        elif isinstance(node, basestring):
             return _enc_str(node)
         elif isinstance(node, list):
             return _enc_list(node)
