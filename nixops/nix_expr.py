@@ -103,7 +103,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             raise KeyError("Key name has zero length.")
 
         if all(char in string.letters + string.digits + '_'
-               for char in key):
+               for char in key) and not key[0].isdigit():
             return key
         else:
             return _enc_str(key, for_attribute=True)

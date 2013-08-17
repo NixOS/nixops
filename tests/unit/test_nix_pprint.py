@@ -91,6 +91,9 @@ class PPrintTest(unittest.TestCase):
         self.assertEqual(py2nix({'aaa': 123}), '{ aaa = 123; }')
         self.assertEqual(py2nix({'a.a': 123}), '{ "a.a" = 123; }')
         self.assertEqual(py2nix({'\\': 123}), r'{ "\\" = 123; }')
+        self.assertEqual(py2nix({'a1': 123}), '{ a1 = 123; }')
+        self.assertEqual(py2nix({'1a': 123}), '{ "1a" = 123; }')
+        self.assertEqual(py2nix({'_aa': 123}), '{ _aa = 123; }')
         self.assertRaises(KeyError, py2nix, {'': 123})
         self.assertRaises(KeyError, py2nix, {123: 123})
 
