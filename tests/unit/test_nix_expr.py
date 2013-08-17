@@ -5,7 +5,7 @@ from textwrap import dedent
 from nixops.nix_expr import py2nix, RawValue
 
 
-class PPrintTest(unittest.TestCase):
+class Py2NixTest(unittest.TestCase):
     def test_numeric(self):
         self.assertEqual(py2nix(123), "123")
         self.assertEqual(py2nix(-123), "builtins.sub 0 123")
