@@ -37,11 +37,13 @@ class Container(object):
             sep = ' '
             lines = ' '.join([child.indent(level=0, inline=True)
                               for child in self.children])
+            suffix_indent = ""
         else:
             sep = '\n'
             lines = '\n'.join([child.indent(level + 1)
                                for child in self.children])
-        return self.prefix + sep + lines + sep + "  " * level + self.suffix
+            suffix_indent = "  " * level
+        return self.prefix + sep + lines + sep + suffix_indent + self.suffix
 
 
 def py2nix(value, initial_indentation=0, maxwidth=80):
