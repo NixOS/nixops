@@ -31,6 +31,7 @@ class Container(object):
     def indent(self, level=0, inline=False, maxwidth=80):
         if self.get_min_length() < maxwidth:
             inline = True
+        ind = "  " * level
         if inline and self.inline_variant is not None:
             return self.inline_variant.indent(level=level, inline=True,
                                               maxwidth=maxwidth)
@@ -38,14 +39,14 @@ class Container(object):
             sep = ' '
             lines = ' '.join([child.indent(level=0, inline=True)
                               for child in self.children])
-            suffix_indent = ""
+            suffix_ind = ""
         else:
             sep = '\n'
             lines = '\n'.join([child.indent(level + 1, inline=inline,
                                             maxwidth=maxwidth)
                                for child in self.children])
-            suffix_indent = "  " * level
-        return self.prefix + sep + lines + sep + suffix_indent + self.suffix
+            suffix_ind = ind
+        return ind + self.prefix + sep + lines + sep + suffix_ind + self.suffix
 
 
 def py2nix(value, initial_indentation=0, maxwidth=80):
