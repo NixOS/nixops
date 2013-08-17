@@ -1,4 +1,4 @@
-import re
+import string
 
 __all__ = ['py2nix']
 
@@ -58,7 +58,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
         else:
             return Atom(str(node))
 
-    def _enc_str(node):
+    def _enc_str(node, for_attribute=False):
         encoded = _fold_string(node, [
             ("\\", "\\\\"),
             ("${", "\\${"),
@@ -66,7 +66,11 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             ("\n", "\\n"),
             ("\t", "\\t"),
         ])
+
         inline_variant = Atom('"{0}"'.format(encoded))
+
+        if for_attribute:
+            return inline_variant.value
 
         if node.endswith("\n"):
             encoded = _fold_string(node[:-1], [
@@ -83,6 +87,38 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
     def _enc_list(node):
         return Container("[", map(_enc, node), "]")
 
+    def _enc_attrset(node):
+        nodes = []
+        for key, value in node.iteritems():
+            if not isinstance(key, basestring):
+                raise KeyError("Key {0} is not a string.".format(repr(key)))
+            elif len(key) == 0:
+                raise KeyError("Key name has zero length.")
+
+            if all(char in string.letters + string.digits + '_'
+                   for char in key):
+                encoded_key = key
+            else:
+                encoded_key = _enc_str(key, for_attribute=True)
+
+            encoded = _enc(value)
+            prefix = "{0} = ".format(encoded_key)
+            suffix = ";"
+
+            if isinstance(encoded, Atom):
+                node = Atom(prefix + encoded.value + suffix)
+            else:
+                if encoded.inline_variant is not None:
+                    new_inline = Atom(
+                        prefix + encoded.inline_variant.value + suffix
+                    )
+                else:
+                    new_inline = None
+                node = Container(prefix + encoded.prefix, encoded.children,
+                                 encoded.suffix + suffix, new_inline)
+            nodes.append(node)
+        return Container("{", nodes, "}")
+
     def _enc(node):
         if node is True:
             return Atom("true")
@@ -96,6 +132,8 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             return _enc_str(node)
         elif isinstance(node, list):
             return _enc_list(node)
+        elif isinstance(node, dict):
+            return _enc_attrset(node)
         else:
             raise ValueError("Unable to encode {0}.".format(repr(node)))
 

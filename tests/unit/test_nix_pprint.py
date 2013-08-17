@@ -44,7 +44,7 @@ class PPrintTest(unittest.TestCase):
     def test_attrkeys(self):
         self.assertEqual(py2nix({'aaa': 123}), '{ aaa = 123; }')
         self.assertEqual(py2nix({'a.a': 123}), '{ "a.a" = 123; }')
-        self.assertEqual(py2nix({'\\': 123}), '{ "\\" = 123; }')
+        self.assertEqual(py2nix({'\\': 123}), r'{ "\\" = 123; }')
         self.assertRaises(KeyError, py2nix, {'': 123})
         self.assertRaises(KeyError, py2nix, {123: 123})
 
