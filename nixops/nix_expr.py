@@ -98,7 +98,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
 
     def _enc_attrset(node):
         nodes = []
-        for key, value in node.iteritems():
+        for key, value in sorted(node.items()):
             if not isinstance(key, basestring):
                 raise KeyError("Key {0} is not a string.".format(repr(key)))
             elif len(key) == 0:
