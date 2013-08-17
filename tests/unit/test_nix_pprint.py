@@ -87,6 +87,17 @@ class PPrintTest(unittest.TestCase):
             [[6, 6, 6], [[7, 7, 7], [8, 8, 8], [9, 9, 9]]]
         ], maxwidth=12), match)
 
+    def test_nested_singletons(self):
+        match = dedent('''
+        [ [ [
+          1
+          2
+          [ [ 3 ] ]
+        ] ] ]
+        ''').strip()
+
+        self.assertEqual(py2nix([[[1, 2, [[3]]]]], maxwidth=12), match)
+
     def test_attrkeys(self):
         self.assertEqual(py2nix({'aaa': 123}), '{ aaa = 123; }')
         self.assertEqual(py2nix({'a.a': 123}), '{ "a.a" = 123; }')

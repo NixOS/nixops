@@ -94,7 +94,11 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             return inline_variant
 
     def _enc_list(node):
-        return Container("[", map(_enc, node), "]")
+        pre, post = "[", "]"
+        while len(node) == 1 and isinstance(node[0], list):
+            node = node[0]
+            pre, post = pre + " [", post + " ]"
+        return Container(pre, map(_enc, node), post)
 
     def _enc_key(key):
         if not isinstance(key, basestring):
