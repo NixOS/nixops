@@ -29,7 +29,7 @@ class Container(object):
                 sum([child.get_min_length() for child in self.children]))
 
     def indent(self, level=0, inline=False, maxwidth=80):
-        if self.get_min_length() < maxwidth:
+        if level * 2 + self.get_min_length() < maxwidth:
             inline = True
         ind = "  " * level
         if inline and self.inline_variant is not None:
