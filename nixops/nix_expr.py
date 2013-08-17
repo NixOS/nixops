@@ -32,7 +32,8 @@ class Container(object):
         if self.get_min_length() < maxwidth:
             inline = True
         if inline and self.inline_variant is not None:
-            return self.inline_variant.indent(level=level, inline=True)
+            return self.inline_variant.indent(level=level, inline=True,
+                                              maxwidth=maxwidth)
         elif inline:
             sep = ' '
             lines = ' '.join([child.indent(level=0, inline=True)
@@ -40,7 +41,8 @@ class Container(object):
             suffix_indent = ""
         else:
             sep = '\n'
-            lines = '\n'.join([child.indent(level + 1)
+            lines = '\n'.join([child.indent(level + 1, inline=inline,
+                                            maxwidth=maxwidth)
                                for child in self.children])
             suffix_indent = "  " * level
         return self.prefix + sep + lines + sep + suffix_indent + self.suffix

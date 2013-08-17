@@ -38,7 +38,7 @@ class PPrintTest(unittest.TestCase):
         self.assertEqual(py2nix(["a", "b", "c"]), '[ "a" "b" "c" ]')
         self.assertEqual(py2nix(["a\na\na\n", "b\nb\n", "c"]),
                          r'[ "a\na\na\n" "b\nb\n" "c" ]')
-        self.assertEqual(py2nix(["a\na\na\n", "b\nb\n", "c"], maxwidth=0),
+        self.assertEqual(py2nix(["a\na\na\n", "b\nb\n", "c"], maxwidth=15),
                          '[\n  "a\\na\\na\\n"\n  "b\\nb\\n"\n  "c"\n]')
 
     def test_attrkeys(self):
