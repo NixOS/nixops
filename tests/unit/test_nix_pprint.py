@@ -98,3 +98,38 @@ class PPrintTest(unittest.TestCase):
         self.assertEqual(py2nix({'a': "abc"}), '{ a = "abc"; }')
         self.assertEqual(py2nix({'a': "a\nb\nc\n"}), r'{ a = "a\nb\nc\n"; }')
         self.assertEqual(py2nix({'a': [1, 2, 3]}), r'{ a = [ 1 2 3 ]; }')
+
+    def test_nested_attrsets(self):
+        match = dedent('''
+        {
+          aaa = {
+            bbb.ccc = 123;
+            ccc = 456;
+          };
+          xxx = [
+            1
+            2
+            3
+          ];
+          yyy.y1.y2.y3 = [
+            "a"
+            "b"
+            {
+              c = "d";
+            }
+          ];
+        }
+        ''').strip()
+
+        self.assertEqual(py2nix({
+            'aaa': {
+                'bbb': {
+                    'ccc': 123,
+                },
+                'ccc': 456,
+            },
+            'xxx': [1, 2, 3],
+            'yyy': {
+                'y1': {'y2': {'y3': ["a", "b", {'c': 'd'}]}},
+            },
+        }, maxwidth=0), match)
