@@ -1,9 +1,9 @@
 import string
 
-__all__ = ['py2nix']
+__all__ = ['RawValue', 'py2nix']
 
 
-class Atom(object):
+class RawValue(object):
     def __init__(self, value):
         self.value = value
 
@@ -63,9 +63,9 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
 
     def _enc_int(node):
         if node < 0:
-            return Atom("builtins.sub 0 " + str(-node))
+            return RawValue("builtins.sub 0 " + str(-node))
         else:
-            return Atom(str(node))
+            return RawValue(str(node))
 
     def _enc_str(node, for_attribute=False):
         encoded = _fold_string(node, [
@@ -76,7 +76,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             ("\t", "\\t"),
         ])
 
-        inline_variant = Atom('"{0}"'.format(encoded))
+        inline_variant = RawValue('"{0}"'.format(encoded))
 
         if for_attribute:
             return inline_variant.value
@@ -88,7 +88,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
                 ("\t", "'\\t"),
             ])
 
-            atoms = [Atom(line) for line in encoded.splitlines()]
+            atoms = [RawValue(line) for line in encoded.splitlines()]
             return Container("''", atoms, "''", inline_variant=inline_variant)
         else:
             return inline_variant
@@ -114,11 +114,11 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             prefix = "{0} = ".format(encoded_key)
             suffix = ";"
 
-            if isinstance(encoded, Atom):
-                node = Atom(prefix + encoded.value + suffix)
+            if isinstance(encoded, RawValue):
+                node = RawValue(prefix + encoded.value + suffix)
             else:
                 if encoded.inline_variant is not None:
-                    new_inline = Atom(
+                    new_inline = RawValue(
                         prefix + encoded.inline_variant.value + suffix
                     )
                 else:
@@ -129,12 +129,14 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
         return Container("{", nodes, "}")
 
     def _enc(node):
-        if node is True:
-            return Atom("true")
+        if isinstance(node, RawValue):
+            return node
+        elif node is True:
+            return RawValue("true")
         elif node is False:
-            return Atom("false")
+            return RawValue("false")
         elif node is None:
-            return Atom("null")
+            return RawValue("null")
         elif isinstance(node, (int, long)):
             return _enc_int(node)
         elif isinstance(node, basestring):

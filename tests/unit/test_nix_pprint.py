@@ -2,7 +2,7 @@ import unittest
 
 from textwrap import dedent
 
-from nixops.nix_expr import py2nix
+from nixops.nix_expr import py2nix, RawValue
 
 
 class PPrintTest(unittest.TestCase):
@@ -34,6 +34,12 @@ class PPrintTest(unittest.TestCase):
                          "''\n  xx\n  ''${yy}\n  zz\n''")
         self.assertEqual(py2nix("xx\n''yy\nzz\n", maxwidth=0),
                          "''\n  xx\n  '''yy\n  zz\n''")
+
+    def test_raw_value(self):
+        self.assertEqual(py2nix({'a': RawValue('import <something>')}),
+                         '{ a = import <something>; }')
+        self.assertEqual(py2nix([RawValue("!")]),
+                         '[ ! ]')
 
     def test_list(self):
         self.assertEqual(py2nix([1, 2, 3]), '[ 1 2 3 ]')
