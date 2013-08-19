@@ -200,10 +200,8 @@ def op_info():
 
 
 def op_check():
-    tbl = create_table(
-        ([('Deployment', 'l')] if args.all else []) +
-        [('Name', 'l'), ('Exists', 'l'), ('Up', 'l'), ('Reachable', 'l'),
-         ('Disks OK', 'l'), ('Load avg.', 'l'), ('Failed units', 'l'), ('Notes', 'l')])
+    def highlight(s):
+        return nixops.util.ansi_highlight(s, outfile=sys.stdout)
 
     def warn(s):
         return nixops.util.ansi_warn(s, outfile=sys.stdout)
@@ -212,6 +210,12 @@ def op_check():
         if x == None: return "N/A"
         elif x: return nixops.util.ansi_success("Yes", outfile=sys.stdout)
         else: return warn("No")
+
+
+    tbl = create_table(
+        ([('Deployment', 'l')] if args.all else []) +
+        [('Name', 'l'), ('Exists', 'l'), ('Up', 'l'), ('Reachable', 'l'),
+         ('Disks OK', 'l'), ('Load avg.', 'l'), ('Units', 'l'), ('Notes', 'l')])
 
     machines = []
 
@@ -225,6 +229,13 @@ def op_check():
     # Check all machines in parallel.
     def worker(m):
         res = m.check()
+
+        unit_lines = []
+        if res.failed_units:
+            unit_lines.append('\n'.join([warn('{0} [failed]'.format(x)) for x in res.failed_units]))
+        if res.in_progress_units:
+            unit_lines.append('\n'.join([highlight('{0} [running]'.format(x)) for x in res.in_progress_units]))
+
         row = ([m.depl.name or m.depl.uuid] if args.all else []) + \
             [m.name,
              render_tristate(res.exists),
@@ -232,7 +243,7 @@ def op_check():
              render_tristate(res.is_reachable),
              render_tristate(res.disks_ok),
              '{0} {1} {2}'.format(res.load[0], res.load[1], res.load[2]) if res.load != None else "",
-             '\n'.join([warn(x) for x in res.failed_units]) if res.failed_units != None else "",
+             '\n'.join(unit_lines),
              '\n'.join([warn(x) for x in res.messages])
             ]
         status = 0

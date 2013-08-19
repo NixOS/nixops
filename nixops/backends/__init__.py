@@ -100,12 +100,18 @@ class MachineState(nixops.resources.ResourceState):
             res.is_reachable = True
             res.load = avg
 
-            # Get the systemd units that are in a failed state.
+            # Get the systemd units that are in a failed state or in progress.
             out = self.run_command("systemctl --all --full", capture_stdout=True).split('\n')
             res.failed_units = []
+            res.in_progress_units = []
             for l in out:
                 match = re.match("^([^ ]+) .* failed .*$", l)
                 if match: res.failed_units.append(match.group(1))
+
+                # services that are in progress
+                match = re.match("^([^ ]+) .* activating .*$", l)
+                if match: res.in_progress_units.append(match.group(1))
+
                 # Currently in systemd, failed mounts enter the
                 # "inactive" rather than "failed" state.  So check for
                 # that.  Hack: ignore special filesystems like
@@ -330,6 +336,9 @@ class CheckResult(object):
 
         # List of systemd units that are in a failed state.
         self.failed_units = None
+
+        # List of systemd units that are in progress.
+        self.in_progress_units = None
 
         # Load average on the machine.
         self.load = None
