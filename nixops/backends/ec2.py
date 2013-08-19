@@ -275,7 +275,7 @@ class EC2State(MachineState):
 
         while True:
             instance.update()
-            self.log_continue("({0}) ".format(instance.state))
+            self.log_continue("[{0}] ".format(instance.state))
             if instance.state not in {"pending", "running", "scheduling", "launching", "stopped"}:
                 raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self.vm_id, instance.state))
             if instance.state != "running":
@@ -488,7 +488,7 @@ class EC2State(MachineState):
                 # wait until machine is in running state
                 self.log_start("waiting for machine to be in running state... ".format(self.name))
                 while True:
-                    self.log_continue("({0}) ".format(instance.state))
+                    self.log_continue("[{0}] ".format(instance.state))
                     if instance.state == "running":
                         break
                     if instance.state not in {"running", "pending"}:
@@ -512,7 +512,7 @@ class EC2State(MachineState):
                     self.log_start("waiting for address to be associated with this machine...")
                     instance.update()
                     while True:
-                        self.log_continue("({0}) ".format(instance.ip_address))
+                        self.log_continue("[{0}] ".format(instance.ip_address))
                         if instance.ip_address == elastic_ipv4:
                             break
                         time.sleep(3)
@@ -565,7 +565,7 @@ class EC2State(MachineState):
             self.log_start("Waiting for spot instance request to be fulfilled. ")
             def check_request():
                 req = self._get_spot_instance_request_by_id(request.id)
-                self.log_continue("({0}) ".format(req.status.code))
+                self.log_continue("[{0}] ".format(req.status.code))
                 return req.status.code == "fulfilled"
             self.log_end("")
 
@@ -972,7 +972,7 @@ class EC2State(MachineState):
 
             # Wait until it's really terminated.
             while True:
-                self.log_continue("({0}) ".format(instance.state))
+                self.log_continue("[{0}] ".format(instance.state))
                 if instance.state == "terminated": break
                 time.sleep(3)
                 instance.update()
@@ -1002,7 +1002,7 @@ class EC2State(MachineState):
 
         # Wait until it's really stopped.
         def check_stopped():
-            self.log_continue("({0}) ".format(instance.state))
+            self.log_continue("[{0}] ".format(instance.state))
             if instance.state == "stopped":
                 return True
             if instance.state not in {"running", "stopping"}:

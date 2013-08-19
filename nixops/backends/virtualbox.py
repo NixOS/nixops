@@ -316,7 +316,7 @@ class VirtualBoxState(MachineState):
 
         while True:
             state = self._get_vm_state()
-            self.log_continue("({0}) ".format(state))
+            self.log_continue("[{0}] ".format(state))
             if state == 'poweroff': break
             time.sleep(1)
 
