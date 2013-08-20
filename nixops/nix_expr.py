@@ -1,6 +1,6 @@
 import string
 
-__all__ = ['RawValue', 'py2nix']
+__all__ = ['RawValue', 'Function', 'py2nix']
 
 
 class RawValue(object):
@@ -12,6 +12,12 @@ class RawValue(object):
 
     def indent(self, level=0, inline=False, maxwidth=80):
         return "  " * level + self.value
+
+
+class Function(object):
+    def __init__(self, head, body):
+        self.head = head
+        self.body = body
 
 
 class Container(object):
@@ -143,6 +149,10 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             nodes.append(enclose_node(contents, prefix, suffix))
         return Container("{", nodes, "}")
 
+    def _enc_function(node):
+        body = _enc(node.body)
+        return enclose_node(body, node.head + ": ")
+
     def _enc(node):
         if isinstance(node, RawValue):
             return node
@@ -160,6 +170,8 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             return _enc_list(node)
         elif isinstance(node, dict):
             return _enc_attrset(node)
+        elif isinstance(node, Function):
+            return _enc_function(node)
         else:
             raise ValueError("Unable to encode {0}.".format(repr(node)))
 

@@ -2,7 +2,7 @@ import unittest
 
 from textwrap import dedent
 
-from nixops.nix_expr import py2nix, RawValue
+from nixops.nix_expr import py2nix, RawValue, Function
 
 
 class Py2NixTest(unittest.TestCase):
@@ -153,3 +153,41 @@ class Py2NixTest(unittest.TestCase):
                 'y1': {'y2': {'y3': ["a", "b", {'c': 'd'}]}},
             },
         }, match, maxwidth=0)
+
+    def test_functions(self):
+        self.assert_nix(Function("aaa", RawValue("bbb")),
+                        "aaa: bbb")
+        self.assert_nix(Function("{ ... }", [1, 2, 3]),
+                        "{ ... }: [ 1 2 3 ]")
+        self.assert_nix(Function("{ ... }", "a\nb\nc\n"),
+                        r'{ ... }: "a\nb\nc\n"')
+        self.assert_nix(Function("{ ... }", "a\nb\nc\n"),
+                        "{ ... }: ''\n  a\n  b\n  c\n''", maxwidth=0)
+        self.assert_nix(Function("xxx", {'a': {'b': 'c'}}),
+                        'xxx: {\n  a.b = "c";\n}', maxwidth=0)
+
+    def test_nested_functions(self):
+        match = dedent('''
+        { config, pkgs, ... }: {
+          a.b.c = 1;
+          b.c.d = 2;
+          d.e = [ "e" "f" ];
+          e = f: {
+            x = ''
+              aaa
+              bbb
+              ccc
+            '';
+          };
+        }
+        ''').strip()
+
+        self.assert_nix(Function(
+            "{ config, pkgs, ... }",
+            {'a': {'b': {'c': 1}},
+             'b': {'c': {'d': 2}},
+             'd': {'e': ['e', 'f']},
+             'e': Function('f', {
+                 'x': "aaa\nbbb\nccc\n"
+             })}
+        ), match, maxwidth=26)
