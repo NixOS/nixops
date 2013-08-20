@@ -195,7 +195,8 @@ class ParseFailure(Exception):
 
 
 class ParseSuccess(object):
-    def __init__(self, data):
+    def __init__(self, pos, data):
+        self.pos = pos
         self.data = data
 
 
@@ -203,6 +204,13 @@ RE_STRING = re.compile(r"\"(.*?[^\\])\"|''(.*?[^'])''(?!\$\{|')", re.DOTALL)
 
 
 def nix2py(source):
+    maxpos = len(source)
+
+    def _skip_whitespace(pos):
+        while source[pos].isspace():
+            pos += 1
+        return pos
+
     def _parse_string(pos):
         match = RE_STRING.match(source, pos)
         if match is None:
@@ -223,14 +231,59 @@ def nix2py(source):
                 (r"'\t", "\t"),
                 (r"''${", "${"),
             ]).lstrip('\n')
-        return ParseSuccess(data)
+        return ParseSuccess(match.end(), data)
+
+    def _parse_int(pos):
+        mul = 1
+        if source[pos:pos+15] == "builtins.sub 0 ":
+            pos += 15
+            mul = -1
+        data = ""
+        while pos < maxpos and source[pos].isdigit():
+            data += source[pos]
+            pos += 1
+        if len(data) == 0:
+            return ParseFailure(pos)
+        else:
+            return ParseSuccess(pos, int(data) * mul)
+
+    def _parse_bool(pos):
+        if source[pos:pos+4] == "true":
+            return ParseSuccess(pos + 4, True)
+        elif source[pos:pos+5] == "false":
+            return ParseSuccess(pos + 5, False)
+        else:
+            return ParseFailure(pos)
+
+    def _parse_null(pos):
+        if source[pos:pos+4] == "null":
+            return ParseSuccess(pos + 4, None)
+        else:
+            return ParseFailure(pos)
+
+    def _parse_list(pos):
+        items = []
+        if source[pos] == '[':
+            result = _parse_expr(pos + 1)
+            while isinstance(result, ParseSuccess):
+                items.append(result.data)
+                result = _parse_expr(result.pos)
+            newpos = _skip_whitespace(result.pos)
+            if source[newpos] == ']':
+                return ParseSuccess(newpos + 1, items)
+            else:
+                return result
+        else:
+            return ParseFailure(pos)
 
     def _parse_expr(pos):
-        for parser in [_parse_string]:
-            result = parser(pos)
+        newpos = _skip_whitespace(pos)
+        for parser in [_parse_string, _parse_int, _parse_bool, _parse_null,
+                       _parse_list]:
+            result = parser(newpos)
             if isinstance(result, ParseSuccess):
                 return result
-        return ParseFailure(pos)
+        return ParseFailure(newpos)
 
     result = _parse_expr(0)
     if isinstance(result, ParseSuccess):
