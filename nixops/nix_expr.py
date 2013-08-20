@@ -49,6 +49,18 @@ class Container(object):
         return ind + self.prefix + sep + lines + sep + suffix_ind + self.suffix
 
 
+def enclose_node(node, prefix="", suffix=""):
+    if isinstance(node, RawValue):
+        return RawValue(prefix + node.value + suffix)
+    else:
+        if node.inline_variant is not None:
+            new_inline = RawValue(prefix + node.inline_variant.value + suffix)
+        else:
+            new_inline = None
+        return Container(prefix + node.prefix, node.children,
+                         node.suffix + suffix, new_inline)
+
+
 def py2nix(value, initial_indentation=0, maxwidth=80):
     """
     Return the given value as a Nix expression string.
@@ -128,18 +140,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             prefix = "{0} = ".format(encoded_key)
             suffix = ";"
 
-            if isinstance(contents, RawValue):
-                node = RawValue(prefix + contents.value + suffix)
-            else:
-                if contents.inline_variant is not None:
-                    new_inline = RawValue(
-                        prefix + contents.inline_variant.value + suffix
-                    )
-                else:
-                    new_inline = None
-                node = Container(prefix + contents.prefix, contents.children,
-                                 contents.suffix + suffix, new_inline)
-            nodes.append(node)
+            nodes.append(enclose_node(contents, prefix, suffix))
         return Container("{", nodes, "}")
 
     def _enc(node):
