@@ -1,4 +1,7 @@
+import re
 import string
+
+from textwrap import dedent
 
 __all__ = ['RawValue', 'Function', 'py2nix']
 
@@ -67,6 +70,11 @@ def enclose_node(node, prefix="", suffix=""):
                          node.suffix + suffix, new_inline)
 
 
+def _fold_string(value, rules):
+    folder = lambda val, rule: val.replace(rule[0], rule[1])
+    return reduce(folder, rules, value)
+
+
 def py2nix(value, initial_indentation=0, maxwidth=80):
     """
     Return the given value as a Nix expression string.
@@ -75,10 +83,6 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
     which is enforced whenever it is possible to break an expression. Set to 0
     if you want to break on every occasion possible.
     """
-    def _fold_string(value, rules):
-        folder = lambda val, rule: val.replace(rule[0], rule[1])
-        return reduce(folder, rules, value)
-
     def _enc_int(node):
         if node < 0:
             return RawValue("builtins.sub 0 " + str(-node))
@@ -176,3 +180,60 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             raise ValueError("Unable to encode {0}.".format(repr(node)))
 
     return _enc(value).indent(initial_indentation, maxwidth=maxwidth)
+
+
+class ParseFailure(Exception):
+    def __init__(self, pos, msg=None):
+        self.pos = pos
+        self.msg = msg
+
+    def __str__(self):
+        if self.msg is None:
+            return "Parse error at position {0}".format(self.pos)
+        else:
+            return self.msg + " (pos: {0})".format(self.pos)
+
+
+class ParseSuccess(object):
+    def __init__(self, data):
+        self.data = data
+
+
+RE_STRING = re.compile(r"\"(.*?[^\\])\"|''(.*?[^'])''(?!\$\{|')", re.DOTALL)
+
+
+def nix2py(source):
+    def _parse_string(pos):
+        match = RE_STRING.match(source, pos)
+        if match is None:
+            return ParseFailure(pos)
+
+        if match.group(1):
+            data = _fold_string(match.group(1), [
+                (r'\"', '"'),
+                (r'\n', "\n"),
+                (r'\t', "\t"),
+                (r'\${', "${"),
+                ('\\\\', "\\"),
+            ])
+        else:
+            data = _fold_string(dedent(match.group(2)), [
+                ("'''", "''"),
+                (r"'\n", "\n"),
+                (r"'\t", "\t"),
+                (r"''${", "${"),
+            ]).lstrip('\n')
+        return ParseSuccess(data)
+
+    def _parse_expr(pos):
+        for parser in [_parse_string]:
+            result = parser(pos)
+            if isinstance(result, ParseSuccess):
+                return result
+        return ParseFailure(pos)
+
+    result = _parse_expr(0)
+    if isinstance(result, ParseSuccess):
+        return result.data
+    else:
+        raise result
