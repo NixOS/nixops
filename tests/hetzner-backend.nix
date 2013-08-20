@@ -240,13 +240,7 @@ in makeTest ({ pkgs, ... }:
           pkgs.xfsprogs pkgs.btrfsProgs pkgs.docbook_xsl_ns pkgs.libxslt
           pkgs.docbook5 pkgs.ntp
           # Firmware used in <nixos/modules/installer/scan/not-detected.nix>
-          pkgs.iwlwifi4965ucodeV2
-          pkgs.iwlwifi5000ucode
-          pkgs.iwlwifi5150ucode
-          pkgs.iwlwifi6000ucode
-          pkgs.iwlwifi6000g2aucode
-          pkgs.iwlwifi6000g2bucode
-          pkgs.bcm43xx
+          pkgs.firmwareLinuxNonfree
         ];
       };
     in [ testNixops collection ];
