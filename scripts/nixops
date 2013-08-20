@@ -519,16 +519,27 @@ def op_show_option():
     sys.stdout.write(depl.evaluate_option_value(args.machine, args.option, xml=args.xml, include_physical=args.include_physical))
 
 
-def op_list_generations():
+def check_rollback_enabled():
     depl = open_deployment()
     if not depl.rollback_enabled:
         raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy")
+    return depl
+
+
+def op_list_generations():
+    depl = check_rollback_enabled()
     if subprocess.call(["nix-env", "-p", depl.get_profile(), "--list-generations"]) != 0:
         raise Exception("nix-env --list-generations failed")
 
 
+def op_delete_generation():
+    depl = check_rollback_enabled()
+    if subprocess.call(["nix-env", "-p", depl.get_profile(), "--delete-generations", str(args.generation)]) != 0:
+        raise Exception("nix-env --delete-generations failed")
+
+
 def op_rollback():
-    depl = open_deployment()
+    depl = check_rollback_enabled()
     depl.rollback(generation=args.generation,
                   include=args.include or [], exclude=args.exclude or [],
                   check=args.check, allow_reboot=args.allow_reboot, force_reboot=args.force_reboot,
@@ -774,6 +785,11 @@ subparser.set_defaults(op=op_list_generations)
 
 subparser = add_subparser('rollback', help='roll back to a previous configuration')
 subparser.set_defaults(op=op_rollback)
+subparser.add_argument('generation', type=int, metavar='GENERATION', help='number of the desired configuration (see ‘nixops list-generations’)')
+add_common_deployment_options(subparser)
+
+subparser = add_subparser('delete-generation', help='remove a previous configuration')
+subparser.set_defaults(op=op_delete_generation)
 subparser.add_argument('generation', type=int, metavar='GENERATION', help='number of the desired configuration (see ‘nixops list-generations’)')
 add_common_deployment_options(subparser)
 
