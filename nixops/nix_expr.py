@@ -166,7 +166,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             child_key, child_value = key, value
             while isinstance(child_value, dict) and len(child_value) == 1:
                 child_key, child_value = child_value.items()[0]
-                encoded_key += "." + child_key
+                encoded_key += "." + _enc_key(child_key)
 
             contents = _enc(child_value)
             prefix = "{0} = ".format(encoded_key)

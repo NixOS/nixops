@@ -155,6 +155,10 @@ class Py2NixTestBase(object):
             },
         }, match, maxwidth=0)
 
+        self.assert_nix({'fileSystems': {
+            '/': {'fsType': 'btrfs', 'label': 'root'}
+        }}, '{ fileSystems."/" = { fsType = "btrfs"; label = "root"; }; }')
+
     def test_functions(self):
         self.assert_nix(Function("Aaa", RawValue("bbb")),
                         "Aaa: bbb")
