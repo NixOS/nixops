@@ -20,7 +20,7 @@ import nixops.resources.ssh_keypair
 import nixops.resources.ec2_keypair
 import nixops.resources.sqs_queue
 import nixops.resources.iam_role
-from nixops.nix_expr import RawValue, nixmerge, py2nix
+from nixops.nix_expr import RawValue, Function, nixmerge, py2nix
 import re
 from datetime import datetime
 import getpass
@@ -502,7 +502,9 @@ class Deployment(object):
             if len(merged) == 0:
                 return {}
             else:
-                return r.prefix_definition({r.name: merged})
+                return r.prefix_definition({
+                    r.name: Function("{ config, pkgs, ... }", merged)
+                })
 
         return py2nix(reduce(nixmerge, [
             emit_resource(r) for r in active_resources.itervalues()
