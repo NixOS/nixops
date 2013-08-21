@@ -101,26 +101,26 @@ class Py2NixTestBase(object):
         self.assert_nix([[[1, 2, [[3]]]]], match, maxwidth=12)
 
     def test_attrkeys(self):
-        self.assert_nix({'aaa': 123}, '{ aaa = 123; }')
+        self.assert_nix({'aAa': 123}, '{ aAa = 123; }')
         self.assert_nix({'a.a': 123}, '{ "a.a" = 123; }')
         self.assert_nix({'\\': 123}, r'{ "\\" = 123; }')
         self.assert_nix({'a1': 123}, '{ a1 = 123; }')
         self.assert_nix({'1a': 123}, '{ "1a" = 123; }')
-        self.assert_nix({'_aa': 123}, '{ _aa = 123; }')
+        self.assert_nix({'_aA': 123}, '{ _aA = 123; }')
         self.assertRaises(KeyError, py2nix, {'': 123})
         self.assertRaises(KeyError, py2nix, {123: 123})
 
     def test_attrvalues(self):
         self.assert_nix({'a': "abc"}, '{ a = "abc"; }')
         self.assert_nix({'a': "a\nb\nc\n"}, r'{ a = "a\nb\nc\n"; }')
-        self.assert_nix({'a': [1, 2, 3]}, r'{ a = [ 1 2 3 ]; }')
+        self.assert_nix({'A': [1, 2, 3]}, r'{ A = [ 1 2 3 ]; }')
 
     def test_nested_attrsets(self):
         match = dedent('''
         {
           aaa = {
             bbb.ccc = 123;
-            ccc = 456;
+            cCc = 456;
           };
           xxx = [
             1
@@ -142,7 +142,7 @@ class Py2NixTestBase(object):
                 'bbb': {
                     'ccc': 123,
                 },
-                'ccc': 456,
+                'cCc': 456,
             },
             'xxx': [1, 2, 3],
             'yyy': {
@@ -151,8 +151,8 @@ class Py2NixTestBase(object):
         }, match, maxwidth=0)
 
     def test_functions(self):
-        self.assert_nix(Function("aaa", RawValue("bbb")),
-                        "aaa: bbb")
+        self.assert_nix(Function("Aaa", RawValue("bbb")),
+                        "Aaa: bbb")
         self.assert_nix(Function("{ ... }", [1, 2, 3]),
                         "{ ... }: [ 1 2 3 ]")
         self.assert_nix(Function("{ ... }", "a\nb\nc\n"),
@@ -229,6 +229,7 @@ class NixMergeTest(unittest.TestCase):
             {'a': {'c': 'e'}},
             {'b': {'a': ['a']}},
             {'b': {'a': ['b']}},
+            {'b': {'A': ['B']}},
             {'e': 'f'},
             {},
         ], {
@@ -236,7 +237,8 @@ class NixMergeTest(unittest.TestCase):
                 'c': 'e',
                 'b': {'c': 'd'}
             },
-            'b': {'a': ['a', 'b']},
+            'b': {'a': ['a', 'b'],
+                  'A': ['B']},
             'e': 'f',
         })
 

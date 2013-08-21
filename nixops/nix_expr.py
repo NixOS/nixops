@@ -247,11 +247,13 @@ class ParseSuccess(object):
         self.data = data
 
 
-RE_STRING = re.compile(r"\"(.*?[^\\])\"|''(.*?[^'])''(?!\$\{|')", re.DOTALL)
-RE_ATTR = re.compile(r'"(.*?(?![^\\]\\))"|([a-z_][a-z0-9_]*)', re.DOTALL)
-RE_FUNHEAD = re.compile(r'(?:\s*(?:{.*?}|[a-z_][a-z0-9_]*)\s*:)+', re.DOTALL)
+RE_FLAGS = re.DOTALL | re.IGNORECASE
+
+RE_STRING = re.compile(r"\"(.*?[^\\])\"|''(.*?[^'])''(?!\$\{|')", RE_FLAGS)
+RE_ATTR = re.compile(r'"(.*?(?![^\\]\\))"|([a-z_][a-z0-9_]*)', RE_FLAGS)
+RE_FUNHEAD = re.compile(r'(?:\s*(?:{.*?}|[a-z_][a-z0-9_]*)\s*:)+', RE_FLAGS)
 RE_RAWVAL = re.compile(r'(?:\s*(?:<[^>]+>|\([^)]+\)|[a-z!+._][a-z0-9_]*))+',
-                       re.DOTALL)
+                       RE_FLAGS)
 
 
 def nix2py(source):
