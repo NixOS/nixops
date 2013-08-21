@@ -3,7 +3,7 @@ import string
 
 from textwrap import dedent
 
-__all__ = ['RawValue', 'Function', 'py2nix']
+__all__ = ['RawValue', 'Function', 'py2nix', 'nix2py', 'merge_dicts']
 
 
 class RawValue(object):
@@ -182,6 +182,18 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
     return _enc(value).indent(initial_indentation, maxwidth=maxwidth)
 
 
+def merge_dicts(dict1, dict2):
+    out = {}
+    for key in set(dict1.keys()).union(dict2.keys()):
+        if key in dict1 and key in dict2:
+            out[key] = merge_dicts(dict1[key], dict2[key])
+        elif key in dict1:
+            out[key] = dict1[key]
+        else:
+            out[key] = dict2[key]
+    return out
+
+
 class ParseFailure(Exception):
     def __init__(self, pos, msg=None):
         self.pos = pos
@@ -201,6 +213,7 @@ class ParseSuccess(object):
 
 
 RE_STRING = re.compile(r"\"(.*?[^\\])\"|''(.*?[^'])''(?!\$\{|')", re.DOTALL)
+RE_ATTR = re.compile(r'"(.*?(?![^\\]\\))"|([a-z_][a-z0-9_]*)', re.DOTALL)
 
 
 def nix2py(source):
@@ -276,10 +289,87 @@ def nix2py(source):
         else:
             return ParseFailure(pos)
 
+    def _parse_attr(pos):
+        newpos = _skip_whitespace(pos)
+        match = RE_ATTR.match(source, newpos)
+        if match is None:
+            return ParseFailure(newpos)
+        if match.group(1):
+            data = _fold_string(match.group(1), [
+                (r'\"', '"'),
+                ('\\\\', "\\"),
+            ])
+        else:
+            data = match.group(2)
+        return ParseSuccess(match.end(), data)
+
+    def _parse_dotattr(pos):
+        attrs = []
+        attr = _parse_attr(pos)
+        newpos = pos
+        while isinstance(attr, ParseSuccess):
+            attrs.append(attr)
+            newpos = _skip_whitespace(attr.pos)
+            if source[newpos] == '.':
+                newpos += 1
+            else:
+                break
+            attr = _parse_attr(newpos)
+        if len(attrs) == 0:
+            return ParseFailure(newpos)
+        return ParseSuccess(attrs[-1].pos, [attr.data for attr in attrs])
+
+    def _parse_keyval(pos):
+        key = _parse_dotattr(pos + 1)
+        if not isinstance(key, ParseSuccess):
+            return key
+        newpos = _skip_whitespace(key.pos)
+        if source[newpos] != '=':
+            return ParseFailure(newpos)
+        newpos += 1
+        value = _parse_expr(newpos)
+        if not isinstance(value, ParseSuccess):
+            return value
+        newpos = _skip_whitespace(value.pos)
+        if source[newpos] != ';':
+            return ParseFailure(newpos)
+        return ParseSuccess(newpos + 1, (key.data, value.data))
+
+    def _reduce_keys(keys, value):
+        if len(keys) == 0:
+            return value
+        else:
+            return {keys[0]: _reduce_keys(keys[1:], value)}
+
+    def _postprocess_attrlist(attrs):
+        dictlist = []
+        for keys, value in attrs:
+            dictlist.append({keys[0]: _reduce_keys(keys[1:], value)})
+        return reduce(merge_dicts, dictlist)
+
+    def _parse_attrset(pos):
+        attrs = []
+        if source[pos] == '{':
+            keyval = _parse_keyval(pos + 1)
+            newpos = keyval.pos
+            while isinstance(keyval, ParseSuccess):
+                attrs.append(keyval.data)
+                newpos = keyval.pos
+                keyval = _parse_keyval(newpos)
+
+            newpos = _skip_whitespace(newpos)
+
+            if source[newpos] == '}':
+                return ParseSuccess(newpos + 1, _postprocess_attrlist(attrs))
+            else:
+                return ParseFailure(newpos)
+        else:
+            return ParseFailure(pos)
+
     def _parse_expr(pos):
         newpos = _skip_whitespace(pos)
         for parser in [_parse_string, _parse_int, _parse_bool, _parse_null,
-                       _parse_list]:
+                       _parse_list, _parse_attrset]:
             result = parser(newpos)
             if isinstance(result, ParseSuccess):
                 return result
