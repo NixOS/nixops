@@ -134,6 +134,8 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             return inline_variant
 
     def _enc_list(node):
+        if len(node) == 0:
+            return RawValue("[]")
         pre, post = "[", "]"
         while len(node) == 1 and isinstance(node[0], list):
             node = node[0]
@@ -153,6 +155,8 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
             return _enc_str(key, for_attribute=True)
 
     def _enc_attrset(node):
+        if len(node) == 0:
+            return RawValue("{}")
         nodes = []
         for key, value in sorted(node.items()):
             encoded_key = _enc_key(key)
@@ -249,7 +253,8 @@ class ParseSuccess(object):
 
 RE_FLAGS = re.DOTALL | re.IGNORECASE
 
-RE_STRING = re.compile(r"\"(.*?[^\\])\"|''(.*?[^'])''(?!\$\{|')", RE_FLAGS)
+RE_STRING = re.compile(r"\"\"|''''|\"(.*?[^\\])\"|''(.*?[^'])?''(?!\$\{|')",
+                       RE_FLAGS)
 RE_ATTR = re.compile(r'"(.*?(?![^\\]\\))"|([a-z_][a-z0-9_]*)', RE_FLAGS)
 RE_FUNHEAD = re.compile(r'(?:\s*(?:{.*?}|[a-z_][a-z0-9_]*)\s*:)+', RE_FLAGS)
 RE_RAWVAL = re.compile(r'(?:\s*(?:<[^>]+>|\([^)]+\)|[a-z!+._][a-z0-9_]*))+',
@@ -269,7 +274,7 @@ def nix2py(source):
         if match is None:
             return ParseFailure(pos)
 
-        if match.group(1):
+        if match.group(1) is not None:
             data = _fold_string(match.group(1), [
                 (r'\"', '"'),
                 (r'\n', "\n"),
@@ -277,13 +282,15 @@ def nix2py(source):
                 (r'\${', "${"),
                 ('\\\\', "\\"),
             ])
-        else:
+        elif match.group(2) is not None:
             data = _fold_string(dedent(match.group(2)), [
                 ("'''", "''"),
                 (r"'\n", "\n"),
                 (r"'\t", "\t"),
                 (r"''${", "${"),
             ]).lstrip('\n')
+        else:
+            data = ""
         return ParseSuccess(match.end(), data)
 
     def _parse_int(pos):
@@ -385,7 +392,10 @@ def nix2py(source):
         dictlist = []
         for keys, value in attrs:
             dictlist.append({keys[0]: _reduce_keys(keys[1:], value)})
-        return reduce(nixmerge, dictlist)
+        if len(dictlist) == 0:
+            return {}
+        else:
+            return reduce(nixmerge, dictlist)
 
     def _parse_attrset(pos):
         attrs = []

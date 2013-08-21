@@ -24,6 +24,11 @@ class Py2NixTestBase(object):
         self.assertRaises(ValueError, py2nix, lambda: 123)
         self.assertRaises(ValueError, py2nix, Exception)
 
+    def test_empty(self):
+        self.assert_nix("", "\"\"")
+        self.assert_nix({}, "{}")
+        self.assert_nix([], "[]")
+
     def test_string(self):
         self.assert_nix("xyz", '"xyz"')
         self.assert_nix("a'b\"c", r'''"a'b\"c"''')
