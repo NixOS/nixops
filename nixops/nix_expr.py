@@ -263,6 +263,15 @@ RE_RAWVAL = re.compile(r'(?:\s*(?:<[^>]+>|\([^)]+\)|[a-z!+._][a-z0-9_]*))+',
 
 
 def nix2py(source):
+    """
+    Parse the given Nix source code into a tree of Python values (dicts, lists,
+    strings and whatnot) and return it.
+
+    This parser is NOT a complete parser and only parses a subset of Nix,
+    mainly attribute sets, lists and strings. So everything that is out of
+    scope of this parser will be put into a RawValue, so it can still be pretty
+    printed.
+    """
     maxpos = len(source)
 
     def _skip_whitespace(pos):
