@@ -4,14 +4,10 @@ from textwrap import dedent
 
 from nixops.nix_expr import py2nix, nix2py, RawValue, Function
 
+__all__ = ['Py2NixTest', 'Nix2PyTest']
 
-class Py2NixTest(unittest.TestCase):
-    def assert_nix(self, nix_expr, expected, maxwidth=80):
-        result = py2nix(nix_expr, maxwidth=maxwidth)
-        self.assertEqual(result, expected,
-                         "Expected:\n{0}\nGot:\n{1}".format(expected,
-                                                            result))
 
+class Py2NixTestBase(object):
     def test_numeric(self):
         self.assert_nix(123, "123")
         self.assert_nix(-123, "builtins.sub 0 123")
@@ -192,6 +188,16 @@ class Py2NixTest(unittest.TestCase):
              })}
         ), match, maxwidth=26)
 
-class Nix2PyTest(Py2NixTest):
+
+class Py2NixTest(unittest.TestCase, Py2NixTestBase):
+    def assert_nix(self, nix_expr, expected, maxwidth=80):
+        result = py2nix(nix_expr, maxwidth=maxwidth)
+        self.assertEqual(
+            result, expected,
+            "Expected:\n{0}\nGot:\n{1}".format(expected, result)
+        )
+
+
+class Nix2PyTest(unittest.TestCase, Py2NixTestBase):
     def assert_nix(self, expected, source, maxwidth=80):
         self.assertEqual(nix2py(source), expected)
