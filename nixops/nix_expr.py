@@ -24,12 +24,16 @@ class RawValue(object):
 
 
 class Function(object):
-    def __init__(self, head, body):
+    def __init__(self, head, body, call=False):
         self.head = head
         self.body = body
+        self.call = call
 
     def __repr__(self):
-        return "{0}: {1}".format(self.head, self.body)
+        if self.call:
+            return "{0}: {1}".format(self.head, self.body)
+        else:
+            return "{0} {1}".format(self.head, self.body)
 
     def __eq__(self, other):
         return (isinstance(other, Function)
@@ -169,7 +173,8 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
 
     def _enc_function(node):
         body = _enc(node.body)
-        return enclose_node(body, node.head + ": ")
+        sep = " " if node.call else ": "
+        return enclose_node(body, node.head + sep)
 
     def _enc(node):
         if isinstance(node, RawValue):

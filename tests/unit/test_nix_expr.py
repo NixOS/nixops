@@ -197,6 +197,12 @@ class Py2NixTest(unittest.TestCase, Py2NixTestBase):
             "Expected:\n{0}\nGot:\n{1}".format(expected, result)
         )
 
+    def test_function_call(self):
+        self.assert_nix(Function("fun_call", {'a': 'b'}, call=True),
+                        'fun_call { a = "b"; }')
+        self.assert_nix(Function("multiline_call", {'a': 'b'}, call=True),
+                        'multiline_call {\n  a = "b";\n}', maxwidth=0)
+
 
 class Nix2PyTest(unittest.TestCase, Py2NixTestBase):
     def assert_nix(self, expected, source, maxwidth=80):
