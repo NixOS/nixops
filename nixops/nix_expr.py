@@ -282,7 +282,7 @@ def nix2py(source):
     def _parse_string(pos):
         match = RE_STRING.match(source, pos)
         if match is None:
-            return ParseFailure(pos)
+            return ParseFailure(pos, "string expected")
 
         if match.group(1) is not None:
             data = _fold_string(match.group(1), [
@@ -313,7 +313,7 @@ def nix2py(source):
             data += source[pos]
             pos += 1
         if len(data) == 0:
-            return ParseFailure(pos)
+            return ParseFailure(pos, "integer expected")
         else:
             return ParseSuccess(pos, int(data) * mul)
 
@@ -323,13 +323,13 @@ def nix2py(source):
         elif source[pos:pos+5] == "false":
             return ParseSuccess(pos + 5, False)
         else:
-            return ParseFailure(pos)
+            return ParseFailure(pos, "boolean expected")
 
     def _parse_null(pos):
         if source[pos:pos+4] == "null":
             return ParseSuccess(pos + 4, None)
         else:
-            return ParseFailure(pos)
+            return ParseFailure(pos, "null expected")
 
     def _parse_list(pos):
         items = []
@@ -344,13 +344,13 @@ def nix2py(source):
             else:
                 return result
         else:
-            return ParseFailure(pos)
+            return ParseFailure(pos, "start of list expected")
 
     def _parse_attr(pos):
         newpos = _skip_whitespace(pos)
         match = RE_ATTR.match(source, newpos)
         if match is None:
-            return ParseFailure(newpos)
+            return ParseFailure(newpos, "invalid attribute set key")
         if match.group(1):
             data = _fold_string(match.group(1), [
                 (r'\"', '"'),
@@ -373,7 +373,7 @@ def nix2py(source):
                 break
             attr = _parse_attr(newpos)
         if len(attrs) == 0:
-            return ParseFailure(newpos)
+            return ParseFailure(newpos, "empty attribute set key")
         return ParseSuccess(attrs[-1].pos, [attr.data for attr in attrs])
 
     def _parse_keyval(pos):
@@ -382,14 +382,14 @@ def nix2py(source):
             return key
         newpos = _skip_whitespace(key.pos)
         if source[newpos] != '=':
-            return ParseFailure(newpos)
+            return ParseFailure(newpos, "attribute operator expected")
         newpos += 1
         value = _parse_expr(newpos)
         if not isinstance(value, ParseSuccess):
             return value
         newpos = _skip_whitespace(value.pos)
         if source[newpos] != ';':
-            return ParseFailure(newpos)
+            return ParseFailure(newpos, "end of attribute expected")
         return ParseSuccess(newpos + 1, (key.data, value.data))
 
     def _reduce_keys(keys, value):
@@ -422,14 +422,14 @@ def nix2py(source):
             if source[newpos] == '}':
                 return ParseSuccess(newpos + 1, _postprocess_attrlist(attrs))
             else:
-                return ParseFailure(newpos)
+                return ParseFailure(newpos, "end of attribute set expected")
         else:
-            return ParseFailure(pos)
+            return ParseFailure(pos, "start of attribute set expected")
 
     def _parse_function(pos):
         match = RE_FUNHEAD.match(source, pos)
         if match is None:
-            return ParseFailure(pos)
+            return ParseFailure(pos, "function head expected")
         head = match.group(0).rstrip(':')
         body = _parse_expr(match.end())
         if isinstance(body, ParseSuccess):
@@ -440,7 +440,7 @@ def nix2py(source):
     def _parse_raw_value(pos):
         match = RE_RAWVAL.match(source, pos)
         if match is None:
-            return ParseFailure(pos)
+            return ParseFailure(pos, "raw value expected")
         else:
             return ParseSuccess(match.end(), RawValue(match.group(0)))
 
@@ -452,7 +452,7 @@ def nix2py(source):
             result = parser(newpos)
             if isinstance(result, ParseSuccess):
                 return result
-        return ParseFailure(newpos)
+        return ParseFailure(newpos, "invalid expression")
 
     result = _parse_expr(0)
     if isinstance(result, ParseSuccess):
