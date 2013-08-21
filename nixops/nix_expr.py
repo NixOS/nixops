@@ -22,6 +22,14 @@ class Function(object):
         self.head = head
         self.body = body
 
+    def __repr__(self):
+        return "{0}: {1}".format(self.head, self.body)
+
+    def __eq__(self, other):
+        return (isinstance(other, Function)
+                and other.head == self.head
+                and other.body == self.body)
+
 
 class Container(object):
     def __init__(self, prefix, children, suffix, inline_variant=None):
@@ -214,6 +222,7 @@ class ParseSuccess(object):
 
 RE_STRING = re.compile(r"\"(.*?[^\\])\"|''(.*?[^'])''(?!\$\{|')", re.DOTALL)
 RE_ATTR = re.compile(r'"(.*?(?![^\\]\\))"|([a-z_][a-z0-9_]*)', re.DOTALL)
+RE_FUNHEAD = re.compile(r'(?:\s*(?:{.*?}|[a-z_][a-z0-9_]*)\s*:)+', re.DOTALL)
 
 
 def nix2py(source):
@@ -366,10 +375,21 @@ def nix2py(source):
         else:
             return ParseFailure(pos)
 
+    def _parse_function(pos):
+        match = RE_FUNHEAD.match(source, pos)
+        if match is None:
+            return ParseFailure(pos)
+        head = match.group(0).rstrip(':')
+        body = _parse_expr(match.end())
+        if isinstance(body, ParseSuccess):
+            return ParseSuccess(body.pos, Function(head, body.data))
+        else:
+            return body
+
     def _parse_expr(pos):
         newpos = _skip_whitespace(pos)
         for parser in [_parse_string, _parse_int, _parse_bool, _parse_null,
-                       _parse_list, _parse_attrset]:
+                       _parse_list, _parse_attrset, _parse_function]:
             result = parser(newpos)
             if isinstance(result, ParseSuccess):
                 return result
