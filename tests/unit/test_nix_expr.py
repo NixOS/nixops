@@ -213,6 +213,12 @@ class Nix2PyTest(unittest.TestCase, Py2NixTestBase):
     def assert_nix(self, expected, source, maxwidth=80):
         self.assertEqual(nix2py(source), expected)
 
+    def test_dense(self):
+        self.assert_nix([[[3]]], "[[[3]]]")
+        self.assert_nix({'a': {'b': 'c'}}, '{a.b="c";}')
+        self.assert_nix({'a': {'b': ['c', 'd']}}, '{a.b=["c" "d"];}')
+        self.assert_nix('abcde', "''abcde''")
+
 
 class NixMergeTest(unittest.TestCase):
     def assert_merge(self, sources, expect):

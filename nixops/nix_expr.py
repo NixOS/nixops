@@ -367,7 +367,7 @@ def nix2py(source):
         return ParseSuccess(attrs[-1].pos, [attr.data for attr in attrs])
 
     def _parse_keyval(pos):
-        key = _parse_dotattr(pos + 1)
+        key = _parse_dotattr(pos)
         if not isinstance(key, ParseSuccess):
             return key
         newpos = _skip_whitespace(key.pos)
