@@ -2,7 +2,7 @@ import unittest
 
 from textwrap import dedent
 
-from nixops.nix_expr import py2nix, RawValue, Function
+from nixops.nix_expr import py2nix, nix2py, RawValue, Function
 
 
 class Py2NixTest(unittest.TestCase):
@@ -191,3 +191,7 @@ class Py2NixTest(unittest.TestCase):
                  'x': "aaa\nbbb\nccc\n"
              })}
         ), match, maxwidth=26)
+
+class Nix2PyTest(Py2NixTest):
+    def assert_nix(self, expected, source, maxwidth=80):
+        self.assertEqual(nix2py(source), expected)
