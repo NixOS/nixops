@@ -20,6 +20,7 @@ import nixops.resources.ssh_keypair
 import nixops.resources.ec2_keypair
 import nixops.resources.sqs_queue
 import nixops.resources.iam_role
+from nixops.nix_expr import RawValue, nixmerge, py2nix
 import re
 from datetime import datetime
 import getpass
@@ -356,7 +357,7 @@ class Deployment(object):
         active_machines = self.active
         active_resources = self.active_resources
 
-        lines_per_resource = {m.name: [] for m in active_resources.itervalues()}
+        attrs_per_resource = {m.name: [] for m in active_resources.itervalues()}
         authorized_keys = {m.name: [] for m in active_machines.itervalues()}
         kernel_modules = {m.name: set() for m in active_machines.itervalues()}
         trusted_interfaces = {m.name: set() for m in active_machines.itervalues()}
@@ -391,7 +392,7 @@ class Deployment(object):
 
         def do_machine(m):
             defn = self.definitions[m.name]
-            lines = lines_per_resource[m.name]
+            attrs_list = attrs_per_resource[m.name]
 
             # Emit configuration to realise encrypted peer-to-peer links.
             for m2_name in defn.encrypted_links_to:
@@ -407,48 +408,65 @@ class Deployment(object):
                 remote_ipv4 = index_to_private_ip(m2.index)
                 local_tunnel = 10000 + m2.index
                 remote_tunnel = 10000 + m.index
-                lines.append('    networking.p2pTunnels.ssh.{0} ='.format(m2.name))
-                lines.append('      {{ target = "{0}-unencrypted";'.format(m2.name))
-                lines.append('        localTunnel = {0};'.format(local_tunnel))
-                lines.append('        remoteTunnel = {0};'.format(remote_tunnel))
-                lines.append('        localIPv4 = "{0}";'.format(local_ipv4))
-                lines.append('        remoteIPv4 = "{0}";'.format(remote_ipv4))
-                lines.append('        privateKey = "/root/.ssh/id_charon_vpn";')
-                lines.append('      }};'.format(m2.name))
+                attrs_list.append({'networking': {'p2pTunnels': {'ssh': {
+                    m2.name: {
+                        'target': '{0}-unencrypted'.format(m2.name),
+                        'localTunnel': local_tunnel,
+                        'remoteTunnel': remote_tunnel,
+                        'localIPv4': local_ipv4,
+                        'remoteIPv4': remote_ipv4,
+                        'privateKey': '/root/.ssh/id_charon_vpn',
+                    }
+                }}}})
 
                 if hasattr(m2, 'public_host_key'):
                     # Using references to files in same tempdir for now, until NixOS has support
                     # for adding the keys directly as string. This way at least it is compatible
                     # with older versions of NixOS as well.
                     # TODO: after reasonable amount of time replace with string option
-                    lines.append('    services.openssh.knownHosts.{0} ='.format(m2.name))
-                    lines.append('      {{ hostNames = ["{0}-unencrypted" "{0}-encrypted" "{0}" ];'.format(m2.name))
-                    lines.append('        publicKeyFile = ./{0}.public_host_key;'.format(m2.name))
-                    lines.append('      }};'.format(m2.name))
+                    attrs_list.append({'services': {'openssh': {'knownHosts': {
+                        m2.name: {
+                            'hostNames': [m2.name + "-unencrypted",
+                                          m2.name + "-encrypted",
+                                          m2.name],
+                            'publicKeyFile': RawValue(
+                                "./{0}.public_host_key".format(m2.name)
+                            ),
+                        }
+                    }}}})
 
                 # FIXME: set up the authorized_key file such that ‘m’
                 # can do nothing more than create a tunnel.
-                authorized_keys[m2.name].append('"' + m.public_vpn_key + '"')
-                kernel_modules[m.name].add('"tun"')
-                kernel_modules[m2.name].add('"tun"')
+                authorized_keys[m2.name].append(m.public_vpn_key)
+                kernel_modules[m.name].add('tun')
+                kernel_modules[m2.name].add('tun')
                 hosts[m.name][remote_ipv4] += [m2.name, m2.name + "-encrypted"]
                 hosts[m2.name][local_ipv4] += [m.name, m.name + "-encrypted"]
-                trusted_interfaces[m.name].add('"tun' + str(local_tunnel) + '"')
-                trusted_interfaces[m2.name].add('"tun' + str(remote_tunnel) + '"')
+                trusted_interfaces[m.name].add('tun' + str(local_tunnel))
+                trusted_interfaces[m2.name].add('tun' + str(remote_tunnel))
 
             private_ipv4 = m.private_ipv4
-            if private_ipv4: lines.append('    networking.privateIPv4 = "{0}";'.format(private_ipv4))
+            if private_ipv4:
+                attrs_list.append({'networking': {
+                    'privateIPv4': private_ipv4
+                }})
             public_ipv4 = m.public_ipv4
-            if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";'.format(public_ipv4))
+            if public_ipv4:
+                attrs_list.append({'networking': {
+                    'publicIPv4': public_ipv4
+                }})
 
             if self.nixos_version_suffix:
-                lines.append('    system.nixosVersionSuffix = "{0}";'.format(self.nixos_version_suffix))
+                attrs_list.append({'system': {
+                    'nixosVersionSuffix': self.nixos_version_suffix
+                }})
 
-        for m in active_machines.itervalues(): do_machine(m)
+        for m in active_machines.itervalues():
+            do_machine(m)
 
         def emit_resource(r):
-            lines = []
-            lines.extend(lines_per_resource[r.name])
+            attrs_list = []
+            attrs_list.extend(attrs_per_resource[r.name])
             if is_machine(r):
                 # Sort the hosts by its canonical host names.
                 sorted_hosts = sorted(hosts[r.name].iteritems(),
@@ -459,36 +477,36 @@ class Deployment(object):
                                for ip, names in sorted_hosts]
 
                 if authorized_keys[r.name]:
-                    lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys[r.name])))
-                    lines.append('    services.openssh.extraConfig = "PermitTunnel yes\\n";')
-                lines.append('    boot.kernelModules = [ {0} ];'.format(" ".join(kernel_modules[r.name])))
-                lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces[r.name])))
-                lines.append('    networking.extraHosts = "{0}\\n";'.format(r'\n'.join(extra_hosts)))
+                    attrs_list.append({
+                        'users': {'extraUsers': {'root': {
+                            'authorizedKeys': {'keys': authorized_keys[r.name]}
+                        }}},
+                        'services': {'openssh': {
+                            'extraConfig': "PermitTunnel yes\n"
+                        }},
+                    })
+                attrs_list.append({
+                    'boot': {'kernelModules': list(kernel_modules[r.name])},
+                    'networking': {
+                        'firewall': {
+                            'trustedInterfaces': list(
+                                trusted_interfaces[r.name]
+                            )
+                        },
+                        'extraHosts': '\n'.join(extra_hosts) + "\n",
+                    },
+                })
 
-            # Ensure that we don't clash with any of the physical attributes
-            # from the resource.
-            # TODO: In the long term it would make much more sense to pretty
-            # print the physical spec out of Python dicts, lists, strings and
-            # whatnot, so we can properly merge the attributes on our side.
-            res_physical = r.get_physical_spec()
-            first_format = '  {0}"{1}" = {{ config, pkgs, ... }}:'
-            first = first_format.format(r.get_definition_prefix(), r.name)
-
-            if len(res_physical) > 0:
-                merger = 'pkgs.lib.mergeAttrByFunc'
-                lines.insert(0, first + ' ' + merger + ' {')
-                lines += ["  } {"] + res_physical + ["  };\n"]
-            elif len(lines) == 0:
-                return ""
+            attrs_list.append(r.get_physical_spec())
+            merged = reduce(nixmerge, attrs_list)
+            if len(merged) == 0:
+                return {}
             else:
-                first_format = '  {0}"{1}" = {{ config, pkgs, ... }}:'
-                first = first_format.format(r.get_definition_prefix(), r.name)
-                lines.insert(0, first + ' {')
-                lines.append("  };\n")
-            return "\n".join(lines)
+                return r.prefix_definition({r.name: merged})
 
-        return "".join(["{\n"] + [emit_resource(r) for r in active_resources.itervalues()] + ["}\n"])
-
+        return py2nix(reduce(nixmerge, [
+            emit_resource(r) for r in active_resources.itervalues()
+        ])) + "\n"
 
     def get_profile(self):
         profile_dir = "/nix/var/nix/profiles/per-user/" + getpass.getuser()

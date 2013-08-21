@@ -117,11 +117,11 @@ class ResourceState(object):
         elif state == self.RESCUE: return "In rescue system"
         else: raise Exception("machine is in unknown state")
 
-    def get_definition_prefix(self):
+    def prefix_definiton(self, attr):
         raise Exception("not implemented")
 
     def get_physical_spec(self):
-        return []
+        return {}
 
     def get_physical_backup_spec(self, backupid):
         return []

@@ -11,6 +11,7 @@ import shutil
 import boto.ec2
 import boto.ec2.blockdevicemapping
 from nixops.backends import MachineDefinition, MachineState
+from nixops.nix_expr import Function, RawValue
 import nixops.util
 import nixops.ec2_utils
 import nixops.known_hosts
@@ -158,14 +159,22 @@ class EC2State(MachineState):
 
 
     def get_physical_spec(self):
-        lines = ['    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];']
-
+        block_device_mapping = {}
         for k, v in self.block_device_mapping.items():
-            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "":
-                lines.append('    deployment.ec2.blockDeviceMapping."{0}".passphrase = pkgs.lib.mkOverride 10 "{1}";'
-                             .format(_sd_to_xvd(k), v['generatedKey']))
+            if (v.get('encrypt', False)
+                and v.get('passphrase', "") == ""
+                and v.get('generatedKey', "") != ""):
+                block_device_mapping[_sd_to_xvd(k)] = {
+                    'passphrase': Function("pkgs.lib.mkOverride 10",
+                                           v['generatedKey'], call=True),
+                }
 
-        return lines
+        return {
+            'require': [
+                RawValue("<nixos/modules/virtualisation/amazon-config.nix>")
+            ],
+            'deployment': {'ec2': {'blockDeviceMapping': blockDeviceMapping}}
+        }
 
     def get_physical_backup_spec(self, backupid):
         if backupid in self.backups:
