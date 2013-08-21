@@ -3,7 +3,7 @@ import string
 
 from textwrap import dedent
 
-__all__ = ['RawValue', 'Function', 'py2nix', 'nix2py', 'merge_dicts']
+__all__ = ['RawValue', 'Function', 'py2nix', 'nix2py', 'nixmerge']
 
 
 class RawValue(object):
@@ -201,16 +201,32 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
     return _enc(value).indent(initial_indentation, maxwidth=maxwidth)
 
 
-def merge_dicts(dict1, dict2):
-    out = {}
-    for key in set(dict1.keys()).union(dict2.keys()):
-        if key in dict1 and key in dict2:
-            out[key] = merge_dicts(dict1[key], dict2[key])
-        elif key in dict1:
-            out[key] = dict1[key]
+def nixmerge(expr1, expr2):
+    """
+    Merge both expressions into one, merging dictionary keys and appending list
+    elements if they otherwise would clash.
+    """
+    def _merge_dicts(d1, d2):
+        out = {}
+        for key in set(d1.keys()).union(d2.keys()):
+            if key in d1 and key in d2:
+                out[key] = _merge(d1[key], d2[key])
+            elif key in d1:
+                out[key] = d1[key]
+            else:
+                out[key] = d2[key]
+        return out
+
+    def _merge(e1, e2):
+        if isinstance(e1, dict) and isinstance(e2, dict):
+            return _merge_dicts(e1, e2)
+        elif isinstance(e1, list) and isinstance(e2, list):
+            return list(set(e1).union(e2))
         else:
-            out[key] = dict2[key]
-    return out
+            err = "Unable to merge {0} with {1}.".format(type(e1), type(e2))
+            raise ValueError(err)
+
+    return _merge(expr1, expr2)
 
 
 class ParseFailure(Exception):
@@ -367,7 +383,7 @@ def nix2py(source):
         dictlist = []
         for keys, value in attrs:
             dictlist.append({keys[0]: _reduce_keys(keys[1:], value)})
-        return reduce(merge_dicts, dictlist)
+        return reduce(nixmerge, dictlist)
 
     def _parse_attrset(pos):
         attrs = []

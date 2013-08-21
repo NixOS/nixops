@@ -2,7 +2,7 @@ import unittest
 
 from textwrap import dedent
 
-from nixops.nix_expr import py2nix, nix2py, RawValue, Function
+from nixops.nix_expr import py2nix, nix2py, RawValue, Function, nixmerge
 
 __all__ = ['Py2NixTest', 'Nix2PyTest']
 
@@ -207,3 +207,49 @@ class Py2NixTest(unittest.TestCase, Py2NixTestBase):
 class Nix2PyTest(unittest.TestCase, Py2NixTestBase):
     def assert_nix(self, expected, source, maxwidth=80):
         self.assertEqual(nix2py(source), expected)
+
+
+class NixMergeTest(unittest.TestCase):
+    def assert_merge(self, sources, expect):
+        self.assertEqual(reduce(nixmerge, sources), expect)
+
+    def test_merge_list(self):
+        self.assert_merge([
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 6, 5],
+            ["abc", "def"],
+            ["ghi", "abc"],
+        ], [1, 2, 3, 4, 5, 6, 7, "abc", "ghi", "def"])
+
+    def test_merge_dict(self):
+        self.assert_merge([
+            {},
+            {'a': {'b': {'c': 'd'}}},
+            {'a': {'c': 'e'}},
+            {'b': {'a': ['a']}},
+            {'b': {'a': ['b']}},
+            {'e': 'f'},
+            {},
+        ], {
+            'a': {
+                'c': 'e',
+                'b': {'c': 'd'}
+            },
+            'b': {'a': ['a', 'b']},
+            'e': 'f',
+        })
+
+    def test_unhashable(self):
+        self.assertRaises(TypeError, nixmerge, [[1]], [[2]])
+        self.assertRaises(TypeError, nixmerge, [{'x': 1}], [{'y': 2}])
+
+    def test_invalid(self):
+        self.assertRaises(ValueError, nixmerge, [123], {'a': 456})
+        self.assertRaises(ValueError, nixmerge, "a", "b")
+        self.assertRaises(ValueError, nixmerge, 123, 456)
+        self.assertRaises(ValueError, nixmerge, RawValue("a"), RawValue("b"))
+        self.assertRaises(ValueError, nixmerge,
+                          Function("aaa", {'a': 1}), Function("ccc", {'b': 2}))
+        self.assertRaises(ValueError, nixmerge,
+                          Function("aaa", {'a': 1}), {'b': 2})
