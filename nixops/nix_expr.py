@@ -16,6 +16,12 @@ class RawValue(object):
     def indent(self, level=0, inline=False, maxwidth=80):
         return "  " * level + self.value
 
+    def __repr__(self):
+        return self.value
+
+    def __eq__(self, other):
+        return isinstance(other, RawValue) and other.value == self.value
+
 
 class Function(object):
     def __init__(self, head, body):
@@ -223,6 +229,8 @@ class ParseSuccess(object):
 RE_STRING = re.compile(r"\"(.*?[^\\])\"|''(.*?[^'])''(?!\$\{|')", re.DOTALL)
 RE_ATTR = re.compile(r'"(.*?(?![^\\]\\))"|([a-z_][a-z0-9_]*)', re.DOTALL)
 RE_FUNHEAD = re.compile(r'(?:\s*(?:{.*?}|[a-z_][a-z0-9_]*)\s*:)+', re.DOTALL)
+RE_RAWVAL = re.compile(r'(?:\s*(?:<[^>]+>|\([^)]+\)|[a-z!+._][a-z0-9_]*))+',
+                       re.DOTALL)
 
 
 def nix2py(source):
@@ -386,10 +394,18 @@ def nix2py(source):
         else:
             return body
 
+    def _parse_raw_value(pos):
+        match = RE_RAWVAL.match(source, pos)
+        if match is None:
+            return ParseFailure(pos)
+        else:
+            return ParseSuccess(match.end(), RawValue(match.group(0)))
+
     def _parse_expr(pos):
         newpos = _skip_whitespace(pos)
         for parser in [_parse_string, _parse_int, _parse_bool, _parse_null,
-                       _parse_list, _parse_attrset, _parse_function]:
+                       _parse_list, _parse_attrset, _parse_function,
+                       _parse_raw_value]:
             result = parser(newpos)
             if isinstance(result, ParseSuccess):
                 return result
