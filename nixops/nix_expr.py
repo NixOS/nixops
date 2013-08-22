@@ -274,8 +274,11 @@ def nix2py(source):
     """
     maxpos = len(source)
 
+    def _is_char(pos, char):
+        return pos < maxpos and source[pos] == char
+
     def _skip_whitespace(pos):
-        while source[pos].isspace():
+        while pos < maxpos and source[pos].isspace():
             pos += 1
         return pos
 
@@ -333,13 +336,13 @@ def nix2py(source):
 
     def _parse_list(pos):
         items = []
-        if source[pos] == '[':
+        if _is_char(pos, '['):
             result = _parse_expr(pos + 1)
             while isinstance(result, ParseSuccess):
                 items.append(result.data)
                 result = _parse_expr(result.pos)
             newpos = _skip_whitespace(result.pos)
-            if source[newpos] == ']':
+            if _is_char(newpos, ']'):
                 return ParseSuccess(newpos + 1, items)
             else:
                 return result
@@ -367,7 +370,7 @@ def nix2py(source):
         while isinstance(attr, ParseSuccess):
             attrs.append(attr)
             newpos = _skip_whitespace(attr.pos)
-            if source[newpos] == '.':
+            if _is_char(newpos, '.'):
                 newpos += 1
             else:
                 break
@@ -381,14 +384,14 @@ def nix2py(source):
         if not isinstance(key, ParseSuccess):
             return key
         newpos = _skip_whitespace(key.pos)
-        if source[newpos] != '=':
+        if not _is_char(newpos, '='):
             return ParseFailure(newpos, "attribute operator expected")
         newpos += 1
         value = _parse_expr(newpos)
         if not isinstance(value, ParseSuccess):
             return value
         newpos = _skip_whitespace(value.pos)
-        if source[newpos] != ';':
+        if not _is_char(newpos, ';'):
             return ParseFailure(newpos, "end of attribute expected")
         return ParseSuccess(newpos + 1, (key.data, value.data))
 
@@ -409,7 +412,7 @@ def nix2py(source):
 
     def _parse_attrset(pos):
         attrs = []
-        if source[pos] == '{':
+        if _is_char(pos, '{'):
             keyval = _parse_keyval(pos + 1)
             newpos = keyval.pos
             while isinstance(keyval, ParseSuccess):
@@ -419,7 +422,7 @@ def nix2py(source):
 
             newpos = _skip_whitespace(newpos)
 
-            if source[newpos] == '}':
+            if _is_char(newpos, '}'):
                 return ParseSuccess(newpos + 1, _postprocess_attrlist(attrs))
             else:
                 return ParseFailure(newpos, "end of attribute set expected")

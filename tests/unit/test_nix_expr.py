@@ -2,7 +2,8 @@ import unittest
 
 from textwrap import dedent
 
-from nixops.nix_expr import py2nix, nix2py, RawValue, Function, nixmerge
+from nixops.nix_expr import py2nix, nix2py, nixmerge
+from nixops.nix_expr import RawValue, Function, ParseFailure
 
 __all__ = ['Py2NixTest', 'Nix2PyTest']
 
@@ -222,6 +223,15 @@ class Nix2PyTest(unittest.TestCase, Py2NixTestBase):
         self.assert_nix({'a': {'b': 'c'}}, '{a.b="c";}')
         self.assert_nix({'a': {'b': ['c', 'd']}}, '{a.b=["c" "d"];}')
         self.assert_nix('abcde', "''abcde''")
+
+    def test_parse_incomplete(self):
+        self.assertRaises(ParseFailure, nix2py, "")
+        self.assertRaises(ParseFailure, nix2py, "\"")
+        self.assertRaises(ParseFailure, nix2py, "[")
+        self.assertRaises(ParseFailure, nix2py, "[1")
+        self.assertRaises(ParseFailure, nix2py, "{a")
+        self.assertRaises(ParseFailure, nix2py, "{a=")
+        self.assertRaises(ParseFailure, nix2py, "{a=1")
 
 
 class NixMergeTest(unittest.TestCase):
