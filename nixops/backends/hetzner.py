@@ -276,7 +276,7 @@ class HetznerState(MachineState):
         server = self._get_server_by_ip(self.main_ipv4)
         server.rescue.activate()
         rescue_passwd = server.rescue.password
-        if install or hard or self.state not in (self.UP, self.RESCUE):
+        if hard or (install and self.state not in (self.UP, self.RESCUE)):
             self.log_start("sending hard reset to robot...")
             server.reboot('hard')
         else:
