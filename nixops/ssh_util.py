@@ -150,7 +150,7 @@ class SSH(object):
         Start (if necessary) an SSH master connection to speed up subsequent
         SSH sessions. Returns the SSHMaster instance on success.
         """
-        flags += self._get_flags()
+        flags = flags + self._get_flags()
         if self._ssh_master is not None:
             return weakref.proxy(self._ssh_master)
 
@@ -203,10 +203,10 @@ class SSH(object):
         """
         tries = 5
         if timeout is not None:
-            flags += ["-o", "ConnectTimeout={0}".format(timeout)]
+            flags = flags + ["-o", "ConnectTimeout={0}".format(timeout)]
             tries = 1
         master = self.get_master(flags, tries)
-        flags += self._get_flags()
+        flags = flags + self._get_flags()
         if logged:
             flags.append("-x")
         cmd = ["ssh"] + master.opts + flags
