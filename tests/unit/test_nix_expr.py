@@ -251,7 +251,7 @@ class Py2NixTest(unittest.TestCase, Py2NixTestBase):
         ''').strip())
 
         self.assertRaises(KeyError, py2nix, {(): 1})
-        self.assertRaises(KeyError, py2nix, {('a', 'b'): 1, 'a': 2})
+        self.assertRaises(ValueError, py2nix, {('a', 'b'): 1, 'a': 2})
 
 
 class Nix2PyTest(unittest.TestCase, Py2NixTestBase):

@@ -219,7 +219,7 @@ def expand_dict(unexpanded):
     ...               'a': {('d', 'e'): 'f'}})
     {'a': {'b': 'c', 'd': {'e': 'f'}}}
     """
-    paths, strings = [], []
+    paths, strings = [], {}
     for key, val in unexpanded.iteritems():
         if isinstance(key, tuple):
             if len(key) == 0:
@@ -230,27 +230,12 @@ def expand_dict(unexpanded):
                 newval = {key[1:]: val}
             else:
                 newval = val
-            paths.append((newkey, newval))
+            paths.append({newkey: newval})
         else:
-            strings.append((key, val))
+            strings[key] = val
 
-    if len(paths) > 0:
-        expanded = {}
-        for key, val in paths + strings:
-            if key not in expanded:
-                expanded[key] = val
-            elif isinstance(expanded[key], dict) and isinstance(val, dict):
-                expanded[key].update(val)
-            elif isinstance(expanded[key], list) and isinstance(val, list):
-                expanded[key] += val
-            else:
-                raise KeyError("Duplicate key {0}.".format(repr(key)))
-        to_postprocess = expanded.iteritems()
-    else:
-        to_postprocess = strings
-
-    return dict((key, (expand_dict(val) if isinstance(val, dict) else val))
-                for key, val in to_postprocess)
+    return {key: (expand_dict(val) if isinstance(val, dict) else val)
+            for key, val in reduce(nixmerge, paths + [strings]).iteritems()}
 
 
 def nixmerge(expr1, expr2):
