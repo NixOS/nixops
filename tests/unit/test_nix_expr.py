@@ -220,6 +220,8 @@ class Py2NixTest(unittest.TestCase, Py2NixTestBase):
                         '{ a.b.c.d = "x"; }')
         self.assert_nix({('a', 'a'): 1, ('a', 'b'): 2, 'a': {'c': 3}},
                         '{ a = { a = 1; b = 2; c = 3; }; }')
+        self.assert_nix({('a', 'b'): [1, 2], 'a': {'b': [3, 4]}},
+                        '{ a.b = [ 1 2 3 4 ]; }')
 
         # a more real-world example
         self.assert_nix({
