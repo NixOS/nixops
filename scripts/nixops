@@ -833,7 +833,7 @@ except KeyboardInterrupt:
     sys.exit(1)
 except MultipleExceptions as e:
     error(str(e))
-    if debug or str(e) == "":
+    if args.debug or str(e) == "":
         e.print_all_backtraces()
     sys.exit(1)
 except Exception as e:
