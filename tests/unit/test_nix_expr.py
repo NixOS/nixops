@@ -213,6 +213,44 @@ class Py2NixTest(unittest.TestCase, Py2NixTestBase):
         self.assert_nix(Function("multiline_call", {'a': 'b'}, call=True),
                         'multiline_call {\n  a = "b";\n}', maxwidth=0)
 
+    def test_stacked_attrs(self):
+        self.assert_nix({('a', 'b'): 'c', ('d'): 'e'},
+                        '{ a.b = "c"; d = "e"; }')
+        self.assert_nix({'a': {('b', 'c'): {}}, ('a', 'b', 'c', 'd'): 'x'},
+                        '{ a.b.c.d = "x"; }')
+        self.assert_nix({('a', 'a'): 1, ('a', 'b'): 2, 'a': {'c': 3}},
+                        '{ a = { a = 1; b = 2; c = 3; }; }')
+
+        # a more real-world example
+        self.assert_nix({
+            ('services', 'xserver'): {
+                'enable': True,
+                'layout': 'dvorak',
+                ('windowManager', 'default'): 'i3',
+                ('windowManager', 'i3'): {
+                    'enable': True,
+                    'configFile': '/somepath',
+                },
+                ('desktopManager', 'default'): 'none',
+                'desktopManager': {'e17': {'enable': True}},
+            }
+        }, dedent('''
+            {
+              services.xserver = {
+                desktopManager = { default = "none"; e17.enable = true; };
+                enable = true;
+                layout = "dvorak";
+                windowManager = {
+                  default = "i3";
+                  i3 = { configFile = "/somepath"; enable = true; };
+                };
+              };
+            }
+        ''').strip())
+
+        self.assertRaises(KeyError, py2nix, {(): 1})
+        self.assertRaises(KeyError, py2nix, {('a', 'b'): 1, 'a': 2})
+
 
 class Nix2PyTest(unittest.TestCase, Py2NixTestBase):
     def assert_nix(self, expected, source, maxwidth=80):

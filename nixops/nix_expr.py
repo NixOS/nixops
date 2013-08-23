@@ -2,8 +2,10 @@ import re
 import string
 
 from textwrap import dedent
+from collections import defaultdict
 
-__all__ = ['RawValue', 'Function', 'py2nix', 'nix2py', 'nixmerge']
+__all__ = ['RawValue', 'Function', 'ParseFailure',
+           'py2nix', 'nix2py', 'nixmerge', 'expand_dict']
 
 
 class RawValue(object):
@@ -197,13 +199,57 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
         elif isinstance(node, list):
             return _enc_list(node)
         elif isinstance(node, dict):
-            return _enc_attrset(node)
+            return _enc_attrset(expand_dict(node))
         elif isinstance(node, Function):
             return _enc_function(node)
         else:
             raise ValueError("Unable to encode {0}.".format(repr(node)))
 
     return _enc(value).indent(initial_indentation, maxwidth=maxwidth)
+
+
+def expand_dict(unexpanded):
+    """
+    Turns a dict containing tuples as keys into a set of nested dictionaries.
+
+    Examples:
+
+    >>> expand_dict({('a', 'b', 'c'): 'd'})
+    {'a': {'b': {'c': 'd'}}}
+    >>> expand_dict({('a', 'b'): 'c',
+    ...               'a': {('d', 'e'): 'f'}})
+    {'a': {'b': 'c', 'd': {'e': 'f'}}}
+    """
+    paths, strings = [], []
+    for key, val in unexpanded.iteritems():
+        if isinstance(key, tuple):
+            if len(key) == 0:
+                raise KeyError("Invalid key {0}.".format(repr(key)))
+
+            newkey = key[0]
+            if len(key) > 1:
+                newval = {key[1:]: val}
+            else:
+                newval = val
+            paths.append((newkey, newval))
+        else:
+            strings.append((key, val))
+
+    if len(paths) > 0:
+        expanded = defaultdict(dict)
+        for key, val in paths + strings:
+            if isinstance(val, dict):
+                expanded[key].update(val)
+            elif key in expanded:
+                raise KeyError("Duplicate key {0}.".format(repr(key)))
+            else:
+                expanded[key] = val
+        to_postprocess = expanded.iteritems()
+    else:
+        to_postprocess = strings
+
+    return dict((key, (expand_dict(val) if isinstance(val, dict) else val))
+                for key, val in to_postprocess)
 
 
 def nixmerge(expr1, expr2):
