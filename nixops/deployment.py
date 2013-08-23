@@ -408,8 +408,8 @@ class Deployment(object):
                 remote_ipv4 = index_to_private_ip(m2.index)
                 local_tunnel = 10000 + m2.index
                 remote_tunnel = 10000 + m.index
-                attrs_list.append({'networking': {'p2pTunnels': {'ssh': {
-                    m2.name: {
+                attrs_list.append({
+                    ('networking', 'p2pTunnels', 'ssh', m2.name): {
                         'target': '{0}-unencrypted'.format(m2.name),
                         'localTunnel': local_tunnel,
                         'remoteTunnel': remote_tunnel,
@@ -417,15 +417,15 @@ class Deployment(object):
                         'remoteIPv4': remote_ipv4,
                         'privateKey': '/root/.ssh/id_charon_vpn',
                     }
-                }}}})
+                })
 
                 if hasattr(m2, 'public_host_key'):
                     # Using references to files in same tempdir for now, until NixOS has support
                     # for adding the keys directly as string. This way at least it is compatible
                     # with older versions of NixOS as well.
                     # TODO: after reasonable amount of time replace with string option
-                    attrs_list.append({'services': {'openssh': {'knownHosts': {
-                        m2.name: {
+                    attrs_list.append({
+                        ('services', 'openssh', 'knownHosts', m2.name): {
                             'hostNames': [m2.name + "-unencrypted",
                                           m2.name + "-encrypted",
                                           m2.name],
@@ -433,7 +433,7 @@ class Deployment(object):
                                 "./{0}.public_host_key".format(m2.name)
                             ),
                         }
-                    }}}})
+                    })
 
                 # FIXME: set up the authorized_key file such that ‘m’
                 # can do nothing more than create a tunnel.
@@ -447,19 +447,19 @@ class Deployment(object):
 
             private_ipv4 = m.private_ipv4
             if private_ipv4:
-                attrs_list.append({'networking': {
-                    'privateIPv4': private_ipv4
-                }})
+                attrs_list.append({
+                    ('networking', 'privateIPv4'): private_ipv4
+                })
             public_ipv4 = m.public_ipv4
             if public_ipv4:
-                attrs_list.append({'networking': {
-                    'publicIPv4': public_ipv4
-                }})
+                attrs_list.append({
+                    ('networking', 'publicIPv4'): public_ipv4
+                })
 
             if self.nixos_version_suffix:
-                attrs_list.append({'system': {
-                    'nixosVersionSuffix': self.nixos_version_suffix
-                }})
+                attrs_list.append({
+                    ('system', 'nixosVersionSuffix'): self.nixos_version_suffix
+                })
 
         for m in active_machines.itervalues():
             do_machine(m)
@@ -478,23 +478,19 @@ class Deployment(object):
 
                 if authorized_keys[r.name]:
                     attrs_list.append({
-                        'users': {'extraUsers': {'root': {
-                            'authorizedKeys': {'keys': authorized_keys[r.name]}
-                        }}},
-                        'services': {'openssh': {
+                        ('users', 'extraUsers', 'root'): {
+                            ('authorizedKeys', 'keys'): authorized_keys[r.name]
+                        },
+                        ('services', 'openssh'): {
                             'extraConfig': "PermitTunnel yes\n"
-                        }},
+                        },
                     })
                 attrs_list.append({
-                    'boot': {'kernelModules': list(kernel_modules[r.name])},
-                    'networking': {
-                        'firewall': {
-                            'trustedInterfaces': list(
-                                trusted_interfaces[r.name]
-                            )
-                        },
-                        'extraHosts': '\n'.join(extra_hosts) + "\n",
+                    ('boot', 'kernelModules'): list(kernel_modules[r.name]),
+                    ('networking', 'firewall'): {
+                        'trustedInterfaces': list(trusted_interfaces[r.name])
                     },
+                    ('networking', 'extraHosts'): '\n'.join(extra_hosts) + "\n",
                 })
 
             attrs_list.append(r.get_physical_spec())

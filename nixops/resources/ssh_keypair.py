@@ -48,7 +48,7 @@ class SSHKeyPairState(nixops.resources.ResourceState):
                 self.state = state = nixops.resources.ResourceState.UP
 
     def prefix_definition(self, attr):
-        return {'resources': {'sshKeyPairs': attr}}
+        return {('resources', 'sshKeyPairs'): attr}
 
     def get_physical_spec(self):
         return {'private_key': self.private_key,
