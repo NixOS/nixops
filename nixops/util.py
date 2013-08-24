@@ -138,8 +138,7 @@ def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
 
 def generate_random_string(length=256):
     """Generate a base-64 encoded cryptographically strong random string."""
-    f = open("/dev/urandom", "r")
-    s = f.read(length)
+    s = os.urandom(length)
     assert len(s) == length
     return base64.b64encode(s)
 
