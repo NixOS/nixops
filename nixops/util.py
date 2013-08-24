@@ -34,8 +34,7 @@ def check_wait(test, initial=10, factor=1, max_tries=60, exception=True):
 
 def generate_random_string(length=256):
     """Generate a base-64 encoded cryptographically strong random string."""
-    f = open("/dev/urandom", "r")
-    s = f.read(length)
+    s = os.urandom(length)
     assert len(s) == length
     return base64.b64encode(s)
 
