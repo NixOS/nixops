@@ -146,9 +146,9 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
 
     def _enc_key(key):
         if not isinstance(key, basestring):
-            raise KeyError("Key {0} is not a string.".format(repr(key)))
+            raise KeyError("key {0} is not a string".format(repr(key)))
         elif len(key) == 0:
-            raise KeyError("Key name has zero length.")
+            raise KeyError("key name has zero length")
 
         if all(char in string.letters + string.digits + '_'
                for char in key) and not key[0].isdigit():
@@ -202,7 +202,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
         elif isinstance(node, Function):
             return _enc_function(node)
         else:
-            raise ValueError("Unable to encode {0}.".format(repr(node)))
+            raise ValueError("unable to encode {0}".format(repr(node)))
 
     return _enc(value).indent(initial_indentation, maxwidth=maxwidth)
 
@@ -223,7 +223,7 @@ def expand_dict(unexpanded):
     for key, val in unexpanded.iteritems():
         if isinstance(key, tuple):
             if len(key) == 0:
-                raise KeyError("Invalid key {0}.".format(repr(key)))
+                raise KeyError("invalid key {0}".format(repr(key)))
 
             newkey = key[0]
             if len(key) > 1:
@@ -260,7 +260,7 @@ def nixmerge(expr1, expr2):
         elif isinstance(e1, list) and isinstance(e2, list):
             return list(set(e1).union(e2))
         else:
-            err = "Unable to merge {0} with {1}.".format(type(e1), type(e2))
+            err = "unable to merge {0} with {1}".format(type(e1), type(e2))
             raise ValueError(err)
 
     return _merge(expr1, expr2)
@@ -273,7 +273,7 @@ class ParseFailure(Exception):
 
     def __str__(self):
         if self.msg is None:
-            return "Parse error at position {0}".format(self.pos)
+            return "parse error at position {0}".format(self.pos)
         else:
             return self.msg + " (pos: {0})".format(self.pos)
 
