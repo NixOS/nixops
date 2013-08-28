@@ -76,6 +76,9 @@ class Logger(object):
     def warn(self, msg):
         self.log(ansi_warn("warning: " + msg, outfile=self._log_file))
 
+    def error(self, msg):
+        self.log(ansi_warn("error: " + msg, outfile=self._log_file))
+
     def confirm_once(self, question):
         with self._log_lock:
             if self._last_log_prefix is not None:
@@ -141,6 +144,10 @@ class MachineLogger(object):
 
     def warn(self, msg):
         self.log(ansi_warn("warning: " + msg,
+                           outfile=self.main_logger._log_file))
+
+    def error(self, msg):
+        self.log(ansi_warn("error: " + msg,
                            outfile=self.main_logger._log_file))
 
     def success(self, msg):
