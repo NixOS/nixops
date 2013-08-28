@@ -287,7 +287,7 @@ in
     deployment.ec2.securityGroups = mkOption {
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
-      type = types.list types.string;
+      type = types.listOf types.string;
       description = ''
         Security groups for the instance.  These determine the
         firewall rules applied to the instance.

@@ -13,7 +13,7 @@ with pkgs.lib;
 
   options = {
     fileSystems = mkOption {
-      type = types.list types.optionSet;
+      type = types.listOf types.optionSet;
       description = ''
         NixOps extends NixOS' <option>fileSystem</option> option to
         allow convenient attaching of EC2 volumes.

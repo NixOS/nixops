@@ -58,7 +58,7 @@ in
 
     deployment.encryptedLinksTo = mkOption {
       default = [];
-      type = types.list types.string;
+      type = types.listOf types.string;
       description = ''
         NixOps will set up an encrypted tunnel (via SSH) to the
         machines listed here.  Since this is a two-way (peer to peer)
@@ -73,7 +73,7 @@ in
 
     deployment.owners = mkOption {
       default = [];
-      type = types.list types.string;
+      type = types.listOf types.string;
       description = ''
         List of emailaddresses of the owners of the machines. Used
         to send email on performing certain actions.
