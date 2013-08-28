@@ -65,6 +65,28 @@ class SSHConnection(object):
         finally:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
 
+    def upload(self, source, destination):
+        """
+        Upload the local file 'source' to the current host at 'destination'.
+        """
+        sftp = paramiko.SFTPClient.from_transport(self.ssh.get_transport())
+        sftp.put(source, destination)
+
+    def download(self, source, target):
+        """
+        Download the file 'source' from the current host to local file 'target'.
+        """
+        sftp = paramiko.SFTPClient.from_transport(self.ssh.get_transport())
+        sftp.get(source, target)
+
+    def open(self, *args, **kwargs):
+        """
+        Open a file instance on the remote side. This is the same as Python's
+        open() function but working on the remote file.
+        """
+        sftp = paramiko.SFTPClient.from_transport(self.ssh.get_transport())
+        return sftp.open(*args, **kwargs)
+
     def run_command(self, command, timeout=None, log_cb=None, bufsize=4096,
                     stdin_string=None, stdin=None, capture_stdout=False,
                     check=True):

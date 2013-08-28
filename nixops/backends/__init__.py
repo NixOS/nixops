@@ -169,11 +169,8 @@ class MachineState(nixops.resources.ResourceState):
         self.run_command("mkdir -m 0700 -p /run/keys")
         for k, v in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
-            tmp = self.depl.tempdir + "/key-" + self.name
-            f = open(tmp, "w+"); f.write(v); f.close()
-            self.upload_file(tmp, "/run/keys/" + k)
+            self._connect_ssh().open("/run/keys/" + k, 'wb').write(v)
             self.run_command("chmod 600 /run/keys/" + k)
-            os.remove(tmp)
         self.run_command("touch /run/keys/done")
 
     def get_keys(self):
@@ -319,20 +316,12 @@ class MachineState(nixops.resources.ResourceState):
         self.public_vpn_key = public
 
     def upload_file(self, source, target, recursive=False):
-        master = self.ssh.get_master()
-        cmdline = ["scp"] + self.get_ssh_flags() + master.opts
-        if recursive:
-            cmdline += ['-r']
-        cmdline += [source, "root@" + self.get_ssh_name() + ":" + target]
-        return self._logged_exec(cmdline)
+        # FIXME: recursive!
+        self._connect_ssh().upload(source, target)
 
     def download_file(self, source, target, recursive=False):
-        master = self.ssh.get_master()
-        cmdline = ["scp"] + self.get_ssh_flags() + master.opts
-        if recursive:
-            cmdline += ['-r']
-        cmdline += ["root@" + self.get_ssh_name() + ":" + source, target]
-        return self._logged_exec(cmdline)
+        # FIXME: recursive!
+        self._connect_ssh().download(source, target)
 
     def get_console_output(self):
         return "(not available for this machine type)\n"
