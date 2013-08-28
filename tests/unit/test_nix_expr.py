@@ -200,8 +200,8 @@ class Py2NixTestBase(object):
 
 
 class Py2NixTest(unittest.TestCase, Py2NixTestBase):
-    def assert_nix(self, nix_expr, expected, maxwidth=80):
-        result = py2nix(nix_expr, maxwidth=maxwidth)
+    def assert_nix(self, nix_expr, expected, maxwidth=80, inline=False):
+        result = py2nix(nix_expr, maxwidth=maxwidth, inline=inline)
         self.assertEqual(
             result, expected,
             "Expected:\n{0}\nGot:\n{1}".format(expected, result)
@@ -252,6 +252,14 @@ class Py2NixTest(unittest.TestCase, Py2NixTestBase):
 
         self.assertRaises(KeyError, py2nix, {(): 1})
         self.assertRaises(ValueError, py2nix, {('a', 'b'): 1, 'a': 2})
+
+    def test_inline(self):
+        self.assert_nix({'foo': ['a\nb\nc\n'], 'bar': ['d\ne\nf\n']},
+                        r'{ bar = [ "d\ne\nf\n" ]; foo = [ "a\nb\nc\n" ]; }',
+                        inline=True, maxwidth=0)
+        self.assert_nix({"a\nb": ["c", "d"], "e\nf": ["g", "h"]},
+                        r'{ "a\nb" = [ "c" "d" ]; "e\nf" = [ "g" "h" ]; }',
+                        inline=True, maxwidth=0)
 
 
 class Nix2PyTest(unittest.TestCase, Py2NixTestBase):

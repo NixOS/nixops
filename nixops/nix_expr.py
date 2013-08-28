@@ -94,14 +94,15 @@ def _fold_string(value, rules):
     return reduce(folder, rules, value)
 
 
-def py2nix(value, initial_indentation=0, maxwidth=80):
+def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
     """
     Return the given value as a Nix expression string.
 
     If initial_indentation is to a specific level (two spaces per level), don't
     inline fewer than that. Also, 'maxwidth' specifies the maximum line width
     which is enforced whenever it is possible to break an expression. Set to 0
-    if you want to break on every occasion possible.
+    if you want to break on every occasion possible. If 'inline' is set to
+    True, squash everything into a single line.
     """
     def _enc_int(node):
         if node < 0:
@@ -204,7 +205,8 @@ def py2nix(value, initial_indentation=0, maxwidth=80):
         else:
             raise ValueError("unable to encode {0}".format(repr(node)))
 
-    return _enc(value).indent(initial_indentation, maxwidth=maxwidth)
+    return _enc(value).indent(initial_indentation, maxwidth=maxwidth,
+                              inline=inline)
 
 
 def expand_dict(unexpanded):
