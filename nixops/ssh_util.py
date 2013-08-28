@@ -52,7 +52,7 @@ class SSHMaster(object):
                 "unable to start SSH master connection to "
                 "‘{0}’".format(logger.machine_name)
             )
-        self.opts = ["-S", self._control_socket]
+        self.opts = ["-oControlPath={0}".format(self._control_socket)]
 
     def _make_askpass_helper(self):
         """
