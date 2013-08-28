@@ -231,9 +231,10 @@ class Deployment(object):
 
     def _eval_flags(self, exprs):
         flags = self._nix_path_flags()
+        args = {key: RawValue(val) for key, val in self.args.iteritems()}
         flags.extend(
-            ["--arg", "networkExprs", "[ " + " ".join([nixops.util.make_nix_string(s) for s in exprs]) + " ]",
-             "--arg", "args", self._args_to_attrs(),
+            ["--arg", "networkExprs", py2nix(exprs, inline=True),
+             "--arg", "args", py2nix(args, inline=True),
              "--argstr", "uuid", self.uuid,
              "--show-trace",
              "<nixops/eval-machine-info.nix>"])
@@ -252,13 +253,7 @@ class Deployment(object):
     def set_argstr(self, name, value):
         """Set a persistent argument to the deployment specification."""
         assert isinstance(value, basestring)
-        s = ""
-        for c in value:
-            if c == '"': s += '\\"'
-            elif c == '\\': s += '\\\\'
-            elif c == '$': s += '\\$'
-            else: s += c
-        self.set_arg(name, '"' + s + '"')
+        self.set_arg(name, py2nix(value, inline=True))
 
 
     def unset_arg(self, name):
@@ -267,10 +262,6 @@ class Deployment(object):
         args = self.args
         args.pop(name, None)
         self.args = args
-
-
-    def _args_to_attrs(self):
-        return "{ " + string.join([n + " = " + v + "; " for n, v in self.args.iteritems()]) + "}"
 
 
     def evaluate(self):
@@ -550,7 +541,7 @@ class Deployment(object):
 
         selected = [m for m in self.active.itervalues() if should_do(m, include, exclude)]
 
-        names = ['"' + m.name + '"' for m in selected]
+        names = map(lambda m: m.name, selected)
 
         # If we're not running on Linux, then perform the build on the
         # target machines.  FIXME: Also enable this if we're on 32-bit
@@ -581,7 +572,7 @@ class Deployment(object):
             configs_path = subprocess.check_output(
                 ["nix-build"]
                 + self._eval_flags(self.nix_exprs + [phys_expr]) +
-                ["--arg", "names", "[ " + " ".join(names) + " ]",
+                ["--arg", "names", py2nix(names, inline=True),
                  "-A", "machines", "-o", self.tempdir + "/configs"]
                 + (["--dry-run"] if dry_run else []),
                 stderr=self.logger.log_file).rstrip()
@@ -923,11 +914,13 @@ class Deployment(object):
         # configurations.
         if self.rollback_enabled: # and len(self.active) == 0:
             profile = self.create_profile()
-            attrs = ["\"{0}\" = builtins.storePath {1};".format(m.name, m.cur_toplevel) for m in self.active.itervalues() if m.cur_toplevel]
+            attrs = {m.name:
+                     Function("builtins.storePath", m.cur_toplevel, call=True)
+                     for m in self.active.itervalues() if m.cur_toplevel}
             if subprocess.call(
                 ["nix-env", "-p", profile, "--set", "*", "-I", "nixops=" + self.expr_path,
                  "-f", "<nixops/update-profile.nix>",
-                 "--arg", "machines", "{ " + " ".join(attrs) + " }"]) != 0:
+                 "--arg", "machines", py2nix(attrs, inline=True)]) != 0:
                 raise Exception("cannot update profile ‘{0}’".format(profile))
 
 
