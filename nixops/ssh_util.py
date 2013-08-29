@@ -3,8 +3,10 @@ import os
 import sys
 import tty
 import fcntl
+import errno
 import struct
 import select
+import signal
 import termios
 
 from contextlib import contextmanager
@@ -33,15 +35,23 @@ class SSHConnection(object):
         transport = self.ssh.get_transport()
         channel = transport.open_session()
 
-        current_term = os.getenv('TERM', 'vt100')
-        winsz = fcntl.ioctl(0, termios.TIOCGWINSZ, '....')
-        height, width = struct.unpack('hh', winsz)
+        def _get_term_size():
+            winsz = fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, '....')
+            return struct.unpack('hh', winsz)
 
+        def _winch_handler(signum, frame):
+            height, width = _get_term_size()
+            channel.resize_pty(width=width, height=height)
+
+        height, width = _get_term_size()
+        current_term = os.getenv('TERM', 'vt100')
         channel.get_pty(current_term, width=width, height=height)
         channel.invoke_shell()
 
         oldtty = termios.tcgetattr(sys.stdin)
         oldflags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
+        oldsig = signal.signal(signal.SIGWINCH, _winch_handler)
+        signal.siginterrupt(signal.SIGWINCH, False)
         try:
             tty.setraw(sys.stdin.fileno())
             tty.setcbreak(sys.stdin.fileno())
@@ -50,7 +60,13 @@ class SSHConnection(object):
             channel.setblocking(0)
 
             while True:
-                ready = select.select([channel, sys.stdin], [], [])[0]
+                try:
+                    ready = select.select([channel, sys.stdin], [], [])[0]
+                except select.error as e:
+                    if e.args[0] == errno.EINTR:
+                        continue
+                    else:
+                        raise
                 if channel in ready:
                     data = channel.recv(1)
                     if len(data) == 0:
@@ -63,6 +79,7 @@ class SSHConnection(object):
                         break
                     channel.send(data)
         finally:
+            signal.signal(signal.SIGWINCH, oldsig)
             fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, oldflags)
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
 
