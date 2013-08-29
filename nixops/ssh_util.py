@@ -40,30 +40,30 @@ class SSHConnection(object):
         channel.get_pty(current_term, width=width, height=height)
         channel.invoke_shell()
 
-        # This is from paramiko/demos/interactive.py
         oldtty = termios.tcgetattr(sys.stdin)
+        oldflags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
         try:
             tty.setraw(sys.stdin.fileno())
             tty.setcbreak(sys.stdin.fileno())
+            fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL,
+                        oldflags | os.O_NDELAY)
             channel.setblocking(0)
 
             while True:
-                r, w, e = select.select([channel, sys.stdin], [], [])
-                if channel in r:
-                    try:
-                        x = channel.recv(1024)
-                        if len(x) == 0:
-                            break
-                        sys.stdout.write(x)
-                        sys.stdout.flush()
-                    except socket.timeout:
-                        pass
-                if sys.stdin in r:
-                    x = sys.stdin.read(1)
-                    if len(x) == 0:
+                ready = select.select([channel, sys.stdin], [], [])[0]
+                if channel in ready:
+                    data = channel.recv(1)
+                    if len(data) == 0:
                         break
-                    channel.send(x)
+                    sys.stdout.write(data)
+                    sys.stdout.flush()
+                if sys.stdin in ready:
+                    data = sys.stdin.read()
+                    if len(data) == 0:
+                        break
+                    channel.send(data)
         finally:
+            fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, oldflags)
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
 
     def upload(self, source, destination):
