@@ -169,7 +169,8 @@ class MachineState(nixops.resources.ResourceState):
         self.run_command("mkdir -m 0700 -p /run/keys")
         for k, v in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
-            self._connect_ssh().open("/run/keys/" + k, 'wb').write(v)
+            with self._connect_ssh().open("/run/keys/" + k, 'wb') as keyfile:
+                keyfile.write(v)
             self.run_command("chmod 600 /run/keys/" + k)
         self.run_command("touch /run/keys/done")
 

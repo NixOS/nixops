@@ -2,11 +2,12 @@
 import os
 import sys
 import tty
-import shlex
 import fcntl
 import struct
 import select
 import termios
+
+from contextlib import contextmanager
 
 import paramiko
 
@@ -79,13 +80,17 @@ class SSHConnection(object):
         sftp = paramiko.SFTPClient.from_transport(self.ssh.get_transport())
         sftp.get(source, target)
 
+    @contextmanager
     def open(self, *args, **kwargs):
         """
         Open a file instance on the remote side. This is the same as Python's
-        open() function but working on the remote file.
+        open() function but working on the remote file and using a context
+        manager. So you only can use this method using the with keyword.
         """
         sftp = paramiko.SFTPClient.from_transport(self.ssh.get_transport())
-        return sftp.open(*args, **kwargs)
+        fp = sftp.open(*args, **kwargs)
+        yield fp
+        fp.close()
 
     def run_command(self, command, timeout=None, log_cb=None, bufsize=4096,
                     stdin_string=None, stdin=None, capture_stdout=False,
