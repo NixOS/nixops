@@ -491,7 +491,7 @@ class HetznerState(MachineState):
         route6_cmd = "ip -6 route add default via '{0}' dev eth0 || true"
         route_commands.append(route6_cmd.format(v6defgw))
 
-        local_commands = r'\n'.join(ipv6_commands + route_commands)
+        local_commands = r'\n'.join(ipv6_commands + route_commands) + r'\n'
 
         udev_attrs = ["services.udev.extraRules = ''"]
         udev_attrs += self._indent(udev_rules)
