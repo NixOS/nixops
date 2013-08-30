@@ -479,10 +479,8 @@ def op_ssh():
     ssh_name = m.get_ssh_name()
     print >> sys.stderr, "connecting to {0}...".format(ssh_name)
     # TODO: args.args quoting!
-    if len(args.args) == 0:
-        sys.exit(m.invoke_shell())
-    else:
-        sys.exit(m.run_command(' '.join(args.args), check=False))
+    command = ' '.join(args.args) if len(args.args) > 0 else None
+    sys.exit(m.invoke_shell(command))
 
 def op_ssh_for_each():
     depl = open_deployment()

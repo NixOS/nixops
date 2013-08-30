@@ -31,7 +31,13 @@ class SSHConnection(object):
         self.ssh = ssh
         self.host = host
 
-    def invoke_shell(self):
+    def invoke_shell(self, command=None):
+        """
+        Invoke a 'command' on the target machine while allocating a PTY.
+
+        This is only meant to be used for interactive shells or programs and
+        doesn't directly allow for logging, such as run_command().
+        """
         transport = self.ssh.get_transport()
         channel = transport.open_session()
 
@@ -46,7 +52,10 @@ class SSHConnection(object):
         height, width = _get_term_size()
         current_term = os.getenv('TERM', 'vt100')
         channel.get_pty(current_term, width=width, height=height)
-        channel.invoke_shell()
+        if command is None:
+            channel.invoke_shell()
+        else:
+            channel.exec_command(command)
 
         oldtty = termios.tcgetattr(sys.stdin)
         oldflags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)

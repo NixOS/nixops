@@ -250,8 +250,8 @@ class MachineState(nixops.resources.ResourceState):
                                                log_cb=self.logger.log_raw,
                                                **kwargs)
 
-    def invoke_shell(self):
-        return self._connect_ssh().invoke_shell()
+    def invoke_shell(self, command=None):
+        return self._connect_ssh().invoke_shell(command)
 
     def switch_to_configuration(self, method, sync, command=None):
         """
