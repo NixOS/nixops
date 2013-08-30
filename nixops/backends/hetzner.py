@@ -14,6 +14,7 @@ from nixops.util import wait_for_tcp_port, ping_tcp_port
 from nixops.util import attr_property, create_key_pair
 from nixops.ssh_util import SSHCommandFailed
 from nixops.backends import MachineDefinition, MachineState
+from nixops.nix_expr import nix2py, nixmerge
 
 # This is set to True by tests/hetzner-backend.nix. If it's in effect, no
 # attempt is made to connect to the real Robot API and the API calls only
@@ -507,12 +508,12 @@ class HetznerState(MachineState):
         self.net_info = "\n".join(self._indent(attrs))
 
     def get_physical_spec(self):
-        if self.net_info and self.fs_info and self.hw_info:
-            return self._indent(self.net_info.splitlines() +
-                                self.fs_info.splitlines() +
-                                self.hw_info.splitlines())
+        required = [self.net_info, self.fs_info, self.hw_info]
+        if all(required):
+            attrs = map(lambda data: nix2py("{" + data + "}"), required)
+            return reduce(nixmerge, attrs)
         else:
-            return []
+            return {}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, HetznerDefinition)

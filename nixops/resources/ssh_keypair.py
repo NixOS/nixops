@@ -47,13 +47,12 @@ class SSHKeyPairState(nixops.resources.ResourceState):
                 self.private_key = private
                 self.state = state = nixops.resources.ResourceState.UP
 
-    def get_definition_prefix(self):
-        return "resources.sshKeyPairs."
+    def prefix_definition(self, attr):
+        return {('resources', 'sshKeyPairs'): attr}
 
     def get_physical_spec(self):
-        return ["    private_key = ''{0}'';".format(self.private_key),
-                "    public_key = \"{0}\";".format(self.public_key)
-        ]
+        return {'private_key': self.private_key,
+                'public_key': self.public_key}
 
     def destroy(self, wipe=False):
         return True

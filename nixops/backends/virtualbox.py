@@ -6,6 +6,7 @@ import time
 import shutil
 import stat
 from nixops.backends import MachineDefinition, MachineState
+from nixops.nix_expr import RawValue
 import nixops.known_hosts
 
 
@@ -72,7 +73,7 @@ class VirtualBoxState(MachineState):
         return ["-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file()]
 
     def get_physical_spec(self):
-        return ['    require = [ <nixops/virtualbox-image-nixops.nix> ];']
+        return {'require': [RawValue('<nixops/virtualbox-image-nixops.nix>')]}
 
 
     def address_to(self, m):
