@@ -173,7 +173,7 @@ class EC2State(MachineState):
             'require': [
                 RawValue("<nixos/modules/virtualisation/amazon-config.nix>")
             ],
-            ('deployment', 'ec2', 'blockDeviceMapping'): blockDeviceMapping,
+            ('deployment', 'ec2', 'blockDeviceMapping'): block_device_mapping,
         }
 
     def get_physical_backup_spec(self, backupid):
