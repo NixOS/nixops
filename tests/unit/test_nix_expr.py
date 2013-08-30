@@ -261,6 +261,14 @@ class Py2NixTest(unittest.TestCase, Py2NixTestBase):
                         r'{ "a\nb" = [ "c" "d" ]; "e\nf" = [ "g" "h" ]; }',
                         inline=True, maxwidth=0)
 
+    def test_list_compound(self):
+        self.assert_nix([Function("123 //", 456, call=True),
+                         RawValue("a b c")],
+                        '[ (123 // 456) (a b c) ]')
+        self.assert_nix([RawValue("a b c"), {
+            'cde': [RawValue("1,2,3"), RawValue("4 5 6"), RawValue("7\n8\n9")]
+        }], '[ (a b c) { cde = [ 1,2,3 (4 5 6) (7\n8\n9) ]; } ]')
+
 
 class Nix2PyTest(unittest.TestCase, Py2NixTestBase):
     def assert_nix(self, expected, source, maxwidth=80):

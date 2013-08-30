@@ -136,14 +136,14 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
         else:
             return inline_variant
 
-    def _enc_list(node):
-        if len(node) == 0:
+    def _enc_list(nodes):
+        if len(nodes) == 0:
             return RawValue("[]")
         pre, post = "[", "]"
-        while len(node) == 1 and isinstance(node[0], list):
-            node = node[0]
+        while len(nodes) == 1 and isinstance(nodes[0], list):
+            nodes = nodes[0]
             pre, post = pre + " [", post + " ]"
-        return Container(pre, map(_enc, node), post)
+        return Container(pre, map(lambda n: _enc(n, inlist=True), nodes), post)
 
     def _enc_key(key):
         if not isinstance(key, basestring):
@@ -183,9 +183,12 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
         sep = " " if node.call else ": "
         return enclose_node(body, node.head + sep)
 
-    def _enc(node):
+    def _enc(node, inlist=False):
         if isinstance(node, RawValue):
-            return node
+            if inlist and any(char.isspace() for char in node.value):
+                return enclose_node(node, "(", ")")
+            else:
+                return node
         elif node is True:
             return RawValue("true")
         elif node is False:
@@ -201,7 +204,10 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
         elif isinstance(node, dict):
             return _enc_attrset(expand_dict(node))
         elif isinstance(node, Function):
-            return _enc_function(node)
+            if inlist:
+                return enclose_node(_enc_function(node), "(", ")")
+            else:
+                return _enc_function(node)
         else:
             raise ValueError("unable to encode {0}".format(repr(node)))
 
