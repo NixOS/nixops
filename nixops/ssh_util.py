@@ -151,12 +151,13 @@ class SSHConnection(object):
                 if stdin_done:
                     channel.shutdown_write()
 
-            if capture_stdout and channel.recv_stderr_ready():
-                data = channel.recv_stderr(bufsize)
-                if log_cb is not None:
-                    log_cb(data)
+            if capture_stdout:
+                while channel.recv_stderr_ready():
+                    data = channel.recv_stderr(bufsize)
+                    if log_cb is not None:
+                        log_cb(data)
 
-            if channel.recv_ready():
+            while channel.recv_ready():
                 data = channel.recv(bufsize)
                 if capture_stdout:
                     stdout += data

@@ -33,6 +33,7 @@ class TestSSHServer(paramiko.ServerInterface):
 class SSHTest(unittest.TestCase):
     HOST_KEY = paramiko.RSAKey.generate(1024)
     BUFSIZE = 1024
+    GENERIC_PAYLOAD = '0123456789' * (BUFSIZE + 7) * 10
 
     def setUp(self):
         self.sock = socket.socket()
@@ -65,21 +66,25 @@ class SSHTest(unittest.TestCase):
         if command == 'reboot':
             channel.close()
             return
-
-        for i in itertools.count():
-            data = channel.recv(self.BUFSIZE)
-            if len(data) == 0:
-                break
-            if command == 'oddeven':
-                if i % 2 == 0:
+        elif command == 'eofsoon':
+            channel.sendall(self.GENERIC_PAYLOAD)
+            channel.shutdown_write()
+            channel.send_exit_status(0)
+        else:
+            for i in itertools.count():
+                data = channel.recv(self.BUFSIZE)
+                if len(data) == 0:
+                    break
+                if command == 'oddeven':
+                    if i % 2 == 0:
+                        channel.send(data)
+                    else:
+                        channel.send_stderr(data)
+                elif command == 'stdout':
                     channel.send(data)
-                else:
+                elif command == 'stderr':
                     channel.send_stderr(data)
-            elif command == 'stdout':
-                channel.send(data)
-            elif command == 'stderr':
-                channel.send_stderr(data)
-        channel.send_exit_status(0)
+            channel.send_exit_status(0)
         channel.close()
 
     def connect_client(self):
@@ -157,3 +162,8 @@ class SSHTest(unittest.TestCase):
         client = self.connect_client()
         result = client.run_command("reboot", check=False)
         self.assertEqual(result, -1)
+
+    def test_buffer_before_eof(self):
+        client = self.connect_client()
+        output = client.run_command("eofsoon", capture_stdout=True)
+        self.assert_textdiff(self.GENERIC_PAYLOAD, output)
