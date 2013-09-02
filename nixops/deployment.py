@@ -598,20 +598,35 @@ class Deployment(object):
             tasks=self.active.itervalues(), worker_fun=worker)
 
 
-    def activate_configs(self, configs_path, include, exclude, allow_reboot, force_reboot, check, sync):
+    def activate_configs(self, configs_path, include, exclude, allow_reboot,
+                         force_reboot, check, sync, always_activate):
         """Activate the new configuration on a machine."""
 
         def worker(m):
             if not should_do(m, include, exclude): return
 
             try:
-                m.send_keys()
+                # Set the system profile to the new configuration.
+                setprof = 'nix-env -p /nix/var/nix/profiles/system --set "{0}"'
+                if always_activate:
+                    m.run_command(setprof.format(m.new_toplevel))
+                else:
+                    # Only activate if the profile has changed.
+                    new_profile_cmd = '; '.join([
+                        'old_gen="$(readlink -f /nix/var/nix/profiles/system)"',
+                        'new_gen="$(readlink -f "{0}")"',
+                        '[ "x$old_gen" != "x$new_gen" ] || exit 111',
+                        setprof
+                    ]).format(m.new_toplevel)
 
-                m.run_command(
-                    # Set the system profile to the new configuration.
-                    "nix-env -p /nix/var/nix/profiles/system --set " +
-                    m.new_toplevel
-                )
+                    ret = m.run_command(new_profile_cmd, check=False)
+                    if ret == 111:
+                        m.log("configuration already up to date")
+                        return
+                    elif ret != 0:
+                        raise Exception("unable to set new system profile")
+
+                m.send_keys()
 
                 if force_reboot or m.state == m.RESCUE:
                     switch_method = "boot"
@@ -772,7 +787,7 @@ class Deployment(object):
     def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
                 include=[], exclude=[], check=False, kill_obsolete=False,
                 allow_reboot=False, allow_recreate=False, force_reboot=False,
-                max_concurrent_copy=5, sync=True):
+                max_concurrent_copy=5, sync=True, always_activate=False):
         """Perform the deployment defined by the deployment specification."""
 
         self.evaluate_active(include, exclude, kill_obsolete)
@@ -842,8 +857,10 @@ class Deployment(object):
         if copy_only: return
 
         # Active the configurations.
-        self.activate_configs(self.configs_path, include=include, exclude=exclude,
-                              allow_reboot=allow_reboot, force_reboot=force_reboot, check=check, sync=sync)
+        self.activate_configs(self.configs_path, include=include,
+                              exclude=exclude, allow_reboot=allow_reboot,
+                              force_reboot=force_reboot, check=check,
+                              sync=sync, always_activate=always_activate)
 
 
     def deploy(self, **kwargs):
@@ -852,7 +869,8 @@ class Deployment(object):
 
 
     def _rollback(self, generation, include=[], exclude=[], check=False,
-                 allow_reboot=False, force_reboot=False, max_concurrent_copy=5, sync=True):
+                  allow_reboot=False, force_reboot=False,
+                  max_concurrent_copy=5, sync=True):
         if not self.rollback_enabled:
             raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy"
                             )
@@ -883,8 +901,10 @@ class Deployment(object):
         self.copy_closures(self.configs_path, include=include, exclude=exclude,
                            max_concurrent_copy=max_concurrent_copy)
 
-        self.activate_configs(self.configs_path, include=include, exclude=exclude,
-                              allow_reboot=allow_reboot, force_reboot=force_reboot, check=check, sync=sync)
+        self.activate_configs(self.configs_path, include=include,
+                              exclude=exclude, allow_reboot=allow_reboot,
+                              force_reboot=force_reboot, check=check,
+                              sync=sync, always_activate=True)
 
 
     def rollback(self, **kwargs):

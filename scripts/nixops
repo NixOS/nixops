@@ -347,7 +347,8 @@ def op_deploy():
                 allow_recreate=args.allow_recreate,
                 force_reboot=args.force_reboot,
                 max_concurrent_copy=args.max_concurrent_copy,
-                sync=not args.no_sync)
+                sync=not args.no_sync,
+                always_activate=args.always_activate)
 
 
 def op_send_keys():
@@ -674,6 +675,8 @@ subparser.add_argument('--build-only', action='store_true', help='build only; do
 subparser.add_argument('--create-only', action='store_true', help='exit after creating missing machines')
 subparser.add_argument('--copy-only', action='store_true', help='exit after copying closures')
 subparser.add_argument('--allow-recreate', action='store_true', help='recreate resources machines that have disappeared')
+subparser.add_argument('--always-activate', action='store_true',
+                       help='activate unchanged configurations as well')
 add_common_deployment_options(subparser)
 
 subparser = add_subparser('send-keys', help='send encryption keys')
