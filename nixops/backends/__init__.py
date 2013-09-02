@@ -17,6 +17,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         nixops.resources.ResourceDefinition.__init__(self, xml)
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
+        self.always_activate = xml.find("attrs/attr[@name='alwaysActivate']/bool").get("value") == "true"
         self.keys = {k.get("name"): k.find("string").get("value") for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")}
         self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
 
