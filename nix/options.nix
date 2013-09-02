@@ -56,6 +56,20 @@ in
       '';
     };
 
+    deployment.alwaysActivate = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Always run the activation script, no matter whether the configuration
+        has changed (the default). This behaviour can be enforced even if it's
+        set to <literal>false</literal> using the command line option
+        <literal>--always-activate</literal> on deployment.
+
+        If this is set to <literal>false</literal>, activation is done only if
+        the new system profile doesn't match the previous one.
+      '';
+    };
+
     deployment.encryptedLinksTo = mkOption {
       default = [];
       type = types.listOf types.string;
