@@ -371,9 +371,10 @@ class EC2State(MachineState):
             self.log("+ created snapshot of volume ‘{0}’: ‘{1}’".format(v['volumeId'], snapshot.id))
 
 
-            snapshot_tags = {'Name': "{0} - {3} [{1} - {2}]".format(self.depl.description, self.name, k, backup_id)}
+            snapshot_tags = {}
             snapshot_tags.update(defn.tags)
             snapshot_tags.update(self.get_common_tags())
+            snapshot_tags['Name'] = "{0} - {3} [{1} - {2}]".format(self.depl.description, self.name, k, backup_id)
 
             nixops.ec2_utils.retry(lambda: self._conn.create_tags([snapshot.id], snapshot_tags))
             backup[k] = snapshot.id
