@@ -6,6 +6,36 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.0.2"><title>Release 1.0.2 (September, 2013)</title>
+
+<itemizedlist>
+
+  <listitem><para>Backend for <link
+  xlink:href="http://hetzner.de">Hetzner</link>, the German data center
+  provider. More information and a demo video can be found <link
+  xlink:href="https://github.com/NixOS/nixops/pull/119">here</link>.
+  </para></listitem>
+
+  <listitem><para>When using the <code>deployment.keys.*</code> options, the
+  keys in /run/keys are now created with mode 600.</para></listitem>
+
+  <listitem><para>Fixed bug where EBS snapshots name tag was overridden by the
+  instance name tag.</para></listitem>
+
+  <listitem><para>The nixops executable now has the default OpenSSH from nixpkgs
+  in its PATH now by default, to work around issues with left-over SSH master
+  connections on older version of OpenSSH, such as the version that is installed
+  by default on CentOS.</para></listitem>
+
+  <listitem><para>A new resource type has been introduced to generate sets of SSH
+  public/private keys.</para></listitem>
+
+
+</itemizedlist>
+
+
+</section>
+
 <section xml:id="ssec-relnotes-1.0.1"><title>Release 1.0.1 (July 11, 2013)</title>
 
 <para>This is a minor bugfix release.</para>
