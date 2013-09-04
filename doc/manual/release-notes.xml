@@ -11,7 +11,7 @@
 <itemizedlist>
 
   <listitem><para>Backend for <link
-  xlink:href="http://hetzner.de">Hetzner</link>, the German data center
+  xlink:href="http://hetzner.de">Hetzner</link>, a German data center
   provider. More information and a demo video can be found <link
   xlink:href="https://github.com/NixOS/nixops/pull/119">here</link>.
   </para></listitem>
