@@ -34,7 +34,7 @@ rec {
         cp ${import ./doc/manual { revision = nixopsSrc.rev; }} doc/manual/machine-options.xml
         ${pkgs.lib.concatMapStrings (fn: ''
           cp ${import ./doc/manual/resource.nix { revision = nixopsSrc.rev; module = ./nix + ("/" + fn + ".nix"); }} doc/manual/${fn}-options.xml
-        '') [ "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" ]}
+        '') [ "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" "ssh-keypair" ]}
 
         make -C doc/manual install docbookxsl=${pkgs.docbook5_xsl}/xml/xsl/docbook \
             docdir=$out/manual mandir=$TMPDIR/man

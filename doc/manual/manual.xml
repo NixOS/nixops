@@ -99,6 +99,15 @@
       <xi:include href="iam-role-options.xml" />
     </section>
 
+    <section>
+      <title>SSH Keypairs</title>
+      <para>An SSH keypair is defined by setting
+      <literal>resources.sshKeyPairs.<replaceable>name</replaceable></literal>
+      to an empty attribute set. You can access the generated keypair by using
+      the following options.</para>
+      <xi:include href="ssh-keypair-options.xml" />
+    </section>
+
   </appendix>
 
   <xi:include href="hacking.xml" />
