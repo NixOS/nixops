@@ -475,9 +475,9 @@ class Deployment(object):
             first = first_format.format(r.get_definition_prefix(), r.name)
 
             if len(res_physical) > 0:
-                merger = 'pkgs.lib.mergeAttrByFunc'
+                merger = '{\n    imports = ['
                 lines.insert(0, first + ' ' + merger + ' {')
-                lines += ["  } {"] + res_physical + ["  };\n"]
+                lines += ["  } {"] + res_physical + ["} ];\n    config = {};\n};\n"]
             elif len(lines) == 0:
                 return ""
             else:
