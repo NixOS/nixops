@@ -416,16 +416,6 @@ class Deployment(object):
                 lines.append('        privateKey = "/root/.ssh/id_charon_vpn";')
                 lines.append('      }};'.format(m2.name))
 
-                if hasattr(m2, 'public_host_key'):
-                    # Using references to files in same tempdir for now, until NixOS has support
-                    # for adding the keys directly as string. This way at least it is compatible
-                    # with older versions of NixOS as well.
-                    # TODO: after reasonable amount of time replace with string option
-                    lines.append('    services.openssh.knownHosts.{0} ='.format(m2.name))
-                    lines.append('      {{ hostNames = ["{0}-unencrypted" "{0}-encrypted" "{0}" ];'.format(m2.name))
-                    lines.append('        publicKeyFile = ./{0}.public_host_key;'.format(m2.name))
-                    lines.append('      }};'.format(m2.name))
-
                 # FIXME: set up the authorized_key file such that ‘m’
                 # can do nothing more than create a tunnel.
                 authorized_keys[m2.name].append('"' + m.public_vpn_key + '"')
@@ -464,6 +454,18 @@ class Deployment(object):
                 lines.append('    boot.kernelModules = [ {0} ];'.format(" ".join(kernel_modules[r.name])))
                 lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces[r.name])))
                 lines.append('    networking.extraHosts = "{0}\\n";'.format(r'\n'.join(extra_hosts)))
+
+                # Add SSH public host keys for all machines in network
+                for m2 in active_machines.itervalues():
+                    if hasattr(m2, "public_host_key"):
+                        # Using references to files in same tempdir for now, until NixOS has support
+                        # for adding the keys directly as string. This way at least it is compatible
+                        # with older versions of NixOS as well.
+                        # TODO: after reasonable amount of time replace with string option
+                        lines.append('    services.openssh.knownHosts."{0}" ='.format(m2.name))
+                        lines.append('      {{ hostNames = ["{0}-unencrypted" "{0}-encrypted" "{0}" ];'.format(m2.name))
+                        lines.append('        publicKeyFile = ./{0}.public_host_key;'.format(m2.name))
+                        lines.append('      }};'.format(m2.name))
 
             # Ensure that we don't clash with any of the physical attributes
             # from the resource.
