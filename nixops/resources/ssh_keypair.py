@@ -51,8 +51,8 @@ class SSHKeyPairState(nixops.resources.ResourceState):
         return "resources.sshKeyPairs."
 
     def get_physical_spec(self):
-        return ["    private_key = ''{0}'';".format(self.private_key),
-                "    public_key = \"{0}\";".format(self.public_key)
+        return ["    privateKey = ''{0}'';".format(self.private_key),
+                "    publicKey = \"{0}\";".format(self.public_key)
         ]
 
     def destroy(self, wipe=False):
