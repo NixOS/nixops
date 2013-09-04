@@ -56,6 +56,10 @@ class IAMRoleState(nixops.resources.ResourceState):
         return self.role_name
 
 
+    def get_definition_prefix(self):
+        return "resources.iamRoles."
+
+
     def connect(self):
         if self._conn: return
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)

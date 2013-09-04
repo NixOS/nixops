@@ -55,6 +55,8 @@ class S3BucketState(nixops.resources.ResourceState):
     def resource_id(self):
         return self.bucket_name
 
+    def get_definition_prefix(self):
+        return "resources.s3Buckets."
 
     def connect(self):
         if self._conn: return

@@ -56,6 +56,10 @@ class EC2KeyPairState(nixops.resources.ResourceState):
         return self.keypair_name
 
 
+    def get_definition_prefix(self):
+        return "resources.ec2KeyPairs."
+
+
     def connect(self):
         if self._conn: return
         self._conn = nixops.ec2_utils.connect(self.region, self.access_key_id)
