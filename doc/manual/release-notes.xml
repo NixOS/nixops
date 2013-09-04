@@ -30,6 +30,12 @@
   <listitem><para>A new resource type has been introduced to generate sets of SSH
   public/private keys.</para></listitem>
 
+  <listitem><para>Support for spot instances in the EC2 backend. By specifying
+    the <code>deployment.ec2.spotInstancePrice</code> option for a machine,
+    you can set the spot instance price in cents. NixOps will wait 10
+    minutes for a spot instance to be fulfilled, if not, then it will error
+    out for that machine.</para></listitem>
+
 
 </itemizedlist>
 
