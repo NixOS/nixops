@@ -3,12 +3,19 @@ import unittest
 from textwrap import dedent
 
 from nixops.nix_expr import py2nix, nix2py, nixmerge
-from nixops.nix_expr import RawValue, Function, ParseFailure
+from nixops.nix_expr import RawValue, Function
 
-__all__ = ['Py2NixTest', 'Nix2PyTest']
+__all__ = ['Py2NixTest', 'Nix2PyTest', 'NixMergeTest']
 
 
-class Py2NixTestBase(object):
+class Py2NixTestBase(unittest.TestCase):
+    def assert_nix(self, nix_expr, expected, maxwidth=80, inline=False):
+        result = py2nix(nix_expr, maxwidth=maxwidth, inline=inline)
+        self.assertEqual(
+            result, expected,
+            "Expected:\n{0}\nGot:\n{1}".format(expected, result)
+        )
+
     def test_numeric(self):
         self.assert_nix(123, "123")
         self.assert_nix(-123, "builtins.sub 0 123")
@@ -198,15 +205,6 @@ class Py2NixTestBase(object):
              })}
         ), match, maxwidth=26)
 
-
-class Py2NixTest(unittest.TestCase, Py2NixTestBase):
-    def assert_nix(self, nix_expr, expected, maxwidth=80, inline=False):
-        result = py2nix(nix_expr, maxwidth=maxwidth, inline=inline)
-        self.assertEqual(
-            result, expected,
-            "Expected:\n{0}\nGot:\n{1}".format(expected, result)
-        )
-
     def test_function_call(self):
         self.assert_nix(Function("fun_call", {'a': 'b'}, call=True),
                         'fun_call { a = "b"; }')
@@ -270,24 +268,20 @@ class Py2NixTest(unittest.TestCase, Py2NixTestBase):
         }], '[ (a b c) { cde = [ 1,2,3 (4 5 6) (7\n8\n9) ]; } ]')
 
 
-class Nix2PyTest(unittest.TestCase, Py2NixTestBase):
-    def assert_nix(self, expected, source, maxwidth=80):
-        self.assertEqual(nix2py(source), expected)
+class Nix2PyTest(unittest.TestCase):
+    def test_simple(self):
+        self.assertEquals(py2nix(nix2py('{\na = b;\n}'), maxwidth=0),
+                          '{\na = b;\n}')
+        self.assertEquals(py2nix(nix2py('\n{\na = b;\n}\n'), maxwidth=0),
+                          '{\na = b;\n}')
 
-    def test_dense(self):
-        self.assert_nix([[[3]]], "[[[3]]]")
-        self.assert_nix({'a': {'b': 'c'}}, '{a.b="c";}')
-        self.assert_nix({'a': {'b': ['c', 'd']}}, '{a.b=["c" "d"];}')
-        self.assert_nix('abcde', "''abcde''")
-
-    def test_parse_incomplete(self):
-        self.assertRaises(ParseFailure, nix2py, "")
-        self.assertRaises(ParseFailure, nix2py, "\"")
-        self.assertRaises(ParseFailure, nix2py, "[")
-        self.assertRaises(ParseFailure, nix2py, "[1")
-        self.assertRaises(ParseFailure, nix2py, "{a")
-        self.assertRaises(ParseFailure, nix2py, "{a=")
-        self.assertRaises(ParseFailure, nix2py, "{a=1")
+    def test_nested(self):
+        self.assertEquals(py2nix([nix2py('a\nb\nc')], maxwidth=0),
+                          '[\n  (a\n  b\n  c)\n]')
+        self.assertEquals(py2nix({'foo': nix2py('a\nb\nc'),
+                                  'bar': nix2py('d\ne\nf')}, maxwidth=0),
+                          # ugly, but probably won't happen in practice
+                          '{\n  bar = d\n  e\n  f;\n  foo = a\n  b\n  c;\n}')
 
 
 class NixMergeTest(unittest.TestCase):
