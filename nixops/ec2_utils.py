@@ -71,6 +71,8 @@ def retry(f, error_codes=[]):
             if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
                 raise e
         except BotoServerError as e:
+            if e.error_code == "RequestLimitExceeded":
+                num_retries += 1
             if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
                 raise e
         except Exception as e:
