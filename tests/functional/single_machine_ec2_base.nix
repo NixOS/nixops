@@ -1,17 +1,20 @@
-{ privateKey, keyPair, securityGroup }:
-
+{ securityGroup }:
+let
+  region = "us-east-1";
+in
 {
-  machine.deployment = {
-    targetEnv = "ec2";
+  resources.ec2KeyPairs.my-key-pair =
+    { inherit region; };
 
-    ec2 = {
-      region = "us-east-1";
-
-      instanceType = "m1.small";
-
-      inherit privateKey keyPair;
-
-      securityGroups = [ securityGroup ];
+  machine =
+    { resources, ... }:
+    {
+      deployment.targetEnv = "ec2";
+      deployment.ec2 = {
+        inherit region;
+        instanceType = "m1.small";
+        securityGroups = [ securityGroup ];
+        keyPair = resources.ec2KeyPairs.my-key-pair.name ;
+      };
     };
-  };
 }
