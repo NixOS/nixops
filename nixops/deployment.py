@@ -456,8 +456,8 @@ class Deployment(object):
             do_machine(m)
 
         def emit_resource(r):
-            attrs_list = []
-            attrs_list.extend(attrs_per_resource[r.name])
+            config = []
+            config.extend(attrs_per_resource[r.name])
             if is_machine(r):
                 # Sort the hosts by its canonical host names.
                 sorted_hosts = sorted(hosts[r.name].iteritems(),
@@ -468,7 +468,7 @@ class Deployment(object):
                                for ip, names in sorted_hosts]
 
                 if authorized_keys[r.name]:
-                    attrs_list.append({
+                    config.append({
                         ('users', 'extraUsers', 'root'): {
                             ('authorizedKeys', 'keys'): authorized_keys[r.name]
                         },
@@ -476,21 +476,25 @@ class Deployment(object):
                             'extraConfig': "PermitTunnel yes\n"
                         },
                     })
-                attrs_list.append({
+                config.append({
                     ('boot', 'kernelModules'): list(kernel_modules[r.name]),
                     ('networking', 'firewall'): {
                         'trustedInterfaces': list(trusted_interfaces[r.name])
                     },
-                    ('networking', 'extraHosts'): '\n'.join(extra_hosts) + "\n",
+                    ('networking', 'extraHosts'): '\n'.join(extra_hosts) + "\n"
                 })
 
-            attrs_list.append(r.get_physical_spec())
-            merged = reduce(nixmerge, attrs_list)
-            if len(merged) == 0:
+            merged = reduce(nixmerge, config) if len(config) > 0 else {}
+            physical = r.get_physical_spec()
+
+            if len(merged) == 0 and len(physical) == 0:
                 return {}
             else:
                 return r.prefix_definition({
-                    r.name: Function("{ config, pkgs, ... }", merged)
+                    r.name: Function("{ config, pkgs, ... }", {
+                        'config': merged,
+                        'imports': [physical],
+                    })
                 })
 
         return py2nix(reduce(nixmerge, [
