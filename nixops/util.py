@@ -195,19 +195,6 @@ def abs_nix_path(x):
     return xs[0] + '=' + os.path.abspath(xs[1])
 
 
-def make_nix_string(s):
-    t = '"'
-    for c in s:
-        if c == '\\': t += "\\\\"
-        elif c == '\n': t += "\\n"
-        elif c == '\r': t += "\\r"
-        elif c == '\t': t += "\\t"
-        elif c == '"': t += '\\"'
-        else: t += c
-    t += '"'
-    return t
-
-
 undefined = object()
 
 def attr_property(name, default, type=str):

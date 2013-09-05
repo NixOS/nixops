@@ -20,6 +20,7 @@ import nixops.resources.ssh_keypair
 import nixops.resources.ec2_keypair
 import nixops.resources.sqs_queue
 import nixops.resources.iam_role
+from nixops.nix_expr import RawValue, Function, nixmerge, py2nix
 import re
 from datetime import datetime
 import getpass
@@ -230,9 +231,10 @@ class Deployment(object):
 
     def _eval_flags(self, exprs):
         flags = self._nix_path_flags()
+        args = {key: RawValue(val) for key, val in self.args.iteritems()}
         flags.extend(
-            ["--arg", "networkExprs", "[ " + " ".join([nixops.util.make_nix_string(s) for s in exprs]) + " ]",
-             "--arg", "args", self._args_to_attrs(),
+            ["--arg", "networkExprs", py2nix(exprs, inline=True),
+             "--arg", "args", py2nix(args, inline=True),
              "--argstr", "uuid", self.uuid,
              "--show-trace",
              "<nixops/eval-machine-info.nix>"])
@@ -251,13 +253,7 @@ class Deployment(object):
     def set_argstr(self, name, value):
         """Set a persistent argument to the deployment specification."""
         assert isinstance(value, basestring)
-        s = ""
-        for c in value:
-            if c == '"': s += '\\"'
-            elif c == '\\': s += '\\\\'
-            elif c == '$': s += '\\$'
-            else: s += c
-        self.set_arg(name, '"' + s + '"')
+        self.set_arg(name, py2nix(value, inline=True))
 
 
     def unset_arg(self, name):
@@ -266,10 +262,6 @@ class Deployment(object):
         args = self.args
         args.pop(name, None)
         self.args = args
-
-
-    def _args_to_attrs(self):
-        return "{ " + string.join([n + " = " + v + "; " for n, v in self.args.iteritems()]) + "}"
 
 
     def evaluate(self):
@@ -356,7 +348,7 @@ class Deployment(object):
         active_machines = self.active
         active_resources = self.active_resources
 
-        lines_per_resource = {m.name: [] for m in active_resources.itervalues()}
+        attrs_per_resource = {m.name: [] for m in active_resources.itervalues()}
         authorized_keys = {m.name: [] for m in active_machines.itervalues()}
         kernel_modules = {m.name: set() for m in active_machines.itervalues()}
         trusted_interfaces = {m.name: set() for m in active_machines.itervalues()}
@@ -391,7 +383,7 @@ class Deployment(object):
 
         def do_machine(m):
             defn = self.definitions[m.name]
-            lines = lines_per_resource[m.name]
+            attrs_list = attrs_per_resource[m.name]
 
             # Emit configuration to realise encrypted peer-to-peer links.
             for m2_name in defn.encrypted_links_to:
@@ -407,38 +399,49 @@ class Deployment(object):
                 remote_ipv4 = index_to_private_ip(m2.index)
                 local_tunnel = 10000 + m2.index
                 remote_tunnel = 10000 + m.index
-                lines.append('    networking.p2pTunnels.ssh.{0} ='.format(m2.name))
-                lines.append('      {{ target = "{0}-unencrypted";'.format(m2.name))
-                lines.append('        localTunnel = {0};'.format(local_tunnel))
-                lines.append('        remoteTunnel = {0};'.format(remote_tunnel))
-                lines.append('        localIPv4 = "{0}";'.format(local_ipv4))
-                lines.append('        remoteIPv4 = "{0}";'.format(remote_ipv4))
-                lines.append('        privateKey = "/root/.ssh/id_charon_vpn";')
-                lines.append('      }};'.format(m2.name))
+                attrs_list.append({
+                    ('networking', 'p2pTunnels', 'ssh', m2.name): {
+                        'target': '{0}-unencrypted'.format(m2.name),
+                        'localTunnel': local_tunnel,
+                        'remoteTunnel': remote_tunnel,
+                        'localIPv4': local_ipv4,
+                        'remoteIPv4': remote_ipv4,
+                        'privateKey': '/root/.ssh/id_charon_vpn',
+                    }
+                })
 
                 # FIXME: set up the authorized_key file such that ‘m’
                 # can do nothing more than create a tunnel.
-                authorized_keys[m2.name].append('"' + m.public_vpn_key + '"')
-                kernel_modules[m.name].add('"tun"')
-                kernel_modules[m2.name].add('"tun"')
+                authorized_keys[m2.name].append(m.public_vpn_key)
+                kernel_modules[m.name].add('tun')
+                kernel_modules[m2.name].add('tun')
                 hosts[m.name][remote_ipv4] += [m2.name, m2.name + "-encrypted"]
                 hosts[m2.name][local_ipv4] += [m.name, m.name + "-encrypted"]
-                trusted_interfaces[m.name].add('"tun' + str(local_tunnel) + '"')
-                trusted_interfaces[m2.name].add('"tun' + str(remote_tunnel) + '"')
+                trusted_interfaces[m.name].add('tun' + str(local_tunnel))
+                trusted_interfaces[m2.name].add('tun' + str(remote_tunnel))
 
             private_ipv4 = m.private_ipv4
-            if private_ipv4: lines.append('    networking.privateIPv4 = "{0}";'.format(private_ipv4))
+            if private_ipv4:
+                attrs_list.append({
+                    ('networking', 'privateIPv4'): private_ipv4
+                })
             public_ipv4 = m.public_ipv4
-            if public_ipv4: lines.append('    networking.publicIPv4 = "{0}";'.format(public_ipv4))
+            if public_ipv4:
+                attrs_list.append({
+                    ('networking', 'publicIPv4'): public_ipv4
+                })
 
             if self.nixos_version_suffix:
-                lines.append('    system.nixosVersionSuffix = "{0}";'.format(self.nixos_version_suffix))
+                attrs_list.append({
+                    ('system', 'nixosVersionSuffix'): self.nixos_version_suffix
+                })
 
-        for m in active_machines.itervalues(): do_machine(m)
+        for m in active_machines.itervalues():
+            do_machine(m)
 
         def emit_resource(r):
-            lines = []
-            lines.extend(lines_per_resource[r.name])
+            config = []
+            config.extend(attrs_per_resource[r.name])
             if is_machine(r):
                 # Sort the hosts by its canonical host names.
                 sorted_hosts = sorted(hosts[r.name].iteritems(),
@@ -449,48 +452,58 @@ class Deployment(object):
                                for ip, names in sorted_hosts]
 
                 if authorized_keys[r.name]:
-                    lines.append('    users.extraUsers.root.openssh.authorizedKeys.keys = [ {0} ];'.format(" ".join(authorized_keys[r.name])))
-                    lines.append('    services.openssh.extraConfig = "PermitTunnel yes\\n";')
-                lines.append('    boot.kernelModules = [ {0} ];'.format(" ".join(kernel_modules[r.name])))
-                lines.append('    networking.firewall.trustedInterfaces = [ {0} ];'.format(" ".join(trusted_interfaces[r.name])))
-                lines.append('    networking.extraHosts = "{0}\\n";'.format(r'\n'.join(extra_hosts)))
+                    config.append({
+                        ('users', 'extraUsers', 'root'): {
+                            ('openssh', 'authorizedKeys', 'keys'): authorized_keys[r.name]
+                        },
+                        ('services', 'openssh'): {
+                            'extraConfig': "PermitTunnel yes\n"
+                        },
+                    })
 
-                # Add SSH public host keys for all machines in network
+                config.append({
+                    ('boot', 'kernelModules'): list(kernel_modules[r.name]),
+                    ('networking', 'firewall'): {
+                        'trustedInterfaces': list(trusted_interfaces[r.name])
+                    },
+                    ('networking', 'extraHosts'): '\n'.join(extra_hosts) + "\n"
+                })
+
+
+                # Add SSH public host keys for all machines in network  
                 for m2 in active_machines.itervalues():
-                    if hasattr(m2, "public_host_key"):
+                    if hasattr(m2, 'public_host_key'):
                         # Using references to files in same tempdir for now, until NixOS has support
                         # for adding the keys directly as string. This way at least it is compatible
                         # with older versions of NixOS as well.
                         # TODO: after reasonable amount of time replace with string option
-                        lines.append('    services.openssh.knownHosts."{0}" ='.format(m2.name))
-                        lines.append('      {{ hostNames = ["{0}-unencrypted" "{0}-encrypted" "{0}" ];'.format(m2.name))
-                        lines.append('        publicKeyFile = ./{0}.public_host_key;'.format(m2.name))
-                        lines.append('      }};'.format(m2.name))
+                        config.append({
+                            ('services', 'openssh', 'knownHosts', m2.name): {
+                                 'hostNames': [m2.name + "-unencrypted",
+                                               m2.name + "-encrypted",
+                                               m2.name],
+                                 'publicKeyFile': RawValue(
+                                      "./{0}.public_host_key".format(m2.name)
+                                 ),
+                            }
+                        })
 
-            # Ensure that we don't clash with any of the physical attributes
-            # from the resource.
-            # TODO: In the long term it would make much more sense to pretty
-            # print the physical spec out of Python dicts, lists, strings and
-            # whatnot, so we can properly merge the attributes on our side.
-            res_physical = r.get_physical_spec()
-            first_format = '  {0}"{1}" = {{ config, pkgs, ... }}:'
-            first = first_format.format(r.get_definition_prefix(), r.name)
+            merged = reduce(nixmerge, config) if len(config) > 0 else {}
+            physical = r.get_physical_spec()
 
-            if len(res_physical) > 0:
-                merger = '{\n    imports = ['
-                lines.insert(0, first + ' ' + merger + ' {')
-                lines += ["  } {"] + res_physical + ["} ];\n    config = {};\n};\n"]
-            elif len(lines) == 0:
-                return ""
+            if len(merged) == 0 and len(physical) == 0:
+                return {}
             else:
-                first_format = '  {0}"{1}" = {{ config, pkgs, ... }}:'
-                first = first_format.format(r.get_definition_prefix(), r.name)
-                lines.insert(0, first + ' {')
-                lines.append("  };\n")
-            return "\n".join(lines)
+                return r.prefix_definition({
+                    r.name: Function("{ config, pkgs, ... }", {
+                        'config': merged,
+                        'imports': [physical],
+                    })
+                })
 
-        return "".join(["{\n"] + [emit_resource(r) for r in active_resources.itervalues()] + ["}\n"])
-
+        return py2nix(reduce(nixmerge, [
+            emit_resource(r) for r in active_resources.itervalues()
+        ])) + "\n"
 
     def get_profile(self):
         profile_dir = "/nix/var/nix/profiles/per-user/" + getpass.getuser()
@@ -536,7 +549,7 @@ class Deployment(object):
 
         selected = [m for m in self.active.itervalues() if should_do(m, include, exclude)]
 
-        names = ['"' + m.name + '"' for m in selected]
+        names = map(lambda m: m.name, selected)
 
         # If we're not running on Linux, then perform the build on the
         # target machines.  FIXME: Also enable this if we're on 32-bit
@@ -567,7 +580,7 @@ class Deployment(object):
             configs_path = subprocess.check_output(
                 ["nix-build"]
                 + self._eval_flags(self.nix_exprs + [phys_expr]) +
-                ["--arg", "names", "[ " + " ".join(names) + " ]",
+                ["--arg", "names", py2nix(names, inline=True),
                  "-A", "machines", "-o", self.tempdir + "/configs"]
                 + (["--dry-run"] if dry_run else []),
                 stderr=self.logger.log_file).rstrip()
@@ -929,11 +942,13 @@ class Deployment(object):
         # configurations.
         if self.rollback_enabled: # and len(self.active) == 0:
             profile = self.create_profile()
-            attrs = ["\"{0}\" = builtins.storePath {1};".format(m.name, m.cur_toplevel) for m in self.active.itervalues() if m.cur_toplevel]
+            attrs = {m.name:
+                     Function("builtins.storePath", m.cur_toplevel, call=True)
+                     for m in self.active.itervalues() if m.cur_toplevel}
             if subprocess.call(
                 ["nix-env", "-p", profile, "--set", "*", "-I", "nixops=" + self.expr_path,
                  "-f", "<nixops/update-profile.nix>",
-                 "--arg", "machines", "{ " + " ".join(attrs) + " }"]) != 0:
+                 "--arg", "machines", py2nix(attrs, inline=True)]) != 0:
                 raise Exception("cannot update profile ‘{0}’".format(profile))
 
 

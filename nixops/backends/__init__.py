@@ -50,8 +50,8 @@ class MachineState(nixops.resources.ResourceState):
         self.ssh.register_passwd_fun(self.get_ssh_password)
         self._ssh_private_key_file = None
 
-    def get_definition_prefix(self):
-        return ""
+    def prefix_definition(self, attr):
+        return attr
 
     @property
     def started(self):

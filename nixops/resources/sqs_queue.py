@@ -53,16 +53,12 @@ class SQSQueueState(nixops.resources.ResourceState):
         if self.region: s = "{0} [{1}]".format(s, self.region)
         return s
 
-
-    def get_definition_prefix(self):
-        return "resources.sqsQueues."
-        
+    def prefix_definition(self, attr):
+        return {('resources', 'sqsQueues'): attr}
 
     def get_physical_spec(self):
-        return ['    url = "{0}";'.format(self.url),
-                '    arn = "{0}";'.format(self.arn)
-                ]
-
+        return {'url': self.url,
+                'arn': self.arn}
 
     @property
     def resource_id(self):

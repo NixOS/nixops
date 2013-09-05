@@ -14,6 +14,7 @@ from nixops.util import wait_for_tcp_port, ping_tcp_port
 from nixops.util import attr_property, create_key_pair
 from nixops.ssh_util import SSHCommandFailed
 from nixops.backends import MachineDefinition, MachineState
+from nixops.nix_expr import nix2py
 
 # This is set to True by tests/hetzner-backend.nix. If it's in effect, no
 # attempt is made to connect to the real Robot API and the API calls only
@@ -76,7 +77,7 @@ class HetznerState(MachineState):
     just_installed = attr_property("hetzner.justInstalled", False, bool)
     rescue_passwd = attr_property("hetzner.rescuePasswd", None)
     fs_info = attr_property("hetzner.fsInfo", None)
-    net_info = attr_property("hetzner.networkInfo", None)
+    net_info = attr_property("hetzner.networkInfo", None, 'json')
     hw_info = attr_property("hetzner.hardwareInfo", None)
 
     main_ssh_private_key = attr_property("hetzner.sshPrivateKey", None)
@@ -226,7 +227,7 @@ class HetznerState(MachineState):
             # This is the *only* place to set self.partitions unless we have
             # implemented a way to repartition the system!
             self.partitions = partitions
-            self.fs_info = '\n'.join(out.splitlines()[1:-1])
+            self.fs_info = out
         else:
             self.log_start("mounting filesystems...")
             self.run_command("nixpart -m -", stdin_string=self.partitions)
@@ -335,8 +336,7 @@ class HetznerState(MachineState):
     def _detect_hardware(self):
         self.log_start("detecting hardware...")
         hardware = self.run_command("nixos-hardware-scan", capture_stdout=True)
-        attrs = filter(lambda l: l.startswith("  "), hardware.splitlines())
-        self.hw_info = "\n".join(attrs)
+        self.hw_info = hardware
         self.log_end("done.")
 
     def switch_to_configuration(self, method, sync, command=None):
@@ -435,7 +435,7 @@ class HetznerState(MachineState):
         resulting string to self.net_info.
         """
         udev_rules = []
-        iface_attrs = []
+        iface_attrs = {}
         extra_routes = []
         ipv6_commands = []
 
@@ -444,7 +444,6 @@ class HetznerState(MachineState):
         # Global networking options
         defgw = self._get_default_gw()
         v6defgw = None
-        nameservers = self._get_nameservers()
 
         # Interface-specific networking options
         for iface in self._get_ethernet_interfaces():
@@ -458,10 +457,10 @@ class HetznerState(MachineState):
             udev_rules.append(self._get_udev_rule_for(iface))
 
             ipv4, prefix = result
-            quotedipv4 = '"{0}"'.format(ipv4)
-            baseattr = 'networking.interfaces.{0}.{1} = {2};'
-            iface_attrs.append(baseattr.format(iface, "ipAddress", quotedipv4))
-            iface_attrs.append(baseattr.format(iface, "prefixLength", prefix))
+            iface_attrs[iface] = {
+                'ipAddress': ipv4,
+                'prefixLength': prefix,
+            }
 
             # We can't handle Hetzner-specific networking info in test mode.
             if TEST_MODE:
@@ -491,28 +490,28 @@ class HetznerState(MachineState):
         route6_cmd = "ip -6 route add default via '{0}' dev eth0 || true"
         route_commands.append(route6_cmd.format(v6defgw))
 
-        local_commands = r'\n'.join(ipv6_commands + route_commands) + r'\n'
+        local_commands = '\n'.join(ipv6_commands + route_commands) + '\n'
 
-        udev_attrs = ["services.udev.extraRules = ''"]
-        udev_attrs += self._indent(udev_rules)
-        udev_attrs += ["'';"]
-
-        attrs = iface_attrs + udev_attrs + [
-            'networking.defaultGateway = "{0}";'.format(defgw),
-            'networking.nameservers = [ {0} ];'.format(
-                ' '.join(map(lambda ns: '"{0}"'.format(ns), nameservers))
-            ),
-            'networking.localCommands = "{0}";'.format(local_commands),
-        ]
-        self.net_info = "\n".join(self._indent(attrs))
+        self.net_info = {
+            'services': {
+                'udev': {'extraRules': '\n'.join(udev_rules) + '\n'},
+            },
+            'networking': {
+                'interfaces': iface_attrs,
+                'defaultGateway': defgw,
+                'nameservers': self._get_nameservers(),
+                'localCommands': local_commands,
+            }
+        }
 
     def get_physical_spec(self):
-        if self.net_info and self.fs_info and self.hw_info:
-            return self._indent(self.net_info.splitlines() +
-                                self.fs_info.splitlines() +
-                                self.hw_info.splitlines())
+        if all([self.net_info, self.fs_info, self.hw_info]):
+            return {
+                'config': self.net_info,
+                'imports': [nix2py(self.fs_info), nix2py(self.hw_info)],
+            }
         else:
-            return []
+            return {}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, HetznerDefinition)
