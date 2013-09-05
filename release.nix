@@ -6,7 +6,7 @@ let
 
   pkgs = import <nixpkgs> { };
 
-  version = "1.0.2" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
+  version = "1.1" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
 
 in
 
