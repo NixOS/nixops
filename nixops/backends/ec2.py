@@ -177,10 +177,15 @@ class EC2State(MachineState):
         }
 
     def get_physical_backup_spec(self, backupid):
+        val = {}
         if backupid in self.backups:
-            return [ '    deployment.ec2.blockDeviceMapping."{0}".disk = pkgs.lib.mkStrict "{1}";'.format(_sd_to_xvd(dev), snap) for dev, snap in self.backups[backupid].items() if dev != "/dev/sda" ]
+            for dev, snap in self.backups[backupid].items():
+                if dev != "/dev/sda":
+                    val[_sd_to_xvd(dev)] = { 'disk': Function("pkgs.lib.mkStrict", snap, call=True)}
+            val = { ('deployment', 'ec2', 'blockDeviceMapping'): val }
         else:
-            return ["    # No backup found for id '{0}'".format(backupid)]
+            val = RawValue("{} # No backup found for id '{0}'".format(backupid))
+        return Function("{ config, pkgs, ... }", val)
 
 
     def get_keys(self):

@@ -19,6 +19,7 @@ import logging
 import logging.handlers
 import syslog
 import json
+from nixops.nix_expr import py2nix
 
 from nixops.parallel import MultipleExceptions, run_tasks
 
@@ -398,14 +399,10 @@ def op_rename():
 
 def print_physical_backup_spec(backupid):
     depl = open_deployment()
-    print "{"
+    config = {}    
     for m in depl.active.itervalues():
-        print '  "{0}" = {{ config, pkgs, ...}}: {{'.format(m.name)
-        for l in m.get_physical_backup_spec(backupid):
-            print l
-        print '  };'
-    print "}"
-
+        config[m.name] = m.get_physical_backup_spec(backupid)
+    sys.stdout.write(py2nix(config))
 
 def op_show_physical():
     depl = open_deployment()
