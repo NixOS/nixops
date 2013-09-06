@@ -184,7 +184,7 @@ class EC2State(MachineState):
                     val[_sd_to_xvd(dev)] = { 'disk': Function("pkgs.lib.mkStrict", snap, call=True)}
             val = { ('deployment', 'ec2', 'blockDeviceMapping'): val }
         else:
-            val = RawValue("{} # No backup found for id '{0}'".format(backupid))
+            val = RawValue("{{}} # No backup found for id '{0}'".format(backupid))
         return Function("{ config, pkgs, ... }", val)
 
 
