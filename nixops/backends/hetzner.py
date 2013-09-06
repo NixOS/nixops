@@ -459,7 +459,7 @@ class HetznerState(MachineState):
             ipv4, prefix = result
             iface_attrs[iface] = {
                 'ipAddress': ipv4,
-                'prefixLength': prefix,
+                'prefixLength': int(prefix),
             }
 
             # We can't handle Hetzner-specific networking info in test mode.
