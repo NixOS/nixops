@@ -519,7 +519,7 @@ class Deployment(object):
         return profile
 
 
-    def build_configs(self, include, exclude, dry_run=False):
+    def build_configs(self, include, exclude, dry_run=False, repair=False):
         """Build the machine configurations in the Nix store."""
 
         def write_temp_file(tmpfile, contents):
@@ -582,7 +582,8 @@ class Deployment(object):
                 + self._eval_flags(self.nix_exprs + [phys_expr]) +
                 ["--arg", "names", py2nix(names, inline=True),
                  "-A", "machines", "-o", self.tempdir + "/configs"]
-                + (["--dry-run"] if dry_run else []),
+                + (["--dry-run"] if dry_run else [])
+                + (["--repair"] if repair else []),
                 stderr=self.logger.log_file).rstrip()
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
@@ -800,7 +801,7 @@ class Deployment(object):
     def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
                 include=[], exclude=[], check=False, kill_obsolete=False,
                 allow_reboot=False, allow_recreate=False, force_reboot=False,
-                max_concurrent_copy=5, sync=True, always_activate=False):
+                max_concurrent_copy=5, sync=True, always_activate=False, repair=False):
         """Perform the deployment defined by the deployment specification."""
 
         self.evaluate_active(include, exclude, kill_obsolete)
@@ -853,12 +854,12 @@ class Deployment(object):
 
         # Build the machine configurations.
         if dry_run:
-            self.build_configs(dry_run=True, include=include, exclude=exclude)
+            self.build_configs(dry_run=True, repair=repair, include=include, exclude=exclude)
             return
 
         # Record configs_path in the state so that the ‘info’ command
         # can show whether machines have an outdated configuration.
-        self.configs_path = self.build_configs(include=include, exclude=exclude)
+        self.configs_path = self.build_configs(repair=repair, include=include, exclude=exclude)
 
         if build_only: return
 

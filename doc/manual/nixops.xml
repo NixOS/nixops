@@ -423,6 +423,7 @@ $ nixops delete -d foo</screen>
     <arg choice='plain'><option>-k</option></arg>
   </group>
   <arg><option>--dry-run</option></arg>
+  <arg><option>--repair</option></arg>
   <arg><option>--create-only</option></arg>
   <arg><option>--build-only</option></arg>
   <arg><option>--copy-only</option></arg>
@@ -482,6 +483,14 @@ them.</para>
 
     <listitem><para>Dry run; show what would be done by this command
     without actually doing it.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--repair</option></term>
+
+    <listitem><para>Use --repair when calling nix-build. This is useful
+    for repairing the nix store when some inconsistency is found and
+    nix-copy-closure is failing as a result.</para></listitem>
 
   </varlistentry>
 
