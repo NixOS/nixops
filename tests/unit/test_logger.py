@@ -30,6 +30,14 @@ class RootLoggerTest(unittest.TestCase):
         self.root_logger.log_end("yyy: ", "end2")
         self.assert_log("xxx: begin1\nyyy: begin2\nxxx: end1\nyyy: end2\n")
 
+    def test_log_raw(self):
+        self.root_logger.log_raw(">", "aaa\nbb")
+        self.root_logger.log_raw(">", "b\nccc\n")
+        self.root_logger.log_raw(">", "ddd")
+        self.root_logger.log_raw(">", "\n")
+
+        self.assert_log(">aaa\n>bbb\n>ccc\n>ddd\n")
+
 class MachineLoggerTest(RootLoggerTest):
     def setUp(self):
         RootLoggerTest.setUp(self)

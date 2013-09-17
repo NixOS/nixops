@@ -65,7 +65,8 @@ rec {
       buildInputs = [ pythonPackages.nose pythonPackages.coverage ];
 
       propagatedBuildInputs =
-        [ pythonPackages.prettytable
+        [ pythonPackages.paramiko
+          pythonPackages.prettytable
           pythonPackages.boto
           pythonPackages.hetzner
           pythonPackages.sqlite3

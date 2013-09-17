@@ -44,10 +44,7 @@ class MachineState(nixops.resources.ResourceState):
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
-        self.ssh = nixops.ssh_util.SSH(self.logger)
-        self.ssh.register_flag_fun(self.get_ssh_flags)
-        self.ssh.register_host_fun(self.get_ssh_name)
-        self.ssh.register_passwd_fun(self.get_ssh_password)
+        self.ssh = nixops.ssh_util.SSH()
         self._ssh_private_key_file = None
 
     def prefix_definition(self, attr):
@@ -146,7 +143,6 @@ class MachineState(nixops.resources.ResourceState):
             reboot_command = "systemctl reboot"
         self.run_command(reboot_command, check=False)
         self.state = self.STARTING
-        self.ssh.reset()
 
     def reboot_sync(self, hard=False):
         """Reboot this machine and wait until it's up again."""
@@ -173,11 +169,9 @@ class MachineState(nixops.resources.ResourceState):
         self.run_command("mkdir -m 0700 -p /run/keys")
         for k, v in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
-            tmp = self.depl.tempdir + "/key-" + self.name
-            f = open(tmp, "w+"); f.write(v); f.close()
-            self.upload_file(tmp, "/run/keys/" + k)
+            with self._connect_ssh().open("/run/keys/" + k, 'wb') as keyfile:
+                keyfile.write(v)
             self.run_command("chmod 600 /run/keys/" + k)
-            os.remove(tmp)
         self.run_command("touch /run/keys/done")
 
     def get_keys(self):
@@ -230,18 +224,34 @@ class MachineState(nixops.resources.ResourceState):
     def _logged_exec(self, command, **kwargs):
         return nixops.util.logged_exec(command, self.logger, **kwargs)
 
+    def _connect_ssh(self):
+        """
+        Establish a new SSH connection and return the SSHConnection instance.
+        """
+        passwd = self.get_ssh_password()
+        # Only fetch private key if we don't use password authentication.
+        privkey = self.get_ssh_private_key_file() if passwd is None else None
+        return self.ssh.connect(self.get_ssh_name(), privkey=privkey,
+                                passwd=passwd)
+
     def run_command(self, command, **kwargs):
         """
         Execute a command on the machine via SSH.
 
         For possible keyword arguments, please have a look at
-        nixops.ssh_util.SSH.run_command().
+        nixops.ssh_util.SSHConnection.run_command().
         """
         # If we are in rescue state, unset locale specific stuff, because we're
         # mainly operating in a chroot environment.
         if self.state == self.RESCUE:
             command = "export LANG= LC_ALL= LC_TIME=; " + command
-        return self.ssh.run_command(command, self.get_ssh_flags(), **kwargs)
+
+        return self._connect_ssh().run_command(command,
+                                               log_cb=self.logger.log_raw,
+                                               **kwargs)
+
+    def invoke_shell(self, command=None):
+        return self._connect_ssh().invoke_shell(command)
 
     def switch_to_configuration(self, method, sync, command=None):
         """
@@ -260,23 +270,30 @@ class MachineState(nixops.resources.ResourceState):
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
 
-        # !!! Implement copying between cloud machines, as in the Perl
+        closure = subprocess.check_output(["nix-store", "-qR",
+                                           path]).splitlines()
+
+        if not self.has_really_fast_connection():
+            self.log("trying to fetch substitutes...")
+            self.run_command("xargs nix-store -j 4 -r --ignore-unknown",
+                             stdin_string='\n'.join(closure), check=False)
+
+        # TODO: Implement copying between cloud machines, as in the Perl
         # version.
 
-        # It's usually faster to let the target machine download
-        # substitutes from nixos.org, so try that first.
-        if not self.has_really_fast_connection():
-            closure = subprocess.check_output(["nix-store", "-qR", path]).splitlines()
-            self.run_command("nix-store -j 4 -r --ignore-unknown " + ' '.join(closure), check=False)
+        self.log("copying missing store paths...")
 
-        # Any remaining paths are copied from the local machine.
-        env = dict(os.environ)
-        master = self.ssh.get_master()
-        env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags() + master.opts)
-        self._logged_exec(
-            ["nix-copy-closure", "--to", "root@" + self.get_ssh_name(), path]
-            + ([] if self.has_really_fast_connection() else ["--gzip"]),
-            env=env)
+        checker_cmd = "xargs nix-store --check-validity --print-invalid"
+        missing = self.run_command(checker_cmd,
+                                   stdin_string='\n'.join(closure),
+                                   capture_stdout=True).splitlines()
+
+        export = subprocess.Popen(["nix-store", "--export"] + missing,
+                                  stdin=nixops.util.devnull,
+                                  stdout=subprocess.PIPE)
+
+        self.run_command("nix-store --import", stdin=export.stdout)
+        export.wait()
 
     def has_really_fast_connection(self):
         return False
@@ -300,20 +317,12 @@ class MachineState(nixops.resources.ResourceState):
         self.public_vpn_key = public
 
     def upload_file(self, source, target, recursive=False):
-        master = self.ssh.get_master()
-        cmdline = ["scp"] + self.get_ssh_flags() + master.opts
-        if recursive:
-            cmdline += ['-r']
-        cmdline += [source, "root@" + self.get_ssh_name() + ":" + target]
-        return self._logged_exec(cmdline)
+        # FIXME: recursive!
+        self._connect_ssh().upload(source, target)
 
     def download_file(self, source, target, recursive=False):
-        master = self.ssh.get_master()
-        cmdline = ["scp"] + self.get_ssh_flags() + master.opts
-        if recursive:
-            cmdline += ['-r']
-        cmdline += ["root@" + self.get_ssh_name() + ":" + source, target]
-        return self._logged_exec(cmdline)
+        # FIXME: recursive!
+        self._connect_ssh().download(source, target)
 
     def get_console_output(self):
         return "(not available for this machine type)\n"

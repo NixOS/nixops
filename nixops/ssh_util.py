@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
 import os
-import shlex
-import subprocess
-import weakref
+import sys
+import tty
+import fcntl
+import errno
+import struct
+import select
+import signal
+import termios
 
-from tempfile import mkdtemp
+from contextlib import contextmanager
+
+import paramiko
 
 import nixops.util
 
@@ -19,210 +26,185 @@ class SSHCommandFailed(nixops.util.CommandFailed):
     pass
 
 
-class SSHMaster(object):
-    def __init__(self, target, logger, ssh_flags, passwd):
-        self._tempdir = mkdtemp(prefix="nixops-tmp")
-        self._askpass_helper = None
-        self._control_socket = self._tempdir + "/ssh-master-socket"
-        self._ssh_target = target
-        pass_prompts = 0
-        kwargs = {}
-        additional_opts = []
-        if passwd is not None:
-            self._askpass_helper = self._make_askpass_helper()
-            newenv = dict(os.environ)
-            newenv.update({
-                'DISPLAY': ':666',
-                'SSH_ASKPASS': self._askpass_helper,
-                'NIXOPS_SSH_PASSWORD': passwd,
-            })
-            kwargs['env'] = newenv
-            kwargs['stdin'] = nixops.util.devnull
-            kwargs['preexec_fn'] = os.setsid
-            pass_prompts = 1
-            additional_opts = ['-oUserKnownHostsFile=/dev/null',
-                               '-oStrictHostKeyChecking=no']
-        cmd = ["ssh", "-x", self._ssh_target, "-S",
-               self._control_socket, "-M", "-N", "-f",
-               '-oNumberOfPasswordPrompts={0}'.format(pass_prompts),
-               '-oServerAliveInterval=60'] + additional_opts
-        res = subprocess.call(cmd + ssh_flags, **kwargs)
-        if res != 0:
-            raise SSHConnectionFailed(
-                "unable to start SSH master connection to "
-                "‘{0}’".format(logger.machine_name)
-            )
-        self.opts = ["-oControlPath={0}".format(self._control_socket)]
+class SSHConnection(object):
+    def __init__(self, ssh, host):
+        self.ssh = ssh
+        self.host = host
 
-    def _make_askpass_helper(self):
+    def invoke_shell(self, command=None):
         """
-        Create a SSH_ASKPASS helper script, which just outputs the contents of
-        the environment variable NIXOPS_SSH_PASSWORD.
-        """
-        path = os.path.join(self._tempdir, 'nixops-askpass-helper')
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0777)
-        os.write(fd, "#!{0}\necho -n \"$NIXOPS_SSH_PASSWORD\"".format(
-            nixops.util.which("sh")
-        ))
-        os.close(fd)
-        return path
+        Invoke a 'command' on the target machine while allocating a PTY.
 
-    def shutdown(self):
+        This is only meant to be used for interactive shells or programs and
+        doesn't directly allow for logging, such as run_command().
         """
-        Shutdown master process and clean up temporary files.
-        """
-        subprocess.call(["ssh", self._ssh_target, "-S",
-                         self._control_socket, "-O", "exit"],
-                        stderr=nixops.util.devnull)
-        for to_unlink in (self._askpass_helper, self._control_socket):
-            if to_unlink is None:
-                continue
-            try:
-                os.unlink(to_unlink)
-            except OSError:
-                pass
+        transport = self.ssh.get_transport()
+        channel = transport.open_session()
+
+        def _get_term_size():
+            winsz = fcntl.ioctl(sys.stdin.fileno(), termios.TIOCGWINSZ, '....')
+            return struct.unpack('hh', winsz)
+
+        def _winch_handler(signum, frame):
+            height, width = _get_term_size()
+            channel.resize_pty(width=width, height=height)
+
+        height, width = _get_term_size()
+        current_term = os.getenv('TERM', 'vt100')
+        channel.get_pty(current_term, width=width, height=height)
+        if command is None:
+            channel.invoke_shell()
+        else:
+            channel.exec_command(command)
+
+        oldtty = termios.tcgetattr(sys.stdin)
+        oldflags = fcntl.fcntl(sys.stdin.fileno(), fcntl.F_GETFL)
+        oldsig = signal.signal(signal.SIGWINCH, _winch_handler)
+        signal.siginterrupt(signal.SIGWINCH, False)
         try:
-            os.rmdir(self._tempdir)
-        except OSError:
-            pass
+            tty.setraw(sys.stdin.fileno())
+            tty.setcbreak(sys.stdin.fileno())
+            fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL,
+                        oldflags | os.O_NDELAY)
+            channel.setblocking(0)
 
-    def __del__(self):
-        self.shutdown()
+            while True:
+                try:
+                    ready = select.select([channel, sys.stdin], [], [])[0]
+                except select.error as e:
+                    if e.args[0] == errno.EINTR:
+                        continue
+                    else:
+                        raise
+                if channel in ready:
+                    data = channel.recv(1)
+                    if len(data) == 0:
+                        break
+                    sys.stdout.write(data)
+                    sys.stdout.flush()
+                if sys.stdin in ready:
+                    data = sys.stdin.read()
+                    if len(data) == 0:
+                        break
+                    channel.send(data)
+        finally:
+            signal.signal(signal.SIGWINCH, oldsig)
+            fcntl.fcntl(sys.stdin.fileno(), fcntl.F_SETFL, oldflags)
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
+
+    def upload(self, source, destination):
+        """
+        Upload the local file 'source' to the current host at 'destination'.
+        """
+        sftp = paramiko.SFTPClient.from_transport(self.ssh.get_transport())
+        sftp.put(source, destination)
+
+    def download(self, source, target):
+        """
+        Download the file 'source' from the current host to local file 'target'.
+        """
+        sftp = paramiko.SFTPClient.from_transport(self.ssh.get_transport())
+        sftp.get(source, target)
+
+    @contextmanager
+    def open(self, *args, **kwargs):
+        """
+        Open a file instance on the remote side. This is the same as Python's
+        open() function but working on the remote file and using a context
+        manager. So you only can use this method using the with keyword.
+        """
+        sftp = paramiko.SFTPClient.from_transport(self.ssh.get_transport())
+        fp = sftp.open(*args, **kwargs)
+        yield fp
+        fp.close()
+
+    def run_command(self, command, timeout=None, log_cb=None, bufsize=4096,
+                    stdin_string=None, stdin=None, capture_stdout=False,
+                    check=True):
+        """
+        Execute a 'command' on the current target host using SSH. The command
+        can be either a string or an iterable of strings, whereby if it's the
+        latter, it will be joined with spaces and properly shell-escaped.
+
+        TODO: document keyword arguments!
+
+        'log_cb' is either None for no logging or a function which is called
+        whenever there is data on either stdout (if 'capture_stdout' is False)
+        or stderr of the command.
+        """
+        transport = self.ssh.get_transport()
+        channel = transport.open_session()
+        channel.exec_command(command)
+
+        if not capture_stdout:
+            channel.set_combine_stderr(True)
+
+        stdin_done = stdin_string is None and stdin is None
+        stdout = ""
+        buf = ""
+        while not channel.eof_received and not channel.closed:
+            if not stdin_done and channel.send_ready():
+                if stdin_string is not None:
+                    sent = channel.send(stdin_string[:bufsize])
+                    stdin_string = stdin_string[sent:]
+                    if sent == 0:
+                        stdin_done = True
+                elif stdin is not None:
+                    if len(buf) == 0:
+                        buf = stdin.read(bufsize)
+                        if len(buf) == 0:
+                            stdin_done = True
+                    sent = channel.send(buf)
+                    buf = buf[sent:]
+
+                if stdin_done:
+                    channel.shutdown_write()
+
+            if capture_stdout:
+                while channel.recv_stderr_ready():
+                    data = channel.recv_stderr(bufsize)
+                    if log_cb is not None:
+                        log_cb(data)
+
+            while channel.recv_ready():
+                data = channel.recv(bufsize)
+                if capture_stdout:
+                    stdout += data
+                elif log_cb is not None:
+                    log_cb(data)
+
+        exitcode = channel.recv_exit_status()
+        if check and exitcode != 0:
+            msg = "command ‘{0}’ failed on host ‘{1}’"
+            err = msg.format(command, self.host)
+            raise SSHCommandFailed(err, exitcode)
+
+        if capture_stdout:
+            return stdout
+        else:
+            return exitcode
 
 
 class SSH(object):
-    def __init__(self, logger):
+    def __init__(self):
         """
         Initialize a SSH object with the specified Logger instance, which will
         be used to write SSH output to.
         """
-        self._flag_fun = lambda: []
-        self._host_fun = None
-        self._passwd_fun = lambda: None
-        self._logger = logger
-        self._ssh_master = None
+        pass
 
-    def register_host_fun(self, host_fun):
+    def connect(self, host, port=22, privkey=None, username='root',
+                passwd=None, timeout=None):
         """
-        Register a function which returns the hostname or IP to connect to. The
-        function has to require no arguments.
-        """
-        self._host_fun = host_fun
+        Connect to 'host' and 'port' using either 'privkey' which is a string
+        (XXX: currently it's a file) containing the private key to be used for
+        authentication or 'passwd' which is the password of the account
+        specified by 'username' ("root" by default).
 
-    def _get_target(self):
-        if self._host_fun is None:
-            raise AssertionError("Don't know which SSH host to connect to.")
-        return "root@{0}".format(self._host_fun())
-
-    def register_flag_fun(self, flag_fun):
+        Returns a new instance of SSHConnection.
         """
-        Register a function that is used for obtaining additional SSH flags.
-        The function has to require no arguments and should return a list of
-        strings, each being a SSH flag/argument.
-        """
-        self._flag_fun = flag_fun
-
-    def _get_flags(self):
-        return self._flag_fun()
-
-    def register_passwd_fun(self, passwd_fun):
-        """
-        Register a function that returns either a string or None and requires
-        no arguments. If the return value is a string, the returned string is
-        used for keyboard-interactive authentication, if it is None, no attempt
-        is made to inject a password.
-        """
-        self._passwd_fun = passwd_fun
-
-    def _get_passwd(self):
-        return self._passwd_fun()
-
-    def reset(self):
-        """
-        Reset SSH master connection.
-        """
-        if self._ssh_master is not None:
-            self._ssh_master.shutdown()
-            self._ssh_master = None
-
-    def get_master(self, flags=[], tries=5):
-        """
-        Start (if necessary) an SSH master connection to speed up subsequent
-        SSH sessions. Returns the SSHMaster instance on success.
-        """
-        flags = flags + self._get_flags()
-        if self._ssh_master is not None:
-            return weakref.proxy(self._ssh_master)
-
-        while True:
-            try:
-                self._ssh_master = SSHMaster(self._get_target(), self._logger,
-                                             flags, self._get_passwd())
-                break
-            except Exception:
-                tries = tries - 1
-                if tries == 0:
-                    raise
-                pass
-        return weakref.proxy(self._ssh_master)
-
-    def _sanitize_command(self, command, allow_ssh_args):
-        """
-        Helper method for run_command, which essentially prepares and properly
-        escape the command. See run_command() for further description.
-        """
-        if isinstance(command, basestring):
-            if allow_ssh_args:
-                return shlex.split(command)
-            else:
-                return ['--', command]
-        # iterable
-        elif allow_ssh_args:
-            return command
-        else:
-            return ['--', ' '.join(["'{0}'".format(arg.replace("'", r"'\''"))
-                                    for arg in command])]
-
-    def run_command(self, command, flags=[], timeout=None, logged=True,
-                    allow_ssh_args=False, **kwargs):
-        """
-        Execute a 'command' on the current target host using SSH, passing
-        'flags' as additional arguments to SSH. The command can be either a
-        string or an iterable of strings, whereby if it's the latter, it will
-        be joined with spaces and properly shell-escaped.
-
-        If 'allow_ssh_args' is set to True, the specified command may contain
-        SSH flags.
-
-        All keyword arguments except timeout are passed as-is to
-        nixops.util.logged_exec(), though if you set 'logged' to False, the
-        keyword arguments are passed as-is to subprocess.call() and the command
-        is executed interactively with no logging.
-
-        'timeout' specifies the SSH connection timeout.
-        """
-        tries = 5
-        if timeout is not None:
-            flags = flags + ["-o", "ConnectTimeout={0}".format(timeout)]
-            tries = 1
-        master = self.get_master(flags, tries)
-        flags = flags + self._get_flags()
-        if logged:
-            flags.append("-x")
-        cmd = ["ssh"] + master.opts + flags
-        cmd.append(self._get_target())
-        cmd += self._sanitize_command(command, allow_ssh_args)
-        if logged:
-            try:
-                return nixops.util.logged_exec(cmd, self._logger, **kwargs)
-            except nixops.util.CommandFailed as exc:
-                raise SSHCommandFailed(exc.message, exc.exitcode)
-        else:
-            check = kwargs.pop('check', True)
-            res = subprocess.call(cmd, **kwargs)
-            if check and res != 0:
-                msg = "command ‘{0}’ failed on host ‘{1}’"
-                err = msg.format(cmd, self._get_target())
-                raise SSHCommandFailed(err, res)
-            else:
-                return res
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.MissingHostKeyPolicy())
+        ssh.connect(host, username=username, key_filename=privkey,
+                    password=passwd, port=port, timeout=timeout)
+        return SSHConnection(ssh, host)

@@ -15,6 +15,7 @@ import nixops.util
 import time
 from datetime import datetime
 from pprint import pprint
+from pipes import quote
 import logging
 import logging.handlers
 import syslog
@@ -478,9 +479,11 @@ def op_ssh():
     if not m: raise Exception("unknown machine ‘{0}’".format(machine))
     ssh_name = m.get_ssh_name()
     print >> sys.stderr, "connecting to {0}...".format(ssh_name)
-    res = m.ssh.run_command(args.args, allow_ssh_args=True, logged=False,
-                            check=False)
-    sys.exit(res)
+    if len(args.command) > 0:
+        ret = m.invoke_shell(' '.join(map(quote, args.command)))
+    else:
+        ret = m.invoke_shell()
+    sys.exit(ret)
 
 
 def op_ssh_for_each():
@@ -489,7 +492,7 @@ def op_ssh_for_each():
     jobs = args.parallel if args.parallel else 1
     def worker(m):
         if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): return
-        return m.ssh.run_command(args.args, allow_ssh_args=True, check=False)
+        return m.run_command(' '.join(map(quote, args.command)), check=False)
     results = nixops.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
     sys.exit(max(results) if results != [] else 0)
 
@@ -721,11 +724,13 @@ subparser.set_defaults(op=op_show_physical)
 subparser = add_subparser('ssh', help='login on the specified machine via SSH')
 subparser.set_defaults(op=op_ssh)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
-subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
+subparser.add_argument('command', metavar="COMMAND", nargs=argparse.REMAINDER,
+                       help='command to execute')
 
 subparser = add_subparser('ssh-for-each', help='execute a command on each machine via SSH')
 subparser.set_defaults(op=op_ssh_for_each)
-subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
+subparser.add_argument('command', metavar="COMMAND", nargs=argparse.REMAINDER,
+                       help='command to execute on each machine')
 subparser.add_argument('--parallel', '-p', action='store_true', help='run in parallel')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='run command only on the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='run command on all except the specified machines')
