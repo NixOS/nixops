@@ -184,7 +184,6 @@ class VirtualBoxState(MachineState):
             self.sata_controller_created = True
 
         vm_dir = os.path.dirname(self._get_vm_info()['CfgFile'])
-        print vm_dir
 
         if not os.path.isdir(vm_dir):
             raise Exception("can't find directory of VirtualBox VM ‘{0}’".format(self.name))
