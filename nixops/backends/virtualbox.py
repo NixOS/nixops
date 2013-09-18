@@ -9,7 +9,6 @@ from nixops.backends import MachineDefinition, MachineState
 from nixops.nix_expr import RawValue
 import nixops.known_hosts
 
-
 sata_ports = 8
 
 
@@ -99,7 +98,7 @@ class VirtualBoxState(MachineState):
         vminfo = {}
         for l in lines:
             (k, v) = l.split("=", 1)
-            vminfo[k] = v
+            vminfo[k] = v if v[0]!='"' else v[1:-1]
         return vminfo
 
 
@@ -184,7 +183,9 @@ class VirtualBoxState(MachineState):
                  "--bootable", "on", "--hostiocache", "on"])
             self.sata_controller_created = True
 
-        vm_dir = os.environ['HOME'] + "/VirtualBox VMs/" + self.vm_id
+        vm_dir = os.path.dirname(self._get_vm_info()['CfgFile'])
+        print vm_dir
+
         if not os.path.isdir(vm_dir):
             raise Exception("can't find directory of VirtualBox VM ‘{0}’".format(self.name))
 
