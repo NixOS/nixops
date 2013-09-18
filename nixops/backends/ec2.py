@@ -744,7 +744,7 @@ class EC2State(MachineState):
 
             # Generate a public/private host key.
             if not self.public_host_key:
-                (private, public) = nixops.util.create_key_pair()
+                (private, public) = nixops.util.create_key_pair(type='dsa')
                 with self.depl._db:
                     self.public_host_key = public
                     self.private_host_key = private
