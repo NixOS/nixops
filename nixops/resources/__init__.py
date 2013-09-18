@@ -138,6 +138,9 @@ class ResourceState(object):
         """Create or update the resource defined by ‘defn’."""
         assert False
 
+    def after_activation(self, defn):
+        return
+
     def destroy(self, wipe=False):
         """Destroy this resource, if possible."""
         self.logger.warn(

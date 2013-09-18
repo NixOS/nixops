@@ -291,3 +291,7 @@ def which(program):
                 return exe_file
 
     raise Exception("program ‘{0}’ not found in \$PATH".format(program))
+
+def enum(**enums):
+    return type('Enum', (), enums)
+

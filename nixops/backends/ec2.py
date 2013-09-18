@@ -603,6 +603,38 @@ class EC2State(MachineState):
             assert len(reservation.instances) == 1
             return reservation.instances[0]
 
+    def after_activation(self, defn):
+        # Detach volumes that are no longer in the deployment spec.
+        for k, v in self.block_device_mapping.items():
+            if k not in defn.block_device_mapping and not v.get('partOfImage', False):
+                if v['disk'].startswith("ephemeral"):
+                    raise Exception("cannot detach ephemeral device ‘{0}’ from EC2 instance ‘{1}’"
+                    .format(_sd_to_xvd(k), self.name))
+
+                assert v.get('volumeId', None)
+
+                self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
+                volumes = self._conn.get_all_volumes([],
+                    filters={'attachment.instance-id': self.vm_id, 'attachment.device': k, 'volume-id': v['volumeId']})
+                assert len(volumes) <= 1
+
+                if len(volumes) == 1:
+                    device = _sd_to_xvd(k)
+                    if v.get('encrypt', False):
+                        dm = device.replace("/dev/", "/dev/mapper/")
+                        self.run_command("umount -l {0}".format(dm), check=False)
+                        self.run_command("cryptsetup luksClose {0}".format(device.replace("/dev/", "")), check=False)
+                    else:
+                        self.run_command("umount -l {0}".format(device), check=False)
+                    if not self._conn.detach_volume(volumes[0].id, instance_id=self.vm_id, device=k):
+                        raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
+                        # FIXME: Wait until the volume is actually detached.
+
+                if v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
+                    self._delete_volume(v['volumeId'])
+
+                self.update_block_device_mapping(k, None)
+
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, EC2Definition)
@@ -800,37 +832,6 @@ class EC2State(MachineState):
             if k not in self.block_device_mapping and dm.volume_id:
                 bdm = {'volumeId': dm.volume_id, 'partOfImage': True}
                 self.update_block_device_mapping(k, bdm)
-
-        # Detach volumes that are no longer in the deployment spec.
-        for k, v in self.block_device_mapping.items():
-            if k not in defn.block_device_mapping and not v.get('partOfImage', False):
-                if v['disk'].startswith("ephemeral"):
-                    raise Exception("cannot detach ephemeral device ‘{0}’ from EC2 instance ‘{1}’"
-                                    .format(_sd_to_xvd(k), self.name))
-
-                assert v.get('volumeId', None)
-
-                self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
-                volumes = self._conn.get_all_volumes([],
-                    filters={'attachment.instance-id': self.vm_id, 'attachment.device': k, 'volume-id': v['volumeId']})
-                assert len(volumes) <= 1
-
-                if len(volumes) == 1:
-                    device = _sd_to_xvd(k)
-                    if v.get('encrypt', False):
-                        dm = device.replace("/dev/", "/dev/mapper/")
-                        self.run_command("umount -l {0}".format(dm), check=False)
-                        self.run_command("cryptsetup luksClose {0}".format(device.replace("/dev/", "")), check=False)
-                    else:
-                        self.run_command("umount -l {0}".format(device), check=False)
-                    if not self._conn.detach_volume(volumes[0].id, instance_id=self.vm_id, device=k):
-                        raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
-                    # FIXME: Wait until the volume is actually detached.
-
-                if v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
-                    self._delete_volume(v['volumeId'])
-
-                self.update_block_device_mapping(k, None)
 
         # Detect if volumes were manually detached.  If so, reattach
         # them.

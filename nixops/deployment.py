@@ -30,16 +30,13 @@ import fcntl
 import itertools
 import platform
 
-
 class NixEvalError(Exception):
     pass
 
 class UnknownBackend(Exception):
     pass
 
-
 debug = False
-
 
 class Deployment(object):
     """NixOps top-level deployment manager."""
@@ -874,6 +871,16 @@ class Deployment(object):
                               exclude=exclude, allow_reboot=allow_reboot,
                               force_reboot=force_reboot, check=check,
                               sync=sync, always_activate=always_activate)
+
+        # Trigger cleanup of resources, e.g. disks that need to be detached etc. Needs to be
+        # done after activation to make sure they are not in use anymore.
+        def cleanup_worker(r):
+            if not should_do(r, include, exclude): return
+
+            # Now create the resource itself.
+            r.after_activation(self.definitions[r.name])
+
+        nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=cleanup_worker)
 
 
     def deploy(self, **kwargs):
