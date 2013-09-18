@@ -22,6 +22,11 @@ in
           set -o pipefail
           VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/Charon/ClientPublicKey | sed 's/Value: //' > ${clientKeyPath}.tmp
           mv ${clientKeyPath}.tmp ${clientKeyPath}
+
+          if [[ ! -f /etc/ssh/ssh_host_ecdsa_key ]]; then
+            VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/Charon/PrivateHostKey | sed 's/Value: //' > /etc/ssh/ssh_host_ecdsa_key.tmp
+            mv /etc/ssh/ssh_host_ecdsa_key.tmp /etc/ssh/ssh_host_ecdsa_key
+          fi
         '';
     };
 

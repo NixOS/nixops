@@ -48,6 +48,8 @@ class VirtualBoxState(MachineState):
     _client_public_key = nixops.util.attr_property("virtualbox.clientPublicKey", None)
     _headless = nixops.util.attr_property("virtualbox.headless", False, bool)
     sata_controller_created = nixops.util.attr_property("virtualbox.sataControllerCreated", False, bool)
+    public_host_key = nixops.util.attr_property("virtualbox.publicHostKey", None)
+    private_host_key = nixops.util.attr_property("virtualbox.privateHostKey", None)
 
     # Obsolete.
     disk = nixops.util.attr_property("virtualbox.disk", None)
@@ -164,6 +166,16 @@ class VirtualBoxState(MachineState):
             self._logged_exec(["VBoxManage", "createvm", "--name", vm_id, "--ostype", "Linux", "--register"])
             self.vm_id = vm_id
             self.state = self.STOPPED
+
+        # Generate a public/private host key.
+        if not self.public_host_key:
+            (private, public) = nixops.util.create_key_pair()
+            with self.depl._db:
+                self.public_host_key = public
+                self.private_host_key = private
+
+        self._logged_exec(
+            ["VBoxManage", "guestproperty", "set", self.vm_id, "/VirtualBox/GuestInfo/Charon/PrivateHostKey", self.private_host_key])
 
         # Backwards compatibility.
         if self.disk:
