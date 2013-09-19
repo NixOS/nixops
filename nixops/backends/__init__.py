@@ -175,6 +175,7 @@ class MachineState(nixops.resources.ResourceState):
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
             f = open(tmp, "w+"); f.write(v); f.close()
+            self.run_command("rm -f /run/keys/" + k)
             self.upload_file(tmp, "/run/keys/" + k)
             self.run_command("chmod 600 /run/keys/" + k)
             os.remove(tmp)
