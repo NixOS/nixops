@@ -75,25 +75,26 @@ let
     }
   '';
 
-  # Packages needed by live-build (Debian Squeeze)
-  rescuePackages = pkgs.vmTools.debDistros.debian60x86_64.packages ++ [
+  # Packages needed by live-build (Debian Wheezy)
+  rescuePackages = pkgs.vmTools.debDistros.debian70x86_64.packages ++ [
     "apt" "hostname" "tasksel" "makedev" "locales" "kbd" "linux-image-2.6-amd64"
-    "live-initramfs" "console-setup" "console-common" "eject" "file"
-    "user-setup" "sudo" "squashfs-tools" "syslinux" "genisoimage" "live-boot"
-    "zsync" "librsvg2-bin" "net-tools" "dctrl-tools"
+    "console-setup" "console-common" "eject" "file" "user-setup" "sudo"
+    "squashfs-tools" "syslinux" "genisoimage" "live-boot" "zsync" "librsvg2-bin"
+    "dctrl-tools" "xorriso" "live-config" "live-config-sysvinit"
   ];
 
-  # Packages to be explicitely installed into the live system.
+  # Packages to be explicitly installed into the live system.
   additionalRescuePackages = [
     "openssh-server" "e2fsprogs" "mdadm" "btrfs-tools" "dmsetup" "iproute"
+    "net-tools"
   ];
 
-  # Debian packages for the rescue live system (Squeeze).
+  # Debian packages for the rescue live system (Wheezy).
   rescueDebs = let
     expr = pkgs.vmTools.debClosureGenerator {
       packages = rescuePackages ++ additionalRescuePackages;
-      inherit (pkgs.vmTools.debDistros.debian60x86_64) name urlPrefix;
-      packagesLists = [pkgs.vmTools.debDistros.debian60x86_64.packagesList];
+      inherit (pkgs.vmTools.debDistros.debian70x86_64) name urlPrefix;
+      packagesLists = [pkgs.vmTools.debDistros.debian70x86_64.packagesList];
     };
   in import expr {
     inherit (pkgs) fetchurl;
@@ -129,7 +130,7 @@ let
       cat > debcache/conf/distributions <<RELEASE
       Origin: Debian
       Label: Debian
-      Codename: squeeze
+      Codename: wheezy
       Architectures: amd64
       Components: main
       Contents:
@@ -139,7 +140,7 @@ let
       # Create APT repository
       echo -n "Creating APT repository..." >&2
       for debfile in $rescueDebs; do
-        REPREPRO_BASE_DIR=debcache reprepro includedeb squeeze "$debfile" \
+        REPREPRO_BASE_DIR=debcache reprepro includedeb wheezy "$debfile" \
           > /dev/null
       done
       echo " done." >&2
@@ -150,15 +151,14 @@ let
                                  -i "$(pwd)/thttpd.pid"
 
       lb config --memtest none \
+                --apt-secure false \
                 --binary-images iso \
-                --distribution squeeze \
+                --distribution wheezy \
                 --bootstrap cdebootstrap \
                 --debconf-frontend noninteractive \
                 --bootappend-live "$bootOptions" \
                 --mirror-bootstrap http://127.0.0.1 \
                 --debian-installer false
-
-      sed -i -e 's/^LB_APT_SECURE=.*/LB_APT_SECURE=false/' config/common
 
       cat > config/hooks/1000-root_password.chroot <<ROOTPW
       echo "root:${rescuePasswd}" | chpasswd
@@ -183,12 +183,35 @@ let
       echo 'T0:23:respawn:/usr/local/bin/backdoor' >> /etc/inittab
       BACKDOOR
 
+      # Ensure that GPG is avoided in postinst of cdebootstrap-helper-apt
+      mkdir -p chroot/bin
+      cat > chroot/bin/apt-get <<NOGPG
+      #!/bin/sh
+      # Setting APT::Get::AllowUnauthenticated in apt.conf doesn't seem to have
+      # any effect here, so we simply wrap apt-get and prepend the flag. Also,
+      # on "apt-get update" let's always return with exit status 0, because we
+      # don't actually care whether it fails as long as the packages can be
+      # installed.
+      if ! /usr/bin/apt-get --allow-unauthenticated "\$@"; then
+        case "\$*" in
+          *update*) exit 0;;
+          *) exit \$?;;
+        esac
+      fi
+      NOGPG
+      chmod +x chroot/bin/apt-get
+
       echo $additionalRescuePackages \
         > config/package-lists/additional.list.chroot
 
       cat > config/hooks/1000-isolinux_timeout.binary <<ISOLINUX
       sed -i -e 's/timeout 0/timeout 1/' binary/isolinux/isolinux.cfg
       ISOLINUX
+
+      # Remove the APT workaround concerning GPG
+      cat > config/hooks/1001-remove_apt_hack.binary <<REMOVEAPT
+      rm -f chroot/bin/apt-get
+      REMOVEAPT
 
       # Ugly workaround for http://bugs.debian.org/643659
       lb build || lb build
