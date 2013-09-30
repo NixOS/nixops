@@ -795,6 +795,13 @@ class EC2State(MachineState):
             self.warn("cannot change region of a running instance")
         if defn.zone and self.zone != defn.zone:
             self.warn("cannot change availability zone of a running instance")
+        instance_groups = set([g.name for g in instance.groups])
+        if set(defn.security_groups) != instance_groups:
+            self.warn(
+                'cannot change security groups of an existing instance. Defined: [{0}], Actual: [{1}]'.format(
+                    ", ".join(set(defn.security_groups)),
+                    ", ".join(instance_groups))
+            )
 
         # Reapply tags if they have changed.
         common_tags = self.get_common_tags()
