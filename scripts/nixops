@@ -12,6 +12,7 @@ import sys
 import subprocess
 import nixops.parallel
 import nixops.util
+import nixops.known_hosts
 import time
 from datetime import datetime
 from pprint import pprint
@@ -467,6 +468,14 @@ def op_import():
             depl.import_(attrs)
         sys.stderr.write("added deployment ‘{0}’\n".format(uuid))
 
+        if args.include_keys:
+            for m in depl.active.itervalues():
+                if deployment.is_machine(m) and hasattr(m, 'public_host_key'):
+                    if m.public_ipv4:
+                        nixops.known_hosts.add(m.public_ipv4, m.public_host_key)
+                    if m.private_ipv4:
+                        nixops.known_hosts.add(m.private_ipv4, m.public_host_key)
+
 
 def parse_machine(name):
     return ("root", name) if name.find("@") == -1 else name.split("@", 1)
@@ -810,6 +819,7 @@ subparser.add_argument('--all',  action='store_true', help='export all deploymen
 subparser.set_defaults(op=op_export)
 
 subparser = add_subparser('import', help='import deployments into the state file')
+subparser.add_argument('--include-keys',  action='store_true', help='import public SSH hosts keys to .ssh/known_hosts')
 subparser.set_defaults(op=op_import)
 
 

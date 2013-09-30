@@ -1053,6 +1053,22 @@ interactive shell is started.</para>
 
 </refsection>
 
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--include-keys</option></term>
+
+    <listitem><para>Include the public SSH host keys into .ssh/known_hosts for all
+    machines in the imported network.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+
 <refsection><title>Examples</title>
 
 <para>To start a shell on machine <literal>foo</literal>:
@@ -1626,6 +1642,7 @@ $ nixops export --all > all.json
 
 <cmdsynopsis>
   <command>nixops import</command>
+  <arg><option>--include-keys</option></arg>
 </cmdsynopsis>
 </refsection>
 
