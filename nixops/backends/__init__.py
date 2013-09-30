@@ -167,9 +167,10 @@ class MachineState(nixops.resources.ResourceState):
     def send_keys(self):
         if self.store_keys_on_machine: return
         self.run_command("mkdir -m 0700 -p /run/keys")
+        conn = self._connect_ssh()
         for k, v in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
-            with self._connect_ssh().open("/run/keys/" + k, 'wb') as keyfile:
+            with conn.open("/run/keys/" + k, 'wb') as keyfile:
                 keyfile.write(v)
             self.run_command("chmod 600 /run/keys/" + k)
         self.run_command("touch /run/keys/done")
