@@ -66,12 +66,12 @@ with pkgs.lib;
           };
 
           groupName = mkOption {
-            description = "The name of the source security group";
+            description = "The name of the source security group (if allowing all instances in a group access instead of an IP range)";
             type = types.uniq types.string;
           };
         };
 
-        cidrIp = mkOption {
+        sourceIp = mkOption {
           description = "The source IP range (CIDR notation)";
           type = types.uniq types.string;
         };
