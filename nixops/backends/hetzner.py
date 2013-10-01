@@ -656,9 +656,9 @@ class HetznerState(MachineState):
         server = self._get_server_from_main_robot(self.main_ipv4)
 
         if wipe:
-            question = "are you sure you want to destroy {0}?"
-        else:
             question = "are you sure you want to completely erase {0}?"
+        else:
+            question = "are you sure you want to destroy {0}?"
         question_target = "Hetzner machine ‘{0}’?".format(self.name)
         if not self.depl.logger.confirm(question.format(question_target)):
             return False
