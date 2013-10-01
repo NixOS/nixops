@@ -469,7 +469,7 @@ class Deployment(object):
 
                 # Add SSH public host keys for all machines in network  
                 for m2 in active_machines.itervalues():
-                    if hasattr(m2, 'public_host_key'):
+                    if hasattr(m2, 'public_host_key') and m2.public_host_key:
                         # Using references to files in same tempdir for now, until NixOS has support
                         # for adding the keys directly as string. This way at least it is compatible
                         # with older versions of NixOS as well.
@@ -541,7 +541,7 @@ class Deployment(object):
         if debug: print >> sys.stderr, "generated physical spec:\n" + p
 
         for m in self.active.itervalues():
-            if hasattr(m, "public_host_key"):
+            if hasattr(m, "public_host_key") and m.public_host_key:
                 write_temp_file("{0}/{1}.public_host_key".format(self.tempdir,m.name), m.public_host_key + "\n")
 
         selected = [m for m in self.active.itervalues() if should_do(m, include, exclude)]
