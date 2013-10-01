@@ -320,6 +320,8 @@ in makeTest ({ pkgs, ... }:
       $target2->succeed("mkdir -p /nix && mount /dev/vdc /nix");
       $target2->succeed("ifconfig eth1 192.168.1.3");
       $target2->succeed("modprobe dm-mod");
+      # XXX: Work around failure on mkfs.btrfs
+      $target2->succeed("mkdir -p /live/medium/live/filesystem.squashfs");
     };
 
     $coordinator->waitForJob("network-interfaces.target");
