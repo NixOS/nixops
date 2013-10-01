@@ -6,6 +6,58 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.1.1"><title>Release 1.1.1 (October 1, 2013)</title>
+
+<para>This a minor bugfix release.</para>
+
+<itemizedlist>
+
+  <listitem><para>Added a command-line option <emphasis>--include-keys</emphasis> to allow
+  importing SSH public host keys, of the machines that will be imported, to the 
+  <emphasis>.ssh/known_hosts</emphasis> of the user.
+  </para></listitem>
+
+  <listitem><para>Fixed a bug that prevented switching the <emphasis>deployment.storeKeysOnMachine</emphasis>
+  option value.
+  </para></listitem>
+
+  <listitem><para>On non-EC2 systems, nixops will generate ecdsa SSH host keypairs 
+  in stead of dsa from now on.</para></listitem>
+
+  <listitem><para>VirtualBox deployments use generated SSH host keypairs.
+  </para></listitem>
+
+  <listitem><para>For all machines which nixops generates an SSH host keypair for, it
+  will add the SSH public host key to the known_hosts configuration of all machines
+  in the network.</para></listitem>
+
+  <listitem><para>For EC2 deployments, if the nixops expression specifies a set of
+  security groups for a machine that is different from the security groups applied to
+  the existing machine, it will produce a warning that the change cannot be made.
+  </para></listitem>
+
+  <listitem><para>For EC2 deployments, disks that are not supposed to be attached to the
+  machine are detached only after system activation has been completed. Previously this
+  was done before, but that could lead to volumes not being able to detach without
+  needing to stop the machine.
+  </para></listitem>
+
+  <listitem><para>Added a command-line option <emphasis>--repair</emphasis> as a convient
+  way to pass this option, which allows repairing of broken or changed paths in the nix store,
+  to nix-build calls that nixops performs. Note that this option only works in nix setups
+  that run without the nix daemon.
+  </para></listitem>
+
+
+</itemizedlist>
+
+<para>
+  This release has contributions from aszlig, Ricardo Correia, 
+  Eelco Dolstra, Rob Vermaas.
+</para>
+
+</section>
+
 <section xml:id="ssec-relnotes-1.1"><title>Release 1.1 (September 9, 2013)</title>
 
 <itemizedlist>
