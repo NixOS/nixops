@@ -206,5 +206,6 @@ class SSH(object):
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.MissingHostKeyPolicy())
         ssh.connect(host, username=username, key_filename=privkey,
-                    password=passwd, port=port, timeout=timeout)
+                    password=passwd, port=port, timeout=timeout,
+                    allow_agent=False, look_for_keys=False)
         return SSHConnection(ssh, host)
