@@ -145,6 +145,10 @@ class ResourceState(object):
         """Return a set of resources that should be created before this one."""
         return {}
 
+    def destroy_before(self, resources):
+        """Return a set of resources that should be destroyed after this one."""
+        return self.create_after(resources)
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         """Create or update the resource defined by ‘defn’."""
         assert False

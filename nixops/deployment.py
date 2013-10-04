@@ -941,10 +941,24 @@ class Deployment(object):
         """Destroy all active or obsolete resources."""
 
         with self._get_deployment_lock():
+            for r in self.resources.itervalues():
+                r._destroyed_event = threading.Event()
+                for rev_dep in r.destroy_before(self.resources.itervalues()):
+                    try:
+                        rev_dep._wait_for.append(r)
+                    except AttributeError:
+                        rev_dep._wait_for = [ r ]
 
             def worker(m):
                 if not should_do(m, include, exclude): return
+                try:
+                    for dep in m._wait_for:
+                        if should_do(dep, include, exclude):
+                            dep._destroyed_event.wait()
+                except AttributeError:
+                    pass
                 if m.destroy(wipe=wipe): self.delete_resource(m)
+                m._destroyed_event.set()
 
             nixops.parallel.run_tasks(nr_workers=-1, tasks=self.resources.values(), worker_fun=worker)
 
