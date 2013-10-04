@@ -361,6 +361,7 @@ import nixops.resources.ssh_keypair
 import nixops.resources.sqs_queue
 import nixops.resources.s3_bucket
 import nixops.resources.iam_role
+import nixops.resources.ec2_security_group
 
 def create_definition(xml):
     """Create a machine definition object from the given XML representation of the machine's attributes."""
@@ -383,7 +384,8 @@ def create_state(depl, type, name, id):
               nixops.resources.ssh_keypair.SSHKeyPairState,
               nixops.resources.sqs_queue.SQSQueueState,
               nixops.resources.iam_role.IAMRoleState,
-              nixops.resources.s3_bucket.S3BucketState]:
+              nixops.resources.s3_bucket.S3BucketState
+              nixops.resources.ec2_security_group.EC2SecurityGroupState]:
         if type == i.get_type():
             return i(depl, name, id)
     raise nixops.deployment.UnknownBackend("unknown backend type ‘{0}’".format(type))
