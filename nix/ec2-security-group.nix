@@ -24,6 +24,7 @@ with pkgs.lib;
     };
 
     accessKeyId = mkOption {
+      default = "";
       type = types.uniq types.string;
       description = "The AWS Access Key ID.";
     };

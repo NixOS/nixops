@@ -1,4 +1,4 @@
-{ securityGroup }:
+{ securityGroup, ... }:
 let
   region = "us-east-1";
 in
