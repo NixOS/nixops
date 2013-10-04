@@ -15,7 +15,6 @@ class TestBackups(generic_deployment_test.GenericDeploymentTest):
 
     def setup(self):
         super(TestBackups,self).setup()
-        self.set_ec2_args()
         self.depl.nix_exprs = [ logical_spec,
                 '%s/single_machine_ec2_ebs.nix' % (parent_dir),
                 '%s/single_machine_ec2_base.nix' % (parent_dir)

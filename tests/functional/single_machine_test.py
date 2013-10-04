@@ -16,7 +16,6 @@ class SingleMachineTest(generic_deployment_test.GenericDeploymentTest):
         self.depl.nix_exprs = [ logical_spec ]
 
     def test_ec2(self):
-        self.set_ec2_args()
         self.depl.nix_exprs = self.depl.nix_exprs + [
             ('%s/single_machine_ec2_base.nix' % (parent_dir))
         ]

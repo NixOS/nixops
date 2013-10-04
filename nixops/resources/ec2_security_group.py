@@ -98,7 +98,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
 
         grp = None
         if check:
-            with self.db:
+            with self.depl._db:
                 self._connect()
 
                 try:
@@ -109,10 +109,12 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                     rules = []
                     for rule in grp.rules:
                         for grant in rule.grants:
+                            new_rule = [ rule.ip_protocol, int(rule.from_port), int(rule.to_port) ]
                             if grant.cidr_ip:
-                                new_rule = [ rule.ip_protocol, rule.from_port, rule.to_port, grant.cidr_ip ]
+                                new_rule.append(grant.cidr_ip)
                             else:
-                                new_rule = [ rule.ip_protocol, rule.from_port, rule.to_port, grant.groupName, grant.owner_id ]
+                                new_rule.append(grant.groupName)
+                                new_rule.append(grant.owner_id)
                             rules.append(new_rule)
                     self.security_group_rules = rules
                 except boto.exception.EC2ResponseError as e:
