@@ -435,9 +435,11 @@ class EC2State(MachineState):
         # EC2 instances can require key pairs and IAM roles.  FIXME:
         # only depend on the specific key pair / role needed for this
         # instance.
+        # Ditto for security groups
         return {r for r in resources if
                 isinstance(r, nixops.resources.ec2_keypair.EC2KeyPairState) or
-                isinstance(r, nixops.resources.iam_role.IAMRoleState)}
+                isinstance(r, nixops.resources.iam_role.IAMRoleState) or
+                isinstance(r, nixops.resources.ec2_security_group.EC2SecurityGroupState}
 
 
     def attach_volume(self, device, volume_id):

@@ -9,6 +9,7 @@ class ResourceDefinition(object):
 
     @classmethod
     def get_type(cls):
+        """A resource type identifier that must match the corresponding ResourceState class"""
         assert False
 
     def __init__(self, xml):
@@ -18,6 +19,7 @@ class ResourceDefinition(object):
             raise Exception("invalid resource name ‘{0}’".format(self.name))
 
     def show_type(self):
+        """A short description of the type of resource this is"""
         return self.get_type()
 
 
@@ -26,6 +28,7 @@ class ResourceState(object):
 
     @classmethod
     def get_type(cls):
+        """A resource type identifier that must match the corresponding ResourceDefinition clsas"""
         assert False
 
     # Valid values for self.state.  Not all of these make sense for
@@ -80,6 +83,7 @@ class ResourceState(object):
             return nixops.util.undefined
 
     def export(self):
+        """Export the resource to move between databases"""
         with self.depl._db:
             c = self.depl._db.cursor()
             c.execute("select name, value from ResourceAttrs where machine = ?", (self.id,))
@@ -89,6 +93,7 @@ class ResourceState(object):
             return res
 
     def import_(self, attrs):
+        """Import the resource from another database"""
         with self.depl._db:
             for k, v in attrs.iteritems():
                 if k == 'type': continue
@@ -103,9 +108,11 @@ class ResourceState(object):
     success = lambda s, m: s.logger.success(m)
 
     def show_type(self):
+        """A short description of the type of resource this is"""
         return self.get_type()
 
     def show_state(self):
+        """A description of the resource's current state"""
         state = self.state
         if state == self.UNKNOWN: return "Unknown"
         elif state == self.MISSING: return "Missing"
@@ -118,16 +125,20 @@ class ResourceState(object):
         else: raise Exception("machine is in unknown state")
 
     def prefix_definiton(self, attr):
+        """Prefix the resource set with a py2nixable attrpath"""
         raise Exception("not implemented")
 
     def get_physical_spec(self):
+        """py2nixable physical specification of the resource to be fed back into the network"""
         return {}
 
     def get_physical_backup_spec(self, backupid):
+        """py2nixable physical specification of the specified backup"""
         return []
 
     @property
     def resource_id(self):
+        """A unique ID to display for this resource"""
         return None
 
     def create_after(self, resources):
@@ -139,6 +150,7 @@ class ResourceState(object):
         assert False
 
     def after_activation(self, defn):
+        """Actions to be performed after the network is activated"""
         return
 
     def destroy(self, wipe=False):

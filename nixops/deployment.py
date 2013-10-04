@@ -315,6 +315,10 @@ class Deployment(object):
             defn = nixops.resources.s3_bucket.S3BucketDefinition(x)
             self.definitions[defn.name] = defn
 
+        for x in res.find("attr[@name='ec2SecurityGroups']/attrs").findall("attr"):
+            defn = nixops.resources.ec2_security_groups.EC2SecurityGroupDefinition(x)
+            self.definitions[defn.name] = defn
+
 
     def evaluate_option_value(self, machine_name, option_name, xml=False, include_physical=False):
         """Evaluate a single option of a single machine in the deployment specification."""
