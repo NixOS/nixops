@@ -7,7 +7,6 @@ import nixops.resources
 import nixops.util
 import nixops.ec2_utils
 
-
 class EC2SecurityGroupDefinition(nixops.resources.ResourceDefinition):
     """Definition of an EC2 security group."""
 
@@ -21,22 +20,22 @@ class EC2SecurityGroupDefinition(nixops.resources.ResourceDefinition):
         self.security_group_description = xml.find("attrs/attr[@name='description']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
-        self.rules = []
+        self.security_group_rules = []
         for rule_xml in xml.findall("attrs/attr[@name='rules']/list/attrs"):
-            ip_protocol = rule_xml.find("attrs/attr[@name='protocol']/string").get("value")
+            ip_protocol = rule_xml.find("attr[@name='protocol']/string").get("value")
             if ip_protocol == "icmp":
-                from_port = int(rule_xml.find("attrs/attr[@name='typeNumber']/int").get("value"))
-                to_port = int(rule_xml.find("attrs/attr[@name='codeNumber']/int").get("value"))
+                from_port = int(rule_xml.find("attr[@name='typeNumber']/int").get("value"))
+                to_port = int(rule_xml.find("attr[@name='codeNumber']/int").get("value"))
             else:
-                from_port = int(rule_xml.find("attrs/attr[@name='fromPort']/int").get("value"))
-                to_port = int(rule_xml.find("attrs/attr[@name='toPort']/int").get("value"))
-            cidr_ip_xml = rule_xml.find("attrs/attr[@name='sourceIp']/string")
+                from_port = int(rule_xml.find("attr[@name='fromPort']/int").get("value"))
+                to_port = int(rule_xml.find("attr[@name='toPort']/int").get("value"))
+            cidr_ip_xml = rule_xml.find("attr[@name='sourceIp']/string")
             if not cidr_ip_xml is None:
-                self.rules.append([ ip_protocol, from_port, to_port, cidr_ip_xml.get("value") ])
+                self.security_group_rules.append([ ip_protocol, from_port, to_port, cidr_ip_xml.get("value") ])
             else:
-                group_name = rule_xml.find("attrs/attr[@name='sourceGroup']/attrs/attr[@name='groupName']/string").get("value")
-                owner_id = rule_xml.find("attrs/attr[@name='sourceGroup']/attrs/attr[@name='ownerId']/string").get("value")
-                self.rules.append([ ip_protocol, from_port, to_port, group_name, owner_id ])
+                group_name = rule_xml.find("attr[@name='sourceGroup']/attrs/attr[@name='groupName']/string").get("value")
+                owner_id = rule_xml.find("attr[@name='sourceGroup']/attrs/attr[@name='ownerId']/string").get("value")
+                self.security_group_rules.append([ ip_protocol, from_port, to_port, group_name, owner_id ])
 
 
     def show_type(self):
@@ -59,13 +58,14 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
 
     def __init__(self, depl, name, id):
         super(EC2SecurityGroupState, self).__init__(depl, name, id)
+        self._conn = None
 
     def show_type(self):
         s = super(EC2SecurityGroupState, self).show_type()
         if self.region: s = "{0} [{1}]".format(s, self.region)
         return s
 
-    def prefix_definiton(self, attr):
+    def prefix_definition(self, attr):
         return {('resources', 'ec2SecurityGroups'): attr}
 
     def get_physical_spec(self):
@@ -92,7 +92,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
 
         with self.depl._db:
             self.region = defn.region
-            self.access_key_id = defn.access_key_id
+            self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
             self.security_group_name = defn.security_group_name
             self.security_group_description = defn.security_group_description
 

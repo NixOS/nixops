@@ -316,7 +316,7 @@ class Deployment(object):
             self.definitions[defn.name] = defn
 
         for x in res.find("attr[@name='ec2SecurityGroups']/attrs").findall("attr"):
-            defn = nixops.resources.ec2_security_groups.EC2SecurityGroupDefinition(x)
+            defn = nixops.resources.ec2_security_group.EC2SecurityGroupDefinition(x)
             self.definitions[defn.name] = defn
 
 
