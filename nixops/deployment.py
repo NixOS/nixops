@@ -969,6 +969,7 @@ class Deployment(object):
                     if m.destroy(wipe=wipe): self.delete_resource(m)
                 except:
                     m._errored = True
+                    raise
                 finally:
                     m._destroyed_event.set()
 
