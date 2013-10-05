@@ -830,24 +830,30 @@ class Deployment(object):
                     raise Exception("the type of resource ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported"
                                     .format(r.name, r.get_type(), defn.get_type()))
                 r._created_event = threading.Event()
+                r._errored = False
 
             def worker(r):
-                if not should_do(r, include, exclude): return
+                try:
+                    if not should_do(r, include, exclude): return
 
-                # Sleep until all dependencies of this resource have
-                # been created.
-                deps = r.create_after(self.active_resources.itervalues())
-                for dep in deps:
-                    if not should_do(dep, include, exclude): continue
-                    dep._created_event.wait()
+                    # Sleep until all dependencies of this resource have
+                    # been created.
+                    deps = r.create_after(self.active_resources.itervalues())
+                    for dep in deps:
+                        dep._created_event.wait()
+                        # !!! Should we print a message here?
+                        if dep._errored: return
 
-                # Now create the resource itself.
-                r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot, allow_recreate=allow_recreate)
-                if is_machine(r):
-                    r.wait_for_ssh(check=check)
-                    r.generate_vpn_key()
-
-                r._created_event.set()
+                    # Now create the resource itself.
+                    r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot, allow_recreate=allow_recreate)
+                    if is_machine(r):
+                        r.wait_for_ssh(check=check)
+                        r.generate_vpn_key()
+                except:
+                    r._errored = True
+                    raise
+                finally:
+                    r._created_event.set()
 
             nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=worker)
 
@@ -943,6 +949,7 @@ class Deployment(object):
         with self._get_deployment_lock():
             for r in self.resources.itervalues():
                 r._destroyed_event = threading.Event()
+                r._errored = False
                 for rev_dep in r.destroy_before(self.resources.itervalues()):
                     try:
                         rev_dep._wait_for.append(r)
@@ -950,15 +957,20 @@ class Deployment(object):
                         rev_dep._wait_for = [ r ]
 
             def worker(m):
-                if not should_do(m, include, exclude): return
                 try:
-                    for dep in m._wait_for:
-                        if should_do(dep, include, exclude):
+                    if not should_do(m, include, exclude): return
+                    try:
+                        for dep in m._wait_for:
                             dep._destroyed_event.wait()
-                except AttributeError:
-                    pass
-                if m.destroy(wipe=wipe): self.delete_resource(m)
-                m._destroyed_event.set()
+                            # !!! Should we print a message here?
+                            if dep._errored: return
+                    except AttributeError:
+                        pass
+                    if m.destroy(wipe=wipe): self.delete_resource(m)
+                except:
+                    m._errored = True
+                finally:
+                    m._destroyed_event.set()
 
             nixops.parallel.run_tasks(nr_workers=-1, tasks=self.resources.values(), worker_fun=worker)
 
