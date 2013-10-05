@@ -842,7 +842,9 @@ class Deployment(object):
                     for dep in deps:
                         dep._created_event.wait()
                         # !!! Should we print a message here?
-                        if dep._errored: return
+                        if dep._errored:
+                            r._errored = True
+                            return
 
                     # Now create the resource itself.
                     r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot, allow_recreate=allow_recreate)
@@ -963,7 +965,9 @@ class Deployment(object):
                         for dep in m._wait_for:
                             dep._destroyed_event.wait()
                             # !!! Should we print a message here?
-                            if dep._errored: return
+                            if dep._errored:
+                                m._errored = True
+                                return
                     except AttributeError:
                         pass
                     if m.destroy(wipe=wipe): self.delete_resource(m)
