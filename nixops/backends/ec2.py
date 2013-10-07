@@ -174,6 +174,7 @@ class EC2State(MachineState):
                 RawValue("<nixos/modules/virtualisation/amazon-config.nix>")
             ],
             ('deployment', 'ec2', 'blockDeviceMapping'): block_device_mapping,
+            ('deployment', 'ec2', 'instanceId'): self.vm_id,
         }
 
     def get_physical_backup_spec(self, backupid):

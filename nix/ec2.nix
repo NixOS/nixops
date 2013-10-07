@@ -250,6 +250,14 @@ in
       '';
     };
 
+    deployment.ec2.instanceId = mkOption {
+      default = "";
+      type = types.uniq types.string;
+      description = ''
+        EC2 instance id (set by nixops).
+      '';
+    };
+
     deployment.ec2.instanceProfile = mkOption {
       default = "";
       example = "rolename";
