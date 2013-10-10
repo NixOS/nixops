@@ -1,7 +1,7 @@
 { system, nixops }:
 
-with import <nixos/lib/testing.nix> { inherit system; };
-with import <nixos/lib/qemu-flags.nix>;
+with import <nixpkgs/nixos/lib/testing.nix> { inherit system; };
+with import <nixpkgs/nixos/lib/qemu-flags.nix>;
 with pkgs.lib;
 
 let
@@ -11,8 +11,8 @@ let
     let
       withCommonOptions = otherOpts: { config, ... }: {
         require = [
-          <nixos/modules/profiles/qemu-guest.nix>
-          <nixos/modules/testing/test-instrumentation.nix>
+          <nixpkgs/nixos/modules/profiles/qemu-guest.nix>
+          <nixpkgs/nixos/modules/testing/test-instrumentation.nix>
         ];
 
         networking.useDHCP = false;
@@ -222,7 +222,7 @@ let
     '';
   });
 
-  env = "NIX_PATH=nixos=${<nixos>}:nixpkgs=${<nixpkgs>}"
+  env = "NIX_PATH=nixos=${<nixpkgs/nixos>}:nixpkgs=${<nixpkgs>}"
       + " HETZNER_ROBOT_USER=none HETZNER_ROBOT_PASS=none";
 
   targetQemuFlags = targetId: let
@@ -262,7 +262,7 @@ in makeTest ({ pkgs, ... }:
           pkgs.stdenv pkgs.busybox pkgs.module_init_tools pkgs.grub2
           pkgs.xfsprogs pkgs.btrfsProgs pkgs.docbook_xsl_ns pkgs.libxslt
           pkgs.docbook5 pkgs.ntp
-          # Firmware used in <nixos/modules/installer/scan/not-detected.nix>
+          # Firmware used in <nixpkgs/nixos/modules/installer/scan/not-detected.nix>
           pkgs.firmwareLinuxNonfree
         ];
       };

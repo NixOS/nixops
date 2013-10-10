@@ -1,6 +1,6 @@
 { system, nixops }:
 
-with import <nixos/lib/testing.nix> { inherit system; };
+with import <nixpkgs/nixos/lib/testing.nix> { inherit system; };
 with pkgs.lib;
 
 makeTest ({ pkgs, ... }:
@@ -16,8 +16,8 @@ let
         target1 =
           { # Ugly - this reproduces the build-vms.nix config.
             require =
-              [ <nixos/modules/virtualisation/qemu-vm.nix>
-                <nixos/modules/testing/test-instrumentation.nix>
+              [ <nixpkgs/nixos/modules/virtualisation/qemu-vm.nix>
+                <nixpkgs/nixos/modules/testing/test-instrumentation.nix>
               ];
             deployment.targetEnv = "none";
             services.nixosManual.enable = false;
@@ -72,7 +72,7 @@ let
       }
     '';
 
-  env = "NIX_PATH=nixos=${<nixos>}:nixpkgs=${<nixpkgs>}";
+  env = "NIX_PATH=nixos=${<nixpkgs/nixos>}:nixpkgs=${<nixpkgs>}";
 
 in
 
