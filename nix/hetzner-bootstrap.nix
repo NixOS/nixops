@@ -9,7 +9,7 @@ let
   hardwareScan = substituteAll {
     name = "nixos-hardware-scan";
     isExecutable = true;
-    src = <nixpkgs/nixos/modules/installer/tools/nixos-hardware-scan.pl>;
+    src = <nixos/modules/installer/tools/nixos-hardware-scan.pl>;
     inherit perl dmidecode;
   };
 
