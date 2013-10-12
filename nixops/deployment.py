@@ -534,7 +534,7 @@ class Deployment(object):
         # That way ‘nixos-version’ will show something useful on the
         # target machines.
         nixos_path = subprocess.check_output(
-            ["nix-instantiate", "--find-file", "nixos"] + self._nix_path_flags()).rstrip()
+            ["nix-instantiate", "--find-file", "nixpkgs"] + self._nix_path_flags()).rstrip() + "/nixos"
         get_version_script = nixos_path + "/modules/installer/tools/get-version-suffix"
         if os.path.exists(nixos_path + "/.git") and os.path.exists(get_version_script):
             self.nixos_version_suffix = subprocess.check_output(["/bin/sh", get_version_script] + self._nix_path_flags()).rstrip()
