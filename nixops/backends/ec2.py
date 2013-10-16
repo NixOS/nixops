@@ -908,8 +908,8 @@ class EC2State(MachineState):
             volume_tags.update(common_tags)
             volume_tags.update(defn.tags)
             volume_tags['Name'] = "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))
-
-            nixops.ec2_utils.retry(lambda: self._conn.create_tags([v['volumeId']], volume_tags))
+            if 'disk' in v and not v['disk'].startswith("ephemeral"):
+                nixops.ec2_utils.retry(lambda: self._conn.create_tags([v['volumeId']], volume_tags))
 
         # Attach missing volumes.
         for k, v in self.block_device_mapping.items():
