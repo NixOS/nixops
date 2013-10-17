@@ -8,7 +8,7 @@ let
     { inherit pkgs; utils = {}; name = "<name>"; uuid = "<uuid>"; };
 
   optionsXML = builtins.toFile "options.xml" (builtins.unsafeDiscardStringContext
-    (builtins.toXML (pkgs.lib.optionAttrSetToDocList "" systemModule.options)));
+    (builtins.toXML (pkgs.lib.optionAttrSetToDocList systemModule.options)));
 
   optionsDocBook = pkgs.runCommand "options-db.xml" {} ''
     ${pkgs.libxslt}/bin/xsltproc \
