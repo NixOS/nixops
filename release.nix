@@ -65,7 +65,15 @@ rec {
       buildInputs = [ pythonPackages.nose pythonPackages.coverage ];
 
       propagatedBuildInputs =
-        [ pythonPackages.paramiko
+        [ (pkgs.lib.overrideDerivation pythonPackages.paramiko (o: {
+            patches = (o.patches or []) ++ pkgs.lib.singleton (fetchurl {
+              # See https://github.com/paramiko/paramiko/pull/218
+              name = "ecdsa-private-keys.patch";
+              url = "https://github.com/aszlig/paramiko/compare/"
+                  + "c73764a947...ad33bb186f.diff";
+              sha256 = "1f1dxnd2di7jh3knn4qfipa46f6f9rqdzmc1lncwb3sbd772r8fx";
+            });
+          }))
           pythonPackages.prettytable
           pythonPackages.boto
           pythonPackages.hetzner
