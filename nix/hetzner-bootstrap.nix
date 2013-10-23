@@ -6,12 +6,11 @@ let
     udevSoMajor = 0;
   };
 
-  hardwareScan = substituteAll {
-    name = "nixos-hardware-scan";
-    isExecutable = true;
-    src = <nixos/modules/installer/tools/nixos-hardware-scan.pl>;
-    inherit perl dmidecode;
-  };
+  generateConfig = (import <nixpkgs/nixos/modules/installer/tools/tools.nix> {
+    config = {};
+    inherit pkgs;
+    modulesPath = "";
+  }).config.system.build.nixos-generate-config;
 
   base = stdenv.mkDerivation {
     name = "hetzner-nixops-base";
@@ -28,7 +27,7 @@ in stdenv.mkDerivation {
   exportReferencesGraph = [
     "refs-base" base
     "refs-nixpart" nixpart
-    "refs-hwscan" hardwareScan
+    "refs-genconf" generateConfig
   ];
 
   buildCommand = ''
@@ -46,7 +45,8 @@ in stdenv.mkDerivation {
 
     # Only a symlink that is going to be put into the Tar file.
     ln -ns "${nixpart}/bin/nixpart" usr/bin/nixpart
-    ln -ns "${hardwareScan}" usr/bin/nixos-hardware-scan
+    ln -ns "${generateConfig}/bin/nixos-generate-config" \
+           usr/bin/nixos-generate-config
 
     base_storepaths="$("${perl}/bin/perl" "${pathsFromGraph}" refs-base)"
     base_registration="$(printRegistration=1 \
