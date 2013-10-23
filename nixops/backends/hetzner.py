@@ -335,8 +335,10 @@ class HetznerState(MachineState):
 
     def _detect_hardware(self):
         self.log_start("detecting hardware...")
-        hardware = self.run_command("nixos-hardware-scan", capture_stdout=True)
-        self.hw_info = hardware
+        cmd = "nixos-generate-config --no-filesystems --show-hardware-config"
+        hardware = self.run_command(cmd, capture_stdout=True)
+        self.hw_info = '\n'.join([line for line in hardware.splitlines()
+                                  if not line.rstrip().startswith('#')])
         self.log_end("done.")
 
     def switch_to_configuration(self, method, sync, command=None):
