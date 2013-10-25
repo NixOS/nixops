@@ -222,7 +222,7 @@ let
     '';
   });
 
-  env = "NIX_PATH=nixos=${<nixpkgs/nixos>}:nixpkgs=${<nixpkgs>}"
+  env = "NIX_PATH=nixos=${<nixpkgs>}/nixos:nixpkgs=${<nixpkgs>}"
       + " HETZNER_ROBOT_USER=none HETZNER_ROBOT_PASS=none";
 
   targetQemuFlags = targetId: let
