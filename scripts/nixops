@@ -770,7 +770,7 @@ subparser.add_argument('--latest', dest='latest', action="store_true", default=F
 
 subparser = add_subparser('remove-backup', help='remove a given backup')
 subparser.set_defaults(op=op_remove_backup)
-subparser.add_argument('backupid', nargs='?', help='backup id to remove')
+subparser.add_argument('backupid', metavar='BACKUP-ID', help='backup ID to remove')
 
 subparser = add_subparser('clean-backups', help='remove old backups')
 subparser.set_defaults(op=op_clean_backups)
