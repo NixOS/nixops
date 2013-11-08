@@ -14,7 +14,8 @@ rec {
 
   networks =
     let
-      getNetworkFromExpr = networkExpr: call (import networkExpr);
+      getNetworkFromExpr = networkExpr:
+        (call (import networkExpr)) // { _file = networkExpr; };
 
       exprToKey = key: { key = toString key; };
 
@@ -34,7 +35,13 @@ rec {
   nodes =
     listToAttrs (map (machineName:
       let
-        modules = getAttr machineName network;
+        # Get the configuration of this machine from each network
+        # expression, attaching _file attributes so the NixOS module
+        # system can give sensible error messages.
+        modules =
+          concatMap (n: optional (hasAttr machineName n)
+            { imports = [(getAttr machineName n)]; inherit (n) _file; })
+          networks;
       in
       { name = machineName;
         value = import <nixos/lib/eval-config.nix> {
@@ -54,7 +61,7 @@ rec {
           extraArgs = { inherit nodes resources; };
         };
       }
-    ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" ])));
+    ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "_file" ])));
 
   # Compute the definitions of the non-machine resources.
   resourcesByType = zipAttrs (network.resources or []);
