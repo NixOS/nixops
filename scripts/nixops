@@ -68,6 +68,7 @@ def open_deployment():
     if args.max_jobs != None: depl.extra_nix_flags.extend(["--max-jobs", str(args.max_jobs)])
     if args.keep_going: depl.extra_nix_flags.append("--keep-going")
     if args.keep_failed: depl.extra_nix_flags.append("--keep-failed")
+    if args.show_trace: depl.extra_nix_flags.append("--show-trace")
 
     return depl
 
@@ -618,6 +619,7 @@ def add_subparser(name, help):
     subparser.add_argument("--max-jobs", '-j', type=int, metavar='N', help='set maximum number of concurrent Nix builds')
     subparser.add_argument("--keep-going", action='store_true', help='keep going after failed builds')
     subparser.add_argument("--keep-failed", '-K', action='store_true', help='keep temporary directories of failed builds')
+    subparser.add_argument('--show-trace', action='store_true', help='print a Nix stack trace if evaluation fails')
     subparser.add_argument('--option', nargs=2, action="append", dest="nix_options", metavar=('NAME', 'VALUE'), help='set a Nix option')
 
     return subparser

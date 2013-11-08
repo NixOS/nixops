@@ -233,7 +233,6 @@ class Deployment(object):
             ["--arg", "networkExprs", py2nix(exprs, inline=True),
              "--arg", "args", py2nix(args, inline=True),
              "--argstr", "uuid", self.uuid,
-             "--show-trace",
              "<nixops/eval-machine-info.nix>"])
         return flags
 
