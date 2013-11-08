@@ -296,7 +296,7 @@ def op_backup():
     backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
     backups_status = [b['status'] for _, b in backups.items()]
     if "running" in backups_status and not args.force:
-        raise Exception("There are still backups running, use --force to run a new backup concurrently (not advised!)")
+        raise Exception("there are still backups running, use --force to run a new backup concurrently (not advised!)")
     else:
         backup_id = depl.backup(include=args.include or [], exclude=args.exclude or [])
         print backup_id
@@ -328,7 +328,7 @@ def op_backup_status():
                 print "waiting for 30 seconds..."
                 time.sleep(30)
             else:
-                raise Exception("backup {0} not yet finished".format(backupid))
+                raise Exception("backup has not yet finished")
         else:
             return
 
