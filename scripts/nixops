@@ -310,9 +310,10 @@ def op_backup_status():
             sorted_backups = sorted(backups.keys(), reverse=True)
             if args.latest:
                 if len(backups) == 0:
-                    Exception("no backups found!")
+                    raise Exception("no backups found")
                 backupid = sorted_backups[0]
-
+            if backupid not in backups:
+                raise Exception("backup ID ‘{0}’ does not exist".format(backupid))
             _backups = {}
             _backups[backupid] = backups[backupid]
         else:
