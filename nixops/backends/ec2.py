@@ -331,21 +331,22 @@ class EC2State(MachineState):
             info = []
             for k, v in self.block_device_mapping.items():
                 if not k in b.keys():
-                    backup_complete = False
-                    info.append("{0} - {1} - Not available in backup".format(self.name, k))
+                    backup_status = "incomplete"
+                    info.append("{0} - {1} - Not available in backup".format(self.name, _sd_to_xvd(k)))
                 else:
                     snapshot_id = b[k]
                     try:
                         snapshot = self._get_snapshot_by_id(snapshot_id)
                         snapshot_status = snapshot.update()
+                        info.append("progress[{0},{1},{2}] = {3}".format(self.name, _sd_to_xvd(k), snapshot_id, snapshot_status))
                         if snapshot_status != '100%':
-                            info.append("progress[{0},{1},{2}] = {3}%.".format(self.name, k, snapshot_id, snapshot_status))
                             backup_status = "running"
-                    except:
-                        info.append("{0} - {1} - {2} - Snapshot has disappeared".format(self.name, k, snapshot_id))
+                    except boto.exception.EC2ResponseError as e:
+                        if e.error_code != "InvalidSnapshot.NotFound": raise
+                        info.append("{0} - {1} - {2} - Snapshot has disappeared".format(self.name, _sd_to_xvd(k), snapshot_id))
                         backup_status = "unavailable"
-                backups[b_id]['status'] = backup_status
-                backups[b_id]['info'] = info
+            backups[b_id]['status'] = backup_status
+            backups[b_id]['info'] = info
         return backups
 
 
@@ -384,7 +385,6 @@ class EC2State(MachineState):
         for k, v in self.block_device_mapping.items():
             snapshot = nixops.ec2_utils.retry(lambda: self._conn.create_snapshot(volume_id=v['volumeId']))
             self.log("+ created snapshot of volume ‘{0}’: ‘{1}’".format(v['volumeId'], snapshot.id))
-
 
             snapshot_tags = {}
             snapshot_tags.update(defn.tags)

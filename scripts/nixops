@@ -272,10 +272,7 @@ def op_check():
 def print_backups(depl, backups):
     tbl = prettytable.PrettyTable(["Backup ID", "Status", "Info"])
     for k, v in sorted(backups.items(), reverse=True):
-        fst = v['info'][0] if len(v['info']) > 0 else ""
-        tbl.add_row([k,v['status'], fst])
-        for i in v['info'][1:]:
-            tbl.add_row(["", "", i])
+        tbl.add_row([k,v['status'], "\n".join(v['info'])])
     print tbl
 
 
