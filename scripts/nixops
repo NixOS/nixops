@@ -270,8 +270,6 @@ def op_check():
 
 
 def print_backups(depl, backups):
-    print "Network UUID:", depl.uuid
-    print "Network description:", depl.description
     tbl = prettytable.PrettyTable(["Backup ID", "Status", "Info"])
     for k, v in sorted(backups.items(), reverse=True):
         fst = v['info'][0] if len(v['info']) > 0 else ""
