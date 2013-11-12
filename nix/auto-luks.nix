@@ -24,7 +24,7 @@ with utils;
 
       options.device = mkOption {
         example = "/dev/xvdg";
-        type = types.uniq types.string;
+        type = types.str;
         description = ''
           The underlying (encrypted) device.
         '';
@@ -32,7 +32,7 @@ with utils;
 
       options.cipher = mkOption {
         default = "aes-cbc-essiv:sha256";
-        type = types.uniq types.string;
+        type = types.str;
         description = ''
           The cipher used to encrypt the volume.
         '';
@@ -40,7 +40,7 @@ with utils;
 
       options.keySize = mkOption {
         default = 128;
-        type = types.uniq types.int;
+        type = types.int;
         description = ''
           The size in bits of the encryption key.
         '';
@@ -48,7 +48,7 @@ with utils;
 
       options.passphrase = mkOption {
         default = "";
-        type = types.uniq types.string;
+        type = types.str;
         description = ''
           The passphrase (key file) used to decrypt the key to access
           the volume.  If left empty, a passphrase is generated

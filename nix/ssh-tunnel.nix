@@ -23,27 +23,27 @@ with pkgs.lib;
       type = types.attrsOf types.optionSet;
       options = {
         target = mkOption {
-          type = types.uniq types.string;
+          type = types.str;
           description = "Host name or IP address of the remote machine.";
         };
         privateKey = mkOption {
-          type = types.uniq types.path;
+          type = types.path;
           description = "Path to the private key file used to connect to the remote machine.";
         };
         localTunnel = mkOption {
-          type = types.uniq types.int;
+          type = types.int;
           description = "Local tunnel device number.";
         };
         remoteTunnel = mkOption {
-          type = types.uniq types.int;
+          type = types.int;
           description = "Remote tunnel device number.";
         };
         localIPv4 = mkOption {
-          type = types.uniq types.string;
+          type = types.str;
           description = "IPv4 address of the local endpoint of the tunnel.";
         };
         remoteIPv4 = mkOption {
-          type = types.uniq types.string;
+          type = types.str;
           description = "IPv4 address of the remote endpoint of the tunnel.";
         };
       };

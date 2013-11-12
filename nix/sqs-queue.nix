@@ -8,17 +8,17 @@ with pkgs.lib;
 
     name = mkOption {
       default = "charon-${uuid}-${name}";
-      type = types.uniq types.string;
+      type = types.str;
       description = "Name of the SQS queue.";
     };
 
     region = mkOption {
-      type = types.uniq types.string;
+      type = types.str;
       description = "Amazon EC2 region.";
     };
 
     accessKeyId = mkOption {
-      type = types.uniq types.string;
+      type = types.str;
       description = "The AWS Access Key ID.";
     };
 
@@ -34,13 +34,13 @@ with pkgs.lib;
 
     url = mkOption {
       default = ""; # FIXME: don't set a default
-      type = types.uniq types.string;
+      type = types.str;
       description = "URL of the queue. This is set by NixOps.";
     };
 
     arn = mkOption {
       default = ""; # FIXME: don't set a default
-      type = types.uniq types.string;
+      type = types.str;
       description = "Amazon Resource Name (ARN) of the queue. This is set by NixOps.";
     };
 

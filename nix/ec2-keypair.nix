@@ -8,18 +8,18 @@ with pkgs.lib;
 
     name = mkOption {
       default = "charon-${uuid}-${name}";
-      type = types.uniq types.string;
+      type = types.str;
       description = "Name of the EC2 key pair.";
     };
 
     region = mkOption {
-      type = types.uniq types.string;
+      type = types.str;
       description = "Amazon EC2 region.";
     };
 
     accessKeyId = mkOption {
       default = "";
-      type = types.uniq types.string;
+      type = types.str;
       description = "The AWS Access Key ID.";
     };
 

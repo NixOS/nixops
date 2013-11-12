@@ -16,7 +16,7 @@ let
       disk = mkOption {
         default = "";
         example = "vol-d04895b8";
-        type = types.uniq types.string;
+        type = types.str;
         description = ''
           EC2 identifier of the disk to be mounted.  This can be an
           ephemeral disk (e.g. <literal>ephemeral0</literal>), a
@@ -28,7 +28,7 @@ let
 
       size = mkOption {
         default = 0;
-        type = types.uniq types.int;
+        type = types.int;
         description = ''
           Volume size (in gigabytes) for automatically created
           EBS volumes.
@@ -37,7 +37,7 @@ let
 
       fsType = mkOption {
         default = "ext4"; # FIXME: this default doesn't work
-        type = types.uniq types.string;
+        type = types.str;
         description = ''
           Filesystem type for automatically created EBS volumes.
         '';
@@ -63,7 +63,7 @@ let
 
       cipher = mkOption {
         default = "aes-cbc-essiv:sha256";
-        type = types.uniq types.string;
+        type = types.str;
         description = ''
           The cipher used to encrypt the disk.
         '';
@@ -71,7 +71,7 @@ let
 
       keySize = mkOption {
         default = 128;
-        type = types.uniq types.int;
+        type = types.int;
         description = ''
           The size of the encryption key.
         '';
@@ -79,7 +79,7 @@ let
 
       passphrase = mkOption {
         default = "";
-        type = types.uniq types.string;
+        type = types.str;
         description = ''
           The passphrase (key file) used to decrypt the key to access
           the device.  If left empty, a passphrase is generated
@@ -94,7 +94,7 @@ let
 
       iops = mkOption {
         default = 0;
-        type = types.uniq types.int;
+        type = types.int;
         description = ''
           The provisioned IOPs you want to associate with this EBS volume.
         '';
@@ -135,7 +135,7 @@ in
     deployment.ec2.accessKeyId = mkOption {
       default = "";
       example = "AKIAIEMEJZVMPOHZWKZQ";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         The AWS Access Key ID.  If left empty, it defaults to the
         contents of the environment variables
@@ -155,7 +155,7 @@ in
     deployment.ec2.type = mkOption {
       default = "ec2";
       example = "nova";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         Specifies the type of cloud.  This affects the machine
         configuration.  Current values are <literal>"ec2"</literal>
@@ -165,7 +165,7 @@ in
 
     deployment.ec2.controller = mkOption {
       example = https://ec2.eu-west-1.amazonaws.com/;
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         URI of an Amazon EC2-compatible cloud controller web service,
         used to create and manage virtual machines.  If you're using
@@ -177,7 +177,7 @@ in
     deployment.ec2.region = mkOption {
       default = "";
       example = "us-east-1";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         Amazon EC2 region in which the instance is to be deployed.
         This option only applies when using EC2.  It implicitly sets
@@ -189,7 +189,7 @@ in
     deployment.ec2.zone = mkOption {
       default = "";
       example = "us-east-1c";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         The EC2 availability zone in which the instance should be
         created.  If not specified, a zone is selected automatically.
@@ -220,7 +220,7 @@ in
 
     deployment.ec2.ami = mkOption {
       example = "ami-ecb49e98";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         EC2 identifier of the AMI disk image used in the virtual
         machine.  This must be a NixOS image providing SSH access.
@@ -230,7 +230,7 @@ in
     deployment.ec2.instanceType = mkOption {
       default = "m1.small";
       example = "m1.large";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         EC2 instance type.  See <link
         xlink:href='http://aws.amazon.com/ec2/instance-types/'/> for a
@@ -240,7 +240,7 @@ in
 
     deployment.ec2.instanceId = mkOption {
       default = "";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         EC2 instance id (set by nixops).
       '';
@@ -249,7 +249,7 @@ in
     deployment.ec2.instanceProfile = mkOption {
       default = "";
       example = "rolename";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         The name of the IAM Instance Profile (IIP) to associate with
         the instances.
@@ -258,7 +258,7 @@ in
 
     deployment.ec2.keyPair = mkOption {
       example = "my-keypair";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         Name of the SSH key pair to be used to communicate securely
         with the instance.  Key pairs can be created using the
@@ -269,7 +269,7 @@ in
     deployment.ec2.privateKey = mkOption {
       default = "";
       example = "/home/alice/.ssh/id_rsa-my-keypair";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         Path of the SSH private key file corresponding with
         <option>deployment.ec2.keyPair</option>.  NixOps will use this
@@ -283,7 +283,7 @@ in
     deployment.ec2.securityGroups = mkOption {
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
-      type = types.listOf types.string;
+      type = types.listOf types.str;
       description = ''
         Security groups for the instance.  These determine the
         firewall rules applied to the instance.
@@ -293,7 +293,7 @@ in
     deployment.ec2.tags = mkOption {
       default = { };
       example = { foo = "bar"; xyzzy = "bla"; };
-      type = types.attrsOf types.string;
+      type = types.attrsOf types.str;
       description = ''
         EC2 tags assigned to the instance.  Each tag name can be at
         most 128 characters, and each tag value can be at most 256
@@ -314,7 +314,7 @@ in
     deployment.ec2.elasticIPv4 = mkOption {
       default = "";
       example = "203.0.113.123";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         Elastic IPv4 address to be associated with this machine.
       '';

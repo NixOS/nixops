@@ -25,7 +25,7 @@ with pkgs.lib;
     deployment.keys = mkOption {
       default = {};
       example = { password = "foobar"; };
-      type = types.attrsOf types.string;
+      type = types.attrsOf types.str;
       description = ''
         The set of keys to be deployed to the machine.  Each attribute
         maps a key name to a key string.  On the machine, the key can

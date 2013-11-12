@@ -8,13 +8,13 @@ with pkgs.lib;
 
     publicKey = mkOption {
       default = "";
-      type = types.uniq types.string;
+      type = types.str;
       description = "The generated public SSH key.";
     };
 
     privateKey = mkOption {
       default = "";
-      type = types.uniq types.string;
+      type = types.str;
       description = "The generated private key.";
     };
 

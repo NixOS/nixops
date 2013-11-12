@@ -13,7 +13,7 @@ with pkgs.lib;
     deployment.route53.accessKeyId = mkOption {
       default = "";
       example = "AKIAIEMEJZVMPOHZWKZQ";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         The AWS Access Key ID.  If left empty, it defaults to the
         contents of the environment variables
@@ -33,7 +33,7 @@ with pkgs.lib;
     deployment.route53.hostName = mkOption {
       default = "";
       example = "test.x.logicblox.com";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         The DNS hostname to bind the public IP address to.
       '';
@@ -42,7 +42,7 @@ with pkgs.lib;
     deployment.route53.ttl = mkOption {
       default = 300;
       example = 300;
-      type = types.uniq types.int;
+      type = types.int;
       description = ''
         The time to live (TTL) for the A record created for the
         specified DNS hostname.

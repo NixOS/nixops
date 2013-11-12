@@ -27,7 +27,7 @@ in
     deployment.targetEnv = mkOption {
       default = "none";
       example = "ec2";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         This option specifies the type of the environment in which the
         machine is to be deployed by NixOps.  Currently, it can have
@@ -49,7 +49,7 @@ in
     };
 
     deployment.targetHost = mkOption {
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         This option specifies the hostname or IP address to be used by
         NixOps to execute remote deployment operations.
@@ -72,7 +72,7 @@ in
 
     deployment.encryptedLinksTo = mkOption {
       default = [];
-      type = types.listOf types.string;
+      type = types.listOf types.str;
       description = ''
         NixOps will set up an encrypted tunnel (via SSH) to the
         machines listed here.  Since this is a two-way (peer to peer)
@@ -87,7 +87,7 @@ in
 
     deployment.owners = mkOption {
       default = [];
-      type = types.listOf types.string;
+      type = types.listOf types.str;
       description = ''
         List of emailaddresses of the owners of the machines. Used
         to send email on performing certain actions.
@@ -99,7 +99,7 @@ in
 
     networking.privateIPv4 = mkOption {
       example = "10.1.2.3";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         IPv4 address of this machine within in the logical network.
         This address can be used by other machines in the logical
@@ -110,7 +110,7 @@ in
 
     networking.publicIPv4 = mkOption {
       example = "198.51.100.123";
-      type = types.uniq types.string;
+      type = types.str;
       description = ''
         Publicly routable IPv4 address of this machine.
       '';
