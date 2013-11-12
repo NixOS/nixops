@@ -6,11 +6,9 @@ with pkgs.lib;
 
   options = {
 
-    # Pass-through of the resource name.
-    _name = mkOption {
-      default = name;
+    type = mkOption {
+      default = "ebs-volume";
       visible = false;
-      description = "Name of the resource.";
     };
 
     name = mkOption {
@@ -44,12 +42,6 @@ with pkgs.lib;
       example = 100;
       type = types.int;
       description = "Volume size (in gigabytes).";
-    };
-
-    # Hack to allow checking whether a resource is an EBS volume.
-    type = mkOption {
-      default = "ebs-volume";
-      visible = false;
     };
 
   };

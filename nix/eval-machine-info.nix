@@ -69,7 +69,7 @@ rec {
   evalResources = mainModule: _resources:
     mapAttrs (name: defs:
       (fixMergeModules
-        ([ mainModule ] ++ defs)
+        ([ mainModule ./resource.nix ] ++ defs)
         { inherit pkgs uuid name resources; }
       ).config) _resources;
 

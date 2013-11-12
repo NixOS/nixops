@@ -16,9 +16,9 @@ let
     merge = mergeOneOption;
   };
 
-  ebsVolume = mkOptionType {
-    name = "EBS volume";
-    check = x: x.type or "" == "ebs-volume";
+  resource = type: mkOptionType {
+    name = "resource of type ‘${type}’";
+    check = x: x.type or "" == type;
     merge = mergeOneOption;
   };
 
@@ -29,7 +29,7 @@ let
       disk = mkOption {
         default = "";
         example = "vol-d04895b8";
-        type = union types.str ebsVolume;
+        type = union types.str (resource "ebs-volume");
         apply = x: if builtins.isString x then x else "res-" + x._name;
         description = ''
           EC2 identifier of the disk to be mounted.  This can be an
