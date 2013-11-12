@@ -6,11 +6,6 @@ with pkgs.lib;
 
   options = {
 
-    type = mkOption {
-      default = "ebs-volume";
-      visible = false;
-    };
-
     name = mkOption {
       example = "My Big Fat Disk";
       default = "nixops-${uuid}-${name}";
@@ -45,5 +40,7 @@ with pkgs.lib;
     };
 
   };
+
+  config._type = "ebs-volume";
 
 }
