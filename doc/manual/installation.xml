@@ -11,7 +11,7 @@ platform.)  Installing it requires the following steps:</para>
 <orderedlist>
 
   <listitem><para>Install the Nix package manager.  You need at least
-  version 1.0.  It’s available from the <link
+  version 1.5.  It’s available from the <link
   xlink:href="http://nixos.org/nix/download.html">Nix website</link>
   in binary form for several platforms.  Please refer to the <link
   xlink:href="http://hydra.nixos.org/view/nix/trunk/latest/tarball/download-by-type/doc/manual#chap-installation">installation
@@ -25,7 +25,7 @@ platform.)  Installing it requires the following steps:</para>
   doesn’t have to compile everything locally:
 
 <screen>
-$ nix-channel --add http://nixos.org/releases/nixos/channels/nixos-unstable
+$ nix-channel --add http://nixos.org/channels/nixos-unstable
 $ nix-channel --update
 $ export NIX_PATH=/nix/var/nix/profiles/per-user/root/channels/nixos
 </screen>
@@ -43,43 +43,30 @@ $ git clone git://github.com/NixOS/nixpkgs.git
 $ export NIX_PATH=/some/dir
 </screen>
 
-  In this case you’ll probably want to do
-
-<screen>
-$ nix-pull http://nixos.org/releases/nixos/channels/nixos-unstable/MANIFEST
-</screen>
-
-  to tell Nix to use the pre-built binaries in the
-  <literal>nixos-unstable</literal> channel.</para></listitem>
-
-  <listitem><para>Install the latest version of NixOps.  One way to do
-  this is to get NixOps’s source from Git and build it:
-
-<screen>
-$ git clone git://github.com/NixOS/nixops.git
-$ cd nixops
-$ nix-env -f . -i nixops
-$ nixops --version
-NixOps 0.1
-</screen>
-
-  Another way is to install the <link
-  xlink:href="http://hydra.nixos.org/job/nixops/master/build/latest-for/x86_64-linux">latest
-  build</link>, e.g.
-
-<screen>
-$ nix-install-package --non-interactive --url http://hydra.nixos.org/build/2662145/nix/pkg/nixops-0.1pre225_721cf08-x86_64-linux.nixpkg
-</screen>
-
   </para></listitem>
+
+  <listitem><para>Install the latest version of NixOps.  The latest
+  stable release can be found at <link
+  xlink:href="http://hydra.nixos.org/project/nixops#tabs-releases"/>.
+  The easiest way to install it is by using the “one-click” install,
+  which can be done from the command line by running
+<screen>
+$ nix-install-package --non-interactive --url <replaceable>url</replaceable>
+</screen>
+  where <replaceable>url</replaceable> is the URL of the Nix package,
+  e.g. <uri>http://hydra.nixos.org/build/5387007/nix/pkg/nixops-1.0pre716_8440d7c-x86_64-linux.nixpkg</uri>.</para>
+
+  <para>You can also install the <link
+  xlink:href="http://hydra.nixos.org/job/nixops/master/build/latest-for/x86_64-linux">
+  latest unstable build</link> in the same way.</para>
+
+  </listitem>
 
 </orderedlist>
 
-<para>FIXME: document how to set up distributed builds on Mac OS X.
-This is necessary because NixOps builds and deploys Linux (NixOS)
-machines and Macs cannot natively do Linux builds.</para>
-
+<!--
 <para>FIXME: VirtualBox configuration (vboxnet0 host-only networking
 interface).</para>
+-->
 
 </chapter>

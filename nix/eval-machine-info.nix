@@ -14,9 +14,10 @@ rec {
 
   networks =
     let
-      getNetworkFromExpr = networkExpr: call (import networkExpr);
+      getNetworkFromExpr = networkExpr:
+        (call (import networkExpr)) // { _file = networkExpr; };
 
-      exprToKey = key: { inherit key; };
+      exprToKey = key: { key = toString key; };
 
       networkExprClosure = builtins.genericClosure {
         startSet = map exprToKey networkExprs;
@@ -34,7 +35,13 @@ rec {
   nodes =
     listToAttrs (map (machineName:
       let
-        modules = getAttr machineName network;
+        # Get the configuration of this machine from each network
+        # expression, attaching _file attributes so the NixOS module
+        # system can give sensible error messages.
+        modules =
+          concatMap (n: optional (hasAttr machineName n)
+            { imports = [(getAttr machineName n)]; inherit (n) _file; })
+          networks;
       in
       { name = machineName;
         value = import <nixos/lib/eval-config.nix> {
@@ -54,7 +61,7 @@ rec {
           extraArgs = { inherit nodes resources; };
         };
       }
-    ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" ])));
+    ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "_file" ])));
 
   # Compute the definitions of the non-machine resources.
   resourcesByType = zipAttrs (network.resources or []);
@@ -68,8 +75,10 @@ rec {
 
   resources.sqsQueues = evalResources ./sqs-queue.nix (zipAttrs resourcesByType.sqsQueues or []);
   resources.ec2KeyPairs = evalResources ./ec2-keypair.nix (zipAttrs resourcesByType.ec2KeyPairs or []);
+  resources.sshKeyPairs = evalResources ./ssh-keypair.nix (zipAttrs resourcesByType.sshKeyPairs or []);
   resources.s3Buckets = evalResources ./s3-bucket.nix (zipAttrs resourcesByType.s3Buckets or []);
   resources.iamRoles = evalResources ./iam-role.nix (zipAttrs resourcesByType.iamRoles or []);
+  resources.ec2SecurityGroups = evalResources ./ec2-security-group.nix (zipAttrs resourcesByType.ec2SecurityGroups or []);
   resources.ebsVolumes = evalResources ./ebs-volume.nix (zipAttrs resourcesByType.ebsVolumes or []);
   resources.elasticIPs = evalResources ./elastic-ip.nix (zipAttrs resourcesByType.elasticIPs or []);
 
@@ -78,9 +87,10 @@ rec {
 
     machines =
       flip mapAttrs nodes (n: v': let v = scrubOptionValue v'; in
-        { inherit (v.config.deployment) targetEnv targetHost encryptedLinksTo storeKeysOnMachine owners keys;
-          adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
+        { inherit (v.config.deployment) targetEnv targetHost encryptedLinksTo storeKeysOnMachine alwaysActivate owners keys;
+          #adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
+          hetzner = optionalAttrs (v.config.deployment.targetEnv == "hetzner") v.config.deployment.hetzner;
           route53 = v.config.deployment.route53;
           virtualbox =
             let cfg = v.config.deployment.virtualbox; in

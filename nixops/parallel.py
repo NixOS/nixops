@@ -2,6 +2,20 @@ import threading
 import sys
 import Queue
 import random
+import traceback
+
+class MultipleExceptions(Exception):
+    def __init__(self, exceptions=[]):
+        self.exceptions = exceptions
+
+    def __str__(self):
+        return "Multiple exceptions: " + ", ".join([str(e[1]) for e in self.exceptions])
+
+    def print_all_backtraces(self):
+        for e in self.exceptions:
+            sys.stderr.write('-'*30 + '\n')
+            traceback.print_exception(e[0], e[1], e[2])
+
 
 def run_tasks(nr_workers, tasks, worker_fun):
     task_queue = Queue.Queue()
@@ -24,9 +38,9 @@ def run_tasks(nr_workers, tasks, worker_fun):
                 break
             n = n + 1
             try:
-                result_queue.put((worker_fun(t), None, None))
+                result_queue.put((worker_fun(t), None))
             except Exception as e:
-                result_queue.put((None, e, sys.exc_info()[2]))
+                result_queue.put((None, sys.exc_info()))
         #sys.stderr.write("thread {0} did {1} tasks\n".format(threading.current_thread(), n))
 
     threads = []
@@ -37,18 +51,26 @@ def run_tasks(nr_workers, tasks, worker_fun):
         threads.append(thr)
 
     results = []
+    exceptions = []
     while len(results) < nr_tasks:
         try:
             # Use a timeout to allow keyboard interrupts to be
             # processed.  The actual timeout value doesn't matter.
-            (res, exc, tb) = result_queue.get(True, 1000)
+            (res, excinfo) = result_queue.get(True, 1000)
         except Queue.Empty:
             continue
-        if exc:
-            raise exc, None, tb
+        if excinfo:
+            exceptions.append(excinfo)
         results.append(res)
 
     for thr in threads:
         thr.join()
+
+    if len(exceptions) == 1:
+        excinfo = exceptions[0]
+        raise excinfo[0], excinfo[1], excinfo[2]
+
+    if len(exceptions) > 1:
+        raise MultipleExceptions(exceptions)
 
     return results

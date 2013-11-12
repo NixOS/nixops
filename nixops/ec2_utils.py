@@ -7,6 +7,7 @@ import random
 
 from boto.exception import EC2ResponseError
 from boto.exception import SQSError
+from boto.exception import BotoServerError
 
 def fetch_aws_secret_key(access_key_id):
     """Fetch the secret access key corresponding to the given access key ID from the environment or from ~/.ec2-keys"""
@@ -55,6 +56,11 @@ def retry(f, error_codes=[]):
         Retry function f up to 7 times. If error_codes argument is empty list, retry on all EC2 response errors,
         otherwise, only on the specified error codes.
     """
+
+    def handle_exception(e):
+        if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
+            raise e
+
     i = 0
     num_retries = 7
     while i <= num_retries:
@@ -64,11 +70,14 @@ def retry(f, error_codes=[]):
         try:
             return f()
         except EC2ResponseError as e:
-            if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
-                raise e
+            handle_exception(e)
         except SQSError as e:
-            if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
-                raise e
+            handle_exception(e)
+        except BotoServerError as e:
+            if e.error_code == "RequestLimitExceeded":
+                num_retries += 1
+            else:
+                handle_exception(e)
         except Exception as e:
             raise e
 

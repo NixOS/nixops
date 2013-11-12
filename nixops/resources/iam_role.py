@@ -56,6 +56,10 @@ class IAMRoleState(nixops.resources.ResourceState):
         return self.role_name
 
 
+    def get_definition_prefix(self):
+        return "resources.iamRoles."
+
+
     def connect(self):
         if self._conn: return
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
@@ -108,41 +112,57 @@ class IAMRoleState(nixops.resources.ResourceState):
                 isinstance(r, nixops.resources.s3_bucket.S3BucketState)}
 
 
+    def _get_instance_profile(self, name):
+        try:
+            return self._conn.get_instance_profile(name)
+        except:
+            return
+
+
+    def _get_role_policy(self, name):
+        try:
+            return self._conn.get_role_policy(name, name)
+        except:
+            return
+
+
+    def _get_role(self, name):
+        try:
+            return self._conn.get_role(name)
+        except:
+            return
+
+
     def create(self, defn, check, allow_reboot, allow_recreate):
 
         self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
-        if self.state == self.UP and (self.role_name != defn.role_name):
-            self.log("role definition changed, recreating...")
-            self._destroy()
+        self.connect()
 
-        if check or self.state != self.UP:
+        ip = self._get_instance_profile(defn.role_name)
+        rp = self._get_role_policy(defn.role_name)
+        r = self._get_role(defn.role_name)
 
-            self.connect()
+        if not r:
+            self.log("creating IAM role ‘{0}’...".format(defn.role_name))
+            role = self._conn.create_role(defn.role_name)
 
-            try:
-                r = self._conn.get_instance_profile(defn.role_name)
-            except:
-                r = None
+        if not ip:
+            self.log("creating IAM instance profile ‘{0}’...".format(defn.role_name))
+            self._conn.create_instance_profile(defn.role_name, '/')
+            self._conn.add_role_to_instance_profile(defn.role_name, defn.role_name)
 
-            if not r or self.state != self.UP:
-                if r:
-                    self.log("deleting role ‘{0}’ (and ...".format(defn.role_name))
-                    self._destroy()
-                self.log("creating IAM role ‘{0}’...".format(defn.role_name))
-                profile = self._conn.create_instance_profile(defn.role_name, '/')
-                role = self._conn.create_role(defn.role_name)
-                self._conn.add_role_to_instance_profile(defn.role_name, defn.role_name)
-                self._conn.put_role_policy(defn.role_name, defn.role_name, defn.policy)
+        if not check:
+            self._conn.put_role_policy(defn.role_name, defn.role_name, defn.policy)
 
-            with self.depl._db:
-                self.state = self.UP
-                self.role_name = defn.role_name
-                self.policy = defn.policy
+        with self.depl._db:
+            self.state = self.UP
+            self.role_name = defn.role_name
+            self.policy = defn.policy
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         self._destroy()
         return True

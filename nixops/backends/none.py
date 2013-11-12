@@ -43,6 +43,6 @@ class NoneState(MachineState):
         if res.is_up:
             MachineState._check(self, res)
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         # No-op; just forget about the machine.
         return True

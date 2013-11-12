@@ -18,6 +18,7 @@ in
       ./auto-raid0.nix
       ./auto-luks.nix
       ./keys.nix
+      ./hetzner.nix
     ];
 
 
@@ -39,11 +40,11 @@ in
         (see <option>deployment.ec2.*</option>).
         <literal>"virtualbox"</literal> causes a VirtualBox VM to be
         created on your machine.  (This requires VirtualBox to be
-        configured on your system.)  <literal>"adhoc-cloud"</literal>
+        configured on your system.)  <!-- <literal>"adhoc-cloud"</literal>
         means that a virtual machine should be instantiated by
         executing certain commands via SSH on a cloud controller
         machine (see <option>deployment.adhoc.*</option>).  This is
-        primarily useful for debugging NixOps.
+        primarily useful for debugging NixOps. -->
       '';
     };
 
@@ -55,9 +56,23 @@ in
       '';
     };
 
+    deployment.alwaysActivate = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Always run the activation script, no matter whether the configuration
+        has changed (the default). This behaviour can be enforced even if it's
+        set to <literal>false</literal> using the command line option
+        <literal>--always-activate</literal> on deployment.
+
+        If this is set to <literal>false</literal>, activation is done only if
+        the new system profile doesn't match the previous one.
+      '';
+    };
+
     deployment.encryptedLinksTo = mkOption {
       default = [];
-      type = types.list types.string;
+      type = types.listOf types.string;
       description = ''
         NixOps will set up an encrypted tunnel (via SSH) to the
         machines listed here.  Since this is a two-way (peer to peer)
@@ -70,50 +85,9 @@ in
       '';
     };
 
-
-    # Ad hoc cloud options.
-
-    deployment.adhoc.controller = mkOption {
-      example = "cloud.example.org";
-      type = types.uniq types.string;
-      description = ''
-        Hostname or IP addres of the machine to which NixOps should
-        connect (via SSH) to execute commands to start VMs or query
-        their status.
-      '';
-    };
-
-    deployment.adhoc.createVMCommand = mkOption {
-      default = "create-vm";
-      type = types.uniq types.string;
-      description = ''
-        Remote command to create a NixOS virtual machine.  It should
-        print an identifier denoting the VM on standard output.
-      '';
-    };
-
-    deployment.adhoc.destroyVMCommand = mkOption {
-      default = "destroy-vm";
-      type = types.uniq types.string;
-      description = ''
-        Remote command to destroy a previously created NixOS virtual
-        machine.
-      '';
-    };
-
-    deployment.adhoc.queryVMCommand = mkOption {
-      default = "query-vm";
-      type = types.uniq types.string;
-      description = ''
-        Remote command to query information about a previously created
-        NixOS virtual machine.  It should print the IPv6 address of
-        the VM on standard output.
-      '';
-    };
-
     deployment.owners = mkOption {
       default = [];
-      type = types.list types.string;
+      type = types.listOf types.string;
       description = ''
         List of emailaddresses of the owners of the machines. Used
         to send email on performing certain actions.

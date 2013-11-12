@@ -11,6 +11,7 @@ import shutil
 import boto.ec2
 import boto.ec2.blockdevicemapping
 from nixops.backends import MachineDefinition, MachineState
+from nixops.nix_expr import Function, RawValue
 import nixops.util
 import nixops.ec2_utils
 import nixops.known_hosts
@@ -44,6 +45,8 @@ class EC2Definition(MachineDefinition):
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
         self.instance_profile = x.find("attr[@name='instanceProfile']/string").get("value")
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
+        self.root_disk_size = int(x.find("attr[@name='ebsInitialRootDiskSize']/int").get("value"))
+        self.spot_instance_price = int(x.find("attr[@name='spotInstancePrice']/int").get("value"))
 
         def f(xml):
             return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
@@ -98,7 +101,8 @@ class EC2State(MachineState):
     dns_ttl = nixops.util.attr_property("route53.ttl", None, int)
     route53_access_key_id = nixops.util.attr_property("route53.accessKeyId", None)
     client_token = nixops.util.attr_property("ec2.clientToken", None)
-
+    spot_instance_request_id = nixops.util.attr_property("ec2.spotInstanceRequestId", None)
+    spot_instance_price = nixops.util.attr_property("ec2.spotInstancePrice", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -155,17 +159,34 @@ class EC2State(MachineState):
 
 
     def get_physical_spec(self):
-        lines = ['    require = [ <nixos/modules/virtualisation/amazon-config.nix> ];']
-
+        block_device_mapping = {}
         for k, v in self.block_device_mapping.items():
-            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "":
-                lines.append('    deployment.ec2.blockDeviceMapping."{0}".passphrase = pkgs.lib.mkOverride 10 "{1}";'
-                             .format(_sd_to_xvd(k), v['generatedKey']))
+            if (v.get('encrypt', False)
+                and v.get('passphrase', "") == ""
+                and v.get('generatedKey', "") != ""):
+                block_device_mapping[_sd_to_xvd(k)] = {
+                    'passphrase': Function("pkgs.lib.mkOverride 10",
+                                           v['generatedKey'], call=True),
+                }
 
-        return lines
+        return {
+            'require': [
+                RawValue("<nixos/modules/virtualisation/amazon-config.nix>")
+            ],
+            ('deployment', 'ec2', 'blockDeviceMapping'): block_device_mapping,
+            ('deployment', 'ec2', 'instanceId'): self.vm_id,
+        }
 
     def get_physical_backup_spec(self, backupid):
-        return [ '    deployment.ec2.blockDeviceMapping."{0}".disk = "{1}";'.format(_sd_to_xvd(dev), snap) for dev, snap in self.backups[backupid].items() if dev != "/dev/sda" ]
+        val = {}
+        if backupid in self.backups:
+            for dev, snap in self.backups[backupid].items():
+                if dev != "/dev/sda":
+                    val[_sd_to_xvd(dev)] = { 'disk': Function("pkgs.lib.mkOverride", 10, snap, call=True)}
+            val = { ('deployment', 'ec2', 'blockDeviceMapping'): val }
+        else:
+            val = RawValue("{{}} /* No backup found for id '{0}' */".format(backupid))
+        return Function("{ config, pkgs, ... }", val)
 
 
     def get_keys(self):
@@ -191,7 +212,7 @@ class EC2State(MachineState):
 
 
     def address_to(self, m):
-        if isinstance(m, EC2State):
+        if isinstance(m, EC2State): # FIXME: only if we're in the same region
             return m.private_ipv4
         return MachineState.address_to(self, m)
 
@@ -221,6 +242,16 @@ class EC2State(MachineState):
 
         self._conn_route53 = boto.connect_route53(access_key_id, secret_access_key)
 
+    def _get_spot_instance_request_by_id(self, request_id, allow_missing=False):
+        """Get spot instance request object by id."""
+        self.connect()
+        result = self._conn.get_all_spot_instance_requests([request_id])
+        if len(result) == 0:
+            if allow_missing:
+                return None
+            raise EC2InstanceDisappeared("Spot instance request ‘{0}’ disappeared!".format(request_id))
+        return result[0]
+
 
     def _get_instance_by_id(self, instance_id, allow_missing=False):
         """Get instance object by instance id."""
@@ -247,7 +278,7 @@ class EC2State(MachineState):
 
         while True:
             instance.update()
-            self.log_continue("({0}) ".format(instance.state))
+            self.log_continue("[{0}] ".format(instance.state))
             if instance.state not in {"pending", "running", "scheduling", "launching", "stopped"}:
                 raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self.vm_id, instance.state))
             if instance.state != "running":
@@ -288,21 +319,22 @@ class EC2State(MachineState):
             info = []
             for k, v in self.block_device_mapping.items():
                 if not k in b.keys():
-                    backup_complete = False
-                    info.append("{0} - {1} - Not available in backup".format(self.name, k))
+                    backup_status = "incomplete"
+                    info.append("{0} - {1} - Not available in backup".format(self.name, _sd_to_xvd(k)))
                 else:
                     snapshot_id = b[k]
                     try:
                         snapshot = self._get_snapshot_by_id(snapshot_id)
                         snapshot_status = snapshot.update()
+                        info.append("progress[{0},{1},{2}] = {3}".format(self.name, _sd_to_xvd(k), snapshot_id, snapshot_status))
                         if snapshot_status != '100%':
-                            info.append("progress[{0},{1},{2}] = {3}%.".format(self.name, k, snapshot_id, snapshot_status))
                             backup_status = "running"
-                    except:
-                        info.append("{0} - {1} - {2} - Snapshot has disappeared".format(self.name, k, snapshot_id))
+                    except boto.exception.EC2ResponseError as e:
+                        if e.error_code != "InvalidSnapshot.NotFound": raise
+                        info.append("{0} - {1} - {2} - Snapshot has disappeared".format(self.name, _sd_to_xvd(k), snapshot_id))
                         backup_status = "unavailable"
-                backups[b_id]['status'] = backup_status
-                backups[b_id]['info'] = info
+            backups[b_id]['status'] = backup_status
+            backups[b_id]['info'] = info
         return backups
 
 
@@ -312,108 +344,131 @@ class EC2State(MachineState):
         _backups = self.backups
         if not backup_id in _backups.keys():
             self.warn('backup {0} not found, skipping'.format(backup_id))
-        for dev, snapshot_id in _backups[backup_id].items():
-            snapshot = None
-            try:
-                snapshot = self._get_snapshot_by_id(snapshot_id)
-            except:
-                self.warn('snapshot {0} not found, skipping'.format(snapshot_id))
-            if not snapshot is None:
-                self.log('removing snapshot {0}'.format(snapshot_id))
-                snapshot.delete()
+        else:
+            for dev, snapshot_id in _backups[backup_id].items():
+                snapshot = None
+                try:
+                    snapshot = self._get_snapshot_by_id(snapshot_id)
+                except:
+                    self.warn('snapshot {0} not found, skipping'.format(snapshot_id))
+                if not snapshot is None:
+                    self.log('removing snapshot {0}'.format(snapshot_id))
+                    nixops.ec2_utils.retry(lambda: snapshot.delete())
 
-        _backups.pop(backup_id)
-        self.backups = _backups
+            _backups.pop(backup_id)
+            self.backups = _backups
 
 
-    def backup(self, backup_id):
+    def get_common_tags(self):
+        return {'CharonNetworkUUID': self.depl.uuid,
+                'CharonMachineName': self.name,
+                'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file)}
+
+    def backup(self, defn, backup_id):
         self.connect()
 
         self.log("backing up machine ‘{0}’ using id ‘{1}’".format(self.name, backup_id))
         backup = {}
         _backups = self.backups
         for k, v in self.block_device_mapping.items():
-            snapshot = self._conn.create_snapshot(volume_id=v['volumeId'])
+            snapshot = nixops.ec2_utils.retry(lambda: self._conn.create_snapshot(volume_id=v['volumeId']))
             self.log("+ created snapshot of volume ‘{0}’: ‘{1}’".format(v['volumeId'], snapshot.id))
 
-            common_tags = {'CharonNetworkUUID': str(self.depl.uuid), 'CharonMachineName': self.name, 'CharonBackupID': backup_id, 'CharonBackupDevice': k}
-            snapshot_tags = {'Name': "{0} - {3} [{1} - {2}]".format(self.depl.description, self.name, k, backup_id)}
-            snapshot_tags.update(common_tags)
-            self._conn.create_tags([snapshot.id], snapshot_tags)
+            snapshot_tags = {}
+            snapshot_tags.update(defn.tags)
+            snapshot_tags.update(self.get_common_tags())
+            snapshot_tags['Name'] = "{0} - {3} [{1} - {2}]".format(self.depl.description, self.name, k, backup_id)
+
+            nixops.ec2_utils.retry(lambda: self._conn.create_tags([snapshot.id], snapshot_tags))
             backup[k] = snapshot.id
         _backups[backup_id] = backup
         self.backups = _backups
 
 
-    def restore(self, defn, backup_id):
+    def restore(self, defn, backup_id, devices=[]):
         self.stop()
 
         self.log("restoring machine ‘{0}’ to backup ‘{1}’".format(self.name, backup_id))
+        for d in devices:
+            self.log(" - {0}".format(d))
 
         for k, v in self.block_device_mapping.items():
-            # detach disks
-            volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'])
-            if volume.update() == "in-use":
-                self.log("detaching volume from ‘{0}’".format(self.name))
-                volume.detach()
+            if devices == [] or _sd_to_xvd(k) in devices:
+                # detach disks
+                volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'])
+                if volume and volume.update() == "in-use":
+                    self.log("detaching volume from ‘{0}’".format(self.name))
+                    volume.detach()
 
-            # attach backup disks
-            snapshot_id = self.backups[backup_id][k]
-            self.log("creating volume from snapshot ‘{0}’".format(snapshot_id))
-            new_volume = self._conn.create_volume(size=0, snapshot=snapshot_id, zone=self.zone)
+                # attach backup disks
+                snapshot_id = self.backups[backup_id][k]
+                self.log("creating volume from snapshot ‘{0}’".format(snapshot_id))
+                new_volume = self._conn.create_volume(size=0, snapshot=snapshot_id, zone=self.zone)
 
-            # check if original volume is available, aka detached from the machine
-            self.wait_for_volume_available(volume)
-            # check if new volume is available
-            self.wait_for_volume_available(new_volume)
+                # check if original volume is available, aka detached from the machine
+                self.wait_for_volume_available(volume)
+                # check if new volume is available
+                self.wait_for_volume_available(new_volume)
 
-            self.log("attaching volume ‘{0}’ to ‘{1}’".format(new_volume.id, self.name))
-            new_volume.attach(self.vm_id, k)
-            new_v = self.block_device_mapping[k]
-            if v.get('partOfImage', False) or v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
-                new_v['charonDeleteOnTermination'] = True
-                self._delete_volume(v['volumeId'])
-            new_v['volumeId'] = new_volume.id
-            self.update_block_device_mapping(k, new_v)
+                self.log("attaching volume ‘{0}’ to ‘{1}’".format(new_volume.id, self.name))
+                new_volume.attach(self.vm_id, k)
+                new_v = self.block_device_mapping[k]
+                if v.get('partOfImage', False) or v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
+                    new_v['charonDeleteOnTermination'] = True
+                    self._delete_volume(v['volumeId'])
+                new_v['volumeId'] = new_volume.id
+                self.update_block_device_mapping(k, new_v)
 
 
     def create_after(self, resources):
-        # EC2 instances can require key pairs, IAM roles, EBS volumes
-        # and elastic IPs.  FIXME: only depend on the specific key
-        # pair / role needed for this instance.
+        # EC2 instances can require key pairs, IAM roles, security
+        # groups, EBS volumes and elastic IPs.  FIXME: only depend on
+        # the specific key pair / role needed for this instance.
         return {r for r in resources if
                 isinstance(r, nixops.resources.ec2_keypair.EC2KeyPairState) or
                 isinstance(r, nixops.resources.iam_role.IAMRoleState) or
+                isinstance(r, nixops.resources.ec2_security_group.EC2SecurityGroupState) or
                 isinstance(r, nixops.resources.ebs_volume.EBSVolumeState) or
                 isinstance(r, nixops.resources.elastic_ip.ElasticIPState)}
 
 
     def attach_volume(self, device, volume_id):
-        self.log("attaching volume ‘{0}’ as ‘{1}’...".format(volume_id, _sd_to_xvd(device)))
-
         volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id)
         if volume.status == "in-use" and \
             self.vm_id != volume.attach_data.instance_id and \
-            self.depl.confirm("volume ‘{0}’ is in use by instance ‘{1}’, "
-                              "are you sure you want to attach this volume?".format(volume_id, volume.attach_data.instance_id)):
+            self.depl.logger.confirm("volume ‘{0}’ is in use by instance ‘{1}’, "
+                                     "are you sure you want to attach this volume?".format(volume_id, volume.attach_data.instance_id)):
 
-            self.log("detaching volume ‘{0}’ from instance ‘{1}’...".format(volume_id, volume.attach_data.instance_id))
+            self.log_start("detaching volume ‘{0}’ from instance ‘{1}’...".format(volume_id, volume.attach_data.instance_id))
             volume.detach()
 
             def check_available():
                 res = volume.update()
-                sys.stderr.write("[{0}] ".format(res))
+                self.log_continue("[{0}] ".format(res))
                 return res == 'available'
 
             nixops.util.check_wait(check_available)
+            self.log_end('')
+
             if volume.update() != "available":
                 self.log("force detaching volume ‘{0}’ from instance ‘{1}’...".format(volume_id, volume.attach_data.instance_id))
                 volume.detach(True)
                 nixops.util.check_wait(check_available)
 
+        self.log_start("attaching volume ‘{0}’ as ‘{1}’...".format(volume_id, _sd_to_xvd(device)))
         if self.vm_id != volume.attach_data.instance_id:
             # Attach it.
             self._conn.attach_volume(volume_id, self.vm_id, device)
+
+        def check_attached():
+            volume.update()
+            res = volume.attach_data.status
+            self.log_continue("[{0}] ".format(res))
+            return res == 'attached'
+
+        # If volume is not in attached state, wait for it before going on.
+        if volume.attach_data.status != "attached":
+            nixops.util.check_wait(check_attached)
 
         # Wait until the device is visible in the instance.
         def check_dev():
@@ -421,13 +476,157 @@ class EC2State(MachineState):
             return res == 0
         nixops.util.check_wait(check_dev)
 
+        self.log_end('')
+
+
     def wait_for_volume_available(self, volume):
         def check_available():
             res = volume.update()
-            sys.stderr.write("[{0}] ".format(res))
+            self.log_continue("[{0}] ".format(res))
             return res == 'available'
 
         nixops.util.check_wait(check_available, max_tries=90)
+        self.log_end('')
+
+
+    def assign_elastic_ip(self, elastic_ipv4, instance, check):
+        # Assign or release an elastic IP address, if given.
+        if (self.elastic_ipv4 or "") != elastic_ipv4 or (instance.ip_address != elastic_ipv4) or check:
+            if elastic_ipv4 != "":
+                # wait until machine is in running state
+                self.log_start("waiting for machine to be in running state... ".format(self.name))
+                while True:
+                    self.log_continue("[{0}] ".format(instance.state))
+                    if instance.state == "running":
+                        break
+                    if instance.state not in {"running", "pending"}:
+                        raise Exception(
+                            "EC2 instance ‘{0}’ failed to reach running state (state is ‘{1}’)"
+                            .format(self.vm_id, instance.state))
+                    time.sleep(3)
+                    instance.update()
+                self.log_end("")
+
+                addresses = self._conn.get_all_addresses(addresses=[elastic_ipv4])
+                if addresses[0].instance_id != "" \
+                    and addresses[0].instance_id != self.vm_id \
+                    and not self.depl.logger.confirm(
+                        "are you sure you want to associate IP address ‘{0}’, which is currently in use by instance ‘{1}’?".format(
+                            elastic_ipv4, addresses[0].instance_id)):
+                    raise Exception("elastic IP ‘{0}’ already in use...".format(elastic_ipv4))
+                else:
+                    self.log("associating IP address ‘{0}’...".format(elastic_ipv4))
+                    addresses[0].associate(self.vm_id)
+                    self.log_start("waiting for address to be associated with this machine... ")
+                    instance.update()
+                    while True:
+                        self.log_continue("[{0}] ".format(instance.ip_address))
+                        if instance.ip_address == elastic_ipv4:
+                            break
+                        time.sleep(3)
+                        instance.update()
+                    self.log_end("")
+
+                nixops.known_hosts.add(elastic_ipv4, self.public_host_key)
+                with self.depl._db:
+                    self.elastic_ipv4 = elastic_ipv4
+                    self.public_ipv4 = elastic_ipv4
+                    self.ssh_pinged = False
+
+            elif self.elastic_ipv4 != None:
+                self.log("disassociating IP address ‘{0}’...".format(self.elastic_ipv4))
+                self._conn.disassociate_address(public_ip=self.elastic_ipv4)
+                with self.depl._db:
+                    self.elastic_ipv4 = None
+                    self.public_ipv4 = None
+                    self.ssh_pinged = False
+
+
+
+    def create_instance(self, defn, zone, devmap, user_data, ebs_optimized):
+        common_args = dict(
+            instance_type=defn.instance_type,
+            placement=zone,
+            key_name=defn.key_pair,
+            security_groups=defn.security_groups,
+            block_device_map=devmap,
+            user_data=user_data,
+            image_id=defn.ami,
+            instance_profile_name=defn.instance_profile,
+            ebs_optimized=ebs_optimized
+        )
+
+        if defn.spot_instance_price:
+            request = nixops.ec2_utils.retry(
+                lambda: self._conn.request_spot_instances(price=defn.spot_instance_price/100.0, **common_args)
+            )[0]
+
+            common_tags = self.get_common_tags()
+            tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
+            tags.update(defn.tags)
+            tags.update(common_tags)
+            nixops.ec2_utils.retry(lambda: self._conn.create_tags([request.id], tags))
+
+            self.spot_instance_price = defn.spot_instance_price
+            self.spot_instance_request_id = request.id
+
+            self.log_start("Waiting for spot instance request to be fulfilled. ")
+            def check_request():
+                req = self._get_spot_instance_request_by_id(request.id)
+                self.log_continue("[{0}] ".format(req.status.code))
+                return req.status.code == "fulfilled"
+            self.log_end("")
+
+            try:
+                nixops.util.check_wait(test=check_request)
+            finally:
+                # cancel spot instance request, it isn't needed after instance is provisioned
+                self.spot_instance_request_id = None
+                self._conn.cancel_spot_instance_requests([request.id])
+
+            request = self._get_spot_instance_request_by_id(request.id)
+
+            instance = nixops.ec2_utils.retry(lambda: self._get_instance_by_id(request.instance_id))
+
+            return instance
+        else:
+            reservation = nixops.ec2_utils.retry(lambda: self._conn.run_instances(
+                client_token=self.client_token, **common_args), error_codes = ['InvalidParameterValue', 'UnauthorizedOperation' ])
+
+            assert len(reservation.instances) == 1
+            return reservation.instances[0]
+
+    def after_activation(self, defn):
+        # Detach volumes that are no longer in the deployment spec.
+        for k, v in self.block_device_mapping.items():
+            if k not in defn.block_device_mapping and not v.get('partOfImage', False):
+                if v['disk'].startswith("ephemeral"):
+                    raise Exception("cannot detach ephemeral device ‘{0}’ from EC2 instance ‘{1}’"
+                    .format(_sd_to_xvd(k), self.name))
+
+                assert v.get('volumeId', None)
+
+                self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
+                volumes = self._conn.get_all_volumes([],
+                    filters={'attachment.instance-id': self.vm_id, 'attachment.device': k, 'volume-id': v['volumeId']})
+                assert len(volumes) <= 1
+
+                if len(volumes) == 1:
+                    device = _sd_to_xvd(k)
+                    if v.get('encrypt', False):
+                        dm = device.replace("/dev/", "/dev/mapper/")
+                        self.run_command("umount -l {0}".format(dm), check=False)
+                        self.run_command("cryptsetup luksClose {0}".format(device.replace("/dev/", "")), check=False)
+                    else:
+                        self.run_command("umount -l {0}".format(device), check=False)
+                    if not self._conn.detach_volume(volumes[0].id, instance_id=self.vm_id, device=k):
+                        raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
+                        # FIXME: Wait until the volume is actually detached.
+
+                if v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
+                    self._delete_volume(v['volumeId'])
+
+                self.update_block_device_mapping(k, None)
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -480,6 +679,8 @@ class EC2State(MachineState):
 
                 self.state = self.STARTING
 
+        resize_root = False
+
         # Create the instance.
         if not self.vm_id:
             self.log("creating EC2 instance (AMI ‘{0}’, type ‘{1}’, region ‘{2}’)...".format(
@@ -491,8 +692,10 @@ class EC2State(MachineState):
 
             # Figure out whether this AMI is EBS-backed.
             ami = self._conn.get_all_images([defn.ami])[0]
-
             self.root_device_type = ami.root_device_type
+
+            # Check if we need to resize the root disk
+            resize_root = defn.root_disk_size != 0 and ami.root_device_type == 'ebs'
 
             # Set the initial block device mapping to the ephemeral
             # devices defined in the spec.  These cannot be changed
@@ -505,6 +708,11 @@ class EC2State(MachineState):
                 if v['disk'].startswith("ephemeral"):
                     devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v['disk'])
                     self.update_block_device_mapping(k, v)
+
+            root_device = ami.root_device_name
+            if resize_root:
+                devmap[root_device] = ami.block_device_mapping[root_device]
+                devmap[root_device].size = defn.root_disk_size
 
             # If we're attaching any EBS volumes, then make sure that
             # we create the instance in the right placement zone.
@@ -529,7 +737,7 @@ class EC2State(MachineState):
 
             # Generate a public/private host key.
             if not self.public_host_key:
-                (private, public) = nixops.util.create_key_pair()
+                (private, public) = nixops.util.create_key_pair(type='dsa')
                 with self.depl._db:
                     self.public_host_key = public
                     self.private_host_key = private
@@ -546,20 +754,7 @@ class EC2State(MachineState):
                     self.client_token = nixops.util.generate_random_string(length=48) # = 64 ASCII chars
                     self.state = self.STARTING
 
-            reservation = nixops.ec2_utils.retry(lambda: self._conn.run_instances(
-                client_token=self.client_token,
-                instance_type=defn.instance_type,
-                placement=zone,
-                key_name=defn.key_pair,
-                security_groups=defn.security_groups,
-                block_device_map=devmap,
-                user_data=user_data,
-                image_id=defn.ami,
-                instance_profile_name=defn.instance_profile,
-                ebs_optimized=ebs_optimized), error_codes = ['InvalidParameterValue', 'UnauthorizedOperation' ])
-
-            assert len(reservation.instances) == 1
-            instance = reservation.instances[0]
+            instance = self.create_instance(defn, zone, devmap, user_data, ebs_optimized)
 
             with self.depl._db:
                 self.vm_id = instance.id
@@ -593,11 +788,16 @@ class EC2State(MachineState):
             self.warn("cannot change region of a running instance")
         if defn.zone and self.zone != defn.zone:
             self.warn("cannot change availability zone of a running instance")
+        instance_groups = set([g.name for g in instance.groups])
+        if set(defn.security_groups) != instance_groups:
+            self.warn(
+                'cannot change security groups of an existing instance. Defined: [{0}], Actual: [{1}]'.format(
+                    ", ".join(set(defn.security_groups)),
+                    ", ".join(instance_groups))
+            )
 
         # Reapply tags if they have changed.
-        common_tags = {'CharonNetworkUUID': self.depl.uuid,
-                       'CharonMachineName': self.name,
-                       'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file)}
+        common_tags = self.get_common_tags()
 
         if self.owners != []:
             common_tags['Owners'] = ", ".join(self.owners)
@@ -606,58 +806,11 @@ class EC2State(MachineState):
         tags.update(defn.tags)
         tags.update(common_tags)
         if check or self.tags != tags:
-            self._conn.create_tags([self.vm_id], tags)
+            nixops.ec2_utils.retry(lambda: self._conn.create_tags([self.vm_id], tags))
             # TODO: remove obsolete tags?
             self.tags = tags
 
-        # Assign or release an elastic IP address, if given.
-        if (self.elastic_ipv4 or "") != defn.elastic_ipv4 or (instance.ip_address != defn.elastic_ipv4) or check:
-            if defn.elastic_ipv4 != "":
-                # wait until machine is in running state
-                self.log_start("waiting for machine to be in running state... ".format(self.name))
-                while True:
-                    self.log_continue("({0}) ".format(instance.state))
-                    if instance.state == "running":
-                        break
-                    if instance.state not in {"running", "pending"}:
-                        raise Exception(
-                            "EC2 instance ‘{0}’ failed to reach running state (state is ‘{1}’)"
-                            .format(self.vm_id, instance.state))
-                    time.sleep(3)
-                    instance.update()
-                self.log_end("")
-
-                addresses = self._conn.get_all_addresses(addresses=[defn.elastic_ipv4])
-                if addresses[0].instance_id != "" \
-                   and addresses[0].instance_id != self.vm_id \
-                   and not self.depl.confirm("are you sure you want to associate IP address ‘{0}’, which is currently in use by instance ‘{1}’?".format(defn.elastic_ipv4, addresses[0].instance_id)):
-                    raise Exception("elastic IP ‘{0}’ already in use...".format(defn.elastic_ipv4))
-                else:
-                    self.log("associating IP address ‘{0}’...".format(defn.elastic_ipv4))
-                    addresses[0].associate(self.vm_id)
-                    self.log_start("waiting for address to be associated with this machine... ")
-                    instance.update()
-                    while True:
-                        self.log_continue("({0}) ".format(instance.ip_address))
-                        if instance.ip_address == defn.elastic_ipv4:
-                            break
-                        time.sleep(3)
-                        instance.update()
-                    self.log_end("")
-
-                nixops.known_hosts.add(defn.elastic_ipv4, self.public_host_key)
-                with self.depl._db:
-                    self.elastic_ipv4 = defn.elastic_ipv4
-                    self.public_ipv4 = defn.elastic_ipv4
-                    self.ssh_pinged = False
-
-            elif self.elastic_ipv4 != None:
-                self.log("disassociating IP address ‘{0}’...".format(self.elastic_ipv4))
-                self._conn.disassociate_address(public_ip=self.elastic_ipv4)
-                with self.depl._db:
-                    self.elastic_ipv4 = None
-                    self.public_ipv4 = None
-                    self.ssh_pinged = False
+        self.assign_elastic_ip(defn.elastic_ipv4, instance, check)
 
         # Wait for the IP address.
         if not self.public_ipv4 or check:
@@ -670,42 +823,15 @@ class EC2State(MachineState):
         # Wait until the instance is reachable via SSH.
         self.wait_for_ssh(check=check)
 
+        if resize_root:
+            self.log('resizing root disk...')
+            self.run_command("resize2fs {0}".format(_sd_to_xvd(root_device)))
+
         # Add disks that were in the original device mapping of image.
         for k, dm in instance.block_device_mapping.items():
             if k not in self.block_device_mapping and dm.volume_id:
                 bdm = {'volumeId': dm.volume_id, 'partOfImage': True}
                 self.update_block_device_mapping(k, bdm)
-
-        # Detach volumes that are no longer in the deployment spec.
-        for k, v in self.block_device_mapping.items():
-            if k not in defn.block_device_mapping and not v.get('partOfImage', False):
-                if v['disk'].startswith("ephemeral"):
-                    raise Exception("cannot detach ephemeral device ‘{0}’ from EC2 instance ‘{1}’"
-                                    .format(_sd_to_xvd(k), self.name))
-
-                assert v.get('volumeId', None)
-
-                self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
-                volumes = self._conn.get_all_volumes([],
-                    filters={'attachment.instance-id': self.vm_id, 'attachment.device': k, 'volume-id': v['volumeId']})
-                assert len(volumes) <= 1
-
-                if len(volumes) == 1:
-                    device = _sd_to_xvd(k)
-                    if v.get('encrypt', False):
-                        dm = device.replace("/dev/", "/dev/mapper/")
-                        self.run_command("umount -l {0}".format(dm), check=False)
-                        self.run_command("cryptsetup luksClose {0}".format(device.replace("/dev/", "")), check=False)
-                    else:
-                        self.run_command("umount -l {0}".format(device), check=False)
-                    if not self._conn.detach_volume(volumes[0].id, instance_id=self.vm_id, device=k):
-                        raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
-                    # FIXME: Wait until the volume is actually detached.
-
-                if v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
-                    self._delete_volume(v['volumeId'])
-
-                self.update_block_device_mapping(k, None)
 
         # Detect if volumes were manually detached.  If so, reattach
         # them.
@@ -768,9 +894,12 @@ class EC2State(MachineState):
         # Always apply tags to all volumes
         for k, v in self.block_device_mapping.items():
             # Tag the volume.
-            volume_tags = {'Name': "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))}
+            volume_tags = {}
             volume_tags.update(common_tags)
-            self._conn.create_tags([v['volumeId']], volume_tags)
+            volume_tags.update(defn.tags)
+            volume_tags['Name'] = "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))
+            if 'disk' in v and not v['disk'].startswith("ephemeral"):
+                nixops.ec2_utils.retry(lambda: self._conn.create_tags([v['volumeId']], volume_tags))
 
         # Attach missing volumes.
         for k, v in self.block_device_mapping.items():
@@ -826,18 +955,18 @@ class EC2State(MachineState):
 
 
     def _delete_volume(self, volume_id):
-        if not self.depl.confirm("are you sure you want to destroy EBS volume ‘{0}’?".format(volume_id)):
-            raise Exception("not destroying EBS volume ‘{0}’".format(volume_id))
-        self.log("destroying EBS volume ‘{0}’...".format(volume_id))
+        if not self.depl.logger.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
+            raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
+        self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
         volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id, allow_missing=True)
         if not volume: return
         nixops.util.check_wait(lambda: volume.update() == 'available')
         volume.delete()
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         if not (self.vm_id or self.client_token): return True
-        if not self.depl.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
+        if not self.depl.logger.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
 
         self.log_start("destroying EC2 machine... ".format(self.name))
 
@@ -859,7 +988,7 @@ class EC2State(MachineState):
 
             # Wait until it's really terminated.
             while True:
-                self.log_continue("({0}) ".format(instance.state))
+                self.log_continue("[{0}] ".format(instance.state))
                 if instance.state == "terminated": break
                 time.sleep(3)
                 instance.update()
@@ -889,7 +1018,7 @@ class EC2State(MachineState):
 
         # Wait until it's really stopped.
         def check_stopped():
-            self.log_continue("({0}) ".format(instance.state))
+            self.log_continue("[{0}] ".format(instance.state))
             if instance.state == "stopped":
                 return True
             if instance.state not in {"running", "stopping"}:
@@ -934,6 +1063,10 @@ class EC2State(MachineState):
         prev_private_ipv4 = self.private_ipv4
         prev_public_ipv4 = self.public_ipv4
 
+        if self.elastic_ipv4:
+            self.log("restoring previously attached elastic IP")
+            self.assign_elastic_ip(self.elastic_ipv4, instance, True)
+
         self._wait_for_ip(instance)
 
         if prev_private_ipv4 != self.private_ipv4 or prev_public_ipv4 != self.public_ipv4:
@@ -974,6 +1107,11 @@ class EC2State(MachineState):
                     if not volume:
                         res.messages.append("volume ‘{0}’ no longer exists".format(v['volumeId']))
 
+                if k in instance.block_device_mapping.keys() and instance.block_device_mapping[k].status != 'attached' :
+                    res.disks_ok = False
+                    res.messages.append("volume ‘{0}’ on device ‘{1}’ has unexpected state: ‘{2}’".format(v['volumeId'], _sd_to_xvd(k), instance.block_device_mapping[k].status))
+
+
             if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:
                 self.warn("IP address has changed, you may need to run ‘nixops deploy’")
                 self.private_ipv4 = instance.private_ip_address
@@ -999,7 +1137,7 @@ class EC2State(MachineState):
                     res.messages.append("  * {0} - {1}".format(e.not_before, e.not_after))
 
 
-    def reboot(self):
+    def reboot(self, hard=False):
         self.log("rebooting EC2 machine...")
         instance = self._get_instance_by_id(self.vm_id)
         instance.reboot()

@@ -6,8 +6,8 @@ import time
 import shutil
 import stat
 from nixops.backends import MachineDefinition, MachineState
+from nixops.nix_expr import RawValue
 import nixops.known_hosts
-
 
 sata_ports = 8
 
@@ -48,6 +48,8 @@ class VirtualBoxState(MachineState):
     _client_public_key = nixops.util.attr_property("virtualbox.clientPublicKey", None)
     _headless = nixops.util.attr_property("virtualbox.headless", False, bool)
     sata_controller_created = nixops.util.attr_property("virtualbox.sataControllerCreated", False, bool)
+    public_host_key = nixops.util.attr_property("virtualbox.publicHostKey", None)
+    private_host_key = nixops.util.attr_property("virtualbox.privateHostKey", None)
 
     # Obsolete.
     disk = nixops.util.attr_property("virtualbox.disk", None)
@@ -72,7 +74,7 @@ class VirtualBoxState(MachineState):
         return ["-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file()]
 
     def get_physical_spec(self):
-        return ['    require = [ <nixops/virtualbox-image-nixops.nix> ];']
+        return {'require': [RawValue('<nixops/virtualbox-image-nixops.nix>')]}
 
 
     def address_to(self, m):
@@ -98,7 +100,7 @@ class VirtualBoxState(MachineState):
         vminfo = {}
         for l in lines:
             (k, v) = l.split("=", 1)
-            vminfo[k] = v
+            vminfo[k] = v if v[0]!='"' else v[1:-1]
         return vminfo
 
 
@@ -165,6 +167,16 @@ class VirtualBoxState(MachineState):
             self.vm_id = vm_id
             self.state = self.STOPPED
 
+        # Generate a public/private host key.
+        if not self.public_host_key:
+            (private, public) = nixops.util.create_key_pair()
+            with self.depl._db:
+                self.public_host_key = public
+                self.private_host_key = private
+
+        self._logged_exec(
+            ["VBoxManage", "guestproperty", "set", self.vm_id, "/VirtualBox/GuestInfo/Charon/PrivateHostKey", self.private_host_key])
+
         # Backwards compatibility.
         if self.disk:
             with self.depl._db:
@@ -183,7 +195,8 @@ class VirtualBoxState(MachineState):
                  "--bootable", "on", "--hostiocache", "on"])
             self.sata_controller_created = True
 
-        vm_dir = os.environ['HOME'] + "/VirtualBox VMs/" + self.vm_id
+        vm_dir = os.path.dirname(self._get_vm_info()['CfgFile'])
+
         if not os.path.isdir(vm_dir):
             raise Exception("can't find directory of VirtualBox VM ‘{0}’".format(self.name))
 
@@ -245,7 +258,7 @@ class VirtualBoxState(MachineState):
         # Destroy obsolete disks.
         for disk_name, disk_state in self.disks.items():
             if disk_name not in defn.disks:
-                if not self.depl.confirm("are you sure you want to destroy disk ‘{0}’ of VirtualBox instance ‘{1}’?".format(disk_name, self.name)):
+                if not self.depl.logger.confirm("are you sure you want to destroy disk ‘{0}’ of VirtualBox instance ‘{1}’?".format(disk_name, self.name)):
                     raise Exception("not destroying VirtualBox disk ‘{0}’".format(disk_name))
                 self.log("destroying disk ‘{0}’".format(disk_name))
 
@@ -284,10 +297,10 @@ class VirtualBoxState(MachineState):
             self._wait_for_ip()
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         if not self.vm_id: return True
 
-        if not self.depl.confirm("are you sure you want to destroy VirtualBox VM ‘{0}’?".format(self.name)): return False
+        if not self.depl.logger.confirm("are you sure you want to destroy VirtualBox VM ‘{0}’?".format(self.name)): return False
 
         self.log("destroying VirtualBox VM...")
 
@@ -311,12 +324,12 @@ class VirtualBoxState(MachineState):
 
         self.log_start("shutting down... ")
 
-        self.run_command("(sleep 2; poweroff) &")
+        self.run_command("systemctl poweroff", check=False)
         self.state = self.STOPPING
 
         while True:
             state = self._get_vm_state()
-            self.log_continue("({0}) ".format(state))
+            self.log_continue("[{0}] ".format(state))
             if state == 'poweroff': break
             time.sleep(1)
 

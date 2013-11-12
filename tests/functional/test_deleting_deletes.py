@@ -7,4 +7,4 @@ class TestDeletingDeletes(single_machine_test.SingleMachineTest):
     def run_check(self):
         uuid = self.depl.uuid
         self.depl.delete()
-        tools.assert_raises(Exception, deployment.open_deployment, (self.depl._db, uuid))
+        tools.assert_raises(Exception, self.sf.open_deployment, (uuid,))

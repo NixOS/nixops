@@ -154,6 +154,14 @@ cloud.</para>
 
   </varlistentry>
 
+  <varlistentry><term><envar>HETZNER_ROBOT_USER</envar></term>
+    <term><envar>HETZNER_ROBOT_PASS</envar></term>
+
+    <listitem><para>Username and password used to access the Robot for
+    Hetzner deployments.</para></listitem>
+
+  </varlistentry>
+
 </variablelist>
 
 
@@ -204,13 +212,6 @@ deployment.ec2.accessKeyId = "prod";
 <cmdsynopsis>
   <command>nixops create</command>
   <arg choice='plain' rep='repeat'><replaceable>nixexprs</replaceable></arg>
-  <arg>
-    <group choice='req'>
-      <arg choice='plain'><option>--name</option></arg>
-      <arg choice='plain'><option>-n</option></arg>
-    </group>
-    <replaceable>name</replaceable>
-  </arg>
   <arg rep='repeat'>
     <option>-I</option>
     <replaceable>path</replaceable>
@@ -246,9 +247,9 @@ output.</para>
 
   </varlistentry>
 
-  <varlistentry><term><option>--name</option></term><term><option>-n</option></term>
+  <varlistentry><term><option>--deployment</option></term><term><option>-d</option></term>
 
-    <listitem><para>Set the symbolic name of the deployment to the
+    <listitem><para>Set the symbolic name of the new deployment to the
     given string.  The name can be used to refer to the deployment by
     passing the option <literal>-d
     <replaceable>name</replaceable></literal> or the environment
@@ -267,9 +268,16 @@ output.</para>
 
 <refsection><title>Examples</title>
 
+<para>To create a deployment with symbolic name
+<literal>foo</literal>, and then perform the actual deployment:
+
 <screen>
-$ nixops create expr1.nix expr2.nix --name foo
+$ nixops create expr1.nix expr2.nix -d foo
+created deployment ‘32b06868-d27c-11e2-a055-81d7beb7925e’
+
 $ nixops deploy -d foo</screen>
+
+</para>
 
 </refsection>
 
@@ -301,7 +309,9 @@ $ nixops deploy -d foo</screen>
 <refsection><title>Description</title>
 
 <para>This command modifies an existing deployment.  The options are
-the same as for <command>nixops create</command>.</para>
+the same as for <command>nixops create</command>.  The symbolic name
+of the deployment can be changed using the <option>--name</option>
+flag.</para>
 
 </refsection>
 
@@ -371,15 +381,20 @@ $ nixops clone -d foo -n bar</screen>
 
 <cmdsynopsis>
   <command>nixops delete</command>
+  <arg><option>--force</option></arg>
 </cmdsynopsis>
 
 </refsection>
 
 <refsection><title>Description</title>
 
-<para>This command deletes a deployment from the state file.  You must
-run <command>nixops destroy</command> first to get rid of any
-previously instantiated machines in the deployment.</para>
+<para>This command deletes a deployment from the state file.  NixOps
+will normally refuse to delete the deployment if any resources
+belonging to the deployment (such as virtual machines) still exist.
+You must run <command>nixops destroy</command> first to get rid of any
+such resources.  However, if you pass <option>--force</option>, NixOps
+will forget about any still-existing resources; this should be used
+with caution.</para>
 
 </refsection>
 
@@ -408,6 +423,7 @@ $ nixops delete -d foo</screen>
     <arg choice='plain'><option>-k</option></arg>
   </group>
   <arg><option>--dry-run</option></arg>
+  <arg><option>--repair</option></arg>
   <arg><option>--create-only</option></arg>
   <arg><option>--build-only</option></arg>
   <arg><option>--copy-only</option></arg>
@@ -467,6 +483,15 @@ them.</para>
 
     <listitem><para>Dry run; show what would be done by this command
     without actually doing it.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--repair</option></term>
+
+    <listitem><para>Use --repair when calling nix-build. This is useful
+    for repairing the nix store when some inconsistency is found and
+    nix-copy-closure is failing as a result. Note that this option only
+    works in nix setups that run without the nix daemon.</para></listitem>
 
   </varlistentry>
 
@@ -1028,6 +1053,22 @@ interactive shell is started.</para>
 
 </refsection>
 
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--include-keys</option></term>
+
+    <listitem><para>Include the public SSH host keys into .ssh/known_hosts for all
+    machines in the imported network.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+
 <refsection><title>Examples</title>
 
 <para>To start a shell on machine <literal>foo</literal>:
@@ -1279,7 +1320,10 @@ $ nixops backup</screen>
     <option>--exclude</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
   </arg>
-  <arg choice='plain'><replaceable>backup-id</replaceable></arg>
+    <arg>
+        <option>--backup-id</option>
+        <arg choice='plain' rep='repeat'><replaceable>backup-id</replaceable></arg>
+    </arg>
 </cmdsynopsis>
 </refsection>
 
@@ -1301,15 +1345,22 @@ $ nixops backup</screen>
 
   </varlistentry>
 
-  <varlistentry><term><option>--exclude</option>
-    <replaceable>machine-name...</replaceable></term>
+    <varlistentry><term><option>--exclude</option>
+        <replaceable>machine-name...</replaceable></term>
 
-    <listitem><para>Restore the persistent disks of all machines to a given backup except the ones listed
-    here.</para></listitem>
+        <listitem><para>Restore the persistent disks of all machines to a given backup except the ones listed
+            here.</para></listitem>
 
-  </varlistentry>
+    </varlistentry>
 
-  <varlistentry><term><replaceable>backup-id...</replaceable></term>
+    <varlistentry><term><option>--devices</option>
+        <replaceable>device-name...</replaceable></term>
+
+        <listitem><para>Restore only the persistent disks which are mapped to the specified device names.</para></listitem>
+
+    </varlistentry>
+
+    <varlistentry><term><option>--backup-id</option><replaceable>backup-id</replaceable></term>
 
     <listitem><para>Restore the persistent disks of all machines to a given backup except the ones listed
     here.</para></listitem>
@@ -1322,13 +1373,19 @@ $ nixops backup</screen>
 
 <refsection><title>Examples</title>
 
-<para>To list the available backups and restore the persistent disks of all machines to a given backup:
+    <para>To list the available backups and restore the persistent disks of all machines to a given backup:
 
-<screen>
-$ nixops backup-status
-$ nixops restore 20120803151302</screen>
+        <screen>
+            $ nixops backup-status
+            $ nixops restore --backup-id 20120803151302</screen>
 
-</para>
+    </para>
+
+    <para>Restore the persistent disks at device /dev/xvdf of all machines to a given backup:
+
+        <screen>
+            $ nixops restore --devices /dev/xvdf --backup-id 20120803151302</screen>
+    </para>
 
 </refsection>
 
@@ -1523,6 +1580,77 @@ Xen Minimal OS!
 [    0.000000] Linux version 3.2.36 (nixbld@) (gcc version 4.6.3 (GCC) ) #1 SMP Fri Jan 4 16:07:14 UTC 2013
 <replaceable>…</replaceable>
 </screen>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>nixops export</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>nixops export</command>
+  <arg><option>--all</option></arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command exports the state of the specified deployment, or
+all deployments if <option>--all</option> is given, as a JSON
+represention to standard output.  The deployment(s) can be imported
+into another state file using <command>nixops import</command>.</para>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To export a specific deployment, and import it into the state
+file <filename>other.nixops</filename>:
+
+<screen>
+$ nixops export -d foo > foo.json
+$ nixops import -s other.nixops &lt; foo.json
+added deployment ‘2bbaddca-01cb-11e2-88b2-19d91ca51c50’
+</screen>
+
+If desired, you can then remove the deployment from the old state
+file:
+
+<screen>
+$ nixops delete -d foo --force</screen>
+
+</para>
+
+<para>To export all deployments:
+
+<screen>
+$ nixops export --all > all.json
+</screen>
+</para>
+
+</refsection>
+
+</refsection>
+
+
+<refsection><title>Command <option>nixops import</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>nixops import</command>
+  <arg><option>--include-keys</option></arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command creates deployments from the state data exported by
+<command>nixops export</command>.  The state is read from standard
+input.  See <command>nixops export</command> for examples.</para>
 
 </refsection>
 

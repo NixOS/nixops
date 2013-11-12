@@ -113,7 +113,8 @@ let
       cfg.instanceType == "cc1.4xlarge"
    || cfg.instanceType == "cc2.8xlarge"
    || cfg.instanceType == "hs1.8xlarge"
-   || cfg.instanceType == "cr1.8xlarge";
+   || cfg.instanceType == "cr1.8xlarge"
+   || builtins.substring 0 2 cfg.instanceType == "m3";
 
   # Map "/dev/mapper/xvdX" to "/dev/xvdX".
   dmToDevice = dev:
@@ -121,17 +122,7 @@ let
     then "/dev/" + builtins.substring 12 100 dev
     else dev;
 
-  amis = {
-    "eu-west-1".ebs = "ami-24e8e150";
-    "eu-west-1".s3  = "ami-a2eae3d6";
-    "us-east-1".ebs = "ami-dc48d9b5";
-    "us-east-1".s3  = "ami-da4edfb3";
-    "us-east-1".hvm = "ami-004adb69";
-    "us-west-1".ebs = "ami-22715367";
-    "us-west-1".s3  = "ami-967153d3";
-    "us-west-2".ebs = "ami-8a7af0ba";
-    "us-west-2".s3  = "ami-be7bf18e";
-  };
+  amis = import ./ec2-amis.nix;
 
 in
 
@@ -217,6 +208,16 @@ in
       '';
     };
 
+    deployment.ec2.ebsInitialRootDiskSize = mkOption {
+      default = 0;
+      type = types.int;
+      description = ''
+        Preferred size (G) of the root disk of the EBS-backed instance. By
+        default, EBS-backed images have a root disk of 20G. Only supported
+        on creation of the instance.
+      '';
+    };
+
     deployment.ec2.ami = mkOption {
       example = "ami-ecb49e98";
       type = types.uniq types.string;
@@ -234,6 +235,14 @@ in
         EC2 instance type.  See <link
         xlink:href='http://aws.amazon.com/ec2/instance-types/'/> for a
         list of valid Amazon EC2 instance types.
+      '';
+    };
+
+    deployment.ec2.instanceId = mkOption {
+      default = "";
+      type = types.uniq types.string;
+      description = ''
+        EC2 instance id (set by nixops).
       '';
     };
 
@@ -274,7 +283,7 @@ in
     deployment.ec2.securityGroups = mkOption {
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
-      type = types.list types.string;
+      type = types.listOf types.string;
       description = ''
         Security groups for the instance.  These determine the
         firewall rules applied to the instance.
@@ -317,6 +326,15 @@ in
       description = ''
         Attribute set containing number of CPUs and memory available to
         the machine.
+      '';
+    };
+
+    deployment.ec2.spotInstancePrice = mkOption {
+      default = 0;
+      type = types.int;
+      description = ''
+        Price (in dollar cents per hour) to use for spot instances request for the machine.
+        If the value is equal to 0 (default), then spot instances are not used.
       '';
     };
 

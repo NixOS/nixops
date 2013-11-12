@@ -1,17 +1,29 @@
-{ privateKey, keyPair, securityGroup }:
-
+let
+  region = "us-east-1";
+in
 {
-  machine.deployment = {
-    targetEnv = "ec2";
+  resources.ec2KeyPairs.my-key-pair =
+    { inherit region; };
 
-    ec2 = {
-      region = "us-east-1";
-
-      instanceType = "m1.small";
-
-      inherit privateKey keyPair;
-
-      securityGroups = [ securityGroup ];
-    };
+  resources.ec2SecurityGroups.ssh-security-group = {
+    inherit region;
+    description = "Security group for nixops tests";
+    rules = [ {
+      fromPort = 22;
+      toPort = 22;
+      sourceIp = "0.0.0.0/0";
+    } ];
   };
+
+  machine =
+    { resources, ... }:
+    {
+      deployment.targetEnv = "ec2";
+      deployment.ec2 = {
+        inherit region;
+        instanceType = "m1.small";
+        securityGroups = [ resources.ec2SecurityGroups.ssh-security-group.name ];
+        keyPair = resources.ec2KeyPairs.my-key-pair.name;
+      };
+    };
 }

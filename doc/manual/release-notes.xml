@@ -1,0 +1,123 @@
+<article xmlns="http://docbook.org/ns/docbook"
+         xmlns:xlink="http://www.w3.org/1999/xlink">
+
+<title>NixOps Release Notes</title>
+
+
+<!--==================================================================-->
+
+<section xml:id="ssec-relnotes-1.1.1"><title>Release 1.1.1 (October 2, 2013)</title>
+
+<para>This a minor bugfix release.</para>
+
+<itemizedlist>
+
+  <listitem><para>Added a command-line option <emphasis>--include-keys</emphasis> to allow
+  importing SSH public host keys, of the machines that will be imported, to the 
+  <emphasis>.ssh/known_hosts</emphasis> of the user.
+  </para></listitem>
+
+  <listitem><para>Fixed a bug that prevented switching the <emphasis>deployment.storeKeysOnMachine</emphasis>
+  option value.
+  </para></listitem>
+
+  <listitem><para>On non-EC2 systems, nixops will generate ecdsa SSH host keypairs 
+  in stead of dsa from now on.</para></listitem>
+
+  <listitem><para>VirtualBox deployments use generated SSH host keypairs.
+  </para></listitem>
+
+  <listitem><para>For all machines which nixops generates an SSH host keypair for, it
+  will add the SSH public host key to the known_hosts configuration of all machines
+  in the network.</para></listitem>
+
+  <listitem><para>For EC2 deployments, if the nixops expression specifies a set of
+  security groups for a machine that is different from the security groups applied to
+  the existing machine, it will produce a warning that the change cannot be made.
+  </para></listitem>
+
+  <listitem><para>For EC2 deployments, disks that are not supposed to be attached to the
+  machine are detached only after system activation has been completed. Previously this
+  was done before, but that could lead to volumes not being able to detach without
+  needing to stop the machine.
+  </para></listitem>
+
+  <listitem><para>Added a command-line option <emphasis>--repair</emphasis> as a convient
+  way to pass this option, which allows repairing of broken or changed paths in the nix store,
+  to nix-build calls that nixops performs. Note that this option only works in nix setups
+  that run without the nix daemon.
+  </para></listitem>
+
+
+</itemizedlist>
+
+<para>
+  This release has contributions from aszlig, Ricardo Correia, 
+  Eelco Dolstra, Rob Vermaas.
+</para>
+
+</section>
+
+<section xml:id="ssec-relnotes-1.1"><title>Release 1.1 (September 9, 2013)</title>
+
+<itemizedlist>
+
+  <listitem><para>Backend for <link
+  xlink:href="http://hetzner.de">Hetzner</link>, a German data center
+  provider. More information and a demo video can be found <link
+  xlink:href="https://github.com/NixOS/nixops/pull/119">here</link>.
+  </para></listitem>
+
+  <listitem><para>When using the <code>deployment.keys.*</code> options, the
+  keys in /run/keys are now created with mode 600.</para></listitem>
+
+  <listitem><para>Fixed bug where EBS snapshots name tag was overridden by the
+  instance name tag.</para></listitem>
+
+  <listitem><para>The nixops executable now has the default OpenSSH from nixpkgs
+  in its PATH now by default, to work around issues with left-over SSH master
+  connections on older version of OpenSSH, such as the version that is installed
+  by default on CentOS.</para></listitem>
+
+  <listitem><para>A new resource type has been introduced to generate sets of SSH
+  public/private keys.</para></listitem>
+
+  <listitem><para>Support for spot instances in the EC2 backend. By specifying
+    the <code>deployment.ec2.spotInstancePrice</code> option for a machine,
+    you can set the spot instance price in cents. NixOps will wait 10
+    minutes for a spot instance to be fulfilled, if not, then it will error
+    out for that machine.</para></listitem>
+
+
+</itemizedlist>
+
+
+</section>
+
+<section xml:id="ssec-relnotes-1.0.1"><title>Release 1.0.1 (July 11, 2013)</title>
+
+<para>This is a minor bugfix release.</para>
+
+<itemizedlist>
+
+  <listitem><para>Reduce parallelism for running EC2 backups, to
+  prevent hammering the AWS API in case of many
+  disks.</para></listitem>
+
+  <listitem><para>Propagate the instance tags to the EBS volumes
+  (except for Name tag, which is overriden with a detailed description
+  of the volume and its use).</para></listitem>
+
+</itemizedlist>
+
+
+</section>
+
+<section xml:id="ssec-relnotes-1.0"><title>Release 1.0 (June 18, 2013)</title>
+
+<para>Initial release.</para>
+
+</section>
+
+
+</article>

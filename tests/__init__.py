@@ -1,19 +1,18 @@
 import os
 import threading
 from os import path
-
-from nixops import deployment
+import nixops.statefile
 
 _multiprocess_shared_ = True
 
 db_file = '%s/test.nixops' % (path.dirname(__file__))
 
 def setup():
-    deployment.open_database(db_file).close()
+    nixops.statefile.StateFile(db_file).close()
 
-def destroy(db, uuid):
-    depl = deployment.open_deployment(db, uuid)
-    depl.auto_response = "y"
+def destroy(sf, uuid):
+    depl = sf.open_deployment(uuid)
+    depl.logger.set_autoresponse("y")
     try:
         depl.clean_backups(keep=0)
     except Exception:
@@ -25,15 +24,15 @@ def destroy(db, uuid):
 
 def teardown():
     try:
-        db = deployment.open_database(db_file)
-        uuids = deployment.query_deployments(db)
+        sf = nixops.statefile.StateFile(db_file)
+        uuids = sf.query_deployments()
         threads = []
         for uuid in uuids:
-            threads.append(threading.Thread(target=destroy,args=(db, uuid)))
+            threads.append(threading.Thread(target=destroy,args=(sf, uuid)))
         for thread in threads:
             thread.start()
         for thread in threads:
             thread.join()
     finally:
-        db.close()
+        sf.close()
         os.remove(db_file)
