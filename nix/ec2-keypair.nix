@@ -25,4 +25,6 @@ with pkgs.lib;
 
   };
 
+  config._type = "ec2-keypair";
+
 }

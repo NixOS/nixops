@@ -273,7 +273,8 @@ in
 
     deployment.ec2.keyPair = mkOption {
       example = "my-keypair";
-      type = types.str;
+      type = union types.str (resource "ec2-keypair");
+      apply = x: if builtins.isString x then x else x.name;
       description = ''
         Name of the SSH key pair to be used to communicate securely
         with the instance.  Key pairs can be created using the
