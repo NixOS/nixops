@@ -12,6 +12,7 @@ import boto.ec2
 import boto.ec2.blockdevicemapping
 from nixops.backends import MachineDefinition, MachineState
 from nixops.nix_expr import Function, RawValue
+from nixops.resources.ebs_volume import EBSVolumeState
 import nixops.util
 import nixops.ec2_utils
 import nixops.known_hosts
@@ -844,6 +845,7 @@ class EC2State(MachineState):
         # Detect if volumes were manually destroyed.
         for k, v in self.block_device_mapping.items():
             if v.get('needsAttach', False):
+                print v['volumeId']
                 volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'], allow_missing=True)
                 if volume: continue
                 if not allow_recreate:
@@ -855,19 +857,42 @@ class EC2State(MachineState):
 
         # Create missing volumes.
         for k, v in defn.block_device_mapping.iteritems():
-            if k in self.block_device_mapping: continue
 
             volume = None
             if v['disk'] == '':
+                if k in self.block_device_mapping: continue
                 self.log("creating EBS volume of {0} GiB...".format(v['size']))
                 (volume_type, iops) = self.disk_volume_options(v)
                 volume = self._conn.create_volume(size=v['size'], zone=self.zone, volume_type=volume_type, iops=iops)
                 v['volumeId'] = volume.id
 
             elif v['disk'].startswith("vol-"):
+                if k in self.block_device_mapping:
+                    cur_volume_id = self.block_device_mapping[k]['volumeId']
+                    if cur_volume_id != v['disk']:
+                        raise Exception("cannot attach EBS volume ‘{0}’ to ‘{1}’ because volume ‘{2}’ is already attached there".format(v['disk'], k, cur_volume_id))
+                    continue
                 v['volumeId'] = v['disk']
 
+            elif v['disk'].startswith("res-"):
+                res_name = v['disk'][4:]
+                res = self.depl.active_resources.get(res_name, None)
+                if not res:
+                    raise Exception("resource ‘{0}’ does not exist".format(res_name))
+                if not isinstance(res, EBSVolumeState):
+                    raise Exception("resource ‘{0}’ is not an EBS volume".format(res_name))
+                if res.state != self.UP:
+                    raise Exception("EBS volume ‘{0}’ has not been created yet".format(res_name))
+                assert res.volume_id
+                if k in self.block_device_mapping:
+                    cur_volume_id = self.block_device_mapping[k]['volumeId']
+                    if cur_volume_id != res.volume_id:
+                        raise Exception("cannot attach EBS volume ‘{0}’ to ‘{1}’ because volume ‘{2}’ is already attached there".format(res_name, k, cur_volume_id))
+                    continue
+                v['volumeId'] = res.volume_id
+
             elif v['disk'].startswith("snap-"):
+                if k in self.block_device_mapping: continue
                 self.log("creating volume from snapshot ‘{0}’...".format(v['disk']))
                 (volume_type, iops) = self.disk_volume_options(v)
                 volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone, volume_type=volume_type, iops=iops)
@@ -884,12 +909,13 @@ class EC2State(MachineState):
             v['needsAttach'] = True
             self.update_block_device_mapping(k, v)
 
-            # wait for volume to get to available state for newly created volumes only (amazon sometimes returns
-            # weird temporary states for newly created volumes, e.g. shortly in-use). doing this after updating the
-            # device mapping state, to make it recoverable in case an exception happens (e.g. in other machine's
-            # deployments).
-            if volume:
-                self.wait_for_volume_available(volume)
+            # Wait for volume to get to available state for newly
+            # created volumes only (EC2 sometimes returns weird
+            # temporary states for newly created volumes, e.g. shortly
+            # in-use).  Doing this after updating the device mapping
+            # state, to make it recoverable in case an exception
+            # happens (e.g. in other machine's deployments).
+            if volume: self.wait_for_volume_available(volume)
 
         # Always apply tags to all volumes
         for k, v in self.block_device_mapping.items():

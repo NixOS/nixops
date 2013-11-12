@@ -9,6 +9,19 @@ let
 
   cfg = config.deployment.ec2;
 
+  # FIXME: move to nixpkgs/lib/types.nix.
+  union = t1: t2: mkOptionType {
+    name = "${t1.name} or ${t2.name}";
+    check = x: t1.check x || t2.check x;
+    merge = mergeOneOption;
+  };
+
+  ebsVolume = mkOptionType {
+    name = "EBS volume";
+    check = x: x.type or "" == "ebs-volume";
+    merge = mergeOneOption;
+  };
+
   ec2DiskOptions = { config, ... }: {
 
     options = {
@@ -16,13 +29,15 @@ let
       disk = mkOption {
         default = "";
         example = "vol-d04895b8";
-        type = types.str;
+        type = union types.str ebsVolume;
+        apply = x: if builtins.isString x then x else "res-" + x._name;
         description = ''
           EC2 identifier of the disk to be mounted.  This can be an
           ephemeral disk (e.g. <literal>ephemeral0</literal>), a
           snapshot ID (e.g. <literal>snap-1cbda474</literal>) or a
           volume ID (e.g. <literal>vol-d04895b8</literal>).  Leave
-          empty to create an EBS volume automatically.
+          empty to create an EBS volume automatically.  It can also be
+          an EBS resource (e.g. <literal>resources.ebsVolumes.big-disk</literal>).
         '';
       };
 
