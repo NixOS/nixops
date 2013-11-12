@@ -330,7 +330,8 @@ in
     deployment.ec2.elasticIPv4 = mkOption {
       default = "";
       example = "203.0.113.123";
-      type = types.str;
+      type = union types.str (resource "elastic-ip");
+      apply = x: if builtins.isString x then x else "res-" + x._name;
       description = ''
         Elastic IPv4 address to be associated with this machine.
       '';

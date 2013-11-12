@@ -25,4 +25,6 @@ with pkgs.lib;
 
   };
 
+  config._type = "elastic-ip";
+
 }

@@ -13,6 +13,7 @@ import boto.ec2.blockdevicemapping
 from nixops.backends import MachineDefinition, MachineState
 from nixops.nix_expr import Function, RawValue
 from nixops.resources.ebs_volume import EBSVolumeState
+from nixops.resources.elastic_ip import ElasticIPState
 import nixops.util
 import nixops.ec2_utils
 import nixops.known_hosts
@@ -811,7 +812,17 @@ class EC2State(MachineState):
             # TODO: remove obsolete tags?
             self.tags = tags
 
-        self.assign_elastic_ip(defn.elastic_ipv4, instance, check)
+        # Assign the elastic IP.  If necessary, dereference the resource.
+        elastic_ipv4 = defn.elastic_ipv4
+        if elastic_ipv4.startswith("res-"):
+            res_name = elastic_ipv4[4:]
+            res = self.depl.active_resources.get(res_name, None)
+            if not res:
+                raise Exception("resource ‘{0}’ does not exist".format(res_name))
+            if not isinstance(res, ElasticIPState):
+                raise Exception("resource ‘{0}’ is not an elastic IP address".format(res_name))
+            elastic_ipv4 = res.public_ipv4
+        self.assign_elastic_ip(elastic_ipv4, instance, check)
 
         # Wait for the IP address.
         if not self.public_ipv4 or check:
