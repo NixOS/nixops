@@ -88,7 +88,7 @@ class ElasticIPState(nixops.resources.ResourceState):
             self.log("IP address is {0}".format(self.public_ipv4))
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         if self.state == self.UP:
             self.connect(self.region)
             try:

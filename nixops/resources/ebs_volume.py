@@ -98,12 +98,12 @@ class EBSVolumeState(nixops.resources.ResourceState):
             self.log("volume ID is ‘{0}’".format(volume.id))
 
 
-    def destroy(self):
+    def destroy(self, wipe=False):
         if self.state == self.UP:
             self.connect(self.region)
             volume = nixops.ec2_utils.get_volume_by_id(self._conn, self.volume_id, allow_missing=True)
             if volume:
-                if not self.depl.confirm("are you sure you want to destroy EBS volume ‘{0}’?".format(self.name)): return False
+                if not self.depl.logger.confirm("are you sure you want to destroy EBS volume ‘{0}’?".format(self.name)): return False
                 self.log("destroying EBS volume ‘{0}’...".format(self.volume_id))
                 volume.delete()
         return True
