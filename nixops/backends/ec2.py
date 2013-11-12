@@ -815,12 +815,7 @@ class EC2State(MachineState):
         # Assign the elastic IP.  If necessary, dereference the resource.
         elastic_ipv4 = defn.elastic_ipv4
         if elastic_ipv4.startswith("res-"):
-            res_name = elastic_ipv4[4:]
-            res = self.depl.active_resources.get(res_name, None)
-            if not res:
-                raise Exception("resource ‘{0}’ does not exist".format(res_name))
-            if not isinstance(res, ElasticIPState):
-                raise Exception("resource ‘{0}’ is not an elastic IP address".format(res_name))
+            res = self.depl.get_typed_resource(elastic_ipv4[4:], "elastic-ip")
             elastic_ipv4 = res.public_ipv4
         self.assign_elastic_ip(elastic_ipv4, instance, check)
 
@@ -887,11 +882,7 @@ class EC2State(MachineState):
 
             elif v['disk'].startswith("res-"):
                 res_name = v['disk'][4:]
-                res = self.depl.active_resources.get(res_name, None)
-                if not res:
-                    raise Exception("resource ‘{0}’ does not exist".format(res_name))
-                if not isinstance(res, EBSVolumeState):
-                    raise Exception("resource ‘{0}’ is not an EBS volume".format(res_name))
+                res = self.depl.get_typed_resource(res_name, "ebs-volume")
                 if res.state != self.UP:
                     raise Exception("EBS volume ‘{0}’ has not been created yet".format(res_name))
                 assert res.volume_id

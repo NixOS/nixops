@@ -100,6 +100,15 @@ class Deployment(object):
         return {n: r for n, r in self.resources.items() if not r.obsolete}
 
 
+    def get_typed_resource(self, name, type):
+        res = self.active_resources.get(name, None)
+        if not res:
+            raise Exception("resource ‘{0}’ does not exist".format(name))
+        if res.get_type() != type:
+            raise Exception("resource ‘{0}’ is not of type ‘{1}’".format(name, type))
+        return res
+
+
     def _set_attrs(self, attrs):
         """Update deployment attributes in the state file."""
         with self._db:
