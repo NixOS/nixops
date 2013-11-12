@@ -81,7 +81,7 @@ class EBSVolumeState(nixops.resources.ResourceState):
 
             self.connect(defn.region)
 
-            self.log("creating EBS volume of size {0}...".format(defn.size))
+            self.log("creating EBS volume of {0} GiB...".format(defn.size))
             volume = self._conn.create_volume(size=defn.size, zone=defn.zone)
 
             # FIXME: if we crash before the next step, we forget the

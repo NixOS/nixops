@@ -859,7 +859,7 @@ class EC2State(MachineState):
 
             volume = None
             if v['disk'] == '':
-                self.log("creating {0} GiB volume...".format(v['size']))
+                self.log("creating EBS volume of {0} GiB...".format(v['size']))
                 (volume_type, iops) = self.disk_volume_options(v)
                 volume = self._conn.create_volume(size=v['size'], zone=self.zone, volume_type=volume_type, iops=iops)
                 v['volumeId'] = volume.id
