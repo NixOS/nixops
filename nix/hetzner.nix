@@ -11,7 +11,7 @@ with pkgs.lib;
     mainIPv4 = mkOption {
       default = null;
       example = "78.46.1.93";
-      type = types.nullOr types.string;
+      type = types.nullOr types.str;
       description = ''
         Main IP address identifying the server.
       '';
@@ -19,7 +19,7 @@ with pkgs.lib;
 
     robotUser = mkOption {
       default = "";
-      type = types.nullOr types.string;
+      type = types.nullOr types.str;
       description = ''
         Username of the Hetzner robot account.
 
@@ -30,7 +30,7 @@ with pkgs.lib;
 
     robotPass = mkOption {
       default = "";
-      type = types.nullOr types.string;
+      type = types.nullOr types.str;
       description = ''
         Password of the Hetzner robot account.
 
@@ -51,7 +51,7 @@ with pkgs.lib;
 
         raid / --level=1 --device=md0 --fstype=ext4 --label=root raid.1 raid.2
       '';
-      type = types.string;
+      type = types.lines;
       description = ''
         Specify layout of partitions and file systems using Anacondas Kickstart
         format. For possible options and commands, please have a look at:

@@ -25,7 +25,7 @@ with utils;
 
       options.devices = mkOption {
         example = [ "/dev/xvdg" "/dev/xvdh" ];
-        type = types.listOf types.string;
+        type = types.listOf types.str;
         description = "The underlying devices to be combined into a RAID-0 volume.";
       };
 

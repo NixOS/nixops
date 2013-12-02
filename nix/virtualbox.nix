@@ -47,12 +47,12 @@ in
 
         port = mkOption {
           example = 1;
-          type = types.uniq types.int;
+          type = types.int;
           description = "SATA port number to which the disk is attached.";
         };
 
         size = mkOption {
-          type = types.uniq types.int;
+          type = types.int;
           description = "Size (in megabytes) of this disk.";
         };
 

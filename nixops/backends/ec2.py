@@ -12,6 +12,8 @@ import boto.ec2
 import boto.ec2.blockdevicemapping
 from nixops.backends import MachineDefinition, MachineState
 from nixops.nix_expr import Function, RawValue
+from nixops.resources.ebs_volume import EBSVolumeState
+from nixops.resources.elastic_ip import ElasticIPState
 import nixops.util
 import nixops.ec2_utils
 import nixops.known_hosts
@@ -228,8 +230,9 @@ class EC2State(MachineState):
 
 
     def connect(self):
-        if self._conn: return
+        if self._conn: return self._conn
         self._conn = nixops.ec2_utils.connect(self.region, self.access_key_id)
+        return self._conn
 
 
     def connect_route53(self):
@@ -261,19 +264,6 @@ class EC2State(MachineState):
                 return None
             raise EC2InstanceDisappeared("EC2 instance ‘{0}’ disappeared!".format(instance_id))
         return reservations[0].instances[0]
-
-
-    def _get_volume_by_id(self, volume_id, allow_missing=False):
-        """Get instance object by instance id."""
-        self.connect()
-        try:
-            volumes = self._conn.get_all_volumes([volume_id])
-            if len(volumes) != 1:
-                raise Exception("unable to find volume ‘{0}’".format(volume_id))
-            return volumes[0]
-        except boto.exception.EC2ResponseError as e:
-            if e.error_code != "InvalidVolume.NotFound": raise
-        return None
 
 
     def _get_snapshot_by_id(self, snapshot_id):
@@ -407,7 +397,7 @@ class EC2State(MachineState):
         for k, v in self.block_device_mapping.items():
             if devices == [] or _sd_to_xvd(k) in devices:
                 # detach disks
-                volume = self._get_volume_by_id(v['volumeId'])
+                volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'])
                 if volume and volume.update() == "in-use":
                     self.log("detaching volume from ‘{0}’".format(self.name))
                     volume.detach()
@@ -433,18 +423,19 @@ class EC2State(MachineState):
 
 
     def create_after(self, resources):
-        # EC2 instances can require key pairs and IAM roles.  FIXME:
-        # only depend on the specific key pair / role needed for this
-        # instance.
-        # Ditto for security groups
+        # EC2 instances can require key pairs, IAM roles, security
+        # groups, EBS volumes and elastic IPs.  FIXME: only depend on
+        # the specific key pair / role needed for this instance.
         return {r for r in resources if
                 isinstance(r, nixops.resources.ec2_keypair.EC2KeyPairState) or
                 isinstance(r, nixops.resources.iam_role.IAMRoleState) or
-                isinstance(r, nixops.resources.ec2_security_group.EC2SecurityGroupState)}
+                isinstance(r, nixops.resources.ec2_security_group.EC2SecurityGroupState) or
+                isinstance(r, nixops.resources.ebs_volume.EBSVolumeState) or
+                isinstance(r, nixops.resources.elastic_ip.ElasticIPState)}
 
 
     def attach_volume(self, device, volume_id):
-        volume = self._get_volume_by_id(volume_id)
+        volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id)
         if volume.status == "in-use" and \
             self.vm_id != volume.attach_data.instance_id and \
             self.depl.logger.confirm("volume ‘{0}’ is in use by instance ‘{1}’, "
@@ -489,6 +480,7 @@ class EC2State(MachineState):
 
         self.log_end('')
 
+
     def wait_for_volume_available(self, volume):
         def check_available():
             res = volume.update()
@@ -527,7 +519,7 @@ class EC2State(MachineState):
                 else:
                     self.log("associating IP address ‘{0}’...".format(elastic_ipv4))
                     addresses[0].associate(self.vm_id)
-                    self.log_start("waiting for address to be associated with this machine...")
+                    self.log_start("waiting for address to be associated with this machine... ")
                     instance.update()
                     while True:
                         self.log_continue("[{0}] ".format(instance.ip_address))
@@ -730,7 +722,7 @@ class EC2State(MachineState):
             for k, v in defn.block_device_mapping.iteritems():
                 if not v['disk'].startswith("vol-"): continue
                 # Make note of the placement zone of the volume.
-                volume = self._get_volume_by_id(v['disk'])
+                volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['disk'])
                 if not zone:
                     self.log("starting EC2 instance in zone ‘{0}’ due to volume ‘{1}’".format(
                             volume.zone, v['disk']))
@@ -820,7 +812,12 @@ class EC2State(MachineState):
             # TODO: remove obsolete tags?
             self.tags = tags
 
-        self.assign_elastic_ip(defn.elastic_ipv4, instance, check)
+        # Assign the elastic IP.  If necessary, dereference the resource.
+        elastic_ipv4 = defn.elastic_ipv4
+        if elastic_ipv4.startswith("res-"):
+            res = self.depl.get_typed_resource(elastic_ipv4[4:], "elastic-ip")
+            elastic_ipv4 = res.public_ipv4
+        self.assign_elastic_ip(elastic_ipv4, instance, check)
 
         # Wait for the IP address.
         if not self.public_ipv4 or check:
@@ -854,7 +851,8 @@ class EC2State(MachineState):
         # Detect if volumes were manually destroyed.
         for k, v in self.block_device_mapping.items():
             if v.get('needsAttach', False):
-                volume = self._get_volume_by_id(v['volumeId'], allow_missing=True)
+                print v['volumeId']
+                volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'], allow_missing=True)
                 if volume: continue
                 if not allow_recreate:
                     raise Exception("volume ‘{0}’ (used by EC2 instance ‘{1}’) no longer exists; "
@@ -865,19 +863,38 @@ class EC2State(MachineState):
 
         # Create missing volumes.
         for k, v in defn.block_device_mapping.iteritems():
-            if k in self.block_device_mapping: continue
 
             volume = None
             if v['disk'] == '':
-                self.log("creating {0} GiB volume...".format(v['size']))
+                if k in self.block_device_mapping: continue
+                self.log("creating EBS volume of {0} GiB...".format(v['size']))
                 (volume_type, iops) = self.disk_volume_options(v)
                 volume = self._conn.create_volume(size=v['size'], zone=self.zone, volume_type=volume_type, iops=iops)
                 v['volumeId'] = volume.id
 
             elif v['disk'].startswith("vol-"):
+                if k in self.block_device_mapping:
+                    cur_volume_id = self.block_device_mapping[k]['volumeId']
+                    if cur_volume_id != v['disk']:
+                        raise Exception("cannot attach EBS volume ‘{0}’ to ‘{1}’ because volume ‘{2}’ is already attached there".format(v['disk'], k, cur_volume_id))
+                    continue
                 v['volumeId'] = v['disk']
 
+            elif v['disk'].startswith("res-"):
+                res_name = v['disk'][4:]
+                res = self.depl.get_typed_resource(res_name, "ebs-volume")
+                if res.state != self.UP:
+                    raise Exception("EBS volume ‘{0}’ has not been created yet".format(res_name))
+                assert res.volume_id
+                if k in self.block_device_mapping:
+                    cur_volume_id = self.block_device_mapping[k]['volumeId']
+                    if cur_volume_id != res.volume_id:
+                        raise Exception("cannot attach EBS volume ‘{0}’ to ‘{1}’ because volume ‘{2}’ is already attached there".format(res_name, k, cur_volume_id))
+                    continue
+                v['volumeId'] = res.volume_id
+
             elif v['disk'].startswith("snap-"):
+                if k in self.block_device_mapping: continue
                 self.log("creating volume from snapshot ‘{0}’...".format(v['disk']))
                 (volume_type, iops) = self.disk_volume_options(v)
                 volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone, volume_type=volume_type, iops=iops)
@@ -894,12 +911,13 @@ class EC2State(MachineState):
             v['needsAttach'] = True
             self.update_block_device_mapping(k, v)
 
-            # wait for volume to get to available state for newly created volumes only (amazon sometimes returns
-            # weird temporary states for newly created volumes, e.g. shortly in-use). doing this after updating the
-            # device mapping state, to make it recoverable in case an exception happens (e.g. in other machine's
-            # deployments).
-            if volume:
-                self.wait_for_volume_available(volume)
+            # Wait for volume to get to available state for newly
+            # created volumes only (EC2 sometimes returns weird
+            # temporary states for newly created volumes, e.g. shortly
+            # in-use).  Doing this after updating the device mapping
+            # state, to make it recoverable in case an exception
+            # happens (e.g. in other machine's deployments).
+            if volume: self.wait_for_volume_available(volume)
 
         # Always apply tags to all volumes
         for k, v in self.block_device_mapping.items():
@@ -968,7 +986,7 @@ class EC2State(MachineState):
         if not self.depl.logger.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
             raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
         self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
-        volume = self._get_volume_by_id(volume_id, allow_missing=True)
+        volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id, allow_missing=True)
         if not volume: return
         nixops.util.check_wait(lambda: volume.update() == 'available')
         volume.delete()
@@ -1113,7 +1131,7 @@ class EC2State(MachineState):
                 if k not in instance.block_device_mapping.keys() and v.get('volumeId', None):
                     res.disks_ok = False
                     res.messages.append("volume ‘{0}’ not attached to ‘{1}’".format(v['volumeId'], _sd_to_xvd(k)))
-                    volume = self._get_volume_by_id(v['volumeId'], allow_missing=True)
+                    volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'], allow_missing=True)
                     if not volume:
                         res.messages.append("volume ‘{0}’ no longer exists".format(v['volumeId']))
 

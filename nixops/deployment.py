@@ -20,6 +20,10 @@ import nixops.resources.ssh_keypair
 import nixops.resources.ec2_keypair
 import nixops.resources.sqs_queue
 import nixops.resources.iam_role
+import nixops.resources.s3_bucket
+import nixops.resources.ec2_security_group
+import nixops.resources.ebs_volume
+import nixops.resources.elastic_ip
 from nixops.nix_expr import RawValue, Function, nixmerge, py2nix
 import re
 from datetime import datetime
@@ -94,6 +98,15 @@ class Deployment(object):
     @property
     def active_resources(self):
         return {n: r for n, r in self.resources.items() if not r.obsolete}
+
+
+    def get_typed_resource(self, name, type):
+        res = self.active_resources.get(name, None)
+        if not res:
+            raise Exception("resource ‘{0}’ does not exist".format(name))
+        if res.get_type() != type:
+            raise Exception("resource ‘{0}’ is not of type ‘{1}’".format(name, type))
+        return res
 
 
     def _set_attrs(self, attrs):
@@ -316,6 +329,13 @@ class Deployment(object):
 
         for x in res.find("attr[@name='ec2SecurityGroups']/attrs").findall("attr"):
             defn = nixops.resources.ec2_security_group.EC2SecurityGroupDefinition(x)
+
+        for x in res.find("attr[@name='ebsVolumes']/attrs").findall("attr"):
+            defn = nixops.resources.ebs_volume.EBSVolumeDefinition(x)
+            self.definitions[defn.name] = defn
+
+        for x in res.find("attr[@name='elasticIPs']/attrs").findall("attr"):
+            defn = nixops.resources.elastic_ip.ElasticIPDefinition(x)
             self.definitions[defn.name] = defn
 
 
@@ -544,8 +564,8 @@ class Deployment(object):
         if debug: print >> sys.stderr, "generated physical spec:\n" + p
 
         for m in self.active.itervalues():
-            if hasattr(m, "public_host_key") and m.public_host_key:
-                write_temp_file("{0}/{1}.public_host_key".format(self.tempdir,m.name), m.public_host_key + "\n")
+            if hasattr(m, "public_host_key") and m.public_host_key: # FIXME: use a method in MachineState.
+                write_temp_file("{0}/{1}.public_host_key".format(self.tempdir, m.name), m.public_host_key + "\n")
 
         selected = [m for m in self.active.itervalues() if should_do(m, include, exclude)]
 

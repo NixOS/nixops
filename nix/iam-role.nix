@@ -8,17 +8,17 @@ with pkgs.lib;
 
     name = mkOption {
       default = "charon-${uuid}-${name}";
-      type = types.uniq types.string;
+      type = types.str;
       description = "Name of the IAM role.";
     };
 
     accessKeyId = mkOption {
-      type = types.uniq types.string;
+      type = types.str;
       description = "The AWS Access Key ID.";
     };
 
     policy = mkOption {
-      type = types.uniq types.string;
+      type = types.str;
       description = "The IAM policy definition (in JSON format).";
     };
 

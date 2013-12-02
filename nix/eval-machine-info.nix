@@ -69,7 +69,7 @@ rec {
   evalResources = mainModule: _resources:
     mapAttrs (name: defs:
       (fixMergeModules
-        ([ mainModule ] ++ defs)
+        ([ mainModule ./resource.nix ] ++ defs)
         { inherit pkgs uuid name resources; }
       ).config) _resources;
 
@@ -79,6 +79,8 @@ rec {
   resources.s3Buckets = evalResources ./s3-bucket.nix (zipAttrs resourcesByType.s3Buckets or []);
   resources.iamRoles = evalResources ./iam-role.nix (zipAttrs resourcesByType.iamRoles or []);
   resources.ec2SecurityGroups = evalResources ./ec2-security-group.nix (zipAttrs resourcesByType.ec2SecurityGroups or []);
+  resources.ebsVolumes = evalResources ./ebs-volume.nix (zipAttrs resourcesByType.ebsVolumes or []);
+  resources.elasticIPs = evalResources ./elastic-ip.nix (zipAttrs resourcesByType.elasticIPs or []);
 
   # Phase 1: evaluate only the deployment attributes.
   info = {

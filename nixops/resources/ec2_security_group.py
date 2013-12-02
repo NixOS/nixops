@@ -137,7 +137,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
         if self.state == self.MISSING or self.state == self.UNKNOWN:
             self._connect()
             try:
-                self.logger.log("creating EC2 security group `{0}'...".format(self.security_group_name))
+                self.logger.log("creating EC2 security group ‘{0}’...".format(self.security_group_name))
                 grp = self._conn.create_security_group(self.security_group_name, self.security_group_description)
                 self.security_group_id = grp.id
             except boto.exception.EC2ResponseError as e:
@@ -146,7 +146,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
             self.state = self.STARTING #ugh
 
         if new_rules:
-            self.logger.log("adding new rules to EC2 security group `{0}'...".format(self.security_group_name))
+            self.logger.log("adding new rules to EC2 security group ‘{0}’...".format(self.security_group_name))
             if grp is None:
                 self._connect()
                 grp = self._conn.get_all_security_groups([ self.security_group_name ])[0]
@@ -158,7 +158,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                     grp.authorize(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], src_group=src_group)
 
         if old_rules:
-            self.logger.log("removing old rules from EC2 security group `{0}'...".format(self.security_group_name))
+            self.logger.log("removing old rules from EC2 security group ‘{0}’...".format(self.security_group_name))
             if grp is None:
                 self._connect()
                 grp = self._conn.get_all_security_groups([ self.security_group_name ])[0]

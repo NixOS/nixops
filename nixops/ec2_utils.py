@@ -82,3 +82,15 @@ def retry(f, error_codes=[]):
             raise e
 
         time.sleep(next_sleep)
+
+
+def get_volume_by_id(conn, volume_id, allow_missing=False):
+    """Get volume object by volume id."""
+    try:
+        volumes = conn.get_all_volumes([volume_id])
+        if len(volumes) != 1:
+            raise Exception("unable to find volume ‘{0}’".format(volume_id))
+        return volumes[0]
+    except boto.exception.EC2ResponseError as e:
+        if e.error_code != "InvalidVolume.NotFound": raise
+    return None
