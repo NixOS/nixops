@@ -27,10 +27,37 @@ $ nix-shell release.nix -A build.x86_64-linux --exclude tarball
 $ echo $PYTHONPATH
 /nix/store/yzj6p5f7iyh247pwxrg97y3klm6d0cni-python-2.7.3/lib/python2.7/site-packages:<replaceable>...</replaceable>
 </screen>
-You can then run the NixOps in your source tree as follows:
+You can then run NixOps in your source tree as follows:
 <screen>
 $ nixops
 </screen>
+</para>
+
+<para>To run the tests, do
+
+<screen>
+$ python tests.py
+</screen>
+
+Note that some of the tests involve the creation of EC2 resources and
+thus cost money.  You must set the environment variable
+<envar>EC2_ACCESS_KEY</envar> and (optionally)
+<envar>EC2_SECRET_KEY</envar>.  (If the latter is not set, it will be
+looked up in <filename>~/.ec2-keys</filename>, as described in <xref
+linkend="sec-deploying-to-ec2"/>.)  To run a specific test, run
+<literal>python tests.py
+<replaceable>test-name</replaceable></literal>, e.g.
+
+<screen>
+$ python tests.py tests.functional.test_encrypted_links
+</screen>
+
+There are also a few NixOS VM tests.  These can be run as follows:
+
+<screen>
+$ nix-build release.nix -A tests.none_backend
+</screen>
+
 </para>
 
 </appendix>
