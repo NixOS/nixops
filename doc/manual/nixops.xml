@@ -381,6 +381,7 @@ $ nixops clone -d foo -n bar</screen>
 
 <cmdsynopsis>
   <command>nixops delete</command>
+  <arg><option>--all</option></arg>
   <arg><option>--force</option></arg>
 </cmdsynopsis>
 
@@ -395,6 +396,9 @@ You must run <command>nixops destroy</command> first to get rid of any
 such resources.  However, if you pass <option>--force</option>, NixOps
 will forget about any still-existing resources; this should be used
 with caution.</para>
+
+<para>If the <option>--all</option> flag is given, all deployments in
+the state file are deleted.</para>
 
 </refsection>
 
@@ -637,6 +641,7 @@ $ nixops deploy --create-only --exclude foo</screen>
 
 <cmdsynopsis>
   <command>nixops destroy</command>
+  <arg><option>--all</option></arg>
   <arg>
     <option>--include</option>
     <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
@@ -666,6 +671,12 @@ created by NixOps).</para>
 <refsection><title>Options</title>
 
 <variablelist>
+
+  <varlistentry><term><option>--all</option></term>
+
+    <listitem><para>Destroy all deployments.</para></listitem>
+
+  </varlistentry>
 
   <varlistentry><term><option>--include</option>
     <replaceable>machine-name...</replaceable></term>
