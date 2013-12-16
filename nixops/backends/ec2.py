@@ -554,9 +554,12 @@ class EC2State(MachineState):
             block_device_map=devmap,
             user_data=user_data,
             image_id=defn.ami,
-            instance_profile_name=defn.instance_profile,
             ebs_optimized=ebs_optimized
         )
+        if defn.instance_profile.startswith("arn:") :
+            common_args['instance_profile_arn'] = defn.instance_profile
+        else:
+            common_args['instance_profile_name'] = defn.instance_profile
 
         if defn.spot_instance_price:
             request = nixops.ec2_utils.retry(
