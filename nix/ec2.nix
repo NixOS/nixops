@@ -301,7 +301,8 @@ in
     deployment.ec2.securityGroups = mkOption {
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
-      type = types.listOf types.str;
+      type = types.listOf (union types.str (resource "ec2-security-group"));
+      apply = map (x: if builtins.isString x then x else x.name);
       description = ''
         Security groups for the instance.  These determine the
         firewall rules applied to the instance.

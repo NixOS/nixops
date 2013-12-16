@@ -13,7 +13,7 @@ with pkgs.lib;
     };
 
     description = mkOption {
-      default = "nixops-provisioned group ${name}";
+      default = "NixOps-provisioned group ${name}";
       type = types.str;
       description = "Informational description of the security group.";
     };
@@ -92,5 +92,7 @@ with pkgs.lib;
       };
     };
   };
+
+  config._type = "ec2-security-group";
 
 }
