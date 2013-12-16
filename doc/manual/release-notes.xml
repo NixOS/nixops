@@ -6,6 +6,25 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.1.2"><title>Release 1.1.2 (December 17, 2013)</title>
+
+<para>This a minor feature release.</para>
+
+<itemizedlist>
+
+  <listitem><para>To allow cross-account API access, the <emphasis>deployment.ec2.instanceProfile</emphasis>
+  option can now be set to either a name (previous behaviour) or an Amazon Resource Names (ARN) of the
+  instance profile you want to apply.
+  </para></listitem>
+
+</itemizedlist>
+
+<para>
+  This release has contributions from Rob Vermaas.
+</para>
+
+</section>
+
 <section xml:id="ssec-relnotes-1.1.1"><title>Release 1.1.1 (October 2, 2013)</title>
 
 <para>This a minor bugfix release.</para>
