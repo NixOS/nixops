@@ -1,4 +1,6 @@
+# -*- coding: utf-8 -*-
 import os
+import sys
 import threading
 from os import path
 import nixops.statefile
@@ -21,18 +23,22 @@ def destroy(sf, uuid):
         depl.destroy_resources()
     except Exception:
         pass
+    depl.delete()
+    depl.logger.log("deployment ‘{0}’ destroyed".format(uuid))
 
 def teardown():
-    try:
-        sf = nixops.statefile.StateFile(db_file)
-        uuids = sf.query_deployments()
-        threads = []
-        for uuid in uuids:
-            threads.append(threading.Thread(target=destroy,args=(sf, uuid)))
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
-    finally:
-        sf.close()
+    sf = nixops.statefile.StateFile(db_file)
+    uuids = sf.query_deployments()
+    threads = []
+    for uuid in uuids:
+        threads.append(threading.Thread(target=destroy,args=(sf, uuid)))
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    uuids_left = sf.query_deployments()
+    sf.close()
+    if not uuids_left:
         os.remove(db_file)
+    else:
+        sys.stderr.write("warning: not all deployments have been destroyed; some resources may still exist!\n")
