@@ -793,7 +793,7 @@ class EC2State(MachineState):
         instance_groups = set([g.name for g in instance.groups])
         if set(defn.security_groups) != instance_groups:
             self.warn(
-                'cannot change security groups of an existing instance. Defined: [{0}], Actual: [{1}]'.format(
+                'cannot change security groups of an existing instance (from [{0}] to [{1}])'.format(
                     ", ".join(set(defn.security_groups)),
                     ", ".join(instance_groups))
             )
