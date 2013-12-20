@@ -22,7 +22,8 @@ class EBSVolumeDefinition(nixops.resources.ResourceDefinition):
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.zone = xml.find("attrs/attr[@name='zone']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
-        self.size = xml.find("attrs/attr[@name='size']/int").get("value")
+        self.size = int(xml.find("attrs/attr[@name='size']/int").get("value"))
+        self.snapshot = xml.find("attrs/attr[@name='snapshot']/string").get("value")
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -36,7 +37,7 @@ class EBSVolumeState(nixops.resources.ResourceState):
     region = nixops.util.attr_property("ec2.region", None)
     zone = nixops.util.attr_property("ec2.zone", None)
     volume_id = nixops.util.attr_property("ec2.volumeId", None)
-    size = nixops.util.attr_property("ec2.size", None)
+    size = nixops.util.attr_property("ec2.size", None, int)
 
 
     @classmethod
@@ -74,15 +75,24 @@ class EBSVolumeState(nixops.resources.ResourceState):
         if self.state == self.UP and (self.region != defn.region or self.zone != defn.zone):
             raise Exception("changing the region or availability zone of an EBS volume is not supported")
 
-        if self.state == self.UP and (self.size != defn.size):
+        if self.state == self.UP and (defn.size != 0 and self.size != defn.size):
             raise Exception("changing the size an EBS volume is currently not supported")
 
         if self.state != self.UP:
 
             self.connect(defn.region)
 
-            self.log("creating EBS volume of {0} GiB...".format(defn.size))
-            volume = self._conn.create_volume(size=defn.size, zone=defn.zone)
+            if defn.size == 0 and defn.snapshot != "":
+                snapshots = self._conn.get_all_snapshots(snapshot_ids=[defn.snapshot])
+                assert len(snapshots) == 1
+                defn.size = snapshots[0].volume_size
+
+            if defn.snapshot:
+                self.log("creating EBS volume of {0} GiB from snapshot ‘{1}’...".format(defn.size, defn.snapshot))
+            else:
+                self.log("creating EBS volume of {0} GiB...".format(defn.size))
+
+            volume = self._conn.create_volume(zone=defn.zone, size=defn.size, snapshot=defn.snapshot)
 
             # FIXME: if we crash before the next step, we forget the
             # volume we just created.  Doesn't seem to be anything we
