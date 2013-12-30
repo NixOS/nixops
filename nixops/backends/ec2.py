@@ -49,6 +49,7 @@ class EC2Definition(MachineDefinition):
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
         self.root_disk_size = int(x.find("attr[@name='ebsInitialRootDiskSize']/int").get("value"))
         self.spot_instance_price = int(x.find("attr[@name='spotInstancePrice']/int").get("value"))
+        self.ebs_optimized = x.find("attr[@name='ebsOptimized']/bool").get("value") == "true"
 
         def f(xml):
             return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
@@ -735,10 +736,13 @@ class EC2State(MachineState):
                                     .format(self.name, zone, v['disk'], volume.zone))
 
             # Do we want an EBS-optimized instance?
-            ebs_optimized = False
+            prefer_ebs_optimized = False
             for k, v in defn.block_device_mapping.iteritems():
                 (volume_type, iops) = self.disk_volume_options(v)
-                if volume_type != "standard": ebs_optimized = True
+                if volume_type != "standard": prefer_ebs_optimized = True
+
+            # if we have PIOPS volume and instance type supports EBS Optimized flags, then use ebs_optimized
+            ebs_optimized = prefer_ebs_optimized and defn.ebs_optimized
 
             # Generate a public/private host key.
             if not self.public_host_key:
