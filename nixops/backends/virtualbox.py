@@ -8,6 +8,7 @@ import stat
 from nixops.backends import MachineDefinition, MachineState
 from nixops.nix_expr import RawValue
 import nixops.known_hosts
+from distutils import spawn
 
 sata_ports = 8
 
@@ -159,6 +160,10 @@ class VirtualBoxState(MachineState):
         if self.state != self.UP or check: self.check()
 
         self.set_common_state(defn)
+
+        # check if VBoxManage is available in PATH
+        if not spawn.find_executable("VBoxManage"):
+            raise Exception("VirtualBox is not installed, please install VirtualBox.")
 
         if not self.vm_id:
             self.log("creating VirtualBox VM...")
