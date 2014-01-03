@@ -168,7 +168,7 @@ class VirtualBoxState(MachineState):
         if not self.vm_id:
             self.log("creating VirtualBox VM...")
             vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
-            self._logged_exec(["VBoxManage", "createvm", "--name", vm_id, "--ostype", "Linux", "--register"])
+            self._logged_exec(["VBoxManage", "createvm", "--name", vm_id, "--ostype", "Linux_64", "--register"])
             self.vm_id = vm_id
             self.state = self.STOPPED
 
