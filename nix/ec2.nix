@@ -9,6 +9,10 @@ let
 
   cfg = config.deployment.ec2;
 
+  defaultEbsOptimized =
+    let props = config.deployment.ec2.physicalProperties;
+    in if props == null then false else (props.allowsEbsOptimized or false);
+
   ec2DiskOptions = { config, ... }: {
 
     options = {
@@ -342,6 +346,14 @@ in
       '';
     };
 
+    deployment.ec2.ebsOptimized = mkOption {
+      default = defaultEbsOptimized;
+      type = types.bool;
+      description = ''
+        Whether the EC2 instance should be created as an EBS Optimized instance.
+      '';
+    };
+
     fileSystems = mkOption {
       options = {
         ec2 = mkOption {
@@ -408,22 +420,22 @@ in
       let
         type = config.deployment.ec2.instanceType or "unknown";
         mapping = {
-          "t1.micro"    = { cores = 1;  memory = 595;   };
-          "m1.small"    = { cores = 1;  memory = 1658;  };
-          "m1.medium"   = { cores = 1;  memory = 3755;  };
-          "m1.large"    = { cores = 2;  memory = 7455;  };
-          "m1.xlarge"   = { cores = 4;  memory = 14985; };
-          "m2.xlarge"   = { cores = 2;  memory = 17084; };
-          "m2.2xlarge"  = { cores = 4;  memory = 34241; };
-          "m2.4xlarge"  = { cores = 8;  memory = 68557; };
-          "m3.xlarge"   = { cores = 4;  memory = 14985; };
-          "m3.2xlarge"  = { cores = 8;  memory = 30044; };
-          "c1.medium"   = { cores = 2;  memory = 1697;  };
-          "c1.xlarge"   = { cores = 8;  memory = 6953;  };
-          "cc1.4xlarge" = { cores = 16; memory = 21542; };
-          "cc2.8xlarge" = { cores = 32; memory = 59930; };
-          "hi1.4xlarge" = { cores = 16; memory = 60711; };
-          "cr1.8xlarge" = { cores = 32; memory = 245756; };
+          "t1.micro"    = { cores = 1;  memory = 595;    allowsEbsOptimized = false; };
+          "m1.small"    = { cores = 1;  memory = 1658;   allowsEbsOptimized = false; };
+          "m1.medium"   = { cores = 1;  memory = 3755;   allowsEbsOptimized = false; };
+          "m1.large"    = { cores = 2;  memory = 7455;   allowsEbsOptimized = true;  };
+          "m1.xlarge"   = { cores = 4;  memory = 14985;  allowsEbsOptimized = true;  };
+          "m2.xlarge"   = { cores = 2;  memory = 17084;  allowsEbsOptimized = false; };
+          "m2.2xlarge"  = { cores = 4;  memory = 34241;  allowsEbsOptimized = true;  };
+          "m2.4xlarge"  = { cores = 8;  memory = 68557;  allowsEbsOptimized = true;  };
+          "m3.xlarge"   = { cores = 4;  memory = 14985;  allowsEbsOptimized = true;  };
+          "m3.2xlarge"  = { cores = 8;  memory = 30044;  allowsEbsOptimized = true;  };
+          "c1.medium"   = { cores = 2;  memory = 1697;   allowsEbsOptimized = false; };
+          "c1.xlarge"   = { cores = 8;  memory = 6953;   allowsEbsOptimized = true;  };
+          "cc1.4xlarge" = { cores = 16; memory = 21542;  allowsEbsOptimized = false; };
+          "cc2.8xlarge" = { cores = 32; memory = 59930;  allowsEbsOptimized = false; };
+          "hi1.4xlarge" = { cores = 16; memory = 60711;  allowsEbsOptimized = false; };
+          "cr1.8xlarge" = { cores = 32; memory = 245756; allowsEbsOptimized = false; };
         };
       in attrByPath [ type ] null mapping;
 
