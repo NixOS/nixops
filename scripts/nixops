@@ -493,13 +493,14 @@ def op_ssh():
 
 
 def op_ssh_for_each():
-    depl = open_deployment()
-    res2 = 0
-    jobs = args.parallel if args.parallel else 1
-    def worker(m):
-        if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): return
-        return m.ssh.run_command(args.args, allow_ssh_args=True, check=False)
-    results = nixops.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
+    results = []
+    for depl in one_or_all():
+      jobs = args.parallel if args.parallel else 1
+      def worker(m):
+          if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): return
+          return m.ssh.run_command(args.args, allow_ssh_args=True, check=False)
+      results = results + nixops.parallel.run_tasks(nr_workers=len(depl.machines), tasks=depl.active.itervalues(), worker_fun=worker)
+
     sys.exit(max(results) if results != [] else 0)
 
 
@@ -748,6 +749,7 @@ subparser.add_argument('args', metavar="ARG", nargs='*', help='additional argume
 subparser.add_argument('--parallel', '-p', action='store_true', help='run in parallel')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='run command only on the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='run command on all except the specified machines')
+subparser.add_argument('--all',  action='store_true', help='run ssh-for-each for all deployments')
 
 subparser = add_subparser('scp', help='copy files to or from the specified machine via scp')
 subparser.set_defaults(op=op_scp)
