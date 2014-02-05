@@ -45,10 +45,13 @@ with pkgs.lib;
 
   config = {
 
+    boot.postBootCommands = ''
+      mkdir -p /run/keys -m 0700
+      mount -t ramfs none /run/keys
+    '';
+
     system.activationScripts.nixops-keys =
       ''
-        mkdir -p /run/keys -m 0700
-
         ${optionalString config.deployment.storeKeysOnMachine
             (concatStrings (mapAttrsToList (name: value:
               let
