@@ -71,5 +71,7 @@ with pkgs.lib;
 
     # Blacklist nvidiafb by default as it causes issues with some GPUs.
     boot.blacklistedKernelModules = [ "nvidiafb" ];
+
+    security.initialRootPassword = "!";
   };
 }
