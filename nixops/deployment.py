@@ -63,6 +63,7 @@ class Deployment(object):
         self._last_log_prefix = None
         self.extra_nix_path = []
         self.extra_nix_flags = []
+        self.extra_nix_eval_flags = []
         self.nixos_version_suffix = None
 
         self.logger = nixops.logger.Logger(log_file)
@@ -242,6 +243,7 @@ class Deployment(object):
     def _eval_flags(self, exprs):
         flags = self._nix_path_flags()
         args = {key: RawValue(val) for key, val in self.args.iteritems()}
+        flags.extend(self.extra_nix_eval_flags)
         flags.extend(
             ["--arg", "networkExprs", py2nix(exprs, inline=True),
              "--arg", "args", py2nix(args, inline=True),
