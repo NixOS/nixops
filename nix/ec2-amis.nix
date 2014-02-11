@@ -11,4 +11,7 @@
   "us-west-2".ebs = "ami-7429b144";
   "us-west-2".s3  = "ami-482cb478";
   "us-west-2".hvm = "ami-9a2cb4aa";
+  "ap-southeast-1".ebs = "ami-fad98fa8";
+  "ap-southeast-1".s3  = "ami-f8d98faa";
+  "ap-southeast-1".hvm = "ami-fed98fac";
 }
