@@ -243,7 +243,6 @@ class Deployment(object):
     def _eval_flags(self, exprs):
         flags = self._nix_path_flags()
         args = {key: RawValue(val) for key, val in self.args.iteritems()}
-        flags.extend(self.extra_nix_eval_flags)
         flags.extend(
             ["--arg", "networkExprs", py2nix(exprs, inline=True),
              "--arg", "args", py2nix(args, inline=True),
@@ -283,6 +282,7 @@ class Deployment(object):
         try:
             xml = subprocess.check_output(
                 ["nix-instantiate"]
+                + self.extra_nix_eval_flags
                 + self._eval_flags(self.nix_exprs) +
                 ["--eval-only", "--xml", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
@@ -355,6 +355,7 @@ class Deployment(object):
         try:
             return subprocess.check_output(
                 ["nix-instantiate"]
+                + self.extra_nix_eval_flags
                 + self._eval_flags(exprs) +
                 ["--eval-only", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
