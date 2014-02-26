@@ -72,6 +72,8 @@ class Deployment(object):
 
         self.expr_path = os.path.realpath(os.path.dirname(__file__) + "/../../../../share/nix/nixops")
         if not os.path.exists(self.expr_path):
+            self.expr_path = os.path.realpath(os.path.dirname(__file__) + "/../../../../../share/nix/nixops")
+        if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
         self.tempdir = nixops.util.SelfDeletingDir(tempfile.mkdtemp(prefix="nixops-tmp"))
