@@ -321,7 +321,7 @@ flag.</para>
 rename it from <literal>foo</literal> to <literal>bar</literal>:
 
 <screen>
-$ nixops rename -d foo -n bar expr3.nix expr4.nix</screen>
+$ nixops modify -d foo -n bar expr3.nix expr4.nix</screen>
 
 Note that <option>-d</option> identifies the existing deployment,
 while <option>-n</option> specifies its new name.</para>
