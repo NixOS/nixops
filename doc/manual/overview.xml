@@ -502,7 +502,7 @@ the default layout. For example to install a machine with btrfs:
 {
   example = {
     deployment.targetEnv = "hetzner";
-    deployment.mainIPv4 = "1.2.3.4";
+    deployment.hetzner.mainIPv4 = "1.2.3.4";
     deployment.hetzner.partitions = ''
       clearpart --all --initlabel --drives=sda,sdb
 
