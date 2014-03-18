@@ -51,6 +51,12 @@ with pkgs.lib;
 
         raid / --level=1 --device=md0 --fstype=ext4 --label=root raid.1 raid.2
       '';
+      example = ''
+        # Example for partitioning on a vServer:
+        clearpart --all --initlabel --drives=vda
+        part swap --recommended --label=swap --fstype=swap --ondisk=vda
+        part / --fstype=ext4 --label=root --grow --ondisk=vda
+      '';
       type = types.lines;
       description = ''
         Specify layout of partitions and file systems using Anacondas Kickstart
