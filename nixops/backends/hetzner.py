@@ -194,8 +194,28 @@ class HetznerState(MachineState):
         bootstrap = os.path.join(bootstrap_out, 'bin/hetzner-bootstrap')
         self.log_end("done. ({0})".format(bootstrap))
 
+        self.log_start("checking if tmpfs in rescue system is large enough...")
+        dfstat = self.run_command("stat -f -c '%a:%S' /", capture_stdout=True)
+        df, bs = dfstat.split(':')
+        free_mb = (int(df) * int(bs)) // 1024 // 1024
+        if free_mb > 300:
+            self.log_end("yes: {0} MB".format(free_mb))
+            tarcmd = 'tar x -C /'
+        else:
+            self.log_end("no: {0} MB".format(free_mb))
+            tarexcludes = ['*/include', '*/man', '*/info', '*/locale',
+                           '*/locales', '*/share/doc', '*/share/aclocal',
+                           '*/example', '*/terminfo', '*/pkgconfig',
+                           '*/nix-support', '*/etc', '*/bash-completion',
+                           '*.a', '*.la', '*.pc', '*.lisp', '*.pod', '*.html',
+                           '*.pyc', '*.pyo', '*-kbd-*/share', '*-gcc-*/bin',
+                           '*-gcc-*/libexec', '*-systemd-*/bin',
+                           '*-boehm-gc-*/share']
+            tarcmd = 'tar x -C / ' + ' '.join(["--exclude='{0}'".format(glob)
+                                               for glob in tarexcludes])
+
         # The command to retrieve our split TAR archive on the other side.
-        recv = 'read -d: tarsize; head -c "$tarsize" | tar x -C /; tar x -C /'
+        recv = 'read -d: tarsize; head -c "$tarsize" | {0}; {0}'.format(tarcmd)
 
         self.log_start("copying bootstrap files to rescue system...")
         tarstream = subprocess.Popen([bootstrap], stdout=subprocess.PIPE)
