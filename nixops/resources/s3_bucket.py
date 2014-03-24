@@ -96,7 +96,7 @@ class S3BucketState(nixops.resources.ResourceState):
                     bucket.delete()
                 except boto.exception.S3ResponseError as e:
                     if e.error_code != "BucketNotEmpty": raise
-                    if not self.depl.confirm("are you sure you want to destroy S3 bucket ‘{0}’?".format(self.bucket_name)): return False
+                    if not self.depl.logger.confirm("are you sure you want to destroy S3 bucket ‘{0}’?".format(self.bucket_name)): return False
                     keys = bucket.list()
                     bucket.delete_keys(keys)
                     bucket.delete()

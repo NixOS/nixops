@@ -87,6 +87,21 @@ class VirtualBoxState(MachineState):
     def has_really_fast_connection(self):
         return True
 
+    @property
+    def _vbox_version(self):
+        v = getattr(self, '_vbox_version_obj', None)
+        if v is None:
+            try:
+                v = self._logged_exec(["VBoxManage", "--version"], capture_stdout=True, check=False).strip().split('.')
+            except AttributeError:
+                v = False
+            self._vbox_version_obj = v
+        return v
+
+    @property
+    def _vbox_flag_sataportcount(self):
+        v = self._vbox_version
+        return '--portcount' if v[0] >= 4 and v[1] >= 3 else '--sataportcount'
 
     def _get_vm_info(self):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
@@ -196,7 +211,7 @@ class VirtualBoxState(MachineState):
         if not self.sata_controller_created:
             self._logged_exec(
                 ["VBoxManage", "storagectl", self.vm_id,
-                 "--name", "SATA", "--add", "sata", "--sataportcount", str(sata_ports),
+                 "--name", "SATA", "--add", "sata", self._vbox_flag_sataportcount, str(sata_ports),
                  "--bootable", "on", "--hostiocache", "on"])
             self.sata_controller_created = True
 

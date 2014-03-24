@@ -6,7 +6,7 @@ let
 
 in
 
-{ require = [ <nixos/modules/virtualisation/virtualbox-image.nix> ];
+{ require = [ <nixpkgs/nixos/modules/virtualisation/virtualbox-image.nix> ];
 
   services.openssh.enable = true;
 
