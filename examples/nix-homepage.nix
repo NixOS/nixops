@@ -8,7 +8,7 @@
     pkgs.stdenv.mkDerivation {
       name = "nixos.org-homepage";
       src = pkgs.fetchsvn {
-        url = https://nixos.org/repos/nix/homepage/trunk;
+        url = https://nixos.org/repos/nix/attic/homepage/trunk;
         rev = 32142;
         sha256 = "0xzlvardwy3dsa12xxmin61hgh19hai55ird4xk12sn5x68v7anx";
       };

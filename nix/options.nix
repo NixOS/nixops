@@ -19,6 +19,7 @@ in
       ./auto-luks.nix
       ./keys.nix
       ./hetzner.nix
+      ./container.nix
     ];
 
 

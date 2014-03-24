@@ -111,7 +111,7 @@ class SSH(object):
 
     def _get_target(self):
         if self._host_fun is None:
-            raise AssertionError("Don't know which SSH host to connect to.")
+            raise AssertionError("don't know which SSH host to connect to")
         return "root@{0}".format(self._host_fun())
 
     def register_flag_fun(self, flag_fun):

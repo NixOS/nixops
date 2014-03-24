@@ -91,6 +91,7 @@ rec {
           #adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
           hetzner = optionalAttrs (v.config.deployment.targetEnv == "hetzner") v.config.deployment.hetzner;
+          container = optionalAttrs (v.config.deployment.targetEnv == "container") v.config.deployment.container;
           route53 = v.config.deployment.route53;
           virtualbox =
             let cfg = v.config.deployment.virtualbox; in

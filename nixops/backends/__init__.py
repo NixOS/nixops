@@ -193,6 +193,9 @@ class MachineState(nixops.resources.ResourceState):
     def get_ssh_password(self):
         return None
 
+    def get_ssh_for_copy_closure(self):
+        return self.ssh
+
     @property
     def public_ipv4(self):
         return None
@@ -272,10 +275,10 @@ class MachineState(nixops.resources.ResourceState):
 
         # Any remaining paths are copied from the local machine.
         env = dict(os.environ)
-        master = self.ssh.get_master()
-        env['NIX_SSHOPTS'] = ' '.join(self.get_ssh_flags() + master.opts)
+        ssh = self.get_ssh_for_copy_closure()
+        env['NIX_SSHOPTS'] = ' '.join(ssh._get_flags() + ssh.get_master().opts)
         self._logged_exec(
-            ["nix-copy-closure", "--to", "root@" + self.get_ssh_name(), path]
+            ["nix-copy-closure", "--to", "root@" + ssh._get_target(), path]
             + ([] if self.has_really_fast_connection() else ["--gzip"]),
             env=env)
 
@@ -356,6 +359,7 @@ import nixops.backends.none
 import nixops.backends.virtualbox
 import nixops.backends.ec2
 import nixops.backends.hetzner
+import nixops.backends.container
 import nixops.resources.ec2_keypair
 import nixops.resources.ssh_keypair
 import nixops.resources.sqs_queue
@@ -371,17 +375,19 @@ def create_definition(xml):
     for i in [nixops.backends.none.NoneDefinition,
               nixops.backends.virtualbox.VirtualBoxDefinition,
               nixops.backends.ec2.EC2Definition,
-              nixops.backends.hetzner.HetznerDefinition]:
+              nixops.backends.hetzner.HetznerDefinition,
+              nixops.backends.container.ContainerDefinition]:
         if target_env == i.get_type():
             return i(xml)
     raise nixops.deployment.UnknownBackend("unknown backend type ‘{0}’".format(target_env))
 
 def create_state(depl, type, name, id):
-    """Create a machine state object of the desired backend type."""
+    """Create a resource state object of the desired type."""
     for i in [nixops.backends.none.NoneState,
               nixops.backends.virtualbox.VirtualBoxState,
               nixops.backends.ec2.EC2State,
               nixops.backends.hetzner.HetznerState,
+              nixops.backends.container.ContainerState,
               nixops.resources.ec2_keypair.EC2KeyPairState,
               nixops.resources.ssh_keypair.SSHKeyPairState,
               nixops.resources.sqs_queue.SQSQueueState,
@@ -393,4 +399,4 @@ def create_state(depl, type, name, id):
               ]:
         if type == i.get_type():
             return i(depl, name, id)
-    raise nixops.deployment.UnknownBackend("unknown backend type ‘{0}’".format(type))
+    raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))

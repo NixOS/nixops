@@ -163,7 +163,7 @@ class VirtualBoxState(MachineState):
 
         # check if VBoxManage is available in PATH
         if not spawn.find_executable("VBoxManage"):
-            raise Exception("VirtualBox is not installed, please install VirtualBox.")
+            raise Exception("VirtualBox is not installed, please install VirtualBox")
 
         if not self.vm_id:
             self.log("creating VirtualBox VM...")
