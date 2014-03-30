@@ -8,6 +8,8 @@ let
   # locally so that it works on non-Linux hosts.
   pkgsNative = import <nixpkgs> { system = builtins.currentSystem; };
 
+  cfg = config.deployment.virtualbox;
+
 in
 
 {
@@ -70,6 +72,43 @@ in
       };
     };
 
+    deployment.virtualbox.sharedFolders = mkOption {
+      default = {};
+
+      example =
+        { home = {
+            hostPath = "/home";
+            readOnly = false;
+          };
+        };
+
+      type = types.attrsOf types.optionSet;
+
+      description = ''
+        Definition of the host folders that should be shared with this instance.
+      '';
+
+      options = {
+
+        hostPath = mkOption {
+          example = "/home";
+          type = types.str;
+          description = ''
+            The path of the host directory that should be shared to the guest
+          '';
+        };
+
+        readOnly = mkOption {
+          type = types.bool;
+          default = true;
+          description = ''
+            Specifies if the shared folder should be read-only for the guest
+          '';
+        };
+
+      };
+    };
+
   };
 
 
@@ -78,6 +117,17 @@ in
   config = mkIf (config.deployment.targetEnv == "virtualbox") {
 
     nixpkgs.system = mkOverride 900 "x86_64-linux";
+
+    # Add vboxsf support to initrd to support booting from
+    # shared folders
+    boot.initrd = mkIf (cfg.sharedFolders != {}) {
+      kernelModules = [ "vboxsf" ];
+
+      extraUtilsCommands = ''
+        cp -v ${pkgs.linuxPackages.virtualboxGuestAdditions}/sbin/mount.vboxsf \
+          $out/bin/
+      '';
+    };
 
     deployment.virtualbox.disks.disk1 =
       { port = 0;
