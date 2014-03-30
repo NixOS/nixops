@@ -647,7 +647,17 @@ class Deployment(object):
 
             try:
                 # Set the system profile to the new configuration.
-                setprof = 'nix-env -p /nix/var/nix/profiles/system --set "{0}"'
+                setprof = '; '.join([
+                    'newgen=0',
+                    'for systemlink in /nix/var/nix/profiles/system-*-link',
+                    'do gen="$(echo "$systemlink" | cut -d "-" -f 2)"',
+                    'if (($gen > $newgen)); then newgen=$gen; fi',
+                    'done',
+                    'newgen=$(($newgen + 1))',
+                    'ln -sfT "{0}" /nix/var/nix/profiles/system-$newgen-link',
+                    'ln -sfT /nix/var/nix/profiles/system-$newgen-link /nix/var/nix/profiles/system',
+                ])
+
                 if always_activate or self.definitions[m.name].always_activate:
                     m.run_command(setprof.format(m.new_toplevel))
                 else:
