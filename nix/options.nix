@@ -94,6 +94,19 @@ in
       '';
     };
 
+    deployment.useHostNixStore = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        If true, no store paths are copied to the deployed machine. Instead
+        the Nix store of host is mounted on the deployed machine and used in
+        read-only mode. This option is not supported by all nixops target
+        environments. The <literal>none</literal> target environment supports it
+        but don't provide an automatic way of setting up the required store
+        mount.
+      '';
+    };
+
     # Computed options useful for referring to other machines in
     # network specifications.
 
@@ -120,6 +133,15 @@ in
 
 
   config = {
+
+    assertions = [
+      { assertion = cfg.useHostNixStore -> (cfg.targetEnv == "none" || cfg.targetEnv == "virtualbox");
+        message = ''
+          The option useHostNixStore is not supported by the
+          target environment ${cfg.targetEnv}
+        '';
+      }
+    ];
 
     deployment.targetHost = mkDefault config.networking.hostName;
 
