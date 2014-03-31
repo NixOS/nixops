@@ -73,9 +73,12 @@ class ContainerState(MachineState):
                 'users.extraUsers.root.openssh.authorizedKeys.keys = [ "{0}" ];'.format(self.client_public_key)])
             self.vm_id = self.host_ssh.run_command(
                 "NIX_PATH=nixpkgs=/home/eelco/Dev/nixpkgs-stable " +
-                "flock /run/lock/nixos-container -c " +
-                "\"nixos-container create {0} --ensure-unique-name --config '{1}'\""
-                .format(self.name, extra_config.replace('"', '\\"')), capture_stdout=True).rstrip()
+                "nixos-container create {0} --ensure-unique-name --config '{1}'"
+                .format(self.name, extra_config), capture_stdout=True).rstrip()
+            self.state = self.STOPPED
+
+        if self.state == self.STOPPED:
+            self.host_ssh.run_command("nixos-container start {0}".format(self.vm_id))
             self.state = self.STARTING
 
         if self.private_ipv4 == None:
