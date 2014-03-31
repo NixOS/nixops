@@ -649,7 +649,7 @@ class HetznerState(MachineState):
 
     def _destroy(self, server, wipe):
         if self.state != self.RESCUE:
-            self.reboot_rescue(bootstrap=False)
+            self.reboot_rescue(bootstrap=False, hard=True)
         if wipe:
             self.log_start("erasing all data on disk...")
             # Let it run in the background because it will take a long time.
