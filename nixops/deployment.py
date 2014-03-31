@@ -1027,7 +1027,7 @@ class Deployment(object):
         def worker(m):
             if not should_do(m, include, exclude): return
             if rescue:
-                m.reboot_rescue()
+                m.reboot_rescue(hard=hard)
             elif wait:
                 m.reboot_sync(hard=hard)
             else:
