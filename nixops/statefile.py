@@ -125,7 +125,15 @@ class StateFile(object):
         else:
             c.execute("select uuid from Deployments d where uuid = ? or exists (select 1 from DeploymentAttrs where deployment = d.uuid and name = 'name' and value = ?)", (uuid, uuid))
         res = c.fetchall()
-        if len(res) == 0: return None
+        if len(res) == 0:
+            if uuid:
+                # try the prefix match
+                c.execute("select uuid from Deployments where uuid glob ?", (uuid + '*', ))
+                res = c.fetchall()
+                if len(res) == 0:
+                    return None
+            else:
+                return None
         if len(res) > 1:
             if uuid:
                 raise Exception("state file contains multiple deployments with the same name, so you should specify one using its UUID")
