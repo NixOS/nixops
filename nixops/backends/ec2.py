@@ -986,7 +986,22 @@ class EC2State(MachineState):
 
         change = changes.add_change("CREATE", self.dns_hostname, "A")
         change.add_value(self.public_ipv4)
-        changes.commit()
+        self._commit_route53_changes(changes)
+
+
+    def _commit_route53_changes(self, changes):
+        """Commit changes, but retry PriorRequestNotComplete errors."""
+        retry = 3
+        while True:
+            try:
+                retry -= 1
+                return changes.commit()
+            except boto.route53.exception.DNSServerError, e:
+                code = e.body.split("<Code>")[1]
+                code = code.split("</Code>")[0]
+                if code != 'PriorRequestNotComplete' or retry < 0:
+                    raise e
+                time.sleep(1)
 
 
     def _delete_volume(self, volume_id):
