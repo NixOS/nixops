@@ -9,7 +9,7 @@ with pkgs.lib;
   options = {
 
     deployment.storeKeysOnMachine = mkOption {
-      default = true;
+      default = false;
       type = types.bool;
       description = ''
         If true (default), secret information such as LUKS encryption
