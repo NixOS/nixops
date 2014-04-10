@@ -722,7 +722,6 @@ class Deployment(object):
 
 
     def get_backups(self, include=[], exclude=[]):
-        self.evaluate_active(include, exclude) # unnecessary?
         machine_backups = {}
         for m in self.active.itervalues():
             if should_do(m, include, exclude):
@@ -769,7 +768,6 @@ class Deployment(object):
 
 
     def backup(self, include=[], exclude=[]):
-        self.evaluate_active(include, exclude) # unnecessary?
         backup_id = datetime.now().strftime("%Y%m%d%H%M%S");
 
         def worker(m):
