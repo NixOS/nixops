@@ -72,7 +72,7 @@ rec {
         ];
 
       # For "nix-build --run-env".
-      postHook = ''
+      shellHook = ''
         export PYTHONPATH=$(pwd):$PYTHONPATH
         export PATH=$(pwd)/scripts:$PATH
       '';
