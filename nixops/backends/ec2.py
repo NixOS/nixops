@@ -418,7 +418,7 @@ class EC2State(MachineState):
                 new_v = self.block_device_mapping[k]
                 if v.get('partOfImage', False) or v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
                     new_v['charonDeleteOnTermination'] = True
-                    self._delete_volume(v['volumeId'])
+                    self._delete_volume(v['volumeId'], True)
                 new_v['volumeId'] = new_volume.id
                 self.update_block_device_mapping(k, new_v)
 
@@ -1004,9 +1004,12 @@ class EC2State(MachineState):
                 time.sleep(1)
 
 
-    def _delete_volume(self, volume_id):
+    def _delete_volume(self, volume_id, allow_keep=False):
         if not self.depl.logger.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
-            raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
+            if allow_keep:
+                return
+            else:
+                raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
         self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
         volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id, allow_missing=True)
         if not volume: return
