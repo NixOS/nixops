@@ -184,8 +184,8 @@ class EC2State(MachineState):
         val = {}
         if backupid in self.backups:
             for dev, snap in self.backups[backupid].items():
-                if dev != "/dev/sda":
-                    val[_sd_to_xvd(dev)] = { 'disk': Function("pkgs.lib.mkOverride", 10, snap, call=True)}
+                if not dev.startswith("/dev/sda"):
+                    val[_sd_to_xvd(dev)] = { 'disk': Function("pkgs.lib.mkOverride 10", snap, call=True)}
             val = { ('deployment', 'ec2', 'blockDeviceMapping'): val }
         else:
             val = RawValue("{{}} /* No backup found for id '{0}' */".format(backupid))
