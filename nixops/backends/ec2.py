@@ -45,6 +45,7 @@ class EC2Definition(MachineDefinition):
         self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
         self.private_key = x.find("attr[@name='privateKey']/string").get("value")
         self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
+        self.placement_group = x.find("attr[@name='placementGroup']/string").get("value")
         self.instance_profile = x.find("attr[@name='instanceProfile']/string").get("value")
         self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
         self.root_disk_size = int(x.find("attr[@name='ebsInitialRootDiskSize']/int").get("value"))
@@ -97,6 +98,7 @@ class EC2State(MachineState):
     private_key_file = nixops.util.attr_property("ec2.privateKeyFile", None)
     instance_profile = nixops.util.attr_property("ec2.instanceProfile", None)
     security_groups = nixops.util.attr_property("ec2.securityGroups", None, 'json')
+    placement_group = nixops.util.attr_property("ec2.placementGroup", None, 'json')
     tags = nixops.util.attr_property("ec2.tags", {}, 'json')
     block_device_mapping = nixops.util.attr_property("ec2.blockDeviceMapping", {}, 'json')
     root_device_type = nixops.util.attr_property("ec2.rootDeviceType", None)
@@ -132,6 +134,7 @@ class EC2State(MachineState):
             self.private_host_key = None
             self.instance_profile = None
             self.security_groups = None
+            self.placement_group = None
             self.tags = {}
             self.block_device_mapping = {}
             self.root_device_type = None
@@ -422,6 +425,7 @@ class EC2State(MachineState):
                 isinstance(r, nixops.resources.ec2_keypair.EC2KeyPairState) or
                 isinstance(r, nixops.resources.iam_role.IAMRoleState) or
                 isinstance(r, nixops.resources.ec2_security_group.EC2SecurityGroupState) or
+                isinstance(r, nixops.resources.ec2_placement_group.EC2PlacementGroupState) or
                 isinstance(r, nixops.resources.ebs_volume.EBSVolumeState) or
                 isinstance(r, nixops.resources.elastic_ip.ElasticIPState)}
 
@@ -543,6 +547,7 @@ class EC2State(MachineState):
             placement=zone,
             key_name=defn.key_pair,
             security_groups=defn.security_groups,
+            placement_group=defn.placement_group,
             block_device_map=devmap,
             user_data=user_data,
             image_id=defn.ami,
@@ -763,6 +768,7 @@ class EC2State(MachineState):
                 self.instance_type = defn.instance_type
                 self.key_pair = defn.key_pair
                 self.security_groups = defn.security_groups
+                self.placement_group = defn.placement_group
                 self.zone = instance.placement
                 self.client_token = None
                 self.private_host_key = None
@@ -794,6 +800,12 @@ class EC2State(MachineState):
                 'cannot change security groups of an existing instance (from [{0}] to [{1}])'.format(
                     ", ".join(set(defn.security_groups)),
                     ", ".join(instance_groups))
+            )
+        if defn.placement_group != instance.placement_group:
+            self.warn(
+                'cannot change placement group of an existing instance (from [{0}] to [{1}])'.format(
+                    defn.placement_group,
+                    instance.placement_group)
             )
 
         # Reapply tags if they have changed.
