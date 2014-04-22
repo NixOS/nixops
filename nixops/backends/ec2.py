@@ -963,12 +963,22 @@ class EC2State(MachineState):
         self.log('sending Route53 DNS: {0} {1}'.format(self.public_ipv4, self.dns_hostname))
 
         self.connect_route53()
+
         hosted_zone = ".".join(self.dns_hostname.split(".")[1:])
         zones = self._conn_route53.get_all_hosted_zones()
 
-        zones = [zone for zone in zones['ListHostedZonesResponse']['HostedZones'] if "{0}.".format(hosted_zone) == zone.Name]
-        if len(zones) != 1:
+        def testzone(hosted_zone, zone):
+            """returns True if there is a subcomponent match"""
+            hostparts = hosted_zone.split(".")
+            zoneparts = zone.Name.split(".")[:-1] # strip the last ""
+
+            return hostparts[::-1][:len(zoneparts)][::-1] == zoneparts
+
+        zones = [zone for zone in zones['ListHostedZonesResponse']['HostedZones'] if testzone(hosted_zone, zone)]
+        if len(zones) == 0:
             raise Exception('hosted zone for {0} not found'.format(hosted_zone))
+
+        zones = sorted(zones, cmp=lambda a, b: cmp(len(a), len(b)), reverse=True)
         zoneid = zones[0]['Id'].split("/")[2]
 
         # name argument does not filter, just is a starting point, annoying.. copying into a separate list
