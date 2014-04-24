@@ -110,7 +110,7 @@ class VirtualBoxState(MachineState):
         v = self._vbox_version
         return '--portcount' if (int(v[0]) >= 4 and int(v[1]) >= 3) else '--sataportcount'
 
-    def _get_vm_info(self):
+    def _get_vm_info(self, can_fail=False):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
         lines = self._logged_exec(
             ["VBoxManage", "showvminfo", "--machinereadable", self.vm_id],
@@ -119,6 +119,8 @@ class VirtualBoxState(MachineState):
         # shutting down (even though the necessary info is returned on
         # stdout).
         if len(lines) == 0:
+            if can_fail:
+                return None
             raise Exception("unable to get info on VirtualBox VM ‘{0}’".format(self.name))
         vminfo = {}
         for l in lines:
@@ -127,9 +129,11 @@ class VirtualBoxState(MachineState):
         return vminfo
 
 
-    def _get_vm_state(self):
+    def _get_vm_state(self, can_fail=False):
         '''Return the state ("running", etc.) of a VM.'''
-        vminfo = self._get_vm_info()
+        vminfo = self._get_vm_info(can_fail)
+        if not vminfo and can_fail:
+            return None
         if 'VMState' not in vminfo:
             raise Exception("unable to get state of VirtualBox VM ‘{0}’".format(self.name))
         return vminfo['VMState'].replace('"', '')
@@ -378,7 +382,13 @@ class VirtualBoxState(MachineState):
 
         self.log("destroying VirtualBox VM...")
 
-        if self._get_vm_state() == 'running':
+        vmstate = self._get_vm_state(can_fail=True)
+        if vmstate is None:
+            self.log("VM not found, ignored")
+            self.state = self.STOPPED
+            return True
+
+        if vmstate == 'running':
             self._logged_exec(["VBoxManage", "controlvm", self.vm_id, "poweroff"], check=False)
 
         while self._get_vm_state() not in ['poweroff', 'aborted']:
