@@ -6,9 +6,27 @@
 
 <!--==================================================================-->
 
-<section xml:id="ssec-relnotes-1.2"><title>Release 1.2 (April 17, 2014)</title>
+<section xml:id="ssec-relnotes-1.2"><title>Release 1.2 (April 25, 2014)</title>
 
 <itemizedlist>
+
+  <listitem><para>General</para>
+
+    <itemizedlist>
+      <listitem><para>NixOps now requires NixOS 13.10 and up.</para></listitem>
+      <listitem><para>Add <code>--all</code> option to <code>nixops destroy</code>, <code>nixops 
+      delete</code> and <code>nixops ssh-for-each</code>.</para></listitem>
+      <listitem><para>The <code>-d</code> option now matches based on prefix for convenience
+      when the specified uuid/id is not found.</para></listitem>
+      <listitem><para>Resources can now be accessed via direct reference, i.e. you can use
+      <code>securityGroups = [ resources.ec2SecurityGroups.foo ];</code> in stead of 
+      <code>securityGroups = [ resources.ec2SecurityGroups.foo.name ];</code>.
+      </para></listitem>
+      <listitem><para>Changed default value of <code>deployment.storeKeysOnMachine</code> to false, 
+      which is the more secure option. This can prevent unattended reboot from finishing, as keys will
+      need to be pushed to the machine.</para></listitem>
+    </itemizedlist>
+  </listitem>
 
   <listitem><para>Amazon EC2</para>
 
@@ -69,6 +87,7 @@
       <listitem><para>Require VirtualBox >= 4.3.0.</para></listitem>
       <listitem><para>Support for shared folders in VirtualBox. You can mount host folder on the guest by setting the 
       deployment.virtualbox.sharedFolders option.</para></listitem>
+      <listitem><para>Allow destroy if the VM is gone already</para></listitem>
     </itemizedlist>
   </listitem>
 
