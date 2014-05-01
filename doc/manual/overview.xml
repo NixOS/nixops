@@ -27,6 +27,7 @@ consisting of only one logical machine named
     { services.httpd.enable = true;
       services.httpd.adminAddr = "alice@example.org";
       services.httpd.documentRoot = "${pkgs.valgrind}/share/doc/valgrind/html";
+      networking.firewall.allowedTCPPorts = [ 80 ];
     };
 }
 </programlisting>
