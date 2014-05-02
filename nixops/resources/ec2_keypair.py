@@ -84,7 +84,13 @@ class EC2KeyPairState(nixops.resources.ResourceState):
             self.region = defn.region
             self.connect()
 
-            kp = self._conn.get_key_pair(defn.keypair_name)
+            # Sometimes EC2 DescribeKeypairs return empty list on invalid
+            # identifiers, which results in a IndexError exception from within boto,
+            # work around that until we figure out what is causing this.
+            try:
+                kp = self._conn.get_key_pair(defn.keypair_name)
+            except IndexError as e:
+                kp = None
 
             # Don't re-upload the key if it exists and we're just checking.
             if not kp or self.state != self.UP:
