@@ -627,11 +627,12 @@ class Deployment(object):
 
         def worker(m):
             if not should_do(m, include, exclude): return
-            m.logger.log("copying closure...")
             m.new_toplevel = os.path.realpath(configs_path + "/" + m.name)
             if not os.path.exists(m.new_toplevel):
                 raise Exception("can't find closure of machine ‘{0}’".format(m.name))
-            m.copy_closure_to(m.new_toplevel)
+            if not self.definitions[m.name].use_host_nix_store:
+                m.logger.log("copying closure...")
+                m.copy_closure_to(m.new_toplevel)
 
         nixops.parallel.run_tasks(
             nr_workers=max_concurrent_copy,
