@@ -1057,7 +1057,7 @@ class Deployment(object):
 
 
     def is_valid_resource_name(self, name):
-        p = re.compile('^\w+$')
+        p = re.compile('^[\w-]+$')
         return not p.match(name) is None
 
 
