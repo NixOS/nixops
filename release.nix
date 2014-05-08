@@ -91,8 +91,9 @@ rec {
           cp -av nix/* $out/share/nix/nixops
 
           # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
-          # the version of openssh is causing errors when have big networks (40+)
-          wrapProgram $out/bin/nixops --prefix PATH : "${openssh}/bin"
+          # the version of openssh is causing errors when have big networks (40+).
+          # Do not do that on Darwin due to random failures of nixpkgs openssh.
+          wrapProgram $out/bin/nixops ${if stdenv.isDarwin then '''' else ''--prefix PATH : "${openssh}/bin"''}
         ''; # */
 
       meta.description = "Nix package for ${stdenv.system}";
