@@ -529,6 +529,12 @@ def op_scp():
     sys.exit(res)
 
 
+def op_show_deployment_option():
+    depl = open_deployment()
+    if args.include_physical:
+        depl.evaluate()
+    sys.stdout.write(depl.evaluate_deployment_option_value(args.option, xml=args.xml, include_physical=args.include_physical))
+
 def op_show_option():
     depl = open_deployment()
     if args.include_physical:
@@ -807,12 +813,19 @@ subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='per
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
 subparser.add_argument('--devices', nargs='+', metavar='DEVICE-NAME', help='only restore the specified devices')
 
+def add_common_show_options(subparser):
+    subparser.add_argument('option', metavar='OPTION', help='option name')
+    subparser.add_argument('--xml', action='store_true', help='print the option value in XML format')
+    subparser.add_argument('--include-physical', action='store_true', help='include the physical specification in the evaluation')
+
 subparser = add_subparser('show-option', help='print the value of a configuration option')
 subparser.set_defaults(op=op_show_option)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
-subparser.add_argument('option', metavar='OPTION', help='option name')
-subparser.add_argument('--xml', action='store_true', help='print the option value in XML format')
-subparser.add_argument('--include-physical', action='store_true', help='include the physical specification in the evaluation')
+add_common_show_options(subparser)
+
+subparser = add_subparser('show-deployment-option', help='print the value of a configuration option')
+subparser.set_defaults(op=op_show_deployment_option)
+add_common_show_options(subparser)
 
 subparser = add_subparser('list-generations', help='list previous configurations to which you can roll back')
 subparser.set_defaults(op=op_list_generations)

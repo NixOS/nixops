@@ -124,8 +124,6 @@ in {
         resources = removeAttrs deployment.resources [ "machines" "defaults" ];
       };
 
-      nodes = lib.mapAttrs (n: v: { config = v; } ) deployment.resources.machines;
-
       machines = { names }:
         let machines = lib.filterAttrs (n: v: lib.elem n names) deployment.resources.machines; in
         pkgs.runCommand "nixops-machines" { preferLocalBuild = true; } ''

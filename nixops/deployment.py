@@ -349,8 +349,8 @@ class Deployment(object):
             self.definitions[defn.name] = defn
 
 
-    def evaluate_option_value(self, machine_name, option_name, xml=False, include_physical=False):
-        """Evaluate a single option of a single machine in the deployment specification."""
+    def evaluate_deployment_option_value(self, option_name, xml=False, include_physical=False):
+        """Evaluate a single option of the deployment specification."""
 
         exprs = self.nix_exprs
         if include_physical:
@@ -366,11 +366,15 @@ class Deployment(object):
                 + self._eval_flags(exprs) +
                 ["--eval-only", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
-                 "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
+                 "-A", "eval.config.{0}".format(option_name)]
                 + (["--xml"] if xml else []),
                 stderr=self.logger.log_file)
         except subprocess.CalledProcessError:
             raise NixEvalError
+
+    def evaluate_option_value(self, machine_name, option_name, xml=False, include_physical=False):
+        """Evaluate a single option of a single machine in the deployment specification."""
+        return self.evaluate_deployment_option_value("resources.machines.{0}.{1}".format(machine_name, option_name), xml, include_physical)
 
 
     def get_physical_spec(self):

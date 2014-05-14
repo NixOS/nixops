@@ -113,4 +113,6 @@ rec {
         '') nodes'))}
       '';
 
+  # forwards compat
+  eval.config.resources.machines = mapAttrs (n: v: v.config) nodes;
 }
