@@ -1,6 +1,6 @@
-{ config, pkgs, ... }:
+{ config, pkgs, lib ? pkgs.lib, ... }:
 
-with pkgs.lib;
+with lib;
 
 {
   boot.loader.grub.version = 2;

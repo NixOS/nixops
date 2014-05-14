@@ -66,22 +66,16 @@ rec {
   # Compute the definitions of the non-machine resources.
   resourcesByType = zipAttrs (network.resources or []);
 
-  evalResources = mainModule: _resources:
+  evalResources = baseModules: _resources:
     mapAttrs (name: defs:
       (fixMergeModules
-        ([ mainModule ./resource.nix ] ++ defs)
+        (baseModules ++ defs)
         { inherit pkgs uuid name resources; }
       ).config) _resources;
 
-  resources.sqsQueues = evalResources ./sqs-queue.nix (zipAttrs resourcesByType.sqsQueues or []);
-  resources.ec2KeyPairs = evalResources ./ec2-keypair.nix (zipAttrs resourcesByType.ec2KeyPairs or []);
-  resources.sshKeyPairs = evalResources ./ssh-keypair.nix (zipAttrs resourcesByType.sshKeyPairs or []);
-  resources.s3Buckets = evalResources ./s3-bucket.nix (zipAttrs resourcesByType.s3Buckets or []);
-  resources.iamRoles = evalResources ./iam-role.nix (zipAttrs resourcesByType.iamRoles or []);
-  resources.ec2SecurityGroups = evalResources ./ec2-security-group.nix (zipAttrs resourcesByType.ec2SecurityGroups or []);
-  resources.ec2PlacementGroups = evalResources ./ec2-placement-group.nix (zipAttrs resourcesByType.ec2PlacementGroups or []);
-  resources.ebsVolumes = evalResources ./ebs-volume.nix (zipAttrs resourcesByType.ebsVolumes or []);
-  resources.elasticIPs = evalResources ./elastic-ip.nix (zipAttrs resourcesByType.elasticIPs or []);
+  resources = mapAttrs (name: value:
+    evalResources value.baseModules (zipAttrs resourcesByType.${name} or [])
+  ) (removeAttrs (import ./resource-types.nix) [ "machines" ]);
 
   # Phase 1: evaluate only the deployment attributes.
   info = {

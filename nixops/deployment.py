@@ -54,6 +54,7 @@ class Deployment(object):
     description = nixops.util.attr_property("description", default_description)
     configs_path = nixops.util.attr_property("configsPath", None)
     rollback_enabled = nixops.util.attr_property("rollbackEnabled", False)
+    modular = nixops.util.attr_property("modular", False)
 
     def __init__(self, statefile, uuid, log_file=sys.stderr):
         self._statefile = statefile
@@ -249,7 +250,7 @@ class Deployment(object):
             ["--arg", "networkExprs", py2nix(exprs, inline=True),
              "--arg", "args", py2nix(args, inline=True),
              "--argstr", "uuid", self.uuid,
-             "<nixops/eval-machine-info.nix>"])
+             "<nixops/eval-deployment.nix>" if self.modular else "<nixops/eval-machine-info.nix>"])
         return flags
 
 

@@ -87,6 +87,7 @@ def set_name(depl, name):
 def modify_deployment(depl):
     depl.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in args.nix_exprs]
     depl.nix_path = [nixops.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
+    depl.modular = args.modular_expressions
 
 
 def op_create():
@@ -196,7 +197,7 @@ def op_info():
             print "Network name:", depl.name or "(none)"
             print "Network UUID:", depl.uuid
             print "Network description:", depl.description
-            print "Nix expressions:", " ".join(depl.nix_exprs)
+            print "Nix expressions (modular):" if depl.modular else "Nix expressions:", " ".join(depl.nix_exprs)
             if depl.nix_path != []: print "Nix path:", " ".join(map(lambda x: "-I " + x, depl.nix_path))
             if depl.rollback_enabled: print "Nix profile:", depl.get_profile()
             if depl.args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl.args.iteritems()])
@@ -645,6 +646,7 @@ subparser.set_defaults(op=op_list_deployments)
 
 def add_common_modify_options(subparser):
     subparser.add_argument('nix_exprs', nargs='+', metavar='NIX-FILE', help='Nix expression(s) defining the network')
+    subparser.add_argument('--modular-expressions', action='store_true', help='Whether to treat the network expression(s) as defining a modular network')
 
 subparser = add_subparser('create', help='create a new deployment')
 subparser.set_defaults(op=op_create)

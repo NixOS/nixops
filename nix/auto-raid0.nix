@@ -1,10 +1,10 @@
 # Module to automatically combine devices into a RAID-0 volume
 # (actually an LVM logical volume).
 
-{ config, pkgs, utils, ... }:
+{ config, pkgs, utils, lib ? pkgs.lib, ... }:
 
-with pkgs.lib;
 with utils;
+with lib;
 
 {
 

@@ -1,6 +1,6 @@
-{ config, pkgs, uuid, name, ... }:
+{ config, pkgs, uuid, name, lib ? pkgs.lib, ... }:
 
-with pkgs.lib;
+with lib;
 
 {
 

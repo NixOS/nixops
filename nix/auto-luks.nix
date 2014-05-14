@@ -1,9 +1,9 @@
 # Module to automatically create LUKS-encrypted devices.
 
-{ config, pkgs, utils, ... }:
+{ config, pkgs, utils, lib ? pkgs.lib, ... }:
 
-with pkgs.lib;
 with utils;
+with lib;
 
 {
 
