@@ -581,18 +581,21 @@ class Deployment(object):
         # target machines.  FIXME: Also enable this if we're on 32-bit
         # and want to deploy to 64-bit.
         if platform.system() != 'Linux' and os.environ.get('NIX_REMOTE') != 'daemon':
-            remote_machines = []
-            for m in sorted(selected, key=lambda m: m.index):
-                key_file = m.get_ssh_private_key_file()
-                if not key_file: raise Exception("do not know private SSH key for machine ‘{0}’".format(m.name))
-                # FIXME: Figure out the correct machine type of ‘m’ (it might not be x86_64-linux).
-                remote_machines.append("root@{0} {1} {2} 2 1\n".format(m.get_ssh_name(), 'i686-linux,x86_64-linux', key_file))
-                # Use only a single machine for now (issue #103).
-                break
-            remote_machines_file = "{0}/nix.machines".format(self.tempdir)
-            with open(remote_machines_file, "w") as f:
-                f.write("".join(remote_machines))
-            os.environ['NIX_REMOTE_SYSTEMS'] = remote_machines_file
+            if os.environ.get('NIX_REMOTE_SYSTEMS') == None:
+                remote_machines = []
+                for m in sorted(selected, key=lambda m: m.index):
+                    key_file = m.get_ssh_private_key_file()
+                    if not key_file: raise Exception("do not know private SSH key for machine ‘{0}’".format(m.name))
+                    # FIXME: Figure out the correct machine type of ‘m’ (it might not be x86_64-linux).
+                    remote_machines.append("root@{0} {1} {2} 2 1\n".format(m.get_ssh_name(), 'i686-linux,x86_64-linux', key_file))
+                    # Use only a single machine for now (issue #103).
+                    break
+                remote_machines_file = "{0}/nix.machines".format(self.tempdir)
+                with open(remote_machines_file, "w") as f:
+                    f.write("".join(remote_machines))
+                os.environ['NIX_REMOTE_SYSTEMS'] = remote_machines_file
+            else:
+                self.logger.log("using predefined remote systems file: {0}".format(os.environ['NIX_REMOTE_SYSTEMS']))
 
             # FIXME: Use ‘--option use-build-hook true’ instead of setting
             # $NIX_BUILD_HOOK, once Nix supports that.
