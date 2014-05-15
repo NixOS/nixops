@@ -121,7 +121,9 @@ in {
 
         network = { inherit (deployment) description enableRollback; };
 
-        resources = removeAttrs deployment.resources [ "machines" "defaults" ];
+        resources = lib.mapAttrs (n:
+          lib.mapAttrs (n: v: removeAttrs v [ "__internal" ])
+        ) (removeAttrs deployment.resources [ "machines" "defaults" ]);
       };
 
       machines = { names }:
