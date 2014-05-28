@@ -1,7 +1,7 @@
 let
 
   configUS =
-    { require = [ ./ec2-info.nix ];
+    { imports = [ ./ec2-info.nix ];
       deployment.targetEnv = "ec2";
       deployment.ec2.region = "us-east-1"; 
       deployment.ec2.instanceType = "m1.small";
@@ -9,7 +9,7 @@ let
     };
 
   configEU =
-    { require = [ ./ec2-info.nix ];
+    { imports = [ ./ec2-info.nix ];
       deployment.targetEnv = "ec2";
       deployment.ec2.region = "eu-west-1"; 
       deployment.ec2.instanceType = "m1.small";
@@ -17,7 +17,7 @@ let
 
   # Run this machine under a different account.
   configEU_eelco =
-    { require = [ ./ec2-info-2.nix ];
+    { imports = [ ./ec2-info-2.nix ];
       deployment.targetEnv = "ec2";
       deployment.ec2.region = "eu-west-1"; 
       deployment.ec2.instanceType = "m1.small";

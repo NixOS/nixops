@@ -1,8 +1,9 @@
 let
 
-  backend = 
+  backend =
     { config, pkgs, ... }:
-    { require = [ ./nix-homepage.nix ];
+    { imports = [ ./nix-homepage.nix ];
+      networking.firewall.allowedTCPPorts = [ 80 ];
     };
 
 in
@@ -13,7 +14,7 @@ in
   proxy =
     { config, pkgs, nodes, ... }:
 
-    { 
+    {
       services.httpd.enable = true;
       services.httpd.adminAddr = "e.dolstra@tudelft.nl";
       services.httpd.extraModules = ["proxy_balancer"];
@@ -42,6 +43,8 @@ in
           # For testing; don't want to wait forever for dead backend servers.
           ProxyTimeout      5
         '';
+
+      networking.firewall.allowedTCPPorts = [ 80 ];
     };
 
   backend1 = backend;

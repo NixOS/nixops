@@ -3,5 +3,5 @@
 
   machine = 
     { config, pkgs, ... }:
-    { require = [ ./nix-homepage.nix ]; };
+    { imports = [ ./nix-homepage.nix ]; };
 }
