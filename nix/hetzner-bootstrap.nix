@@ -1,6 +1,8 @@
-with import <nixpkgs> {};
+with import <nixpkgs> { system = "x86_64-linux"; };
 
 let
+  pkgsNative = import <nixpkgs> {};
+
   nixpart = pythonPackages.nixpart0.override {
     useNixUdev = false;
     udevSoMajor = 0;
@@ -77,7 +79,7 @@ in stdenv.mkDerivation {
     # The reason for the split is because I don't know of any method to
     # concatenate TAR archives from/to stdin/stdout without introducing new
     # dependencies.
-    ( echo "#!${stdenv.shell}"
+    ( echo "#!${pkgsNative.stdenv.shell}"
       echo "lnum=\"\$(grep -m1 -an '^EXISTING_TAR${"\$"}' \"$installer\")\""
       echo 'scriptheadsize="$(head -n ''${lnum%%:*} "'"$installer"'" | wc -c)"'
       echo 'scriptsize="$(stat -c %s "'"$installer"'")"'
@@ -85,7 +87,7 @@ in stdenv.mkDerivation {
       echo 'echo -n "$tarsize:"'
       echo 'tail -n +$((''${lnum%%:*} + 1)) "'"$installer"'"'
       # As before, don't quote here!
-      echo '${gnutar}/bin/tar c -C /' $stripped_full_storepaths
+      echo '${pkgsNative.gnutar}/bin/tar c -C /' $stripped_full_storepaths
       echo exit 0
       echo EXISTING_TAR
       tar c usr
