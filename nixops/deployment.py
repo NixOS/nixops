@@ -24,6 +24,9 @@ import nixops.resources.s3_bucket
 import nixops.resources.ec2_security_group
 import nixops.resources.ebs_volume
 import nixops.resources.elastic_ip
+import nixops.resources.gce_disk
+import nixops.resources.gce_static_ip
+import nixops.resources.gce_network
 from nixops.nix_expr import RawValue, Function, nixmerge, py2nix
 import re
 from datetime import datetime
@@ -341,6 +344,18 @@ class Deployment(object):
 
         for x in res.find("attr[@name='elasticIPs']/attrs").findall("attr"):
             defn = nixops.resources.elastic_ip.ElasticIPDefinition(x)
+            self.definitions[defn.name] = defn
+
+        for x in res.find("attr[@name='gceDisks']/attrs").findall("attr"):
+            defn = nixops.resources.gce_disk.GCEDiskDefinition(x)
+            self.definitions[defn.name] = defn
+
+        for x in res.find("attr[@name='gceStaticIPs']/attrs").findall("attr"):
+            defn = nixops.resources.gce_static_ip.GCEStaticIPDefinition(x)
+            self.definitions[defn.name] = defn
+
+        for x in res.find("attr[@name='gceNetworks']/attrs").findall("attr"):
+            defn = nixops.resources.gce_network.GCENetworkDefinition(x)
             self.definitions[defn.name] = defn
 
 

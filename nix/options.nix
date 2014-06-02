@@ -18,6 +18,7 @@ in
       ./auto-raid0.nix
       ./auto-luks.nix
       ./keys.nix
+      ./gce.nix
       ./hetzner.nix
     ];
 

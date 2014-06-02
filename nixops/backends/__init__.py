@@ -356,6 +356,7 @@ class CheckResult(object):
 import nixops.backends.none
 import nixops.backends.virtualbox
 import nixops.backends.ec2
+import nixops.backends.gce
 import nixops.backends.hetzner
 import nixops.resources.ec2_keypair
 import nixops.resources.ssh_keypair
@@ -365,6 +366,9 @@ import nixops.resources.iam_role
 import nixops.resources.ec2_security_group
 import nixops.resources.ebs_volume
 import nixops.resources.elastic_ip
+import nixops.resources.gce_disk
+import nixops.resources.gce_static_ip
+import nixops.resources.gce_network
 
 def create_definition(xml):
     """Create a machine definition object from the given XML representation of the machine's attributes."""
@@ -372,6 +376,7 @@ def create_definition(xml):
     for i in [nixops.backends.none.NoneDefinition,
               nixops.backends.virtualbox.VirtualBoxDefinition,
               nixops.backends.ec2.EC2Definition,
+              nixops.backends.gce.GCEDefinition,
               nixops.backends.hetzner.HetznerDefinition]:
         if target_env == i.get_type():
             return i(xml)
@@ -382,6 +387,7 @@ def create_state(depl, type, name, id):
     for i in [nixops.backends.none.NoneState,
               nixops.backends.virtualbox.VirtualBoxState,
               nixops.backends.ec2.EC2State,
+              nixops.backends.gce.GCEState,
               nixops.backends.hetzner.HetznerState,
               nixops.resources.ec2_keypair.EC2KeyPairState,
               nixops.resources.ssh_keypair.SSHKeyPairState,
@@ -390,7 +396,10 @@ def create_state(depl, type, name, id):
               nixops.resources.s3_bucket.S3BucketState,
               nixops.resources.ec2_security_group.EC2SecurityGroupState,
               nixops.resources.ebs_volume.EBSVolumeState,
-              nixops.resources.elastic_ip.ElasticIPState
+              nixops.resources.elastic_ip.ElasticIPState,
+              nixops.resources.gce_disk.GCEDiskState,
+              nixops.resources.gce_static_ip.GCEStaticIPState,
+              nixops.resources.gce_network.GCENetworkState
               ]:
         if type == i.get_type():
             return i(depl, name, id)

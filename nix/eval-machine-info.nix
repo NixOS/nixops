@@ -73,6 +73,7 @@ rec {
         { inherit pkgs uuid name resources; }
       ).config) _resources;
 
+  # Amazon resources
   resources.sqsQueues = evalResources ./sqs-queue.nix (zipAttrs resourcesByType.sqsQueues or []);
   resources.ec2KeyPairs = evalResources ./ec2-keypair.nix (zipAttrs resourcesByType.ec2KeyPairs or []);
   resources.sshKeyPairs = evalResources ./ssh-keypair.nix (zipAttrs resourcesByType.sshKeyPairs or []);
@@ -82,6 +83,11 @@ rec {
   resources.ebsVolumes = evalResources ./ebs-volume.nix (zipAttrs resourcesByType.ebsVolumes or []);
   resources.elasticIPs = evalResources ./elastic-ip.nix (zipAttrs resourcesByType.elasticIPs or []);
 
+  # Google Compute resources
+  resources.gceDisks = evalResources ./gce-disk.nix (zipAttrs resourcesByType.gceDisks or []);
+  resources.gceStaticIPs = evalResources ./gce-static-ip.nix (zipAttrs resourcesByType.gceStaticIPs or []);
+  resources.gceNetworks = evalResources ./gce-network.nix (zipAttrs resourcesByType.gceNetworks or []);
+
   # Phase 1: evaluate only the deployment attributes.
   info = {
 
@@ -90,6 +96,7 @@ rec {
         { inherit (v.config.deployment) targetEnv targetHost encryptedLinksTo storeKeysOnMachine alwaysActivate owners keys;
           #adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
+          gce = optionalAttrs (v.config.deployment.targetEnv == "gce") v.config.deployment.gce;
           hetzner = optionalAttrs (v.config.deployment.targetEnv == "hetzner") v.config.deployment.hetzner;
           route53 = v.config.deployment.route53;
           virtualbox =
