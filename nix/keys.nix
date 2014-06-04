@@ -65,7 +65,8 @@ with pkgs.lib;
       '';
 
     systemd.services.nixops-keys =
-      { description = "Waiting for NixOps Keys";
+      { enable = config.deployment.keys != {};
+        description = "Waiting for NixOps Keys";
         wantedBy = [ "keys.target" ];
         before = [ "keys.target" ];
         unitConfig.DefaultDependencies = false; # needed to prevent a cycle
