@@ -269,6 +269,25 @@ in
         '';
       };
 
+      bootstrapImage = mkOption {
+        default = "nixos-14-04pre-d215564-x86-64-linux";
+        type = types.str;
+        description = ''
+          Bootstrap image name to use to create the root disk of the instance.
+        '';
+      };
+
+      rootDiskSize = mkOption {
+        default = null;
+        example = 200;
+        type = types.nullOr types.int;
+        description = ''
+          Root disk size(in gigabytes). Leave unset to be
+          the same as <option>bootstrapImage</option> size.
+        '';
+      };
+
+
       scheduling.automaticRestart = mkOption {
         default = null;
         type = types.nullOr types.bool;
@@ -331,7 +350,15 @@ in
 #      (map (fs: nameValuePair fs.mountPoint {device = fs.gce.disk_name; } )
 #       (filter (fs: fs.gce != null) (attrValues config.fileSystems))) );
 
-    deployment.gce.blockDeviceMapping =  (listToAttrs
+    deployment.gce.blockDeviceMapping =  {
+      # FIXME: using deployment.targetHost to get at machineName
+      "/dev/disk/by-id/scsi-0Google_PersistentDisk_${config.deployment.targetHost}-root" = {
+          image = config.deployment.gce.bootstrapImage;
+          size = config.deployment.gce.rootDiskSize;
+          bootDisk = true;
+          disk_name = "${config.deployment.targetHost}-root";
+      };
+    } // (listToAttrs
       (map (fs: nameValuePair fs.device
         { inherit (fs.gce) disk disk_name size snapshot image
                            readOnly bootDisk deleteOnTermination encrypt passphrase;
