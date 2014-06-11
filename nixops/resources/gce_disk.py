@@ -98,33 +98,55 @@ class GCEDiskState(nixops.resources.ResourceState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         if self.state == self.UP:
             if self.project != defn.project:
-                self.warn("cannot change the project of a deployed GCE disk")
+                raise Exception("Cannot change the project of a deployed GCE disk {0}".format(defn.disk_name))
 
             if self.region != defn.region:
-                self.warn("cannot change the region of a deployed GCE disk")
+                raise Exception("Cannot change the region of a deployed GCE disk {0}".format(defn.disk_name))
 
-        if check or self.state != self.UP:
-            self.project = defn.project
-            self.service_account = defn.service_account
-            self.access_key_path = defn.access_key_path
+            if defn.size and self.size != defn.size:
+                raise Exception("Cannot change the size of a deployed GCE disk {0}".format(defn.disk_name))
 
-            if check and self.state == self.UP:
-                try:
-                    disk = self.connect().ex_get_volume(defn.disk_name, defn.region)
-                    return
-                except libcloud.common.google.ResourceNotFoundError:
-                    self.warn("GCE disk ‘{0}’ is supposed to exist, but is missing. Recreating...".format(defn.disk_name))
+        self.service_account = defn.service_account
+        self.access_key_path = defn.access_key_path
+        self.project = defn.project
 
+        if check:
+            try:
+                disk = self.connect().ex_get_volume(defn.disk_name, defn.region)
+                if self.state == self.UP:
+                    if disk.size != str(self.size):
+                        self.warn("GCE disk ‘{0}’ size has changed to {1}. Expected the size to be {2}".
+                                  format(defn.disk_name, disk.size, self.size))
+                else:
+                    self.warn("GCE disk ‘{0}’ exists, but isn't supposed to. Probably, this is  the result "
+                              "of a botched creation attempt and can be fixed by deletion. However, this also "
+                              "could be a resource name collision, and valuable data could be lost. "
+                              "Before proceeding, please ensure that the disk doesn't contain useful data."
+                              .format(defn.disk_name))
+                    if self.depl.logger.confirm("Are you sure you want to destroy the existing disk ‘{0}’?".format(defn.disk_name)):
+                        self.log_start("destroying...")
+                        disk.destroy()
+                        self.log_end("done.")
+                    else: return
+            except libcloud.common.google.ResourceNotFoundError:
+                if self.state == self.UP:
+                    self.warn("GCE disk ‘{0}’ is supposed to exist, but is missing. Will recreate.".format(defn.disk_name))
+                    self.state = self.MISSING
+
+        if self.state != self.UP:
             if defn.snapshot:
                 self.log_start("creating GCE disk of {0} GiB from snapshot ‘{1}’...".format(defn.size if defn.size else "auto", defn.snapshot))
             elif defn.image:
                 self.log_start("creating GCE disk of {0} GiB from image ‘{1}’...".format(defn.size if defn.size else "auto", defn.image))
             else:
                 self.log_start("creating GCE disk of {0} GiB...".format(defn.size))
+            try:
+                volume = self.connect().create_volume(defn.size, defn.disk_name, defn.region,
+                                                      snapshot = defn.snapshot, image = defn.image,
+                                                      use_existing= False)
+            except libcloud.common.google.ResourceExistsError:
+                raise Exception("Tried creating a disk that already exists. Please run ‘deploy --check’ to fix this.")
 
-            volume = self.connect().create_volume(defn.size, defn.disk_name, defn.region,
-                                                  snapshot = defn.snapshot, image = defn.image,
-                                                  use_existing= False)
             self.log_end("done.")
             with self.depl._db:
                 self.state = self.UP
