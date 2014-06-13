@@ -135,6 +135,7 @@ let
    || cfg.instanceType == "cr1.8xlarge"
    || builtins.substring 0 2 cfg.instanceType == "i2"
    || builtins.substring 0 2 cfg.instanceType == "c3"
+   || builtins.substring 0 2 cfg.instanceType == "r3"
    || builtins.substring 0 2 cfg.instanceType == "m3";
 
   # Map "/dev/mapper/xvdX" to "/dev/xvdX".
@@ -142,6 +143,8 @@ let
     if builtins.substring 0 12 dev == "/dev/mapper/"
     then "/dev/" + builtins.substring 12 100 dev
     else dev;
+
+  nixosVersion = builtins.substring 0 5 config.system.nixosVersion;
 
   amis = import ./ec2-amis.nix;
 
@@ -402,11 +405,12 @@ in
     deployment.ec2.ami = mkDefault (
       let
         type = if isEc2Hvm then "hvm" else if cfg.ebsBoot then "ebs" else "s3";
+        amis' = amis."${nixosVersion}" or amis."14.04"; # default to 14.04 images
       in
         with builtins;
-        if hasAttr cfg.region amis then
-          let r = getAttr cfg.region amis;
-          in if hasAttr type r then getAttr type r else ""
+        if hasAttr cfg.region amis' then
+          let r = amis'."${cfg.region}";
+          in if hasAttr type r then r."${type}" else ""
         else
           # !!! Doesn't work, not lazy enough.
           #throw "I don't know an AMI for region ‘${cfg.region}’ and platform type ‘${config.nixpkgs.system}’"

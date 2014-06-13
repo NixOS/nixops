@@ -629,7 +629,7 @@ def add_subparser(name, help):
     subparser.add_argument("--keep-failed", '-K', action='store_true', help='keep temporary directories of failed builds')
     subparser.add_argument('--show-trace', action='store_true', help='print a Nix stack trace if evaluation fails')
     subparser.add_argument('--option', nargs=2, action="append", dest="nix_options", metavar=('NAME', 'VALUE'), help='set a Nix option')
-    subparser.add_argument('--read-write-mode', action='store_true', help='run nix evaluations in read-write mode')
+    subparser.add_argument('--read-write-mode', action='store_true', help='run Nix evaluations in read-write mode')
 
     return subparser
 

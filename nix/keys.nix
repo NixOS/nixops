@@ -9,7 +9,7 @@ with pkgs.lib;
   options = {
 
     deployment.storeKeysOnMachine = mkOption {
-      default = true;
+      default = false;
       type = types.bool;
       description = ''
         If true (default), secret information such as LUKS encryption
@@ -65,7 +65,8 @@ with pkgs.lib;
       '';
 
     systemd.services.nixops-keys =
-      { description = "Waiting for NixOps Keys";
+      { enable = config.deployment.keys != {};
+        description = "Waiting for NixOps Keys";
         wantedBy = [ "keys.target" ];
         before = [ "keys.target" ];
         unitConfig.DefaultDependencies = false; # needed to prevent a cycle

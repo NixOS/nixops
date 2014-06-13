@@ -34,6 +34,12 @@ class VirtualBoxDefinition(MachineDefinition):
 
         self.disks = {k.get("name"): f(k) for k in x.findall("attr[@name='disks']/attrs/attr")}
 
+        def sf(xml):
+            return {'hostPath': xml.find("attrs/attr[@name='hostPath']/string").get("value"),
+                    'readOnly': xml.find("attrs/attr[@name='readOnly']/bool").get("value") == "true"}
+
+        self.shared_folders = {k.get("name"): sf(k) for k in x.findall("attr[@name='sharedFolders']/attrs/attr")}
+
 
 class VirtualBoxState(MachineState):
     """State of a VirtualBox machine."""
@@ -51,6 +57,7 @@ class VirtualBoxState(MachineState):
     sata_controller_created = nixops.util.attr_property("virtualbox.sataControllerCreated", False, bool)
     public_host_key = nixops.util.attr_property("virtualbox.publicHostKey", None)
     private_host_key = nixops.util.attr_property("virtualbox.privateHostKey", None)
+    shared_folders = nixops.util.attr_property("virtualbox.sharedFolders", {}, 'json')
 
     # Obsolete.
     disk = nixops.util.attr_property("virtualbox.disk", None)
@@ -101,9 +108,9 @@ class VirtualBoxState(MachineState):
     @property
     def _vbox_flag_sataportcount(self):
         v = self._vbox_version
-        return '--portcount' if v[0] >= 4 and v[1] >= 3 else '--sataportcount'
+        return '--portcount' if (int(v[0]) >= 4 and int(v[1]) >= 3) else '--sataportcount'
 
-    def _get_vm_info(self):
+    def _get_vm_info(self, can_fail=False):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
         lines = self._logged_exec(
             ["VBoxManage", "showvminfo", "--machinereadable", self.vm_id],
@@ -112,6 +119,8 @@ class VirtualBoxState(MachineState):
         # shutting down (even though the necessary info is returned on
         # stdout).
         if len(lines) == 0:
+            if can_fail:
+                return None
             raise Exception("unable to get info on VirtualBox VM ‘{0}’".format(self.name))
         vminfo = {}
         for l in lines:
@@ -120,9 +129,11 @@ class VirtualBoxState(MachineState):
         return vminfo
 
 
-    def _get_vm_state(self):
+    def _get_vm_state(self, can_fail=False):
         '''Return the state ("running", etc.) of a VM.'''
-        vminfo = self._get_vm_info()
+        vminfo = self._get_vm_info(can_fail)
+        if not vminfo and can_fail:
+            return None
         if 'VMState' not in vminfo:
             raise Exception("unable to get state of VirtualBox VM ‘{0}’".format(self.name))
         return vminfo['VMState'].replace('"', '')
@@ -156,6 +167,15 @@ class VirtualBoxState(MachineState):
         else:
             disks[name] = state
         self.disks = disks
+
+
+    def _update_shared_folder(self, name, state):
+        shared_folders = self.shared_folders
+        if state == None:
+            shared_folders.pop(name, None)
+        else:
+            shared_folders[name] = state
+        self.shared_folders = shared_folders
 
 
     def _wait_for_ip(self):
@@ -219,6 +239,44 @@ class VirtualBoxState(MachineState):
 
         if not os.path.isdir(vm_dir):
             raise Exception("can't find directory of VirtualBox VM ‘{0}’".format(self.name))
+
+
+        # Create missing shared folders
+        for sf_name, sf_def in defn.shared_folders.items():
+            sf_state = self.shared_folders.get(sf_name, {})
+
+            if not sf_state.get('added', False):
+                self.log("adding shared folder ‘{0}’...".format(sf_name))
+                host_path = sf_def.get('hostPath')
+                read_only = sf_def.get('readOnly')
+
+                vbox_opts = ["VBoxManage", "sharedfolder", "add", self.vm_id,
+                             "--name", sf_name, "--hostpath", host_path]
+
+                if read_only:
+                    vbox_opts.append("--readonly")
+
+                self._logged_exec(vbox_opts)
+
+                sf_state['added'] = True
+                self._update_shared_folder(sf_name, sf_state)
+
+        # Remove obsolete shared folders
+        for sf_name, sf_state in self.shared_folders.items():
+            if sf_name not in defn.shared_folders:
+                if not self.started:
+                    self.log("removing shared folder ‘{0}’".format(sf_name))
+
+                    if sf_state['added']:
+                        vbox_opts = ["VBoxManage", "sharedfolder", "remove", self.vm_id,
+                                     "--name", sf_name]
+                        self._logged_exec(vbox_opts)
+
+                    self._update_shared_folder(sf_name, None)
+                else:
+                    self.warn("skipping removal of shared folder ‘{0}’ since VirtualBox machine is running".format(sf_name))
+
+
 
         # Create missing disks.
         for disk_name, disk_def in defn.disks.items():
@@ -324,7 +382,13 @@ class VirtualBoxState(MachineState):
 
         self.log("destroying VirtualBox VM...")
 
-        if self._get_vm_state() == 'running':
+        vmstate = self._get_vm_state(can_fail=True)
+        if vmstate is None:
+            self.log("VM not found, ignored")
+            self.state = self.STOPPED
+            return True
+
+        if vmstate == 'running':
             self._logged_exec(["VBoxManage", "controlvm", self.vm_id, "poweroff"], check=False)
 
         while self._get_vm_state() not in ['poweroff', 'aborted']:

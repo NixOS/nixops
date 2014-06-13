@@ -102,7 +102,8 @@ class MachineState(nixops.resources.ResourceState):
             res.load = avg
 
             # Get the systemd units that are in a failed state or in progress.
-            out = self.run_command("systemctl --all --full", capture_stdout=True).split('\n')
+            out = self.run_command("systemctl --all --full --no-legend",
+                                   capture_stdout=True).split('\n')
             res.failed_units = []
             res.in_progress_units = []
             for l in out:

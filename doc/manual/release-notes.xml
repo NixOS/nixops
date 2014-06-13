@@ -6,21 +6,97 @@
 
 <!--==================================================================-->
 
-<section xml:id="ssec-relnotes-1.1.2"><title>Release 1.1.2 (December 17, 2013)</title>
-
-<para>This a minor feature release.</para>
+<section xml:id="ssec-relnotes-1.2"><title>Release 1.2 (April 30, 2014)</title>
 
 <itemizedlist>
 
-  <listitem><para>To allow cross-account API access, the <emphasis>deployment.ec2.instanceProfile</emphasis>
-  option can now be set to either a name (previous behaviour) or an Amazon Resource Names (ARN) of the
-  instance profile you want to apply.
-  </para></listitem>
+  <listitem><para>General</para>
+
+    <itemizedlist>
+      <listitem><para>NixOps now requires NixOS 13.10 and up.</para></listitem>
+      <listitem><para>Add <code>--all</code> option to <code>nixops destroy</code>, <code>nixops 
+      delete</code> and <code>nixops ssh-for-each</code>.</para></listitem>
+      <listitem><para>The <code>-d</code> option now matches based on prefix for convenience
+      when the specified uuid/id is not found.</para></listitem>
+      <listitem><para>Resources can now be accessed via direct reference, i.e. you can use
+      <code>securityGroups = [ resources.ec2SecurityGroups.foo ];</code> in stead of 
+      <code>securityGroups = [ resources.ec2SecurityGroups.foo.name ];</code>.
+      </para></listitem>
+      <listitem><para>Changed default value of <code>deployment.storeKeysOnMachine</code> to false, 
+      which is the more secure option. This can prevent unattended reboot from finishing, as keys will
+      need to be pushed to the machine.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Amazon EC2</para>
+
+    <itemizedlist>
+      <listitem><para>Support provisioning of elastic IP addresses.</para></listitem>
+      <listitem><para>Support provisioning of EC2 security groups.</para></listitem>
+      <listitem><para>Support all HVM instance types.</para></listitem>
+      <listitem><para>Support <code>ap-southeast-1</code> region.</para></listitem>
+      <listitem><para>Better handling of errors in pushing Route53 records.</para></listitem>
+      <listitem><para>Support using ARN's for applying instance profiles to EC2 instances. This 
+      allows cross-account API access.</para></listitem>
+      <listitem><para>Base HVM image was updated to allow using all emphemeral devices.</para></listitem>
+      <listitem><para>Instance ID is now available in 
+      nix through the <code>deployment.ec2.instanceId</code> option, set by nixops.</para></listitem>
+      <listitem><para>
+      Support independent provisioning of EBS volumes. Previously, EBS volumes could only be
+      created as part of an EC2 instance, meaning their lifetime was tied to the instance and 
+      they could not be managed separately.  Now they can be provisioned independently, e.g.:
+
+      <programlisting>
+      resources.ebsVolumes.bigdata =
+        { name = "My Big Fat Data";
+          region = "eu-west-1";
+          zone = "eu-west-1a";
+          accessKeyId = "...";
+          size = 1000;
+        };
+      </programlisting>
+      </para></listitem>
+
+      <listitem><para>To allow cross-account API access, the <emphasis>deployment.ec2.instanceProfile</emphasis>
+      option can now be set to either a name (previous behaviour) or an Amazon Resource Names (ARN) of the
+      instance profile you want to apply.
+      </para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Hetzner</para>
+
+    <itemizedlist>
+      <listitem><para>Always hard reset on destroying machine.</para></listitem>
+      <listitem><para>Support for Hetzner vServers.</para></listitem>
+      <listitem><para>Disabled root password by default.</para></listitem>
+      <listitem><para>Fix hard reset for rebooting to rescue mode.. This is particularly useful
+      if you have a dead server and want to put it in rescue mode. Now it's possible to do that
+      simply by running:
+    
+      <programlisting>
+      nixops reboot --hard --rescue --include=deadmachine
+      </programlisting>
+      </para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>VirtualBox</para>
+
+    <itemizedlist>
+      <listitem><para>Require VirtualBox >= 4.3.0.</para></listitem>
+      <listitem><para>Support for shared folders in VirtualBox. You can mount host folder on the guest by setting the 
+      deployment.virtualbox.sharedFolders option.</para></listitem>
+      <listitem><para>Allow destroy if the VM is gone already</para></listitem>
+    </itemizedlist>
+  </listitem>
+
 
 </itemizedlist>
 
 <para>
-  This release has contributions from Rob Vermaas.
+  This release has contributions from aszlig, Corey O'Connor, Domen Kožar, Eelco Dolstra,
+  Michael Stone, Oliver Charles, Rickard Nilsson, Rob Vermaas, Shea Levy and Vladimir Kirillov.
 </para>
 
 </section>

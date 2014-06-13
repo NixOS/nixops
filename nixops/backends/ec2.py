@@ -184,8 +184,8 @@ class EC2State(MachineState):
         val = {}
         if backupid in self.backups:
             for dev, snap in self.backups[backupid].items():
-                if dev != "/dev/sda":
-                    val[_sd_to_xvd(dev)] = { 'disk': Function("pkgs.lib.mkOverride", 10, snap, call=True)}
+                if not dev.startswith("/dev/sda"):
+                    val[_sd_to_xvd(dev)] = { 'disk': Function("pkgs.lib.mkOverride 10", snap, call=True)}
             val = { ('deployment', 'ec2', 'blockDeviceMapping'): val }
         else:
             val = RawValue("{{}} /* No backup found for id '{0}' */".format(backupid))
@@ -418,7 +418,7 @@ class EC2State(MachineState):
                 new_v = self.block_device_mapping[k]
                 if v.get('partOfImage', False) or v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
                     new_v['charonDeleteOnTermination'] = True
-                    self._delete_volume(v['volumeId'])
+                    self._delete_volume(v['volumeId'], True)
                 new_v['volumeId'] = new_volume.id
                 self.update_block_device_mapping(k, new_v)
 
@@ -963,12 +963,22 @@ class EC2State(MachineState):
         self.log('sending Route53 DNS: {0} {1}'.format(self.public_ipv4, self.dns_hostname))
 
         self.connect_route53()
+
         hosted_zone = ".".join(self.dns_hostname.split(".")[1:])
         zones = self._conn_route53.get_all_hosted_zones()
 
-        zones = [zone for zone in zones['ListHostedZonesResponse']['HostedZones'] if "{0}.".format(hosted_zone) == zone.Name]
-        if len(zones) != 1:
+        def testzone(hosted_zone, zone):
+            """returns True if there is a subcomponent match"""
+            hostparts = hosted_zone.split(".")
+            zoneparts = zone.Name.split(".")[:-1] # strip the last ""
+
+            return hostparts[::-1][:len(zoneparts)][::-1] == zoneparts
+
+        zones = [zone for zone in zones['ListHostedZonesResponse']['HostedZones'] if testzone(hosted_zone, zone)]
+        if len(zones) == 0:
             raise Exception('hosted zone for {0} not found'.format(hosted_zone))
+
+        zones = sorted(zones, cmp=lambda a, b: cmp(len(a), len(b)), reverse=True)
         zoneid = zones[0]['Id'].split("/")[2]
 
         # name argument does not filter, just is a starting point, annoying.. copying into a separate list
@@ -986,12 +996,30 @@ class EC2State(MachineState):
 
         change = changes.add_change("CREATE", self.dns_hostname, "A")
         change.add_value(self.public_ipv4)
-        changes.commit()
+        self._commit_route53_changes(changes)
 
 
-    def _delete_volume(self, volume_id):
+    def _commit_route53_changes(self, changes):
+        """Commit changes, but retry PriorRequestNotComplete errors."""
+        retry = 3
+        while True:
+            try:
+                retry -= 1
+                return changes.commit()
+            except boto.route53.exception.DNSServerError, e:
+                code = e.body.split("<Code>")[1]
+                code = code.split("</Code>")[0]
+                if code != 'PriorRequestNotComplete' or retry < 0:
+                    raise e
+                time.sleep(1)
+
+
+    def _delete_volume(self, volume_id, allow_keep=False):
         if not self.depl.logger.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
-            raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
+            if allow_keep:
+                return
+            else:
+                raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
         self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
         volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id, allow_missing=True)
         if not volume: return
