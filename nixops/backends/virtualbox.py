@@ -66,6 +66,7 @@ class VirtualBoxState(MachineState):
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
         self._disk_attached = False
+        self.vbox_hostonlyif_name = "vboxnet0"
 
     @property
     def resource_id(self):
@@ -109,6 +110,18 @@ class VirtualBoxState(MachineState):
     def _vbox_flag_sataportcount(self):
         v = self._vbox_version
         return '--portcount' if (int(v[0]) >= 4 and int(v[1]) >= 3) else '--sataportcount'
+
+    @property
+    def _vbox_hostonlyif_names(self):
+        '''
+        Return a list of names of all vbox hostonly interfaces
+        (i.e. ['vboxnet0', 'vboxnet1'])
+        '''
+        lines = self._logged_exec(
+            ["VBoxManage", "list", "hostonlyifs"],
+            capture_stdout=True, check=False).splitlines()
+
+        return [v[5:].lstrip() for v in lines if v.startswith("Name:")]
 
     def _get_vm_info(self, can_fail=False):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
@@ -191,6 +204,10 @@ class VirtualBoxState(MachineState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, VirtualBoxDefinition)
+
+        if self.vbox_hostonlyif_name not in self._vbox_hostonlyif_names:
+            if self.depl.logger.confirm("To control VirtualBox VMs ‘{0}’ Host-Only interface is needed, create one?".format(self.vbox_hostonlyif_name)):
+                self._logged_exec(["VBoxManage", "hostonlyif", "create"])
 
         if self.state != self.UP or check: self.check()
 
@@ -365,7 +382,7 @@ class VirtualBoxState(MachineState):
                 ["VBoxManage", "modifyvm", self.vm_id,
                  "--memory", defn.memory_size, "--vram", "10",
                  "--nictype1", "virtio", "--nictype2", "virtio",
-                 "--nic2", "hostonly", "--hostonlyadapter2", "vboxnet0",
+                 "--nic2", "hostonly", "--hostonlyadapter2", self.vbox_hostonlyif_name,
                  "--nestedpaging", "off"])
 
             self._headless = defn.headless
