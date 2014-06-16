@@ -58,7 +58,7 @@ in
     
     deployment.targetPort = mkOption {
       type = types.int;
-      default = 22;
+      default = head config.services.openssh.ports;
       description = ''
         This option specifies the SSH port to be used by
         NixOps to execute remote deployment operations.
