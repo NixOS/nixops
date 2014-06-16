@@ -66,9 +66,10 @@ class ContainerState(MachineState):
         if self.vm_id == None:
             self.log("creating NixOS container...")
             self.host = defn.host
-            # FIXME: get rid of the flock.
+            # FIXME: keep in sync with nix/container.nix.
             extra_config = " ".join([
                 'services.openssh.enable = true;',
+                'services.openssh.startWhenNeeded = false;',
                 'services.openssh.extraConfig = "UseDNS no";',
                 'users.extraUsers.root.openssh.authorizedKeys.keys = [ "{0}" ];'.format(self.client_public_key)])
             self.vm_id = self.host_ssh.run_command(
