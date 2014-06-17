@@ -99,26 +99,39 @@ class GCEStaticIPState(nixops.resources.ResourceState):
             if defn.ipAddress and self.ipAddress != defn.ipAddress:
                 self.warn("cannot change address of a deployed GCE static IP")
 
-        if check or self.state != self.UP:
-            self.project = defn.project
-            self.service_account = defn.service_account
-            self.access_key_path = defn.access_key_path
+        self.project = defn.project
+        self.service_account = defn.service_account
+        self.access_key_path = defn.access_key_path
+        self.addr_name = defn.addr_name
 
-            if check and self.state == self.UP:
-                try:
-                    address = self.address()
-                    return
-                except libcloud.common.google.ResourceNotFoundError:
+        if check:
+            try:
+                address = self.address()
+                if self.state == self.UP:
+                    if self.ipAddress != address.address:
+                        self.warn("GCE static IP ‘{0}’ has changed to {1}. Expected it to be {2}".
+                                  format(defn.addr_name, address.address, self.ipAddress))
+                else:
+                    raise Exception("GCE static IP ‘{0}’ exists, but isn't supposed to. Probably, this is the result "
+                                    "of a botched creation attempt and can be fixed by deletion.".
+                                    format(defn.addr_name))
+            except libcloud.common.google.ResourceNotFoundError:
+                if self.state == self.UP:
                     self.warn("GCE static IP ‘{0}’ is supposed to exist, but is missing. Recreating...".format(defn.addr_name))
-            
+                    self.state = self.MISSING
+
+        if self.state != self.UP:
             self.log_start("Requesting GCE static IP ‘{0}’ in {1}...".format(defn.addr_name, defn.region))
-            address = self.connect().ex_create_address(defn.addr_name, region = defn.region)
+            try:
+                address = self.connect().ex_create_address(defn.addr_name, region = defn.region)
+            except libcloud.common.google.ResourceExistsError:
+                raise Exception("Tried requesting a static IP that already exists. Please run ‘deploy --check’ to fix this.")
+
             self.log_end("done.")
             self.log("Reserved IP address: {0}".format(address.address))
             
             self.state = self.UP
             self.region = defn.region
-            self.addr_name = defn.addr_name
             self.ipAddress = address.address;
 
 
