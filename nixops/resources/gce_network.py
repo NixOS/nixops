@@ -119,24 +119,38 @@ class GCENetworkState(nixops.resources.ResourceState):
             if self.addressRange != defn.addressRange:
                 raise Exception("cannot change the address range of a deployed GCE Network ‘{0}’".format(self.network_name))
 
-        if check and self.state == self.UP:
+        if check:
             try:
-                network = self.network()
-                if network.cidr != self.addressRange:
-                    raise Exception("address range of a deployed GCE Network ‘{0}’ has unexpectedly changed to {1}".
-                                    format(self.network_name, network.cidr))
+                network = self.connect().ex_get_network(defn.network_name)
+                if self.state == self.UP:
+                    if network.cidr != self.addressRange:
+                        raise Exception("address range of a deployed GCE Network ‘{0}’ has unexpectedly changed to {1}".
+                                        format(self.network_name, network.cidr))
+                else:
+                    self.warn("GCE Network ‘{0}’ exists, but isn't supposed to. Probably, this is the result "
+                              "of a botched creation attempt and can be fixed by deletion."
+                              .format(defn.network_name))
+                    if self.depl.logger.confirm("Are you sure you want to destroy the existing network ‘{0}’?".format(defn.network_name)):
+                        self.log_start("destroying...")
+                        network.destroy()
+                        self.log_end("done.")
+                    else: return
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("GCE Network ‘{0}’ is supposed to exist, but is missing. Recreating...".format(defn.network_name))
-                self.state = self.MISSING
+                if self.state == self.UP:
+                    self.warn("GCE Network ‘{0}’ is supposed to exist, but is missing. Recreating...".format(defn.network_name))
+                    self.state = self.MISSING
 
         if self.state != self.UP:
             self.project = defn.project
             self.service_account = defn.service_account
             self.access_key_path = defn.access_key_path
 
-
             self.log_start("Creating GCE Network ‘{0}’...".format(defn.network_name))
-            address = self.connect().ex_create_network(defn.network_name, defn.addressRange)
+            try:
+                address = self.connect().ex_create_network(defn.network_name, defn.addressRange)
+            except libcloud.common.google.ResourceExistsError:
+                raise Exception("Tried creating a network that already exists. Please run ‘deploy --check’ to fix this.")
+
             self.log_end("done.")
 
             self.state = self.UP
@@ -145,25 +159,66 @@ class GCENetworkState(nixops.resources.ResourceState):
 
         # handle firewall rules
         def trans_allowed(attrs):
-          return [ dict( [( "IPProtocol", proto )] + ([("ports", ports )] if ports is not None else []) ) for proto, ports in attrs.iteritems() ];
-          #return [ { "IPProtocol": proto } for proto, ports in attrs.iteritems() ];
+          return [ dict( [( "IPProtocol", proto )] + ([("ports", ports )] if ports is not None else []) )
+                   for proto, ports in attrs.iteritems() ]
+
+        def normalize_source_tags(tags):
+            return( sorted(tags) if tags else [] )
+
+        def normalize_source_ranges(ranges):
+          if ranges == ["0.0.0.0/0"]:
+              return []
+          else:
+              return( sorted(ranges) if ranges else [] )
+
+        if check:
+            firewalls = [ f for f in self.connect().ex_list_firewalls() if f.network.name == defn.network_name ]
+
+            # delete stray rules and mark changed ones for update
+            for fw in firewalls:
+                k = next( (k for (k,v) in self.firewall.iteritems() if fw.name == "%s-%s"%(self.network_name, k)), None)
+                if k:
+                    rule = self.firewall[k]
+                    if( (rule == {}) or
+                          (normalize_source_ranges(fw.source_ranges) != normalize_source_ranges(rule['sourceRanges'])) or
+                          (normalize_source_tags(fw.source_tags) != normalize_source_tags(rule['sourceTags'])) or
+                          (fw.allowed != trans_allowed(rule['allowed'])) ):
+                        self.warn("firewall rule ‘{0}‘ has changed unexpectedly...".format(fw.name))
+                        self.update_firewall(k, {}) # mark for update
+                else:
+                    self.warn("deleting firewall rule ‘{0}‘ which isn't supposed to exist...".format(fw.name))
+                    fw.destroy()
+
+            # find missing firewall rules
+            for k, v in self.firewall.iteritems():
+                if not any(fw.name == "%s-%s"%(self.network_name, k) for fw in firewalls):
+                    self.warn("firewall rule ‘{0}‘ has disappeared...".format(k))
+                    self.update_firewall(k, None)
 
         # add new and update changed
         for k, v in defn.firewall.iteritems():
             if k in self.firewall:
                 if v == self.firewall[k]: continue
                 self.log_start("updating firewall rule ‘{0}‘...".format(k))
-                firewall = self.connect().ex_get_firewall("%s-%s"%(self.network_name, k))
-                firewall.allowed = trans_allowed(v['allowed'])
-                firewall.source_ranges = v['sourceRanges']
-                firewall.source_tags = v['sourceTags']
-                firewall.update();
+                try:
+                    firewall = self.connect().ex_get_firewall("%s-%s"%(self.network_name, k))
+                    firewall.allowed = trans_allowed(v['allowed'])
+                    firewall.source_ranges = v['sourceRanges'] or ['0.0.0.0/0'] # match firewall creation behavior
+                    firewall.source_tags = v['sourceTags']
+                    firewall.update();
+                except libcloud.common.google.ResourceNotFoundError:
+                    raise Exception("Tried updating a firewall rule that doesn't exist. Please run ‘deploy --check’ to fix this.")
+
             else:
                 self.log_start("creating firewall rule ‘{0}‘...".format(k))
-                self.connect().ex_create_firewall( "%s-%s"%(self.network_name, k), trans_allowed(v['allowed']),
-                                                   network= self.network_name,
-                                                   source_ranges = v['sourceRanges'],
-                                                   source_tags = v['sourceTags']);
+                try:
+                    self.connect().ex_create_firewall( "%s-%s"%(self.network_name, k), trans_allowed(v['allowed']),
+                                                      network= self.network_name,
+                                                      source_ranges = v['sourceRanges'],
+                                                      source_tags = v['sourceTags']);
+                except libcloud.common.google.ResourceExistsError:
+                    raise Exception("Tried creating a firewall rule that already exists. Please run ‘deploy --check’ to fix this.")
+
             self.log_end('done.')
             self.update_firewall(k, v)
 
@@ -201,6 +256,4 @@ class GCENetworkState(nixops.resources.ResourceState):
             except libcloud.common.google.ResourceNotFoundError:
                 self.warn("tried to destroy GCE Network ‘{0}’ which didn't exist".format(self.network_name))
 
-#            for k,v in self.firewall.iteritems():
- #               self.connect.ex_get_firewall("%s-%s"%(self.network_name, k)).destroy()
         return True
