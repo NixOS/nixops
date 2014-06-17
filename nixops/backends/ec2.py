@@ -55,6 +55,7 @@ class EC2Definition(MachineDefinition):
             return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
                     'size': int(xml.find("attrs/attr[@name='size']/int").get("value")),
                     'iops': int(xml.find("attrs/attr[@name='iops']/int").get("value")),
+                    'volumeType': xml.find("attrs/attr[@name='volumeType']/string").get("value"),
                     'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value"),
                     'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true",
                     'encrypt': xml.find("attrs/attr[@name='encrypt']/bool").get("value") == "true",
@@ -218,16 +219,6 @@ class EC2State(MachineState):
         if isinstance(m, EC2State): # FIXME: only if we're in the same region
             return m.private_ipv4
         return MachineState.address_to(self, m)
-
-
-    def disk_volume_options(self, v):
-        if v['iops'] != 0 and not v['iops'] is None:
-            iops = v['iops']
-            volume_type = 'io1'
-        else:
-            iops = None
-            volume_type = 'standard'
-        return (volume_type, iops)
 
 
     def connect(self):
@@ -738,8 +729,8 @@ class EC2State(MachineState):
             # Do we want an EBS-optimized instance?
             prefer_ebs_optimized = False
             for k, v in defn.block_device_mapping.iteritems():
-                (volume_type, iops) = self.disk_volume_options(v)
-                if volume_type != "standard": prefer_ebs_optimized = True
+                if v['volumeType'] != "standard":
+                    prefer_ebs_optimized = True
 
             # if we have PIOPS volume and instance type supports EBS Optimized flags, then use ebs_optimized
             ebs_optimized = prefer_ebs_optimized and defn.ebs_optimized
@@ -875,8 +866,7 @@ class EC2State(MachineState):
             if v['disk'] == '':
                 if k in self.block_device_mapping: continue
                 self.log("creating EBS volume of {0} GiB...".format(v['size']))
-                (volume_type, iops) = self.disk_volume_options(v)
-                volume = self._conn.create_volume(size=v['size'], zone=self.zone, volume_type=volume_type, iops=iops)
+                volume = self._conn.create_volume(size=v['size'], zone=self.zone, volume_type=v['volumeType'], iops=v['iops'])
                 v['volumeId'] = volume.id
 
             elif v['disk'].startswith("vol-"):

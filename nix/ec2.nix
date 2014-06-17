@@ -119,6 +119,14 @@ let
         '';
       };
 
+      volumeType = mkOption {
+        default = if config.iops == 0 then "standard" else "io1";
+        type = types.str;
+        description = ''
+          The volume type for the EBS volume. (standard/io1/gp2)
+        '';
+      };
+
     };
 
     config = {
@@ -422,7 +430,7 @@ in
 
     deployment.ec2.blockDeviceMapping = mkFixStrictness (listToAttrs
       (map (fs: nameValuePair (dmToDevice fs.device)
-        { inherit (fs.ec2) disk size deleteOnTermination encrypt passphrase iops;
+        { inherit (fs.ec2) disk size deleteOnTermination encrypt passphrase iops volumeType;
           fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
         })
        (filter (fs: fs.ec2 != null) (attrValues config.fileSystems))));

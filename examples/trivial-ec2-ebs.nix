@@ -43,5 +43,13 @@
       # You can also specify ephemeral device mappings, but that's
       # rarely useful.
       #deployment.ec2.blockDeviceMapping."/dev/xvdd".disk = "ephemeral0";
+
+      fileSystems."/data-ssd" =
+        { autoFormat = true;
+          fsType = "ext4";
+          device = "/dev/xvdj";
+          ec2.size = 1;
+          ec2.volumeType = "gp2";
+        };
     };
 }
