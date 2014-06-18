@@ -75,6 +75,12 @@ class GCEDefinition(MachineDefinition):
 
         self.block_device_mapping = {k.get("name"): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
 
+        boot_devices = [k for k,v in self.block_device_mapping.iteritems() if v['bootDisk']]
+        if len(boot_devices) == 0:
+            raise Exception("Machine {0} must have a boot device.".format(self.name))
+        if len(boot_devices) > 1:
+            raise Exception("Machine {0} must have exactly one boot device.".format(self.name))
+
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")
 
@@ -299,13 +305,11 @@ class GCEState(MachineState):
 
         if not self.vm_id:
             self.log_start("creating machine...")
-            for k,v in self.block_device_mapping.iteritems():
-                if v.get('bootDisk', False):
-                    boot_disk = v
+            boot_disk = next(v for k,v in self.block_device_mapping.iteritems() if v.get('bootDisk', False))
             try:
                 self.connect().create_node(self.name, defn.instance_type, 'nixos-14-04pre-d215564-x86-64-linux',
                                  location = self.connect().ex_get_zone(defn.region),
-                                 ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'], boot_disk['region']),
+                                 ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk['region']),
                                  ex_metadata = self.gen_metadata(defn.metadata), ex_tags = defn.tags,
                                  external_ip = (self.connect().ex_get_address(defn.ipAddress) if defn.ipAddress else 'ephemeral'),
                                  ex_network = (defn.network if defn.network else 'default') )
