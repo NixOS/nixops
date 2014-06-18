@@ -37,11 +37,15 @@ class GCENetworkDefinition(nixops.resources.ResourceDefinition):
           else: return None
 
         def parse_fw(x):
-          return {
+          result =  {
             "sourceRanges": [sr.get("value") for sr in x.findall("attrs/attr[@name='sourceRanges']/list/string")],
             "sourceTags": [st.get("value") for st in x.findall("attrs/attr[@name='sourceTags']/list/string")],
             "allowed": {a.get("name"): parse_allowed(a) for a in x.findall("attrs/attr[@name='allowed']/attrs/attr")}
           }
+          if len(result['allowed']) == 0:
+              raise Exception("Firewall rule ‘{0}‘ in network ‘{1}‘ must provide at least one protocol/port specification".
+                              format(x.get("name"), self.network_name) )
+          return result
 
         self.firewall = {fw.get("name"): parse_fw(fw) for fw in xml.findall("attrs/attr[@name='firewall']/attrs/attr")}
 

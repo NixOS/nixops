@@ -41,7 +41,7 @@ let
       };
 
       allowed = mkOption {
-        default = {};
+        #default = {};
         example = { tcp = [ 80 ]; icmp = null; };
         type = types.attrsOf (types.nullOr (types.listOf (union types.str types.int) ));
         description = ''
@@ -52,12 +52,7 @@ let
 
     };
 
-    config =
-      (mkAssert ( (config.sourceRanges != []) || (config.sourceTags != []) )
-                "sourceRanges or sourceTags are required"
-      (mkAssert ( allowed != {} )
-                "allowed must contain at least one rule"
-      {}));
+    config = {};
 
   };
 
