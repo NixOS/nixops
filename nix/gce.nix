@@ -198,12 +198,10 @@ in
       };
 
       region = mkOption {
-        default = "";
         example = "europe-west1-b";
         type = types.str;
         description = ''
-          The GCE datacenter in which the instance should be created. If not specified,
-          it is selected automatically.
+          The GCE datacenter in which the instance should be created.
         '';
       };
 
