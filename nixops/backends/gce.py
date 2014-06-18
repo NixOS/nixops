@@ -453,8 +453,19 @@ class GCEState(MachineState):
                 res.messages.append("Instance has been terminated, can't be (re)started\n"
                                     "and can only be destroyed due the to limitations of GCE.")
             if node.state == NodeState.RUNNING:
+                # check that all disks are attached
+                res.disks_ok = True
+                for k, v in self.block_device_mapping.iteritems():
+                    disk_name = v['disk_name'] or v['disk']
+                    if all(d.get("deviceName", None) != disk_name for d in node.extra['disks']):
+                        res.disks_ok = False
+                        res.messages.append("Disk {0} is detached".format(disk_name))
+                        try:
+                            disk = self.connect().ex_get_volume(disk_name, v.get('region', None))
+                        except libcloud.common.google.ResourceNotFoundError:
+                            res.messages.append("Disk {0} is destroyed".format(disk_name))
+
                 MachineState._check(self, res)
-                # TODO: disks
         except libcloud.common.google.ResourceNotFoundError:
             res.exists = False
             res.is_up = False
