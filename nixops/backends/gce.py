@@ -176,8 +176,15 @@ class GCEState(MachineState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, GCEDefinition)
 
+        if self.vm_id:
+            if self.project != defn.project:
+                raise Exception("Cannot change the project of a deployed GCE machine {0}".format(defn.name))
+
+            if self.region != defn.region:
+                raise Exception("Cannot change the region of a deployed GCE machine {0}".format(defn.name))
+
         self.set_common_state(defn)
-        self.project = defn.project # FIXME: can't change project of an already-running instance
+        self.project = defn.project
         self.service_account = defn.service_account
         self.access_key_path = defn.access_key_path
 
@@ -186,12 +193,6 @@ class GCEState(MachineState):
             with self.depl._db:
                 self.public_host_key = public
                 self.private_host_key = private
-
-        if self.project and self.project != defn.project:
-            self.warn("cannot change the project of a running instance")
-
-        if self.region and self.region != defn.region:
-            self.warn("cannot change the region of a running instance")
 
         if check:
             try:
