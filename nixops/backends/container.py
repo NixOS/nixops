@@ -38,6 +38,11 @@ class ContainerState(MachineState):
     def resource_id(self):
         return self.vm_id
 
+    def address_to(self, m):
+        if isinstance(m, ContainerState) and self.host == m.host:
+            return m.private_ipv4
+        return MachineState.address_to(self, m)
+
     def get_ssh_name(self):
         assert self.private_ipv4
         return self.private_ipv4
