@@ -166,6 +166,13 @@ class GCEState(MachineState):
             self.warn("seems to have been destroyed already")
 
 
+    def _node_deleted(self):
+        self.vm_id = None
+        for k,v in self.block_device_mapping.iteritems():
+            v['needsAttach'] = True
+            self.update_block_device_mapping(k, v)
+
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, GCEDefinition)
 
@@ -189,6 +196,17 @@ class GCEState(MachineState):
         if check:
             try:
                 node = self.node()
+                if not self.vm_id:
+                    self.warn("The instance ‘{0}’ exists, but isn't supposed to. Probably, this is the result "
+                              "of a botched creation attempt and can be fixed by deletion. However, this also "
+                              "could be a resource name collision, and valuable data could be lost. "
+                              "Before proceeding, please ensure that the instance doesn't contain useful data."
+                              .format(self.name))
+                    if self.depl.logger.confirm("Are you sure you want to destroy the existing instance ‘{0}’?".format(self.name)):
+                        self.log_start("destroying...")
+                        node.destroy()
+                        self.log_end("done.")
+                    else: raise Exception("Can't proceed further.")
 
                 # check that all disks are attached
                 for k, v in self.block_device_mapping.iteritems():
@@ -201,12 +219,10 @@ class GCEState(MachineState):
                 # FIXME: check that no extra disks are attached?
 
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("The instance seems to have been destroyed behind our back.")
-                if not allow_recreate: raise Exception("Use --allow-recreate, to fix.")
-                self.vm_id = None
-                for k,v in self.block_device_mapping.iteritems():
-                    v['needsAttach'] = True
-                    self.update_block_device_mapping(k, v)
+                if self.vm_id:
+                    self.warn("The instance seems to have been destroyed behind our back.")
+                    if not allow_recreate: raise Exception("Use --allow-recreate, to fix.")
+                    self._node_deleted()
 
         recreate = False
 
@@ -278,22 +294,22 @@ class GCEState(MachineState):
         if recreate:
             self.log("Need to recreate the instance for the changes to take effect. Deleting...")
             self.node().destroy()
-            self.vm_id = None
-            for k,v in self.block_device_mapping.iteritems():
-                v['needsAttach'] = True
-                self.update_block_device_mapping(k, v)
+            self._node_deleted()
 
         if not self.vm_id:
             self.log_start("creating machine...")
             for k,v in self.block_device_mapping.iteritems():
                 if v.get('bootDisk', False):
                     boot_disk = v
-            self.connect().create_node(self.name, defn.instance_type, 'nixos-14-04pre-d215564-x86-64-linux',
+            try:
+                self.connect().create_node(self.name, defn.instance_type, 'nixos-14-04pre-d215564-x86-64-linux',
                                  location = self.connect().ex_get_zone(defn.region),
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'], boot_disk['region']),
                                  ex_metadata = self.gen_metadata(defn.metadata), ex_tags = defn.tags,
                                  external_ip = (self.connect().ex_get_address(defn.ipAddress) if defn.ipAddress else 'ephemeral'),
                                  ex_network = (defn.network if defn.network else 'default') )
+            except libcloud.common.google.ResourceExistsError:
+                raise Exception("Tried creating an instance that already exists. Please run ‘deploy --check’ to fix this.")
             self.log_end("done.")
             self.public_ipv4 = self.node().public_ips[0]
             self.log("got IP: {0}".format(self.public_ipv4))
