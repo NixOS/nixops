@@ -187,10 +187,22 @@ class GCEState(MachineState):
             self.warn("cannot change the region of a running instance")
 
         if check:
-            try: self.node()
+            try:
+                node = self.node()
+
+                # check that all disks are attached
+                for k, v in self.block_device_mapping.iteritems():
+                    disk_name = v['disk_name'] or v['disk']
+                    if all(d.get("deviceName", None) != disk_name for d in node.extra['disks']):
+                        self.warn("Disk {0} seems to have been detached behind our back. Will reattach...".format(disk_name))
+                        v['needsAttach'] = True
+                        self.update_block_device_mapping(k, v)
+
+                # FIXME: check that no extra disks are attached?
+
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("the instance seems to have been destroyed behind our back")
-                if not allow_recreate: raise Exception("use --allow-recreate, to fix")
+                self.warn("The instance seems to have been destroyed behind our back.")
+                if not allow_recreate: raise Exception("Use --allow-recreate, to fix.")
                 self.vm_id = None
                 for k,v in self.block_device_mapping.iteritems():
                     v['needsAttach'] = True
@@ -216,7 +228,32 @@ class GCEState(MachineState):
             else:
                 raise Exception("cannot change the network of a running instance, unless reboots are allowed")
 
-        # create missing disks  # FIXME: implement check # FIXME: what to do with an existing volume?
+        #TODO: check if ro or bootdisk bool has changed
+
+        if check:
+            for k,v in defn.block_device_mapping.iteritems():
+                disk_name = v['disk_name'] or v['disk']
+                try:
+                    disk = self.connect().ex_get_volume(disk_name, v.get('region', None) )
+                    if k not in self.block_device_mapping and v['disk_name']:
+                        self.warn("GCE disk ‘{0}’ exists, but isn't supposed to. Probably, this is the result "
+                              "of a botched creation attempt and can be fixed by deletion. However, this also "
+                              "could be a resource name collision, and valuable data could be lost. "
+                              "Before proceeding, please ensure that the disk doesn't contain useful data."
+                              .format(disk_name))
+                        if self.depl.logger.confirm("Are you sure you want to destroy the existing disk ‘{0}’?".format(disk_name)):
+                            self.log_start("destroying...")
+                            disk.destroy()
+                            self.log_end("done.")
+                        else: raise Exception("Can't proceed further.")
+                except libcloud.common.google.ResourceNotFoundError:
+                    if v['disk']:
+                        raise Exception("External disk ‘{0}’ is required but doesn't exist.".format(disk_name))
+                    if k in self.block_device_mapping and v['disk_name']:
+                        self.warn("Disk ‘{0}’ is supposed to exist, but is missing. Will recreate...".format(disk_name))
+                        self.update_block_device_mapping(k, None)
+
+        # create missing disks
         for k, v in defn.block_device_mapping.iteritems():
             if k in self.block_device_mapping: continue
             if v['disk'] is None:
@@ -228,9 +265,12 @@ class GCEState(MachineState):
                     self.log_start("creating GCE disk of {0} GiB...".format(v['size']))
 
                 v['region'] = defn.region
-                self.connect().create_volume(v['size'], v['disk_name'], v['region'],
+                try:
+                    self.connect().create_volume(v['size'], v['disk_name'], v['region'],
                                                   snapshot = v['snapshot'], image = v['image'],
                                                   use_existing= False)
+                except libcloud.common.google.ResourceExistsError:
+                    raise Exception("Tried creating a disk that already exists. Please run ‘deploy --check’ to fix this.")
                 self.log_end('done.')
             v['needsAttach'] = True
             self.update_block_device_mapping(k, v)
@@ -266,7 +306,7 @@ class GCEState(MachineState):
             known_hosts.remove(self.public_ipv4)
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
-        # Attach missing volumes.  # FIXME: implement check
+        # Attach missing volumes
         for k, v in self.block_device_mapping.items():
             if v.get('needsAttach', False) and not v.get('bootDisk', False):
                 disk_name = v['disk_name'] or v['disk']
@@ -366,6 +406,8 @@ class GCEState(MachineState):
                     self.log("detaching GCE disk ‘{0}’...".format(disk_name))
                     volume = self.connect().ex_get_volume(disk_name, v.get('region', None) )
                     self.connect().detach_volume(volume, node)
+                    v['needsAttach'] = True
+                    self.update_block_device_mapping(k, v)
                     if v.get('deleteOnTermination', False):
                         self._delete_volume(disk_name, v['region'])
                 except libcloud.common.google.ResourceNotFoundError:
