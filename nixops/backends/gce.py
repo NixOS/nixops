@@ -203,7 +203,21 @@ class GCEState(MachineState):
         if check:
             try:
                 node = self.node()
-                if not self.vm_id:
+                if self.vm_id:
+                    if self.public_ipv4 != node.public_ips[0]:
+                        self.warn("IP address has unexpectedly changed from {0} to {1}".format(self.public_ipv4, node.public_ips[0]))
+                        self.public_ipv4 = node.public_ips[0]
+
+                    # check that all disks are attached
+                    for k, v in self.block_device_mapping.iteritems():
+                        disk_name = v['disk_name'] or v['disk']
+                        if all(d.get("deviceName", None) != disk_name for d in node.extra['disks']):
+                            self.warn("Disk {0} seems to have been detached behind our back. Will reattach...".format(disk_name))
+                            v['needsAttach'] = True
+                            self.update_block_device_mapping(k, v)
+
+                    # FIXME: check that no extra disks are attached?
+                else:
                     self.warn("The instance ‘{0}’ exists, but isn't supposed to. Probably, this is the result "
                               "of a botched creation attempt and can be fixed by deletion. However, this also "
                               "could be a resource name collision, and valuable data could be lost. "
@@ -215,15 +229,6 @@ class GCEState(MachineState):
                         self.log_end("done.")
                     else: raise Exception("Can't proceed further.")
 
-                # check that all disks are attached
-                for k, v in self.block_device_mapping.iteritems():
-                    disk_name = v['disk_name'] or v['disk']
-                    if all(d.get("deviceName", None) != disk_name for d in node.extra['disks']):
-                        self.warn("Disk {0} seems to have been detached behind our back. Will reattach...".format(disk_name))
-                        v['needsAttach'] = True
-                        self.update_block_device_mapping(k, v)
-
-                # FIXME: check that no extra disks are attached?
 
             except libcloud.common.google.ResourceNotFoundError:
                 if self.vm_id:
