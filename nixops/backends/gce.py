@@ -316,7 +316,7 @@ class GCEState(MachineState):
             self.log_start("creating machine...")
             boot_disk = next(v for k,v in self.block_device_mapping.iteritems() if v.get('bootDisk', False))
             try:
-                self.connect().create_node(self.name, defn.instance_type, 'nixos-14-04pre-d215564-x86-64-linux',
+                node = self.connect().create_node(self.name, defn.instance_type, 'nixos-14-04pre-d215564-x86-64-linux',
                                  location = self.connect().ex_get_zone(defn.region),
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk['region']),
                                  ex_metadata = self.gen_metadata(defn.metadata), ex_tags = defn.tags,
@@ -325,7 +325,7 @@ class GCEState(MachineState):
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried creating an instance that already exists. Please run ‘deploy --check’ to fix this.")
             self.log_end("done.")
-            self.public_ipv4 = self.node().public_ips[0]
+            self.public_ipv4 = node.public_ips[0]
             self.log("got IP: {0}".format(self.public_ipv4))
             self.tags = defn.tags
             self.region = defn.region
@@ -348,7 +348,8 @@ class GCEState(MachineState):
                 del v['needsAttach']
                 self.update_block_device_mapping(k, v)
 
-        if check or self.metadata != defn.metadata:
+        if( self.metadata != defn.metadata or
+           (check and sorted(self.gen_metadata(defn.metadata)['items']) != sorted(node.extra['metadata']['items'])) ):
             self.log('setting new metadata values')
             node = self.node()
             meta = self.gen_metadata(defn.metadata)
@@ -363,7 +364,7 @@ class GCEState(MachineState):
                                           data=metadata_data)
             self.metadata = defn.metadata
 
-        if check  or sorted(self.tags) != sorted(defn.tags):
+        if sorted(self.tags) != sorted(defn.tags) or (check and sorted(defn.tags) != sorted(node.extra['tags'])):
             self.log('setting new tag values')
             self.connect().ex_set_node_tags(self.node(), defn.tags)
             self.tags = defn.tags
