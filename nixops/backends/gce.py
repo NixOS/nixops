@@ -178,6 +178,7 @@ class GCEState(MachineState):
 
     def _node_deleted(self):
         self.vm_id = None
+        self.state = self.STOPPED
         for k,v in self.block_device_mapping.iteritems():
             v['needsAttach'] = True
             self.update_block_device_mapping(k, v)
@@ -204,10 +205,21 @@ class GCEState(MachineState):
                 self.public_host_key = public
                 self.private_host_key = private
 
+        recreate = False
+
         if check:
             try:
                 node = self.node()
                 if self.vm_id:
+
+                    if node.state == NodeState.TERMINATED:
+                        if allow_reboot:
+                            recreate = True
+                            self.warn("The instance is terminated. Will restart...")
+                        else:
+                            self.warn("The instance is terminated. Run with --allow-reboot to restart it.")
+                        self.state = self.STOPPED
+
                     if self.public_ipv4 != node.public_ips[0]:
                         self.warn("IP address has unexpectedly changed from {0} to {1}".format(self.public_ipv4, node.public_ips[0]))
                         self.public_ipv4 = node.public_ips[0]
@@ -239,8 +251,6 @@ class GCEState(MachineState):
                     self.warn("The instance seems to have been destroyed behind our back.")
                     if not allow_recreate: raise Exception("Use --allow-recreate, to fix.")
                     self._node_deleted()
-
-        recreate = False
 
         if self.vm_id and self.instance_type != defn.instance_type:
             if allow_reboot:
@@ -325,6 +335,7 @@ class GCEState(MachineState):
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried creating an instance that already exists. Please run ‘deploy --check’ to fix this.")
             self.log_end("done.")
+            self.state = self.STARTING
             self.public_ipv4 = node.public_ips[0]
             self.log("got IP: {0}".format(self.public_ipv4))
             self.tags = defn.tags
@@ -376,6 +387,7 @@ class GCEState(MachineState):
             self.automatic_restart = defn.automatic_restart
             self.on_host_maintenance = defn.on_host_maintenance
 
+
     def reboot(self, hard=False):
         if hard:
             self.log_start("sending hard reset to GCE machine...")
@@ -385,11 +397,36 @@ class GCEState(MachineState):
         else:
             MachineState.reboot(self, hard=hard)
 
+
     def start(self):
-        self.warn("GCE machines can't be started.")
+        node = self.node()
+
+        if node.state == NodeState.TERMINATED:
+            self.warn("GCE machines can't be started directly after being terminated."
+                      " You can re-start the machine by re-creating it with deploy --check --allow-reboot.")
+
+        if node.state == NodeState.STOPPED:
+            self.warn("Kicking the machine with a hard reboot to start it.")
+            self.reboot(hard=True)
+
 
     def stop(self):
-        self.warn("GCE machines can't be started after being stopped. Consider rebooting instead.")
+        self.warn("GCE machines can't be started easily after being stopped. Consider rebooting instead.")
+
+        self.log_start("stopping GCE machine... ")
+        self.run_command("poweroff", check=False)
+        self.state = self.STOPPING
+
+        def check_stopped():
+            self.log_continue(".")
+            return self.node().state == NodeState.TERMINATED
+        if nixops.util.check_wait(check_stopped, initial=3, max_tries=100, exception=False): # = 5 min
+            self.log_end("done")
+        else:
+            self.log_end("(timed out)")
+
+        self.state = self.STOPPED
+        self.ssh_master = None
 
     def destroy(self, wipe=False):
         try:
