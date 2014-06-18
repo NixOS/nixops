@@ -11,6 +11,10 @@ from nixops.util import attr_property, create_key_pair
 
 from nixops.backends import MachineDefinition, MachineState
 
+import nixops.resources.gce_static_ip
+import nixops.resources.gce_disk
+import nixops.resources.gce_network
+
 import libcloud.common.google
 from libcloud.compute.types import Provider, NodeState
 from libcloud.compute.providers import get_driver
@@ -481,6 +485,12 @@ class GCEState(MachineState):
             res.is_up = False
             self.state = self.MISSING;
 
+    def create_after(self, resources):
+        # Just a check for all GCE resource classes
+        return {r for r in resources if
+                isinstance(r, nixops.resources.gce_static_ip.GCEStaticIPState) or
+                isinstance(r, nixops.resources.gce_disk.GCEDiskState) or
+                isinstance(r, nixops.resources.gce_network.GCENetworkState)}
 
     def get_ssh_name(self):
         if not self.public_ipv4:
