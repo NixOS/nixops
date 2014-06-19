@@ -16,6 +16,7 @@ let
         ];
 
         networking.useDHCP = false;
+        networking.firewall.enable = false;
 
         # We don't want to include everything from qemu-vm.nix,
         # so we're going to just pick the options we need (and
@@ -243,6 +244,7 @@ let
 
 in makeTest {
   nodes.coordinator = {
+    networking.firewall.enable = false;
     environment.systemPackages = let
       testNixops = overrideDerivation nixops (o: {
         postPatch = ''

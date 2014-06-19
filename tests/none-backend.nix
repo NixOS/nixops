@@ -35,6 +35,7 @@ let
         target1 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
+            networking.firewall.enable = false;
             users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
             ${optionalString (n == 1) ''
               environment.systemPackages = [ pkgs.vim ];
@@ -60,6 +61,7 @@ let
         target2 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
+            networking.firewall.enable = false;
             users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
             ${optionalString (n == 3) ''
               services.httpd.enable = true;
@@ -81,6 +83,7 @@ makeTest {
         { environment.systemPackages =
             [ nixops pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox
               pkgs.module_init_tools pkgs.perlPackages.ArchiveCpio ];
+          networking.firewall.enable = false;
           virtualisation.writableStore = true;
         };
 
@@ -89,6 +92,7 @@ makeTest {
         { services.openssh.enable = true;
           virtualisation.memorySize = 512;
           virtualisation.writableStore = true;
+          networking.firewall.enable = false;
           users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
         };
 
@@ -97,6 +101,7 @@ makeTest {
         { services.openssh.enable = true;
           virtualisation.memorySize = 512;
           virtualisation.writableStore = true;
+          networking.firewall.enable = false;
           users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
         };
     };
