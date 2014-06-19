@@ -367,6 +367,7 @@ import nixops.resources.sqs_queue
 import nixops.resources.s3_bucket
 import nixops.resources.iam_role
 import nixops.resources.ec2_security_group
+import nixops.resources.ec2_placement_group
 import nixops.resources.ebs_volume
 import nixops.resources.elastic_ip
 
@@ -393,6 +394,7 @@ def create_state(depl, type, name, id):
               nixops.resources.iam_role.IAMRoleState,
               nixops.resources.s3_bucket.S3BucketState,
               nixops.resources.ec2_security_group.EC2SecurityGroupState,
+              nixops.resources.ec2_placement_group.EC2PlacementGroupState,
               nixops.resources.ebs_volume.EBSVolumeState,
               nixops.resources.elastic_ip.ElasticIPState
               ]:

@@ -324,6 +324,16 @@ in
       '';
     };
 
+    deployment.ec2.placementGroup = mkOption {
+      default = "";
+      example = "my-cluster";
+      type = union types.str (resource "ec2-placement-group");
+      apply = x: if builtins.isString x then x else x.name;
+      description = ''
+        Placement group for the instance.
+      '';
+    };
+
     deployment.ec2.tags = mkOption {
       default = { };
       example = { foo = "bar"; xyzzy = "bla"; };
