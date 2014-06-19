@@ -260,7 +260,7 @@ in makeTest {
           # ... and this is for other requirements for a basic deployment.
           pkgs.stdenv pkgs.busybox pkgs.module_init_tools pkgs.grub2
           pkgs.xfsprogs pkgs.btrfsProgs pkgs.docbook_xsl_ns pkgs.libxslt
-          pkgs.docbook5 pkgs.ntp
+          pkgs.docbook5 pkgs.ntp pkgs.perlPackages.ArchiveCpio
           # Firmware used in <nixpkgs/nixos/modules/installer/scan/not-detected.nix>
           pkgs.firmwareLinuxNonfree
         ];

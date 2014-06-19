@@ -79,7 +79,8 @@ makeTest {
     { coordinator =
         { config, pkgs, ... }:
         { environment.systemPackages =
-            [ nixops pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox pkgs.module_init_tools ];
+            [ nixops pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox
+              pkgs.module_init_tools pkgs.perlPackages.ArchiveCpio ];
           virtualisation.writableStore = true;
         };
 
