@@ -3,10 +3,7 @@
 with import <nixpkgs/nixos/lib/testing.nix> { inherit system; };
 with pkgs.lib;
 
-makeTest ({ pkgs, ... }:
-
 let
-
   # Physical NixOps model.
   physical = pkgs.writeText "physical.nix"
     ''
@@ -76,7 +73,7 @@ let
 
 in
 
-{
+makeTest {
 
   nodes =
     { coordinator =
@@ -176,4 +173,4 @@ in
 
     '';
 
-})
+}

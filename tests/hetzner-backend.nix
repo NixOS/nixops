@@ -241,8 +241,7 @@ let
     ] ++ (qemuNICFlags 1 1 (builtins.add targetId 1));
   in concatStringsSep " " flags;
 
-in makeTest ({ pkgs, ... }:
-{
+in makeTest {
   nodes.coordinator = {
     environment.systemPackages = let
       testNixops = overrideDerivation nixops (o: {
@@ -367,4 +366,4 @@ in makeTest ({ pkgs, ... }:
       $target2->succeed("mount | grep -F 'on / type btrfs'");
     };
   '';
-})
+}
