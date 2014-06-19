@@ -106,8 +106,8 @@ class GCEState(MachineState):
     service_account = attr_property("gce.serviceAccount", None)
     access_key_path = attr_property("gce.accessKey", None)
 
-    public_host_key = attr_property("gce.publicHostKey", None)
-    private_host_key = attr_property("gce.privateHostKey", None)
+    public_client_key = attr_property("gce.publicClientKey", None)
+    private_client_key = attr_property("gce.privateClientKey", None)
 
     tags = attr_property("gce.tags", None, 'json')
     metadata = attr_property("gce.metadata", {}, 'json')
@@ -150,7 +150,7 @@ class GCEState(MachineState):
     def gen_metadata(self, metadata):
         return {
           'kind': 'compute#metadata',
-          'items': [ {'key': 'sshKeys', 'value': "root:{0}".format(self.public_host_key) } ] +
+          'items': [ {'key': 'sshKeys', 'value': "root:{0}".format(self.public_client_key) } ] +
                    [ {'key': k, 'value': v} for k,v in metadata.iteritems() ]
         }
 
@@ -199,11 +199,10 @@ class GCEState(MachineState):
         self.service_account = defn.service_account
         self.access_key_path = defn.access_key_path
 
-        if not self.public_host_key:
-            (private, public) = create_key_pair(type='dsa')
-            with self.depl._db:
-                self.public_host_key = public
-                self.private_host_key = private
+        if not self.public_client_key:
+            (private, public) = create_key_pair()
+            self.public_client_key = public
+            self.private_client_key = private
 
         recreate = False
 
@@ -536,7 +535,7 @@ class GCEState(MachineState):
         return self.public_ipv4
 
     def get_ssh_private_key_file(self):
-        return self._ssh_private_key_file or self.write_ssh_private_key(self.private_host_key)
+        return self._ssh_private_key_file or self.write_ssh_private_key(self.private_client_key)
 
     def get_ssh_flags(self):
         return [ "-i", self.get_ssh_private_key_file() ]
