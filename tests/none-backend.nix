@@ -158,6 +158,7 @@ makeTest {
         $target1->fail("vim --version");
         $coordinator->succeed("${env} nixops deploy --build-only");
         $coordinator->succeed("${env} nixops deploy");
+        $coordinator->succeed("rm ~/.ssh/id_dsa");
         $target1->succeed("vim --version >&2");
       };
 
