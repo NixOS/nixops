@@ -68,7 +68,10 @@ class NoneState(MachineState):
                 "-i", self.get_ssh_private_key_file()]
 
     def _check(self, res):
-        res.exists = True # can't really check
+        if not self.vm_id:
+            res.exists = False
+            return
+        res.exists = True
         res.is_up = nixops.util.ping_tcp_port(self.target_host, self.ssh_port)
         if res.is_up:
             MachineState._check(self, res)
