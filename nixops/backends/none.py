@@ -33,6 +33,10 @@ class NoneState(MachineState):
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
 
+    @property
+    def resource_id(self):
+        return self.vm_id
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, NoneDefinition)
         self.set_common_state(defn)
