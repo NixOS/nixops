@@ -138,7 +138,7 @@ class GCENetworkState(nixops.resources.ResourceState):
                         self.log_start("destroying...")
                         network.destroy()
                         self.log_end("done.")
-                    else: return
+                    else: raise Exception("Can't proceed further.")
             except libcloud.common.google.ResourceNotFoundError:
                 if self.state == self.UP:
                     self.warn("GCE Network ‘{0}’ is supposed to exist, but is missing. Recreating...".format(defn.network_name))

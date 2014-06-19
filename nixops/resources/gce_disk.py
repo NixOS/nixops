@@ -127,7 +127,7 @@ class GCEDiskState(nixops.resources.ResourceState):
                         self.log_start("destroying...")
                         disk.destroy()
                         self.log_end("done.")
-                    else: return
+                    else: raise Exception("Can't proceed further.")
             except libcloud.common.google.ResourceNotFoundError:
                 if self.state == self.UP:
                     self.warn("GCE disk ‘{0}’ is supposed to exist, but is missing. Will recreate.".format(defn.disk_name))
