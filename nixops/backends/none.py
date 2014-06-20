@@ -50,7 +50,8 @@ class NoneState(MachineState):
             cmd = ("umask 077; "
                    "mkdir -p .ssh && cat >> .ssh/authorized_keys || exit 1")
             self._logged_exec(["ssh", "-p", str(self.ssh_port), "-l", "root",
-                               self.get_ssh_name(), cmd], stdin_string=pubkey)
+                               self.get_ssh_name(), cmd],
+                              stdin_string=pubkey.rstrip() + "\n")
 
             self._ssh_private_key, self._ssh_public_key = privkey, pubkey
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)

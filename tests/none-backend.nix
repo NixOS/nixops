@@ -162,6 +162,13 @@ makeTest {
         $target1->succeed("vim --version >&2");
       };
 
+      # Test whether authorized_keys file has been written correctly.
+      subtest "authorized_keys", sub {
+        $coordinator->succeed("${env} nixops ssh target1 -- " .
+                              "'(cat .ssh/authorized_keys; echo xxx) | " .
+                              "grep -q \"^xxx\"'");
+      };
+
       # Test ‘nixops info’.
       subtest "info-after", sub {
         $coordinator->succeed("${env} nixops info >&2");
