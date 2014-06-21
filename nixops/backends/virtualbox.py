@@ -12,6 +12,8 @@ from distutils import spawn
 
 sata_ports = 8
 
+class VirtualBoxBackendError(Exception):
+    pass
 
 class VirtualBoxDefinition(MachineDefinition):
     """Definition of a VirtualBox machine."""
@@ -66,7 +68,20 @@ class VirtualBoxState(MachineState):
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
         self._disk_attached = False
-        self.vbox_hostonlyif_name = "vboxnet0"
+
+        # host only interface and its DHCP server settings
+        # =================================================================== #
+        # VERY IMPORTANT:
+        # before you change vbox_control_hostonlyif_name PLEASE read the
+        # warning in _ensure_control_hostonly_interface method
+        # =================================================================== #
+        self.vbox_control_hostonlyif_name = "vboxnet0"
+        self.vbox_control_host_ip4 = "192.168.56.1"
+        self.vbox_control_host_ip4_netmask = "255.255.255.0"
+        self.vbox_control_dhcpserver_ip = "192.168.56.100"
+        self.vbox_control_dhcpserver_netmask = "255.255.255.0"
+        self.vbox_control_dhcpserver_lowerip = "192.168.56.101"
+        self.vbox_control_dhcpserver_upperip = "192.168.56.254"
 
     @property
     def resource_id(self):
@@ -110,18 +125,6 @@ class VirtualBoxState(MachineState):
     def _vbox_flag_sataportcount(self):
         v = self._vbox_version
         return '--portcount' if (int(v[0]) >= 4 and int(v[1]) >= 3) else '--sataportcount'
-
-    @property
-    def _vbox_hostonlyif_names(self):
-        '''
-        Return a list of names of all vbox hostonly interfaces
-        (i.e. ['vboxnet0', 'vboxnet1'])
-        '''
-        lines = self._logged_exec(
-            ["VBoxManage", "list", "hostonlyifs"],
-            capture_stdout=True, check=False).splitlines()
-
-        return [v[5:].lstrip() for v in lines if v.startswith("Name:")]
 
     def _get_vm_info(self, can_fail=False):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
@@ -190,6 +193,208 @@ class VirtualBoxState(MachineState):
             shared_folders[name] = state
         self.shared_folders = shared_folders
 
+    def _parse_output_to_dict(self, lines, key_name):
+        groups = {}
+
+        group = {}
+        for line in lines:
+            if line != '':
+                key, dirty_value = line.split(":", 1)
+                value = dirty_value.lstrip()
+                group[key] = value
+            else:
+                groups[group[key_name]] = group
+                group = {}
+        return groups
+
+    def ensure_control_hostonly_interface(self):
+        '''
+        Check for and if necessary create the control host-only interface
+        necessary for communication to the VM. Also, if needed, configure the
+        interface to have a DHCP Server with settings.
+
+        .. warning ::
+
+            WARNING! WARNING! DANGER! DANGER!:
+            Only create one interface and the number for it based on the
+            previous number of existing interfaces due to how VirtualBox works
+            limitations. As such the only reason this works is because the
+            self.vbox_control_hostonlyif_name is hard-coded to vboxnet0 which is the
+            interface which will be created due to the fact that VirtualBox
+            creates these interfaces starting from the top and filling in any
+            missing ones (i.e if you have vboxnet1, but not not vboxnet0,
+            vboxnet0 will be created). THis is why we all only create an
+            interface if self.vbox_control_hostonlyif_name is set to 'vboxnet0'
+        '''
+
+        hostonlyifs = self._vbox_get_hostonly_interfaces()
+
+        # sanity checks
+        if self.vbox_control_hostonlyif_name != "vboxnet0":
+            if self.vbox_control_hostonlyif_name not in hostonlyifs:
+                # host-only interface does not exist
+                raise VirtualBoxBackendError("VirtualBox Host-Only Interface {0} does not exist".format(self.vbox_control_hostonlyif_name) )
+            else:
+                dhcp = hostonlyifs[self.vbox_control_hostonlyif_name]["_dhcp"]
+                if len(dhcp) == 0:
+                    # no DHCP server assigned
+                    raise VirtualBoxBackendError("VirtualBox Host-Only Interface {0} does not have a DHCP server attached".format(self.vbox_control_hostonlyif_name) )
+                elif dhcp["Enabled"] == 'No':
+                    # DHCP server not enabled
+                    raise VirtualBoxBackendError("VirtualBox Host-Only Interface {0} DHCP server is disabled".format(self.vbox_control_hostonlyif_name) )
+
+        # if control host-only interfaces is 'vboxnet0'
+        if self.vbox_control_hostonlyif_name == "vboxnet0":
+
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+            # if interface does not exits create it
+            if self.vbox_control_hostonlyif_name not in hostonlyifs:
+                # ask user to confirm creation
+                msg = "To control VirtualBox VMs ‘{0}’ Host-Only interface is "\
+                "needed, create one?".format(self.vbox_control_hostonlyif_name)
+                if self.depl.logger.confirm(msg):
+                    # create host-only interface and setup DHCP server for it.
+                    self._vbox_create_hostonly_interface()
+
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
+            # if interface exist, check if we need to add or enable the DHCP
+            # server (and configure default settings for it)
+            else:
+
+                # get the DHCP settings
+                dhcp_settings = hostonlyifs[self.vbox_control_hostonlyif_name]["_dhcp"]
+
+                action = None
+                # decide if we need to add the server depending on whether
+                # it is missing or disabled. If the server is enabled,
+                # do nothing
+                if len(dhcp_settings) == 0:
+                    action = "add"
+                elif dhcp_settings["Enabled"] == 'No':
+                    action = "modify"
+
+                if action is not None:
+                    msg = "To control VirtualBox VMs ‘{0}’ Host-Only interface "\
+                    "needs to have DHCP Server enabled and it settings "\
+                    "configured. This may potentially override your previous "\
+                    "VirtualBox setup. Continue?"\
+                    .format(self.vbox_control_hostonlyif_name)
+                    if self.depl.logger.confirm(msg):
+                        self._vbox_hostonly_interface_setup_dhcpserver(action=action)
+
+            self.log("Control Host-Only Interface Name                    : {0}"\
+                .format(self.vbox_control_hostonlyif_name))
+            self.log("Control Host-Only Interface IP Address              : {0}"\
+                .format(self.vbox_control_host_ip4))
+            self.log("Control Host-Only Interface Network Mask            : {0}"\
+                .format(self.vbox_control_host_ip4_netmask))
+            self.log("Control Host-Only Interface DHCP Server IP Address  : {0}"\
+                .format(self.vbox_control_dhcpserver_ip))
+            self.log("Control Host-Only Interface DHCP Server Network Mask: {0}"\
+                .format(self.vbox_control_dhcpserver_netmask))
+            self.log("Control Host-Only Interface DHCP Server Lower IP    : {0}"\
+                .format(self.vbox_control_dhcpserver_lowerip))
+            self.log("Control Host-Only Interface DHCP Server Upper IP    : {0}"\
+                .format(self.vbox_control_dhcpserver_upperip))
+
+    def _vbox_get_hostonly_interfaces(self):
+        '''
+        Return a dictionary of Host-Only interfaces and their settings and
+        their associated DHCP servers settings in a '_dhcp' key.
+
+        Note:
+        "VBoxManage list hostonlyifs" does return a "DHCP" setting,
+        but it appears to always be "Disabled", maybe its a status?
+
+        :raise: CommandFailed exception from logged_exec
+
+        :return:
+            Example:
+            {'vboxnet0': {'DHCP': 'Disabled',
+                  'GUID': '786f6276-656e-4074-8000-0a0027000000',
+                  'HardwareAddress': '0a:00:27:00:00:00',
+                  'IPAddress': '192.168.56.1',
+                  'IPV6Address': 'fe80:0000:0000:0000:0800:27ff:fe00:0000',
+                  'IPV6NetworkMaskPrefixLength': '64',
+                  'MediumType': 'Ethernet',
+                  'Name': 'vboxnet0',
+                  'NetworkMask': '255.255.255.0',
+                  'Status': 'Up',
+                  'VBoxNetworkName': 'HostInterfaceNetworking-vboxnet0',
+                  '_dhcp': {'Enabled': 'Yes',
+                            'IP': '192.168.56.100',
+                            'NetworkMask': '255.255.255.0',
+                            'NetworkName': 'HostInterfaceNetworking-vboxnet0',
+                            'lowerIPAddress': '192.168.56.101',
+                            'upperIPAddress': '192.168.56.254'}}}
+        '''
+
+        # get host-only interfaces and parse them to dict.
+        # Key for each entry is the value found in the 'Name'
+        lines = self._logged_exec(
+            ["VBoxManage", "list", "hostonlyifs"],
+            capture_stdout=True, check=False).splitlines()
+        hostonlyifs = self._parse_output_to_dict(lines, "Name")
+
+        # get all DHCP servers and parse them to dict
+        # Key for each entry is the value found in the 'NetworkName'
+        # Note: 'NetworkName' is the same as hostonlyifs 'VBoxNetworkName'
+        lines = self._logged_exec(
+            ["VBoxManage", "list", "dhcpservers"],
+            capture_stdout=True, check=False).splitlines()
+        dhcpservers = self._parse_output_to_dict(lines, "NetworkName")
+
+        # set '_dhcp' key to the the dhcp server dictionary for each
+        # host-only interface. if no dhcp server is found the set an
+        # empty dictionary
+        for if_name in hostonlyifs.keys():
+            network_name = hostonlyifs[if_name]["VBoxNetworkName"]
+            if network_name in dhcpservers:
+                hostonlyifs[if_name]["_dhcp"] = dhcpservers[network_name]
+            else:
+                hostonlyifs[if_name]["_dhcp"] = {}
+
+        return hostonlyifs
+
+    def _vbox_create_hostonly_interface(self):
+        '''
+        Create a control host-only interface and add a DHCP server configured
+        settings.
+        '''
+
+        # create inteface
+        self._logged_exec(["VBoxManage", "hostonlyif", "create"])
+        # configure ip for the interface
+        self._logged_exec(
+            ["VBoxManage", "hostonlyif", "ipconfig",
+             self.vbox_control_hostonlyif_name,
+             "--ip", self.vbox_control_host_ip4,
+             "--netmask", self.vbox_control_host_ip4_netmask,
+             ])
+        # add DHCP server to the intefaces
+        self._vbox_hostonly_interface_setup_dhcpserver(action="add")
+
+    def _vbox_hostonly_interface_setup_dhcpserver(self, action):
+        '''
+        Add or Modify DHCP server for the control hostonly interface.
+
+        :param action: type of actions to give to "VBoxManage dhcpserver.
+                       only 'add' or 'modify' actions are allowed.
+        '''
+        assert action in ['add', 'modify']
+
+        # either add or modify the DHCP server for the control host-only
+        # interface, configure DHCP server ip, netmask, lower and upper
+        # boundries and enabled it.
+        self._logged_exec(
+            ["VBoxManage", "dhcpserver", action,
+             "--ifname", self.vbox_control_hostonlyif_name,
+             "--ip", self.vbox_control_dhcpserver_ip,
+             "--netmask", self.vbox_control_dhcpserver_netmask,
+             "--lowerip", self.vbox_control_dhcpserver_lowerip,
+             "--upperip", self.vbox_control_dhcpserver_upperip,
+             "--enable",
+             ])
 
     def _wait_for_ip(self):
         self.log_start("waiting for IP address...")
@@ -201,13 +406,12 @@ class VirtualBoxState(MachineState):
         self.log_end(" " + self.private_ipv4)
         nixops.known_hosts.remove(self.private_ipv4)
 
-
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, VirtualBoxDefinition)
 
-        if self.vbox_hostonlyif_name not in self._vbox_hostonlyif_names:
-            if self.depl.logger.confirm("To control VirtualBox VMs ‘{0}’ Host-Only interface is needed, create one?".format(self.vbox_hostonlyif_name)):
-                self._logged_exec(["VBoxManage", "hostonlyif", "create"])
+        self.ensure_control_hostonly_interface()
+        # debug
+        return False
 
         if self.state != self.UP or check: self.check()
 
@@ -382,7 +586,8 @@ class VirtualBoxState(MachineState):
                 ["VBoxManage", "modifyvm", self.vm_id,
                  "--memory", defn.memory_size, "--vram", "10",
                  "--nictype1", "virtio", "--nictype2", "virtio",
-                 "--nic2", "hostonly", "--hostonlyadapter2", self.vbox_hostonlyif_name,
+                 "--nic2", "hostonly",
+                 "--hostonlyadapter2",self.vbox_control_hostonlyif_name,
                  "--nestedpaging", "off"])
 
             self._headless = defn.headless
