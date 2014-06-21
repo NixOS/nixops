@@ -82,7 +82,7 @@ in stdenv.mkDerivation {
     ( echo "#!${pkgsNative.stdenv.shell}"
       echo "lnum=\"\$(grep -m1 -an '^EXISTING_TAR${"\$"}' \"$installer\")\""
       echo 'scriptheadsize="$(head -n ''${lnum%%:*} "'"$installer"'" | wc -c)"'
-      echo 'scriptsize="$(stat -c %s "'"$installer"'")"'
+      echo 'scriptsize="$(${pkgsNative.coreutils}/bin/stat -c %s "'"$installer"'")"'
       echo 'tarsize="$(($scriptsize - $scriptheadsize))"'
       echo 'echo -n "$tarsize:"'
       echo 'tail -n +$((''${lnum%%:*} + 1)) "'"$installer"'"'
