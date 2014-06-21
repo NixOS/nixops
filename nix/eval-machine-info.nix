@@ -79,6 +79,7 @@ rec {
   resources.s3Buckets = evalResources ./s3-bucket.nix (zipAttrs resourcesByType.s3Buckets or []);
   resources.iamRoles = evalResources ./iam-role.nix (zipAttrs resourcesByType.iamRoles or []);
   resources.ec2SecurityGroups = evalResources ./ec2-security-group.nix (zipAttrs resourcesByType.ec2SecurityGroups or []);
+  resources.ec2PlacementGroups = evalResources ./ec2-placement-group.nix (zipAttrs resourcesByType.ec2PlacementGroups or []);
   resources.ebsVolumes = evalResources ./ebs-volume.nix (zipAttrs resourcesByType.ebsVolumes or []);
   resources.elasticIPs = evalResources ./elastic-ip.nix (zipAttrs resourcesByType.elasticIPs or []);
 
@@ -87,7 +88,7 @@ rec {
 
     machines =
       flip mapAttrs nodes (n: v': let v = scrubOptionValue v'; in
-        { inherit (v.config.deployment) targetEnv targetHost encryptedLinksTo storeKeysOnMachine alwaysActivate owners keys;
+        { inherit (v.config.deployment) targetEnv targetPort targetHost encryptedLinksTo storeKeysOnMachine alwaysActivate owners keys;
           #adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
           hetzner = optionalAttrs (v.config.deployment.targetEnv == "hetzner") v.config.deployment.hetzner;

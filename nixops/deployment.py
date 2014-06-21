@@ -335,6 +335,10 @@ class Deployment(object):
             defn = nixops.resources.ec2_security_group.EC2SecurityGroupDefinition(x)
             self.definitions[defn.name] = defn
 
+        for x in res.find("attr[@name='ec2PlacementGroups']/attrs").findall("attr"):
+            defn = nixops.resources.ec2_placement_group.EC2PlacementGroupDefinition(x)
+            self.definitions[defn.name] = defn
+
         for x in res.find("attr[@name='ebsVolumes']/attrs").findall("attr"):
             defn = nixops.resources.ebs_volume.EBSVolumeDefinition(x)
             self.definitions[defn.name] = defn

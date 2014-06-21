@@ -17,9 +17,11 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         nixops.resources.ResourceDefinition.__init__(self, xml)
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
+        self.ssh_port = int(xml.find("attrs/attr[@name='targetPort']/int").get("value"))
         self.always_activate = xml.find("attrs/attr[@name='alwaysActivate']/bool").get("value") == "true"
         self.keys = {k.get("name"): k.find("string").get("value") for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")}
         self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
+
 
 
 class MachineState(nixops.resources.ResourceState):
@@ -27,6 +29,7 @@ class MachineState(nixops.resources.ResourceState):
 
     vm_id = nixops.util.attr_property("vmId", None)
     ssh_pinged = nixops.util.attr_property("sshPinged", False, bool)
+    ssh_port = nixops.util.attr_property("targetPort", 22, int)
     public_vpn_key = nixops.util.attr_property("publicVpnKey", None)
     store_keys_on_machine = nixops.util.attr_property("storeKeysOnMachine", True, bool)
     keys = nixops.util.attr_property("keys", [], 'json')
@@ -61,6 +64,7 @@ class MachineState(nixops.resources.ResourceState):
     def set_common_state(self, defn):
         self.store_keys_on_machine = defn.store_keys_on_machine
         self.keys = defn.keys
+        self.ssh_port = defn.ssh_port
 
     def stop(self):
         """Stop this machine, if possible."""
@@ -153,9 +157,9 @@ class MachineState(nixops.resources.ResourceState):
         """Reboot this machine and wait until it's up again."""
         self.reboot(hard=hard)
         self.log_start("waiting for the machine to finish rebooting...")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), 22, open=False, callback=lambda: self.log_continue("."))
+        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, open=False, callback=lambda: self.log_continue("."))
         self.log_continue("[down]")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
+        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue("."))
         self.log_end("[up]")
         self.state = self.UP
         self.ssh_pinged = True
@@ -189,7 +193,7 @@ class MachineState(nixops.resources.ResourceState):
         assert False
 
     def get_ssh_flags(self):
-        return []
+        return ["-p", str(self.ssh_port)]
 
     def get_ssh_password(self):
         return None
@@ -212,7 +216,7 @@ class MachineState(nixops.resources.ResourceState):
         """Wait until the SSH port is open on this machine."""
         if self.ssh_pinged and (not check or self._ssh_pinged_this_time): return
         self.log_start("waiting for SSH...")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), 22, callback=lambda: self.log_continue("."))
+        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue("."))
         self.log_end("")
         if self.state != self.RESCUE:
             self.state = self.UP
@@ -363,6 +367,7 @@ import nixops.resources.sqs_queue
 import nixops.resources.s3_bucket
 import nixops.resources.iam_role
 import nixops.resources.ec2_security_group
+import nixops.resources.ec2_placement_group
 import nixops.resources.ebs_volume
 import nixops.resources.elastic_ip
 
@@ -389,6 +394,7 @@ def create_state(depl, type, name, id):
               nixops.resources.iam_role.IAMRoleState,
               nixops.resources.s3_bucket.S3BucketState,
               nixops.resources.ec2_security_group.EC2SecurityGroupState,
+              nixops.resources.ec2_placement_group.EC2PlacementGroupState,
               nixops.resources.ebs_volume.EBSVolumeState,
               nixops.resources.elastic_ip.ElasticIPState
               ]:
