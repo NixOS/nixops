@@ -409,9 +409,8 @@ class VirtualBoxState(MachineState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, VirtualBoxDefinition)
 
+        # ensure the control host-only interface exists and has a DHCP server
         self.ensure_control_hostonly_interface()
-        # debug
-        return False
 
         if self.state != self.UP or check: self.check()
 
