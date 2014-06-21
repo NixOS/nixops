@@ -73,7 +73,7 @@ class VirtualBoxState(MachineState):
         # =================================================================== #
         # VERY IMPORTANT:
         # before you change vbox_control_hostonlyif_name PLEASE read the
-        # warning in _ensure_control_hostonly_interface method
+        # warning in ensure_control_hostonly_interface method
         # =================================================================== #
         self.vbox_control_hostonlyif_name = "vboxnet0"
         self.vbox_control_host_ip4 = "192.168.56.1"
@@ -215,16 +215,19 @@ class VirtualBoxState(MachineState):
 
         .. warning ::
 
-            WARNING! WARNING! DANGER! DANGER!:
-            Only create one interface and the number for it based on the
-            previous number of existing interfaces due to how VirtualBox works
-            limitations. As such the only reason this works is because the
-            self.vbox_control_hostonlyif_name is hard-coded to vboxnet0 which is the
-            interface which will be created due to the fact that VirtualBox
-            creates these interfaces starting from the top and filling in any
-            missing ones (i.e if you have vboxnet1, but not not vboxnet0,
-            vboxnet0 will be created). THis is why we all only create an
-            interface if self.vbox_control_hostonlyif_name is set to 'vboxnet0'
+            WARNING! WARNING! DANGER! DANGER!: Only create one interface since
+            the number for it based on the previous number of existing
+            interfaces due to how VirtualBox works. As such the only reason
+            this works is because the self.vbox_control_hostonlyif_name is
+            hard-coded to vboxnet0 which is the interface which will be created
+            due to the fact that VirtualBox creates these interfaces starting
+            from the top and filling in any missing ones (i.e if you have
+            vboxnet1, but not not vboxnet0, vboxnet0 will be created). This is
+            why we all only create an interface if
+            self.vbox_control_hostonlyif_name is set to 'vboxnet0'
+
+            Eventually, there will be support to pass in the interface using
+            command line.
         '''
 
         hostonlyifs = self._vbox_get_hostonly_interfaces()
@@ -251,7 +254,7 @@ class VirtualBoxState(MachineState):
             if self.vbox_control_hostonlyif_name not in hostonlyifs:
                 # ask user to confirm creation
                 msg = "To control VirtualBox VMs ‘{0}’ Host-Only interface is "\
-                "needed, create one?".format(self.vbox_control_hostonlyif_name)
+                    "needed, create one?".format(self.vbox_control_hostonlyif_name)
                 if self.depl.logger.confirm(msg):
                     # create host-only interface and setup DHCP server for it.
                     self._vbox_create_hostonly_interface()
@@ -275,9 +278,9 @@ class VirtualBoxState(MachineState):
 
                 if action is not None:
                     msg = "To control VirtualBox VMs ‘{0}’ Host-Only interface "\
-                    "needs to have DHCP Server enabled and it settings "\
-                    "configured. This may potentially override your previous "\
-                    "VirtualBox setup. Continue?"\
+                        "needs to have DHCP Server enabled and it settings "\
+                        "configured. This may potentially override your previous "\
+                        "VirtualBox setup. Continue?"\
                     .format(self.vbox_control_hostonlyif_name)
                     if self.depl.logger.confirm(msg):
                         self._vbox_hostonly_interface_setup_dhcpserver(action=action)
