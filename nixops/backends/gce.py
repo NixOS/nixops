@@ -316,7 +316,7 @@ class GCEState(MachineState):
 
         if self.vm_id:
             for k, v in self.block_device_mapping.iteritems():
-                defn_v = defn.block_device_mapping[k]
+                defn_v = defn.block_device_mapping.get(k, None)
                 if defn_v and not v.get('needsAttach', False):
                     if v['bootDisk'] != defn_v['bootDisk']:
                         if allow_reboot:
