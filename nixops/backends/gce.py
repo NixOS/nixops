@@ -269,8 +269,6 @@ class GCEState(MachineState):
             else:
                 raise Exception("cannot change the network of a running instance, unless reboots are allowed")
 
-        #TODO: check if ro or bootdisk bool has changed
-
         if check:
             for k,v in defn.block_device_mapping.iteritems():
                 disk_name = v['disk_name'] or v['disk']
@@ -316,6 +314,21 @@ class GCEState(MachineState):
             v['needsAttach'] = True
             self.update_block_device_mapping(k, v)
 
+        if self.vm_id:
+            for k, v in self.block_device_mapping.iteritems():
+                defn_v = defn.block_device_mapping[k]
+                if defn_v and not v.get('needsAttach', False):
+                    if v['bootDisk'] != defn_v['bootDisk']:
+                        if allow_reboot:
+                            recreate = True
+                        else:
+                            raise Exception("cannot change the boot disk of a running instance, unless reboots are allowed")
+                    if v['readOnly'] != defn_v['readOnly']:
+                        if allow_reboot:
+                            recreate = True
+                        else:
+                            raise Exception("cannot remount a disk as ro/rw attached to a running instance, unless reboots are allowed")
+
         if recreate:
             self.log("Need to recreate the instance for the changes to take effect. Deleting...")
             self.node().destroy()
@@ -348,11 +361,14 @@ class GCEState(MachineState):
 
         # Attach missing volumes
         for k, v in self.block_device_mapping.items():
-            if v.get('needsAttach', False) and not v.get('bootDisk', False):
+            if v.get('needsAttach', False):
                 disk_name = v['disk_name'] or v['disk']
                 disk_region = v.get('region', None)
+                v['readOnly'] = defn.block_device_mapping[k]['readOnly']
+                v['bootDisk'] = defn.block_device_mapping[k]['bootDisk']
                 self.log("attaching GCE disk ‘{0}’...".format(disk_name))
-                self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_name, disk_region), 
+                if not v.get('bootDisk', False):
+                    self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_name, disk_region), 
                                    device = disk_name,
                                    ex_mode = ('READ_ONLY' if v['readOnly'] else 'READ_WRITE'))
                 del v['needsAttach']
