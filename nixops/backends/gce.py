@@ -225,7 +225,8 @@ class GCEState(MachineState):
                     # check that all disks are attached
                     for k, v in self.block_device_mapping.iteritems():
                         disk_name = v['disk_name'] or v['disk']
-                        if all(d.get("deviceName", None) != disk_name for d in node.extra['disks']):
+                        if( all(d.get("deviceName", None) != disk_name for d in node.extra['disks']) and
+                              not v.get('needsAttach', False) ):
                             self.warn("Disk {0} seems to have been detached behind our back. Will reattach...".format(disk_name))
                             v['needsAttach'] = True
                             self.update_block_device_mapping(k, v)
@@ -360,11 +361,12 @@ class GCEState(MachineState):
 
         # Attach missing volumes
         for k, v in self.block_device_mapping.items():
-            if v.get('needsAttach', False):
+            defn_v = defn.block_device_mapping.get(k, None)
+            if v.get('needsAttach', False) and defn_v:
                 disk_name = v['disk_name'] or v['disk']
                 disk_region = v.get('region', None)
-                v['readOnly'] = defn.block_device_mapping[k]['readOnly']
-                v['bootDisk'] = defn.block_device_mapping[k]['bootDisk']
+                v['readOnly'] = defn_v['readOnly']
+                v['bootDisk'] = defn_v['bootDisk']
                 self.log("attaching GCE disk ‘{0}’...".format(disk_name))
                 if not v.get('bootDisk', False):
                     self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_name, disk_region), 
@@ -485,11 +487,13 @@ class GCEState(MachineState):
 
                 node = self.node()
                 try:
-                    self.log("detaching GCE disk ‘{0}’...".format(disk_name))
-                    volume = self.connect().ex_get_volume(disk_name, v.get('region', None) )
-                    self.connect().detach_volume(volume, node)
-                    v['needsAttach'] = True
-                    self.update_block_device_mapping(k, v)
+                    if not v.get('needsAttach', False):
+                        self.log("detaching GCE disk ‘{0}’...".format(disk_name))
+                        volume = self.connect().ex_get_volume(disk_name, v.get('region', None) )
+                        self.connect().detach_volume(volume, node)
+                        v['needsAttach'] = True
+                        self.update_block_device_mapping(k, v)
+
                     if v.get('deleteOnTermination', False):
                         self._delete_volume(disk_name, v['region'])
                 except libcloud.common.google.ResourceNotFoundError:
