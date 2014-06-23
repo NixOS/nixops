@@ -117,6 +117,8 @@ class GCEState(MachineState):
 
     block_device_mapping = attr_property("gce.blockDeviceMapping", {}, 'json')
 
+    backups = nixops.util.attr_property("gce.backups", {}, 'json')
+
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
         self._conn = None
@@ -358,6 +360,9 @@ class GCEState(MachineState):
             self.network = defn.network
             known_hosts.remove(self.public_ipv4)
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
+            for k,v in self.block_device_mapping.iteritems():
+                v['needsAttach'] = True
+                self.update_block_device_mapping(k, v)
 
         # Attach missing volumes
         for k, v in self.block_device_mapping.items():
@@ -415,6 +420,10 @@ class GCEState(MachineState):
 
 
     def start(self):
+        if not self.vm_id:
+            self.warn("You can start this machine by (re)creating it with deploy.")
+            return
+
         node = self.node()
 
         if node.state == NodeState.TERMINATED:
@@ -427,19 +436,29 @@ class GCEState(MachineState):
 
 
     def stop(self):
+        if not self.vm_id: return
+
         self.warn("GCE machines can't be started easily after being stopped. Consider rebooting instead.")
 
-        self.log_start("stopping GCE machine... ")
-        self.run_command("poweroff", check=False)
-        self.state = self.STOPPING
+        try:
+            node = self.node()
+        except libcloud.common.google.ResourceNotFoundError:
+            self.warn("seems to have been destroyed already")
+            self._node_deleted()
+            return
 
-        def check_stopped():
-            self.log_continue(".")
-            return self.node().state == NodeState.TERMINATED
-        if nixops.util.check_wait(check_stopped, initial=3, max_tries=100, exception=False): # = 5 min
-            self.log_end("done")
-        else:
-            self.log_end("(timed out)")
+        if node.state != NodeState.TERMINATED:
+            self.log_start("stopping GCE machine... ")
+            self.run_command("poweroff", check=False)
+            self.state = self.STOPPING
+
+            def check_stopped():
+                self.log_continue(".")
+                return self.node().state == NodeState.TERMINATED
+            if nixops.util.check_wait(check_stopped, initial=3, max_tries=100, exception=False): # = 5 min
+                self.log_end("done")
+            else:
+                self.log_end("(timed out)")
 
         self.state = self.STOPPED
         self.ssh_master = None
@@ -547,6 +566,105 @@ class GCEState(MachineState):
                 isinstance(r, nixops.resources.gce_static_ip.GCEStaticIPState) or
                 isinstance(r, nixops.resources.gce_disk.GCEDiskState) or
                 isinstance(r, nixops.resources.gce_network.GCENetworkState)}
+
+
+    def backup(self, defn, backup_id):
+        self.log("backing up machine ‘{0}’ using id ‘{1}’".format(self.name, backup_id))
+
+        if sorted(defn.block_device_mapping.keys()) != sorted(self.block_device_mapping.keys()):
+            self.warn("The list of disks currently deployed doesn't match the current deployment"
+                     " specification. Consider running deploy. The backup may be incomplete.")
+
+        backup = {}
+        _backups = self.backups
+        for k, v in self.block_device_mapping.iteritems():
+            disk_name = v['disk_name'] or v['disk']
+            volume = self.connect().ex_get_volume(disk_name, v.get('region', None))
+            snapshot_name = "backup-{0}-{1}".format(backup_id, disk_name[-32:])
+            self.log_start("creating snapshot of disk ‘{0}’: ‘{1}’".format(disk_name, snapshot_name))
+            snapshot = self.connect().create_volume_snapshot(volume, snapshot_name)
+            self.log_end('done.')
+
+            backup[disk_name] = snapshot.name
+            _backups[backup_id] = backup
+            self.backups = _backups
+
+    def restore(self, defn, backup_id, devices=[]):
+        self.log("restoring machine ‘{0}’ to backup ‘{1}’".format(self.name, backup_id))
+
+        self.stop()
+
+        # need to destroy the machine to get at the root disk
+        if self.vm_id:
+            try:
+                self.log("Tearing down the machine. You will need to run deploy --allow-reboot to start it.")
+                self.node().destroy()
+            except libcloud.common.google.ResourceNotFoundError:
+                self.warn("The machine seems to have been destroyed already")
+            self._node_deleted()
+
+        for k, v in self.block_device_mapping.items():
+            disk_name = v['disk_name'] or v['disk']
+            s_id = self.backups[backup_id].get(disk_name, None)
+            if s_id and (devices == [] or k in devices or disk_name in devices):
+                try:
+                    snapshot = self.connect().ex_get_snapshot(s_id)
+                except libcloud.common.google.ResourceNotFoundError:
+                    self.warn("Snapsnot {0} for disk {1} is missing. Skipping".format(s_id, disk_name))
+                    continue
+
+                try:
+                    self.log("destroying disk {0}".format(disk_name))
+                    self.connect().ex_get_volume(disk_name, v.get('region', None)).destroy()
+                except libcloud.common.google.ResourceNotFoundError:
+                    self.warn("disk {0} seems to have been destroyed already".format(disk_name))
+
+                self.log("creating disk {0} from snapshot ‘{1}’".format(disk_name, s_id))
+                self.connect().create_volume(None, disk_name, v.get('region', None),
+                                             snapshot = snapshot, use_existing= False)
+
+    def remove_backup(self, backup_id):
+        self.log('removing backup {0}'.format(backup_id))
+        _backups = self.backups
+        if not backup_id in _backups.keys():
+            self.warn('backup {0} not found, skipping'.format(backup_id))
+        else:
+            for d_name, snapshot_id in _backups[backup_id].iteritems():
+                try:
+                    self.log('removing snapshot {0}'.format(snapshot_id))
+                    self.connect().ex_get_snapshot(snapshot_id).destroy()
+                except libcloud.common.google.ResourceNotFoundError:
+                    self.warn('snapshot {0} not found, skipping'.format(snapshot_id))
+
+            _backups.pop(backup_id)
+            self.backups = _backups
+
+    def get_backups(self):
+        self.connect()
+        backups = {}
+        for b_id, snapshots in self.backups.iteritems():
+            backups[b_id] = {}
+            backup_status = "complete"
+            info = []
+            for k, v in self.block_device_mapping.items():
+                disk_name = v['disk_name'] or v['disk']
+                if not disk_name in snapshots.keys():
+                    backup_status = "incomplete"
+                    info.append("{0} - {1} - Not available in backup".format(self.name, disk_name))
+                else:
+                    snapshot_id = snapshots[disk_name]
+                    try:
+                        snapshot = self.connect().ex_get_snapshot(snapshot_id)
+                    except libcloud.common.google.ResourceNotFoundError:
+                        info.append("{0} - {1} - {2} - Snapshot has disappeared".format(self.name, disk_name, snapshot_id))
+                        backup_status = "unavailable"
+            for d_name, s_id in snapshots.iteritems():
+                if not any(d_name == v['disk_name'] or d_name == v['disk'] for k,v in self.block_device_mapping.iteritems()):
+                    info.append("{0} - {1} - {2} - A snapshot of a disk that is not or no longer deployed".format(self.name, d_name, s_id))
+            backups[b_id]['status'] = backup_status
+            backups[b_id]['info'] = info
+        return backups
+
 
     def get_ssh_name(self):
         if not self.public_ipv4:
