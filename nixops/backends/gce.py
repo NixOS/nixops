@@ -338,7 +338,7 @@ class GCEState(MachineState):
             self.log_start("creating machine...")
             boot_disk = next(v for k,v in self.block_device_mapping.iteritems() if v.get('bootDisk', False))
             try:
-                node = self.connect().create_node(self.name, defn.instance_type, 'nixos-14-04pre-d215564-x86-64-linux',
+                node = self.connect().create_node(self.name, defn.instance_type, 'none',
                                  location = self.connect().ex_get_zone(defn.region),
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk['region']),
                                  ex_metadata = self.gen_metadata(defn.metadata), ex_tags = defn.tags,
