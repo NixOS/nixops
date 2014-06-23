@@ -315,17 +315,27 @@ in
     };
 
     fileSystems = mkOption {
-      options = {
-        gce = mkOption {
-          default = null;
-          type = types.uniq (types.nullOr types.optionSet);
-          options = gceDiskOptions;
-          description = ''
-            GCE disk to be attached to this mount point.  This is
-            shorthand for defining a separate
-            <option>deployment.gce.blockDeviceMapping</option>
-            attribute.
-          '';
+      options = { config, ... }: {
+        options = {
+          gce = mkOption {
+            default = null;
+            type = types.uniq (types.nullOr types.optionSet);
+            options = gceDiskOptions;
+            description = ''
+              GCE disk to be attached to this mount point.  This is
+              shorthand for defining a separate
+              <option>deployment.gce.blockDeviceMapping</option>
+              attribute.
+            '';
+          };
+        };
+        config = mkIf(config.gce != null) {
+          device = mkDefault "/dev/disk/by-id/scsi-0Google_PersistentDisk_${
+            if config.gce.disk != null
+              then config.gce.disk.name or config.gce.disk
+              else config.gce.disk_name
+
+          }";
         };
       };
     };
@@ -337,16 +347,7 @@ in
   config = mkIf (config.deployment.targetEnv == "gce") {
     nixpkgs.system = mkOverride 900 "x86_64-linux";
 
-    fileSystems."/" = {
-        #device = "/dev/sda";
-  #      device = "/dev/disk/by-id/scsi-0Google_PersistentDisk_machine-root";
-        label = "nixos";
-  
-      };
-
-#    fileSystems =  (listToAttrs
-#      (map (fs: nameValuePair fs.mountPoint {device = fs.gce.disk_name; } )
-#       (filter (fs: fs.gce != null) (attrValues config.fileSystems))) );
+    fileSystems."/".label = "nixos";
 
     deployment.gce.blockDeviceMapping =  {
       # FIXME: using deployment.targetHost to get at machineName
@@ -359,8 +360,8 @@ in
     } // (listToAttrs
       (map (fs: nameValuePair fs.device
         { inherit (fs.gce) disk disk_name size snapshot image
-                           readOnly bootDisk deleteOnTermination encrypt passphrase;
-#          fsType = if fs.fsType != "auto" then fs.fsType else fs.gce.fsType;
+                           readOnly bootDisk deleteOnTermination encrypt cipher keySize passphrase;
+          fsType = if fs.fsType != "auto" then fs.fsType else fs.gce.fsType;
         })
        (filter (fs: fs.gce != null) (attrValues config.fileSystems))));
 
