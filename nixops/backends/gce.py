@@ -70,7 +70,6 @@ class GCEDefinition(MachineDefinition):
                     'snapshot': opt_str(xml, 'snapshot'),
                     'image': opt_str(xml, 'image'),
                     'size': opt_int(xml, 'size'),
-                    #'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value"),
                     'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true",
                     'readOnly': xml.find("attrs/attr[@name='readOnly']/bool").get("value") == "true",
                     'bootDisk': xml.find("attrs/attr[@name='bootDisk']/bool").get("value") == "true",
@@ -476,11 +475,11 @@ class GCEState(MachineState):
             if k not in defn.block_device_mapping:
                 disk_name = v['disk'] or v['disk_name']
 
-                self.log("detaching device ‘{0}’...".format(k))
+                self.log("Unmounting device ‘{0}’...".format(disk_name))
                 if v.get('encrypt', False):
-                    dm = k.replace("/dev/disk/by-id/", "/dev/mapper/")
+                    dm = "/dev/mapper/{0}".format(disk_name)
                     self.run_command("umount -l {0}".format(dm), check=False)
-                    self.run_command("cryptsetup luksClose {0}".format(k.replace("/dev/disk/by-id/", "")), check=False)
+                    self.run_command("cryptsetup luksClose {0}".format(dm), check=False)
                 else:
                     self.run_command("umount -l {0}".format(k), check=False)
 

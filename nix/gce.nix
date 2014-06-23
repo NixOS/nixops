@@ -6,6 +6,13 @@ with pkgs.lib;
 
 let
 
+  gce_dev_prefix = "/dev/disk/by-id/scsi-0Google_PersistentDisk_";
+
+  get_disk_name = cfg:
+    if cfg.disk != null
+      then cfg.disk.name or cfg.disk
+      else cfg.disk_name;
+
   resource = type: mkOptionType {
     name = "resource of type ‘${type}’";
     check = x: x._type or "" == type;
@@ -330,11 +337,10 @@ in
           };
         };
         config = mkIf(config.gce != null) {
-          device = mkDefault "/dev/disk/by-id/scsi-0Google_PersistentDisk_${
-            if config.gce.disk != null
-              then config.gce.disk.name or config.gce.disk
-              else config.gce.disk_name
-
+          device = mkDefault "${
+              if config.gce.encrypt then "/dev/mapper/" else gce_dev_prefix
+            }${
+              get_disk_name config.gce
           }";
         };
       };
@@ -358,12 +364,20 @@ in
           disk_name = "${config.deployment.targetHost}-root";
       };
     } // (listToAttrs
-      (map (fs: nameValuePair fs.device
+      (map (fs: nameValuePair "${gce_dev_prefix}${get_disk_name fs.gce}"
         { inherit (fs.gce) disk disk_name size snapshot image
                            readOnly bootDisk deleteOnTermination encrypt cipher keySize passphrase;
-          fsType = if fs.fsType != "auto" then fs.fsType else fs.gce.fsType;
         })
        (filter (fs: fs.gce != null) (attrValues config.fileSystems))));
+
+    deployment.autoLuks =
+      let
+        f = name: dev: nameValuePair (get_disk_name dev)
+          { device = name;
+            autoFormat = true;
+            inherit (dev) cipher keySize passphrase;
+          };
+      in mapAttrs' f (filterAttrs (name: dev: dev.encrypt) config.deployment.gce.blockDeviceMapping);
 
     boot.kernelParams = [ "console=ttyS0" "panic=1" "boot.panic_on_fail" ];
     boot.initrd.kernelModules = [ "virtio_scsi" "virtio_balloon" "virtio_console" "virtio_rng" ];
