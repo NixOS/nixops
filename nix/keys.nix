@@ -33,8 +33,8 @@ let
     };
 
     options.permissions = mkOption {
-      default = "0640";
-      example = "0600";
+      default = "0600";
+      example = "0640";
       type = types.str;
       description = ''
         The default permissions to set for the key file, needs to be in the
@@ -82,12 +82,7 @@ in
                 + " deprecated, please use `deployment.keys.${k}.text ="
                 + " \"<value>\"` instead of `deployment.keys.${k} ="
                 + " \"<value>\"`.";
-      in if isString v then builtins.trace warning {
-        text = v;
-        user = "root";
-        group = "root";
-        permissions = "0600";
-      } else v);
+      in if isString v then builtins.trace warning { text = v; } else v);
 
       description = ''
         The set of keys to be deployed to the machine.  Each attribute
