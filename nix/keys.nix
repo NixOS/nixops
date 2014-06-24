@@ -4,7 +4,7 @@ with pkgs.lib;
 
 let
   keyOptionsType = types.submodule {
-    text = mkOption {
+    options.text = mkOption {
       example = "super secret stuff";
       type = types.str;
       description = ''
@@ -16,7 +16,7 @@ let
       '';
     };
 
-    user = mkOption {
+    options.user = mkOption {
       default = "root";
       type = types.str;
       description = ''
@@ -24,7 +24,7 @@ let
       '';
     };
 
-    group = mkOption {
+    options.group = mkOption {
       default = "root";
       type = types.str;
       description = ''
@@ -32,7 +32,7 @@ let
       '';
     };
 
-    permissions = mkOption {
+    options.permissions = mkOption {
       default = "0640";
       example = "0600";
       type = types.str;
@@ -47,6 +47,7 @@ let
   keyType = mkOptionType {
     name = "string or key options";
     check = v: isString v || keyOptionsType.check v;
+    inherit (keyOptionsType) merge getSubOptions;
   };
 
 in
