@@ -62,7 +62,7 @@ in
       default = false;
       type = types.bool;
       description = ''
-        If true (default), secret information such as LUKS encryption
+        If true, secret information such as LUKS encryption
         keys or SSL private keys is stored on the root disk of the
         machine, allowing the machine to do unattended reboots.  If
         false, secrets are not stored; NixOps supplies them to the
