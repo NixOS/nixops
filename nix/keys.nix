@@ -34,7 +34,8 @@ with pkgs.lib;
         Thus, <literal>{ password = "foobar"; }</literal> causes a
         file <filename>/run/keys/password</filename> to be created
         with contents <literal>foobar</literal>.  The directory
-        <filename>/run/keys</filename> is only accessible to root.
+        <filename>/run/keys</filename> is only accessible to root and
+        the <literal>keys</literal> group.
       '';
     };
 
@@ -47,7 +48,8 @@ with pkgs.lib;
 
     system.activationScripts.nixops-keys =
       ''
-        mkdir -p /run/keys -m 0700
+        mkdir -p /run/keys -m 0750
+        chown root:keys /run/keys
 
         ${optionalString config.deployment.storeKeysOnMachine
             (concatStrings (mapAttrsToList (name: value:
