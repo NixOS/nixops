@@ -8,10 +8,9 @@ from libcloud.compute.types import Provider
 from libcloud.compute.providers import get_driver
 
 from nixops.util import attr_property
-import nixops.resources
+from nixops.gce_common import ResourceDefinition, ResourceState, optional_string, optional_int
 
-
-class GCEDiskDefinition(nixops.resources.ResourceDefinition):
+class GCEDiskDefinition(ResourceDefinition):
     """Definition of a GCE Persistent Disk"""
 
     @classmethod
@@ -19,39 +18,25 @@ class GCEDiskDefinition(nixops.resources.ResourceDefinition):
         return "gce-disk"
 
     def __init__(self, xml):
-        nixops.resources.ResourceDefinition.__init__(self, xml)
+        ResourceDefinition.__init__(self, xml)
 
         self.disk_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
 
-        # FIXME: factor this out
-        self.project = xml.find("attrs/attr[@name='project']/string").get("value")
-        self.service_account = xml.find("attrs/attr[@name='serviceAccount']/string").get("value")
-        self.access_key_path = xml.find("attrs/attr[@name='accessKey']/string").get("value")
-
-        sz = xml.find("attrs/attr[@name='size']/int")
-        self.size = ( int(sz.get("value")) if sz is not None else None )
-
-        ss = xml.find("attrs/attr[@name='snapshot']/string")
-        self.snapshot = ( ss.get("value") if ss is not None else None )
-
-        img = xml.find("attrs/attr[@name='image']/string")
-        self.image = ( img.get("value") if img is not None else None )
+        self.size = optional_int(xml.find("attrs/attr[@name='size']/int"))
+        self.snapshot = optional_string(xml.find("attrs/attr[@name='snapshot']/string"))
+        self.image = optional_string(xml.find("attrs/attr[@name='image']/string"))
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
 
 
-class GCEDiskState(nixops.resources.ResourceState):
+class GCEDiskState(ResourceState):
     """State of a GCE Persistent Disk"""
 
     region = attr_property("gce.region", None)
     size = attr_property("gce.size", None, int)
     disk_name = attr_property("gce.disk_name", None)
-
-    project = attr_property("gce.project", None)
-    service_account = attr_property("gce.serviceAccount", None)
-    access_key_path = attr_property("gce.accessKey", None)
 
     @classmethod
     def get_type(cls):
@@ -59,9 +44,7 @@ class GCEDiskState(nixops.resources.ResourceState):
 
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._conn = None
-
+        ResourceState.__init__(self, depl, name, id)
 
     def show_type(self):
         s = super(GCEDiskState, self).show_type()
@@ -73,24 +56,8 @@ class GCEDiskState(nixops.resources.ResourceState):
     def resource_id(self):
         return self.disk_name
 
-
-    def connect(self):
-        if self._conn: return self._conn
-
-        service_account = self.service_account or os.environ.get('GCE_SERVICE_ACCOUNT')
-        if not service_account:
-            raise Exception("please set ‘resources.gceDisks.$NAME.serviceAccount’ or $GCE_SERVICE_ACCOUNT")
-
-        access_key_path = self.access_key_path or os.environ.get('ACCESS_KEY_PATH')
-        if not access_key_path:
-            raise Exception("please set ‘resources.gceDisks.$NAME.accessKey’ or $ACCESS_KEY_PATH")
-
-        project = self.project or os.environ.get('GCE_PROJECT')
-        if not project:
-            raise Exception("please set ‘resources.gceDisks.$NAME.project’ or $GCE_PROJECT")
-
-        self._conn = get_driver(Provider.GCE)(service_account, access_key_path, project = project)
-        return self._conn
+    def nix_name(self):
+        return "gceDisks"
 
     def disk(self):
         return self.connect().ex_get_volume(self.disk_name, self.region)
@@ -106,9 +73,7 @@ class GCEDiskState(nixops.resources.ResourceState):
             if defn.size and self.size != defn.size:
                 raise Exception("Cannot change the size of a deployed GCE disk {0}".format(defn.disk_name))
 
-        self.service_account = defn.service_account
-        self.access_key_path = defn.access_key_path
-        self.project = defn.project
+        self.copy_credentials(defn)
 
         if check:
             try:
@@ -148,11 +113,10 @@ class GCEDiskState(nixops.resources.ResourceState):
                 raise Exception("Tried creating a disk that already exists. Please run ‘deploy --check’ to fix this.")
 
             self.log_end("done.")
-            with self.depl._db:
-                self.state = self.UP
-                self.region = defn.region
-                self.size = volume.size
-                self.disk_name = defn.disk_name
+            self.state = self.UP
+            self.region = defn.region
+            self.size = volume.size
+            self.disk_name = defn.disk_name
 
 
     def destroy(self, wipe=False):

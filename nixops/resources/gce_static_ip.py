@@ -4,14 +4,12 @@
 
 import os
 import libcloud.common.google
-from libcloud.compute.types import Provider
-from libcloud.compute.providers import get_driver
 
 from nixops.util import attr_property
-import nixops.resources
+from nixops.gce_common import ResourceDefinition, ResourceState, optional_string
 
 
-class GCEStaticIPDefinition(nixops.resources.ResourceDefinition):
+class GCEStaticIPDefinition(ResourceDefinition):
     """Definition of a GCE Static IP"""
 
     @classmethod
@@ -19,33 +17,23 @@ class GCEStaticIPDefinition(nixops.resources.ResourceDefinition):
         return "gce-static-ip"
 
     def __init__(self, xml):
-        nixops.resources.ResourceDefinition.__init__(self, xml)
+        ResourceDefinition.__init__(self, xml)
 
         self.addr_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
 
-        addr = xml.find("attrs/attr[@name='ipAddress']/string")
-        self.ipAddress = ( addr.get("value") if addr is not None else None )
-
-        # FIXME: factor this out
-        self.project = xml.find("attrs/attr[@name='project']/string").get("value")
-        self.service_account = xml.find("attrs/attr[@name='serviceAccount']/string").get("value")
-        self.access_key_path = xml.find("attrs/attr[@name='accessKey']/string").get("value")
+        self.ipAddress = optional_string(xml.find("attrs/attr[@name='ipAddress']/string"))
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
 
 
-class GCEStaticIPState(nixops.resources.ResourceState):
+class GCEStaticIPState(ResourceState):
     """State of a GCE Static IP"""
 
     region = attr_property("gce.region", None)
     addr_name = attr_property("gce.name", None)
     ipAddress = attr_property("gce.ipAddress", None)
-
-    project = attr_property("gce.project", None)
-    service_account = attr_property("gce.serviceAccount", None)
-    access_key_path = attr_property("gce.accessKey", None)
 
     @classmethod
     def get_type(cls):
@@ -53,8 +41,7 @@ class GCEStaticIPState(nixops.resources.ResourceState):
 
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._conn = None
+        ResourceState.__init__(self, depl, name, id)
 
     def show_type(self):
         s = super(GCEStaticIPState, self).show_type()
@@ -66,24 +53,8 @@ class GCEStaticIPState(nixops.resources.ResourceState):
     def resource_id(self):
         return self.addr_name
 
-
-    def connect(self):
-        if self._conn: return self._conn
-
-        service_account = self.service_account or os.environ.get('GCE_SERVICE_ACCOUNT')
-        if not service_account:
-            raise Exception("please set ‘resources.gceStaticIPs.$NAME.serviceAccount’ or $GCE_SERVICE_ACCOUNT")
-
-        access_key_path = self.access_key_path or os.environ.get('ACCESS_KEY_PATH')
-        if not access_key_path:
-            raise Exception("please set ‘resources.gceStaticIPs.$NAME.accessKey’ or $ACCESS_KEY_PATH")
-
-        project = self.project or os.environ.get('GCE_PROJECT')
-        if not project:
-            raise Exception("please set ‘resources.gceStaticIPs.$NAME.project’ or $GCE_PROJECT")
-
-        self._conn = get_driver(Provider.GCE)(service_account, access_key_path, project = project)
-        return self._conn
+    def nix_name(self):
+        return "gceStaticIPs"
 
     def address(self):
         return self.connect().ex_get_address(self.addr_name, region=self.region)
@@ -99,9 +70,7 @@ class GCEStaticIPState(nixops.resources.ResourceState):
             if defn.ipAddress and self.ipAddress != defn.ipAddress:
                 self.warn("cannot change address of a deployed GCE static IP")
 
-        self.project = defn.project
-        self.service_account = defn.service_account
-        self.access_key_path = defn.access_key_path
+        self.copy_credentials(defn)
         self.addr_name = defn.addr_name
 
         if check:

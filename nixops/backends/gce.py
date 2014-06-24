@@ -11,6 +11,7 @@ from nixops.util import attr_property, create_key_pair
 
 from nixops.backends import MachineDefinition, MachineState
 
+from nixops.gce_common import optional_string, optional_int
 import nixops.resources.gce_static_ip
 import nixops.resources.gce_disk
 import nixops.resources.gce_network
@@ -44,28 +45,24 @@ class GCEDefinition(MachineDefinition):
         self.tags = [e.get("value") for e in x.findall("attr[@name='tags']/list/string")]
         self.metadata = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='metadata']/attrs/attr")}
 
-        def optional_str(elem):
-            return (elem.get("value") if elem is not None else None)
 
-        self.automatic_restart = optional_str(x.find("attr[@name='scheduling']/attrs/attr[@name='automaticRestart']/bool"))
-        self.on_host_maintenance = optional_str(x.find("attr[@name='scheduling']/attrs/attr[@name='onHostMaintenance']/string"))
+        self.automatic_restart = optional_string(x.find("attr[@name='scheduling']/attrs/attr[@name='automaticRestart']/bool"))
+        self.on_host_maintenance = optional_string(x.find("attr[@name='scheduling']/attrs/attr[@name='onHostMaintenance']/string"))
 
-        self.ipAddress = ( optional_str(x.find("attr[@name='ipAddress']/attrs/attr[@name='name']/string")) or
-                           optional_str(x.find("attr[@name='ipAddress']/string")) )
+        self.ipAddress = ( optional_string(x.find("attr[@name='ipAddress']/attrs/attr[@name='name']/string")) or
+                           optional_string(x.find("attr[@name='ipAddress']/string")) )
 
-        self.network = ( optional_str(x.find("attr[@name='network']/attrs/attr[@name='name']/string")) or
-                         optional_str(x.find("attr[@name='network']/string")) )
+        self.network = ( optional_string(x.find("attr[@name='network']/attrs/attr[@name='name']/string")) or
+                         optional_string(x.find("attr[@name='network']/string")) )
 
         def opt_str(xml, name):
-          elem = xml.find("attrs/attr[@name='%s']/string" % name)
-          return(elem.get("value") if elem is not None else None)
+            return optional_string(xml.find("attrs/attr[@name='%s']/string" % name))
         def opt_int(xml, name):
-          elem = xml.find("attrs/attr[@name='%s']/int" % name)
-          return(int(elem.get("value")) if elem is not None else None)
+            return optional_int(xml.find("attrs/attr[@name='%s']/int" % name))
 
         def f(xml):
-            return {'disk': ( optional_str(xml.find("attrs/attr[@name='disk']/attrs/attr[@name='name']/string")) or
-                              optional_str(xml.find("attrs/attr[@name='disk']/string")) ),
+            return {'disk': ( optional_string(xml.find("attrs/attr[@name='disk']/attrs/attr[@name='name']/string")) or
+                              optional_string(xml.find("attrs/attr[@name='disk']/string")) ),
                     'disk_name': opt_str(xml, 'disk_name'),
                     'snapshot': opt_str(xml, 'snapshot'),
                     'image': opt_str(xml, 'image'),

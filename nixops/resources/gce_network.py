@@ -8,10 +8,10 @@ from libcloud.compute.types import Provider
 from libcloud.compute.providers import get_driver
 
 from nixops.util import attr_property
-import nixops.resources
+from nixops.gce_common import ResourceDefinition, ResourceState
 
 
-class GCENetworkDefinition(nixops.resources.ResourceDefinition):
+class GCENetworkDefinition(ResourceDefinition):
     """Definition of a GCE Network"""
 
     @classmethod
@@ -19,16 +19,10 @@ class GCENetworkDefinition(nixops.resources.ResourceDefinition):
         return "gce-network"
 
     def __init__(self, xml):
-        nixops.resources.ResourceDefinition.__init__(self, xml)
+        ResourceDefinition.__init__(self, xml)
 
         self.network_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.addressRange = xml.find("attrs/attr[@name='addressRange']/string").get("value")
-
-        # FIXME: factor this out
-        self.project = xml.find("attrs/attr[@name='project']/string").get("value")
-        self.service_account = xml.find("attrs/attr[@name='serviceAccount']/string").get("value")
-        self.access_key_path = xml.find("attrs/attr[@name='accessKey']/string").get("value")
-
 
         def parse_allowed(x):
           if x.find("list") is not None:
@@ -53,17 +47,13 @@ class GCENetworkDefinition(nixops.resources.ResourceDefinition):
         return "{0} [{1}]".format(self.get_type(), self.addressRange)
 
 
-class GCENetworkState(nixops.resources.ResourceState):
+class GCENetworkState(ResourceState):
     """State of a GCE Network"""
 
     addressRange = attr_property("gce.addressRange", None)
     network_name = attr_property("gce.network_name", None)
 
     firewall = attr_property("gce.firewall", {}, 'json')
-
-    project = attr_property("gce.project", None)
-    service_account = attr_property("gce.serviceAccount", None)
-    access_key_path = attr_property("gce.accessKey", None)
 
 
     @classmethod
@@ -72,8 +62,7 @@ class GCENetworkState(nixops.resources.ResourceState):
 
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._conn = None
+        ResourceState.__init__(self, depl, name, id)
 
 
     def show_type(self):
@@ -87,23 +76,8 @@ class GCENetworkState(nixops.resources.ResourceState):
         return self.network_name
 
 
-    def connect(self):
-        if self._conn: return self._conn
-
-        service_account = self.service_account or os.environ.get('GCE_SERVICE_ACCOUNT')
-        if not service_account:
-            raise Exception("please set ‘resources.gceNetworks.$NAME.serviceAccount’ or $GCE_SERVICE_ACCOUNT")
-
-        access_key_path = self.access_key_path or os.environ.get('ACCESS_KEY_PATH')
-        if not access_key_path:
-            raise Exception("please set ‘resources.gceNetworks.$NAME.accessKey’ or $ACCESS_KEY_PATH")
-
-        project = self.project or os.environ.get('GCE_PROJECT')
-        if not project:
-            raise Exception("please set ‘resources.gceNetworks.$NAME.project’ or $GCE_PROJECT")
-
-        self._conn = get_driver(Provider.GCE)(service_account, access_key_path, project = project)
-        return self._conn
+    def nix_name(self):
+        return "gceNetworks"
 
     def network(self):
         return self.connect().ex_get_network(self.network_name)
@@ -122,6 +96,8 @@ class GCENetworkState(nixops.resources.ResourceState):
                 raise Exception("cannot change the project of a deployed GCE Network ‘{0}’".format(self.network_name))
             if self.addressRange != defn.addressRange:
                 raise Exception("cannot change the address range of a deployed GCE Network ‘{0}’".format(self.network_name))
+
+        self.copy_credentials(defn)
 
         if check:
             try:
@@ -145,10 +121,6 @@ class GCENetworkState(nixops.resources.ResourceState):
                     self.state = self.MISSING
 
         if self.state != self.UP:
-            self.project = defn.project
-            self.service_account = defn.service_account
-            self.access_key_path = defn.access_key_path
-
             self.log_start("Creating GCE Network ‘{0}’...".format(defn.network_name))
             try:
                 address = self.connect().ex_create_network(defn.network_name, defn.addressRange)
