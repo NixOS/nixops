@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import re
 
 from nixops.util import attr_property
 import nixops.resources
@@ -22,8 +23,12 @@ class ResourceDefinition(nixops.resources.ResourceDefinition):
         nixops.resources.ResourceDefinition.__init__(self, xml)
 
         res_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        if len(res_name)>63:
-            raise Exception("Resource name must be 1-63 characters long")
+        if len(res_name)>63 or re.match('[a-z]([-a-z0-9]{0,61}[a-z0-9])?$', res_name) is None:
+            raise Exception("Resource name ‘{0}‘ must be 1-63 characters long and "
+              "match the regular expression [a-z]([-a-z0-9]*[a-z0-9])? which "
+              "means the first character must be a lowercase letter, and all "
+              "following characters must be a dash, lowercase letter, or digit, "
+              "except the last character, which cannot be a dash.".format(res_name))
 
         self.project = xml.find("attrs/attr[@name='project']/string").get("value")
         self.service_account = xml.find("attrs/attr[@name='serviceAccount']/string").get("value")
