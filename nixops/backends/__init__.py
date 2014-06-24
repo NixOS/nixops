@@ -187,13 +187,19 @@ class MachineState(nixops.resources.ResourceState):
         self.run_command("mkdir -m 0750 -p /run/keys"
                          " && chown root:keys /run/keys")
         for k, opts in self.get_keys().items():
-            v = opts['text']
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
-            f = open(tmp, "w+"); f.write(v); f.close()
-            self.run_command("rm -f /run/keys/" + k)
-            self.upload_file(tmp, "/run/keys/" + k)
-            self.run_command("chmod 600 /run/keys/" + k)
+            f = open(tmp, "w+"); f.write(opts['text']); f.close()
+            outfile = "/run/keys/" + k
+            outfile_esc = "'" + outfile.replace("'", r"'\''") + "'"
+            self.run_command("rm -f " + outfile_esc)
+            self.upload_file(tmp, outfile)
+            chmod = "chmod '{0}' " + outfile_esc
+            chown = "chown '{0}:{1}' " + outfile_esc
+            self.run_command(' && '.join([
+                chown.format(opts['user'], opts['group']),
+                chmod.format(opts['permissions'])
+            ]))
             os.remove(tmp)
         self.run_command("touch /run/keys/done")
 
