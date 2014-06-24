@@ -2,6 +2,55 @@
 
 with pkgs.lib;
 
+let
+  keyOptionsType = types.submodule {
+    text = mkOption {
+      example = "super secret stuff";
+      type = types.str;
+      description = ''
+        The text the key should contain. So if the key name is
+        <replaceable>password</replaceable> and <literal>foobar</literal>
+        is set here, the contents of the file
+        <filename>/run/keys/<replaceable>password</replaceable></filename>
+        will be <literal>foobar</literal>.
+      '';
+    };
+
+    user = mkOption {
+      default = "root";
+      type = types.str;
+      description = ''
+        The user which will be the owner of the key file.
+      '';
+    };
+
+    group = mkOption {
+      default = "root";
+      type = types.str;
+      description = ''
+        The group that will be set for the key file.
+      '';
+    };
+
+    permissions = mkOption {
+      default = "0640";
+      example = "0600";
+      type = types.str;
+      description = ''
+        The default permissions to set for the key file, needs to be in the
+        format accepted by <citerefentry><refentrytitle>chmod</refentrytitle>
+        <manvolnum>1</manvolnum></citerefentry>.
+      '';
+    };
+  };
+
+  keyType = mkOptionType {
+    name = "string or key options";
+    check = v: isString v || keyOptionsType.check v;
+  };
+
+in
+
 {
 
   ###### interface
@@ -24,18 +73,31 @@ with pkgs.lib;
 
     deployment.keys = mkOption {
       default = {};
-      example = { password = "foobar"; };
-      type = types.attrsOf types.str;
+      example = { password.text = "foobar"; };
+      type = types.attrsOf keyType;
+
+      apply = mapAttrs (k: v: let
+        warning = "Using plain strings for `deployment.keys' is"
+                + " deprecated, please use `deployment.keys.${k}.text ="
+                + " \"<value>\"` instead of `deployment.keys.${k} ="
+                + " \"<value>\"`.";
+      in if isString v then builtins.trace warning {
+        text = v;
+        user = "root";
+        group = "root";
+        permissions = "0600";
+      } else v);
+
       description = ''
         The set of keys to be deployed to the machine.  Each attribute
-        maps a key name to a key string.  On the machine, the key can
-        be accessed as
-        <filename>/run/keys/<replaceable>name></replaceable></filename>.
-        Thus, <literal>{ password = "foobar"; }</literal> causes a
+        maps a key name to a file that can be accessed as
+        <filename>/run/keys/<replaceable>name</replaceable></filename>.
+        Thus, <literal>{ password.text = "foobar"; }</literal> causes a
         file <filename>/run/keys/password</filename> to be created
         with contents <literal>foobar</literal>.  The directory
         <filename>/run/keys</filename> is only accessible to root and
-        the <literal>keys</literal> group.
+        the <literal>keys</literal> group.  So keep in mind to add any
+        users that need to have access to a particular key to this group.
       '';
     };
 
