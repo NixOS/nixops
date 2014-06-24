@@ -62,13 +62,13 @@ class GCEStaticIPState(ResourceState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         if self.state == self.UP:
             if self.project != defn.project:
-                self.warn("cannot change the project of a deployed GCE static IP")
+                raise Exception("cannot change the project of a deployed GCE static IP")
 
             if self.region != defn.region:
-                self.warn("cannot change the region of a deployed GCE static IP")
+                raise Exception("cannot change the region of a deployed GCE static IP")
 
             if defn.ipAddress and self.ipAddress != defn.ipAddress:
-                self.warn("cannot change address of a deployed GCE static IP")
+                raise Exception("cannot change address of a deployed GCE static IP")
 
         self.copy_credentials(defn)
         self.addr_name = defn.addr_name
