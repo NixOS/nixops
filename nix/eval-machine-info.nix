@@ -87,6 +87,7 @@ rec {
   resources.gceDisks = evalResources ./gce-disk.nix (zipAttrs resourcesByType.gceDisks or []);
   resources.gceStaticIPs = evalResources ./gce-static-ip.nix (zipAttrs resourcesByType.gceStaticIPs or []);
   resources.gceNetworks = evalResources ./gce-network.nix (zipAttrs resourcesByType.gceNetworks or []);
+  resources.gseBuckets = evalResources ./gse-bucket.nix (zipAttrs resourcesByType.gseBuckets or []);
 
   # Phase 1: evaluate only the deployment attributes.
   info = {

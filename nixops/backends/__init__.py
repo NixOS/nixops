@@ -369,6 +369,7 @@ import nixops.resources.elastic_ip
 import nixops.resources.gce_disk
 import nixops.resources.gce_static_ip
 import nixops.resources.gce_network
+import nixops.resources.gse_bucket
 
 def create_definition(xml):
     """Create a machine definition object from the given XML representation of the machine's attributes."""
@@ -399,7 +400,8 @@ def create_state(depl, type, name, id):
               nixops.resources.elastic_ip.ElasticIPState,
               nixops.resources.gce_disk.GCEDiskState,
               nixops.resources.gce_static_ip.GCEStaticIPState,
-              nixops.resources.gce_network.GCENetworkState
+              nixops.resources.gce_network.GCENetworkState,
+              nixops.resources.gse_bucket.GSEBucketState
               ]:
         if type == i.get_type():
             return i(depl, name, id)
