@@ -58,7 +58,7 @@ rec {
                 environment.checkConfigurationOptions = mkOverride 900 checkConfigurationOptions;
               }
             ];
-          extraArgs = { inherit nodes resources; };
+          extraArgs = { inherit nodes resources uuid; name = machineName; };
         };
       }
     ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "_file" ])));
