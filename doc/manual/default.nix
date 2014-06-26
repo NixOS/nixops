@@ -4,7 +4,7 @@ let
 
   pkgs = import <nixpkgs> {};
 
-  systemModule = pkgs.lib.fixMergeModules [ ../../nix/options.nix ./dummy.nix ] { inherit pkgs; utils = {}; };
+  systemModule = pkgs.lib.fixMergeModules [ ../../nix/options.nix ./dummy.nix ] { inherit pkgs; utils = {}; name = "<name>"; uuid = "<uuid>"; };
 
   optionsXML = builtins.toFile "options.xml" (builtins.unsafeDiscardStringContext
     (builtins.toXML (pkgs.lib.optionAttrSetToDocList systemModule.options)));
