@@ -1,6 +1,6 @@
 # Configuration specific to the Google Compute Engine backend.
 
-{ config, pkgs, ... }:
+{ config, pkgs, name, uuid, ... }:
 
 with pkgs.lib;
 
@@ -11,7 +11,7 @@ let
   get_disk_name = cfg:
     if cfg.disk != null
       then cfg.disk.name or cfg.disk
-      else cfg.disk_name;
+      else "${config.deployment.gce.machineName}-${cfg.disk_name}";
 
   resource = type: mkOptionType {
     name = "resource of type ‘${type}’";
@@ -173,6 +173,13 @@ in
   options = {
 
     deployment.gce = {
+
+      machineName = mkOption {
+        default = "nixops-${uuid}-${name}";
+        example = "custom-machine-name";
+        type = types.str;
+        description = "The GCE Instance <literal>Name</literal>.";
+      };
 
       serviceAccount = mkOption {
         default = "";
@@ -356,12 +363,11 @@ in
     fileSystems."/".label = "nixos";
 
     deployment.gce.blockDeviceMapping =  {
-      # FIXME: using deployment.targetHost to get at machineName
-      "/dev/disk/by-id/scsi-0Google_PersistentDisk_${config.deployment.targetHost}-root" = {
+      "${gce_dev_prefix}${config.deployment.gce.machineName}-root" = {
           image = config.deployment.gce.bootstrapImage;
           size = config.deployment.gce.rootDiskSize;
           bootDisk = true;
-          disk_name = "${config.deployment.targetHost}-root";
+          disk_name = "root";
       };
     } // (listToAttrs
       (map (fs: nameValuePair "${gce_dev_prefix}${get_disk_name fs.gce}"

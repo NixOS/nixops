@@ -20,8 +20,6 @@ import libcloud.common.google
 from libcloud.compute.types import Provider, NodeState
 from libcloud.compute.providers import get_driver
 
-import uuid
-
 
 class GCEDefinition(MachineDefinition):
     """
@@ -35,6 +33,8 @@ class GCEDefinition(MachineDefinition):
         MachineDefinition.__init__(self, xml)
         x = xml.find("attrs/attr[@name='gce']/attrs")
         assert x is not None
+
+        self.machine_name = x.find("attr[@name='machineName']/string").get("value")
 
         self.region = x.find("attr[@name='region']/string").get("value")
         self.instance_type = x.find("attr[@name='instanceType']/string").get("value")
@@ -60,10 +60,13 @@ class GCEDefinition(MachineDefinition):
         def opt_int(xml, name):
             return optional_int(xml.find("attrs/attr[@name='%s']/int" % name))
 
+        def opt_disk_name(dname):
+          return ("{0}-{1}".format(self.machine_name, dname) if dname is not None else None)
+
         def f(xml):
             return {'disk': ( optional_string(xml.find("attrs/attr[@name='disk']/attrs/attr[@name='name']/string")) or
                               optional_string(xml.find("attrs/attr[@name='disk']/string")) ),
-                    'disk_name': opt_str(xml, 'disk_name'),
+                    'disk_name': opt_disk_name(opt_str(xml, 'disk_name')),
                     'snapshot': opt_str(xml, 'snapshot'),
                     'image': opt_str(xml, 'image'),
                     'size': opt_int(xml, 'size'),
@@ -93,7 +96,7 @@ class GCEState(MachineState):
     def get_type(cls):
         return "gce"
 
-    state = attr_property("state", MachineState.MISSING, int)
+    machine_name = attr_property("gce.name", None)
     public_ipv4 = attr_property("publicIpv4", None)
 
     region = attr_property("gce.region", None)
@@ -122,7 +125,7 @@ class GCEState(MachineState):
 
     @property
     def resource_id(self):
-        return self.vm_id
+        return self.machine_name
 
     def connect(self):
         if self._conn: return self._conn
@@ -143,7 +146,7 @@ class GCEState(MachineState):
         return self._conn
 
     def node(self):
-       return self.connect().ex_get_node(self.name, self.region)
+       return self.connect().ex_get_node(self.machine_name, self.region)
 
     def gen_metadata(self, metadata):
         return {
@@ -192,10 +195,14 @@ class GCEState(MachineState):
             if self.region != defn.region:
                 raise Exception("Cannot change the region of a deployed GCE machine {0}".format(defn.name))
 
+            if self.machine_name != defn.machine_name:
+                raise Exception("Cannot change the instance name of a deployed GCE machine {0}".format(defn.name))
+
         self.set_common_state(defn)
         self.project = defn.project
         self.service_account = defn.service_account
         self.access_key_path = defn.access_key_path
+        self.machine_name = defn.machine_name
 
         if not self.public_client_key:
             (private, public) = create_key_pair()
@@ -236,8 +243,8 @@ class GCEState(MachineState):
                               "of a botched creation attempt and can be fixed by deletion. However, this also "
                               "could be a resource name collision, and valuable data could be lost. "
                               "Before proceeding, please ensure that the instance doesn't contain useful data."
-                              .format(self.name))
-                    if self.depl.logger.confirm("Are you sure you want to destroy the existing instance ‘{0}’?".format(self.name)):
+                              .format(self.machine_name))
+                    if self.depl.logger.confirm("Are you sure you want to destroy the existing instance ‘{0}’?".format(self.machine_name)):
                         self.log_start("destroying...")
                         node.destroy()
                         self.log_end("done.")
@@ -334,10 +341,10 @@ class GCEState(MachineState):
             self._node_deleted()
 
         if not self.vm_id:
-            self.log_start("creating machine...")
+            self.log_start("Creating machine '{0}'...".format(self.machine_name))
             boot_disk = next(v for k,v in self.block_device_mapping.iteritems() if v.get('bootDisk', False))
             try:
-                node = self.connect().create_node(self.name, defn.instance_type, 'none',
+                node = self.connect().create_node(self.machine_name, defn.instance_type, 'none',
                                  location = self.connect().ex_get_zone(defn.region),
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk['region']),
                                  ex_metadata = self.gen_metadata(defn.metadata), ex_tags = defn.tags,
@@ -356,7 +363,7 @@ class GCEState(MachineState):
             self.ipAddress = defn.ipAddress
             self.network = defn.network
             known_hosts.remove(self.public_ipv4)
-            self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
+            self.vm_id = self.machine_name
             for k,v in self.block_device_mapping.iteritems():
                 v['needsAttach'] = True
                 self.update_block_device_mapping(k, v)
@@ -467,7 +474,7 @@ class GCEState(MachineState):
                 question = "are you sure you want to completely erase {0}?"
             else:
                 question = "are you sure you want to destroy {0}?"
-            question_target = "GCE machine ‘{0}’?".format(self.name)
+            question_target = "GCE machine ‘{0}’?".format(self.machine_name)
             if not self.depl.logger.confirm(question.format(question_target)):
                 return False
 
