@@ -41,7 +41,7 @@ class GSEBucketDefinition(ResourceDefinition):
         self.bucket_name = xml.find("attrs/attr[@name='name']/string").get("value")
 
     def show_type(self):
-        return "{0} [{1}]".format(self.get_type(), self.region)
+        return "{0}".format(self.get_type())
 
 
 class GSEBucketState(ResourceState):
@@ -58,7 +58,7 @@ class GSEBucketState(ResourceState):
 
     def show_type(self):
         s = super(GSEBucketState, self).show_type()
-        if self.state == self.UP: s = "{0} [{1}]".format(s, self.region)
+        if self.state == self.UP: s = "{0}".format(s)
         return s
 
 
