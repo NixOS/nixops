@@ -44,7 +44,7 @@ with pkgs.lib;
       example = "myproject";
       type = types.str;
       description = ''
-        The GCE project which should own the disk. If left empty, it defaults to the
+        The GCE project which should own the IP address. If left empty, it defaults to the
         contents of the environment variable <envar>GCE_PROJECT</envar>.
       '';
     };
