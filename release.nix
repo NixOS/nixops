@@ -76,6 +76,7 @@ rec {
       shellHook = ''
         export PYTHONPATH=$(pwd):$PYTHONPATH
         export PATH=$(pwd)/scripts:$PATH
+        export SSL_CERT_FILE=$OPENSSL_X509_CERT_FILE
       '';
 
       doCheck = true;
@@ -93,7 +94,7 @@ rec {
 
           # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
           # the version of openssh is causing errors when have big networks (40+)
-          wrapProgram $out/bin/nixops --prefix PATH : "${openssh}/bin"
+          wrapProgram $out/bin/nixops --prefix PATH : "${openssh}/bin" --set SSL_CERT_FILE "\$OPENSSL_X509_CERT_FILE"
         ''; # */
 
       meta.description = "Nix package for ${stdenv.system}";
