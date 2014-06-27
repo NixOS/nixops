@@ -7,7 +7,7 @@ with pkgs.lib;
   options = {
 
     name = mkOption {
-      example = "My Big Fat Disk";
+      example = "big-fat-disk";
       default = "nixops-${uuid}-${name}";
       type = types.str;
       description = "Description of the GCE disk.  This is the <literal>Name</literal> tag of the disk.";

@@ -7,7 +7,7 @@ with pkgs.lib;
   options = {
 
     name = mkOption {
-      example = "My Bucket";
+      example = "my-bucket";
       default = "nixops-${uuid}-${name}";
       type = types.str;
       description = "This is the <literal>Name</literal> tag of the bucket.";

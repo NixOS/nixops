@@ -7,10 +7,10 @@ with pkgs.lib;
   options = {
 
     name = mkOption {
-      example = "My Health Check";
+      example = "my-health-check";
       default = "nixops-${uuid}-${name}";
       type = types.str;
-      description = "Description of the GCE HTTP Health Check. This is the <literal>Name</literal> tag of the healt check.";
+      description = "Description of the GCE HTTP Health Check. This is the <literal>Name</literal> tag of the health check.";
     };
 
     description = mkOption {

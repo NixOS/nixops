@@ -7,7 +7,7 @@ with pkgs.lib;
   options = {
 
     name = mkOption {
-      example = "My public IP";
+      example = "my-public-ip";
       default = "nixops-${uuid}-${name}";
       type = types.str;
       description = "Description of the GCE static IP address. This is the <literal>Name</literal> tag of the address.";

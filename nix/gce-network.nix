@@ -62,7 +62,7 @@ in
   options = {
 
     name = mkOption {
-      example = "My Custom Network";
+      example = "my-custom-network";
       default = "nixops-${uuid}-${name}";
       type = types.str;
       description = "Description of the GCE Network. This is the <literal>Name</literal> tag of the network.";
