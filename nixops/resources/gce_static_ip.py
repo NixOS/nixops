@@ -61,7 +61,7 @@ class GCEStaticIPState(ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         if self.state == self.UP:
-            if self.project != defn.project:
+            if self.project != self.defn_project(defn):
                 raise Exception("cannot change the project of a deployed GCE static IP")
 
             if self.region != defn.region:

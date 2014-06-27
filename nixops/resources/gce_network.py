@@ -92,7 +92,7 @@ class GCENetworkState(ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         if self.state == self.UP:
-            if self.project != defn.project:
+            if self.project != self.defn_project(defn):
                 raise Exception("cannot change the project of a deployed GCE Network ‘{0}’".format(self.network_name))
             if self.addressRange != defn.addressRange:
                 raise Exception("cannot change the address range of a deployed GCE Network ‘{0}’".format(self.network_name))

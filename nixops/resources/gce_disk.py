@@ -64,7 +64,7 @@ class GCEDiskState(ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         if self.state == self.UP:
-            if self.project != defn.project:
+            if self.project != self.defn_project(defn):
                 raise Exception("Cannot change the project of a deployed GCE disk {0}".format(defn.disk_name))
 
             if self.region != defn.region:

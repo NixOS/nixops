@@ -81,7 +81,7 @@ class GCEHTTPHealthCheckState(ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         if self.state == self.UP:
-            if self.project != defn.project:
+            if self.project != self.defn_project(defn):
                 raise Exception("cannot change the project of a deployed GCE HTTP Health Check")
 
             # Undocumented: as of 26.06.2014, changing port via update() silently ignores the new value.

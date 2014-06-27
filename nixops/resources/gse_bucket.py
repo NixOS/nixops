@@ -70,21 +70,8 @@ class GSEBucketState(ResourceState):
         return "gseBuckets"
 
     def connect(self):
-        if self._conn: return self._conn
-
-        service_account = self.service_account or os.environ.get('GCE_SERVICE_ACCOUNT')
-        if not service_account:
-            raise Exception("please set ‘resources.{0}.$NAME.serviceAccount’ or $GCE_SERVICE_ACCOUNT".format(self.nix_name()))
-
-        access_key_path = self.access_key_path or os.environ.get('ACCESS_KEY_PATH')
-        if not access_key_path:
-            raise Exception("please set ‘resources.{0}.$NAME.accessKey’ or $ACCESS_KEY_PATH".format(self.nix_name()))
-
-        project = self.project or os.environ.get('GCE_PROJECT')
-        if not project:
-            raise Exception("please set ‘resources.{0}.$NAME.project’ or $GCE_PROJECT".format(self.nix_name()))
-
-        self._conn = GSEConnection(service_account, access_key_path, True)
+        if not self._conn:
+            self._conn = GSEConnection(self.service_account, self.access_key_path, True)
         return self._conn
 
     def bucket(self):
@@ -100,7 +87,7 @@ class GSEBucketState(ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         if self.state == self.UP:
-            if self.project != defn.project:
+            if self.project != self.defn_project(defn):
                 raise Exception("cannot change the project of a deployed GSE Bucket")
 
         self.copy_credentials(defn)

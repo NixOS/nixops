@@ -11,7 +11,7 @@ from nixops.util import attr_property, create_key_pair
 
 from nixops.backends import MachineDefinition, MachineState
 
-from nixops.gce_common import optional_string, optional_int
+from nixops.gce_common import ResourceState, optional_string, optional_int
 import nixops.resources.gce_static_ip
 import nixops.resources.gce_disk
 import nixops.resources.gce_network
@@ -88,7 +88,7 @@ class GCEDefinition(MachineDefinition):
         return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")
 
 
-class GCEState(MachineState):
+class GCEState(MachineState, ResourceState):
     """
     State of a Google Compute Engine machine.
     """
@@ -101,9 +101,6 @@ class GCEState(MachineState):
 
     region = attr_property("gce.region", None)
     instance_type = attr_property("gce.instanceType", None)
-    project = attr_property("gce.project", None)
-    service_account = attr_property("gce.serviceAccount", None)
-    access_key_path = attr_property("gce.accessKey", None)
 
     public_client_key = attr_property("gce.publicClientKey", None)
     private_client_key = attr_property("gce.privateClientKey", None)
@@ -127,23 +124,8 @@ class GCEState(MachineState):
     def resource_id(self):
         return self.machine_name
 
-    def connect(self):
-        if self._conn: return self._conn
-
-        service_account = self.service_account or os.environ.get('GCE_SERVICE_ACCOUNT')
-        if not service_account:
-            raise Exception("please set ‘deployment.gce.serviceAccount’ or $GCE_SERVICE_ACCOUNT")
-
-        access_key_path = self.access_key_path or os.environ.get('ACCESS_KEY_PATH')
-        if not access_key_path:
-            raise Exception("please set ‘deployment.gce.accessKey’ or $ACCESS_KEY_PATH")
-
-        project = self.project or os.environ.get('GCE_PROJECT')
-        if not project:
-            raise Exception("please set ‘deployment.gce.project’ or $GCE_PROJECT")
-
-        self._conn = get_driver(Provider.GCE)(service_account, access_key_path, project = project)
-        return self._conn
+    def credentials_prefix(self):
+        return "deployment.gce"
 
     def node(self):
        return self.connect().ex_get_node(self.machine_name, self.region)
@@ -189,7 +171,7 @@ class GCEState(MachineState):
         assert isinstance(defn, GCEDefinition)
 
         if self.vm_id:
-            if self.project != defn.project:
+            if self.project != self.defn_project(defn):
                 raise Exception("Cannot change the project of a deployed GCE machine {0}".format(defn.name))
 
             if self.region != defn.region:
@@ -199,9 +181,7 @@ class GCEState(MachineState):
                 raise Exception("Cannot change the instance name of a deployed GCE machine {0}".format(defn.name))
 
         self.set_common_state(defn)
-        self.project = defn.project
-        self.service_account = defn.service_account
-        self.access_key_path = defn.access_key_path
+        self.copy_credentials(defn)
         self.machine_name = defn.machine_name
 
         if not self.public_client_key:
