@@ -66,7 +66,7 @@ class ResourceState(nixops.resources.ResourceState):
         return service_account
 
     def defn_access_key_path(self, defn):
-        access_key_path = self.access_key_path or os.environ.get('ACCESS_KEY_PATH')
+        access_key_path = defn.access_key_path or os.environ.get('ACCESS_KEY_PATH')
         if not access_key_path:
             raise Exception("please set ‘{0}.accessKey’ or $ACCESS_KEY_PATH".format(self.credentials_prefix()))
         return access_key_path
