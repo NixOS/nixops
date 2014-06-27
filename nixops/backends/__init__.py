@@ -174,6 +174,12 @@ class MachineState(nixops.resources.ResourceState):
                   " system.".format(self.name))
 
     def send_keys(self):
+        if self.state == self.RESCUE:
+            # Don't send keys when in RESCUE state, because we're most likely
+            # bootstrapping plus we probably don't have /run mounted properly
+            # so keys will probably end up being written to DISK instead of
+            # into memory.
+            return
         if self.store_keys_on_machine: return
         self.run_command("mkdir -m 0700 -p /run/keys")
         for k, v in self.get_keys().items():
