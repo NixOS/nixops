@@ -124,8 +124,11 @@ class GCEState(MachineState, ResourceState):
     def resource_id(self):
         return self.machine_name
 
-    def credentials_prefix(self):
-        return "deployment.gce"
+    credentials_prefix = "deployment.gce"
+
+    @property
+    def full_name(self):
+        return "GCE Machine '{0}'".format(self.machine_name)
 
     def node(self):
        return self.connect().ex_get_node(self.machine_name, self.region)
@@ -172,13 +175,13 @@ class GCEState(MachineState, ResourceState):
 
         if self.vm_id:
             if self.project != self.defn_project(defn):
-                raise Exception("Cannot change the project of a deployed GCE machine {0}".format(defn.name))
+                raise Exception("Cannot change the project of a deployed {0}".format(self.full_name))
 
             if self.region != defn.region:
-                raise Exception("Cannot change the region of a deployed GCE machine {0}".format(defn.name))
+                raise Exception("Cannot change the region of a deployed {0}".format(self.full_name))
 
             if self.machine_name != defn.machine_name:
-                raise Exception("Cannot change the instance name of a deployed GCE machine {0}".format(defn.name))
+                raise Exception("Cannot change the instance name of a deployed {0}".format(self.full_name))
 
         self.set_common_state(defn)
         self.copy_credentials(defn)
@@ -219,17 +222,12 @@ class GCEState(MachineState, ResourceState):
 
                     # FIXME: check that no extra disks are attached?
                 else:
-                    self.warn("The instance ‘{0}’ exists, but isn't supposed to. Probably, this is the result "
+                    self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
                               "of a botched creation attempt and can be fixed by deletion. However, this also "
                               "could be a resource name collision, and valuable data could be lost. "
                               "Before proceeding, please ensure that the instance doesn't contain useful data."
-                              .format(self.machine_name))
-                    if self.depl.logger.confirm("Are you sure you want to destroy the existing instance ‘{0}’?".format(self.machine_name)):
-                        self.log_start("destroying...")
-                        node.destroy()
-                        self.log_end("done.")
-                    else: raise Exception("Can't proceed further.")
-
+                              .format(self.full_name))
+                    self.confirm_destroy(node, self.full_name)
 
             except libcloud.common.google.ResourceNotFoundError:
                 if self.vm_id:
@@ -321,7 +319,7 @@ class GCEState(MachineState, ResourceState):
             self._node_deleted()
 
         if not self.vm_id:
-            self.log_start("Creating machine '{0}'...".format(self.machine_name))
+            self.log_start("Creating '{0}'...".format(self.full_name))
             boot_disk = next(v for k,v in self.block_device_mapping.iteritems() if v.get('bootDisk', False))
             try:
                 node = self.connect().create_node(self.machine_name, defn.instance_type, 'none',
@@ -451,11 +449,9 @@ class GCEState(MachineState, ResourceState):
         try:
             node = self.node()
             if wipe:
-                question = "are you sure you want to completely erase {0}?"
-            else:
-                question = "are you sure you want to destroy {0}?"
-            question_target = "GCE machine ‘{0}’?".format(self.machine_name)
-            if not self.depl.logger.confirm(question.format(question_target)):
+                log.warn("Wipe is not supported.")
+            question = "are you sure you want to destroy {0}?"
+            if not self.depl.logger.confirm(question.format(self.full_name)):
                 return False
 
             self.log_start("destroying the GCE machine...")
@@ -523,8 +519,9 @@ class GCEState(MachineState, ResourceState):
             if node.state == NodeState.UNKNOWN: self.state = self.UNKNOWN
             if node.state == NodeState.TERMINATED:
                 self.state = self.UNKNOWN # FIXME: there's no corresponding status
-                res.messages.append("Instance has been terminated, can't be (re)started\n"
-                                    "and can only be destroyed due the to limitations of GCE.")
+                res.messages.append("Instance has been terminated, can't be directly (re)started\n"
+                                    "and can only be destroyed due the to limitations imposed by GCE.\n"
+                                    "Run deploy --check --allow-reboot to re-create it.")
             if node.state == NodeState.RUNNING:
                 # check that all disks are attached
                 res.disks_ok = True
@@ -553,7 +550,7 @@ class GCEState(MachineState, ResourceState):
 
 
     def backup(self, defn, backup_id):
-        self.log("backing up machine ‘{0}’ using id ‘{1}’".format(self.name, backup_id))
+        self.log("Backing up {0} using id ‘{1}’".format(self.full_name, backup_id))
 
         if sorted(defn.block_device_mapping.keys()) != sorted(self.block_device_mapping.keys()):
             self.warn("The list of disks currently deployed doesn't match the current deployment"
@@ -574,7 +571,7 @@ class GCEState(MachineState, ResourceState):
             self.backups = _backups
 
     def restore(self, defn, backup_id, devices=[]):
-        self.log("restoring machine ‘{0}’ to backup ‘{1}’".format(self.name, backup_id))
+        self.log("Restoring {0} to backup ‘{1}’".format(self.full_name, backup_id))
 
         self.stop()
 
@@ -652,7 +649,7 @@ class GCEState(MachineState, ResourceState):
 
     def get_ssh_name(self):
         if not self.public_ipv4:
-            raise Exception("GCE machine ‘{0}’ does not have a public IPv4 address (yet)".format(self.name))
+            raise Exception("{0} does not have a public IPv4 address (yet)".format(self.full_name))
         return self.public_ipv4
 
     def get_ssh_private_key_file(self):

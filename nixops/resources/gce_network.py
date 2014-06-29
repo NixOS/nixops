@@ -75,9 +75,11 @@ class GCENetworkState(ResourceState):
     def resource_id(self):
         return self.network_name
 
+    nix_name = "gceNetworks"
 
-    def nix_name(self):
-        return "gceNetworks"
+    @property
+    def full_name(self):
+        return "GCE Network '{0}'".format(self.network_name)
 
     def network(self):
         return self.connect().ex_get_network(self.network_name)
@@ -92,36 +94,32 @@ class GCENetworkState(ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         if self.state == self.UP:
-            if self.project != self.defn_project(defn):
-                raise Exception("cannot change the project of a deployed GCE Network ‘{0}’".format(self.network_name))
             if self.addressRange != defn.addressRange:
-                raise Exception("cannot change the address range of a deployed GCE Network ‘{0}’".format(self.network_name))
+                raise Exception("Cannot change the address range of a deployed {0}".format(self.full_name))
+
+        self.no_project_change(defn)
 
         self.copy_credentials(defn)
+        self.network_name = defn.network_name
 
         if check:
             try:
-                network = self.connect().ex_get_network(defn.network_name)
+                network = self.network()
                 if self.state == self.UP:
                     if network.cidr != self.addressRange:
-                        raise Exception("address range of a deployed GCE Network ‘{0}’ has unexpectedly changed to {1}".
-                                        format(self.network_name, network.cidr))
+                        raise Exception("Address range of a deployed {0} has unexpectedly changed to {1}".
+                                        format(self.full_name, network.cidr))
                 else:
-                    self.warn("GCE Network ‘{0}’ exists, but isn't supposed to. Probably, this is the result "
+                    self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
                               "of a botched creation attempt and can be fixed by deletion."
-                              .format(defn.network_name))
-                    if self.depl.logger.confirm("Are you sure you want to destroy the existing network ‘{0}’?".format(defn.network_name)):
-                        self.log_start("destroying...")
-                        network.destroy()
-                        self.log_end("done.")
-                    else: raise Exception("Can't proceed further.")
+                              .format(self.full_name))
+                    self.confirm_destroy(network, self.full_name)
+
             except libcloud.common.google.ResourceNotFoundError:
-                if self.state == self.UP:
-                    self.warn("GCE Network ‘{0}’ is supposed to exist, but is missing. Recreating...".format(defn.network_name))
-                    self.state = self.MISSING
+                self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("Creating GCE Network ‘{0}’...".format(defn.network_name))
+            self.log_start("Creating {0}...".format(self.full_name))
             try:
                 address = self.connect().ex_create_network(defn.network_name, defn.addressRange)
             except libcloud.common.google.ResourceExistsError:
@@ -131,7 +129,6 @@ class GCENetworkState(ResourceState):
 
             self.state = self.UP
             self.addressRange = defn.addressRange
-            self.network_name = defn.network_name
 
         # handle firewall rules
         def trans_allowed(attrs):
@@ -215,7 +212,7 @@ class GCENetworkState(ResourceState):
         if self.state == self.UP:
             try:
                 network = self.network()
-                if not self.depl.logger.confirm("are you sure you want to destroy GCE Network ‘{0}’?".format(self.network_name)):
+                if not self.depl.logger.confirm("Are you sure you want to destroy {0}?".format(self.full_name)):
                     return False
 
                 for k,v in self.firewall.iteritems():
@@ -227,9 +224,9 @@ class GCENetworkState(ResourceState):
                         self.warn("tried to destroy GCE Firewall ‘{0}’ which didn't exist".format(fw_n))
                     self.update_firewall(k, None)
 
-                self.log("destroying GCE Network ‘{0}’...".format(self.network_name))
+                self.log("Destroying {0}...".format(self.full_name))
                 network.destroy()
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("tried to destroy GCE Network ‘{0}’ which didn't exist".format(self.network_name))
+                self.warn("Tried to destroy {0} which didn't exist".format(self.full_name))
 
         return True

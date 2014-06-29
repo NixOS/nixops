@@ -53,22 +53,22 @@ class GCEStaticIPState(ResourceState):
     def resource_id(self):
         return self.addr_name
 
-    def nix_name(self):
-        return "gceStaticIPs"
+    nix_name = "gceStaticIPs"
+
+    @property
+    def full_name(self):
+        return "GCE Static IP Address '{0}'".format(self.addr_name)
 
     def address(self):
         return self.connect().ex_get_address(self.addr_name, region=self.region)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         if self.state == self.UP:
-            if self.project != self.defn_project(defn):
-                raise Exception("cannot change the project of a deployed GCE static IP")
-
-            if self.region != defn.region:
-                raise Exception("cannot change the region of a deployed GCE static IP")
-
             if defn.ipAddress and self.ipAddress != defn.ipAddress:
-                raise Exception("cannot change address of a deployed GCE static IP")
+                raise Exception("cannot change address of a deployed {0}".format(self.full_name))
+
+        self.no_project_change(defn)
+        self.no_region_change(defn)
 
         self.copy_credentials(defn)
         self.addr_name = defn.addr_name
@@ -78,19 +78,19 @@ class GCEStaticIPState(ResourceState):
                 address = self.address()
                 if self.state == self.UP:
                     if self.ipAddress != address.address:
-                        self.warn("GCE static IP ‘{0}’ has changed to {1}. Expected it to be {2}".
-                                  format(defn.addr_name, address.address, self.ipAddress))
+                        self.warn("{0} has changed to {1}. Expected it to be {2}".
+                                  format(self.full_name, address.address, self.ipAddress))
                 else:
-                    raise Exception("GCE static IP ‘{0}’ exists, but isn't supposed to. Probably, this is the result "
-                                    "of a botched creation attempt and can be fixed by deletion.".
-                                    format(defn.addr_name))
+                    self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
+                              "of a botched creation attempt and can be fixed by deletion.".
+                              format(self.full_name))
+                    self.confirm_destroy(address, self.full_name)
+
             except libcloud.common.google.ResourceNotFoundError:
-                if self.state == self.UP:
-                    self.warn("GCE static IP ‘{0}’ is supposed to exist, but is missing. Recreating...".format(defn.addr_name))
-                    self.state = self.MISSING
+                self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("Requesting GCE static IP ‘{0}’ in {1}...".format(defn.addr_name, defn.region))
+            self.log_start("Requesting {0} in {1}...".format(self.full_name, defn.region))
             try:
                 address = self.connect().ex_create_address(defn.addr_name, region = defn.region)
             except libcloud.common.google.ResourceExistsError:
@@ -98,7 +98,7 @@ class GCEStaticIPState(ResourceState):
 
             self.log_end("done.")
             self.log("Reserved IP address: {0}".format(address.address))
-            
+
             self.state = self.UP
             self.region = defn.region
             self.ipAddress = address.address;
@@ -108,10 +108,7 @@ class GCEStaticIPState(ResourceState):
         if self.state == self.UP:
             try:
                 address = self.address()
-                if not self.depl.logger.confirm("are you sure you want to destroy GCE static IP ‘{0}’({1})?".format(self.addr_name, self.ipAddress)):
-                    return False
-                self.log("releasing GCE static IP ‘{0}’...".format(self.addr_name))
-                address.destroy()
+                return self.confirm_destroy(address, "{0} ({1})".format(self.full_name, self.ipAddress), abort = False)
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("tried to destroy GCE static IP ‘{0}’ which didn't exist".format(self.addr_name))
+                self.warn("Tried to destroy {0} which didn't exist".format(self.full_name))
         return True

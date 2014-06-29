@@ -51,52 +51,47 @@ class GCEDiskState(ResourceState):
         if self.state == self.UP: s = "{0} [{1}]".format(s, self.region)
         return s
 
-
     @property
     def resource_id(self):
         return self.disk_name
 
-    def nix_name(self):
-        return "gceDisks"
+    nix_name = "gceDisks"
+
+    @property
+    def full_name(self):
+        return "GCE Disk '{0}'".format(self.disk_name)
 
     def disk(self):
         return self.connect().ex_get_volume(self.disk_name, self.region)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         if self.state == self.UP:
-            if self.project != self.defn_project(defn):
-                raise Exception("Cannot change the project of a deployed GCE disk {0}".format(defn.disk_name))
-
-            if self.region != defn.region:
-                raise Exception("Cannot change the region of a deployed GCE disk {0}".format(defn.disk_name))
-
             if defn.size and self.size != defn.size:
-                raise Exception("Cannot change the size of a deployed GCE disk {0}".format(defn.disk_name))
+                raise Exception("Cannot change the size of a deployed {0}".format(self.full_name))
+
+        self.no_project_change(defn)
+        self.no_region_change(defn)
 
         self.copy_credentials(defn)
+        self.disk_name = defn.disk_name
 
         if check:
             try:
-                disk = self.connect().ex_get_volume(defn.disk_name, defn.region)
+                disk = self.disk()
                 if self.state == self.UP:
                     if disk.size != str(self.size):
-                        self.warn("GCE disk ‘{0}’ size has changed to {1}. Expected the size to be {2}".
-                                  format(defn.disk_name, disk.size, self.size))
+                        self.warn("{0} size has changed to {1}. Expected the size to be {2}".
+                                  format(self.full_name, disk.size, self.size))
                 else:
-                    self.warn("GCE disk ‘{0}’ exists, but isn't supposed to. Probably, this is  the result "
+                    self.warn("{0} exists, but isn't supposed to. Probably, this is  the result "
                               "of a botched creation attempt and can be fixed by deletion. However, this also "
                               "could be a resource name collision, and valuable data could be lost. "
                               "Before proceeding, please ensure that the disk doesn't contain useful data."
-                              .format(defn.disk_name))
-                    if self.depl.logger.confirm("Are you sure you want to destroy the existing disk ‘{0}’?".format(defn.disk_name)):
-                        self.log_start("destroying...")
-                        disk.destroy()
-                        self.log_end("done.")
-                    else: raise Exception("Can't proceed further.")
+                              .format(self.full_name))
+                    self.confirm_destroy(disk, self.full_name)
+
             except libcloud.common.google.ResourceNotFoundError:
-                if self.state == self.UP:
-                    self.warn("GCE disk ‘{0}’ is supposed to exist, but is missing. Will recreate.".format(defn.disk_name))
-                    self.state = self.MISSING
+                self.warn_missing_resource()
 
         if self.state != self.UP:
             if defn.snapshot:
@@ -116,17 +111,13 @@ class GCEDiskState(ResourceState):
             self.state = self.UP
             self.region = defn.region
             self.size = volume.size
-            self.disk_name = defn.disk_name
 
 
     def destroy(self, wipe=False):
         if self.state == self.UP:
             try:
                 disk = self.disk()
-                if not self.depl.logger.confirm("are you sure you want to destroy GCE disk ‘{0}’?".format(self.disk_name)):
-                    return False
-                self.log("destroying GCE disk ‘{0}’...".format(self.disk_name))
-                disk.destroy()
+                return self.confirm_destroy(disk, self.full_name, abort = False)
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("tried to destroy GCE disk ‘{0}’ which didn't exist".format(self.disk_name))
+                self.warn("Tried to destroy {0} which didn't exist".format(self.full_name))
         return True
