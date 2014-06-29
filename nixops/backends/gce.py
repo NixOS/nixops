@@ -264,11 +264,8 @@ class GCEState(MachineState, ResourceState):
                               "could be a resource name collision, and valuable data could be lost. "
                               "Before proceeding, please ensure that the disk doesn't contain useful data."
                               .format(disk_name))
-                        if self.depl.logger.confirm("Are you sure you want to destroy the existing disk ‘{0}’?".format(disk_name)):
-                            self.log_start("destroying...")
-                            disk.destroy()
-                            self.log_end("done.")
-                        else: raise Exception("Can't proceed further.")
+                        self.confirm_destroy(disk, disk_name)
+
                 except libcloud.common.google.ResourceNotFoundError:
                     if v['disk']:
                         raise Exception("External disk ‘{0}’ is required but doesn't exist.".format(disk_name))
