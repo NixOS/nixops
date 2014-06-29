@@ -456,7 +456,7 @@ class GCEState(MachineState, ResourceState):
 
             self.log_start("destroying the GCE machine...")
             node.destroy()
- 
+            self._node_deleted()
         except libcloud.common.google.ResourceNotFoundError:
             self.warn("seems to have been destroyed already")
 
