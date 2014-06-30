@@ -88,6 +88,7 @@ rec {
   resources.gceStaticIPs = evalResources ./gce-static-ip.nix (zipAttrs resourcesByType.gceStaticIPs or []);
   resources.gceNetworks = evalResources ./gce-network.nix (zipAttrs resourcesByType.gceNetworks or []);
   resources.gceHTTPHealthChecks = evalResources ./gce-http-health-check.nix (zipAttrs resourcesByType.gceHTTPHealthChecks or []);
+  resources.gceTargetPools = evalResources ./gce-target-pool.nix (zipAttrs resourcesByType.gceTargetPools or []);
   resources.gseBuckets = evalResources ./gse-bucket.nix (zipAttrs resourcesByType.gseBuckets or []);
 
   # Phase 1: evaluate only the deployment attributes.

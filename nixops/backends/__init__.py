@@ -370,6 +370,7 @@ import nixops.resources.gce_disk
 import nixops.resources.gce_static_ip
 import nixops.resources.gce_network
 import nixops.resources.gce_http_health_check
+import nixops.resources.gce_target_pool
 import nixops.resources.gse_bucket
 
 def create_definition(xml):
@@ -403,6 +404,7 @@ def create_state(depl, type, name, id):
               nixops.resources.gce_static_ip.GCEStaticIPState,
               nixops.resources.gce_network.GCENetworkState,
               nixops.resources.gce_http_health_check.GCEHTTPHealthCheckState,
+              nixops.resources.gce_target_pool.GCETargetPoolState,
               nixops.resources.gse_bucket.GSEBucketState
               ]:
         if type == i.get_type():
