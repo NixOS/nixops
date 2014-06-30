@@ -16,6 +16,13 @@ def optional_string(elem):
 def optional_int(elem):
     return (int(elem.get("value")) if elem is not None else None)
 
+def ensure_not_empty(value, name):
+    if not value:
+        raise Exception("{0} must not be empty".format(name))
+
+def ensure_positive(value, name):
+    if value <= 0:
+        raise Exception("{0} must be a positive integer".format(name))
 
 class ResourceDefinition(nixops.resources.ResourceDefinition):
 

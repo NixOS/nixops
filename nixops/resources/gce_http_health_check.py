@@ -6,7 +6,7 @@ import os
 import libcloud.common.google
 
 from nixops.util import attr_property
-from nixops.gce_common import ResourceDefinition, ResourceState, optional_string
+from nixops.gce_common import ResourceDefinition, ResourceState, optional_string, ensure_not_empty, ensure_positive
 
 
 class GCEHTTPHealthCheckDefinition(ResourceDefinition):
@@ -28,6 +28,13 @@ class GCEHTTPHealthCheckDefinition(ResourceDefinition):
         self.unhealthy_threshold = int(xml.find("attrs/attr[@name='unhealthyThreshold']/int").get("value"))
         self.healthy_threshold = int(xml.find("attrs/attr[@name='healthyThreshold']/int").get("value"))
         self.description = optional_string(xml.find("attrs/attr[@name='description']/string"))
+
+        ensure_not_empty(self.path, "HTTP Health Check path")
+        ensure_positive(self.port, "HTTP Health Check port")
+        ensure_positive(self.check_interval, "HTTP Health Check interval")
+        ensure_positive(self.timeout, "HTTP Health Check timeout")
+        ensure_positive(self.unhealthy_threshold, "HTTP Health Check unhealthy threshold")
+        ensure_positive(self.healthy_threshold, "HTTP Health Check healthy threshold")
 
     def show_type(self):
         return "{0} [:{1}{2}]".format(self.get_type(), self.port, self.path)
