@@ -70,7 +70,7 @@ rec {
     mapAttrs (name: defs:
       (fixMergeModules
         ([ mainModule ./resource.nix ] ++ defs)
-        { inherit pkgs uuid name resources; }
+        { inherit pkgs uuid name resources; nodes = info.machines; }
       ).config) _resources;
 
   # Amazon resources
