@@ -157,15 +157,13 @@ class GCEHTTPHealthCheckState(ResourceState):
         if self.state != self.UP:
             self.log_start("Creating {0}...".format(self.full_name))
             try:
-                # BUG: libcloud as of 0.15.0 doesn't let you specify description when creating a healthcheck,
-                # but lets you set it during update.
-                # FIXME: set decription property on creation
                 healthcheck = self.connect().ex_create_healthcheck(defn.healthcheck_name, host = defn.host,
                                                                path = defn.path, port = defn.port,
                                                                interval = defn.check_interval,
                                                                timeout = defn.timeout,
                                                                unhealthy_threshold = defn.unhealthy_threshold,
-                                                               healthy_threshold = defn.healthy_threshold)
+                                                               healthy_threshold = defn.healthy_threshold,
+                                                               description = defn.description)
 
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried creating a health check that already exists. Please run ‘deploy --check’ to fix this.")
@@ -174,7 +172,6 @@ class GCEHTTPHealthCheckState(ResourceState):
 
             self.state = self.UP
             self.copy_properties(defn)
-            self.description = None # trigger setting description via update() for health checks that specify one
 
         # update the health check resource if its definition and state are out of sync
         if( self.host != defn.host or self.path != defn.path or self.port != defn.port
