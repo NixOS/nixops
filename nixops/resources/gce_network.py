@@ -121,7 +121,7 @@ class GCENetworkState(ResourceState):
         if self.state != self.UP:
             self.log_start("Creating {0}...".format(self.full_name))
             try:
-                address = self.connect().ex_create_network(defn.network_name, defn.addressRange)
+                network = self.connect().ex_create_network(defn.network_name, defn.addressRange)
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried creating a network that already exists. Please run ‘deploy --check’ to fix this.")
 
