@@ -177,7 +177,7 @@ class GCEState(MachineState, ResourceState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, GCEDefinition)
 
-        if self.vm_id:
+        if self.vm_id or self.block_device_mapping:
             if self.project != self.defn_project(defn):
                 raise Exception("Cannot change the project of a deployed {0}".format(self.full_name))
 
