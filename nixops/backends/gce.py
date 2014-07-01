@@ -239,23 +239,18 @@ class GCEState(MachineState, ResourceState):
                     if not allow_recreate: raise Exception("Use --allow-recreate, to fix.")
                     self._node_deleted()
 
-        if self.vm_id and self.instance_type != defn.instance_type:
-            if allow_reboot:
+        if self.vm_id:
+            if self.instance_type != defn.instance_type:
                 recreate = True
-            else:
-                raise Exception("cannot change the instance type of a running instance, unless reboots are allowed")
+                self.warn("Change of the instance type requires a reboot")
 
-        if self.vm_id and self.ipAddress != defn.ipAddress:
-            if allow_reboot:
+            if self.ipAddress != defn.ipAddress:
                 recreate = True
-            else:
-                raise Exception("cannot change the ip address of a running instance, unless reboots are allowed")
+                self.warn("Change of the IP address requires a reboot")
 
-        if self.vm_id and self.network != defn.network:
-            if allow_reboot:
+            if self.network != defn.network:
                 recreate = True
-            else:
-                raise Exception("cannot change the network of a running instance, unless reboots are allowed")
+                self.warn("Change of the network requires a reboot")
 
         if check:
             for k,v in defn.block_device_mapping.iteritems():
@@ -282,12 +277,13 @@ class GCEState(MachineState, ResourceState):
             if k in self.block_device_mapping: continue
             if v['disk'] is None:
                 if v['snapshot']:
-                    self.log_start("creating GCE disk of {0} GiB from snapshot ‘{1}’...".format(v['size'] if v['size'] else "auto", v['snapshot']))
+                    extra_msg = " from snapshot '{0}'".format(v['snapshot'])
                 elif v['image']:
-                    self.log_start("creating GCE disk of {0} GiB from image ‘{1}’...".format(v['size'] if v['size'] else "auto", v['image']))
+                    extra_msg = " from image '{0}'".format(v['image'])
                 else:
-                    self.log_start("creating GCE disk of {0} GiB...".format(v['size']))
-
+                    extra_msg = ""
+                self.log_start("Creating GCE disk of {0} GiB{1}..."
+                              .format(v['size'] if v['size'] else "auto", extra_msg))
                 v['region'] = defn.region
                 try:
                     self.connect().create_volume(v['size'], v['disk_name'], v['region'],
@@ -304,17 +300,15 @@ class GCEState(MachineState, ResourceState):
                 defn_v = defn.block_device_mapping.get(k, None)
                 if defn_v and not v.get('needsAttach', False):
                     if v['bootDisk'] != defn_v['bootDisk']:
-                        if allow_reboot:
-                            recreate = True
-                        else:
-                            raise Exception("cannot change the boot disk of a running instance, unless reboots are allowed")
+                        recreate = True
+                        self.warn("Change of the boot disk requires a reboot")
                     if v['readOnly'] != defn_v['readOnly']:
-                        if allow_reboot:
-                            recreate = True
-                        else:
-                            raise Exception("cannot remount a disk as ro/rw attached to a running instance, unless reboots are allowed")
+                        recreate = True
+                        self.warn("Remounting disk as ro/rw requires a reboot")
 
         if recreate:
+            if not allow_reboot:
+                raise Exception("Reboot is required for the requested changes. Please run with --allow-reboot.")
             self.log("Need to recreate the instance for the changes to take effect. Deleting...")
             self.node().destroy()
             self._node_deleted()
@@ -323,7 +317,6 @@ class GCEState(MachineState, ResourceState):
             self.log_start("Creating '{0}'...".format(self.full_name))
             boot_disk = next(v for k,v in self.block_device_mapping.iteritems() if v.get('bootDisk', False))
             try:
-                print self.gen_metadata(defn.metadata)
                 node = self.connect().create_node(self.machine_name, defn.instance_type, 'none',
                                  location = self.connect().ex_get_zone(defn.region),
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk['region']),
