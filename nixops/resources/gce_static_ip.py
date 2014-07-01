@@ -92,7 +92,8 @@ class GCEStaticIPState(ResourceState):
         if self.state != self.UP:
             self.log_start("Requesting {0} in {1}...".format(self.full_name, defn.region))
             try:
-                address = self.connect().ex_create_address(defn.addr_name, region = defn.region)
+                address = self.connect().ex_create_address(defn.addr_name, region = defn.region,
+                                                           address = defn.ipAddress)
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried requesting a static IP that already exists. Please run ‘deploy --check’ to fix this.")
 
