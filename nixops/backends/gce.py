@@ -133,11 +133,15 @@ class GCEState(MachineState, ResourceState):
     def node(self):
        return self.connect().ex_get_node(self.machine_name, self.region)
 
+    def full_metadata(self, metadata):
+        result = metadata.copy()
+        result.update({'sshKeys': "root:{0}".format(self.public_client_key) })
+        return result
+
     def gen_metadata(self, metadata):
         return {
           'kind': 'compute#metadata',
-          'items': [ {'key': 'sshKeys', 'value': "root:{0}".format(self.public_client_key) } ] +
-                   [ {'key': k, 'value': v} for k,v in metadata.iteritems() ]
+          'items': [ {'key': k, 'value': v} for k,v in metadata.iteritems() ]
         }
 
     def update_block_device_mapping(self, k, v):
@@ -319,10 +323,11 @@ class GCEState(MachineState, ResourceState):
             self.log_start("Creating '{0}'...".format(self.full_name))
             boot_disk = next(v for k,v in self.block_device_mapping.iteritems() if v.get('bootDisk', False))
             try:
+                print self.gen_metadata(defn.metadata)
                 node = self.connect().create_node(self.machine_name, defn.instance_type, 'none',
                                  location = self.connect().ex_get_zone(defn.region),
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk['region']),
-                                 ex_metadata = self.gen_metadata(defn.metadata), ex_tags = defn.tags,
+                                 ex_metadata = self.full_metadata(defn.metadata), ex_tags = defn.tags,
                                  external_ip = (self.connect().ex_get_address(defn.ipAddress) if defn.ipAddress else 'ephemeral'),
                                  ex_network = (defn.network if defn.network else 'default') )
             except libcloud.common.google.ResourceExistsError:
@@ -360,10 +365,10 @@ class GCEState(MachineState, ResourceState):
                 self.update_block_device_mapping(k, v)
 
         if( self.metadata != defn.metadata or
-           (check and sorted(self.gen_metadata(defn.metadata)['items']) != sorted(node.extra['metadata']['items'])) ):
+           (check and sorted(self.gen_metadata(self.full_metadata(defn.metadata))['items']) != sorted(node.extra['metadata'].get('items',[]))) ):
             self.log('setting new metadata values')
             node = self.node()
-            meta = self.gen_metadata(defn.metadata)
+            meta = self.gen_metadata(self.full_metadata(defn.metadata))
             request = '/zones/%s/instances/%s/setMetadata' % (node.extra['zone'].name,
                                                         node.name)
             metadata_data = {}
