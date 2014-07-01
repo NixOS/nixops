@@ -441,19 +441,20 @@ class GCEState(MachineState, ResourceState):
         self.ssh_master = None
 
     def destroy(self, wipe=False):
+        if wipe:
+            log.warn("Wipe is not supported.")
         try:
             node = self.node()
-            if wipe:
-                log.warn("Wipe is not supported.")
             question = "are you sure you want to destroy {0}?"
             if not self.depl.logger.confirm(question.format(self.full_name)):
                 return False
 
             self.log_start("destroying the GCE machine...")
             node.destroy()
-            self._node_deleted()
+
         except libcloud.common.google.ResourceNotFoundError:
             self.warn("seems to have been destroyed already")
+        self._node_deleted()
 
         # Destroy volumes created for this instance.
         for k, v in self.block_device_mapping.items():
