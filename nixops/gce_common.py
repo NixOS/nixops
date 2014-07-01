@@ -94,7 +94,7 @@ class ResourceState(nixops.resources.ResourceState):
             if self.region != defn.region:
                 raise Exception("Cannot change the region of a deployed {0}".format(self.full_name))
 
-    def warn_missing_resource():
+    def warn_missing_resource(self):
         if self.state == self.UP:
             self.warn("{0} is supposed to exist, but is missing. Recreating...".format(self.full_name))
             self.state = self.MISSING
