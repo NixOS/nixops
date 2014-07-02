@@ -60,6 +60,10 @@ class GCEStaticIPState(ResourceState):
     def address(self):
         return self.connect().ex_get_address(self.addr_name, region=self.region)
 
+    @property
+    def public_ipv4(self):
+        return self.ipAddress
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(defn.ipAddress and self.ipAddress != defn.ipAddress, 'address')
         self.no_project_change(defn)
