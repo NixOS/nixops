@@ -90,11 +90,6 @@ class GCEHTTPHealthCheckState(ResourceState):
         self.healthy_threshold = defn.healthy_threshold
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        if self.state == self.UP:
-            # Undocumented: as of 26.06.2014, changing port via update() silently ignores the new value.
-            if self.port != defn.port:
-                raise Exception("cannot change the port of a deployed {0}".format(self.full_name))
-
         self.no_project_change(defn)
 
         self.copy_credentials(defn)
@@ -105,46 +100,16 @@ class GCEHTTPHealthCheckState(ResourceState):
                 hc = self.healthcheck()
                 if self.state == self.UP:
 
-                    if self.host != hc.extra['host']:
-                        self.warn("{0} host has changed to '{1}'. Expected it to be '{2}'".
-                                  format(self.full_name, hc.extra['host'], self.host))
-                        self.host = hc.extra['host']
-
-                    if self.description != hc.extra['description']:
-                        self.warn("{0} description has changed to '{1}'. Expected it to be '{2}'".
-                                  format(self.full_name, hc.extra['description'], self.description))
-                        self.description = hc.extra['description']
-
-                    if self.path != hc.path:
-                        self.warn("{0} path has changed to '{1}'. Expected it to be '{2}'".
-                                  format(self.full_name, hc.path, self.path))
-                        self.path = hc.path
-
-                    if self.port != hc.port:
-                        self.warn("{0} port has changed to '{1}'. Expected it to be '{2}'".
-                                  format(self.full_name, hc.port, self.port))
-                        self.port = hc.port
-
-                    if self.check_interval != hc.interval:
-                        self.warn("{0} check interval has changed to '{1}'. Expected it to be '{2}'".
-                                  format(self.full_name, hc.interval, self.check_interval))
-                        self.check_interval = hc.interval
-
-                    if self.timeout != hc.timeout:
-                        self.warn("{0} timeout has changed to '{1}'. Expected it to be '{2}'".
-                                  format(self.full_name, hc.timeout, self.timeout))
-                        self.timeout = hc.timeout
-
-                    if self.unhealthy_threshold != hc.unhealthy_threshold:
-                        self.warn("{0} unhealthy threshold has changed to '{1}'. Expected it to be '{2}'".
-                                  format(self.full_name, hc.unhealthy_threshold, self.unhealthy_threshold))
-                        self.unhealthy_threshold = hc.unhealthy_threshold
-
-                    if self.healthy_threshold != hc.healthy_threshold:
-                        self.warn("{0} healthy threshold has changed to '{1}'. Expected it to be '{2}'".
-                                  format(self.full_name, hc.healthy_threshold, self.healthy_threshold))
-                        self.healthy_threshold = hc.healthy_threshold
-
+                    self.host = self.warn_if_changed(self.host, hc.extra['host'], 'host')
+                    self.path = self.warn_if_changed(self.path, hc.path, 'path')
+                    self.port = self.warn_if_changed(self.port, hc.port, 'port')
+                    self.timeout = self.warn_if_changed(self.timeout, hc.timeout, 'timeout')
+                    self.description = self.warn_if_changed(self.description, hc.extra['description'], 'description')
+                    self.check_interval = self.warn_if_changed(self.check_interval, hc.interval, 'check interval')
+                    self.healthy_threshold = self.warn_if_changed(self.healthy_threshold, hc.healthy_threshold,
+                                                                  'healthy threshold')
+                    self.unhealthy_threshold = self.warn_if_changed(self.unhealthy_threshold, hc.unhealthy_threshold,
+                                                                    'unhealthy threshold')
                 else:
                     self.warn("{0} exists, but isn't supposed to. Probably, this is  the result "
                               "of a botched creation attempt and can be fixed by deletion."
@@ -158,18 +123,16 @@ class GCEHTTPHealthCheckState(ResourceState):
             self.log_start("Creating {0}...".format(self.full_name))
             try:
                 healthcheck = self.connect().ex_create_healthcheck(defn.healthcheck_name, host = defn.host,
-                                                               path = defn.path, port = defn.port,
-                                                               interval = defn.check_interval,
-                                                               timeout = defn.timeout,
-                                                               unhealthy_threshold = defn.unhealthy_threshold,
-                                                               healthy_threshold = defn.healthy_threshold,
-                                                               description = defn.description)
-
+                                                                   path = defn.path, port = defn.port,
+                                                                   interval = defn.check_interval,
+                                                                   timeout = defn.timeout,
+                                                                   unhealthy_threshold = defn.unhealthy_threshold,
+                                                                   healthy_threshold = defn.healthy_threshold,
+                                                                   description = defn.description)
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried creating a health check that already exists. Please run ‘deploy --check’ to fix this.")
 
             self.log_end("done.")
-
             self.state = self.UP
             self.copy_properties(defn)
 
@@ -183,7 +146,7 @@ class GCEHTTPHealthCheckState(ResourceState):
             try:
                 hc = self.healthcheck()
                 hc.path = defn.path
-                hc.post = defn.port
+                hc.port = defn.port
                 hc.interval = defn.check_interval
                 hc.timeout = defn.timeout
                 hc.unhealthy_threshold = defn.unhealthy_threshold

@@ -60,16 +60,13 @@ class GCENetworkState(ResourceState):
     def get_type(cls):
         return "gce-network"
 
-
     def __init__(self, depl, name, id):
         ResourceState.__init__(self, depl, name, id)
-
 
     def show_type(self):
         s = super(GCENetworkState, self).show_type()
         if self.state == self.UP: s = "{0} [{1}]".format(s, self.addressRange)
         return s
-
 
     @property
     def resource_id(self):
@@ -106,9 +103,7 @@ class GCENetworkState(ResourceState):
             try:
                 network = self.network()
                 if self.state == self.UP:
-                    if network.cidr != self.addressRange:
-                        raise Exception("Address range of a deployed {0} has unexpectedly changed to {1}".
-                                        format(self.full_name, network.cidr))
+                    self.warn_if_changed(self.addressRange, network.cidr, 'address range')
                 else:
                     self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
                               "of a botched creation attempt and can be fixed by deletion."

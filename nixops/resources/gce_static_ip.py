@@ -39,7 +39,6 @@ class GCEStaticIPState(ResourceState):
     def get_type(cls):
         return "gce-static-ip"
 
-
     def __init__(self, depl, name, id):
         ResourceState.__init__(self, depl, name, id)
 
@@ -47,7 +46,6 @@ class GCEStaticIPState(ResourceState):
         s = super(GCEStaticIPState, self).show_type()
         if self.state == self.UP: s = "{0} [{1}]".format(s, self.region)
         return s
-
 
     @property
     def resource_id(self):
@@ -77,9 +75,7 @@ class GCEStaticIPState(ResourceState):
             try:
                 address = self.address()
                 if self.state == self.UP:
-                    if self.ipAddress != address.address:
-                        self.warn("{0} has changed to {1}. Expected it to be {2}".
-                                  format(self.full_name, address.address, self.ipAddress))
+                    self.warn_if_changed(self.ipAddress, address.address, '')
                 else:
                     self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
                               "of a botched creation attempt and can be fixed by deletion.".

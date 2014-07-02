@@ -97,10 +97,7 @@ class GCETargetPoolState(ResourceState):
                 if self.state == self.UP:
 
                     normalized_hc = (tp.healthchecks[0].name if tp.healthchecks else None)
-                    if self.healthcheck != normalized_hc:
-                        self.warn("{0} healthCheck has changed to '{1}'. Expected it to be '{2}'".
-                                  format(self.full_name, normalized_hc, self.healthcheck))
-                        self.healthcheck = normalized_hc
+                    self.healthcheck = self.warn_if_changed(self.healthcheck, normalized_hc, 'health check')
 
                     normalized_machines = set([ n.extra['selfLink'] if hasattr(n, 'extra') else n
                                                 for n in tp.nodes ])

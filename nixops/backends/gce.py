@@ -211,9 +211,7 @@ class GCEState(MachineState, ResourceState):
                             self.warn("The instance is terminated. Run with --allow-reboot to restart it.")
                         self.state = self.STOPPED
 
-                    if self.public_ipv4 != node.public_ips[0]:
-                        self.warn("IP address has unexpectedly changed from {0} to {1}".format(self.public_ipv4, node.public_ips[0]))
-                        self.public_ipv4 = node.public_ips[0]
+                    self.public_ipv4 = self.warn_if_changed(self.public_ipv4, node.public_ips[0], 'IP address')
 
                     # check that all disks are attached
                     for k, v in self.block_device_mapping.iteritems():

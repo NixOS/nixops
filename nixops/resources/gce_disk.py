@@ -79,9 +79,7 @@ class GCEDiskState(ResourceState):
             try:
                 disk = self.disk()
                 if self.state == self.UP:
-                    if disk.size != str(self.size):
-                        self.warn("{0} size has changed to {1}. Expected the size to be {2}".
-                                  format(self.full_name, disk.size, self.size))
+                    self.warn_if_changed(str(self.size), str(disk.size), 'size')
                 else:
                     self.warn("{0} exists, but isn't supposed to. Probably, this is  the result "
                               "of a botched creation attempt and can be fixed by deletion. However, this also "

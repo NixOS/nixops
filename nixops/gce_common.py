@@ -110,3 +110,9 @@ class ResourceState(nixops.resources.ResourceState):
                 raise Exception("Can't proceed further.")
             else:
                 return False
+
+    def warn_if_changed(self, expected_state, actual_state, name):
+        if expected_state != actual_state:
+            self.warn("{0} {1} has changed to '{2}'. Expected it to be '{3}'".
+                      format(self.full_name, name, actual_state, expected_state))
+        return actual_state
