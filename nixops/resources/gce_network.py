@@ -25,19 +25,28 @@ class GCENetworkDefinition(ResourceDefinition):
         self.addressRange = xml.find("attrs/attr[@name='addressRange']/string").get("value")
 
         def parse_allowed(x):
-          if x.find("list") is not None:
-            return( [v.get("value") for v in x.findall("list/string")] +
-                    [str(v.get("value")) for v in x.findall("list/int")] )
-          else: return None
+            if x.find("list") is not None:
+                return( [v.get("value") for v in x.findall("list/string")] +
+                        [str(v.get("value")) for v in x.findall("list/int")] )
+            else: return None
+
+        def parse_sourceranges(x):
+            if x.find("attrs/attr[@name='sourceRanges']/list") is None:
+                return [ "0.0.0.0/0" ]
+            else:
+                return [st.get("value") for st in x.findall("attrs/attr[@name='sourceRanges']/list/string")]
 
         def parse_fw(x):
           result =  {
-            "sourceRanges": [sr.get("value") for sr in x.findall("attrs/attr[@name='sourceRanges']/list/string")],
-            "sourceTags": [st.get("value") for st in x.findall("attrs/attr[@name='sourceTags']/list/string")],
+            "sourceRanges": parse_sourceranges(x),
+            "sourceTags": [sr.get("value") for sr in x.findall("attrs/attr[@name='sourceTags']/list/string")],
             "allowed": {a.get("name"): parse_allowed(a) for a in x.findall("attrs/attr[@name='allowed']/attrs/attr")}
           }
           if len(result['allowed']) == 0:
               raise Exception("Firewall rule ‘{0}‘ in network ‘{1}‘ must provide at least one protocol/port specification".
+                              format(x.get("name"), self.network_name) )
+          if len(result['sourceRanges']) == 0 and len(result['sourceTags']) == 0:
+              raise Exception("Firewall rule ‘{0}‘ in network ‘{1}‘ must specify at least one source range or tag".
                               format(x.get("name"), self.network_name) )
           return result
 
@@ -128,13 +137,10 @@ class GCENetworkState(ResourceState):
                    for proto, ports in attrs.iteritems() ]
 
         def normalize_source_tags(tags):
-            return( sorted(tags) if tags else [] )
+            return sorted(tags or [])
 
         def normalize_source_ranges(ranges):
-          if ranges == ["0.0.0.0/0"]:
-              return []
-          else:
-              return( sorted(ranges) if ranges else [] )
+            return sorted(ranges or [])
 
         if check:
             firewalls = [ f for f in self.connect().ex_list_firewalls() if f.network.name == defn.network_name ]
@@ -168,7 +174,7 @@ class GCENetworkState(ResourceState):
                 try:
                     firewall = self.connect().ex_get_firewall("%s-%s"%(self.network_name, k))
                     firewall.allowed = trans_allowed(v['allowed'])
-                    firewall.source_ranges = v['sourceRanges'] or ['0.0.0.0/0'] # match firewall creation behavior
+                    firewall.source_ranges = v['sourceRanges']
                     firewall.source_tags = v['sourceTags']
                     firewall.update();
                 except libcloud.common.google.ResourceNotFoundError:

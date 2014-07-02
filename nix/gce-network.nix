@@ -16,15 +16,15 @@ let
     options = {
 
       sourceRanges = mkOption {
-        default = [];
+        default = null;
         example = [ "192.168.0.0/16" ];
-        type = types.listOf types.str;
+        type = types.nullOr (types.listOf types.str);
         description = ''
           The address blocks that this rule applies to, expressed in
           <link xlink:href="http://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing">CIDR</link>
           format. An inbound connection is allowed if either the range or the tag of the
           source matches the <option>sourceRanges</option> or <option>sourceTags</option>.
-          Leaving this list empty is equivalent to setting it to [ "0.0.0.0/0" ];
+          As a convenience, leaving this option unset is equivalent to setting it to [ "0.0.0.0/0" ].
         '';
       };
 
@@ -37,6 +37,10 @@ let
           <option>sourceRanges</option>.
           An inbound connection is allowed if either the range or the tag of the
           source matches the <option>sourceRanges</option> or <option>sourceTags</option>.
+
+          Don't forget to set <option>sourceRanges</option> to [] or at least a more
+          restrictive range because the default setting makes <option>sourceTags</option>
+          irrelevant.
         '';
       };
 
