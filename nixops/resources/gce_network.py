@@ -98,6 +98,9 @@ class GCENetworkState(ResourceState):
             x[k] = v
         self.firewall = x
 
+    def firewall_name(self, name):
+        return "{0}-{1}".format(self.network_name, name)
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(self.addressRange != defn.addressRange, 'address range')
         self.no_project_change(defn)
@@ -147,7 +150,7 @@ class GCENetworkState(ResourceState):
 
             # delete stray rules and mark changed ones for update
             for fw in firewalls:
-                k = next( (k for (k,v) in self.firewall.iteritems() if fw.name == "%s-%s"%(self.network_name, k)), None)
+                k = next( (k for (k,v) in self.firewall.iteritems() if fw.name == self.firewall_name(k)), None)
                 if k:
                     rule = self.firewall[k]
                     if( (rule == {}) or
@@ -162,7 +165,7 @@ class GCENetworkState(ResourceState):
 
             # find missing firewall rules
             for k, v in self.firewall.iteritems():
-                if not any(fw.name == "%s-%s"%(self.network_name, k) for fw in firewalls):
+                if not any(fw.name == self.firewall_name(k) for fw in firewalls):
                     self.warn("firewall rule ‘{0}‘ has disappeared...".format(k))
                     self.update_firewall(k, None)
 
@@ -172,7 +175,7 @@ class GCENetworkState(ResourceState):
                 if v == self.firewall[k]: continue
                 self.log_start("updating firewall rule ‘{0}‘...".format(k))
                 try:
-                    firewall = self.connect().ex_get_firewall("%s-%s"%(self.network_name, k))
+                    firewall = self.connect().ex_get_firewall(self.firewall_name(k))
                     firewall.allowed = trans_allowed(v['allowed'])
                     firewall.source_ranges = v['sourceRanges']
                     firewall.source_tags = v['sourceTags']
@@ -183,7 +186,7 @@ class GCENetworkState(ResourceState):
             else:
                 self.log_start("creating firewall rule ‘{0}‘...".format(k))
                 try:
-                    self.connect().ex_create_firewall( "%s-%s"%(self.network_name, k), trans_allowed(v['allowed']),
+                    self.connect().ex_create_firewall(self.firewall_name(k), trans_allowed(v['allowed']),
                                                       network= self.network_name,
                                                       source_ranges = v['sourceRanges'],
                                                       source_tags = v['sourceTags']);
@@ -198,7 +201,7 @@ class GCENetworkState(ResourceState):
             if k in defn.firewall: continue
             self.log_start("deleting firewall rule ‘{0}‘...".format(k))
             try:
-                fw_n = "%s-%s"%(self.network_name, k);
+                fw_n = self.firewall_name(k);
                 self.connect().ex_get_firewall(fw_n).destroy()
             except libcloud.common.google.ResourceNotFoundError:
                 self.warn("tried to destroy GCE Firewall ‘{0}’ which didn't exist".format(fw_n))
@@ -214,7 +217,7 @@ class GCENetworkState(ResourceState):
                     return False
 
                 for k,v in self.firewall.iteritems():
-                    fw_n = "%s-%s"%(self.network_name, k);
+                    fw_n = self.firewall_name(k);
                     self.log("destroying GCE Firewall ‘{0}’...".format(fw_n))
                     try:
                         self.connect().ex_get_firewall(fw_n).destroy()
