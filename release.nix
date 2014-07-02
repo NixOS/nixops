@@ -16,6 +16,8 @@ let
       rev = "c200ce3b34e4fba418e7e39b9eeea8dd331162b3";
       sha256 = "83e1c694af433fed687df9bad578a16cb847e229c920815e92f64eaa187fc037";
     };
+
+    preConfigure = "cp libcloud/test/secrets.py-dist libcloud/test/secrets.py";
   });
 
 in
