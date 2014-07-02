@@ -13,8 +13,8 @@ let
   libcloud = pkgs.lib.overrideDerivation pkgs.pythonPackages.libcloud ( args: {
     src = pkgs.fetchgit {
       url = https://github.com/Phreedom/libcloud.git;
-      rev = "c200ce3b34e4fba418e7e39b9eeea8dd331162b3";
-      sha256 = "83e1c694af433fed687df9bad578a16cb847e229c920815e92f64eaa187fc037";
+      rev = "a3fe10aae499d465b991531690a66f2ec4855ed2";
+      sha256 = "97975453216f24c3a831bc65a20a6dd145fa6c55c8d467a3b44d1cb769385cdf";
     };
 
     preConfigure = "cp libcloud/test/secrets.py-dist libcloud/test/secrets.py";
