@@ -29,6 +29,7 @@ import nixops.resources.gce_static_ip
 import nixops.resources.gce_network
 import nixops.resources.gce_http_health_check
 import nixops.resources.gce_target_pool
+import nixops.resources.gce_forwarding_rule
 import nixops.resources.gse_bucket
 from nixops.nix_expr import RawValue, Function, nixmerge, py2nix
 import re
@@ -367,6 +368,10 @@ class Deployment(object):
 
         for x in res.find("attr[@name='gceTargetPools']/attrs").findall("attr"):
             defn = nixops.resources.gce_target_pool.GCETargetPoolDefinition(x)
+            self.definitions[defn.name] = defn
+
+        for x in res.find("attr[@name='gceForwardingRules']/attrs").findall("attr"):
+            defn = nixops.resources.gce_forwarding_rule.GCEForwardingRuleDefinition(x)
             self.definitions[defn.name] = defn
 
         for x in res.find("attr[@name='gseBuckets']/attrs").findall("attr"):
