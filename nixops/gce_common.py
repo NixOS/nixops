@@ -84,15 +84,16 @@ class ResourceState(nixops.resources.ResourceState):
         self.service_account = self.defn_service_account(defn)
         self.access_key_path = self.defn_access_key_path(defn)
 
+    def no_change(self, condition, property_name):
+        if self.state == self.UP and condition:
+          raise Exception("Cannot change the {0} of a deployed {1}"
+                          .format(property_name, self.full_name))
+
     def no_project_change(self, defn):
-        if self.state == self.UP:
-            if self.project != self.defn_project(defn):
-                raise Exception("Cannot change the project of a deployed {0}".format(self.full_name))
+        self.no_change(self.project != self.defn_project(defn), 'project')
 
     def no_region_change(self, defn):
-        if self.state == self.UP:
-            if self.region != defn.region:
-                raise Exception("Cannot change the region of a deployed {0}".format(self.full_name))
+        self.no_change(self.region != defn.region, 'region')
 
     def warn_missing_resource(self):
         if self.state == self.UP:

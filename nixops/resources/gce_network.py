@@ -90,10 +90,7 @@ class GCENetworkState(ResourceState):
         self.firewall = x
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        if self.state == self.UP:
-            if self.addressRange != defn.addressRange:
-                raise Exception("Cannot change the address range of a deployed {0}".format(self.full_name))
-
+        self.no_change(self.addressRange != defn.addressRange, 'address range')
         self.no_project_change(defn)
 
         self.copy_credentials(defn)

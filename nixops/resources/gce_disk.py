@@ -65,10 +65,7 @@ class GCEDiskState(ResourceState):
         return self.connect().ex_get_volume(self.disk_name, self.region)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        if self.state == self.UP:
-            if defn.size and self.size != defn.size:
-                raise Exception("Cannot change the size of a deployed {0}".format(self.full_name))
-
+        self.no_change(defn.size and self.size != defn.size, 'size')
         self.no_project_change(defn)
         self.no_region_change(defn)
 

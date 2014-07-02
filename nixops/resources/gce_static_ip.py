@@ -61,10 +61,7 @@ class GCEStaticIPState(ResourceState):
         return self.connect().ex_get_address(self.addr_name, region=self.region)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        if self.state == self.UP:
-            if defn.ipAddress and self.ipAddress != defn.ipAddress:
-                raise Exception("cannot change address of a deployed {0}".format(self.full_name))
-
+        self.no_change(defn.ipAddress and self.ipAddress != defn.ipAddress, 'address')
         self.no_project_change(defn)
         self.no_region_change(defn)
 
