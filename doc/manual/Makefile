@@ -15,7 +15,7 @@ all: manual.html man
 manual.html: *.xml
 	$(xsltproc) --xinclude --stringparam profile.condition manual \
 	  $(docbookxsl)/profiling/profile.xsl manual.xml | \
-	  $(xsltproc) --output manual.html $(docbookxsl)/html/docbook.xsl -
+	  $(xsltproc) --output manual.html $(docbookxsl)/xhtml/docbook.xsl -
 
 man: nixops.1
 
