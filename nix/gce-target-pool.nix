@@ -23,7 +23,7 @@ let
 in
 {
 
-  options = {
+  options = (import ./gce-credentials.nix pkgs "target pool") // {
 
     name = mkOption {
       example = "my-target-pool";
@@ -59,36 +59,6 @@ in
       type = types.listOf (union types.str machine);
       description = ''
         The list of machine resources or fully-qualified GCE Node URLs to add to this pool.
-      '';
-    };
-
-    serviceAccount = mkOption {
-      default = "";
-      example = "12345-asdf@developer.gserviceaccount.com";
-      type = types.str;
-      description = ''
-        The GCE Service Account Email. If left empty, it defaults to the
-        contents of the environment variable <envar>GCE_SERVICE_ACCOUNT</envar>.
-      '';
-    };
-
-    accessKey = mkOption {
-      default = "";
-      example = "/path/to/secret/key.pem";
-      type = types.str;
-      description = ''
-        The path to GCE Service Account key. If left empty, it defaults to the
-        contents of the environment variable <envar>ACCESS_KEY_PATH</envar>.
-      '';
-    };
-
-    project = mkOption {
-      default = "";
-      example = "myproject";
-      type = types.str;
-      description = ''
-        The GCE project which should own the Target Pool. If left empty, it defaults to the
-        contents of the environment variable <envar>GCE_PROJECT</envar>.
       '';
     };
 

@@ -4,7 +4,7 @@ with pkgs.lib;
 
 {
 
-  options = {
+  options = (import ./gce-credentials.nix pkgs "HTTP health check") // {
 
     name = mkOption {
       example = "my-health-check";
@@ -71,36 +71,6 @@ with pkgs.lib;
       example = 4;
       type = types.int;
       description = "An unhealthy VM will be marked healthy after this many consecutive successes.";
-    };
-
-    serviceAccount = mkOption {
-      default = "";
-      example = "12345-asdf@developer.gserviceaccount.com";
-      type = types.str;
-      description = ''
-        The GCE Service Account Email. If left empty, it defaults to the
-        contents of the environment variable <envar>GCE_SERVICE_ACCOUNT</envar>.
-      '';
-    };
-
-    accessKey = mkOption {
-      default = "";
-      example = "/path/to/secret/key.pem";
-      type = types.str;
-      description = ''
-        The path to GCE Service Account key. If left empty, it defaults to the
-        contents of the environment variable <envar>ACCESS_KEY_PATH</envar>.
-      '';
-    };
-
-    project = mkOption {
-      default = "";
-      example = "myproject";
-      type = types.str;
-      description = ''
-        The GCE project which should own the HTTP Health Check. If left empty, it defaults to the
-        contents of the environment variable <envar>GCE_PROJECT</envar>.
-      '';
     };
 
   };
