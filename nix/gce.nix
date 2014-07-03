@@ -3,7 +3,7 @@
 { config, pkgs, name, uuid, ... }:
 
 with pkgs.lib;
-
+with (import ./lib.nix pkgs);
 let
 
   gce_dev_prefix = "/dev/disk/by-id/scsi-0Google_PersistentDisk_";
@@ -12,19 +12,6 @@ let
     if cfg.disk != null
       then cfg.disk.name or cfg.disk
       else "${config.deployment.gce.machineName}-${cfg.disk_name}";
-
-  resource = type: mkOptionType {
-    name = "resource of type ‘${type}’";
-    check = x: x._type or "" == type;
-    merge = mergeOneOption;
-  };
-
-  # FIXME: move to nixpkgs/lib/types.nix.
-  union = t1: t2: mkOptionType {
-    name = "${t1.name} or ${t2.name}";
-    check = x: t1.check x || t2.check x;
-    merge = mergeOneOption;
-  };
 
   gceDiskOptions = { config, ... }: {
 
