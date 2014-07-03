@@ -44,6 +44,18 @@ let
         '';
       };
 
+      targetTags = mkOption {
+        default = [];
+        example = [ "public-http" ];
+        type = types.listOf types.str;
+        description = ''
+          A list of instance tags indicating sets of instances located on the network which
+          may make network connections as specified in <option>allowed</option>. If no
+          <option>targetTags</option> are specified, the firewall rule applies to all
+          instances on the network.
+        '';
+      };
+
       allowed = mkOption {
         #default = {};
         example = { tcp = [ 80 ]; icmp = null; };

@@ -40,6 +40,7 @@ class GCENetworkDefinition(ResourceDefinition):
           result =  {
             "sourceRanges": parse_sourceranges(x),
             "sourceTags": [sr.get("value") for sr in x.findall("attrs/attr[@name='sourceTags']/list/string")],
+            "targetTags": [sr.get("value") for sr in x.findall("attrs/attr[@name='targetTags']/list/string")],
             "allowed": {a.get("name"): parse_allowed(a) for a in x.findall("attrs/attr[@name='allowed']/attrs/attr")}
           }
           if len(result['allowed']) == 0:
@@ -139,11 +140,8 @@ class GCENetworkState(ResourceState):
           return [ dict( [( "IPProtocol", proto )] + ([("ports", ports )] if ports is not None else []) )
                    for proto, ports in attrs.iteritems() ]
 
-        def normalize_source_tags(tags):
+        def normalize_list(tags):
             return sorted(tags or [])
-
-        def normalize_source_ranges(ranges):
-            return sorted(ranges or [])
 
         if check:
             firewalls = [ f for f in self.connect().ex_list_firewalls() if f.network.name == defn.network_name ]
@@ -154,8 +152,9 @@ class GCENetworkState(ResourceState):
                 if k:
                     rule = self.firewall[k]
                     if( (rule == {}) or
-                          (normalize_source_ranges(fw.source_ranges) != normalize_source_ranges(rule['sourceRanges'])) or
-                          (normalize_source_tags(fw.source_tags) != normalize_source_tags(rule['sourceTags'])) or
+                          (normalize_list(fw.source_ranges) != normalize_list(rule['sourceRanges'])) or
+                          (normalize_list(fw.source_tags) != normalize_list(rule['sourceTags'])) or
+                          (normalize_list(fw.target_tags) != normalize_list(rule.get('targetTags',[]))) or
                           (fw.allowed != trans_allowed(rule['allowed'])) ):
                         self.warn("firewall rule ‘{0}‘ has changed unexpectedly...".format(fw.name))
                         self.update_firewall(k, {}) # mark for update
@@ -179,6 +178,7 @@ class GCENetworkState(ResourceState):
                     firewall.allowed = trans_allowed(v['allowed'])
                     firewall.source_ranges = v['sourceRanges']
                     firewall.source_tags = v['sourceTags']
+                    firewall.target_tags = v['targetTags']
                     firewall.update();
                 except libcloud.common.google.ResourceNotFoundError:
                     raise Exception("Tried updating a firewall rule that doesn't exist. Please run ‘deploy --check’ to fix this.")
@@ -189,7 +189,8 @@ class GCENetworkState(ResourceState):
                     self.connect().ex_create_firewall(self.firewall_name(k), trans_allowed(v['allowed']),
                                                       network= self.network_name,
                                                       source_ranges = v['sourceRanges'],
-                                                      source_tags = v['sourceTags']);
+                                                      source_tags = v['sourceTags'],
+                                                      target_tags = v['targetTags']);
                 except libcloud.common.google.ResourceExistsError:
                     raise Exception("Tried creating a firewall rule that already exists. Please run ‘deploy --check’ to fix this.")
 
