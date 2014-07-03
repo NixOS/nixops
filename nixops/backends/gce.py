@@ -42,7 +42,7 @@ class GCEDefinition(MachineDefinition):
         self.service_account = x.find("attr[@name='serviceAccount']/string").get("value")
         self.access_key_path = x.find("attr[@name='accessKey']/string").get("value")
 
-        self.tags = [e.get("value") for e in x.findall("attr[@name='tags']/list/string")]
+        self.tags = sorted([e.get("value") for e in x.findall("attr[@name='tags']/list/string")])
         self.metadata = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='metadata']/attrs/attr")}
 
 
@@ -212,6 +212,7 @@ class GCEState(MachineState, ResourceState):
                         self.state = self.STOPPED
 
                     self.public_ipv4 = self.warn_if_changed(self.public_ipv4, node.public_ips[0], 'IP address')
+                    self.tags = self.warn_if_changed(self.tags, sorted(node.extra['tags']), 'tags')
 
                     # check that all disks are attached
                     for k, v in self.block_device_mapping.iteritems():
@@ -371,8 +372,8 @@ class GCEState(MachineState, ResourceState):
                                           data=metadata_data)
             self.metadata = defn.metadata
 
-        if sorted(self.tags) != sorted(defn.tags) or (check and sorted(defn.tags) != sorted(node.extra['tags'])):
-            self.log('setting new tag values')
+        if self.tags != defn.tags:
+            self.log('Updating tags')
             self.connect().ex_set_node_tags(self.node(), defn.tags)
             self.tags = defn.tags
 
