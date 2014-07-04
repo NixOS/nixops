@@ -211,7 +211,24 @@ class GCEState(MachineState, ResourceState):
                             self.warn("The instance is terminated. Run with --allow-reboot to restart it.")
                         self.state = self.STOPPED
 
-                    self.public_ipv4 = self.warn_if_changed(self.public_ipv4, node.public_ips[0], 'IP address')
+                    self.public_ipv4 = self.warn_if_changed(self.public_ipv4,
+                                                            node.public_ips[0] if node.public_ips else None,
+                                                            'IP address')
+                    if self.ipAddress:
+                        try:
+                            address = self.connect().ex_get_address(self.ipAddress)
+                            if self.public_ipv4 and self.public_ipv4 != address.address:
+                                self.warn("Static IP Address {0} assigned to this machine has unexpectely "
+                                          "changed from {1} to {2} most likely due to being redeployed"
+                                          .format(self.ipAddress, self.public_ipv4, address.address) )
+                                self.ipAddress = None
+
+                        except libcloud.common.google.ResourceNotFoundError:
+                            self.warn("Static IP Address resource {0} used by this machine has been destroyed. "
+                                      "It is likely that the machine is still holding the address itself ({1}) "
+                                      "and this is your last chance to reclaim it before it gets "
+                                      "lost in a reboot.".format(self.ipAddress, self.public_ipv4) )
+
                     self.tags = self.warn_if_changed(self.tags, sorted(node.extra['tags']), 'tags')
 
                     # check that all disks are attached
@@ -242,10 +259,6 @@ class GCEState(MachineState, ResourceState):
             if self.instance_type != defn.instance_type:
                 recreate = True
                 self.warn("Change of the instance type requires a reboot")
-
-            if self.ipAddress != defn.ipAddress:
-                recreate = True
-                self.warn("Change of the IP address requires a reboot")
 
             if self.network != defn.network:
                 recreate = True
@@ -325,17 +338,18 @@ class GCEState(MachineState, ResourceState):
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried creating an instance that already exists. Please run ‘deploy --check’ to fix this.")
             self.log_end("done.")
+            self.vm_id = self.machine_name
             self.state = self.STARTING
-            self.public_ipv4 = node.public_ips[0]
-            self.log("got IP: {0}".format(self.public_ipv4))
+            self.ssh_pinged = False
             self.tags = defn.tags
             self.region = defn.region
             self.instance_type = defn.instance_type
             self.metadata = defn.metadata
             self.ipAddress = defn.ipAddress
             self.network = defn.network
+            self.public_ipv4 = node.public_ips[0]
+            self.log("got IP: {0}".format(self.public_ipv4))
             known_hosts.remove(self.public_ipv4)
-            self.vm_id = self.machine_name
             for k,v in self.block_device_mapping.iteritems():
                 v['needsAttach'] = True
                 self.update_block_device_mapping(k, v)
@@ -376,6 +390,31 @@ class GCEState(MachineState, ResourceState):
             self.log('Updating tags')
             self.connect().ex_set_node_tags(self.node(), defn.tags)
             self.tags = defn.tags
+
+        if self.public_ipv4 and self.ipAddress != defn.ipAddress:
+            self.log("Detaching old IP address {0}".format(self.public_ipv4))
+            self.connect().connection.async_request(
+                "/zones/{0}/instances/{1}/deleteAccessConfig?accessConfig=External+NAT&networkInterface=nic0"
+                .format(self.region, self.machine_name), method = 'POST')
+            self.public_ipv4 = None
+            self.ipAddress = None
+
+        if self.public_ipv4 is None:
+            self.log("Attaching IP address {0}".format(defn.ipAddress or "[Ephemeral]"))
+            self.connect().connection.async_request(
+                "/zones/{0}/instances/{1}/addAccessConfig?networkInterface=nic0"
+                .format(self.region, self.machine_name), method = 'POST', data = {
+                  'kind': 'compute#accessConfig',
+                  'type': 'ONE_TO_ONE_NAT',
+                  'name': 'External NAT',
+                  'natIP': self.connect().ex_get_address(defn.ipAddress).address if defn.ipAddress else None
+                })
+            self.ipAddress = defn.ipAddress
+            self.public_ipv4 = self.node().public_ips[0]
+            self.log("got IP: {0}".format(self.public_ipv4))
+            known_hosts.remove(self.public_ipv4)
+            self.ssh.reset()
+            self.ssh_pinged = False
 
         if recreate or check or self.automatic_restart != defn.automatic_restart or self.on_host_maintenance != defn.on_host_maintenance:
             self.connect().ex_set_node_scheduling(self.node(),
@@ -437,7 +476,7 @@ class GCEState(MachineState, ResourceState):
                 self.log_end("(timed out)")
 
         self.state = self.STOPPED
-        self.ssh_master = None
+        self.ssh.reset()
 
     def destroy(self, wipe=False):
         if wipe:
