@@ -104,6 +104,14 @@ in
 
   config = {
 
+    warnings = mkIf config.deployment.storeKeysOnMachine [(
+      "The use of `deployment.storeKeysOnMachine' imposes a security risk " +
+      "because all keys will be put in the Nix store and thus are world-" +
+      "readable. Also, this will have an impact on services like OpenSSH, " +
+      "which require strict permissions to be set on key files, so expect " +
+      "things to break."
+    )];
+
     system.activationScripts.nixops-keys =
       ''
         mkdir -p /run/keys -m 0750
