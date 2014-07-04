@@ -282,23 +282,30 @@ def print_backups(depl, backups):
 
 def op_clean_backups():
     depl = open_deployment()
-    depl.clean_backups(args.keep)
+    depl.clean_backups(args.keep, args.keep_physical)
 
 
 def op_remove_backup():
     depl = open_deployment()
-    depl.remove_backup(args.backupid)
+    depl.remove_backup(args.backupid, args.keep_physical)
 
 
 def op_backup():
     depl = open_deployment()
-    backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
-    backups_status = [b['status'] for _, b in backups.items()]
-    if "running" in backups_status and not args.force:
-        raise Exception("There are still backups running, use --force to run a new backup concurrently (not advised!)")
-    else:
+
+    def do_backup():
         backup_id = depl.backup(include=args.include or [], exclude=args.exclude or [])
         print backup_id
+
+    if args.force:
+        do_backup()
+    else:
+        backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
+        backups_status = [b['status'] for _, b in backups.items()]
+        if "running" in backups_status:
+            raise Exception("There are still backups running, use --force to run a new backup concurrently (not advised!)")
+        else:
+            do_backup()
 
 
 def op_backup_status():
@@ -771,11 +778,13 @@ subparser.add_argument('--latest', dest='latest', action="store_true", default=F
 
 subparser = add_subparser('remove-backup', help='remove a given backup')
 subparser.set_defaults(op=op_remove_backup)
-subparser.add_argument('backupid', nargs='?', help='backup id to remove')
+subparser.add_argument('backupid', metavar='BACKUP-ID', help='backup ID to remove')
+subparser.add_argument('--keep-physical', dest="keep_physical", default=False, action="store_true", help='do not remove the physical backups, only remove backups from nixops state')
 
 subparser = add_subparser('clean-backups', help='remove old backups')
 subparser.set_defaults(op=op_clean_backups)
 subparser.add_argument('--keep', dest="keep", type=int, default=10, help='number of backups to keep around')
+subparser.add_argument('--keep-physical', dest="keep_physical", default=False, action="store_true", help='do not remove the physical backups, only remove backups from nixops state')
 
 subparser = add_subparser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
 subparser.set_defaults(op=op_restore)
