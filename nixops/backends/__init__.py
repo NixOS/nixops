@@ -19,9 +19,18 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
         self.ssh_port = int(xml.find("attrs/attr[@name='targetPort']/int").get("value"))
         self.always_activate = xml.find("attrs/attr[@name='alwaysActivate']/bool").get("value") == "true"
-        self.keys = {k.get("name"): k.find("string").get("value") for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")}
         self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
 
+        def _extract_key_options(x):
+            opts = {}
+            for key in ('text', 'user', 'group', 'permissions'):
+                elem = x.find("attrs/attr[@name='{0}']/string".format(key))
+                if elem is not None:
+                    opts[key] = elem.get("value")
+            return opts
+
+        self.keys = {k.get("name"): _extract_key_options(k) for k in
+                     xml.findall("attrs/attr[@name='keys']/attrs/attr")}
 
 
 class MachineState(nixops.resources.ResourceState):
@@ -32,7 +41,7 @@ class MachineState(nixops.resources.ResourceState):
     ssh_port = nixops.util.attr_property("targetPort", 22, int)
     public_vpn_key = nixops.util.attr_property("publicVpnKey", None)
     store_keys_on_machine = nixops.util.attr_property("storeKeysOnMachine", True, bool)
-    keys = nixops.util.attr_property("keys", [], 'json')
+    keys = nixops.util.attr_property("keys", {}, 'json')
     owners = nixops.util.attr_property("owners", [], 'json')
 
     # Nix store path of the last global configuration deployed to this
@@ -181,14 +190,22 @@ class MachineState(nixops.resources.ResourceState):
             # into memory.
             return
         if self.store_keys_on_machine: return
-        self.run_command("mkdir -m 0700 -p /run/keys")
-        for k, v in self.get_keys().items():
+        self.run_command("mkdir -m 0750 -p /run/keys"
+                         " && chown root:keys /run/keys")
+        for k, opts in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
-            f = open(tmp, "w+"); f.write(v); f.close()
-            self.run_command("rm -f /run/keys/" + k)
-            self.upload_file(tmp, "/run/keys/" + k)
-            self.run_command("chmod 600 /run/keys/" + k)
+            f = open(tmp, "w+"); f.write(opts['text']); f.close()
+            outfile = "/run/keys/" + k
+            outfile_esc = "'" + outfile.replace("'", r"'\''") + "'"
+            self.run_command("rm -f " + outfile_esc)
+            self.upload_file(tmp, outfile)
+            chmod = "chmod '{0}' " + outfile_esc
+            chown = "chown '{0}:{1}' " + outfile_esc
+            self.run_command(' && '.join([
+                chown.format(opts['user'], opts['group']),
+                chmod.format(opts['permissions'])
+            ]))
             os.remove(tmp)
         self.run_command("touch /run/keys/done")
 

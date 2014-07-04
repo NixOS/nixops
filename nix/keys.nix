@@ -2,6 +2,68 @@
 
 with pkgs.lib;
 
+let
+  keyOptionsType = types.submodule {
+    options.text = mkOption {
+      example = "super secret stuff";
+      type = types.str;
+      description = ''
+        The text the key should contain. So if the key name is
+        <replaceable>password</replaceable> and <literal>foobar</literal>
+        is set here, the contents of the file
+        <filename>/run/keys/<replaceable>password</replaceable></filename>
+        will be <literal>foobar</literal>.
+      '';
+    };
+
+    options.user = mkOption {
+      default = "root";
+      type = types.str;
+      description = ''
+        The user which will be the owner of the key file.
+      '';
+    };
+
+    options.group = mkOption {
+      default = "root";
+      type = types.str;
+      description = ''
+        The group that will be set for the key file.
+      '';
+    };
+
+    options.permissions = mkOption {
+      default = "0600";
+      example = "0640";
+      type = types.str;
+      description = ''
+        The default permissions to set for the key file, needs to be in the
+        format accepted by <citerefentry><refentrytitle>chmod</refentrytitle>
+        <manvolnum>1</manvolnum></citerefentry>.
+      '';
+    };
+  };
+
+  convertOldKeyType = key: val: let
+    warning = "Using plain strings for `deployment.keys' is"
+            + " deprecated, please use `deployment.keys.${key}.text ="
+            + " \"<value>\"` instead of `deployment.keys.${key} ="
+            + " \"<value>\"`.";
+  in if isString val then builtins.trace warning { text = val; } else val;
+
+  keyType = mkOptionType {
+    name = "string or key options";
+    check = v: isString v || keyOptionsType.check v;
+    merge = loc: defs: let
+      convert = def: def // {
+        value = convertOldKeyType (last loc) def.value;
+      };
+    in keyOptionsType.merge loc (map convert defs);
+    inherit (keyOptionsType) getSubOptions;
+  };
+
+in
+
 {
 
   ###### interface
@@ -12,7 +74,7 @@ with pkgs.lib;
       default = false;
       type = types.bool;
       description = ''
-        If true (default), secret information such as LUKS encryption
+        If true, secret information such as LUKS encryption
         keys or SSL private keys is stored on the root disk of the
         machine, allowing the machine to do unattended reboots.  If
         false, secrets are not stored; NixOps supplies them to the
@@ -24,17 +86,20 @@ with pkgs.lib;
 
     deployment.keys = mkOption {
       default = {};
-      example = { password = "foobar"; };
-      type = types.attrsOf types.str;
+      example = { password.text = "foobar"; };
+      type = types.attrsOf keyType;
+      apply = mapAttrs convertOldKeyType;
+
       description = ''
         The set of keys to be deployed to the machine.  Each attribute
-        maps a key name to a key string.  On the machine, the key can
-        be accessed as
-        <filename>/run/keys/<replaceable>name></replaceable></filename>.
-        Thus, <literal>{ password = "foobar"; }</literal> causes a
+        maps a key name to a file that can be accessed as
+        <filename>/run/keys/<replaceable>name</replaceable></filename>.
+        Thus, <literal>{ password.text = "foobar"; }</literal> causes a
         file <filename>/run/keys/password</filename> to be created
         with contents <literal>foobar</literal>.  The directory
-        <filename>/run/keys</filename> is only accessible to root.
+        <filename>/run/keys</filename> is only accessible to root and
+        the <literal>keys</literal> group.  So keep in mind to add any
+        users that need to have access to a particular key to this group.
       '';
     };
 
@@ -45,9 +110,18 @@ with pkgs.lib;
 
   config = {
 
+    warnings = mkIf config.deployment.storeKeysOnMachine [(
+      "The use of `deployment.storeKeysOnMachine' imposes a security risk " +
+      "because all keys will be put in the Nix store and thus are world-" +
+      "readable. Also, this will have an impact on services like OpenSSH, " +
+      "which require strict permissions to be set on key files, so expect " +
+      "things to break."
+    )];
+
     system.activationScripts.nixops-keys =
       ''
-        mkdir -p /run/keys -m 0700
+        mkdir -p /run/keys -m 0750
+        chown root:keys /run/keys
 
         ${optionalString config.deployment.storeKeysOnMachine
             (concatStrings (mapAttrsToList (name: value:
@@ -55,7 +129,7 @@ with pkgs.lib;
                 # FIXME: The key file should be marked as private once
                 # https://github.com/NixOS/nix/issues/8 is fixed.
                 keyFile = pkgs.writeText name value;
-              in "ln -sfn ${keyFile} /run/keys/${name}\n")
+              in "ln -sfn ${keyFile.text} /run/keys/${name}\n")
               config.deployment.keys)
             + ''
               # FIXME: delete obsolete keys?
