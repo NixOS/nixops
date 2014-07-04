@@ -204,11 +204,8 @@ class GCEState(MachineState, ResourceState):
                 if self.vm_id:
 
                     if node.state == NodeState.TERMINATED:
-                        if allow_reboot:
-                            recreate = True
-                            self.warn("The instance is terminated. Will restart...")
-                        else:
-                            self.warn("The instance is terminated. Run with --allow-reboot to restart it.")
+                        recreate = True
+                        self.warn("The instance is terminated and needs a reboot")
                         self.state = self.STOPPED
 
                     self.public_ipv4 = self.warn_if_changed(self.public_ipv4,
@@ -325,9 +322,7 @@ class GCEState(MachineState, ResourceState):
         if recreate:
             if not allow_reboot:
                 raise Exception("Reboot is required for the requested changes. Please run with --allow-reboot.")
-            self.log("Need to recreate the instance for the changes to take effect. Deleting...")
-            self.node().destroy()
-            self._node_deleted()
+            self.stop()
 
         if not self.vm_id:
             self.log_start("Creating '{0}'...".format(self.full_name))
@@ -457,8 +452,6 @@ class GCEState(MachineState, ResourceState):
     def stop(self):
         if not self.vm_id: return
 
-        self.warn("GCE machines can't be started easily after being stopped. Consider rebooting instead.")
-
         try:
             node = self.node()
         except libcloud.common.google.ResourceNotFoundError:
@@ -480,6 +473,10 @@ class GCEState(MachineState, ResourceState):
                 self.log_end("(timed out)")
 
         self.state = self.STOPPED
+        self.log("Tearing down the instance. Disk contents are preserved "
+                 "but the instance can only be started with deploy.");
+        node.destroy()
+        self._node_deleted()
         self.ssh.reset()
 
     def destroy(self, wipe=False):
@@ -612,15 +609,6 @@ class GCEState(MachineState, ResourceState):
         self.log("Restoring {0} to backup ‘{1}’".format(self.full_name, backup_id))
 
         self.stop()
-
-        # need to destroy the machine to get at the root disk
-        if self.vm_id:
-            try:
-                self.log("Tearing down the machine. You will need to run deploy --allow-reboot to start it.")
-                self.node().destroy()
-            except libcloud.common.google.ResourceNotFoundError:
-                self.warn("The machine seems to have been destroyed already")
-            self._node_deleted()
 
         for k, v in self.block_device_mapping.items():
             disk_name = v['disk_name'] or v['disk']
