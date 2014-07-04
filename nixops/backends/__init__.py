@@ -131,7 +131,7 @@ class MachineState(nixops.resources.ResourceState):
         """Restore persistent disks to a given backup, if possible."""
         self.warn("don't know how to restore disks from backup for machine ‘{0}’".format(self.name))
 
-    def remove_backup(self, backup_id):
+    def remove_backup(self, backup_id, keep_physical = False):
         """Remove a given backup of persistent disks, if possible."""
         self.warn("don't know how to remove a backup for machine ‘{0}’".format(self.name))
 
