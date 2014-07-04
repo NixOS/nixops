@@ -12,6 +12,7 @@ let
     config = {};
     inherit pkgs;
     modulesPath = "";
+    lib = pkgs.lib;
   }).config.system.build.nixos-generate-config;
 
   base = stdenv.mkDerivation {
