@@ -255,16 +255,8 @@ class GCEState(MachineState, ResourceState):
                     if not allow_recreate: raise Exception("Use --allow-recreate, to fix.")
                     self._node_deleted()
 
-        if self.vm_id:
-            if self.instance_type != defn.instance_type:
-                recreate = True
-                self.warn("Change of the instance type requires a reboot")
-
-            if self.network != defn.network:
-                recreate = True
-                self.warn("Change of the network requires a reboot")
-
-        if check:
+            # check that the disks that should exist do exist
+            # and that the disks we expected to create don't exist yet
             for k,v in defn.block_device_mapping.iteritems():
                 disk_name = v['disk_name'] or v['disk']
                 try:
@@ -308,6 +300,14 @@ class GCEState(MachineState, ResourceState):
             self.update_block_device_mapping(k, v)
 
         if self.vm_id:
+            if self.instance_type != defn.instance_type:
+                recreate = True
+                self.warn("Change of the instance type requires a reboot")
+
+            if self.network != defn.network:
+                recreate = True
+                self.warn("Change of the network requires a reboot")
+
             for k, v in self.block_device_mapping.iteritems():
                 defn_v = defn.block_device_mapping.get(k, None)
                 if defn_v and not v.get('needsAttach', False):
