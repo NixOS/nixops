@@ -234,10 +234,14 @@ class GCEState(MachineState, ResourceState):
                     # check that all disks are attached
                     for k, v in self.block_device_mapping.iteritems():
                         disk_name = v['disk_name'] or v['disk']
-                        if( all(d.get("deviceName", None) != disk_name for d in node.extra['disks']) and
-                              not v.get('needsAttach', False) ):
+                        is_attached = any(d.get("deviceName", None) == disk_name for d in node.extra['disks'])
+                        if not is_attached  and not v.get('needsAttach', False):
                             self.warn("Disk {0} seems to have been detached behind our back. Will reattach...".format(disk_name))
                             v['needsAttach'] = True
+                            self.update_block_device_mapping(k, v)
+                        if is_attached and v.get('needsAttach', False):
+                            self.warn("Disk {0} seems to have been attached for us. Thank you, mr. Elusive Bug!".format(disk_name))
+                            del v['needsAttach']
                             self.update_block_device_mapping(k, v)
 
                     # FIXME: check that no extra disks are attached?
