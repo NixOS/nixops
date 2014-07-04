@@ -44,10 +44,22 @@ let
     };
   };
 
+  convertOldKeyType = key: val: let
+    warning = "Using plain strings for `deployment.keys' is"
+            + " deprecated, please use `deployment.keys.${key}.text ="
+            + " \"<value>\"` instead of `deployment.keys.${key} ="
+            + " \"<value>\"`.";
+  in if isString val then builtins.trace warning { text = val; } else val;
+
   keyType = mkOptionType {
     name = "string or key options";
     check = v: isString v || keyOptionsType.check v;
-    inherit (keyOptionsType) merge getSubOptions;
+    merge = loc: defs: let
+      convert = def: def // {
+        value = convertOldKeyType (last loc) def.value;
+      };
+    in keyOptionsType.merge loc (map convert defs);
+    inherit (keyOptionsType) getSubOptions;
   };
 
 in
@@ -76,13 +88,7 @@ in
       default = {};
       example = { password.text = "foobar"; };
       type = types.attrsOf keyType;
-
-      apply = mapAttrs (k: v: let
-        warning = "Using plain strings for `deployment.keys' is"
-                + " deprecated, please use `deployment.keys.${k}.text ="
-                + " \"<value>\"` instead of `deployment.keys.${k} ="
-                + " \"<value>\"`.";
-      in if isString v then builtins.trace warning { text = v; } else v);
+      apply = mapAttrs convertOldKeyType;
 
       description = ''
         The set of keys to be deployed to the machine.  Each attribute
