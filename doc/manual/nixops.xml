@@ -162,6 +162,32 @@ cloud.</para>
 
   </varlistentry>
 
+  <varlistentry><term><envar>GCE_PROJECT</envar></term>
+
+    <listitem><para>GCE Project which should own the resources in
+    the Google Compute Engine deployment. Used if
+    <varname>deployment.gce.project</varname> is not set in a GCE
+    machine configuration and if
+    <varname>resources.$TYPE.$NAME.project</varname> is not set in
+    a GCE resource specification.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><envar>GCE_SERVICE_ACCOUNT</envar></term>
+    <term><envar>ACCESS_KEY_PATH</envar></term>
+
+    <listitem><para>GCE Service Account ID and the path to the
+    corresponding private key in .pem format which should be
+    used to manage the Google Compute Engine deployment. Used if
+    <varname>deployment.gce.serviceAccount</varname> and
+    <varname>deployment.gce.accessKey</varname> are not set
+    in a GCE machine configuration and if
+    <varname>resources.$TYPE.$NAME.serviceAccount</varname> and
+    <varname>resources.$TYPE.$NAME.accessKey</varname> are not set
+    in a GCE resource specification.</para></listitem>
+
+  </varlistentry>
+
 </variablelist>
 
 
