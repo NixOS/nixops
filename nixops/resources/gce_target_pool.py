@@ -96,6 +96,9 @@ class GCETargetPoolState(ResourceState):
                 tp = self.targetpool()
                 if self.state == self.UP:
 
+                    self.warn_if_changed(self.region, tp.region.name,
+                                         'region', can_fix = False)
+
                     normalized_hc = (tp.healthchecks[0].name if tp.healthchecks else None)
                     self.healthcheck = self.warn_if_changed(self.healthcheck, normalized_hc, 'health check')
 

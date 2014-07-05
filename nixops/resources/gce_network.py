@@ -113,7 +113,7 @@ class GCENetworkState(ResourceState):
             try:
                 network = self.network()
                 if self.state == self.UP:
-                    self.warn_if_changed(self.addressRange, network.cidr, 'address range')
+                    self.warn_if_changed(self.addressRange, network.cidr, 'address range', can_fix = False)
                 else:
                     self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
                               "of a botched creation attempt and can be fixed by deletion."

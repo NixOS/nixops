@@ -76,7 +76,8 @@ class GCEDiskState(ResourceState):
             try:
                 disk = self.disk()
                 if self.state == self.UP:
-                    self.warn_if_changed(str(self.size), str(disk.size), 'size')
+                    self.warn_if_changed(self.region, disk.extra['zone'].name, 'region', can_fix = False)
+                    self.warn_if_changed(str(self.size), str(disk.size), 'size', can_fix = False)
                 else:
                     self.warn("{0} exists, but isn't supposed to. Probably, this is  the result "
                               "of a botched creation attempt and can be fixed by deletion. However, this also "
@@ -89,12 +90,9 @@ class GCEDiskState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            if defn.snapshot:
-                extra_msg = " from snapshot '{0}'".format(defn.snapshot)
-            elif defn.image:
-                extra_msg = " from image '{0}'".format(defn.image)
-            else:
-                extra_msg = ""
+            extra_msg = ( " from snapshot '{0}'".format(defn.snapshot) if defn.snapshot
+                     else " from image '{0}'".format(defn.image)       if defn.image
+                     else "" )
             self.log_start("Creating GCE Disk of {0} GiB{1}..."
                            .format(defn.size if defn.size else "auto", extra_msg))
             try:
@@ -102,7 +100,8 @@ class GCEDiskState(ResourceState):
                                                       snapshot = defn.snapshot, image = defn.image,
                                                       use_existing= False)
             except libcloud.common.google.ResourceExistsError:
-                raise Exception("Tried creating a disk that already exists. Please run ‘deploy --check’ to fix this.")
+                raise Exception("Tried creating a disk that already exists. "
+                                "Please run 'deploy --check' to fix this.")
 
             self.log_end("done.")
             self.state = self.UP

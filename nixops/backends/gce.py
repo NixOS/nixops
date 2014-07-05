@@ -208,6 +208,9 @@ class GCEState(MachineState, ResourceState):
                         self.warn("The instance is terminated and needs a reboot")
                         self.state = self.STOPPED
 
+                    self.warn_if_changed(self.region, node.extra['zone'].name, 'region', can_fix = False)
+
+                    self.instance_type = self.warn_if_changed(self.instance_type, node.size, 'instance type')
                     self.public_ipv4 = self.warn_if_changed(self.public_ipv4,
                                                             node.public_ips[0] if node.public_ips else None,
                                                             'IP address')
@@ -281,12 +284,9 @@ class GCEState(MachineState, ResourceState):
         for k, v in defn.block_device_mapping.iteritems():
             if k in self.block_device_mapping: continue
             if v['disk'] is None:
-                if v['snapshot']:
-                    extra_msg = " from snapshot '{0}'".format(v['snapshot'])
-                elif v['image']:
-                    extra_msg = " from image '{0}'".format(v['image'])
-                else:
-                    extra_msg = ""
+                extra_msg = ( " from snapshot '{0}'".format(v['snapshot']) if v['snapshot']
+                         else " from image '{0}'".format(v['image'])       if v['image']
+                         else "" )
                 self.log_start("Creating GCE disk of {0} GiB{1}..."
                               .format(v['size'] if v['size'] else "auto", extra_msg))
                 v['region'] = defn.region
@@ -295,7 +295,8 @@ class GCEState(MachineState, ResourceState):
                                                   snapshot = v['snapshot'], image = v['image'],
                                                   use_existing= False)
                 except libcloud.common.google.ResourceExistsError:
-                    raise Exception("Tried creating a disk that already exists. Please run ‘deploy --check’ to fix this.")
+                    raise Exception("Tried creating a disk that already exists. "
+                                    "Please run 'deploy --check' to fix this.")
                 self.log_end('done.')
             v['needsAttach'] = True
             self.update_block_device_mapping(k, v)

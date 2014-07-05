@@ -101,10 +101,16 @@ class GCEForwardingRuleState(ResourceState):
                 if self.state == self.UP:
                     self.public_ipv4 = self.warn_if_changed(self.public_ipv4, fwr.address, 'IP address')
 
-                    self.warn_if_changed(self.targetpool, fwr.targetpool.name, 'target pool')
-                    self.warn_if_changed(self.protocol, fwr.protocol, 'protocol')
-                    self.warn_if_changed(self.port_range or '1-65535', fwr.extra['portRange'], 'port range')
-                    self.warn_if_changed(self.description, fwr.extra['description'], 'description')
+                    self.warn_if_changed(self.region, fwr.region.name,
+                                         'region', can_fix = False)
+                    self.warn_if_changed(self.targetpool, fwr.targetpool.name,
+                                         'target pool', can_fix = False)
+                    self.warn_if_changed(self.protocol, fwr.protocol,
+                                         'protocol', can_fix = False)
+                    self.warn_if_changed(self.port_range or '1-65535', fwr.extra['portRange'],
+                                         'port range', can_fix = False)
+                    self.warn_if_changed(self.description, fwr.extra['description'],
+                                         'description', can_fix = False)
                 else:
                     self.warn("{0} exists, but isn't supposed to. Probably, this is  the result "
                               "of a botched creation attempt and can be fixed by deletion."
@@ -125,7 +131,7 @@ class GCEForwardingRuleState(ResourceState):
                                                                description = defn.description)
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried creating a forwarding rule that already exists. "
-                                "Please run ‘deploy --check’ to fix this.")
+                                "Please run 'deploy --check' to fix this.")
 
             self.log_end("done.")
             self.state = self.UP

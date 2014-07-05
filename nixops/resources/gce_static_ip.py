@@ -76,7 +76,9 @@ class GCEStaticIPState(ResourceState):
             try:
                 address = self.address()
                 if self.state == self.UP:
-                    self.warn_if_changed(self.ipAddress, address.address, '')
+                    self.ipAddress = self.warn_if_changed(self.ipAddress, address.address, '')
+                    self.warn_if_changed(self.region, address.region.name,
+                                         'region', can_fix = False)
                 else:
                     self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
                               "of a botched creation attempt and can be fixed by deletion.".
