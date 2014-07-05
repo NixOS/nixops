@@ -112,8 +112,11 @@ class ResourceState(nixops.resources.ResourceState):
             else:
                 return False
 
-    def warn_if_changed(self, expected_state, actual_state, name):
+    def warn_if_changed(self, expected_state, actual_state, name,
+                        resource_name = None, can_fix = True):
         if expected_state != actual_state:
-            self.warn("{0} {1} has changed to '{2}'. Expected it to be '{3}'".
-                      format(self.full_name, name, actual_state, expected_state))
+            self.warn("{0} {1} has changed to '{2}'. Expected it to be '{3}'.{4}"
+                      .format(resource_name or self.full_name,
+                              name, actual_state, expected_state,
+                              "" if can_fix else "Cannot fix this automatically."))
         return actual_state
