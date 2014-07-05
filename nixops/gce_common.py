@@ -120,3 +120,14 @@ class ResourceState(nixops.resources.ResourceState):
                               name, actual_state, expected_state,
                               "" if can_fix else "Cannot fix this automatically."))
         return actual_state
+
+    def warn_not_supposed_to_exist(self, resource_name = None,
+                              valuable_data = False, valuable_resource = False):
+        valuables = " or ".join(filter(None, [valuable_data and "data", valuable_resource and "resource"]))
+        valuable_msg = ( " However, this also could be a resource name collision, "
+                         "and valuable {0} could be lost. Before proceeding, "
+                         "please ensure that this isn't so.".format(valuables)
+                         if valuables else "" )
+        self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
+                  "of a botched creation attempt and can be fixed by deletion.{1}"
+                  .format(resource_name or self.full_name, valuable_msg))

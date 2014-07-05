@@ -111,9 +111,7 @@ class GCEHTTPHealthCheckState(ResourceState):
                     self.unhealthy_threshold = self.warn_if_changed(self.unhealthy_threshold, hc.unhealthy_threshold,
                                                                     'unhealthy threshold')
                 else:
-                    self.warn("{0} exists, but isn't supposed to. Probably, this is  the result "
-                              "of a botched creation attempt and can be fixed by deletion."
-                              .format(self.full_name))
+                    self.warn_not_supposed_to_exist()
                     self.confirm_destroy(hc, self.full_name)
 
             except libcloud.common.google.ResourceNotFoundError:

@@ -79,11 +79,7 @@ class GCEDiskState(ResourceState):
                     self.warn_if_changed(self.region, disk.extra['zone'].name, 'region', can_fix = False)
                     self.warn_if_changed(str(self.size), str(disk.size), 'size', can_fix = False)
                 else:
-                    self.warn("{0} exists, but isn't supposed to. Probably, this is  the result "
-                              "of a botched creation attempt and can be fixed by deletion. However, this also "
-                              "could be a resource name collision, and valuable data could be lost. "
-                              "Before proceeding, please ensure that the disk doesn't contain useful data."
-                              .format(self.full_name))
+                    self.warn_not_supposed_to_exist(valuable_data = True)
                     self.confirm_destroy(disk, self.full_name)
 
             except libcloud.common.google.ResourceNotFoundError:

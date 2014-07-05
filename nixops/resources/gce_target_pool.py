@@ -115,9 +115,7 @@ class GCETargetPoolState(ResourceState):
                         self.machines = list(normalized_machines)
 
                 else:
-                    self.warn("{0} exists, but isn't supposed to. Probably, this is  the result "
-                              "of a botched creation attempt and can be fixed by deletion."
-                              .format(self.full_name))
+                    self.warn_not_supposed_to_exist()
                     self.confirm_destroy(tp, self.full_name)
 
             except libcloud.common.google.ResourceNotFoundError:

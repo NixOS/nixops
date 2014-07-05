@@ -258,11 +258,7 @@ class GCEState(MachineState, ResourceState):
                         self.warn("Unexpected disk(s) {0} are attached to this instance. "
                                   "Not fixing this just in case.".format(unexpected_disks))
                 else:
-                    self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
-                              "of a botched creation attempt and can be fixed by deletion. However, this also "
-                              "could be a resource name collision, and valuable data could be lost. "
-                              "Before proceeding, please ensure that the instance doesn't contain useful data."
-                              .format(self.full_name))
+                    self.warn_not_supposed_to_exist(valuable_data = True)
                     self.confirm_destroy(node, self.full_name)
 
             except libcloud.common.google.ResourceNotFoundError:
@@ -278,11 +274,7 @@ class GCEState(MachineState, ResourceState):
                 try:
                     disk = self.connect().ex_get_volume(disk_name, v.get('region', None) )
                     if k not in self.block_device_mapping and v['disk_name']:
-                        self.warn("GCE disk ‘{0}’ exists, but isn't supposed to. Probably, this is the result "
-                              "of a botched creation attempt and can be fixed by deletion. However, this also "
-                              "could be a resource name collision, and valuable data could be lost. "
-                              "Before proceeding, please ensure that the disk doesn't contain useful data."
-                              .format(disk_name))
+                        self.warn_not_supposed_to_exist(resource_name = disk_name, valuable_data = True)
                         self.confirm_destroy(disk, disk_name)
 
                 except libcloud.common.google.ResourceNotFoundError:

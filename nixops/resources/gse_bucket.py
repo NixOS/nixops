@@ -101,11 +101,7 @@ class GSEBucketState(ResourceState):
                     # FIXME: check state
                     self.log('OK')
                 else:
-                    self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
-                              "of a botched creation attempt and can be fixed by deletion. However, this also "
-                              "could be a resource name collision, and valuable data could be lost. "
-                              "Before proceeding, please ensure that the bucket doesn't contain useful data."
-                              .format(self.full_name))
+                    self.warn_not_supposed_to_exist(valuable_resource = True, valuable_data = True)
                     if self.depl.logger.confirm("Are you sure you want to destroy the existing {0}?".format(self.full_name)):
                         self.log_start("Destroying...")
                         self.delete_bucket()
