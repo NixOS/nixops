@@ -11,6 +11,9 @@ from nixops.util import attr_property
 from nixops.gce_common import ResourceDefinition, ResourceState
 
 
+def normalize_list(tags):
+    return sorted(tags or [])
+
 class GCENetworkDefinition(ResourceDefinition):
     """Definition of a GCE Network"""
 
@@ -34,24 +37,31 @@ class GCENetworkDefinition(ResourceDefinition):
             if x.find("attrs/attr[@name='sourceRanges']/list") is None:
                 return [ "0.0.0.0/0" ]
             else:
-                return [st.get("value") for st in x.findall("attrs/attr[@name='sourceRanges']/list/string")]
+                return [ st.get("value")
+                         for st in x.findall("attrs/attr[@name='sourceRanges']/list/string") ]
 
         def parse_fw(x):
-          result =  {
-            "sourceRanges": parse_sourceranges(x),
-            "sourceTags": [sr.get("value") for sr in x.findall("attrs/attr[@name='sourceTags']/list/string")],
-            "targetTags": [sr.get("value") for sr in x.findall("attrs/attr[@name='targetTags']/list/string")],
-            "allowed": {a.get("name"): parse_allowed(a) for a in x.findall("attrs/attr[@name='allowed']/attrs/attr")}
-          }
-          if len(result['allowed']) == 0:
-              raise Exception("Firewall rule ‘{0}‘ in network ‘{1}‘ must provide at least one protocol/port specification".
-                              format(x.get("name"), self.network_name) )
-          if len(result['sourceRanges']) == 0 and len(result['sourceTags']) == 0:
-              raise Exception("Firewall rule ‘{0}‘ in network ‘{1}‘ must specify at least one source range or tag".
-                              format(x.get("name"), self.network_name) )
-          return result
+            result =  {
+              "sourceRanges": normalize_list(parse_sourceranges(x)),
+              "sourceTags": normalize_list([st.get("value")
+                                            for st in x.findall("attrs/attr[@name='sourceTags']/list/string")]),
+              "targetTags": normalize_list([tt.get("value")
+                                            for tt in x.findall("attrs/attr[@name='targetTags']/list/string")]),
+              "allowed": { a.get("name"): parse_allowed(a)
+                           for a in x.findall("attrs/attr[@name='allowed']/attrs/attr") }
+            }
+            if len(result['allowed']) == 0:
+                raise Exception("Firewall rule '{0}' in network '{1}' "
+                                "must provide at least one protocol/port specification"
+                                .format(x.get("name"), self.network_name) )
+            if len(result['sourceRanges']) == 0 and len(result['sourceTags']) == 0:
+                raise Exception("Firewall rule '{0}' in network '{1}' "
+                                "must specify at least one source range or tag"
+                                .format(x.get("name"), self.network_name) )
+            return result
 
-        self.firewall = {fw.get("name"): parse_fw(fw) for fw in xml.findall("attrs/attr[@name='firewall']/attrs/attr")}
+        self.firewall = { fw.get("name"): parse_fw(fw)
+                          for fw in xml.findall("attrs/attr[@name='firewall']/attrs/attr") }
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.addressRange)
@@ -102,6 +112,13 @@ class GCENetworkState(ResourceState):
     def firewall_name(self, name):
         return "{0}-{1}".format(self.network_name, name)
 
+    def full_firewall_name(self, name):
+        return "GCE Firewall '{0}'".format(self.firewall_name(name))
+
+    def warn_if_firewall_changed(self, fw_name, expected_state, actual_state, name, can_fix = True):
+        return self.warn_if_changed(expected_state, actual_state, name,
+                                    resource_name = self.full_firewall_name(fw_name), can_fix = can_fix)
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(self.addressRange != defn.addressRange, 'address range')
         self.no_project_change(defn)
@@ -126,7 +143,8 @@ class GCENetworkState(ResourceState):
             try:
                 network = self.connect().ex_create_network(defn.network_name, defn.addressRange)
             except libcloud.common.google.ResourceExistsError:
-                raise Exception("Tried creating a network that already exists. Please run ‘deploy --check’ to fix this.")
+                raise Exception("Tried creating a network that already exists. "
+                                "Please run 'deploy --check' to fix this.")
 
             self.log_end("done.")
 
@@ -138,26 +156,32 @@ class GCENetworkState(ResourceState):
           return [ dict( [( "IPProtocol", proto )] + ([("ports", ports )] if ports is not None else []) )
                    for proto, ports in attrs.iteritems() ]
 
-        def normalize_list(tags):
-            return sorted(tags or [])
-
         if check:
-            firewalls = [ f for f in self.connect().ex_list_firewalls() if f.network.name == defn.network_name ]
+            firewalls = [ f for f in self.connect().ex_list_firewalls()
+                            if f.network.name == defn.network_name ]
 
             # delete stray rules and mark changed ones for update
             for fw in firewalls:
-                k = next( (k for (k,v) in self.firewall.iteritems() if fw.name == self.firewall_name(k)), None)
-                if k:
-                    rule = self.firewall[k]
-                    if( (rule == {}) or
-                          (normalize_list(fw.source_ranges) != normalize_list(rule['sourceRanges'])) or
-                          (normalize_list(fw.source_tags) != normalize_list(rule['sourceTags'])) or
-                          (normalize_list(fw.target_tags) != normalize_list(rule.get('targetTags',[]))) or
-                          (fw.allowed != trans_allowed(rule['allowed'])) ):
-                        self.warn("firewall rule ‘{0}‘ has changed unexpectedly...".format(fw.name))
-                        self.update_firewall(k, {}) # mark for update
+                fw_name = next( (k for (k,v) in self.firewall.iteritems() if fw.name == self.firewall_name(k)), None)
+                if fw_name:
+                    rule = self.firewall[fw_name]
+
+                    rule['sourceRanges'] = self.warn_if_firewall_changed(
+                        fw_name, rule['sourceRanges'], normalize_list(fw.source_ranges), 'source ranges')
+                    rule['sourceTags'] = self.warn_if_firewall_changed(
+                        fw_name, rule['sourceTags'], normalize_list(fw.source_tags), 'source tags')
+                    rule['targetTags'] = self.warn_if_firewall_changed(
+                          fw_name, rule['targetTags'], normalize_list(fw.target_tags), 'target tags')
+
+                    if fw.allowed != trans_allowed(rule['allowed']):
+                        self.warn("{0} allowed ports and protocols have changed unexpectedly"
+                                  .format(self.full_firewall_name(fw_name)))
+                        rule['allowed'] = {} # mark for update
+
+                    self.update_firewall(fw_name, rule)
                 else:
-                    self.warn("deleting firewall rule ‘{0}‘ which isn't supposed to exist...".format(fw.name))
+                    self.warn("Deleting {0} which isn't supposed to exist..."
+                              .format(self.firewall_name(fw_name)))
                     fw.destroy()
 
             # find missing firewall rules
@@ -170,7 +194,7 @@ class GCENetworkState(ResourceState):
         for k, v in defn.firewall.iteritems():
             if k in self.firewall:
                 if v == self.firewall[k]: continue
-                self.log_start("updating firewall rule ‘{0}‘...".format(k))
+                self.log_start("Updating {0}...".format(self.firewall_name(k)))
                 try:
                     firewall = self.connect().ex_get_firewall(self.firewall_name(k))
                     firewall.allowed = trans_allowed(v['allowed'])
@@ -179,10 +203,11 @@ class GCENetworkState(ResourceState):
                     firewall.target_tags = v['targetTags']
                     firewall.update();
                 except libcloud.common.google.ResourceNotFoundError:
-                    raise Exception("Tried updating a firewall rule that doesn't exist. Please run ‘deploy --check’ to fix this.")
+                    raise Exception("Tried updating a firewall rule that doesn't exist. "
+                                    "Please run 'deploy --check' to fix this.")
 
             else:
-                self.log_start("creating firewall rule ‘{0}‘...".format(k))
+                self.log_start("Creating {0}...".format(self.full_firewall_name(k)))
                 try:
                     self.connect().ex_create_firewall(self.firewall_name(k), trans_allowed(v['allowed']),
                                                       network= self.network_name,
@@ -190,7 +215,8 @@ class GCENetworkState(ResourceState):
                                                       source_tags = v['sourceTags'],
                                                       target_tags = v['targetTags']);
                 except libcloud.common.google.ResourceExistsError:
-                    raise Exception("Tried creating a firewall rule that already exists. Please run ‘deploy --check’ to fix this.")
+                    raise Exception("Tried creating a firewall rule that already exists. "
+                                    "Please run 'deploy --check' to fix this.")
 
             self.log_end('done.')
             self.update_firewall(k, v)
@@ -198,12 +224,12 @@ class GCENetworkState(ResourceState):
         # delete unneeded
         for k, v in self.firewall.iteritems():
             if k in defn.firewall: continue
-            self.log_start("deleting firewall rule ‘{0}‘...".format(k))
+            self.log_start("Deleting {0}...".format(self.full_firewall_name(k)))
             try:
                 fw_n = self.firewall_name(k);
                 self.connect().ex_get_firewall(fw_n).destroy()
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("tried to destroy GCE Firewall ‘{0}’ which didn't exist".format(fw_n))
+                self.warn("Tried to destroy {0} which didn't exist".format(self.full_firewall_name(k)))
             self.log_end('done.')
             self.update_firewall(k, None)
 
