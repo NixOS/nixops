@@ -85,7 +85,7 @@ class GCEDefinition(MachineDefinition):
             raise Exception("Machine {0} must have exactly one boot device.".format(self.name))
 
     def show_type(self):
-        return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")
+        return "{0} [{1}]".format(self.get_type(), self.region or "???")
 
 
 class GCEState(MachineState, ResourceState):
@@ -123,6 +123,11 @@ class GCEState(MachineState, ResourceState):
     @property
     def resource_id(self):
         return self.machine_name
+
+    def show_type(self):
+        s = super(GCEState, self).show_type()
+        if self.region: s = "{0} [{1}; {2}]".format(s, self.region, self.instance_type)
+        return s
 
     credentials_prefix = "deployment.gce"
 
