@@ -119,6 +119,17 @@ class GCENetworkState(ResourceState):
         return self.warn_if_changed(expected_state, actual_state, name,
                                     resource_name = self.full_firewall_name(fw_name), can_fix = can_fix)
 
+    def destroy_firewall(self, fwname):
+        self.log_start("Destroying {0}...".format(self.full_firewall_name(fwname)))
+        try:
+            fw_n = self.firewall_name(fwname)
+            self.connect().ex_get_firewall(fw_n).destroy()
+        except libcloud.common.google.ResourceNotFoundError:
+            self.warn("Tried to destroy {0} which didn't exist"
+                     .format(self.full_firewall_name(fwname)))
+        self.log_end('done.')
+        self.update_firewall(fwname, None)
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(self.addressRange != defn.addressRange, 'address range')
         self.no_project_change(defn)
@@ -222,16 +233,8 @@ class GCENetworkState(ResourceState):
             self.update_firewall(k, v)
 
         # delete unneeded
-        for k, v in self.firewall.iteritems():
-            if k in defn.firewall: continue
-            self.log_start("Deleting {0}...".format(self.full_firewall_name(k)))
-            try:
-                fw_n = self.firewall_name(k);
-                self.connect().ex_get_firewall(fw_n).destroy()
-            except libcloud.common.google.ResourceNotFoundError:
-                self.warn("Tried to destroy {0} which didn't exist".format(self.full_firewall_name(k)))
-            self.log_end('done.')
-            self.update_firewall(k, None)
+        for k in set(self.firewall.keys()) - set(defn.firewall.keys()):
+            self.destroy_firewall(k)
 
 
     def destroy(self, wipe=False):
@@ -241,14 +244,8 @@ class GCENetworkState(ResourceState):
                 if not self.depl.logger.confirm("Are you sure you want to destroy {0}?".format(self.full_name)):
                     return False
 
-                for k,v in self.firewall.iteritems():
-                    fw_n = self.firewall_name(k);
-                    self.log("destroying GCE Firewall ‘{0}’...".format(fw_n))
-                    try:
-                        self.connect().ex_get_firewall(fw_n).destroy()
-                    except libcloud.common.google.ResourceNotFoundError:
-                        self.warn("tried to destroy GCE Firewall ‘{0}’ which didn't exist".format(fw_n))
-                    self.update_firewall(k, None)
+                for k in self.firewall.keys():
+                    self.destroy_firewall(k)
 
                 self.log("Destroying {0}...".format(self.full_name))
                 network.destroy()
