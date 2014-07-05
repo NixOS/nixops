@@ -231,10 +231,11 @@ class GCEState(MachineState, ResourceState):
 
                     self.tags = self.warn_if_changed(self.tags, sorted(node.extra['tags']), 'tags')
 
+                    attached_disk_names = [d.get("deviceName", None) for d in node.extra['disks'] ]
                     # check that all disks are attached
                     for k, v in self.block_device_mapping.iteritems():
                         disk_name = v['disk_name'] or v['disk']
-                        is_attached = any(d.get("deviceName", None) == disk_name for d in node.extra['disks'])
+                        is_attached = disk_name in attached_disk_names
                         if not is_attached  and not v.get('needsAttach', False):
                             self.warn("Disk {0} seems to have been detached behind our back. Will reattach...".format(disk_name))
                             v['needsAttach'] = True
@@ -244,7 +245,13 @@ class GCEState(MachineState, ResourceState):
                             del v['needsAttach']
                             self.update_block_device_mapping(k, v)
 
-                    # FIXME: check that no extra disks are attached?
+                    # check that no extra disks are attached
+                    defn_disk_names  = [v['disk_name'] or v['disk'] for k,v in defn.block_device_mapping.iteritems()]
+                    state_disk_names = [v['disk_name'] or v['disk'] for k,v in self.block_device_mapping.iteritems()]
+                    unexpected_disks = list( set(attached_disk_names) - set(defn_disk_names) - set(state_disk_names) )
+                    if unexpected_disks:
+                        self.warn("Unexpected disk(s) {0} are attached to this instance. "
+                                  "Not fixing this just in case.".format(unexpected_disks))
                 else:
                     self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
                               "of a botched creation attempt and can be fixed by deletion. However, this also "
