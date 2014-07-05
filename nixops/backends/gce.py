@@ -210,6 +210,11 @@ class GCEState(MachineState, ResourceState):
 
                     self.warn_if_changed(self.region, node.extra['zone'].name, 'region', can_fix = False)
 
+                    # a bit hacky but should work
+                    network_name = node.extra['networkInterfaces'][0]['network'].split('/')[-1]
+                    if network_name == 'default': network_name = None
+                    self.network = self.warn_if_changed(self.network, network_name, 'network')
+
                     self.instance_type = self.warn_if_changed(self.instance_type, node.size, 'instance type')
                     self.public_ipv4 = self.warn_if_changed(self.public_ipv4,
                                                             node.public_ips[0] if node.public_ips else None,
@@ -333,7 +338,7 @@ class GCEState(MachineState, ResourceState):
             self.stop()
 
         if not self.vm_id:
-            self.log_start("Creating '{0}'...".format(self.full_name))
+            self.log_start("Creating {0}...".format(self.full_name))
             boot_disk = next(v for k,v in self.block_device_mapping.iteritems() if v.get('bootDisk', False))
             try:
                 node = self.connect().create_node(self.machine_name, defn.instance_type, 'none',
