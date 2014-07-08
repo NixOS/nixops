@@ -199,17 +199,18 @@ class GSEBucketState(ResourceState):
                     self.warn_if_changed(self.storage_class, b['storageClass'],
                                          'storage class', can_fix = False)
 
-                    self.log_bucket = self.warn_if_changed(self.log_bucket, b['logging']['logBucket'], 'log bucket')
+                    self.log_bucket = self.warn_if_changed(self.log_bucket,
+                                                           b.get('logging', {}).get('logBucket', None), 'log bucket')
                     self.log_object_prefix = self.warn_if_changed(self.log_object_prefix,
-                                                                  b['logging']['logObjectPrefix'], 'log object prefix')
+                                                                  b.get('logging', {}).get('logObjectPrefix', None), 'log object prefix')
                     self.versioning_enabled = self.warn_if_changed(self.versioning_enabled,
                                                                    b['versioning']['enabled'],
                                                                    'versioning enabled')
                     self.website_main_page_suffix = self.warn_if_changed(self.website_main_page_suffix,
-                                                                         b['website']['mainPageSuffix'],
+                                                                         b.get('website', {}).get('mainPageSuffix', None),
                                                                          'website main page suffix')
                     self.website_not_found_page = self.warn_if_changed(self.website_not_found_page,
-                                                                         b['website']['notFoundPage'],
+                                                                         b.get('website', {}).get('notFoundPage', None),
                                                                          'website "not found" page')
                     actual_cors = sorted( [ { 'origins': sorted(c.get('origin', [])),
                                               'methods': sorted(c.get('method', [])),
