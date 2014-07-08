@@ -25,7 +25,10 @@ class GCEForwardingRuleDefinition(ResourceDefinition):
         self.forwarding_rule_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.protocol = xml.find("attrs/attr[@name='protocol']/string").get("value")
-        self.port_range = optional_string(xml.find("attrs/attr[@name='portRange']/string"))
+
+        pr = optional_string(xml.find("attrs/attr[@name='portRange']/string"))
+        self.port_range = None if pr is None else "{0}-{1}".format(pr, pr) if pr.isdigit() else pr
+
         self.description = optional_string(xml.find("attrs/attr[@name='description']/string"))
         self.ipAddress = ( optional_string(xml.find("attrs/attr[@name='ipAddress']/string")) or
                            optional_string(xml.find("attrs/attr[@name='ipAddress']/attrs/attr[@name='name']/string")) )
