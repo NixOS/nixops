@@ -6,7 +6,7 @@ import os
 import libcloud.common.google
 
 from nixops.util import attr_property
-from nixops.gce_common import ResourceDefinition, ResourceState, optional_string
+from nixops.gce_common import ResourceDefinition, ResourceState, optional_string, optional_int, optional_bool
 
 class GSEResponse(libcloud.common.google.GoogleResponse):
     pass
@@ -40,6 +40,52 @@ class GSEBucketDefinition(ResourceDefinition):
 
         self.bucket_name = xml.find("attrs/attr[@name='name']/string").get("value")
 
+        self.cors = sorted( [ {
+            'max_age_seconds': optional_int(x.find("attr[@name='maxAgeSeconds']/int")),
+            'methods': sorted([ m.get("value")
+                            for m in x.findall("attr[@name='methods']/list/string")]),
+            'origins': sorted([ o.get("value")
+                            for o in x.findall("attr[@name='origins']/list/string")]),
+            'response_headers': sorted([ rh.get("value")
+                                     for rh in x.findall("attr[@name='responseHeaders']/list/string")])
+          } for x in xml.findall("attrs/attr[@name='cors']/list/attrs") ] )
+
+        def parse_lifecycle(x):
+            cond_x = x.find("attr[@name='conditions']")
+
+            return {
+                'action': x.find("attr[@name='action']/string").get("value"),
+                'age': optional_int(cond_x.find("attrs/attr[@name='age']/int")),
+                'is_live': optional_bool(cond_x.find("attrs/attr[@name='isLive']/bool")),
+                'created_before':
+                    optional_string(cond_x.find("attrs/attr[@name='createdBefore']/string")),
+                'number_of_newer_versions':
+                    optional_int(cond_x.find("attrs/attr[@name='numberOfNewerVersions']/int"))
+            }
+        self.lifecycle = sorted([ parse_lifecycle(x)
+                           for x in xml.findall("attrs/attr[@name='lifecycle']/list/attrs") ])
+
+        if any(r['age'] is None and r['is_live'] is None and
+               r['created_before'] is None and r['number_of_newer_versions'] is None
+           for r in self.lifecycle):
+            raise Exception("Bucket '{0}' object lifecycle management "
+                            "rule must specify at least one condition"
+                            .format(self.bucket_name))
+
+        logx = xml.find("attrs/attr[@name='logging']")
+        self.log_bucket =  ( optional_string(logx.find("attrs/attr[@name='logBucket']/string")) or
+                            optional_string(logx.find("attrs/attr[@name='logBucket']/attrs/attr[@name='name']/string"))  )
+        self.log_object_prefix = optional_string(logx.find("attrs/attr[@name='logObjectPrefix']/string"))
+
+        self.region = xml.find("attrs/attr[@name='location']/string").get("value")
+        self.storage_class = xml.find("attrs/attr[@name='storageClass']/string").get("value")
+        self.versioning_enabled = xml.find("attrs/attr[@name='versioning']/"
+                                           "attrs/attr[@name='enabled']/bool").get("value") == "true"
+
+        webx = xml.find("attrs/attr[@name='website']")
+        self.website_main_page_suffix = optional_string(webx.find("attrs/attr[@name='mainPageSuffix']/string"))
+        self.website_not_found_page = optional_string(webx.find("attrs/attr[@name='notFoundPage']/string"))
+
     def show_type(self):
         return "{0}".format(self.get_type())
 
@@ -48,6 +94,16 @@ class GSEBucketState(ResourceState):
     """State of a GSE Bucket"""
 
     bucket_name = attr_property("gce.name", None)
+
+    cors = attr_property("gce.cors", [], 'json')
+    lifecycle = attr_property("gce.lifecycle", [], 'json')
+    log_bucket = attr_property("gce.logBucket", None)
+    log_object_prefix = attr_property("gce.logObjectPrefix", None)
+    region = attr_property("gce.region", None)
+    storage_class = attr_property("gce.storageClass", None)
+    versioning_enabled = attr_property("gce.versioningEnabled", None, bool)
+    website_main_page_suffix = attr_property("gce.websiteMainPageSuffix", None)
+    website_not_found_page = attr_property("gce.websiteNotFoundPage", None)
 
     @classmethod
     def get_type(cls):
@@ -77,29 +133,100 @@ class GSEBucketState(ResourceState):
             self._conn = GSEConnection(self.service_account, self.access_key_path, True)
         return self._conn
 
+    defn_properties = [ 'cors', 'lifecycle', 'log_bucket', 'log_object_prefix',
+                        'region', 'storage_class', 'versioning_enabled',
+                        'website_main_page_suffix', 'website_not_found_page' ]
+
+    def bucket_resource(self, defn):
+        return {
+            'name': defn.bucket_name,
+            'cors': [ { 'origin': c['origins'],
+                        'method': c['methods'],
+                        'responseHeader': c['response_headers'],
+                        'maxAgeSeconds': c['max_age_seconds']
+                      } for c in defn.cors ],
+            'lifecycle': {
+                'rule': [ { 'action': { 'type': r['action'] },
+                            'condition': {
+                                'age': r['age'],
+                                'isLive': r['is_live'],
+                                'createdBefore': r['created_before'],
+                                'numNewerVersions': r['number_of_newer_versions']
+                            }
+                        } for r in defn.lifecycle ]
+            },
+            'location': defn.region,
+            'logging': {
+                'logBucket': defn.log_bucket,
+                'logObjectPrefix': defn.log_object_prefix
+            } if defn.log_bucket is not None else {},
+            'storageClass': defn.storage_class,
+            'versioning': { 'enabled': defn.versioning_enabled },
+            'website': {
+                'mainPageSuffix': defn.website_main_page_suffix,
+                'notFoundPage': defn.website_not_found_page
+            }
+        }
+
     def bucket(self):
-        return self.connect().request("/{0}".format(self.bucket_name), method = "GET")
+        return self.connect().request("/{0}?projection=full".format(self.bucket_name), method = "GET").object
 
     def delete_bucket(self):
         return self.connect().request("/{0}".format(self.bucket_name), method = 'DELETE')
 
-    def create_bucket(self, bname):
-        return self.connect().request("?project={0}".format(self.project), method = 'POST', data = {
-            'name': bname
-          })
+    def create_bucket(self, defn):
+        return self.connect().request("?project={0}".format(self.project), method = 'POST',
+                                      data = self.bucket_resource(defn))
+
+    def update_bucket(self, defn):
+        return self.connect().request("/{0}".format(self.bucket_name), method = 'PATCH',
+                                      data = self.bucket_resource(defn))
 
     def create(self, defn, check, allow_reboot, allow_recreate):
+        self.no_change(self.storage_class != defn.storage_class, 'storage class')
         self.no_project_change(defn)
+        self.no_region_change(defn)
 
         self.copy_credentials(defn)
         self.bucket_name = defn.bucket_name
 
         if check:
             try:
-                bucket = self.bucket()
+                b = self.bucket()
                 if self.state == self.UP:
-                    # FIXME: check state
-                    self.log('OK')
+
+                    self.warn_if_changed(self.region, b['location'], 'region', can_fix = False)
+                    self.warn_if_changed(self.storage_class, b['storageClass'],
+                                         'storage class', can_fix = False)
+
+                    self.log_bucket = self.warn_if_changed(self.log_bucket, b['logging']['logBucket'], 'log bucket')
+                    self.log_object_prefix = self.warn_if_changed(self.log_object_prefix,
+                                                                  b['logging']['logObjectPrefix'], 'log object prefix')
+                    self.versioning_enabled = self.warn_if_changed(self.versioning_enabled,
+                                                                   b['versioning']['enabled'],
+                                                                   'versioning enabled')
+                    self.website_main_page_suffix = self.warn_if_changed(self.website_main_page_suffix,
+                                                                         b['website']['mainPageSuffix'],
+                                                                         'website main page suffix')
+                    self.website_not_found_page = self.warn_if_changed(self.website_not_found_page,
+                                                                         b['website']['notFoundPage'],
+                                                                         'website "not found" page')
+                    actual_cors = sorted( [ { 'origins': sorted(c.get('origin', [])),
+                                              'methods': sorted(c.get('method', [])),
+                                              'response_headers': sorted(c.get('responseHeader', [])),
+                                              'max_age_seconds': int(c.get('maxAgeSeconds'))
+                                          } for c in b.get('cors', {}) ] )
+                    self.cors = self.warn_if_changed(self.cors, actual_cors, 'CORS config')
+
+                    actual_lifecycle = sorted( [ {
+                                           'action': r.get('action', {}).get('type', None),
+                                           'age': r.get('condition', {}).get('age', None),
+                                           'is_live': r.get('condition', {}).get('isLive', None),
+                                           'created_before': r.get('condition', {}).get('createdBefore', None),
+                                           'number_of_newer_versions': r.get('condition', {}).get('numNewerVersions', None),
+                                     } for r in b.get('lifecycle', {}).get('rule',[]) ] )
+                    self.lifecycle = self.warn_if_changed(self.lifecycle, actual_lifecycle, 'lifecycle config')
+
                 else:
                     self.warn_not_supposed_to_exist(valuable_resource = True, valuable_data = True)
                     if self.depl.logger.confirm("Are you sure you want to destroy the existing {0}?".format(self.full_name)):
@@ -114,13 +241,18 @@ class GSEBucketState(ResourceState):
         if self.state != self.UP:
             self.log_start("Creating {0}...".format(self.full_name))
             try:
-                bucket = self.create_bucket(defn.bucket_name)
+                bucket = self.create_bucket(defn)
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried creating a GSE Bucket that already exists. Please run ‘deploy --check’ to fix this.")
 
             self.log_end("done.")
             self.state = self.UP
+            self.copy_properties(defn)
 
+        if self.properties_changed(defn):
+            self.log("Updating {0}...".format(self.full_name))
+            self.update_bucket(defn)
+            self.copy_properties(defn)
 
     def destroy(self, wipe=False):
         if self.state == self.UP:
