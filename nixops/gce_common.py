@@ -16,6 +16,9 @@ def optional_string(elem):
 def optional_int(elem):
     return (int(elem.get("value")) if elem is not None else None)
 
+def optional_bool(elem):
+    return (elem.get("value") == "true" if elem is not None else None)
+
 def ensure_not_empty(value, name):
     if not value:
         raise Exception("{0} must not be empty".format(name))
@@ -131,3 +134,15 @@ class ResourceState(nixops.resources.ResourceState):
         self.warn("{0} exists, but isn't supposed to. Probably, this is the result "
                   "of a botched creation attempt and can be fixed by deletion.{1}"
                   .format(resource_name or self.full_name, valuable_msg))
+
+
+    # API to handle copying properties from definition to state
+    # after resource is created or updated and checking that
+    # the state is out of sync with the definition
+    def copy_properties(self, defn):
+        for attr in self.defn_properties:
+            setattr(self, attr, getattr(defn, attr))
+
+    def properties_changed(self, defn):
+        return any( getattr(self, attr) != getattr(defn, attr)
+                    for attr in self.defn_properties )
