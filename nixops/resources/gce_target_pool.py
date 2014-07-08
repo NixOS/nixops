@@ -80,9 +80,7 @@ class GCETargetPoolState(ResourceState):
     def targetpool(self):
         return self.connect().ex_get_targetpool(self.targetpool_name)
 
-    def copy_properties(self, defn):
-        self.region = defn.region
-        self.healthcheck = defn.healthcheck
+    defn_properties = [ 'region', 'healthcheck' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_project_change(defn)

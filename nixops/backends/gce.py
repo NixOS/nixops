@@ -178,6 +178,8 @@ class GCEState(MachineState, ResourceState):
             v['needsAttach'] = True
             self.update_block_device_mapping(k, v)
 
+    defn_properties = ['tags', 'region', 'instance_type',
+                       'metadata', 'ipAddress', 'network']
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, GCEDefinition)
@@ -336,11 +338,11 @@ class GCEState(MachineState, ResourceState):
 
         if not self.vm_id:
             self.log_start("Creating {0}...".format(self.full_name))
-            boot_disk = next(v for k,v in self.block_device_mapping.iteritems() if v.get('bootDisk', False))
+            boot_disk = next(v for k,v in defn.block_device_mapping.iteritems() if v.get('bootDisk', False))
             try:
                 node = self.connect().create_node(self.machine_name, defn.instance_type, 'none',
                                  location = self.connect().ex_get_zone(defn.region),
-                                 ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk['region']),
+                                 ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk.get('region', None)),
                                  ex_metadata = self.full_metadata(defn.metadata), ex_tags = defn.tags,
                                  external_ip = (self.connect().ex_get_address(defn.ipAddress) if defn.ipAddress else 'ephemeral'),
                                  ex_network = (defn.network if defn.network else 'default') )
@@ -350,12 +352,7 @@ class GCEState(MachineState, ResourceState):
             self.vm_id = self.machine_name
             self.state = self.STARTING
             self.ssh_pinged = False
-            self.tags = defn.tags
-            self.region = defn.region
-            self.instance_type = defn.instance_type
-            self.metadata = defn.metadata
-            self.ipAddress = defn.ipAddress
-            self.network = defn.network
+            self.copy_properties(defn)
             self.public_ipv4 = node.public_ips[0]
             self.log("got IP: {0}".format(self.public_ipv4))
             known_hosts.remove(self.public_ipv4)

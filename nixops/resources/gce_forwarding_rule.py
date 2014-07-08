@@ -75,13 +75,8 @@ class GCEForwardingRuleState(ResourceState):
     def forwarding_rule(self):
         return self.connect().ex_get_forwarding_rule(self.forwarding_rule_name)
 
-    def copy_properties(self, defn):
-        self.targetpool = defn.targetpool
-        self.region = defn.region
-        self.protocol = defn.protocol
-        self.port_range = defn.port_range
-        self.ipAddress = defn.ipAddress
-        self.description = defn.description
+    defn_properties = [ 'targetpool', 'region', 'protocol',
+                        'port_range', 'ipAddress', 'description' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(self.targetpool != defn.targetpool, 'target pool')
