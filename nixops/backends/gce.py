@@ -243,6 +243,11 @@ class GCEState(MachineState, ResourceState):
 
                     self.handle_changed_property('tags', sorted(node.extra['tags']))
 
+                    actual_metadata = { i['key']: i['value']
+                                        for i in node.extra['metadata'].get('items', [])
+                                        if i['key'] != 'sshKeys' }
+                    self.handle_changed_property('metadata', actual_metadata)
+
                     attached_disk_names = [d.get("deviceName", None) for d in node.extra['disks'] ]
                     # check that all disks are attached
                     for k, v in self.block_device_mapping.iteritems():
@@ -376,8 +381,7 @@ class GCEState(MachineState, ResourceState):
                 del v['needsAttach']
                 self.update_block_device_mapping(k, v)
 
-        if( self.metadata != defn.metadata or
-           (check and sorted(self.gen_metadata(self.full_metadata(defn.metadata))['items']) != sorted(node.extra['metadata'].get('items',[]))) ):
+        if self.metadata != defn.metadata:
             self.log('setting new metadata values')
             node = self.node()
             meta = self.gen_metadata(self.full_metadata(defn.metadata))
