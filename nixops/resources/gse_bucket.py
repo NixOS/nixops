@@ -195,29 +195,26 @@ class GSEBucketState(ResourceState):
                 b = self.bucket()
                 if self.state == self.UP:
 
-                    self.warn_if_changed(self.region, b['location'], 'region', can_fix = False)
-                    self.warn_if_changed(self.storage_class, b['storageClass'],
-                                         'storage class', can_fix = False)
+                    self.handle_changed_property('region', b['location'], can_fix = False)
+                    self.handle_changed_property('storage_class', b['storageClass'], can_fix = False)
 
-                    self.log_bucket = self.warn_if_changed(self.log_bucket,
-                                                           b.get('logging', {}).get('logBucket', None), 'log bucket')
-                    self.log_object_prefix = self.warn_if_changed(self.log_object_prefix,
-                                                                  b.get('logging', {}).get('logObjectPrefix', None), 'log object prefix')
-                    self.versioning_enabled = self.warn_if_changed(self.versioning_enabled,
-                                                                   b['versioning']['enabled'],
-                                                                   'versioning enabled')
-                    self.website_main_page_suffix = self.warn_if_changed(self.website_main_page_suffix,
-                                                                         b.get('website', {}).get('mainPageSuffix', None),
-                                                                         'website main page suffix')
-                    self.website_not_found_page = self.warn_if_changed(self.website_not_found_page,
-                                                                         b.get('website', {}).get('notFoundPage', None),
-                                                                         'website "not found" page')
+                    self.handle_changed_property('log_bucket',
+                                                 b.get('logging', {}).get('logBucket', None))
+                    self.handle_changed_property('log_object_prefix',
+                                                 b.get('logging', {}).get('logObjectPrefix', None))
+                    self.handle_changed_property('versioning_enabled',
+                                                 b['versioning']['enabled'])
+                    self.handle_changed_property('website_main_page_suffix',
+                                                 b.get('website', {}).get('mainPageSuffix', None))
+                    self.handle_changed_property('website_not_found_page',
+                                                 b.get('website', {}).get('notFoundPage', None))
+
                     actual_cors = sorted( [ { 'origins': sorted(c.get('origin', [])),
                                               'methods': sorted(c.get('method', [])),
                                               'response_headers': sorted(c.get('responseHeader', [])),
                                               'max_age_seconds': int(c.get('maxAgeSeconds'))
                                           } for c in b.get('cors', {}) ] )
-                    self.cors = self.warn_if_changed(self.cors, actual_cors, 'CORS config')
+                    self.handle_changed_property('cors', actual_cors, property_name = 'CORS config')
 
                     actual_lifecycle = sorted( [ {
                                            'action': r.get('action', {}).get('type', None),
@@ -226,7 +223,7 @@ class GSEBucketState(ResourceState):
                                            'created_before': r.get('condition', {}).get('createdBefore', None),
                                            'number_of_newer_versions': r.get('condition', {}).get('numNewerVersions', None),
                                      } for r in b.get('lifecycle', {}).get('rule',[]) ] )
-                    self.lifecycle = self.warn_if_changed(self.lifecycle, actual_lifecycle, 'lifecycle config')
+                    self.handle_changed_property('lifecycle', actual_lifecycle, property_name = 'lifecycle config')
 
                 else:
                     self.warn_not_supposed_to_exist(valuable_resource = True, valuable_data = True)

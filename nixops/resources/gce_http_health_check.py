@@ -92,17 +92,14 @@ class GCEHTTPHealthCheckState(ResourceState):
             try:
                 hc = self.healthcheck()
                 if self.state == self.UP:
-
-                    self.host = self.warn_if_changed(self.host, hc.extra['host'], 'host')
-                    self.path = self.warn_if_changed(self.path, hc.path, 'path')
-                    self.port = self.warn_if_changed(self.port, hc.port, 'port')
-                    self.timeout = self.warn_if_changed(self.timeout, hc.timeout, 'timeout')
-                    self.description = self.warn_if_changed(self.description, hc.extra['description'], 'description')
-                    self.check_interval = self.warn_if_changed(self.check_interval, hc.interval, 'check interval')
-                    self.healthy_threshold = self.warn_if_changed(self.healthy_threshold, hc.healthy_threshold,
-                                                                  'healthy threshold')
-                    self.unhealthy_threshold = self.warn_if_changed(self.unhealthy_threshold, hc.unhealthy_threshold,
-                                                                    'unhealthy threshold')
+                    self.handle_changed_property('host', hc.extra['host'])
+                    self.handle_changed_property('path', hc.path)
+                    self.handle_changed_property('port', hc.port)
+                    self.handle_changed_property('timeout', hc.timeout)
+                    self.handle_changed_property('description', hc.extra['description'])
+                    self.handle_changed_property('check_interval', hc.interval)
+                    self.handle_changed_property('healthy_threshold', hc.healthy_threshold)
+                    self.handle_changed_property('unhealthy_threshold', hc.unhealthy_threshold)
                 else:
                     self.warn_not_supposed_to_exist()
                     self.confirm_destroy(hc, self.full_name)

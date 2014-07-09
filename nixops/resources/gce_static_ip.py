@@ -76,9 +76,8 @@ class GCEStaticIPState(ResourceState):
             try:
                 address = self.address()
                 if self.state == self.UP:
-                    self.ipAddress = self.warn_if_changed(self.ipAddress, address.address, '')
-                    self.warn_if_changed(self.region, address.region.name,
-                                         'region', can_fix = False)
+                    self.handle_changed_property('ipAddress', address.address, property_name = '')
+                    self.handle_changed_property('region', address.region.name, can_fix = False)
                 else:
                     self.warn_not_supposed_to_exist(valuable_resource = True)
                     self.confirm_destroy(address, self.full_name)

@@ -32,10 +32,10 @@ class GCEForwardingRuleDefinition(ResourceDefinition):
         self.description = optional_string(xml.find("attrs/attr[@name='description']/string"))
         self.ipAddress = ( optional_string(xml.find("attrs/attr[@name='ipAddress']/string")) or
                            optional_string(xml.find("attrs/attr[@name='ipAddress']/attrs/attr[@name='name']/string")) )
-        self.targetpool = ( optional_string(xml.find("attrs/attr[@name='targetPool']/string")) or
+        self.target_pool = ( optional_string(xml.find("attrs/attr[@name='targetPool']/string")) or
                             optional_string(xml.find("attrs/attr[@name='targetPool']/attrs/attr[@name='name']/string")) )
 
-        ensure_not_empty(self.targetpool, "Forwarding Rule target pool")
+        ensure_not_empty(self.target_pool, "Forwarding Rule target pool")
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -45,7 +45,7 @@ class GCEForwardingRuleState(ResourceState):
     """State of a GCE Forwarding Rule"""
 
     forwarding_rule_name = attr_property("gce.name", None)
-    targetpool = attr_property("gce.targetPool", None)
+    target_pool = attr_property("gce.targetPool", None)
     region = attr_property("gce.region", None)
     protocol = attr_property("gce.protocol", None)
     port_range = attr_property("gce.portRange", None)
@@ -78,11 +78,11 @@ class GCEForwardingRuleState(ResourceState):
     def forwarding_rule(self):
         return self.connect().ex_get_forwarding_rule(self.forwarding_rule_name)
 
-    defn_properties = [ 'targetpool', 'region', 'protocol',
+    defn_properties = [ 'target_pool', 'region', 'protocol',
                         'port_range', 'ipAddress', 'description' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        self.no_change(self.targetpool != defn.targetpool, 'target pool')
+        self.no_change(self.target_pool != defn.target_pool, 'target pool')
         self.no_change(self.protocol != defn.protocol, 'protocol')
         self.no_change(self.port_range != defn.port_range, 'port range')
         self.no_change(self.ipAddress != defn.ipAddress, 'address')
@@ -97,18 +97,14 @@ class GCEForwardingRuleState(ResourceState):
             try:
                 fwr = self.forwarding_rule()
                 if self.state == self.UP:
-                    self.public_ipv4 = self.warn_if_changed(self.public_ipv4, fwr.address, 'IP address')
+                    self.handle_changed_property('public_ipv4', fwr.address, property_name = 'IP address')
 
-                    self.warn_if_changed(self.region, fwr.region.name,
-                                         'region', can_fix = False)
-                    self.warn_if_changed(self.targetpool, fwr.targetpool.name,
-                                         'target pool', can_fix = False)
-                    self.warn_if_changed(self.protocol, fwr.protocol,
-                                         'protocol', can_fix = False)
+                    self.handle_changed_property('region', fwr.region.name, can_fix = False)
+                    self.handle_changed_property('target_pool', fwr.targetpool.name, can_fix = False)
+                    self.handle_changed_property('protocol', fwr.protocol, can_fix = False)
+                    self.handle_changed_property('description', fwr.extra['description'], can_fix = False)
                     self.warn_if_changed(self.port_range or '1-65535', fwr.extra['portRange'],
                                          'port range', can_fix = False)
-                    self.warn_if_changed(self.description, fwr.extra['description'],
-                                         'description', can_fix = False)
                 else:
                     self.warn_not_supposed_to_exist()
                     self.confirm_destroy(fwr, self.full_name)
@@ -120,7 +116,7 @@ class GCEForwardingRuleState(ResourceState):
             self.log_start("Creating {0}...".format(self.full_name))
             try:
                 fwr = self.connect().ex_create_forwarding_rule(defn.forwarding_rule_name,
-                                                               defn.targetpool, region = defn.region,
+                                                               defn.target_pool, region = defn.region,
                                                                protocol = defn.protocol,
                                                                port_range = defn.port_range,
                                                                address = defn.ipAddress,
@@ -135,7 +131,7 @@ class GCEForwardingRuleState(ResourceState):
             self.public_ipv4 = fwr.address
             self.log("got IP: {0}".format(self.public_ipv4))
 
-        # only changing of targetpool is supported by GCE, but not libcloud
+        # only changing of target pool is supported by GCE, but not libcloud
         # FIXME: implement
 
 

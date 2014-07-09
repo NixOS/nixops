@@ -21,7 +21,7 @@ class GCETargetPoolDefinition(ResourceDefinition):
 
         self.targetpool_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
-        self.healthcheck = ( optional_string(xml.find("attrs/attr[@name='healthCheck']/string")) or
+        self.health_check = ( optional_string(xml.find("attrs/attr[@name='healthCheck']/string")) or
             optional_string(xml.find("attrs/attr[@name='healthCheck']/attrs/attr[@name='name']/string")) )
 
         def machine_to_url(xml):
@@ -52,7 +52,7 @@ class GCETargetPoolState(ResourceState):
 
     targetpool_name = attr_property("gce.name", None)
     region = attr_property("gce.region", None)
-    healthcheck = attr_property("gce.healthcheck", None)
+    health_check = attr_property("gce.healthcheck", None)
     machines = attr_property("gce.machines", [], 'json')
 
     @classmethod
@@ -80,7 +80,7 @@ class GCETargetPoolState(ResourceState):
     def targetpool(self):
         return self.connect().ex_get_targetpool(self.targetpool_name)
 
-    defn_properties = [ 'region', 'healthcheck' ]
+    defn_properties = [ 'region', 'health_check' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_project_change(defn)
@@ -94,11 +94,10 @@ class GCETargetPoolState(ResourceState):
                 tp = self.targetpool()
                 if self.state == self.UP:
 
-                    self.warn_if_changed(self.region, tp.region.name,
-                                         'region', can_fix = False)
+                    self.handle_changed_property('region', tp.region.name, can_fix = False)
 
                     normalized_hc = (tp.healthchecks[0].name if tp.healthchecks else None)
-                    self.healthcheck = self.warn_if_changed(self.healthcheck, normalized_hc, 'health check')
+                    self.handle_changed_property('health_check', normalized_hc)
 
                     normalized_machines = set([ n.extra['selfLink'] if hasattr(n, 'extra') else n
                                                 for n in tp.nodes ])
@@ -123,7 +122,7 @@ class GCETargetPoolState(ResourceState):
             self.log_start("Creating {0}...".format(self.full_name))
             try:
                 tp = self.connect().ex_create_targetpool(defn.targetpool_name, region = defn.region,
-                                                         healthchecks = ([ defn.healthcheck ] if defn.healthcheck else None) )
+                                                         healthchecks = ([ defn.health_check ] if defn.health_check else None) )
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried creating a target pool that already exists. Please run ‘deploy --check’ to fix this.")
 
@@ -136,20 +135,20 @@ class GCETargetPoolState(ResourceState):
         # update the target pool resource if its definition and state are out of sync
         machines_state = set(self.machines)
         machines_defn = set(defn.machines)
-        if self.healthcheck != defn.healthcheck or machines_state != machines_defn:
+        if self.health_check != defn.health_check or machines_state != machines_defn:
             try:
                 tp = self.targetpool()
             except libcloud.common.google.ResourceNotFoundError:
                 raise Exception("{0} has been deleted behind our back. Please run ‘deploy --check’ to fix this.".format(self.full_name))
 
-            if self.healthcheck != defn.healthcheck:
+            if self.health_check != defn.health_check:
                 self.log("Updating healthCheck of {0}...".format(self.full_name))
-                if self.healthcheck:
-                    tp.remove_healthcheck(self.healthcheck)
-                    self.healthcheck = None
-                if defn.healthcheck:
-                    tp.add_healthcheck(defn.healthcheck)
-                    self.healthcheck = defn.healthcheck
+                if self.health_check:
+                    tp.remove_healthcheck(self.health_check)
+                    self.health_check = None
+                if defn.health_check:
+                    tp.add_healthcheck(defn.health_check)
+                    self.health_check = defn.health_check
 
             if machines_state != machines_defn:
                 self.log("Updating machine list of {0}...".format(self.full_name))

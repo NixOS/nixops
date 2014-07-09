@@ -76,8 +76,8 @@ class GCEDiskState(ResourceState):
             try:
                 disk = self.disk()
                 if self.state == self.UP:
-                    self.warn_if_changed(self.region, disk.extra['zone'].name, 'region', can_fix = False)
-                    self.warn_if_changed(str(self.size), str(disk.size), 'size', can_fix = False)
+                    self.handle_changed_property('region', disk.extra['zone'].name, can_fix = False)
+                    self.handle_changed_property('size', int(disk.size), can_fix = False)
                 else:
                     self.warn_not_supposed_to_exist(valuable_data = True)
                     self.confirm_destroy(disk, self.full_name)

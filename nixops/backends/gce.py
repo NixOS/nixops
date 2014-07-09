@@ -215,17 +215,17 @@ class GCEState(MachineState, ResourceState):
                         self.warn("The instance is terminated and needs a reboot")
                         self.state = self.STOPPED
 
-                    self.warn_if_changed(self.region, node.extra['zone'].name, 'region', can_fix = False)
+                    self.handle_changed_property('region', node.extra['zone'].name, can_fix = False)
 
                     # a bit hacky but should work
                     network_name = node.extra['networkInterfaces'][0]['network'].split('/')[-1]
                     if network_name == 'default': network_name = None
-                    self.network = self.warn_if_changed(self.network, network_name, 'network')
+                    self.handle_changed_property('network', network_name)
 
-                    self.instance_type = self.warn_if_changed(self.instance_type, node.size, 'instance type')
-                    self.public_ipv4 = self.warn_if_changed(self.public_ipv4,
-                                                            node.public_ips[0] if node.public_ips else None,
-                                                            'IP address')
+                    self.handle_changed_property('instance_type', node.size)
+                    self.handle_changed_property('public_ipv4',
+                                                 node.public_ips[0] if node.public_ips else None,
+                                                 property_name = 'IP address')
                     if self.ipAddress:
                         try:
                             address = self.connect().ex_get_address(self.ipAddress)
@@ -241,7 +241,7 @@ class GCEState(MachineState, ResourceState):
                                       "and this is your last chance to reclaim it before it gets "
                                       "lost in a reboot.".format(self.ipAddress, self.public_ipv4) )
 
-                    self.tags = self.warn_if_changed(self.tags, sorted(node.extra['tags']), 'tags')
+                    self.handle_changed_property('tags', sorted(node.extra['tags']))
 
                     attached_disk_names = [d.get("deviceName", None) for d in node.extra['disks'] ]
                     # check that all disks are attached
