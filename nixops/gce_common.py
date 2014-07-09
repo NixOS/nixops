@@ -124,6 +124,17 @@ class ResourceState(nixops.resources.ResourceState):
                               "" if can_fix else "Cannot fix this automatically."))
         return actual_state
 
+    # use warn_if_changed for a very typical use case of dealing
+    # with changed properties which are stored in attributes
+    # with user-friendly names
+    def handle_changed_property(self, name, actual_state,
+                                property_name = None, can_fix = True):
+        self.warn_if_changed(getattr(self, name), actual_state,
+                             property_name or name.replace('_', ' '),
+                             can_fix = can_fix)
+        if can_fix:
+            setattr(self, name, actual_state)
+
     def warn_not_supposed_to_exist(self, resource_name = None,
                               valuable_data = False, valuable_resource = False):
         valuables = " or ".join(filter(None, [valuable_data and "data", valuable_resource and "resource"]))
