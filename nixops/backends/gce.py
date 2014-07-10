@@ -63,20 +63,28 @@ class GCEDefinition(MachineDefinition):
         def opt_disk_name(dname):
           return ("{0}-{1}".format(self.machine_name, dname) if dname is not None else None)
 
-        def f(xml):
-            return {'disk': ( optional_string(xml.find("attrs/attr[@name='disk']/attrs/attr[@name='name']/string")) or
-                              optional_string(xml.find("attrs/attr[@name='disk']/string")) ),
-                    'disk_name': opt_disk_name(opt_str(xml, 'disk_name')),
-                    'snapshot': opt_str(xml, 'snapshot'),
-                    'image': opt_str(xml, 'image'),
-                    'size': opt_int(xml, 'size'),
-                    'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true",
-                    'readOnly': xml.find("attrs/attr[@name='readOnly']/bool").get("value") == "true",
-                    'bootDisk': xml.find("attrs/attr[@name='bootDisk']/bool").get("value") == "true",
-                    'encrypt': xml.find("attrs/attr[@name='encrypt']/bool").get("value") == "true",
-                    'passphrase': xml.find("attrs/attr[@name='passphrase']/string").get("value")}
+        def parse_block_device(xml):
+            result = {
+                'disk': ( optional_string(xml.find("attrs/attr[@name='disk']/attrs/attr[@name='name']/string")) or
+                          optional_string(xml.find("attrs/attr[@name='disk']/string")) ),
+                'disk_name': opt_disk_name(opt_str(xml, 'disk_name')),
+                'snapshot': opt_str(xml, 'snapshot'),
+                'image': opt_str(xml, 'image'),
+                'size': opt_int(xml, 'size'),
+                'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true",
+                'readOnly': xml.find("attrs/attr[@name='readOnly']/bool").get("value") == "true",
+                'bootDisk': xml.find("attrs/attr[@name='bootDisk']/bool").get("value") == "true",
+                'encrypt': xml.find("attrs/attr[@name='encrypt']/bool").get("value") == "true",
+                'passphrase': xml.find("attrs/attr[@name='passphrase']/string").get("value")
+            }
+            if not(result['disk'] or result['disk_name']):
+                raise Exception("{0}: blockDeviceMapping item must specify either an "
+                                "external disk name to mount or a disk name to create"
+                                .format(self.machine_name))
+            return result
 
-        self.block_device_mapping = {k.get("name"): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
+        self.block_device_mapping = { k.get("name"): parse_block_device(k)
+                                      for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr") }
 
         boot_devices = [k for k,v in self.block_device_mapping.iteritems() if v['bootDisk']]
         if len(boot_devices) == 0:

@@ -13,6 +13,13 @@ let
       then cfg.disk.name or cfg.disk
       else "${config.deployment.gce.machineName}-${cfg.disk_name}";
 
+  mkDefaultDiskName = mountPoint: cfg: cfg // {
+    disk_name = if (cfg.disk_name == null) && (cfg.disk == null)
+                  then replaceChars ["/" "." "_"] ["-" "-" "-"]
+                    (substring 1 ((stringLength mountPoint) - 1) mountPoint)
+                  else cfg.disk_name;
+  };
+
   gceDiskOptions = { config, ... }: {
 
     options = {
@@ -141,15 +148,13 @@ let
     config =
       (mkAssert ( (config.snapshot == null) || (config.image == null) )
                 "Disk can not be created from both a snapshot and an image at once"
-      (mkAssert ( (config.disk != null) || (config.disk_name != null) )
-                "Specify either an external disk name to mount or a disk name to create"
       (mkAssert ( (config.size != null) || (config.snapshot != null)
                || (config.image != null) || (config.disk != null) )
                 "Disk size is required unless it is created from an image or snapshot" {
           # Automatically delete volumes that are automatically created.
           deleteOnTermination = mkDefault ( config.disk == null );
         }
-      )));
+      ));
 
   };
 
@@ -304,7 +309,7 @@ in
           device = mkDefault "${
               if config.gce.encrypt then "/dev/mapper/" else gce_dev_prefix
             }${
-              get_disk_name config.gce
+              get_disk_name (mkDefaultDiskName config.mountPoint config.gce)
           }";
         };
       };
@@ -327,10 +332,9 @@ in
           disk_name = "root";
       };
     } // (listToAttrs
-      (map (fs: nameValuePair "${gce_dev_prefix}${get_disk_name fs.gce}"
-        { inherit (fs.gce) disk disk_name size snapshot image
-                           readOnly bootDisk deleteOnTermination encrypt cipher keySize passphrase;
-        })
+      (map (fs: let fsgce = mkDefaultDiskName fs.mountPoint fs.gce; in
+                nameValuePair "${gce_dev_prefix}${get_disk_name fsgce}" fsgce
+        )
        (filter (fs: fs.gce != null) (attrValues config.fileSystems))));
 
     deployment.autoLuks =
