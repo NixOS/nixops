@@ -617,10 +617,17 @@ class GCEState(MachineState, ResourceState):
             volume = self.connect().ex_get_volume(disk_name, v.get('region', None))
             snapshot_name = "backup-{0}-{1}".format(backup_id, disk_name[-32:])
             self.log_start("creating snapshot of disk ‘{0}’: ‘{1}’".format(disk_name, snapshot_name))
-            snapshot = self.connect().create_volume_snapshot(volume, snapshot_name)
+            self.connect().connection.request(
+                '/zones/%s/disks/%s/createSnapshot'
+                    %(volume.extra['zone'].name, volume.name),
+                method = 'POST', data = {
+                    'name': snapshot_name,
+                    'description': "backup of disk{0} attached to {1}"
+                                    .format(volume.name, self.machine_name)
+                })
             self.log_end('done.')
 
-            backup[disk_name] = snapshot.name
+            backup[disk_name] = snapshot_name
             _backups[backup_id] = backup
             self.backups = _backups
 
@@ -681,6 +688,8 @@ class GCEState(MachineState, ResourceState):
                     snapshot_id = snapshots[disk_name]
                     try:
                         snapshot = self.connect().ex_get_snapshot(snapshot_id)
+                        if snapshot.status != 'READY':
+                            backup_status = "running"
                     except libcloud.common.google.ResourceNotFoundError:
                         info.append("{0} - {1} - {2} - Snapshot has disappeared".format(self.name, disk_name, snapshot_id))
                         backup_status = "unavailable"
