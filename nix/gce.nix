@@ -20,6 +20,26 @@ let
                   else cfg.disk_name;
   };
 
+  addr_manager = pkgs.stdenv.mkDerivation {
+    name = "google-address-manager";
+    src = pkgs.fetchgit {
+      url = https://github.com/GoogleCloudPlatform/compute-image-packages.git;
+      rev = "6cb6f9d2219dca1d14aeb60177a15492814032a3";
+      sha256 = "46b15e8cea75da53e88591379745ffef53e9114950ff0fa1c25f7515df104dde";
+    };
+    preConfigure = ''
+      substituteInPlace google-daemon/usr/share/google/google_daemon/address_manager.py --replace /sbin/ip ${pkgs.iproute}/sbin/ip
+      substituteInPlace google-daemon/usr/share/google/google_daemon/manage_addresses.py --replace /usr/bin/python ${pkgs.python}/bin/python
+    '';
+    installPhase = ''
+      mkdir -p $out/share/google_daemon
+      cp google-daemon/usr/share/google/google_daemon/address_manager.py $out/share/google_daemon
+      cp google-daemon/usr/share/google/google_daemon/manage_addresses.py $out/share/google_daemon
+      cp google-daemon/usr/share/google/google_daemon/utils.py $out/share/google_daemon
+    '';
+  };
+
+
   gceDiskOptions = { config, ... }: {
 
     options = {
@@ -373,6 +393,18 @@ in
     networking.extraHosts = ''
       169.254.169.254 metadata.google.internal metadata
     '';
+
+    networking.usePredictableInterfaceNames = false;
+
+    systemd.services.configure-forwarding-rules =
+      { description = "Add extra IPs required for forwarding rules to work";
+
+        wantedBy = [ "multi-user.target" ];
+        before = [ "sshd.service" ];
+        after = [ "network.target" ];
+
+        serviceConfig.ExecStart = "${addr_manager}/share/google_daemon/manage_addresses.py";
+      };
 
     sound.enable = false;
     boot.vesa = false;
