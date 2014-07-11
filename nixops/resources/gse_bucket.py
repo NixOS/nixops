@@ -240,8 +240,11 @@ class GSEBucketState(ResourceState):
             self.log_start("Creating {0}...".format(self.full_name))
             try:
                 bucket = self.create_bucket(defn)
-            except libcloud.common.google.ResourceExistsError:
-                raise Exception("Tried creating a GSE Bucket that already exists. Please run ‘deploy --check’ to fix this.")
+            except libcloud.common.google.GoogleBaseError as e:
+                if e.value.get('message', None) == 'You already own this bucket. Please select another name.':
+                    raise Exception("Tried creating a GSE Bucket that already exists. "
+                                    "Please run 'deploy --check' to fix this.")
+                else: raise
 
             self.log_end("done.")
             self.state = self.UP
