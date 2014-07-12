@@ -633,16 +633,15 @@ class GCEState(MachineState, ResourceState):
             disk_name = v['disk_name'] or v['disk']
             volume = self.connect().ex_get_volume(disk_name, v.get('region', None))
             snapshot_name = "backup-{0}-{1}".format(backup_id, disk_name[-32:])
-            self.log_start("creating snapshot of disk ‘{0}’: ‘{1}’".format(disk_name, snapshot_name))
+            self.log("initiating snapshotting of disk '{0}': '{1}'".format(disk_name, snapshot_name))
             self.connect().connection.request(
                 '/zones/%s/disks/%s/createSnapshot'
                     %(volume.extra['zone'].name, volume.name),
                 method = 'POST', data = {
                     'name': snapshot_name,
-                    'description': "backup of disk{0} attached to {1}"
+                    'description': "backup of disk {0} attached to {1}"
                                     .format(volume.name, self.machine_name)
                 })
-            self.log_end('done.')
 
             backup[disk_name] = snapshot_name
             _backups[backup_id] = backup
