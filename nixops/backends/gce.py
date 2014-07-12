@@ -113,6 +113,9 @@ class GCEState(MachineState, ResourceState):
     public_client_key = attr_property("gce.publicClientKey", None)
     private_client_key = attr_property("gce.privateClientKey", None)
 
+    public_host_key = attr_property("gce.publicHostKey", None)
+    private_host_key = attr_property("gce.privateHostKey", None)
+
     tags = attr_property("gce.tags", None, 'json')
     metadata = attr_property("gce.metadata", {}, 'json')
     automatic_restart = attr_property("gce.scheduling.automaticRestart", None, bool)
@@ -148,7 +151,11 @@ class GCEState(MachineState, ResourceState):
 
     def full_metadata(self, metadata):
         result = metadata.copy()
-        result.update({'sshKeys': "root:{0}".format(self.public_client_key) })
+        result.update({
+            'sshKeys': "root:{0}".format(self.public_client_key),
+            'ssh_host_ecdsa_key': self.private_host_key,
+            'ssh_host_ecdsa_key_pub': self.public_host_key
+        })
         return result
 
     def gen_metadata(self, metadata):
@@ -205,11 +212,17 @@ class GCEState(MachineState, ResourceState):
         self.set_common_state(defn)
         self.copy_credentials(defn)
         self.machine_name = defn.machine_name
+        self.region = defn.region
 
         if not self.public_client_key:
             (private, public) = create_key_pair()
             self.public_client_key = public
             self.private_client_key = private
+
+        if not self.public_host_key:
+            (private, public) = create_key_pair(type="ecdsa")
+            self.public_host_key = public
+            self.private_host_key = private
 
         recreate = False
 
@@ -234,6 +247,9 @@ class GCEState(MachineState, ResourceState):
                     self.handle_changed_property('public_ipv4',
                                                  node.public_ips[0] if node.public_ips else None,
                                                  property_name = 'IP address')
+                    if self.public_ipv4:
+                        known_hosts.add(self.public_ipv4, self.public_host_key)
+
                     if self.ipAddress:
                         try:
                             address = self.connect().ex_get_address(self.ipAddress)
@@ -253,7 +269,8 @@ class GCEState(MachineState, ResourceState):
 
                     actual_metadata = { i['key']: i['value']
                                         for i in node.extra['metadata'].get('items', [])
-                                        if i['key'] != 'sshKeys' }
+                                        if i['key'] not in [ 'ssh_host_ecdsa_key', 'sshKeys',
+                                                             'ssh_host_ecdsa_key_pub'] }
                     self.handle_changed_property('metadata', actual_metadata)
 
                     attached_disk_names = [d.get("deviceName", None) for d in node.extra['disks'] ]
@@ -368,7 +385,7 @@ class GCEState(MachineState, ResourceState):
             self.copy_properties(defn)
             self.public_ipv4 = node.public_ips[0]
             self.log("got IP: {0}".format(self.public_ipv4))
-            known_hosts.remove(self.public_ipv4)
+            known_hosts.add(self.public_ipv4, self.public_host_key)
             for k,v in self.block_device_mapping.iteritems():
                 v['needsAttach'] = True
                 self.update_block_device_mapping(k, v)
@@ -430,7 +447,7 @@ class GCEState(MachineState, ResourceState):
             self.ipAddress = defn.ipAddress
             self.public_ipv4 = self.node().public_ips[0]
             self.log("got IP: {0}".format(self.public_ipv4))
-            known_hosts.remove(self.public_ipv4)
+            known_hosts.add(self.public_ipv4, self.public_host_key)
             self.ssh.reset()
             self.ssh_pinged = False
 

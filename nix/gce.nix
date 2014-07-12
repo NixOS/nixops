@@ -264,7 +264,7 @@ in
       };
 
       bootstrapImage = mkOption {
-        default = "nixos-14-04pre-d215564-x86-64-linux";
+        default = "https://www.googleapis.com/compute/v1/projects/logicblox-dev/global/images/nixos-unstable";
         type = types.str;
         description = ''
           Bootstrap image name to use to create the root disk of the instance.
