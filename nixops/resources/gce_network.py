@@ -24,8 +24,8 @@ class GCENetworkDefinition(ResourceDefinition):
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 
-        self.network_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        self.addressRange = xml.find("attrs/attr[@name='addressRange']/string").get("value")
+        self.network_name = self.get_option_value(xml, 'name', str)
+        self.copy_option(xml, 'addressRange', str, empty = False)
 
         def parse_allowed(x):
             if x.find("list") is not None:
@@ -34,19 +34,14 @@ class GCENetworkDefinition(ResourceDefinition):
             else: return None
 
         def parse_sourceranges(x):
-            if x.find("attrs/attr[@name='sourceRanges']/list") is None:
-                return [ "0.0.0.0/0" ]
-            else:
-                return [ st.get("value")
-                         for st in x.findall("attrs/attr[@name='sourceRanges']/list/string") ]
+            value = self.get_option_value(x, 'sourceRanges', 'strlist', optional = True)
+            return ([ "0.0.0.0/0" ] if value is None else value)
 
         def parse_fw(x):
             result =  {
-              "sourceRanges": normalize_list(parse_sourceranges(x)),
-              "sourceTags": normalize_list([st.get("value")
-                                            for st in x.findall("attrs/attr[@name='sourceTags']/list/string")]),
-              "targetTags": normalize_list([tt.get("value")
-                                            for tt in x.findall("attrs/attr[@name='targetTags']/list/string")]),
+              "sourceRanges": parse_sourceranges(x),
+              "sourceTags": self.get_option_value(x, 'sourceTags', 'strlist'),
+              "targetTags": self.get_option_value(x, 'targetTags', 'strlist'),
               "allowed": { a.get("name"): parse_allowed(a)
                            for a in x.findall("attrs/attr[@name='allowed']/attrs/attr") }
             }
@@ -64,13 +59,13 @@ class GCENetworkDefinition(ResourceDefinition):
                           for fw in xml.findall("attrs/attr[@name='firewall']/attrs/attr") }
 
     def show_type(self):
-        return "{0} [{1}]".format(self.get_type(), self.addressRange)
+        return "{0} [{1}]".format(self.get_type(), self.address_range)
 
 
 class GCENetworkState(ResourceState):
     """State of a GCE Network"""
 
-    addressRange = attr_property("gce.addressRange", None)
+    address_range = attr_property("gce.addressRange", None)
     network_name = attr_property("gce.network_name", None)
 
     firewall = attr_property("gce.firewall", {}, 'json')
@@ -85,7 +80,7 @@ class GCENetworkState(ResourceState):
 
     def show_type(self):
         s = super(GCENetworkState, self).show_type()
-        if self.state == self.UP: s = "{0} [{1}]".format(s, self.addressRange)
+        if self.state == self.UP: s = "{0} [{1}]".format(s, self.address_range)
         return s
 
     @property
@@ -131,7 +126,7 @@ class GCENetworkState(ResourceState):
         self.update_firewall(fwname, None)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        self.no_change(self.addressRange != defn.addressRange, 'address range')
+        self.no_change(self.address_range != defn.address_range, 'address range')
         self.no_project_change(defn)
 
         self.copy_credentials(defn)
@@ -141,7 +136,7 @@ class GCENetworkState(ResourceState):
             try:
                 network = self.network()
                 if self.state == self.UP:
-                    self.warn_if_changed(self.addressRange, network.cidr, 'address range', can_fix = False)
+                    self.handle_changed_property('address_range', network.cidr, can_fix = False)
                 else:
                     self.warn_not_supposed_to_exist()
                     self.confirm_destroy(network, self.full_name)
@@ -152,7 +147,7 @@ class GCENetworkState(ResourceState):
         if self.state != self.UP:
             self.log_start("Creating {0}...".format(self.full_name))
             try:
-                network = self.connect().ex_create_network(defn.network_name, defn.addressRange)
+                network = self.connect().ex_create_network(defn.network_name, defn.address_range)
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried creating a network that already exists. "
                                 "Please run 'deploy --check' to fix this.")
@@ -160,7 +155,7 @@ class GCENetworkState(ResourceState):
             self.log_end("done.")
 
             self.state = self.UP
-            self.addressRange = defn.addressRange
+            self.address_range = defn.address_range
 
         # handle firewall rules
         def trans_allowed(attrs):

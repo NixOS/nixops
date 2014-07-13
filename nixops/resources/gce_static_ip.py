@@ -19,10 +19,10 @@ class GCEStaticIPDefinition(ResourceDefinition):
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 
-        self.addr_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        self.region = xml.find("attrs/attr[@name='region']/string").get("value")
+        self.addr_name = self.get_option_value(xml, 'name', str)
+        self.copy_option(xml, 'region', str)
 
-        self.ipAddress = optional_string(xml.find("attrs/attr[@name='ipAddress']/string"))
+        self.copy_option(xml,'ipAddress',str, optional = True)
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -33,7 +33,7 @@ class GCEStaticIPState(ResourceState):
 
     region = attr_property("gce.region", None)
     addr_name = attr_property("gce.name", None)
-    ipAddress = attr_property("gce.ipAddress", None)
+    ip_address = attr_property("gce.ipAddress", None)
 
     @classmethod
     def get_type(cls):
@@ -62,10 +62,10 @@ class GCEStaticIPState(ResourceState):
 
     @property
     def public_ipv4(self):
-        return self.ipAddress
+        return self.ip_address
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        self.no_change(defn.ipAddress and self.ipAddress != defn.ipAddress, 'address')
+        self.no_change(defn.ip_address and self.ip_address != defn.ip_address, 'address')
         self.no_project_change(defn)
         self.no_region_change(defn)
 
@@ -76,7 +76,7 @@ class GCEStaticIPState(ResourceState):
             try:
                 address = self.address()
                 if self.state == self.UP:
-                    self.handle_changed_property('ipAddress', address.address, property_name = '')
+                    self.handle_changed_property('ip_address', address.address, property_name = '')
                     self.handle_changed_property('region', address.region.name, can_fix = False)
                 else:
                     self.warn_not_supposed_to_exist(valuable_resource = True)
@@ -89,23 +89,24 @@ class GCEStaticIPState(ResourceState):
             self.log_start("Requesting {0} in {1}...".format(self.full_name, defn.region))
             try:
                 address = self.connect().ex_create_address(defn.addr_name, region = defn.region,
-                                                           address = defn.ipAddress)
+                                                           address = defn.ip_address)
             except libcloud.common.google.ResourceExistsError:
-                raise Exception("Tried requesting a static IP that already exists. Please run ‘deploy --check’ to fix this.")
+                raise Exception("Tried requesting a static IP that already exists. "
+                                "Please run 'deploy --check' to fix this.")
 
             self.log_end("done.")
             self.log("Reserved IP address: {0}".format(address.address))
 
             self.state = self.UP
             self.region = defn.region
-            self.ipAddress = address.address;
+            self.ip_address = address.address;
 
 
     def destroy(self, wipe=False):
         if self.state == self.UP:
             try:
                 address = self.address()
-                return self.confirm_destroy(address, "{0} ({1})".format(self.full_name, self.ipAddress), abort = False)
+                return self.confirm_destroy(address, "{0} ({1})".format(self.full_name, self.ip_address), abort = False)
             except libcloud.common.google.ResourceNotFoundError:
                 self.warn("Tried to destroy {0} which didn't exist".format(self.full_name))
         return True

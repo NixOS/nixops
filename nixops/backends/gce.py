@@ -11,7 +11,7 @@ from nixops.util import attr_property, create_key_pair
 
 from nixops.backends import MachineDefinition, MachineState
 
-from nixops.gce_common import ResourceState, optional_string, optional_int
+from nixops.gce_common import ResourceDefinition, ResourceState, optional_string, optional_int
 import nixops.resources.gce_static_ip
 import nixops.resources.gce_disk
 import nixops.resources.gce_network
@@ -21,7 +21,7 @@ from libcloud.compute.types import Provider, NodeState
 from libcloud.compute.providers import get_driver
 
 
-class GCEDefinition(MachineDefinition):
+class GCEDefinition(MachineDefinition, ResourceDefinition):
     """
     Definition of a Google Compute Engine machine.
     """
@@ -34,48 +34,40 @@ class GCEDefinition(MachineDefinition):
         x = xml.find("attrs/attr[@name='gce']/attrs")
         assert x is not None
 
-        self.machine_name = x.find("attr[@name='machineName']/string").get("value")
+        self.copy_option(x, 'machineName', str)
 
-        self.region = x.find("attr[@name='region']/string").get("value")
-        self.instance_type = x.find("attr[@name='instanceType']/string").get("value")
-        self.project = x.find("attr[@name='project']/string").get("value")
-        self.service_account = x.find("attr[@name='serviceAccount']/string").get("value")
-        self.access_key_path = x.find("attr[@name='accessKey']/string").get("value")
+        self.copy_option(x, 'region', str)
+        self.copy_option(x, 'instanceType', str, empty = False)
+        self.copy_option(x, 'project', str)
+        self.copy_option(x, 'serviceAccount', str)
+        self.access_key_path = self.get_option_value(x, 'accessKey', str)
 
-        self.tags = sorted([e.get("value") for e in x.findall("attr[@name='tags']/list/string")])
-        self.metadata = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='metadata']/attrs/attr")}
+        self.copy_option(x, 'tags', 'strlist')
+        self.metadata = { k.get("name"): k.find("string").get("value")
+                          for k in x.findall("attr[@name='metadata']/attrs/attr") }
 
+        scheduling = x.find("attr[@name='scheduling']")
+        self.copy_option(scheduling, 'automaticRestart', bool, optional = True)
+        self.copy_option(scheduling, 'onHostMaintenance', str, optional = True)
 
-        self.automatic_restart = optional_string(x.find("attr[@name='scheduling']/attrs/attr[@name='automaticRestart']/bool"))
-        self.on_host_maintenance = optional_string(x.find("attr[@name='scheduling']/attrs/attr[@name='onHostMaintenance']/string"))
-
-        self.ipAddress = ( optional_string(x.find("attr[@name='ipAddress']/attrs/attr[@name='name']/string")) or
-                           optional_string(x.find("attr[@name='ipAddress']/string")) )
-
-        self.network = ( optional_string(x.find("attr[@name='network']/attrs/attr[@name='name']/string")) or
-                         optional_string(x.find("attr[@name='network']/string")) )
-
-        def opt_str(xml, name):
-            return optional_string(xml.find("attrs/attr[@name='%s']/string" % name))
-        def opt_int(xml, name):
-            return optional_int(xml.find("attrs/attr[@name='%s']/int" % name))
+        self.ipAddress = self.get_option_value(x, 'ipAddress', 'resource', optional = True)
+        self.copy_option(x, 'network', 'resource', optional = True)
 
         def opt_disk_name(dname):
-          return ("{0}-{1}".format(self.machine_name, dname) if dname is not None else None)
+            return ("{0}-{1}".format(self.machine_name, dname) if dname is not None else None)
 
         def parse_block_device(xml):
             result = {
-                'disk': ( optional_string(xml.find("attrs/attr[@name='disk']/attrs/attr[@name='name']/string")) or
-                          optional_string(xml.find("attrs/attr[@name='disk']/string")) ),
-                'disk_name': opt_disk_name(opt_str(xml, 'disk_name')),
-                'snapshot': opt_str(xml, 'snapshot'),
-                'image': opt_str(xml, 'image'),
-                'size': opt_int(xml, 'size'),
-                'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true",
-                'readOnly': xml.find("attrs/attr[@name='readOnly']/bool").get("value") == "true",
-                'bootDisk': xml.find("attrs/attr[@name='bootDisk']/bool").get("value") == "true",
-                'encrypt': xml.find("attrs/attr[@name='encrypt']/bool").get("value") == "true",
-                'passphrase': xml.find("attrs/attr[@name='passphrase']/string").get("value")
+                'disk': self.get_option_value(xml, 'disk', 'resource', optional = True),
+                'disk_name': opt_disk_name(self.get_option_value(xml, 'disk_name', str, optional = True)),
+                'snapshot': self.get_option_value(xml, 'snapshot', str, optional = True),
+                'image': self.get_option_value(xml, 'image', str, optional = True),
+                'size': self.get_option_value(xml, 'size', int, optional = True),
+                'deleteOnTermination': self.get_option_value(xml, 'deleteOnTermination', bool),
+                'readOnly': self.get_option_value(xml, 'readOnly', bool),
+                'bootDisk': self.get_option_value(xml, 'bootDisk', bool),
+                'encrypt': self.get_option_value(xml, 'encrypt', bool),
+                'passphrase': self.get_option_value(xml, 'passphrase', str)
             }
             if not(result['disk'] or result['disk_name']):
                 raise Exception("{0}: blockDeviceMapping item must specify either an "
@@ -91,6 +83,7 @@ class GCEDefinition(MachineDefinition):
             raise Exception("Machine {0} must have a boot device.".format(self.name))
         if len(boot_devices) > 1:
             raise Exception("Machine {0} must have exactly one boot device.".format(self.name))
+
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region or "???")

@@ -19,10 +19,9 @@ class GCETargetPoolDefinition(ResourceDefinition):
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 
-        self.targetpool_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        self.region = xml.find("attrs/attr[@name='region']/string").get("value")
-        self.health_check = ( optional_string(xml.find("attrs/attr[@name='healthCheck']/string")) or
-            optional_string(xml.find("attrs/attr[@name='healthCheck']/attrs/attr[@name='name']/string")) )
+        self.targetpool_name = self.get_option_value(xml, 'name', str)
+        self.copy_option(xml, 'region', str)
+        self.copy_option(xml, 'healthCheck', 'resource', optional = True)
 
         def machine_to_url(xml):
             spec = xml.find("attr[@name='gce']")

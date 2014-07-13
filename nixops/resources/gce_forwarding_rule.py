@@ -22,20 +22,18 @@ class GCEForwardingRuleDefinition(ResourceDefinition):
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 
-        self.forwarding_rule_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        self.region = xml.find("attrs/attr[@name='region']/string").get("value")
-        self.protocol = xml.find("attrs/attr[@name='protocol']/string").get("value")
+        self.forwarding_rule_name = self.get_option_value(xml, 'name', str)
 
-        pr = optional_string(xml.find("attrs/attr[@name='portRange']/string"))
+        self.copy_option(xml, 'region', str)
+        self.copy_option(xml, 'protocol', str)
+
+        pr = self.get_option_value(xml, 'portRange', str, optional = True)
         self.port_range = None if pr is None else "{0}-{1}".format(pr, pr) if pr.isdigit() else pr
 
-        self.description = optional_string(xml.find("attrs/attr[@name='description']/string"))
-        self.ipAddress = ( optional_string(xml.find("attrs/attr[@name='ipAddress']/string")) or
-                           optional_string(xml.find("attrs/attr[@name='ipAddress']/attrs/attr[@name='name']/string")) )
-        self.target_pool = ( optional_string(xml.find("attrs/attr[@name='targetPool']/string")) or
-                            optional_string(xml.find("attrs/attr[@name='targetPool']/attrs/attr[@name='name']/string")) )
+        self.copy_option(xml, 'description', str, optional = True)
+        self.copy_option(xml, 'targetPool', 'resource')
+        self.copy_option(xml, 'ipAddress', 'resource', optional = True)
 
-        ensure_not_empty(self.target_pool, "Forwarding Rule target pool")
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -49,7 +47,7 @@ class GCEForwardingRuleState(ResourceState):
     region = attr_property("gce.region", None)
     protocol = attr_property("gce.protocol", None)
     port_range = attr_property("gce.portRange", None)
-    ipAddress = attr_property("gce.ipAddress", None)
+    ip_address = attr_property("gce.ipAddress", None)
     description = attr_property("gce.description", None)
     public_ipv4 = attr_property("gce.public_ipv4", None)
 
@@ -79,13 +77,13 @@ class GCEForwardingRuleState(ResourceState):
         return self.connect().ex_get_forwarding_rule(self.forwarding_rule_name)
 
     defn_properties = [ 'target_pool', 'region', 'protocol',
-                        'port_range', 'ipAddress', 'description' ]
+                        'port_range', 'ip_address', 'description' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(self.target_pool != defn.target_pool, 'target pool')
         self.no_change(self.protocol != defn.protocol, 'protocol')
         self.no_change(self.port_range != defn.port_range, 'port range')
-        self.no_change(self.ipAddress != defn.ipAddress, 'address')
+        self.no_change(self.ip_address != defn.ip_address, 'address')
         self.no_change(self.description != defn.description, 'description')
         self.no_project_change(defn)
         self.no_region_change(defn)
@@ -119,7 +117,7 @@ class GCEForwardingRuleState(ResourceState):
                                                                defn.target_pool, region = defn.region,
                                                                protocol = defn.protocol,
                                                                port_range = defn.port_range,
-                                                               address = defn.ipAddress,
+                                                               address = defn.ip_address,
                                                                description = defn.description)
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("Tried creating a forwarding rule that already exists. "

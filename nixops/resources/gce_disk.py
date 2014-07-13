@@ -20,12 +20,12 @@ class GCEDiskDefinition(ResourceDefinition):
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 
-        self.disk_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        self.region = xml.find("attrs/attr[@name='region']/string").get("value")
+        self.disk_name = self.get_option_value(xml, 'name', str)
+        self.copy_option(xml, 'region', str)
+        self.copy_option(xml, 'size', int, optional = True)
+        self.copy_option(xml, 'snapshot', str, optional = True)
+        self.copy_option(xml, 'image', str, optional = True)
 
-        self.size = optional_int(xml.find("attrs/attr[@name='size']/int"))
-        self.snapshot = optional_string(xml.find("attrs/attr[@name='snapshot']/string"))
-        self.image = optional_string(xml.find("attrs/attr[@name='image']/string"))
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)

@@ -38,53 +38,50 @@ class GSEBucketDefinition(ResourceDefinition):
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 
-        self.bucket_name = xml.find("attrs/attr[@name='name']/string").get("value")
+        self.bucket_name = self.get_option_value(xml, 'name', str)
 
         self.cors = sorted( [ {
-            'max_age_seconds': optional_int(x.find("attr[@name='maxAgeSeconds']/int")),
-            'methods': sorted([ m.get("value")
-                            for m in x.findall("attr[@name='methods']/list/string")]),
-            'origins': sorted([ o.get("value")
-                            for o in x.findall("attr[@name='origins']/list/string")]),
-            'response_headers': sorted([ rh.get("value")
-                                     for rh in x.findall("attr[@name='responseHeaders']/list/string")])
-          } for x in xml.findall("attrs/attr[@name='cors']/list/attrs") ] )
+            'max_age_seconds': self.get_option_value(x, 'maxAgeSeconds', int, optional = True),
+            'methods': self.get_option_value(x, 'methods', 'strlist'),
+            'origins': self.get_option_value(x, 'origins', 'strlist'),
+            'response_headers': self.get_option_value(x, 'responseHeaders', 'strlist')
+          } for x in xml.find("attrs/attr[@name='cors']/list") ] )
 
         def parse_lifecycle(x):
             cond_x = x.find("attr[@name='conditions']")
 
             return {
-                'action': x.find("attr[@name='action']/string").get("value"),
-                'age': optional_int(cond_x.find("attrs/attr[@name='age']/int")),
-                'is_live': optional_bool(cond_x.find("attrs/attr[@name='isLive']/bool")),
+                'action': self.get_option_value(x, 'action', str),
+                'age': self.get_option_value(cond_x, 'age', int, optional = True),
+                'is_live':
+                    self.get_option_value(cond_x, 'isLive', bool, optional = True),
                 'created_before':
-                    optional_string(cond_x.find("attrs/attr[@name='createdBefore']/string")),
+                    self.get_option_value(cond_x, 'createdBefore', str, optional = True),
                 'number_of_newer_versions':
-                    optional_int(cond_x.find("attrs/attr[@name='numberOfNewerVersions']/int"))
+                    self.get_option_value(cond_x, 'numberOfNewerVersions', int, optional = True)
             }
         self.lifecycle = sorted([ parse_lifecycle(x)
-                           for x in xml.findall("attrs/attr[@name='lifecycle']/list/attrs") ])
+                           for x in xml.find("attrs/attr[@name='lifecycle']/list") ])
 
-        if any(r['age'] is None and r['is_live'] is None and
-               r['created_before'] is None and r['number_of_newer_versions'] is None
-           for r in self.lifecycle):
+        if any( all(v is None for k,v in r.iteritems() if k != 'action')
+                for r in self.lifecycle):
             raise Exception("Bucket '{0}' object lifecycle management "
                             "rule must specify at least one condition"
                             .format(self.bucket_name))
 
         logx = xml.find("attrs/attr[@name='logging']")
-        self.log_bucket =  ( optional_string(logx.find("attrs/attr[@name='logBucket']/string")) or
-                            optional_string(logx.find("attrs/attr[@name='logBucket']/attrs/attr[@name='name']/string"))  )
-        self.log_object_prefix = optional_string(logx.find("attrs/attr[@name='logObjectPrefix']/string"))
+        self.copy_option(logx, 'logBucket', 'resource', optional = True)
+        self.copy_option(logx, 'logObjectPrefix', str, optional = True)
 
-        self.region = xml.find("attrs/attr[@name='location']/string").get("value")
-        self.storage_class = xml.find("attrs/attr[@name='storageClass']/string").get("value")
-        self.versioning_enabled = xml.find("attrs/attr[@name='versioning']/"
-                                           "attrs/attr[@name='enabled']/bool").get("value") == "true"
+        self.region = self.get_option_value(xml, 'location', str)
+        self.copy_option(xml, 'storageClass', str)
+        self.versioning_enabled = self.get_option_value(
+                                      xml.find("attrs/attr[@name='versioning']"), 'enabled', bool)
 
         webx = xml.find("attrs/attr[@name='website']")
-        self.website_main_page_suffix = optional_string(webx.find("attrs/attr[@name='mainPageSuffix']/string"))
-        self.website_not_found_page = optional_string(webx.find("attrs/attr[@name='notFoundPage']/string"))
+        self.website_main_page_suffix = self.get_option_value(webx, 'mainPageSuffix', str, optional = True)
+        self.website_not_found_page = self.get_option_value(webx, 'notFoundPage', str, optional = True)
+
 
     def show_type(self):
         return "{0}".format(self.get_type())

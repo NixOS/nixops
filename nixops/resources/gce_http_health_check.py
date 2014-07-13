@@ -19,22 +19,16 @@ class GCEHTTPHealthCheckDefinition(ResourceDefinition):
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 
-        self.healthcheck_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        self.host = optional_string(xml.find("attrs/attr[@name='host']/string"))
-        self.path = xml.find("attrs/attr[@name='path']/string").get("value")
-        self.port = int(xml.find("attrs/attr[@name='port']/int").get("value"))
-        self.check_interval = int(xml.find("attrs/attr[@name='checkInterval']/int").get("value"))
-        self.timeout = int(xml.find("attrs/attr[@name='timeout']/int").get("value"))
-        self.unhealthy_threshold = int(xml.find("attrs/attr[@name='unhealthyThreshold']/int").get("value"))
-        self.healthy_threshold = int(xml.find("attrs/attr[@name='healthyThreshold']/int").get("value"))
-        self.description = optional_string(xml.find("attrs/attr[@name='description']/string"))
+        self.healthcheck_name = self.get_option_value(xml, 'name', str)
+        self.description = self.get_option_value(xml, 'description', str, optional = True)
+        self.host = self.get_option_value(xml, 'host', str, optional = True)
+        self.path = self.get_option_value(xml, 'path', str, empty = False)
+        self.port = self.get_option_value(xml, 'port', int, positive = True)
+        self.check_interval = self.get_option_value(xml, 'checkInterval', int, positive = True)
+        self.timeout = self.get_option_value(xml, 'timeout', int, positive = True)
+        self.unhealthy_threshold = self.get_option_value(xml, 'unhealthyThreshold', int, positive = True)
+        self.healthy_threshold = self.get_option_value(xml, 'healthyThreshold', int, positive = True)
 
-        ensure_not_empty(self.path, "HTTP Health Check path")
-        ensure_positive(self.port, "HTTP Health Check port")
-        ensure_positive(self.check_interval, "HTTP Health Check interval")
-        ensure_positive(self.timeout, "HTTP Health Check timeout")
-        ensure_positive(self.unhealthy_threshold, "HTTP Health Check unhealthy threshold")
-        ensure_positive(self.healthy_threshold, "HTTP Health Check healthy threshold")
 
     def show_type(self):
         return "{0} [:{1}{2}]".format(self.get_type(), self.port, self.path)
