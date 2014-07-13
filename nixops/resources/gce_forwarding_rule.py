@@ -71,7 +71,7 @@ class GCEForwardingRuleState(ResourceState):
 
     @property
     def full_name(self):
-        return "GCE Forwarding Rule '{0}'".format(self.forwarding_rule_name)
+        return "GCE forwarding rule '{0}'".format(self.forwarding_rule_name)
 
     def forwarding_rule(self):
         return self.connect().ex_get_forwarding_rule(self.forwarding_rule_name)
@@ -111,7 +111,7 @@ class GCEForwardingRuleState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("Creating {0}...".format(self.full_name))
+            self.log_start("creating {0}...".format(self.full_name))
             try:
                 fwr = self.connect().ex_create_forwarding_rule(defn.forwarding_rule_name,
                                                                defn.target_pool, region = defn.region,
@@ -120,8 +120,8 @@ class GCEForwardingRuleState(ResourceState):
                                                                address = defn.ip_address,
                                                                description = defn.description)
             except libcloud.common.google.ResourceExistsError:
-                raise Exception("Tried creating a forwarding rule that already exists. "
-                                "Please run 'deploy --check' to fix this.")
+                raise Exception("tried creating a forwarding rule that already exists; "
+                                "please run 'deploy --check' to fix this")
 
             self.log_end("done.")
             self.state = self.UP
@@ -139,7 +139,7 @@ class GCEForwardingRuleState(ResourceState):
                 fwr = self.forwarding_rule()
                 return self.confirm_destroy(fwr, self.full_name, abort = False)
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("Tried to destroy {0} which didn't exist".format(self.full_name))
+                self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
         return True
 
     def create_after(self, resources):

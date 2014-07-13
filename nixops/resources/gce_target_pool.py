@@ -36,7 +36,7 @@ class GCETargetPoolDefinition(ResourceDefinition):
                                   [ e.get("value")    for e in mlist.findall("string") ] ))
 
         if not all(m for m in self.machines):
-            raise Exception("Target pool machine specification must be either a NixOps "
+            raise Exception("target pool machine specification must be either a NixOps "
                             "machine resource or a fully-qualified GCE resource URL")
 
         # FIXME: implement backup pool, failover ratio, description, sessionAffinity
@@ -74,7 +74,7 @@ class GCETargetPoolState(ResourceState):
 
     @property
     def full_name(self):
-        return "GCE Target Pool '{0}'".format(self.targetpool_name)
+        return "GCE target pool '{0}'".format(self.targetpool_name)
 
     def targetpool(self):
         return self.connect().ex_get_targetpool(self.targetpool_name)
@@ -118,13 +118,13 @@ class GCETargetPoolState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("Creating {0}...".format(self.full_name))
+            self.log_start("creating {0}...".format(self.full_name))
             try:
                 tp = self.connect().ex_create_targetpool(defn.targetpool_name, region = defn.region,
                                                          healthchecks = ([ defn.health_check ] if defn.health_check else None) )
             except libcloud.common.google.ResourceExistsError:
-                raise Exception("Tried creating a target pool that already exists. Please run ‘deploy --check’ to fix this.")
-
+                raise Exception("tried creating a target pool that already exists; "
+                                "please run 'deploy --check' to fix this")
             self.log_end("done.")
 
             self.state = self.UP
@@ -138,10 +138,12 @@ class GCETargetPoolState(ResourceState):
             try:
                 tp = self.targetpool()
             except libcloud.common.google.ResourceNotFoundError:
-                raise Exception("{0} has been deleted behind our back. Please run ‘deploy --check’ to fix this.".format(self.full_name))
+                raise Exception("{0} has been deleted behind our back; "
+                                "please run 'deploy --check' to fix this"
+                                .format(self.full_name))
 
             if self.health_check != defn.health_check:
-                self.log("Updating healthCheck of {0}...".format(self.full_name))
+                self.log("ppdating the health check of {0}...".format(self.full_name))
                 if self.health_check:
                     tp.remove_healthcheck(self.health_check)
                     self.health_check = None
@@ -150,7 +152,7 @@ class GCETargetPoolState(ResourceState):
                     self.health_check = defn.health_check
 
             if machines_state != machines_defn:
-                self.log("Updating machine list of {0}...".format(self.full_name))
+                self.log("updating the machine list of {0}...".format(self.full_name))
                 for uri in (machines_state - machines_defn):
                     tp.remove_node(uri)
                     machines_state.remove(uri)
@@ -165,7 +167,7 @@ class GCETargetPoolState(ResourceState):
                 targetpool = self.targetpool()
                 return self.confirm_destroy(targetpool, self.full_name, abort = False)
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("Tried to destroy {0} which didn't exist".format(self.full_name))
+                self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
         return True
 
 

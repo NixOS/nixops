@@ -123,7 +123,7 @@ class GSEBucketState(ResourceState):
 
     @property
     def full_name(self):
-        return "GSE Bucket '{0}'".format(self.bucket_name)
+        return "GSE bucket '{0}'".format(self.bucket_name)
 
     def connect(self):
         if not self._conn:
@@ -224,11 +224,11 @@ class GSEBucketState(ResourceState):
 
                 else:
                     self.warn_not_supposed_to_exist(valuable_resource = True, valuable_data = True)
-                    if self.depl.logger.confirm("Are you sure you want to destroy the existing {0}?".format(self.full_name)):
-                        self.log_start("Destroying...")
+                    if self.depl.logger.confirm("are you sure you want to destroy the existing {0}?".format(self.full_name)):
+                        self.log_start("destroying...")
                         self.delete_bucket()
                         self.log_end("done.")
-                    else: raise Exception("Can't proceed further.")
+                    else: raise Exception("can't proceed further")
 
             except libcloud.common.google.ResourceNotFoundError:
                 self.warn_missing_resource()
@@ -239,8 +239,8 @@ class GSEBucketState(ResourceState):
                 bucket = self.create_bucket(defn)
             except libcloud.common.google.GoogleBaseError as e:
                 if e.value.get('message', None) == 'You already own this bucket. Please select another name.':
-                    raise Exception("Tried creating a GSE Bucket that already exists. "
-                                    "Please run 'deploy --check' to fix this.")
+                    raise Exception("tried creating a GSE bucket that already exists; "
+                                    "please run 'deploy --check' to fix this")
                 else: raise
 
             self.log_end("done.")
@@ -248,7 +248,7 @@ class GSEBucketState(ResourceState):
             self.copy_properties(defn)
 
         if self.properties_changed(defn):
-            self.log("Updating {0}...".format(self.full_name))
+            self.log("updating {0}...".format(self.full_name))
             self.update_bucket(defn)
             self.copy_properties(defn)
 
@@ -256,10 +256,10 @@ class GSEBucketState(ResourceState):
         if self.state == self.UP:
             try:
                 bucket = self.bucket()
-                if not self.depl.logger.confirm("Are you sure you want to destroy {0}?".format(self.full_name)):
+                if not self.depl.logger.confirm("are you sure you want to destroy {0}?".format(self.full_name)):
                     return False
-                self.log("Destroying {0}...".format(self.full_name))
+                self.log("destroying {0}...".format(self.full_name))
                 self.delete_bucket()
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("Tried to destroy {0} which didn't exist".format(self.full_name))
+                self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
         return True

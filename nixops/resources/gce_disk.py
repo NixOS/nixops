@@ -59,7 +59,7 @@ class GCEDiskState(ResourceState):
 
     @property
     def full_name(self):
-        return "GCE Disk '{0}'".format(self.disk_name)
+        return "GCE disk '{0}'".format(self.disk_name)
 
     def disk(self):
         return self.connect().ex_get_volume(self.disk_name, self.region)
@@ -89,15 +89,15 @@ class GCEDiskState(ResourceState):
             extra_msg = ( " from snapshot '{0}'".format(defn.snapshot) if defn.snapshot
                      else " from image '{0}'".format(defn.image)       if defn.image
                      else "" )
-            self.log_start("Creating GCE Disk of {0} GiB{1}..."
+            self.log_start("creating GCE disk of {0} GiB{1}..."
                            .format(defn.size if defn.size else "auto", extra_msg))
             try:
                 volume = self.connect().create_volume(defn.size, defn.disk_name, defn.region,
                                                       snapshot = defn.snapshot, image = defn.image,
                                                       use_existing= False)
             except libcloud.common.google.ResourceExistsError:
-                raise Exception("Tried creating a disk that already exists. "
-                                "Please run 'deploy --check' to fix this.")
+                raise Exception("tried creating a disk that already exists; "
+                                "please run 'deploy --check' to fix this")
 
             self.log_end("done.")
             self.state = self.UP
@@ -110,5 +110,5 @@ class GCEDiskState(ResourceState):
             try:
                 return self.confirm_destroy(self.disk(), self.full_name, abort = False)
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("Tried to destroy {0} which didn't exist".format(self.full_name))
+                self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
         return True

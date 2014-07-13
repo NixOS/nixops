@@ -68,7 +68,7 @@ class GCEHTTPHealthCheckState(ResourceState):
 
     @property
     def full_name(self):
-        return "GCE HTTP Health Check '{0}'".format(self.healthcheck_name)
+        return "GCE HTTP health check '{0}'".format(self.healthcheck_name)
 
     def healthcheck(self):
         return self.connect().ex_get_healthcheck(self.healthcheck_name)
@@ -102,7 +102,7 @@ class GCEHTTPHealthCheckState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("Creating {0}...".format(self.full_name))
+            self.log_start("creating {0}...".format(self.full_name))
             try:
                 healthcheck = self.connect().ex_create_healthcheck(defn.healthcheck_name, host = defn.host,
                                                                    path = defn.path, port = defn.port,
@@ -112,8 +112,8 @@ class GCEHTTPHealthCheckState(ResourceState):
                                                                    healthy_threshold = defn.healthy_threshold,
                                                                    description = defn.description)
             except libcloud.common.google.ResourceExistsError:
-                raise Exception("Tried creating a health check that already exists. "
-                                "Please run 'deploy --check' to fix this.")
+                raise Exception("tried creating a health check that already exists; "
+                                "please run 'deploy --check' to fix this")
 
             self.log_end("done.")
             self.state = self.UP
@@ -121,7 +121,7 @@ class GCEHTTPHealthCheckState(ResourceState):
 
         # update the health check resource if its definition and state are out of sync
         if self.properties_changed(defn):
-            self.log("Updating parameters of {0}...".format(self.full_name))
+            self.log("updating properties of {0}...".format(self.full_name))
             try:
                 hc = self.healthcheck()
                 hc.path = defn.path
@@ -135,8 +135,8 @@ class GCEHTTPHealthCheckState(ResourceState):
                 hc.update()
                 self.copy_properties(defn)
             except libcloud.common.google.ResourceNotFoundError:
-                raise Exception("{0} has been deleted behind our back. "
-                                "Please run 'deploy --check' to fix this."
+                raise Exception("{0} has been deleted behind our back; "
+                                "please run 'deploy --check' to fix this"
                                 .format(self.full_name))
 
 
@@ -146,5 +146,5 @@ class GCEHTTPHealthCheckState(ResourceState):
                 healthcheck = self.healthcheck()
                 return self.confirm_destroy(healthcheck, self.full_name, abort = False)
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("Tried to destroy {0} which didn't exist".format(self.full_name))
+                self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
         return True

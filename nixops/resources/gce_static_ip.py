@@ -55,7 +55,7 @@ class GCEStaticIPState(ResourceState):
 
     @property
     def full_name(self):
-        return "GCE Static IP Address '{0}'".format(self.addr_name)
+        return "GCE static IP address '{0}'".format(self.addr_name)
 
     def address(self):
         return self.connect().ex_get_address(self.addr_name, region=self.region)
@@ -86,16 +86,16 @@ class GCEStaticIPState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("Requesting {0} in {1}...".format(self.full_name, defn.region))
+            self.log_start("reserving {0} in {1}...".format(self.full_name, defn.region))
             try:
                 address = self.connect().ex_create_address(defn.addr_name, region = defn.region,
                                                            address = defn.ip_address)
             except libcloud.common.google.ResourceExistsError:
-                raise Exception("Tried requesting a static IP that already exists. "
-                                "Please run 'deploy --check' to fix this.")
+                raise Exception("tried requesting a static IP that already exists; "
+                                "please run 'deploy --check' to fix this")
 
             self.log_end("done.")
-            self.log("Reserved IP address: {0}".format(address.address))
+            self.log("reserved IP address: {0}".format(address.address))
 
             self.state = self.UP
             self.region = defn.region
@@ -108,5 +108,5 @@ class GCEStaticIPState(ResourceState):
                 address = self.address()
                 return self.confirm_destroy(address, "{0} ({1})".format(self.full_name, self.ip_address), abort = False)
             except libcloud.common.google.ResourceNotFoundError:
-                self.warn("Tried to destroy {0} which didn't exist".format(self.full_name))
+                self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
         return True

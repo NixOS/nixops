@@ -80,9 +80,9 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
 
         boot_devices = [k for k,v in self.block_device_mapping.iteritems() if v['bootDisk']]
         if len(boot_devices) == 0:
-            raise Exception("Machine {0} must have a boot device.".format(self.name))
+            raise Exception("machine {0} must have a boot device.".format(self.name))
         if len(boot_devices) > 1:
-            raise Exception("Machine {0} must have exactly one boot device.".format(self.name))
+            raise Exception("machine {0} must have exactly one boot device.".format(self.name))
 
 
     def show_type(self):
@@ -137,7 +137,7 @@ class GCEState(MachineState, ResourceState):
 
     @property
     def full_name(self):
-        return "GCE Machine '{0}'".format(self.machine_name)
+        return "GCE machine '{0}'".format(self.machine_name)
 
     def node(self):
        return self.connect().ex_get_node(self.machine_name, self.region)
@@ -166,12 +166,12 @@ class GCEState(MachineState, ResourceState):
         self.block_device_mapping = x
 
     def _delete_volume(self, volume_id, region, allow_keep=False):
-        if not self.depl.logger.confirm("are you sure you want to destroy GCE disk ‘{0}’?".format(volume_id)):
+        if not self.depl.logger.confirm("are you sure you want to destroy GCE disk '{0}'?".format(volume_id)):
             if allow_keep:
                 return
             else:
-                raise Exception("not destroying GCE disk ‘{0}’".format(volume_id))
-        self.log("destroying GCE disk ‘{0}’...".format(volume_id))
+                raise Exception("not destroying GCE disk '{0}'".format(volume_id))
+        self.log("destroying GCE disk '{0}'...".format(volume_id))
         try:
             disk = self.connect().ex_get_volume(volume_id, region)
             disk.destroy()
@@ -194,13 +194,13 @@ class GCEState(MachineState, ResourceState):
 
         if self.vm_id or self.block_device_mapping:
             if self.project != self.defn_project(defn):
-                raise Exception("Cannot change the project of a deployed {0}".format(self.full_name))
+                raise Exception("cannot change the project of a deployed {0}".format(self.full_name))
 
             if self.region != defn.region:
-                raise Exception("Cannot change the region of a deployed {0}".format(self.full_name))
+                raise Exception("cannot change the region of a deployed {0}".format(self.full_name))
 
             if self.machine_name != defn.machine_name:
-                raise Exception("Cannot change the instance name of a deployed {0}".format(self.full_name))
+                raise Exception("cannot change the instance name of a deployed {0}".format(self.full_name))
 
         self.set_common_state(defn)
         self.copy_credentials(defn)
@@ -226,7 +226,7 @@ class GCEState(MachineState, ResourceState):
 
                     if node.state == NodeState.TERMINATED:
                         recreate = True
-                        self.warn("The instance is terminated and needs a reboot")
+                        self.warn("the instance is terminated and needs a reboot")
                         self.state = self.STOPPED
 
                     self.handle_changed_property('region', node.extra['zone'].name, can_fix = False)
@@ -247,16 +247,16 @@ class GCEState(MachineState, ResourceState):
                         try:
                             address = self.connect().ex_get_address(self.ipAddress)
                             if self.public_ipv4 and self.public_ipv4 != address.address:
-                                self.warn("Static IP Address {0} assigned to this machine has unexpectely "
+                                self.warn("static IP Address {0} assigned to this machine has unexpectely "
                                           "changed from {1} to {2} most likely due to being redeployed"
                                           .format(self.ipAddress, self.public_ipv4, address.address) )
                                 self.ipAddress = None
 
                         except libcloud.common.google.ResourceNotFoundError:
-                            self.warn("Static IP Address resource {0} used by this machine has been destroyed. "
-                                      "It is likely that the machine is still holding the address itself ({1}) "
+                            self.warn("static IP Address resource {0} used by this machine has been destroyed; "
+                                      "it is likely that the machine is still holding the address itself ({1}) "
                                       "and this is your last chance to reclaim it before it gets "
-                                      "lost in a reboot.".format(self.ipAddress, self.public_ipv4) )
+                                      "lost in a reboot".format(self.ipAddress, self.public_ipv4) )
 
                     self.handle_changed_property('tags', sorted(node.extra['tags']))
 
@@ -272,11 +272,11 @@ class GCEState(MachineState, ResourceState):
                         disk_name = v['disk_name'] or v['disk']
                         is_attached = disk_name in attached_disk_names
                         if not is_attached  and not v.get('needsAttach', False):
-                            self.warn("Disk {0} seems to have been detached behind our back. Will reattach...".format(disk_name))
+                            self.warn("disk {0} seems to have been detached behind our back; will reattach...".format(disk_name))
                             v['needsAttach'] = True
                             self.update_block_device_mapping(k, v)
                         if is_attached and v.get('needsAttach', False):
-                            self.warn("Disk {0} seems to have been attached for us. Thank you, mr. Elusive Bug!".format(disk_name))
+                            self.warn("disk {0} seems to have been attached for us; thank you, mr. Elusive Bug!".format(disk_name))
                             del v['needsAttach']
                             self.update_block_device_mapping(k, v)
 
@@ -285,16 +285,16 @@ class GCEState(MachineState, ResourceState):
                     state_disk_names = [v['disk_name'] or v['disk'] for k,v in self.block_device_mapping.iteritems()]
                     unexpected_disks = list( set(attached_disk_names) - set(defn_disk_names) - set(state_disk_names) )
                     if unexpected_disks:
-                        self.warn("Unexpected disk(s) {0} are attached to this instance. "
-                                  "Not fixing this just in case.".format(unexpected_disks))
+                        self.warn("unexpected disk(s) {0} are attached to this instance; "
+                                  "not fixing this just in case".format(unexpected_disks))
                 else:
                     self.warn_not_supposed_to_exist(valuable_data = True)
                     self.confirm_destroy(node, self.full_name)
 
             except libcloud.common.google.ResourceNotFoundError:
                 if self.vm_id:
-                    self.warn("The instance seems to have been destroyed behind our back.")
-                    if not allow_recreate: raise Exception("Use --allow-recreate, to fix.")
+                    self.warn("the instance seems to have been destroyed behind our back")
+                    if not allow_recreate: raise Exception("use --allow-recreate to fix")
                     self._node_deleted()
 
             # check that the disks that should exist do exist
@@ -309,9 +309,9 @@ class GCEState(MachineState, ResourceState):
 
                 except libcloud.common.google.ResourceNotFoundError:
                     if v['disk']:
-                        raise Exception("External disk ‘{0}’ is required but doesn't exist.".format(disk_name))
+                        raise Exception("external disk '{0}' is required but doesn't exist".format(disk_name))
                     if k in self.block_device_mapping and v['disk_name']:
-                        self.warn("Disk ‘{0}’ is supposed to exist, but is missing. Will recreate...".format(disk_name))
+                        self.warn("disk '{0}' is supposed to exist, but is missing; will recreate...".format(disk_name))
                         self.update_block_device_mapping(k, None)
 
         # create missing disks
@@ -329,8 +329,8 @@ class GCEState(MachineState, ResourceState):
                                                   snapshot = v['snapshot'], image = v['image'],
                                                   use_existing= False)
                 except libcloud.common.google.ResourceExistsError:
-                    raise Exception("Tried creating a disk that already exists. "
-                                    "Please run 'deploy --check' to fix this.")
+                    raise Exception("tried creating a disk that already exists; "
+                                    "please run 'deploy --check' to fix this")
                 self.log_end('done.')
             v['needsAttach'] = True
             self.update_block_device_mapping(k, v)
@@ -338,29 +338,29 @@ class GCEState(MachineState, ResourceState):
         if self.vm_id:
             if self.instance_type != defn.instance_type:
                 recreate = True
-                self.warn("Change of the instance type requires a reboot")
+                self.warn("change of the instance type requires a reboot")
 
             if self.network != defn.network:
                 recreate = True
-                self.warn("Change of the network requires a reboot")
+                self.warn("change of the network requires a reboot")
 
             for k, v in self.block_device_mapping.iteritems():
                 defn_v = defn.block_device_mapping.get(k, None)
                 if defn_v and not v.get('needsAttach', False):
                     if v['bootDisk'] != defn_v['bootDisk']:
                         recreate = True
-                        self.warn("Change of the boot disk requires a reboot")
+                        self.warn("change of the boot disk requires a reboot")
                     if v['readOnly'] != defn_v['readOnly']:
                         recreate = True
-                        self.warn("Remounting disk as ro/rw requires a reboot")
+                        self.warn("remounting disk as ro/rw requires a reboot")
 
         if recreate:
             if not allow_reboot:
-                raise Exception("Reboot is required for the requested changes. Please run with --allow-reboot.")
+                raise Exception("reboot is required for the requested changes; please run with --allow-reboot")
             self.stop()
 
         if not self.vm_id:
-            self.log_start("Creating {0}...".format(self.full_name))
+            self.log_start("creating {0}...".format(self.full_name))
             boot_disk = next(v for k,v in defn.block_device_mapping.iteritems() if v.get('bootDisk', False))
             try:
                 node = self.connect().create_node(self.machine_name, defn.instance_type, 'none',
@@ -370,7 +370,8 @@ class GCEState(MachineState, ResourceState):
                                  external_ip = (self.connect().ex_get_address(defn.ipAddress) if defn.ipAddress else 'ephemeral'),
                                  ex_network = (defn.network if defn.network else 'default') )
             except libcloud.common.google.ResourceExistsError:
-                raise Exception("Tried creating an instance that already exists. Please run ‘deploy --check’ to fix this.")
+                raise Exception("tried creating an instance that already exists; "
+                                "please run 'deploy --check' to fix this")
             self.log_end("done.")
             self.vm_id = self.machine_name
             self.state = self.STARTING
@@ -391,7 +392,7 @@ class GCEState(MachineState, ResourceState):
                 disk_region = v.get('region', None)
                 v['readOnly'] = defn_v['readOnly']
                 v['bootDisk'] = defn_v['bootDisk']
-                self.log("attaching GCE disk ‘{0}’...".format(disk_name))
+                self.log("attaching GCE disk '{0}'...".format(disk_name))
                 if not v.get('bootDisk', False):
                     self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_name, disk_region), 
                                    device = disk_name,
@@ -415,12 +416,12 @@ class GCEState(MachineState, ResourceState):
             self.metadata = defn.metadata
 
         if self.tags != defn.tags:
-            self.log('Updating tags')
+            self.log('updating tags')
             self.connect().ex_set_node_tags(self.node(), defn.tags)
             self.tags = defn.tags
 
         if self.public_ipv4 and self.ipAddress != defn.ipAddress:
-            self.log("Detaching old IP address {0}".format(self.public_ipv4))
+            self.log("detaching old IP address {0}".format(self.public_ipv4))
             self.connect().connection.async_request(
                 "/zones/{0}/instances/{1}/deleteAccessConfig?accessConfig=External+NAT&networkInterface=nic0"
                 .format(self.region, self.machine_name), method = 'POST')
@@ -428,7 +429,7 @@ class GCEState(MachineState, ResourceState):
             self.ipAddress = None
 
         if self.public_ipv4 is None:
-            self.log("Attaching IP address {0}".format(defn.ipAddress or "[Ephemeral]"))
+            self.log("attaching IP address {0}".format(defn.ipAddress or "[Ephemeral]"))
             self.connect().connection.async_request(
                 "/zones/{0}/instances/{1}/addAccessConfig?networkInterface=nic0"
                 .format(self.region, self.machine_name), method = 'POST', data = {
@@ -464,17 +465,17 @@ class GCEState(MachineState, ResourceState):
 
     def start(self):
         if not self.vm_id:
-            self.warn("You can start this machine by (re)creating it with deploy.")
+            self.warn("you can start this machine by (re)creating it with deploy")
             return
 
         node = self.node()
 
         if node.state == NodeState.TERMINATED:
-            self.warn("GCE machines can't be started directly after being terminated."
-                      " You can re-start the machine by re-creating it with deploy --check --allow-reboot.")
+            self.warn("GCE machines can't be started directly after being terminated;"
+                      " you can re-start the machine by re-creating it with 'deploy --check --allow-reboot'")
 
         if node.state == NodeState.STOPPED:
-            self.warn("Kicking the machine with a hard reboot to start it.")
+            self.warn("kicking the machine with a hard reboot to start it")
             self.reboot(hard=True)
 
 
@@ -502,15 +503,15 @@ class GCEState(MachineState, ResourceState):
                 self.log_end("(timed out)")
 
         self.state = self.STOPPED
-        self.log("Tearing down the instance. Disk contents are preserved "
-                 "but the instance can only be started with deploy.");
+        self.log("tearing down the instance; disk contents are preserved "
+                 "but the instance can only be started with 'deploy'");
         node.destroy()
         self._node_deleted()
         self.ssh.reset()
 
     def destroy(self, wipe=False):
         if wipe:
-            log.warn("Wipe is not supported.")
+            log.warn("wipe is not supported")
         try:
             node = self.node()
             question = "are you sure you want to destroy {0}?"
@@ -540,7 +541,7 @@ class GCEState(MachineState, ResourceState):
             if k not in defn.block_device_mapping:
                 disk_name = v['disk'] or v['disk_name']
 
-                self.log("Unmounting device ‘{0}’...".format(disk_name))
+                self.log("unmounting device '{0}'...".format(disk_name))
                 if v.get('encrypt', False):
                     dm = "/dev/mapper/{0}".format(disk_name)
                     self.run_command("umount -l {0}".format(dm), check=False)
@@ -551,7 +552,7 @@ class GCEState(MachineState, ResourceState):
                 node = self.node()
                 try:
                     if not v.get('needsAttach', False):
-                        self.log("detaching GCE disk ‘{0}’...".format(disk_name))
+                        self.log("detaching GCE disk '{0}'...".format(disk_name))
                         volume = self.connect().ex_get_volume(disk_name, v.get('region', None) )
                         self.connect().detach_volume(volume, node)
                         v['needsAttach'] = True
@@ -560,7 +561,7 @@ class GCEState(MachineState, ResourceState):
                     if v.get('deleteOnTermination', False):
                         self._delete_volume(disk_name, v['region'])
                 except libcloud.common.google.ResourceNotFoundError:
-                    self.warn("GCE disk ‘{0}’ seems to have been destroyed already".format(disk_name))
+                    self.warn("GCE disk '{0}' seems to have been already destroyed".format(disk_name))
 
                 self.update_block_device_mapping(k, None)
 
@@ -568,7 +569,7 @@ class GCEState(MachineState, ResourceState):
     def get_console_output(self):
         node = self.node()
         if node.state == NodeState.TERMINATED:
-          raise Exception("cannot get console output of a state=TERMINATED machine ‘{0}’".format(self.name))
+          raise Exception("cannot get console output of a state=TERMINATED machine '{0}'".format(self.name))
         request = '/zones/%s/instances/%s/serialPort' % (node.extra['zone'].name, node.name)
         return self.connect().connection.request(request, method='GET').object['contents']
 
@@ -583,9 +584,9 @@ class GCEState(MachineState, ResourceState):
             if node.state == NodeState.UNKNOWN: self.state = self.UNKNOWN
             if node.state == NodeState.TERMINATED:
                 self.state = self.UNKNOWN # FIXME: there's no corresponding status
-                res.messages.append("Instance has been terminated, can't be directly (re)started\n"
-                                    "and can only be destroyed due the to limitations imposed by GCE.\n"
-                                    "Run deploy --check --allow-reboot to re-create it.")
+                res.messages.append("instance has been terminated, can't be directly (re)started\n"
+                                    "and can only be destroyed due the to limitations imposed by GCE;\n"
+                                    "run 'deploy --check --allow-reboot' to re-create it")
             if node.state == NodeState.RUNNING:
                 # check that all disks are attached
                 res.disks_ok = True
@@ -593,11 +594,11 @@ class GCEState(MachineState, ResourceState):
                     disk_name = v['disk_name'] or v['disk']
                     if all(d.get("deviceName", None) != disk_name for d in node.extra['disks']):
                         res.disks_ok = False
-                        res.messages.append("Disk {0} is detached".format(disk_name))
+                        res.messages.append("disk {0} is detached".format(disk_name))
                         try:
                             disk = self.connect().ex_get_volume(disk_name, v.get('region', None))
                         except libcloud.common.google.ResourceNotFoundError:
-                            res.messages.append("Disk {0} is destroyed".format(disk_name))
+                            res.messages.append("disk {0} is destroyed".format(disk_name))
 
                 MachineState._check(self, res)
         except libcloud.common.google.ResourceNotFoundError:
@@ -614,11 +615,11 @@ class GCEState(MachineState, ResourceState):
 
 
     def backup(self, defn, backup_id):
-        self.log("Backing up {0} using id ‘{1}’".format(self.full_name, backup_id))
+        self.log("backing up {0} using ID '{1}'".format(self.full_name, backup_id))
 
         if sorted(defn.block_device_mapping.keys()) != sorted(self.block_device_mapping.keys()):
-            self.warn("The list of disks currently deployed doesn't match the current deployment"
-                     " specification. Consider running deploy. The backup may be incomplete.")
+            self.warn("the list of disks currently deployed doesn't match the current deployment"
+                     " specification; consider running 'deploy' first; the backup may be incomplete")
 
         backup = {}
         _backups = self.backups
@@ -641,7 +642,7 @@ class GCEState(MachineState, ResourceState):
             self.backups = _backups
 
     def restore(self, defn, backup_id, devices=[]):
-        self.log("Restoring {0} to backup ‘{1}’".format(self.full_name, backup_id))
+        self.log("restoring {0} to backup '{1}'".format(self.full_name, backup_id))
 
         self.stop()
 
@@ -652,7 +653,7 @@ class GCEState(MachineState, ResourceState):
                 try:
                     snapshot = self.connect().ex_get_snapshot(s_id)
                 except libcloud.common.google.ResourceNotFoundError:
-                    self.warn("Snapsnot {0} for disk {1} is missing. Skipping".format(s_id, disk_name))
+                    self.warn("snapsnot {0} for disk {1} is missing; skipping".format(s_id, disk_name))
                     continue
 
                 try:
@@ -661,7 +662,7 @@ class GCEState(MachineState, ResourceState):
                 except libcloud.common.google.ResourceNotFoundError:
                     self.warn("disk {0} seems to have been destroyed already".format(disk_name))
 
-                self.log("creating disk {0} from snapshot ‘{1}’".format(disk_name, s_id))
+                self.log("creating disk {0} from snapshot '{1}'".format(disk_name, s_id))
                 self.connect().create_volume(None, disk_name, v.get('region', None),
                                              snapshot = snapshot, use_existing= False)
 
@@ -669,14 +670,14 @@ class GCEState(MachineState, ResourceState):
         self.log('removing backup {0}'.format(backup_id))
         _backups = self.backups
         if not backup_id in _backups.keys():
-            self.warn('backup {0} not found, skipping'.format(backup_id))
+            self.warn('backup {0} not found; skipping'.format(backup_id))
         else:
             for d_name, snapshot_id in _backups[backup_id].iteritems():
                 try:
                     self.log('removing snapshot {0}'.format(snapshot_id))
                     self.connect().ex_get_snapshot(snapshot_id).destroy()
                 except libcloud.common.google.ResourceNotFoundError:
-                    self.warn('snapshot {0} not found, skipping'.format(snapshot_id))
+                    self.warn('snapshot {0} not found; skipping'.format(snapshot_id))
 
             _backups.pop(backup_id)
             self.backups = _backups
@@ -692,7 +693,7 @@ class GCEState(MachineState, ResourceState):
                 disk_name = v['disk_name'] or v['disk']
                 if not disk_name in snapshots.keys():
                     backup_status = "incomplete"
-                    info.append("{0} - {1} - Not available in backup".format(self.name, disk_name))
+                    info.append("{0} - {1} - not available in backup".format(self.name, disk_name))
                 else:
                     snapshot_id = snapshots[disk_name]
                     try:
@@ -700,11 +701,11 @@ class GCEState(MachineState, ResourceState):
                         if snapshot.status != 'READY':
                             backup_status = "running"
                     except libcloud.common.google.ResourceNotFoundError:
-                        info.append("{0} - {1} - {2} - Snapshot has disappeared".format(self.name, disk_name, snapshot_id))
+                        info.append("{0} - {1} - {2} - snapshot has disappeared".format(self.name, disk_name, snapshot_id))
                         backup_status = "unavailable"
             for d_name, s_id in snapshots.iteritems():
                 if not any(d_name == v['disk_name'] or d_name == v['disk'] for k,v in self.block_device_mapping.iteritems()):
-                    info.append("{0} - {1} - {2} - A snapshot of a disk that is not or no longer deployed".format(self.name, d_name, s_id))
+                    info.append("{0} - {1} - {2} - a snapshot of a disk that is not or no longer deployed".format(self.name, d_name, s_id))
             backups[b_id]['status'] = backup_status
             backups[b_id]['info'] = info
         return backups
