@@ -32,7 +32,7 @@ class ResourceDefinition(nixops.resources.ResourceDefinition):
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
 
-        res_name = xml.find("attrs/attr[@name='name']/string").get("value")
+        res_name = self.get_option_value(xml, 'name', str)
         if len(res_name)>63 or re.match('[a-z]([-a-z0-9]{0,61}[a-z0-9])?$', res_name) is None:
             raise Exception("Resource name ‘{0}‘ must be 1-63 characters long and "
               "match the regular expression [a-z]([-a-z0-9]*[a-z0-9])? which "
@@ -40,9 +40,46 @@ class ResourceDefinition(nixops.resources.ResourceDefinition):
               "following characters must be a dash, lowercase letter, or digit, "
               "except the last character, which cannot be a dash.".format(res_name))
 
-        self.project = xml.find("attrs/attr[@name='project']/string").get("value")
-        self.service_account = xml.find("attrs/attr[@name='serviceAccount']/string").get("value")
-        self.access_key_path = xml.find("attrs/attr[@name='accessKey']/string").get("value")
+        self.copy_option(xml, 'project', str)
+        self.copy_option(xml, 'serviceAccount', str)
+        self.access_key_path = self.get_option_value(xml, 'accessKey', str)
+
+    def get_option_value(self, xml, name, type, optional = False,
+                         empty = True, positive = False):
+        types = { str: '/string', int: '/int', bool: '/bool', 'resource': '', 'strlist': '/list' }
+        xml_ = xml.find("attrs")
+        xml__= xml_ if xml_ is not None else xml
+        elem = xml__.find("attr[@name='%s']%s" % (name, types[type]))
+
+        if type == str:
+            value = optional_string(elem)
+        elif type == int:
+            value = optional_int(elem)
+        elif type == bool:
+            value = optional_bool(elem)
+        elif type == 'resource':
+            value = ( optional_string(elem.find("string")) or
+                      self.get_option_value(elem, 'name', str, optional = True) )
+        elif type == 'strlist':
+            value = sorted( [ s.get("value")
+                              for s in elem.findall("string") ] ) if elem is not None else None
+
+        if not optional and value is None:
+            raise Exception("option {0} must be set".format(name))
+
+        if not empty:
+            ensure_not_empty(value, name)
+        if positive:
+            ensure_positive(value, name)
+        return value
+
+    # store the option value in a property, following the naming conventions
+    # by converting "optionName" to "option_name"
+    def copy_option(self, xml, name, type, optional = False,
+                         empty = True, positive = False):
+      setattr(self, re.sub(r'([a-z])([A-Z])',r'\1_\2', name).lower(),
+              self.get_option_value(xml, name, type, optional = optional,
+                                    empty = empty, positive = positive) )
 
 
 class ResourceState(nixops.resources.ResourceState):
