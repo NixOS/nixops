@@ -90,10 +90,7 @@ in
 
     firewall = mkOption {
         default = {
-          allow-ssh = {
-            sourceRanges =  ["0.0.0.0/0"];
-            allowed.tcp = [ 22 ];
-          };
+          allow-ssh.allowed.tcp = [ 22 ];
         };
         example = {
           allow-http = {
@@ -110,6 +107,9 @@ in
 
   };
 
-  config._type = "gce-network";
+  config = {
+    _type = "gce-network";
+    firewall.allow-ssh.allowed.tcp = [ 22 ];
+  };
 
 }
