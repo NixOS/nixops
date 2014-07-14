@@ -83,7 +83,7 @@ class GCEForwardingRuleState(ResourceState):
         self.no_change(self.target_pool != defn.target_pool, 'target pool')
         self.no_change(self.protocol != defn.protocol, 'protocol')
         self.no_change(self.port_range != defn.port_range, 'port range')
-        self.no_change(self.ip_address != defn.ip_address, 'address')
+        self.no_change(self.ip_address != defn.ip_address, 'static IP address')
         self.no_change(self.description != defn.description, 'description')
         self.no_project_change(defn)
         self.no_region_change(defn)
@@ -103,6 +103,22 @@ class GCEForwardingRuleState(ResourceState):
                     self.handle_changed_property('description', fwr.extra['description'], can_fix = False)
                     self.warn_if_changed(self.port_range or '1-65535', fwr.extra['portRange'],
                                          'port range', can_fix = False)
+
+                    if self.ip_address:
+                        try:
+                            address = self.connect().ex_get_address(self.ip_address)
+                            if self.public_ipv4 and self.public_ipv4 != address.address:
+                                self.warn("static IP Address {0} assigned to this machine has unexpectely "
+                                          "changed from {1} to {2} most likely due to being redeployed"
+                                          "; cannot fix this automatically"
+                                          .format(self.ip_address, self.public_ipv4, address.address) )
+
+                        except libcloud.common.google.ResourceNotFoundError:
+                            self.warn("static IP Address resource {0} used by this forwarding rule has been destroyed; "
+                                      "it is likely that the forwarding rule is still holding the address itself ({1}) "
+                                      "and this is your last chance to reclaim it before it gets lots"
+                                      .format(self.ip_address, self.public_ipv4) )
+
                 else:
                     self.warn_not_supposed_to_exist()
                     self.confirm_destroy(fwr, self.full_name)
