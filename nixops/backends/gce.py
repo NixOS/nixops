@@ -7,11 +7,12 @@ import struct
 
 from nixops import known_hosts
 from nixops.util import wait_for_tcp_port, ping_tcp_port
-from nixops.util import attr_property, create_key_pair
+from nixops.util import attr_property, create_key_pair, generate_random_string
+from nixops.nix_expr import Function
 
 from nixops.backends import MachineDefinition, MachineState
 
-from nixops.gce_common import ResourceDefinition, ResourceState, optional_string, optional_int
+from nixops.gce_common import ResourceDefinition, ResourceState
 import nixops.resources.gce_static_ip
 import nixops.resources.gce_disk
 import nixops.resources.gce_network
@@ -392,12 +393,18 @@ class GCEState(MachineState, ResourceState):
                 disk_region = v.get('region', None)
                 v['readOnly'] = defn_v['readOnly']
                 v['bootDisk'] = defn_v['bootDisk']
+                v['passphrase'] = defn_v['passphrase']
                 self.log("attaching GCE disk '{0}'...".format(disk_name))
                 if not v.get('bootDisk', False):
                     self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_name, disk_region), 
                                    device = disk_name,
                                    ex_mode = ('READ_ONLY' if v['readOnly'] else 'READ_WRITE'))
                 del v['needsAttach']
+                self.update_block_device_mapping(k, v)
+
+            # generate LUKS key if the model didn't specify one
+            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") == "":
+                v['generatedKey'] = generate_random_string(length=256)
                 self.update_block_device_mapping(k, v)
 
         if self.metadata != defn.metadata:
@@ -710,6 +717,31 @@ class GCEState(MachineState, ResourceState):
             backups[b_id]['info'] = info
         return backups
 
+
+    def get_physical_spec(self):
+        block_device_mapping = {}
+        for k, v in self.block_device_mapping.items():
+            if (v.get('encrypt', False)
+                and v.get('passphrase', "") == ""
+                and v.get('generatedKey', "") != ""):
+                block_device_mapping[k] = {
+                    'passphrase': Function("pkgs.lib.mkOverride 10",
+                                           v['generatedKey'], call=True),
+                }
+
+        return {
+            ('deployment', 'gce', 'blockDeviceMapping'): block_device_mapping,
+        }
+
+    def get_keys(self):
+        keys = MachineState.get_keys(self)
+        # Ugly: we have to add the generated keys because they're not
+        # there in the first evaluation (though they are present in
+        # the final nix-build).
+        for k, v in self.block_device_mapping.items():
+            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "":
+                keys["luks-" + (v['disk_name'] or v['disk'])] = v['generatedKey']
+        return keys
 
     def get_ssh_name(self):
         if not self.public_ipv4:
