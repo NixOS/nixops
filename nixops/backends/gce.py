@@ -400,6 +400,7 @@ class GCEState(MachineState, ResourceState):
                 disk_region = v.get('region', None)
                 v['readOnly'] = defn_v['readOnly']
                 v['bootDisk'] = defn_v['bootDisk']
+                v['deleteOnTermination'] = defn_v['deleteOnTermination']
                 v['passphrase'] = defn_v['passphrase']
                 self.log("attaching GCE disk '{0}'...".format(disk_name))
                 if not v.get('bootDisk', False):
