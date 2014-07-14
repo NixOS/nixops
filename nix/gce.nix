@@ -412,6 +412,52 @@ in
     systemd.services."getty@tty1".enable = false;
     systemd.services."autovt@".enable = false;
 
+  systemd.services.fetch-ssh-keys =
+    { description = "Fetch host keys and authorized_keys for root user";
+
+      wantedBy = [ "multi-user.target" ];
+      before = [ "sshd.service" ];
+      after = [ "network.target" ];
+
+      path  = [ pkgs.curl ];
+      script =
+        ''
+          # Don't download the SSH key if it has already been downloaded
+          if ! [ -e /root/.ssh/authorized_keys ]; then
+                echo "obtaining SSH key..."
+                mkdir -p /root/.ssh
+                curl -o /root/authorized-keys-metadata http://metadata/0.1/meta-data/authorized-keys
+                if [ $? -eq 0 -a -e /root/authorized-keys-metadata ]; then
+                    cat /root/authorized-keys-metadata | cut -d: -f2- > /root/key.pub
+                    if ! grep -q -f /root/key.pub /root/.ssh/authorized_keys; then
+                        cat /root/key.pub >> /root/.ssh/authorized_keys
+                        echo "new key added to authorized_keys"
+                    fi
+                    chmod 600 /root/.ssh/authorized_keys
+                    rm -f /root/key.pub /root/authorized-keys-metadata
+                fi
+          fi
+
+          echo "obtaining SSH private host key..."
+          curl -o /root/ssh_host_ecdsa_key http://metadata/0.1/meta-data/attributes/ssh_host_ecdsa_key
+          if [ $? -eq 0 -a -e /root/ssh_host_ecdsa_key ]; then
+              mv -f /root/ssh_host_ecdsa_key /etc/ssh/ssh_host_ecdsa_key
+              echo "downloaded ssh_host_ecdsa_key"
+              chmod 600 /etc/ssh/ssh_host_ecdsa_key
+          fi
+
+          echo "obtaining SSH public host key..."
+          curl -o /root/ssh_host_ecdsa_key.pub http://metadata/0.1/meta-data/attributes/ssh_host_ecdsa_key_pub
+          if [ $? -eq 0 -a -e /root/ssh_host_ecdsa_key.pub ]; then
+              mv -f /root/ssh_host_ecdsa_key.pub /etc/ssh/ssh_host_ecdsa_key.pub
+              echo "downloaded ssh_host_ecdsa_key.pub"
+              chmod 644 /etc/ssh/ssh_host_ecdsa_key.pub
+          fi
+        '';
+      serviceConfig.Type = "oneshot";
+      serviceConfig.RemainAfterExit = true;
+     };
+
     # Don't allow emergency mode, because we don't have a console.
     systemd.enableEmergencyMode = false;
 
