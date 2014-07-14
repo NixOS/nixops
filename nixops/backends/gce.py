@@ -615,8 +615,14 @@ class GCEState(MachineState, ResourceState):
                             disk = self.connect().ex_get_volume(disk_name, v.get('region', None))
                         except libcloud.common.google.ResourceNotFoundError:
                             res.messages.append("disk {0} is destroyed".format(disk_name))
+                self.handle_changed_property('public_ipv4',
+                                              node.public_ips[0] if node.public_ips else None,
+                                              property_name = 'IP address')
+                if self.public_ipv4:
+                    known_hosts.add(self.public_ipv4, self.public_host_key)
 
                 MachineState._check(self, res)
+
         except libcloud.common.google.ResourceNotFoundError:
             res.exists = False
             res.is_up = False
