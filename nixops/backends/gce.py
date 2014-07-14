@@ -364,10 +364,14 @@ class GCEState(MachineState, ResourceState):
             if not allow_reboot:
                 raise Exception("reboot is required for the requested changes; please run with --allow-reboot")
             self.stop()
+        self.create_node(defn)
 
+    def create_node(self, defn):
         if not self.vm_id:
             self.log_start("creating {0}...".format(self.full_name))
-            boot_disk = next(v for k,v in defn.block_device_mapping.iteritems() if v.get('bootDisk', False))
+            boot_disk = next((v for k,v in defn.block_device_mapping.iteritems() if v.get('bootDisk', False)), None)
+            if not boot_disk:
+                raise Exception("no boot disk found for {0}".format(self.full_name))
             try:
                 node = self.connect().create_node(self.machine_name, defn.instance_type, 'none',
                                  location = self.connect().ex_get_zone(defn.region),
@@ -383,14 +387,19 @@ class GCEState(MachineState, ResourceState):
             self.state = self.STARTING
             self.ssh_pinged = False
             self.copy_properties(defn)
-            self.automatic_restart = None
-            self.on_host_maintenance = None
             self.public_ipv4 = node.public_ips[0]
             self.log("got IP: {0}".format(self.public_ipv4))
             known_hosts.add(self.public_ipv4, self.public_host_key)
             for k,v in self.block_device_mapping.iteritems():
                 v['needsAttach'] = True
                 self.update_block_device_mapping(k, v)
+            # set scheduling config here instead of triggering an update using None values
+            # because we might be called with defn = self, thus modifying self would ruin defn
+            self.connect().ex_set_node_scheduling(node,
+                                                  automatic_restart = defn.automatic_restart,
+                                                  on_host_maintenance = defn.on_host_maintenance)
+            self.automatic_restart = defn.automatic_restart
+            self.on_host_maintenance = defn.on_host_maintenance
 
         # Attach missing volumes
         for k, v in self.block_device_mapping.items():
@@ -480,19 +489,23 @@ class GCEState(MachineState, ResourceState):
 
 
     def start(self):
-        if not self.vm_id:
-            self.warn("you can start this machine by (re)creating it with deploy")
-            return
+        if self.vm_id:
+            try:
+                node = self.node()
+            except libcloud.common.google.ResourceNotFoundError:
+                self.warn("seems to have been destroyed already")
+                self._node_deleted()
+                node = None
 
-        node = self.node()
+            if node and (node.state == NodeState.TERMINATED):
+                self.stop()
 
-        if node.state == NodeState.TERMINATED:
-            self.warn("GCE machines can't be started directly after being terminated;"
-                      " you can re-start the machine by re-creating it with 'deploy --check --allow-reboot'")
+            if node and (node.state == NodeState.STOPPED):
+                self.warn("kicking the machine with a hard reboot to start it")
+                self.reboot(hard=True)
 
-        if node.state == NodeState.STOPPED:
-            self.warn("kicking the machine with a hard reboot to start it")
-            self.reboot(hard=True)
+        if not self.vm_id and self.block_device_mapping:
+            self.create_node(self)
 
 
     def stop(self):
@@ -519,8 +532,7 @@ class GCEState(MachineState, ResourceState):
                 self.log_end("(timed out)")
 
         self.state = self.STOPPED
-        self.log("tearing down the instance; disk contents are preserved "
-                 "but the instance can only be started with 'deploy'");
+        self.log("tearing down the instance; disk contents are preserved");
         node.destroy()
         self._node_deleted()
         self.ssh.reset()
@@ -596,13 +608,8 @@ class GCEState(MachineState, ResourceState):
             res.exists = True
             res.is_up = node.state == NodeState.RUNNING or node.state == NodeState.REBOOTING
             if node.state == NodeState.REBOOTING or node.state == NodeState.PENDING: self.state = self.STARTING
-            if node.state == NodeState.STOPPED: self.state = self.STOPPED
+            if node.state == NodeState.STOPPED or node.state == NodeState.TERMINATED: self.state = self.STOPPED
             if node.state == NodeState.UNKNOWN: self.state = self.UNKNOWN
-            if node.state == NodeState.TERMINATED:
-                self.state = self.UNKNOWN # FIXME: there's no corresponding status
-                res.messages.append("instance has been terminated, can't be directly (re)started\n"
-                                    "and can only be destroyed due the to limitations imposed by GCE;\n"
-                                    "run 'deploy --check --allow-reboot' to re-create it")
             if node.state == NodeState.RUNNING:
                 # check that all disks are attached
                 res.disks_ok = True
