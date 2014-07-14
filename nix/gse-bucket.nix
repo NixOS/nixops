@@ -77,7 +77,7 @@ let
 
       conditions.createdBefore = mkOption {
         default = null;
-        example = "2013/01/10";
+        example = "2013-01-10";
         type = types.nullOr types.str;
         description = ''
           This condition is satisfied when an object is created

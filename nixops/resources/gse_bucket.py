@@ -3,6 +3,7 @@
 # Automatic provisioning of GSE Buckets
 
 import os
+import re
 import libcloud.common.google
 
 from nixops.util import attr_property
@@ -50,13 +51,23 @@ class GSEBucketDefinition(ResourceDefinition):
         def parse_lifecycle(x):
             cond_x = x.find("attr[@name='conditions']")
 
+            created_before = self.get_option_value(cond_x, 'createdBefore', str, optional = True)
+
+            if created_before:
+                m = re.match(r"^(\d*)-(\d*)-(\d*)$", created_before)
+                if m:
+                    normalized_created_before = "{0[0]:0>4}-{0[1]:0>2}-{0[2]:0>2}".format(m.groups())
+                else:
+                    raise Exception("createdBefore must be a date in 'YYYY-MM-DD' format")
+            else:
+                normalized_created_before = None
+
             return {
                 'action': self.get_option_value(x, 'action', str),
                 'age': self.get_option_value(cond_x, 'age', int, optional = True),
                 'is_live':
                     self.get_option_value(cond_x, 'isLive', bool, optional = True),
-                'created_before':
-                    self.get_option_value(cond_x, 'createdBefore', str, optional = True),
+                'created_before': normalized_created_before,
                 'number_of_newer_versions':
                     self.get_option_value(cond_x, 'numberOfNewerVersions', int, optional = True)
             }
