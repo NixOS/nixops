@@ -116,7 +116,7 @@ class GCEForwardingRuleState(ResourceState):
                         except libcloud.common.google.ResourceNotFoundError:
                             self.warn("static IP Address resource {0} used by this forwarding rule has been destroyed; "
                                       "it is likely that the forwarding rule is still holding the address itself ({1}) "
-                                      "and this is your last chance to reclaim it before it gets lots"
+                                      "and this is your last chance to reclaim it before it gets lost"
                                       .format(self.ip_address, self.public_ipv4) )
 
                 else:
