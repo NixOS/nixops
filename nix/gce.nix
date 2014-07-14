@@ -283,19 +283,18 @@ in
 
 
       scheduling.automaticRestart = mkOption {
-        default = null;
-        type = types.nullOr types.bool;
+        default = true;
+        type = types.bool;
         description = ''
           Whether the Instance should be automatically restarted when it is
           terminated by Google Compute Engine (not terminated by user).
-          Set to null to let GCE pick the default value.
         '';
       };
 
       scheduling.onHostMaintenance = mkOption {
-        default = null;
-        type = types.nullOr (types.addCheck types.str
-            (v: elem v [ "MIGRATE" "TERMINATE" ]) );
+        default = "MIGRATE";
+        type = types.addCheck types.str
+            (v: elem v [ "MIGRATE" "TERMINATE" ]);
         description = ''
           Defines the maintenance behavior for this instance. For more information, see <link
           xlink:href='https://developers.google.com/compute/docs/instances#onhostmaintenance'/>.
@@ -303,8 +302,6 @@ in
           Allowed values are: "MIGRATE" to let GCE automatically migrate your
           instances out of the way of maintenance events and
           "TERMINATE" to allow GCE to terminate and restart the instance.
-
-          Set to null to let GCE pick the default.
         '';
       };
 

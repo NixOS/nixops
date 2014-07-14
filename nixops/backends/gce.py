@@ -48,8 +48,8 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
                           for k in x.findall("attr[@name='metadata']/attrs/attr") }
 
         scheduling = x.find("attr[@name='scheduling']")
-        self.copy_option(scheduling, 'automaticRestart', bool, optional = True)
-        self.copy_option(scheduling, 'onHostMaintenance', str, optional = True)
+        self.copy_option(scheduling, 'automaticRestart', bool)
+        self.copy_option(scheduling, 'onHostMaintenance', str)
 
         self.ipAddress = self.get_option_value(x, 'ipAddress', 'resource', optional = True)
         self.copy_option(x, 'network', 'resource', optional = True)
@@ -267,6 +267,11 @@ class GCEState(MachineState, ResourceState):
                                                              'ssh_host_ecdsa_key_pub'] }
                     self.handle_changed_property('metadata', actual_metadata)
 
+                    self.handle_changed_property('automatic_restart',
+                                                 node.extra['scheduling']["automaticRestart"])
+                    self.handle_changed_property('on_host_maintenance',
+                                                 node.extra['scheduling']["onHostMaintenance"])
+
                     attached_disk_names = [d.get("deviceName", None) for d in node.extra['disks'] ]
                     # check that all disks are attached
                     for k, v in self.block_device_mapping.iteritems():
@@ -378,6 +383,8 @@ class GCEState(MachineState, ResourceState):
             self.state = self.STARTING
             self.ssh_pinged = False
             self.copy_properties(defn)
+            self.automatic_restart = None
+            self.on_host_maintenance = None
             self.public_ipv4 = node.public_ips[0]
             self.log("got IP: {0}".format(self.public_ipv4))
             known_hosts.add(self.public_ipv4, self.public_host_key)
@@ -452,7 +459,8 @@ class GCEState(MachineState, ResourceState):
             self.ssh.reset()
             self.ssh_pinged = False
 
-        if recreate or check or self.automatic_restart != defn.automatic_restart or self.on_host_maintenance != defn.on_host_maintenance:
+        if self.automatic_restart != defn.automatic_restart or self.on_host_maintenance != defn.on_host_maintenance:
+            self.log("setting scheduling configuration")
             self.connect().ex_set_node_scheduling(self.node(),
                                                   automatic_restart = defn.automatic_restart,
                                                   on_host_maintenance = defn.on_host_maintenance)
