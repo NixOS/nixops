@@ -471,6 +471,290 @@ deployment.ec2.securityGroups = [ "allow-ssh" "allow-http" ];
 </simplesect>
 
 
+<simplesect xml:id="sec-deploying-to-gce"><title>Deploying to Google Compute Engine</title>
+
+<para><xref linkend="ex-physical-multi-gce.nix" /> shows a physical
+specification that deploys the load balancer network to Google Compute
+Engine(GCE). It states that the three machines need to be instantiated in GCE region
+<literal>europe-west1-b</literal>. It also specifies an alternative load balancer
+implemented using GCE Forwarding Rule.
+</para>
+
+<example xml:id="ex-physical-multi-gce.nix">
+  <title><filename>load-balancer-gce.nix</filename>: GCE physical network specification</title>
+<programlisting>
+let
+
+  # change this as necessary or wipe and use ENV vars
+  credentials = {
+    project = "myproject";
+    serviceAccount = "000000000000-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@developer.gserviceaccount.com";
+    accessKey = "/path/to/user/key.pem";
+  };
+
+  gce = { resources, ...}:  {
+    networking.firewall.allowedTCPPorts = [ 80 ];
+    deployment.targetEnv = "gce";
+    deployment.gce = credentials // {
+      region = "europe-west1-b";
+      tags = [ "public-http" ];
+      network = resources.gceNetworks.lb-net;
+    };
+  };
+
+in {
+  # create a network that allows SSH traffic(by default), pings
+  # and HTTP traffic for machines tagged "public-http"
+  resources.gceNetworks.lb-net = credentials // {
+    addressRange = "192.168.4.0/24";
+    firewall = {
+      allow-http = {
+        targetTags = [ "public-http" ];
+        allowed.tcp = [ 80 ];
+      };
+      allow-ping.allowed.icmp = null;
+    };
+  };
+
+  # by default, health check pings port 80, so we don't have to set anything
+  resources.gceHTTPHealthChecks.plain-hc = credentials;
+
+  resources.gceTargetPools.backends = { resources, nodes, ...}: credentials // {
+    region = "europe-west1";
+    healthCheck = resources.gceHTTPHealthChecks.plain-hc;
+    machines = with nodes; [ backend1 backend2 ];
+  };
+
+  resources.gceForwardingRules.lb = { resources, ...}: credentials // {
+    protocol = "TCP";
+    region = "europe-west1";
+    portRange = "80";
+    targetPool = resources.gceTargetPools.backends;
+    description = "Alternative HTTP Load Balancer";
+  };
+
+  proxy    = gce;
+  backend1 = gce;
+  backend2 = gce;
+
+}
+</programlisting>
+</example>
+
+<para>Deployment is as follows:
+
+<screen>
+$ nixops create ./load-balancer.nix ./load-balancer-gce.nix -d load-balancer-gce
+$ nixops deploy -d load-balancer-gce
+lb-net..> Creating GCE network 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb-net'...
+plain-hc> creating GCE HTTP health check 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-plain-hc'...done.
+backends> creating GCE target pool 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backends'...
+lb-net..> done.
+lb-net..> Creating GCE firewall 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb-net-allow-ssh'...
+backends> done.
+lb-net..> done.
+lb-net..> Creating GCE firewall 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb-net-allow-ping'...
+backends> updating the machine list of GCE target pool 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backends'...
+lb-net..> done.
+lb-net..> Creating GCE firewall 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb-net-allow-http'...done.
+backend1> Creating GCE disk of auto GiB from image 'https://www.googleapis.com/compute/v1/projects/logicblox-dev/global/images/nixos-unstable'...
+proxy...> Creating GCE disk of auto GiB from image 'https://www.googleapis.com/compute/v1/projects/logicblox-dev/global/images/nixos-unstable'...
+backend2> Creating GCE disk of auto GiB from image 'https://www.googleapis.com/compute/v1/projects/logicblox-dev/global/images/nixos-unstable'...
+lb......> creating GCE forwarding rule 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb'...done.
+lb......> got IP: 146.148.16.5
+backend2> done.
+backend2> creating GCE machine 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend2'...
+proxy...> done.
+proxy...> creating GCE machine 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-proxy'...
+backend1> done.
+backend1> creating GCE machine 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend1'...done.
+backend1> got IP: 130.211.95.195
+backend2> done.
+backend2> got IP: 146.148.2.203
+proxy...> done.
+proxy...> got IP: 146.148.20.120
+backend1> attaching GCE disk 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend1-root'...
+backend1> waiting for SSH....
+backend2> attaching GCE disk 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend2-root'...
+backend2> waiting for SSH...
+backend1> .
+proxy...> attaching GCE disk 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-proxy-root'...
+<replaceable>...</replaceable>
+proxy......> activation finished successfully
+backend2...> activation finished successfully
+backend1...> activation finished successfully
+</screen>
+
+Here NixOps has created a GCE network, a health check, a load balancer,
+3 root disks for the instances and started three instances running
+the default NixOS image.  Other than that, deployment
+is the same as for VirtualBox: NixOps builds the machine
+configurations, copies their closure over to the GCE instances, and
+activates the new configurations.</para>
+
+<para>The command <command>nixops info</command> shows all provisioned
+resources, not just machines:
+
+<screen>
+$ nixops info -d load-balancer-gce
+<replaceable>...</replaceable>
++----------+-----------------+------------------------------------+------------------------------------------------------+----------------+
+| Name     |      Status     | Type                               | Resource Id                                          | IP address     |
++----------+-----------------+------------------------------------+------------------------------------------------------+----------------+
+| backend1 | Up / Up-to-date | gce [europe-west1-b; g1-small]     | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend1 | 146.148.20.120 |
+| backend2 | Up / Up-to-date | gce [europe-west1-b; g1-small]     | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend2 | 130.211.64.113 |
+| proxy    | Up / Up-to-date | gce [europe-west1-b; g1-small]     | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-proxy    | 146.148.16.5   |
+| lb       | Up / Up-to-date | gce-forwarding-rule [europe-west1] | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb       | 146.148.2.203  |
+| plain-hc | Up / Up-to-date | gce-http-health-check [:80/]       | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-plain-hc |                |
+| lb-net   | Up / Up-to-date | gce-network [192.168.4.0/24]       | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb-net   |                |
+| backends | Up / Up-to-date | gce-target-pool [europe-west1]     | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backends |                |
++----------+-----------------+------------------------------------+------------------------------------------------------+----------------+
+</screen>
+</para>
+
+<para>The resources can be destroyed by running:
+
+<screen>
+$ nixops destroy -d load-balancer-gce
+</screen>
+
+This terminates the GCE instances and deletes the alternative GCE-based load balancer.</para>
+
+<para>Deployment to GCE has some prerequisites.
+
+<itemizedlist>
+
+  <listitem><para>Obviously, you need an GCE service account which you can create from the
+  <link xlink:href="https://console.developers.google.com/">Developer Console</link>.</para></listitem>
+
+  <listitem><para>Once you've created a new GCE service account and downloaded the generated
+  private key (in the PKCS12 format), you'll need to convert the key to PEM format by running
+  the following command:
+
+<programlisting>
+$ openssl pkcs12 -in pkey.pkcs12 -passin pass:notasecret -nodes -nocerts | openssl rsa -out pkey.pem
+</programlisting>
+  </para></listitem>
+
+  <listitem><para>All GCE resources and instances must belong to a GCE project which you can create from the
+  <link xlink:href="https://console.developers.google.com/">Developer Console</link>. Alternatively,
+  you could use a project you already have. Several deployments can coexist in a single project and
+  with manually-created resources, as long as you don't exceed the quotas.</para></listitem>
+
+  <listitem><para>You must ensure that the GCE service account you've created has sufficient permissions
+  to manage resources in the project.</para></listitem>
+
+  <listitem><para>You must supply the credentials(project, service account name and path to the key)
+  via either <varname>*.project</varname>, <varname>*.serviceAccount</varname> and
+  <varname>*.accessKey</varname> options or <envar>GCE_PROJECT</envar>,
+  <envar>GCE_SERVICE_ACCOUNT</envar> and <envar>ACCESS_KEY_PATH</envar> environment variables.
+  Options take precedence over environment variables and are per-resource/-instance.
+  </para></listitem>
+
+  <listitem><para>You need to ensure that GCE firewall is configured correctly.
+  The <literal>default</literal> GCE network which is created for each project
+  and to which all instances belong by default, only allows SSH and internal traffic.
+  Usually, this is not enough and you want to create a network managed by NixOps with
+  custom firewall settings. By default, the NixOps-managed networks allow SSH traffic
+  because it is absolutely required to manage the instances. In addition to allowing
+  traffic based on IP and port ranges, firewall can also selectively enable traffic
+  for instances with specific tags, such as <literal>public-http</literal> in the
+  example, which is assigned to the instances you want to receive connections
+  on port 80.
+  </para></listitem>
+
+  <listitem><para>Many resources are region- and zone-specific, and thus you need
+  to set <varname>*.region</varname> options where applicable.</para></listitem>
+
+</itemizedlist>
+
+</para>
+
+<para>GCE limitations and quirks to be aware of.
+
+<itemizedlist>
+
+  <listitem><para>There's no "native" support for starting and stopping instances.
+  NixOps emulates starting and stoping by creating and tearing down GCE instances,
+  but preserving the disk contents.</para>
+
+  <para>While this mostly just works, GCE ends up charging you a minimum of uptime
+  (which was 10 minutes at the moment of writing this manual) thus too frequent
+  start/stop cycling ends up expensive.</para>
+
+  <para>Start/stop cycling of an instance which uses an ephemeral IP address often causes
+  the IP address to change, which breaks certain features such as encrypted tunnels
+  until repaired by <literal>deploy</literal>.</para>
+
+  <para>Another important difference is that NixOps attempts to replicate the last known
+  state of the instance(attached disks, tags). Thus, if the state was modified
+  manually(eg via gcloud tool), such changes are lost in a start/stop cycle.</para>
+
+  <para>Consider rebooting instead which doesn't have these limitation and, in addition, is faster.
+  </para></listitem>
+
+  <listitem><para>Creation, modification and deletion of resources and instances are
+  not idempotent in GCE.</para>
+
+  <para>In practice, this means that if you hit Ctrl+C or an error happens, while NixOps is
+  creating, destrying or otherwise changing the state a resource, the state of the
+  resource expected by NixOps and the actual state may diverge.</para>
+
+  <para>Usually, this doesn't cause too much troubles, but a good practice is to follow
+  each failed or aborted deployment operation with a <literal>deploy --check</literal>
+  run to detect and fix any state mismatch(es).</para></listitem>
+
+  <listitem><para>The instances which are members of target pools need a constantly-running
+  <literal>configure-forwarding-rules</literal> service, which is enabled by default, and
+  is not otherwise required.
+  Substantial RAM savings for a large deployment can be obtained by disabling the service
+  if it isn't needed.
+  </para></listitem>
+
+</itemizedlist>
+
+</para>
+
+<para>Migration of resources between zones and putting previosly-existing resources
+under NixOps control.
+
+<itemizedlist>
+
+  <listitem><para>Disks can be migrated by making a snapshot and then initializing
+  a new NixOps-managed disk from it, possibly, in another zone or region.</para></listitem>
+
+  <listitem><para>Migrating an instance to another zone via backup functionality
+  is currently impossible. It is still possible to create a new instance and migrate
+  each disk by hand using snapshots.</para></listitem>
+
+  <listitem><para>Putting a manually-created static IP resource under NixOps management
+  is done this way: create a resource to temporarily hold the IP address, such as an instance
+  or a forwarding rule; delete the static IP resource, which still leaves the IP address
+  itself under your control thanks to the holding resource; create a new static IP address
+  <literal>with resources.gceStaticIPs.$NAME.ipAddress</literal> set to the IP address of
+  the holding resource; delete the holding resource after checking that the static IP resource
+  has been correctly created and holds the original IP address.
+  <emphasis>You must practice the migration procedure on a test static IP resource.</emphasis></para>
+
+  <para>If by accident or after ignoring the above advice, you lose control of a valuable IP address,
+  you must act very fast and attempt to create a new static IP resource with
+  <literal>with resources.gceStaticIPs.$NAME.ipAddress</literal> set to the IP address itself
+  that you want to regain control over. If you are late and the IP address has been given to
+  someone else, it still makes sense to repeately try reserving the address because most likely
+  it is in use as an emphemeral one and thus will become available soon. Needless to say,
+  you want to avoid a situation like this at all costs.</para>
+
+  <para>IP addresses are region-specific and thus most likely can't be migrated to another region.
+  It is impossible to migrate an IP address to another project without temporarily
+  losing control over it.</para></listitem>
+
+</itemizedlist>
+
+</para>
+
+</simplesect>
+
+
 <simplesect><title>Deploying to Hetzner physical machines</title>
 
 <para>In order to deploy to Hetzner machines, you need to have a valid account
