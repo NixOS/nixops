@@ -17,7 +17,7 @@ in
 
     name = mkOption {
       example = "my-target-pool";
-      default = "nixops-${uuid}-${name}";
+      default = "n-${shorten_uuid uuid}-${name}";
       type = types.str;
       description = "Description of the GCE Target Pool. This is the <literal>Name</literal> tag of the target pool.";
     };

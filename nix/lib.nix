@@ -13,4 +13,6 @@ pkgs: with pkgs.lib; {
     merge = mergeOneOption;
   };
 
+  shorten_uuid = uuid: replaceChars ["-"] [""] uuid;
+
 }

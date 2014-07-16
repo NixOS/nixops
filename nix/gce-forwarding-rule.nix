@@ -8,7 +8,7 @@ with (import ./lib.nix pkgs);
 
     name = mkOption {
       example = "my-public-ip";
-      default = "nixops-${uuid}-${name}";
+      default = "n-${shorten_uuid uuid}-${name}";
       type = types.str;
       description = "Description of the GCE Forwarding Rule. This is the <literal>Name</literal> tag of the rule.";
     };

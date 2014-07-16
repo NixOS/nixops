@@ -1,14 +1,14 @@
 { config, pkgs, uuid, name, ... }:
 
 with pkgs.lib;
-
+with (import ./lib.nix pkgs);
 {
 
   options = (import ./gce-credentials.nix pkgs "disk") // {
 
     name = mkOption {
       example = "big-fat-disk";
-      default = "nixops-${uuid}-${name}";
+      default = "n-${shorten_uuid uuid}-${name}";
       type = types.str;
       description = "Description of the GCE disk.  This is the <literal>Name</literal> tag of the disk.";
     };

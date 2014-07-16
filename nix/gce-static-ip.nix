@@ -1,14 +1,14 @@
 { config, pkgs, uuid, name, ... }:
 
 with pkgs.lib;
-
+with (import ./lib.nix pkgs);
 {
 
   options = (import ./gce-credentials.nix pkgs "IP address") // {
 
     name = mkOption {
       example = "my-public-ip";
-      default = "nixops-${uuid}-${name}";
+      default = "n-${shorten_uuid uuid}-${name}";
       type = types.str;
       description = "Description of the GCE static IP address. This is the <literal>Name</literal> tag of the address.";
     };

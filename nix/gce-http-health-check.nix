@@ -1,14 +1,14 @@
 { config, pkgs, uuid, name, ... }:
 
 with pkgs.lib;
-
+with (import ./lib.nix pkgs);
 {
 
   options = (import ./gce-credentials.nix pkgs "HTTP health check") // {
 
     name = mkOption {
       example = "my-health-check";
-      default = "nixops-${uuid}-${name}";
+      default = "n-${shorten_uuid uuid}-${name}";
       type = types.str;
       description = "Description of the GCE HTTP Health Check. This is the <literal>Name</literal> tag of the health check.";
     };

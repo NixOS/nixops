@@ -187,7 +187,7 @@ in
     deployment.gce = (import ./gce-credentials.nix pkgs "instance") // {
 
       machineName = mkOption {
-        default = "nixops-${uuid}-${name}";
+        default = "n-${shorten_uuid uuid}-${name}";
         example = "custom-machine-name";
         type = types.str;
         description = "The GCE Instance <literal>Name</literal>.";

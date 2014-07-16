@@ -120,7 +120,7 @@ in
 
     name = mkOption {
       example = "my-bucket";
-      default = "nixops-${uuid}-${name}";
+      default = "n-${shorten_uuid uuid}-${name}";
       type = types.str;
       description = "This is the <literal>Name</literal> tag of the bucket.";
     };
