@@ -502,10 +502,13 @@ class GCEState(MachineState, ResourceState):
 
             if node and (node.state == NodeState.STOPPED):
                 self.warn("kicking the machine with a hard reboot to start it")
-                self.reboot(hard=True)
+                self.reboot_sync(hard=True)
 
         if not self.vm_id and self.block_device_mapping:
             self.create_node(self)
+            self.wait_for_ssh(check=True)
+            self.send_keys()
+
 
 
     def stop(self):
