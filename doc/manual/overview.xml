@@ -476,8 +476,8 @@ deployment.ec2.securityGroups = [ "allow-ssh" "allow-http" ];
 <para><xref linkend="ex-physical-multi-gce.nix" /> shows a physical
 specification that deploys the load balancer network to Google Compute
 Engine(GCE). It states that the three machines need to be instantiated in GCE region
-<literal>europe-west1-b</literal>. It also specifies an alternative load balancer
-implemented using GCE Forwarding Rule.
+<literal>europe-west1-b</literal>, based on the unstable branch of NixOS.
+It also specifies an alternative load balancer implemented using GCE Forwarding Rule.
 </para>
 
 <example xml:id="ex-physical-multi-gce.nix">
@@ -503,6 +503,12 @@ let
   };
 
 in {
+
+  # use nixos-unstable image
+  resources.gceImages.bootstrap = credentials // {
+    sourceUri = "gs://nixos/nixos-14.10pre-git-x86_64-linux.raw.tar.gz";
+  };
+
   # create a network that allows SSH traffic(by default), pings
   # and HTTP traffic for machines tagged "public-http"
   resources.gceNetworks.lb-net = credentials // {
@@ -546,32 +552,24 @@ in {
 <screen>
 $ nixops create ./load-balancer.nix ./load-balancer-gce.nix -d load-balancer-gce
 $ nixops deploy -d load-balancer-gce
+bootstrap> creating GCE image 'n-588718b8099211e49d39b8e8560f8b58-bootstrap'...
 lb-net..> Creating GCE network 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb-net'...
-plain-hc> creating GCE HTTP health check 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-plain-hc'...done.
+plain-hc> creating GCE HTTP health check 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-plain-hc'...
 backends> creating GCE target pool 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backends'...
-lb-net..> done.
 lb-net..> Creating GCE firewall 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb-net-allow-ssh'...
-backends> done.
-lb-net..> done.
 lb-net..> Creating GCE firewall 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb-net-allow-ping'...
 backends> updating the machine list of GCE target pool 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backends'...
-lb-net..> done.
-lb-net..> Creating GCE firewall 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb-net-allow-http'...done.
-backend1> Creating GCE disk of auto GiB from image 'https://www.googleapis.com/compute/v1/projects/logicblox-dev/global/images/nixos-unstable'...
-proxy...> Creating GCE disk of auto GiB from image 'https://www.googleapis.com/compute/v1/projects/logicblox-dev/global/images/nixos-unstable'...
-backend2> Creating GCE disk of auto GiB from image 'https://www.googleapis.com/compute/v1/projects/logicblox-dev/global/images/nixos-unstable'...
+lb-net..> Creating GCE firewall 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb-net-allow-http'...
+proxy....> Creating GCE disk of auto GiB from image 'n-588718b8099211e49d39b8e8560f8b58-bootstrap'...
+backend1.> Creating GCE disk of auto GiB from image 'n-588718b8099211e49d39b8e8560f8b58-bootstrap'...
+backend2.> Creating GCE disk of auto GiB from image 'n-588718b8099211e49d39b8e8560f8b58-bootstrap'...
 lb......> creating GCE forwarding rule 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb'...done.
 lb......> got IP: 146.148.16.5
-backend2> done.
 backend2> creating GCE machine 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend2'...
-proxy...> done.
 proxy...> creating GCE machine 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-proxy'...
-backend1> done.
-backend1> creating GCE machine 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend1'...done.
+backend1> creating GCE machine 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend1'...
 backend1> got IP: 130.211.95.195
-backend2> done.
 backend2> got IP: 146.148.2.203
-proxy...> done.
 proxy...> got IP: 146.148.20.120
 backend1> attaching GCE disk 'nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend1-root'...
 backend1> waiting for SSH....
@@ -586,6 +584,7 @@ backend1...> activation finished successfully
 </screen>
 
 Here NixOps has created a GCE network, a health check, a load balancer,
+a bootstrap image based on the unstable branch of NixOS,
 3 root disks for the instances and started three instances running
 the default NixOS image.  Other than that, deployment
 is the same as for VirtualBox: NixOps builds the machine
@@ -598,17 +597,18 @@ resources, not just machines:
 <screen>
 $ nixops info -d load-balancer-gce
 <replaceable>...</replaceable>
-+----------+-----------------+------------------------------------+------------------------------------------------------+----------------+
-| Name     |      Status     | Type                               | Resource Id                                          | IP address     |
-+----------+-----------------+------------------------------------+------------------------------------------------------+----------------+
-| backend1 | Up / Up-to-date | gce [europe-west1-b; g1-small]     | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend1 | 146.148.20.120 |
-| backend2 | Up / Up-to-date | gce [europe-west1-b; g1-small]     | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backend2 | 130.211.64.113 |
-| proxy    | Up / Up-to-date | gce [europe-west1-b; g1-small]     | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-proxy    | 146.148.16.5   |
-| lb       | Up / Up-to-date | gce-forwarding-rule [europe-west1] | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb       | 146.148.2.203  |
-| plain-hc | Up / Up-to-date | gce-http-health-check [:80/]       | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-plain-hc |                |
-| lb-net   | Up / Up-to-date | gce-network [192.168.4.0/24]       | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-lb-net   |                |
-| backends | Up / Up-to-date | gce-target-pool [europe-west1]     | nixops-588718b8-0992-11e4-9d39-b8e8560f8b58-backends |                |
-+----------+-----------------+------------------------------------+------------------------------------------------------+----------------+
++-----------+-----------------+------------------------------------+----------------------------------------------+----------------+
+| Name      |      Status     | Type                               | Resource Id                                  | IP address     |
++-----------+-----------------+------------------------------------+----------------------------------------------+----------------+
+| backend1  | Up / Up-to-date | gce [europe-west1-b; g1-small]     | n-588718b8099211e49d39b8e8560f8b58-backend1  | 146.148.20.120 |
+| backend2  | Up / Up-to-date | gce [europe-west1-b; g1-small]     | n-588718b8099211e49d39b8e8560f8b58-backend2  | 146.148.31.67  |
+| proxy     | Up / Up-to-date | gce [europe-west1-b; g1-small]     | n-588718b8099211e49d39b8e8560f8b58-proxy     | 146.148.2.203  |
+| lb        | Up / Up-to-date | gce-forwarding-rule [europe-west1] | n-588718b8099211e49d39b8e8560f8b58-lb        | 130.211.66.82  |
+| plain-hc  | Up / Up-to-date | gce-http-health-check [:80/]       | n-588718b8099211e49d39b8e8560f8b58-plain-hc  |                |
+| bootstrap | Up / Up-to-date | gce-image                          | n-588718b8099211e49d39b8e8560f8b58-bootstrap |                |
+| lb-net    | Up / Up-to-date | gce-network [192.168.4.0/24]       | n-588718b8099211e49d39b8e8560f8b58-lb-net    |                |
+| backends  | Up / Up-to-date | gce-target-pool [europe-west1]     | n-588718b8099211e49d39b8e8560f8b58-backends  |                |
++-----------+-----------------+------------------------------------+----------------------------------------------+----------------+
 </screen>
 </para>
 
@@ -673,6 +673,10 @@ $ openssl pkcs12 -in pkey.pkcs12 -passin pass:notasecret -nodes -nocerts | opens
 <para>GCE limitations and quirks to be aware of.
 
 <itemizedlist>
+
+  <listitem><para>Each deployment must always provide <literal>resources.gceImages.bootstrap</literal>
+  resource or override the instance's <literal>bootstrapImage</literal> option because
+  it is impossible to create public images.</para></listitem>
 
   <listitem><para>There's no "native" support for starting and stopping instances.
   NixOps emulates starting and stoping by creating and tearing down GCE instances,

@@ -9,6 +9,7 @@ from libcloud.compute.providers import get_driver
 
 from nixops.util import attr_property
 from nixops.gce_common import ResourceDefinition, ResourceState, optional_string, optional_int
+from nixops.resources.gce_image import GCEImageState
 
 class GCEDiskDefinition(ResourceDefinition):
     """Definition of a GCE Persistent Disk"""
@@ -24,7 +25,7 @@ class GCEDiskDefinition(ResourceDefinition):
         self.copy_option(xml, 'region', str)
         self.copy_option(xml, 'size', int, optional = True)
         self.copy_option(xml, 'snapshot', str, optional = True)
-        self.copy_option(xml, 'image', str, optional = True)
+        self.copy_option(xml, 'image', 'resource', optional = True)
 
 
     def show_type(self):
@@ -110,3 +111,8 @@ class GCEDiskState(ResourceState):
             except libcloud.common.google.ResourceNotFoundError:
                 self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
         return True
+
+
+    def create_after(self, resources):
+        return {r for r in resources if
+                isinstance(r, GCEImageState)}

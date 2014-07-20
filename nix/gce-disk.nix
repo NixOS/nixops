@@ -47,9 +47,9 @@ with (import ./lib.nix pkgs);
     image = mkOption {
       default = null;
       example = "image-2cfda297";
-      type = types.nullOr types.str;
+      type = types.nullOr ( union types.str (resource "gce-image") );
       description = ''
-        The image name from which this disk will be created. If
+        The image name or resource from which this disk will be created. If
         not specified, an empty disk is created.  Changing the
         image name has no effect if the disk already exists.
       '';

@@ -1,6 +1,6 @@
 # Configuration specific to the Google Compute Engine backend.
 
-{ config, pkgs, name, uuid, ... }:
+{ config, pkgs, name, uuid, resources, ... }:
 
 with pkgs.lib;
 with (import ./lib.nix pkgs);
@@ -76,9 +76,9 @@ let
       image = mkOption {
         default = null;
         example = "image-432";
-        type = types.nullOr types.str;
+        type = types.nullOr ( union types.str (resource "gce-image") );
         description = ''
-          The image name from which to create the GCE disk. If
+          The image name or resource from which to create the GCE disk. If
           not specified, an empty disk is created.  Changing the
           image name has no effect if the disk already exists.
         '';
@@ -264,10 +264,10 @@ in
       };
 
       bootstrapImage = mkOption {
-        default = "https://www.googleapis.com/compute/v1/projects/logicblox-dev/global/images/nixos-unstable";
-        type = types.str;
+        default = resources.gceImages.bootstrap;
+        type = union types.str (resource "gce-image");
         description = ''
-          Bootstrap image name to use to create the root disk of the instance.
+          Bootstrap image name or resource to use to create the root disk of the instance.
         '';
       };
 
