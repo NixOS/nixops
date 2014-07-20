@@ -15,6 +15,7 @@ from nixops.backends import MachineDefinition, MachineState
 from nixops.gce_common import ResourceDefinition, ResourceState
 import nixops.resources.gce_static_ip
 import nixops.resources.gce_disk
+import nixops.resources.gce_image
 import nixops.resources.gce_network
 
 import libcloud.common.google
@@ -640,6 +641,7 @@ class GCEState(MachineState, ResourceState):
         return {r for r in resources if
                 isinstance(r, nixops.resources.gce_static_ip.GCEStaticIPState) or
                 isinstance(r, nixops.resources.gce_disk.GCEDiskState) or
+                isinstance(r, nixops.resources.gce_image.GCEImageState) or
                 isinstance(r, nixops.resources.gce_network.GCENetworkState)}
 
 

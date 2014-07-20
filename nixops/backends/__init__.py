@@ -367,6 +367,7 @@ import nixops.resources.ec2_security_group
 import nixops.resources.ebs_volume
 import nixops.resources.elastic_ip
 import nixops.resources.gce_disk
+import nixops.resources.gce_image
 import nixops.resources.gce_static_ip
 import nixops.resources.gce_network
 import nixops.resources.gce_http_health_check
@@ -402,6 +403,7 @@ def create_state(depl, type, name, id):
               nixops.resources.ebs_volume.EBSVolumeState,
               nixops.resources.elastic_ip.ElasticIPState,
               nixops.resources.gce_disk.GCEDiskState,
+              nixops.resources.gce_image.GCEImageState,
               nixops.resources.gce_static_ip.GCEStaticIPState,
               nixops.resources.gce_network.GCENetworkState,
               nixops.resources.gce_http_health_check.GCEHTTPHealthCheckState,

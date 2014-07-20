@@ -25,6 +25,7 @@ import nixops.resources.ec2_security_group
 import nixops.resources.ebs_volume
 import nixops.resources.elastic_ip
 import nixops.resources.gce_disk
+import nixops.resources.gce_image
 import nixops.resources.gce_static_ip
 import nixops.resources.gce_network
 import nixops.resources.gce_http_health_check
@@ -352,6 +353,10 @@ class Deployment(object):
 
         for x in res.find("attr[@name='gceDisks']/attrs").findall("attr"):
             defn = nixops.resources.gce_disk.GCEDiskDefinition(x)
+            self.definitions[defn.name] = defn
+
+        for x in res.find("attr[@name='gceImages']/attrs").findall("attr"):
+            defn = nixops.resources.gce_image.GCEImageDefinition(x)
             self.definitions[defn.name] = defn
 
         for x in res.find("attr[@name='gceStaticIPs']/attrs").findall("attr"):

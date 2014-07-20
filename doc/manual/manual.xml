@@ -118,6 +118,15 @@
     </section>
 
     <section>
+      <title>GCE Images</title>
+      <para>A GCE Image is defined by setting
+      <literal>resources.gceImages.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="gce-image-options.xml" />
+    </section>
+
+    <section>
       <title>GCE Forwarding Rules</title>
       <para>A GCE Forwarding Rule is defined by setting
       <literal>resources.gceForwardingRules.<replaceable>name</replaceable></literal>

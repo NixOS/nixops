@@ -47,7 +47,7 @@ rec {
         ${pkgs.lib.concatMapStrings (fn: ''
           cp ${import ./doc/manual/resource.nix { revision = nixopsSrc.rev; module = ./nix + ("/" + fn + ".nix"); }} doc/manual/${fn}-options.xml
         '') [ "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" "ssh-keypair" "ec2-security-group" "elastic-ip"
-              "gce-disk" "gce-forwarding-rule" "gce-http-health-check" "gce-network"
+              "gce-disk" "gce-image" "gce-forwarding-rule" "gce-http-health-check" "gce-network"
               "gce-static-ip" "gce-target-pool" "gse-bucket" ]}
 
         make -C doc/manual install docbookxsl=${pkgs.docbook5_xsl}/xml/xsl/docbook \

@@ -90,6 +90,7 @@ rec {
   resources.gceHTTPHealthChecks = evalResources ./gce-http-health-check.nix (zipAttrs resourcesByType.gceHTTPHealthChecks or []);
   resources.gceTargetPools = evalResources ./gce-target-pool.nix (zipAttrs resourcesByType.gceTargetPools or []);
   resources.gceForwardingRules = evalResources ./gce-forwarding-rule.nix (zipAttrs resourcesByType.gceForwardingRules or []);
+  resources.gceImages = evalResources ./gce-image.nix (zipAttrs resourcesByType.gceImages or []);
   resources.gseBuckets = evalResources ./gse-bucket.nix (zipAttrs resourcesByType.gseBuckets or []);
 
   # Phase 1: evaluate only the deployment attributes.
