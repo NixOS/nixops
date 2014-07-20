@@ -8,7 +8,7 @@ import struct
 from nixops import known_hosts
 from nixops.util import wait_for_tcp_port, ping_tcp_port
 from nixops.util import attr_property, create_key_pair, generate_random_string
-from nixops.nix_expr import Function
+from nixops.nix_expr import Function, RawValue
 
 from nixops.backends import MachineDefinition, MachineState
 
@@ -752,6 +752,9 @@ class GCEState(MachineState, ResourceState):
                 }
 
         return {
+            'require': [
+                RawValue("<nixpkgs/nixos/modules/virtualisation/google-compute-config.nix>")
+            ],
             ('deployment', 'gce', 'blockDeviceMapping'): block_device_mapping,
         }
 

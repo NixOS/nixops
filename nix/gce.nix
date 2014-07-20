@@ -339,8 +339,6 @@ in
   config = mkIf (config.deployment.targetEnv == "gce") {
     nixpkgs.system = mkOverride 900 "x86_64-linux";
 
-    fileSystems."/".label = "nixos";
-
     deployment.gce.blockDeviceMapping =  {
       "${gce_dev_prefix}${config.deployment.gce.machineName}-root" = {
           image = config.deployment.gce.bootstrapImage;
@@ -363,36 +361,6 @@ in
           };
       in mapAttrs' f (filterAttrs (name: dev: dev.encrypt) config.deployment.gce.blockDeviceMapping);
 
-    boot.kernelParams = [ "console=ttyS0" "panic=1" "boot.panic_on_fail" ];
-    boot.initrd.kernelModules = [ "virtio_scsi" "virtio_balloon" "virtio_console" "virtio_rng" ];
-    boot.initrd.availableKernelModules = [ "virtio_net" "virtio_pci" "virtio_blk" "9p" "9pnet_virtio" ];
-
-    # Generate a GRUB menu
-    boot.loader.grub.device = "/dev/sda";
-    boot.loader.grub.timeout = 0;
-
-    # Don't put old configurations in the GRUB menu.  The user has no
-    # way to select them anyway.
-    boot.loader.grub.configurationLimit = 0;
-
-    # Allow root logins only using the SSH key that the user specified
-    # at instance creation time.
-    services.openssh.enable = true;
-    services.openssh.permitRootLogin = "without-password";
-
-    # Force getting the hostname from Google Compute.
-    networking.hostName = mkDefault "";
-
-    # Always include cryptsetup so that NixOps can use it.
-    environment.systemPackages = [ pkgs.cryptsetup ];
-
-    # Configure default metadata hostnames
-    networking.extraHosts = ''
-      169.254.169.254 metadata.google.internal metadata
-    '';
-
-    networking.usePredictableInterfaceNames = false;
-
     systemd.services.configure-forwarding-rules =
       { description = "Add extra IPs required for forwarding rules to work";
 
@@ -403,70 +371,5 @@ in
         serviceConfig.ExecStart = "${addr_manager}/share/google_daemon/manage_addresses.py";
       };
 
-    sound.enable = false;
-    boot.vesa = false;
-
-    # Don't start a tty on the serial consoles.
-    systemd.services."serial-getty@ttyS0".enable = false;
-    systemd.services."serial-getty@hvc0".enable = false;
-    systemd.services."getty@tty1".enable = false;
-    systemd.services."autovt@".enable = false;
-
-  systemd.services.fetch-ssh-keys =
-    { description = "Fetch host keys and authorized_keys for root user";
-
-      wantedBy = [ "multi-user.target" ];
-      before = [ "sshd.service" ];
-      after = [ "network.target" ];
-
-      path  = [ pkgs.curl ];
-      script =
-        ''
-          # Don't download the SSH key if it has already been downloaded
-          if ! [ -e /root/.ssh/authorized_keys ]; then
-                echo "obtaining SSH key..."
-                mkdir -p /root/.ssh
-                curl -o /root/authorized-keys-metadata http://metadata/0.1/meta-data/authorized-keys
-                if [ $? -eq 0 -a -e /root/authorized-keys-metadata ]; then
-                    cat /root/authorized-keys-metadata | cut -d: -f2- > /root/key.pub
-                    if ! grep -q -f /root/key.pub /root/.ssh/authorized_keys; then
-                        cat /root/key.pub >> /root/.ssh/authorized_keys
-                        echo "new key added to authorized_keys"
-                    fi
-                    chmod 600 /root/.ssh/authorized_keys
-                    rm -f /root/key.pub /root/authorized-keys-metadata
-                fi
-          fi
-
-          echo "obtaining SSH private host key..."
-          curl -o /root/ssh_host_ecdsa_key http://metadata/0.1/meta-data/attributes/ssh_host_ecdsa_key
-          if [ $? -eq 0 -a -e /root/ssh_host_ecdsa_key ]; then
-              mv -f /root/ssh_host_ecdsa_key /etc/ssh/ssh_host_ecdsa_key
-              echo "downloaded ssh_host_ecdsa_key"
-              chmod 600 /etc/ssh/ssh_host_ecdsa_key
-          fi
-
-          echo "obtaining SSH public host key..."
-          curl -o /root/ssh_host_ecdsa_key.pub http://metadata/0.1/meta-data/attributes/ssh_host_ecdsa_key_pub
-          if [ $? -eq 0 -a -e /root/ssh_host_ecdsa_key.pub ]; then
-              mv -f /root/ssh_host_ecdsa_key.pub /etc/ssh/ssh_host_ecdsa_key.pub
-              echo "downloaded ssh_host_ecdsa_key.pub"
-              chmod 644 /etc/ssh/ssh_host_ecdsa_key.pub
-          fi
-        '';
-      serviceConfig.Type = "oneshot";
-      serviceConfig.RemainAfterExit = true;
-     };
-
-    # Don't allow emergency mode, because we don't have a console.
-    systemd.enableEmergencyMode = false;
-
-    boot.initrd.postDeviceCommands =
-      ''
-        # Set the system time from the hardware clock to work around a
-        # bug in qemu-kvm > 1.5.2 (where the VM clock is initialised
-        # to the *boot time* of the host).
-        hwclock -s
-      '';
   };
 }
