@@ -102,7 +102,7 @@ class GCEHTTPHealthCheckState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("creating {0}...".format(self.full_name))
+            self.log("creating {0}...".format(self.full_name))
             try:
                 healthcheck = self.connect().ex_create_healthcheck(defn.healthcheck_name, host = defn.host,
                                                                    path = defn.path, port = defn.port,
@@ -114,8 +114,6 @@ class GCEHTTPHealthCheckState(ResourceState):
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("tried creating a health check that already exists; "
                                 "please run 'deploy --check' to fix this")
-
-            self.log_end("done.")
             self.state = self.UP
             self.copy_properties(defn)
 

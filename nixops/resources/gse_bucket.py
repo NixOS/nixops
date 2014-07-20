@@ -191,7 +191,7 @@ class GSEBucketState(ResourceState):
                                       data = self.bucket_resource(defn))
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        self.no_change(self.storage_class != defn.storage_class, 'storage class')
+        self.no_property_change(defn, 'storage_class')
         self.no_project_change(defn)
         self.no_region_change(defn)
 
@@ -236,16 +236,15 @@ class GSEBucketState(ResourceState):
                 else:
                     self.warn_not_supposed_to_exist(valuable_resource = True, valuable_data = True)
                     if self.depl.logger.confirm("are you sure you want to destroy the existing {0}?".format(self.full_name)):
-                        self.log_start("destroying...")
+                        self.log("destroying...")
                         self.delete_bucket()
-                        self.log_end("done.")
                     else: raise Exception("can't proceed further")
 
             except libcloud.common.google.ResourceNotFoundError:
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("Creating {0}...".format(self.full_name))
+            self.log("Creating {0}...".format(self.full_name))
             try:
                 bucket = self.create_bucket(defn)
             except libcloud.common.google.GoogleBaseError as e:
@@ -253,8 +252,6 @@ class GSEBucketState(ResourceState):
                     raise Exception("tried creating a GSE bucket that already exists; "
                                     "please run 'deploy --check' to fix this")
                 else: raise
-
-            self.log_end("done.")
             self.state = self.UP
             self.copy_properties(defn)
 

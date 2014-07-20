@@ -118,15 +118,13 @@ class GCETargetPoolState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("creating {0}...".format(self.full_name))
+            self.log("creating {0}...".format(self.full_name))
             try:
                 tp = self.connect().ex_create_targetpool(defn.targetpool_name, region = defn.region,
                                                          healthchecks = ([ defn.health_check ] if defn.health_check else None) )
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("tried creating a target pool that already exists; "
                                 "please run 'deploy --check' to fix this")
-            self.log_end("done.")
-
             self.state = self.UP
             self.copy_properties(defn)
             self.machines = []

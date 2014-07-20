@@ -80,11 +80,11 @@ class GCEForwardingRuleState(ResourceState):
                         'port_range', 'ip_address', 'description' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        self.no_change(self.target_pool != defn.target_pool, 'target pool')
-        self.no_change(self.protocol != defn.protocol, 'protocol')
-        self.no_change(self.port_range != defn.port_range, 'port range')
-        self.no_change(self.ip_address != defn.ip_address, 'static IP address')
-        self.no_change(self.description != defn.description, 'description')
+        self.no_property_change(defn, 'target_pool')
+        self.no_property_change(defn, 'protocol')
+        self.no_property_change(defn, 'port_range')
+        self.no_property_change(defn, 'ip_address')
+        self.no_property_change(defn, 'description')
         self.no_project_change(defn)
         self.no_region_change(defn)
 
@@ -127,7 +127,7 @@ class GCEForwardingRuleState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("creating {0}...".format(self.full_name))
+            self.log("creating {0}...".format(self.full_name))
             try:
                 fwr = self.connect().ex_create_forwarding_rule(defn.forwarding_rule_name,
                                                                defn.target_pool, region = defn.region,
@@ -138,8 +138,6 @@ class GCEForwardingRuleState(ResourceState):
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("tried creating a forwarding rule that already exists; "
                                 "please run 'deploy --check' to fix this")
-
-            self.log_end("done.")
             self.state = self.UP
             self.copy_properties(defn)
             self.public_ipv4 = fwr.address

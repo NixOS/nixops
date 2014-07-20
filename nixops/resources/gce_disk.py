@@ -89,8 +89,8 @@ class GCEDiskState(ResourceState):
             extra_msg = ( " from snapshot '{0}'".format(defn.snapshot) if defn.snapshot
                      else " from image '{0}'".format(defn.image)       if defn.image
                      else "" )
-            self.log_start("creating GCE disk of {0} GiB{1}..."
-                           .format(defn.size if defn.size else "auto", extra_msg))
+            self.log("creating GCE disk of {0} GiB{1}..."
+                     .format(defn.size if defn.size else "auto", extra_msg))
             try:
                 volume = self.connect().create_volume(defn.size, defn.disk_name, defn.region,
                                                       snapshot = defn.snapshot, image = defn.image,
@@ -98,8 +98,6 @@ class GCEDiskState(ResourceState):
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("tried creating a disk that already exists; "
                                 "please run 'deploy --check' to fix this")
-
-            self.log_end("done.")
             self.state = self.UP
             self.region = defn.region
             self.size = volume.size

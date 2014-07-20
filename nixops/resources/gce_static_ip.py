@@ -86,7 +86,7 @@ class GCEStaticIPState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("reserving {0} in {1}...".format(self.full_name, defn.region))
+            self.log("reserving {0} in {1}...".format(self.full_name, defn.region))
             try:
                 address = self.connect().ex_create_address(defn.addr_name, region = defn.region,
                                                            address = defn.ip_address)
@@ -94,9 +94,7 @@ class GCEStaticIPState(ResourceState):
                 raise Exception("tried requesting a static IP that already exists; "
                                 "please run 'deploy --check' to fix this")
 
-            self.log_end("done.")
             self.log("reserved IP address: {0}".format(address.address))
-
             self.state = self.UP
             self.region = defn.region
             self.ip_address = address.address;

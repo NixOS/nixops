@@ -324,8 +324,8 @@ class GCEState(MachineState, ResourceState):
                 extra_msg = ( " from snapshot '{0}'".format(v['snapshot']) if v['snapshot']
                          else " from image '{0}'".format(v['image'])       if v['image']
                          else "" )
-                self.log_start("Creating GCE disk of {0} GiB{1}..."
-                              .format(v['size'] if v['size'] else "auto", extra_msg))
+                self.log("Creating GCE disk of {0} GiB{1}..."
+                         .format(v['size'] if v['size'] else "auto", extra_msg))
                 v['region'] = defn.region
                 try:
                     self.connect().create_volume(v['size'], v['disk_name'], v['region'],
@@ -334,7 +334,6 @@ class GCEState(MachineState, ResourceState):
                 except libcloud.common.google.ResourceExistsError:
                     raise Exception("tried creating a disk that already exists; "
                                     "please run 'deploy --check' to fix this")
-                self.log_end('done.')
             v['needsAttach'] = True
             self.update_block_device_mapping(k, v)
 
@@ -365,7 +364,7 @@ class GCEState(MachineState, ResourceState):
 
     def create_node(self, defn):
         if not self.vm_id:
-            self.log_start("creating {0}...".format(self.full_name))
+            self.log("creating {0}...".format(self.full_name))
             boot_disk = next((v for k,v in defn.block_device_mapping.iteritems() if v.get('bootDisk', False)), None)
             if not boot_disk:
                 raise Exception("no boot disk found for {0}".format(self.full_name))
@@ -379,7 +378,6 @@ class GCEState(MachineState, ResourceState):
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("tried creating an instance that already exists; "
                                 "please run 'deploy --check' to fix this")
-            self.log_end("done.")
             self.vm_id = self.machine_name
             self.state = self.STARTING
             self.ssh_pinged = False
@@ -477,9 +475,8 @@ class GCEState(MachineState, ResourceState):
 
     def reboot(self, hard=False):
         if hard:
-            self.log_start("sending hard reset to GCE machine...")
+            self.log("sending hard reset to GCE machine...")
             self.node().reboot()
-            self.log_end("done.")
             self.state = self.STARTING
         else:
             MachineState.reboot(self, hard=hard)
@@ -527,7 +524,7 @@ class GCEState(MachineState, ResourceState):
                 self.log_continue(".")
                 return self.node().state == NodeState.TERMINATED
             if nixops.util.check_wait(check_stopped, initial=3, max_tries=100, exception=False): # = 5 min
-                self.log_end("done")
+                self.log_end("stopped")
             else:
                 self.log_end("(timed out)")
 
@@ -546,7 +543,7 @@ class GCEState(MachineState, ResourceState):
             if not self.depl.logger.confirm(question.format(self.full_name)):
                 return False
 
-            self.log_start("destroying the GCE machine...")
+            self.log("destroying the GCE machine...")
             node.destroy()
 
         except libcloud.common.google.ResourceNotFoundError:
@@ -558,7 +555,6 @@ class GCEState(MachineState, ResourceState):
             if v.get('deleteOnTermination', False):
                 self._delete_volume(v['disk_name'], v['region'])
             self.update_block_device_mapping(k, None)
-        self.log_end("done.")
 
         return True
 

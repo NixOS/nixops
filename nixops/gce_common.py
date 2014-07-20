@@ -132,6 +132,9 @@ class ResourceState(nixops.resources.ResourceState):
           raise Exception("cannot change the {0} of a deployed {1}"
                           .format(property_name, self.full_name))
 
+    def no_property_change(self, defn, name):
+        self.no_change(getattr(self, name) != getattr(defn, name), name.replace('_', ' ') )
+
     def no_project_change(self, defn):
         self.no_change(self.project != self.defn_project(defn), 'project')
 
@@ -145,9 +148,8 @@ class ResourceState(nixops.resources.ResourceState):
 
     def confirm_destroy(self, resource, res_name, abort = True):
         if self.depl.logger.confirm("are you sure you want to destroy {0}?".format(res_name)):
-            self.log_start("destroying...")
+            self.log("destroying...")
             resource.destroy()
-            self.log_end("done.")
             return True
         else:
             if abort:

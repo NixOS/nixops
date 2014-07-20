@@ -115,18 +115,17 @@ class GCENetworkState(ResourceState):
                                     resource_name = self.full_firewall_name(fw_name), can_fix = can_fix)
 
     def destroy_firewall(self, fwname):
-        self.log_start("destroying {0}...".format(self.full_firewall_name(fwname)))
+        self.log("destroying {0}...".format(self.full_firewall_name(fwname)))
         try:
             fw_n = self.firewall_name(fwname)
             self.connect().ex_get_firewall(fw_n).destroy()
         except libcloud.common.google.ResourceNotFoundError:
             self.warn("tried to destroy {0} which didn't exist"
                      .format(self.full_firewall_name(fwname)))
-        self.log_end('done.')
         self.update_firewall(fwname, None)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        self.no_change(self.address_range != defn.address_range, 'address range')
+        self.no_property_change(defn, 'address_range')
         self.no_project_change(defn)
 
         self.copy_credentials(defn)
@@ -145,15 +144,12 @@ class GCENetworkState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log_start("Creating {0}...".format(self.full_name))
+            self.log("Creating {0}...".format(self.full_name))
             try:
                 network = self.connect().ex_create_network(defn.network_name, defn.address_range)
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("tried creating a network that already exists; "
                                 "please run 'deploy --check' to fix this")
-
-            self.log_end("done.")
-
             self.state = self.UP
             self.address_range = defn.address_range
 
@@ -200,7 +196,7 @@ class GCENetworkState(ResourceState):
         for k, v in defn.firewall.iteritems():
             if k in self.firewall:
                 if v == self.firewall[k]: continue
-                self.log_start("updating {0}...".format(self.firewall_name(k)))
+                self.log("updating {0}...".format(self.firewall_name(k)))
                 try:
                     firewall = self.connect().ex_get_firewall(self.firewall_name(k))
                     firewall.allowed = trans_allowed(v['allowed'])
@@ -213,7 +209,7 @@ class GCENetworkState(ResourceState):
                                     "please run 'deploy --check' to fix this")
 
             else:
-                self.log_start("Creating {0}...".format(self.full_firewall_name(k)))
+                self.log("Creating {0}...".format(self.full_firewall_name(k)))
                 try:
                     self.connect().ex_create_firewall(self.firewall_name(k), trans_allowed(v['allowed']),
                                                       network= self.network_name,
@@ -224,7 +220,6 @@ class GCENetworkState(ResourceState):
                     raise Exception("tried creating a firewall rule that already exists; "
                                     "please run 'deploy --check' to fix this")
 
-            self.log_end('done.')
             self.update_firewall(k, v)
 
         # delete unneeded
