@@ -190,18 +190,15 @@ class GCEState(MachineState, ResourceState):
     defn_properties = ['tags', 'region', 'instance_type',
                        'metadata', 'ipAddress', 'network']
 
+    def is_deployed(self):
+        return (self.vm_id or self.block_device_mapping)
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, GCEDefinition)
 
-        if self.vm_id or self.block_device_mapping:
-            if self.project != self.defn_project(defn):
-                raise Exception("cannot change the project of a deployed {0}".format(self.full_name))
-
-            if self.region != defn.region:
-                raise Exception("cannot change the region of a deployed {0}".format(self.full_name))
-
-            if self.machine_name != defn.machine_name:
-                raise Exception("cannot change the instance name of a deployed {0}".format(self.full_name))
+        self.no_project_change(defn)
+        self.no_region_change(defn)
+        self.no_change(self.machine_name != defn.machine_name, "instance name")
 
         self.set_common_state(defn)
         self.copy_credentials(defn)

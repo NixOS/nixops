@@ -124,8 +124,11 @@ class ResourceState(nixops.resources.ResourceState):
         self.service_account = self.defn_service_account(defn)
         self.access_key_path = self.defn_access_key_path(defn)
 
+    def is_deployed(self):
+        return (self.state == self.UP)
+
     def no_change(self, condition, property_name):
-        if self.state == self.UP and condition:
+        if self.is_deployed() and condition:
           raise Exception("cannot change the {0} of a deployed {1}"
                           .format(property_name, self.full_name))
 
