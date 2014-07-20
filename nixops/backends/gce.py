@@ -499,10 +499,14 @@ class GCEState(MachineState, ResourceState):
                 self.reboot_sync(hard=True)
 
         if not self.vm_id and self.block_device_mapping:
+            prev_public_ipv4 = self.public_ipv4
             self.create_node(self)
+            if prev_public_ipv4 != self.public_ipv4:
+                self.warn("IP address has changed from {0} to {1}, "
+                          "you may need to run 'nixops deploy'"
+                          .format(prev_public_ipv4, self.public_ipv4) )
             self.wait_for_ssh(check=True)
             self.send_keys()
-
 
 
     def stop(self):
