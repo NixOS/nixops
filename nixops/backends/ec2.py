@@ -200,10 +200,11 @@ class EC2State(MachineState):
         keys = MachineState.get_keys(self)
         # Ugly: we have to add the generated keys because they're not
         # there in the first evaluation (though they are present in
-        # the final nix-build).
+        # the final nix-build). Had to hardcode the default here to
+        # make the old way of defining keys work.
         for k, v in self.block_device_mapping.items():
             if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "":
-                keys["luks-" + _sd_to_xvd(k).replace('/dev/', '')] = v['generatedKey']
+                keys["luks-" + _sd_to_xvd(k).replace('/dev/', '')] = { 'text': v['generatedKey'], 'group': 'root', 'permissions': '0600', 'user': 'root'}
         return keys
 
 

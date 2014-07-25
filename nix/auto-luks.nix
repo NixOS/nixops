@@ -129,7 +129,7 @@ with utils;
       in mapAttrs' luksFormat config.deployment.autoLuks;
 
     deployment.keys = mapAttrs'
-      (name: attrs: nameValuePair "luks-${name}" attrs.passphrase)
+      (name: attrs: nameValuePair "luks-${name}" { text = attrs.passphrase; } )
       config.deployment.autoLuks;
 
   };

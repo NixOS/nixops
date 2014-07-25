@@ -9,7 +9,6 @@ import nixops.util
 import nixops.resources
 import nixops.ssh_util
 
-
 class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
 
