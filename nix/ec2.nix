@@ -324,6 +324,32 @@ in
       '';
     };
 
+    deployment.ec2.securityGroupIds = mkOption {
+      type = types.listOf types.str;
+      description = ''
+        Security Group IDs for the instance. Necessary if starting
+        an instance inside a VPC/subnet. In the non-default VPC, security
+        groups needs to be specified by ID and not name.
+      '';
+    };
+
+    deployment.ec2.subnetId = mkOption {
+      example = "subnet-9d4a7b6c";
+      type = types.str;
+      description = ''
+        The subnet inside a VPC to launch the instance in.
+      '';
+    };
+
+    deployment.ec2.associatePublicIpAddress = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        If instance in a subnet/VPC, whether to associate a public
+        IP address with the instance.
+      '';
+    };
+
     deployment.ec2.placementGroup = mkOption {
       default = "";
       example = "my-cluster";
