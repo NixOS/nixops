@@ -56,6 +56,14 @@ in
         NixOps to execute remote deployment operations.
       '';
     };
+    
+    deployment.targetPort = mkOption {
+      type = types.int;
+      description = ''
+        This option specifies the SSH port to be used by
+        NixOps to execute remote deployment operations.
+      '';
+    };
 
     deployment.alwaysActivate = mkOption {
       type = types.bool;
@@ -123,6 +131,7 @@ in
   config = {
 
     deployment.targetHost = mkDefault config.networking.hostName;
+    deployment.targetPort = mkDefault (head config.services.openssh.ports);
 
   };
 

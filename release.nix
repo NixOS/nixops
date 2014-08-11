@@ -91,7 +91,7 @@ rec {
           cp -av nix/* $out/share/nix/nixops
 
           # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
-          # the version of openssh is causing errors when have big networks (40+)
+          # the version of openssh is causing errors with big networks (40+).
           wrapProgram $out/bin/nixops --prefix PATH : "${openssh}/bin"
         ''; # */
 

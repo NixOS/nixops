@@ -3,10 +3,7 @@
 with import <nixpkgs/nixos/lib/testing.nix> { inherit system; };
 with pkgs.lib;
 
-makeTest ({ pkgs, ... }:
-
 let
-
   # Physical NixOps model.
   physical = pkgs.writeText "physical.nix"
     ''
@@ -38,6 +35,7 @@ let
         target1 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
+            networking.firewall.enable = false;
             users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
             ${optionalString (n == 1) ''
               environment.systemPackages = [ pkgs.vim ];
@@ -63,6 +61,7 @@ let
         target2 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
+            networking.firewall.enable = false;
             users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
             ${optionalString (n == 3) ''
               services.httpd.enable = true;
@@ -76,13 +75,15 @@ let
 
 in
 
-{
+makeTest {
 
   nodes =
     { coordinator =
         { config, pkgs, ... }:
         { environment.systemPackages =
-            [ nixops pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox pkgs.module_init_tools ];
+            [ nixops pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox
+              pkgs.module_init_tools pkgs.perlPackages.ArchiveCpio ];
+          networking.firewall.enable = false;
           virtualisation.writableStore = true;
         };
 
@@ -91,6 +92,7 @@ in
         { services.openssh.enable = true;
           virtualisation.memorySize = 512;
           virtualisation.writableStore = true;
+          networking.firewall.enable = false;
           users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
         };
 
@@ -99,6 +101,7 @@ in
         { services.openssh.enable = true;
           virtualisation.memorySize = 512;
           virtualisation.writableStore = true;
+          networking.firewall.enable = false;
           users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
         };
     };
@@ -176,4 +179,4 @@ in
 
     '';
 
-})
+}

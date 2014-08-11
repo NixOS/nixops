@@ -335,6 +335,10 @@ class Deployment(object):
             defn = nixops.resources.ec2_security_group.EC2SecurityGroupDefinition(x)
             self.definitions[defn.name] = defn
 
+        for x in res.find("attr[@name='ec2PlacementGroups']/attrs").findall("attr"):
+            defn = nixops.resources.ec2_placement_group.EC2PlacementGroupDefinition(x)
+            self.definitions[defn.name] = defn
+
         for x in res.find("attr[@name='ebsVolumes']/attrs").findall("attr"):
             defn = nixops.resources.ebs_volume.EBSVolumeDefinition(x)
             self.definitions[defn.name] = defn
@@ -754,19 +758,19 @@ class Deployment(object):
 
         return backups
 
-    def clean_backups(self, keep=10):
+    def clean_backups(self, keep=10, keep_physical = False):
         _backups = self.get_backups()
         backup_ids = [b for b in _backups.keys()]
         backup_ids.sort()
         index = len(backup_ids)-keep
         for backup_id in backup_ids[:index]:
             print 'Removing backup {0}'.format(backup_id)
-            self.remove_backup(backup_id)
+            self.remove_backup(backup_id, keep_physical)
 
-    def remove_backup(self, backup_id):
+    def remove_backup(self, backup_id, keep_physical = False):
         with self._get_deployment_lock():
             def worker(m):
-                m.remove_backup(backup_id)
+                m.remove_backup(backup_id, keep_physical)
 
             nixops.parallel.run_tasks(nr_workers=len(self.active), tasks=self.machines.itervalues(), worker_fun=worker)
 

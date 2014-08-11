@@ -16,6 +16,7 @@ let
         ];
 
         networking.useDHCP = false;
+        networking.firewall.enable = false;
 
         # We don't want to include everything from qemu-vm.nix,
         # so we're going to just pick the options we need (and
@@ -241,9 +242,9 @@ let
     ] ++ (qemuNICFlags 1 1 (builtins.add targetId 1));
   in concatStringsSep " " flags;
 
-in makeTest ({ pkgs, ... }:
-{
+in makeTest {
   nodes.coordinator = {
+    networking.firewall.enable = false;
     environment.systemPackages = let
       testNixops = overrideDerivation nixops (o: {
         postPatch = ''
@@ -261,7 +262,7 @@ in makeTest ({ pkgs, ... }:
           # ... and this is for other requirements for a basic deployment.
           pkgs.stdenv pkgs.busybox pkgs.module_init_tools pkgs.grub2
           pkgs.xfsprogs pkgs.btrfsProgs pkgs.docbook_xsl_ns pkgs.libxslt
-          pkgs.docbook5 pkgs.ntp
+          pkgs.docbook5 pkgs.ntp pkgs.perlPackages.ArchiveCpio
           # Firmware used in <nixpkgs/nixos/modules/installer/scan/not-detected.nix>
           pkgs.firmwareLinuxNonfree
         ];
@@ -367,4 +368,4 @@ in makeTest ({ pkgs, ... }:
       $target2->succeed("mount | grep -F 'on / type btrfs'");
     };
   '';
-})
+}

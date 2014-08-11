@@ -3,6 +3,7 @@ import os
 import shlex
 import subprocess
 import weakref
+import sys
 
 from tempfile import mkdtemp
 
@@ -61,9 +62,10 @@ class SSHMaster(object):
         """
         path = os.path.join(self._tempdir, 'nixops-askpass-helper')
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0700)
-        os.write(fd, "#!{0}\necho -n \"$NIXOPS_SSH_PASSWORD\"".format(
-            nixops.util.which("sh")
-        ))
+        os.write(fd, """#!{0}
+import sys
+import os
+sys.stdout.write(os.environ['NIXOPS_SSH_PASSWORD'])""".format(sys.executable))
         os.close(fd)
         return path
 
