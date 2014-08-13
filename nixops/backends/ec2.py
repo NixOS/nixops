@@ -907,8 +907,7 @@ class EC2State(MachineState):
             elif v['disk'].startswith("snap-"):
                 if k in self.block_device_mapping: continue
                 self.log("creating volume from snapshot ‘{0}’...".format(v['disk']))
-                (volume_type, iops) = self.disk_volume_options(v)
-                volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone, volume_type=volume_type, iops=iops)
+                volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone, volume_type=v['volumeType'], iops=v['iops'])
                 v['volumeId'] = volume.id
 
             else:
