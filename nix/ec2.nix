@@ -1,9 +1,9 @@
 # Configuration specific to the EC2/Nova/Eucalyptus backend.
 
-{ config, pkgs, utils, ... }:
+{ config, pkgs, utils, lib ? pkgs.lib, ... }:
 
-with pkgs.lib;
 with utils;
+with lib;
 
 let
 

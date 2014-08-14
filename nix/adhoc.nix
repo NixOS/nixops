@@ -1,6 +1,8 @@
 # Ad hoc cloud options.
 
-{ config, pkgs, ... }:
+{ config, lib, ... }:
+
+with lib;
 
 {
 

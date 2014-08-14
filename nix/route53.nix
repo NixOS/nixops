@@ -1,8 +1,8 @@
 # Configuration specific to the Amazon Route 53 service.
 
-{ config, pkgs, ... }:
+{ config, pkgs, lib ? pkgs.lib, ... }:
 
-with pkgs.lib;
+with lib;
 
 {
 

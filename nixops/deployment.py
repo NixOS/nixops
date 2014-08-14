@@ -54,6 +54,7 @@ class Deployment(object):
     description = nixops.util.attr_property("description", default_description)
     configs_path = nixops.util.attr_property("configsPath", None)
     rollback_enabled = nixops.util.attr_property("rollbackEnabled", False)
+    modular = nixops.util.attr_property("modular", False)
 
     def __init__(self, statefile, uuid, log_file=sys.stderr):
         self._statefile = statefile
@@ -249,7 +250,7 @@ class Deployment(object):
             ["--arg", "networkExprs", py2nix(exprs, inline=True),
              "--arg", "args", py2nix(args, inline=True),
              "--argstr", "uuid", self.uuid,
-             "<nixops/eval-machine-info.nix>"])
+             "<nixops/eval-deployment.nix>" if self.modular else "<nixops/eval-machine-info.nix>"])
         return flags
 
 
@@ -348,8 +349,8 @@ class Deployment(object):
             self.definitions[defn.name] = defn
 
 
-    def evaluate_option_value(self, machine_name, option_name, xml=False, include_physical=False):
-        """Evaluate a single option of a single machine in the deployment specification."""
+    def evaluate_deployment_option_value(self, option_name, xml=False, include_physical=False):
+        """Evaluate a single option of the deployment specification."""
 
         exprs = self.nix_exprs
         if include_physical:
@@ -365,11 +366,15 @@ class Deployment(object):
                 + self._eval_flags(exprs) +
                 ["--eval-only", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
-                 "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
+                 "-A", "eval.config.{0}".format(option_name)]
                 + (["--xml"] if xml else []),
                 stderr=self.logger.log_file)
         except subprocess.CalledProcessError:
             raise NixEvalError
+
+    def evaluate_option_value(self, machine_name, option_name, xml=False, include_physical=False):
+        """Evaluate a single option of a single machine in the deployment specification."""
+        return self.evaluate_deployment_option_value("resources.machines.{0}.{1}".format(machine_name, option_name), xml, include_physical)
 
 
     def get_physical_spec(self):
