@@ -1006,7 +1006,7 @@ class EC2State(MachineState):
                           in self._conn_route53.get_all_rrsets(
                               hosted_zone_id=zoneid,
                               type="CNAME",
-                              name=dns_name
+                              name=self.dns_hostname
                           )
                           if prev.name == dns_name
                           and prev.type == "CNAME"]
@@ -1021,7 +1021,7 @@ class EC2State(MachineState):
                 change = changes.add_change("DELETE", self.dns_hostname, "CNAME")
                 change.add_value(",".join(prevrr.resource_records))
 
-        change = changes.add_change("CREATE", self.dns_hostname, record_type)
+        change = changes.add_change("CREATE", self.dns_hostname, record_type, ttl=self.dns_ttl)
         change.add_value(dns_value)
         self._commit_route53_changes(changes)
 
