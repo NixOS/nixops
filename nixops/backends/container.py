@@ -96,7 +96,6 @@ class ContainerState(MachineState):
 
         if not self.depl.logger.confirm("are you sure you want to destroy NixOS container ‘{0}’?".format(self.name)): return False
 
-        # FIXME: handle the case where the container is already gone.
         self.host_ssh.run_command("nixos-container destroy {0}".format(self.vm_id))
 
         return True
@@ -117,10 +116,20 @@ class ContainerState(MachineState):
         if not self.vm_id:
             res.exists = False
             return
-        # FIXME: do actual check.
-        res.exists = True
-        if self.state == self.STOPPED:
-            res.is_up = False
+
+        status = self.host_ssh.run_command("nixos-container status {0}".format(self.vm_id), capture_stdout=True).rstrip()
+
+        if status == "gone":
+            res.exists = False
+            self.state = self.MISSING
             return
+
+        res.exists = True
+
+        if status == "down":
+            res.is_up = False
+            self.state = self.STOPPED
+            return
+
         res.is_up = True
         MachineState._check(self, res)
