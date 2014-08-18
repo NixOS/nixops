@@ -53,8 +53,8 @@ with pkgs.lib;
       default = false;
       type = types.bool;
       description = ''
-        Whether to CNAME to the instance's public DNS name. This will
-        resolve inside AWS to a private IP and outside AWS to
+        Whether to create a CNAME record with the instance's public DNS name.
+        This will resolve inside AWS to a private IP and outside AWS to
         the public IP.
       '';
     };
