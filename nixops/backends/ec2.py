@@ -160,7 +160,7 @@ class EC2State(MachineState):
         return None
 
 
-    def get_ssh_flags(self):
+    def get_ssh_flags(self, scp=False):
         file = self.get_ssh_private_key_file()
         return ["-i", file] if file else []
 
