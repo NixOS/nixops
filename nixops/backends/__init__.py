@@ -295,15 +295,16 @@ class MachineState(nixops.resources.ResourceState):
         # !!! Implement copying between cloud machines, as in the Perl
         # version.
 
+        ssh = self.get_ssh_for_copy_closure()
+
         # It's usually faster to let the target machine download
         # substitutes from nixos.org, so try that first.
         if not self.has_really_fast_connection():
             closure = subprocess.check_output(["nix-store", "-qR", path]).splitlines()
-            self.run_command("nix-store -j 4 -r --ignore-unknown " + ' '.join(closure), check=False)
+            ssh.run_command("nix-store -j 4 -r --ignore-unknown " + ' '.join(closure), check=False)
 
         # Any remaining paths are copied from the local machine.
         env = dict(os.environ)
-        ssh = self.get_ssh_for_copy_closure()
         env['NIX_SSHOPTS'] = ' '.join(ssh._get_flags() + ssh.get_master().opts)
         self._logged_exec(
             ["nix-copy-closure", "--to", "root@" + ssh._get_target(), path]

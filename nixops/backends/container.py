@@ -49,13 +49,24 @@ class ContainerState(MachineState):
 
     def get_ssh_name(self):
         assert self.private_ipv4
-        return self.private_ipv4
+        if self.host == "localhost":
+            return self.private_ipv4
+        else:
+            return self.get_host_ssh() + "~" + self.private_ipv4
 
     def get_ssh_private_key_file(self):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
 
     def get_ssh_flags(self):
-        return ["-i", self.get_ssh_private_key_file()]
+        # When using a remote container host, we have to proxy the ssh
+        # connection to the container via the host.
+        flags = ["-i", self.get_ssh_private_key_file()]
+        if self.host == "localhost":
+            flags.extend(MachineState.get_ssh_flags(self))
+        else:
+            cmd = "ssh -x -a root@{0} {1} nc -c {2} {3}".format(self.get_host_ssh(), " ".join(self.get_host_ssh_flags()), self.private_ipv4, self.ssh_port)
+            flags.extend(["-o", "ProxyCommand=" + cmd])
+        return flags
 
     def get_ssh_for_copy_closure(self):
         # NixOS containers share the Nix store of the host, so we
@@ -71,7 +82,6 @@ class ContainerState(MachineState):
             m = self.depl.get_machine(self.host[10:])
             if not m.started:
                 raise Exception("host machine ‘{0}’ of container ‘{1}’ is not up".format(m.name, self.name))
-            print m.get_ssh_name()
             return m.get_ssh_name()
         else:
             return self.host
@@ -81,10 +91,12 @@ class ContainerState(MachineState):
             m = self.depl.get_machine(self.host[10:])
             if not m.started:
                 raise Exception("host machine ‘{0}’ of container ‘{1}’ is not up".format(m.name, self.name))
-            print m.get_ssh_flags()
             return m.get_ssh_flags()
         else:
             return []
+
+    def wait_for_ssh(self, check=False):
+        return True
 
     def get_physical_spec(self):
         return {('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [self.client_public_key]}
@@ -122,6 +134,7 @@ class ContainerState(MachineState):
 
             self.log("creating container...")
             self.host = defn.host
+            self.copy_closure_to(path)
             self.vm_id = self.host_ssh.run_command(
                 "nixos-container create {0} --ensure-unique-name --system-path '{1}'"
                 .format(self.name, path), capture_stdout=True).rstrip()
@@ -129,16 +142,15 @@ class ContainerState(MachineState):
 
         if self.state == self.STOPPED:
             self.host_ssh.run_command("nixos-container start {0}".format(self.vm_id))
-            self.state = self.STARTING
+            self.state = self.UP
 
         if self.private_ipv4 is None:
             self.private_ipv4 = self.host_ssh.run_command("nixos-container show-ip {0}".format(self.vm_id), capture_stdout=True).rstrip()
             self.log("IP address is {0}".format(self.private_ipv4))
-            nixops.known_hosts.remove(self.private_ipv4)
 
         if self.public_host_key is None:
             self.public_host_key = self.host_ssh.run_command("nixos-container show-host-key {0}".format(self.vm_id), capture_stdout=True).rstrip()
-            nixops.known_hosts.add(self.private_ipv4, self.public_host_key)
+            nixops.known_hosts.add(self.get_ssh_name(), self.public_host_key)
 
     def destroy(self, wipe=False):
         if not self.vm_id: return True
