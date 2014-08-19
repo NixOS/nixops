@@ -102,15 +102,16 @@ class ContainerState(MachineState):
 
     def stop(self):
         if not self.vm_id: return True
+        self.log("stopping container...")
         self.state = self.STOPPING
         self.host_ssh.run_command("nixos-container stop {0}".format(self.vm_id))
         self.state = self.STOPPED
 
     def start(self):
         if not self.vm_id: return True
+        self.log("starting container...")
         self.host_ssh.run_command("nixos-container start {0}".format(self.vm_id))
         self.state = self.STARTING
-        self.wait_for_ssh(check=True)
 
     def _check(self, res):
         if not self.vm_id:
