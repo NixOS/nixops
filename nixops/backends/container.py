@@ -29,7 +29,8 @@ class ContainerState(MachineState):
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
     host = nixops.util.attr_property("container.host", None)
     client_private_key = nixops.util.attr_property("container.clientPrivateKey", None)
-    client_public_key = nixops.util.attr_property("container.virtualbox.clientPublicKey", None)
+    client_public_key = nixops.util.attr_property("container.clientPublicKey", None)
+    public_host_key = nixops.util.attr_property("container.publicHostKey", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -54,7 +55,7 @@ class ContainerState(MachineState):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
 
     def get_ssh_flags(self):
-        return ["-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file()]
+        return ["-i", self.get_ssh_private_key_file()]
 
     def get_ssh_for_copy_closure(self):
         # NixOS containers share the Nix store of the host, so we
@@ -101,7 +102,7 @@ class ContainerState(MachineState):
         if not self.client_private_key:
             (self.client_private_key, self.client_public_key) = nixops.util.create_key_pair()
 
-        if self.vm_id == None:
+        if self.vm_id is None:
             self.log("building initial configuration...")
 
             expr = " ".join([
@@ -130,10 +131,14 @@ class ContainerState(MachineState):
             self.host_ssh.run_command("nixos-container start {0}".format(self.vm_id))
             self.state = self.STARTING
 
-        if self.private_ipv4 == None:
+        if self.private_ipv4 is None:
             self.private_ipv4 = self.host_ssh.run_command("nixos-container show-ip {0}".format(self.vm_id), capture_stdout=True).rstrip()
             self.log("IP address is {0}".format(self.private_ipv4))
             nixops.known_hosts.remove(self.private_ipv4)
+
+        if self.public_host_key is None:
+            self.public_host_key = self.host_ssh.run_command("nixos-container show-host-key {0}".format(self.vm_id), capture_stdout=True).rstrip()
+            nixops.known_hosts.add(self.private_ipv4, self.public_host_key)
 
     def destroy(self, wipe=False):
         if not self.vm_id: return True
