@@ -56,7 +56,7 @@ in
         NixOps to execute remote deployment operations.
       '';
     };
-    
+
     deployment.targetPort = mkOption {
       type = types.int;
       description = ''
@@ -129,6 +129,8 @@ in
 
 
   config = {
+
+    _type = "machine";
 
     deployment.targetHost = mkDefault config.networking.hostName;
     deployment.targetPort = mkDefault (head config.services.openssh.ports);
