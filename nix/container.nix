@@ -14,6 +14,8 @@ in
 
 {
 
+  imports = [ ./container-base.nix ];
+
   options = {
 
     deployment.container.host = mkOption {
@@ -30,12 +32,6 @@ in
   config = mkIf (config.deployment.targetEnv == "container") {
 
     boot.isContainer = true;
-
-    networking.useDHCP = false;
-
-    services.openssh.enable = true;
-    services.openssh.startWhenNeeded = false;
-    services.openssh.extraConfig = "UseDNS no";
 
   };
 

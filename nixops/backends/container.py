@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from nixops.backends import MachineDefinition, MachineState
+import nixops.util
 import nixops.ssh_util
+import subprocess
 
 class ContainerDefinition(MachineDefinition):
     """Definition of a NixOS container."""
@@ -52,7 +54,6 @@ class ContainerState(MachineState):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
 
     def get_ssh_flags(self):
-        # FIXME
         return ["-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file()]
 
     def get_ssh_for_copy_closure(self):
@@ -84,6 +85,9 @@ class ContainerState(MachineState):
         else:
             return []
 
+    def get_physical_spec(self):
+        return {('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [self.client_public_key]}
+
     def create_after(self, resources, defn):
         host = defn.host if defn else self.host
         if host.startswith("__machine-"):
@@ -98,17 +102,28 @@ class ContainerState(MachineState):
             (self.client_private_key, self.client_public_key) = nixops.util.create_key_pair()
 
         if self.vm_id == None:
-            self.log("creating NixOS container...")
+            self.log("building initial configuration...")
+
+            expr = " ".join([
+                '{ imports = [ <nixops/container-base.nix> ];',
+                '  boot.isContainer = true;',
+                '  networking.hostName = "{0}";'.format(self.name),
+                '  users.extraUsers.root.openssh.authorizedKeys.keys = [ "{0}" ];'.format(self.client_public_key),
+                '}'])
+
+            expr_file = self.depl.tempdir + "/{0}-initial.nix".format(self.name)
+            nixops.util.write_file(expr_file, expr)
+
+            path = subprocess.check_output(
+                ["nix-build", "<nixpkgs/nixos>", "-A", "system",
+                 "-I", "nixos-config={0}".format(expr_file)]
+                + self.depl._nix_path_flags()).rstrip()
+
+            self.log("creating container...")
             self.host = defn.host
-            # FIXME: keep in sync with nix/container.nix.
-            extra_config = " ".join([
-                'services.openssh.enable = true;',
-                'services.openssh.startWhenNeeded = false;',
-                'services.openssh.extraConfig = "UseDNS no";',
-                'users.extraUsers.root.openssh.authorizedKeys.keys = [ "{0}" ];'.format(self.client_public_key)])
             self.vm_id = self.host_ssh.run_command(
-                "nixos-container create {0} --ensure-unique-name --config '{1}'"
-                .format(self.name, extra_config), capture_stdout=True).rstrip()
+                "nixos-container create {0} --ensure-unique-name --system-path '{1}'"
+                .format(self.name, path), capture_stdout=True).rstrip()
             self.state = self.STOPPED
 
         if self.state == self.STOPPED:
