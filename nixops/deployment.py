@@ -552,11 +552,6 @@ class Deployment(object):
     def build_configs(self, include, exclude, dry_run=False, repair=False):
         """Build the machine configurations in the Nix store."""
 
-        def write_temp_file(tmpfile, contents):
-            f = open(tmpfile, "w")
-            f.write(contents)
-            f.close()
-
         self.logger.log("building all machine configurations...")
 
         # Set the NixOS version suffix, if we're building from Git.
@@ -570,12 +565,12 @@ class Deployment(object):
 
         phys_expr = self.tempdir + "/physical.nix"
         p = self.get_physical_spec()
-        write_temp_file(phys_expr, p)
+        nixops.util.write_file(phys_expr, p)
         if debug: print >> sys.stderr, "generated physical spec:\n" + p
 
         for m in self.active.itervalues():
             if hasattr(m, "public_host_key") and m.public_host_key: # FIXME: use a method in MachineState.
-                write_temp_file("{0}/{1}.public_host_key".format(self.tempdir, m.name), m.public_host_key + "\n")
+                nixops.util.write_file("{0}/{1}.public_host_key".format(self.tempdir, m.name), m.public_host_key + "\n")
 
         selected = [m for m in self.active.itervalues() if should_do(m, include, exclude)]
 

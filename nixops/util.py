@@ -295,3 +295,8 @@ def which(program):
 def enum(**enums):
     return type('Enum', (), enums)
 
+
+def write_file(path, contents):
+    f = open(path, "w")
+    f.write(contents)
+    f.close()
