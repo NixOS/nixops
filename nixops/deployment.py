@@ -870,7 +870,7 @@ class Deployment(object):
 
                     # Sleep until all dependencies of this resource have
                     # been created.
-                    deps = r.create_after(self.active_resources.itervalues())
+                    deps = r.create_after(self.active_resources.itervalues(), self.definitions[r.name])
                     for dep in deps:
                         dep._created_event.wait()
                         # !!! Should we print a message here?

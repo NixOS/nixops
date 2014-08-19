@@ -75,7 +75,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
     def resource_id(self):
         return self.security_group_name
 
-    def create_after(self, resources):
+    def create_after(self, resources, defn):
         #!!! TODO: Handle dependencies between security groups
         return {}
 

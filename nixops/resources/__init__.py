@@ -141,13 +141,13 @@ class ResourceState(object):
         """A unique ID to display for this resource"""
         return None
 
-    def create_after(self, resources):
+    def create_after(self, resources, defn):
         """Return a set of resources that should be created before this one."""
         return {}
 
     def destroy_before(self, resources):
         """Return a set of resources that should be destroyed after this one."""
-        return self.create_after(resources)
+        return self.create_after(resources, None)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         """Create or update the resource defined by ‘defn’."""

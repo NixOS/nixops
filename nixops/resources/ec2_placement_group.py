@@ -56,9 +56,6 @@ class EC2PlacementGroupState(nixops.resources.ResourceState):
     def resource_id(self):
         return self.placement_group_name
 
-    def create_after(self, resources):
-        return {}
-
     def _connect(self):
         if self._conn: return
         self._conn = nixops.ec2_utils.connect(self.region, self.access_key_id)
