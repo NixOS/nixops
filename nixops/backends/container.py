@@ -32,7 +32,8 @@ class ContainerState(MachineState):
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
         self.host_ssh = nixops.ssh_util.SSH(self.logger)
-        self.host_ssh.register_host_fun(lambda: self.host)
+        self.host_ssh.register_host_fun(self.get_host_ssh)
+        self.host_ssh.register_flag_fun(self.get_host_ssh_flags)
 
     @property
     def resource_id(self):
@@ -51,6 +52,7 @@ class ContainerState(MachineState):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
 
     def get_ssh_flags(self):
+        # FIXME
         return ["-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file()]
 
     def get_ssh_for_copy_closure(self):
@@ -61,6 +63,33 @@ class ContainerState(MachineState):
     def copy_closure_to(self, path):
         if self.host == "localhost": return
         MachineState.copy_closure_to(self, path)
+
+    def get_host_ssh(self):
+        if self.host.startswith("__machine-"):
+            m = self.depl.get_machine(self.host[10:])
+            if not m.started:
+                raise Exception("host machine ‘{0}’ of container ‘{1}’ is not up".format(m.name, self.name))
+            print m.get_ssh_name()
+            return m.get_ssh_name()
+        else:
+            return self.host
+
+    def get_host_ssh_flags(self):
+        if self.host.startswith("__machine-"):
+            m = self.depl.get_machine(self.host[10:])
+            if not m.started:
+                raise Exception("host machine ‘{0}’ of container ‘{1}’ is not up".format(m.name, self.name))
+            print m.get_ssh_flags()
+            return m.get_ssh_flags()
+        else:
+            return []
+
+    def create_after(self, resources, defn):
+        host = defn.host if defn else self.host
+        if host.startswith("__machine-"):
+            return {self.depl.get_machine(host[10:])}
+        else:
+            return {}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, ContainerDefinition)

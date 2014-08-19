@@ -112,6 +112,15 @@ class Deployment(object):
         return res
 
 
+    def get_machine(self, name):
+        res = self.active_resources.get(name, None)
+        if not res:
+            raise Exception("machine ‘{0}’ does not exist".format(name))
+        if not is_machine(res):
+            raise Exception("resource ‘{0}’ is not a machine".format(name))
+        return res
+
+
     def _set_attrs(self, attrs):
         """Update deployment attributes in the state file."""
         with self._db:
