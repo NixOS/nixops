@@ -335,7 +335,7 @@ class EC2State(MachineState):
         return backups
 
 
-    def remove_backup(self, backup_id, keep_physical = False):
+    def remove_backup(self, backup_id, keep_physical=False):
         self.log('removing backup {0}'.format(backup_id))
         self.connect()
         _backups = self.backups
