@@ -290,6 +290,8 @@ class Deployment(object):
                  "--arg", "checkConfigurationOptions", "false",
                  "-A", "info"], stderr=self.logger.log_file)
             if debug: print >> sys.stderr, "XML output of nix-instantiate:\n" + xml
+        except OSError as e:
+            raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
         except subprocess.CalledProcessError:
             raise NixEvalError
 
