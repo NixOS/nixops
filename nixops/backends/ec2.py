@@ -10,6 +10,7 @@ import getpass
 import shutil
 import boto.ec2
 import boto.ec2.blockdevicemapping
+import boto.ec2.networkinterface
 from nixops.backends import MachineDefinition, MachineState
 from nixops.nix_expr import Function, RawValue
 from nixops.resources.ebs_volume import EBSVolumeState
@@ -51,6 +52,9 @@ class EC2Definition(MachineDefinition):
         self.root_disk_size = int(x.find("attr[@name='ebsInitialRootDiskSize']/int").get("value"))
         self.spot_instance_price = int(x.find("attr[@name='spotInstancePrice']/int").get("value"))
         self.ebs_optimized = x.find("attr[@name='ebsOptimized']/bool").get("value") == "true"
+        self.subnet_id = x.find("attr[@name='subnetId']/string").get("value")
+        self.associate_public_ip_address = x.find("attr[@name='associatePublicIpAddress']/bool").get("value") == "true"
+        self.security_group_ids = [e.get("value") for e in x.findall("attr[@name='securityGroupIds']/list/string")]
 
         def f(xml):
             return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
@@ -111,6 +115,7 @@ class EC2State(MachineState):
     client_token = nixops.util.attr_property("ec2.clientToken", None)
     spot_instance_request_id = nixops.util.attr_property("ec2.spotInstanceRequestId", None)
     spot_instance_price = nixops.util.attr_property("ec2.spotInstancePrice", None)
+    subnet_id = nixops.util.attr_property("ec2.subnetId", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -144,6 +149,7 @@ class EC2State(MachineState):
             self.backups = {}
             self.dns_hostname = None
             self.dns_ttl = None
+            self.subnet_id = None
 
 
     def get_ssh_name(self):
@@ -546,23 +552,36 @@ class EC2State(MachineState):
                     self.ssh_pinged = False
 
 
+    def _get_network_interfaces(self, defn):
+        return boto.ec2.networkinterface.NetworkInterfaceCollection(
+            boto.ec2.networkinterface.NetworkInterfaceSpecification(
+                subnet_id=defn.subnet_id,
+                associate_public_ip_address=defn.associate_public_ip_address,
+                groups=defn.security_group_ids
+            )
+        )
 
     def create_instance(self, defn, zone, devmap, user_data, ebs_optimized):
         common_args = dict(
             instance_type=defn.instance_type,
             placement=zone,
             key_name=defn.key_pair,
-            security_groups=defn.security_groups,
             placement_group=defn.placement_group,
             block_device_map=devmap,
             user_data=user_data,
             image_id=defn.ami,
             ebs_optimized=ebs_optimized
         )
+
         if defn.instance_profile.startswith("arn:") :
             common_args['instance_profile_arn'] = defn.instance_profile
         else:
             common_args['instance_profile_name'] = defn.instance_profile
+
+        if defn.subnet_id:
+            common_args['network_interfaces'] = self._get_network_interfaces(defn)
+        else:
+            common_args['security_groups'] = defn.security_groups
 
         if defn.spot_instance_price:
             request = nixops.ec2_utils.retry(
