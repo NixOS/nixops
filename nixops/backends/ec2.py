@@ -578,7 +578,7 @@ class EC2State(MachineState):
         else:
             common_args['instance_profile_name'] = defn.instance_profile
 
-        if defn.subnet_id:
+        if defn.subnet_id != "":
             common_args['network_interfaces'] = self._get_network_interfaces(defn)
         else:
             common_args['security_groups'] = defn.security_groups

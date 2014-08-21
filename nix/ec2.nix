@@ -325,6 +325,7 @@ in
     };
 
     deployment.ec2.securityGroupIds = mkOption {
+      default = [];
       type = types.listOf types.str;
       description = ''
         Security Group IDs for the instance. Necessary if starting
@@ -334,6 +335,7 @@ in
     };
 
     deployment.ec2.subnetId = mkOption {
+      default = "";
       example = "subnet-9d4a7b6c";
       type = types.str;
       description = ''
