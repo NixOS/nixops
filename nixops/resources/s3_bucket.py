@@ -21,6 +21,7 @@ class S3BucketDefinition(nixops.resources.ResourceDefinition):
         self.bucket_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
+        self.policyJson = xml.find("attrs/attr[@name='policyJson']/string").get("value")
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -32,6 +33,7 @@ class S3BucketState(nixops.resources.ResourceState):
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     bucket_name = nixops.util.attr_property("ec2.bucketName", None)
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
+    policyJson = nixops.util.attr_property("ec2.policyJson", None)
     region = nixops.util.attr_property("ec2.region", None)
 
 
@@ -76,7 +78,10 @@ class S3BucketState(nixops.resources.ResourceState):
 
             self.log("creating S3 bucket ‘{0}’...".format(defn.bucket_name))
             try:
-                self._conn.create_bucket(defn.bucket_name, location=region_to_s3_location(defn.region))
+                bucket = self._conn.create_bucket(defn.bucket_name, location=region_to_s3_location(defn.region))
+                if defn.policyJson:
+                    self.log("setting S3 bucket policy on ‘{0}’...".format(bucket))
+                    bucket.set_policy(defn.policyJson.strip())
             except boto.exception.S3CreateError as e:
                 if e.error_code != "BucketAlreadyOwnedByYou": raise
 
@@ -84,6 +89,7 @@ class S3BucketState(nixops.resources.ResourceState):
                 self.state = self.UP
                 self.bucket_name = defn.bucket_name
                 self.region = defn.region
+                self.policyJson = defn.policyJson
 
 
     def destroy(self, wipe=False):
