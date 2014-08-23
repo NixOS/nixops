@@ -28,7 +28,7 @@ with pkgs.lib;
       description = "Amazon Resource Name (ARN) of the S3 bucket. This is set by NixOps.";
     };
 
-    policyJson = mkOption {
+    policy = mkOption {
       type = types.str;
       default = "";
       description = "The JSON Policy string to apply to the bucket.";
