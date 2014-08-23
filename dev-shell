@@ -1,0 +1,3 @@
+#! /bin/sh
+s=$(type -p nix-shell)
+exec $s release.nix -A build.x86_64-linux --exclude tarball 
