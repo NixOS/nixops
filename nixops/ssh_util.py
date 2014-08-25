@@ -51,7 +51,7 @@ class SSHMaster(object):
         if res != 0:
             raise SSHConnectionFailed(
                 "unable to start SSH master connection to "
-                "‘{0}’".format(logger.machine_name)
+                "‘{0}’".format(target)
             )
         self.opts = ["-oControlPath={0}".format(self._control_socket)]
 
