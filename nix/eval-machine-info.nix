@@ -50,7 +50,7 @@ rec {
             defaults ++
             [ { key = "nixops-stuff";
                 # Make NixOps's deployment.* options available.
-                require = [ ./options.nix ];
+                imports = [ ./options.nix ./resource.nix ];
                 # Provide a default hostname and deployment target equal
                 # to the attribute name of the machine in the model.
                 networking.hostName = mkOverride 900 machineName;
@@ -58,7 +58,7 @@ rec {
                 environment.checkConfigurationOptions = mkOverride 900 checkConfigurationOptions;
               }
             ];
-          extraArgs = { inherit nodes resources; };
+          extraArgs = { inherit nodes resources; name = machineName; };
         };
       }
     ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "_file" ])));
@@ -82,6 +82,7 @@ rec {
   resources.ec2PlacementGroups = evalResources ./ec2-placement-group.nix (zipAttrs resourcesByType.ec2PlacementGroups or []);
   resources.ebsVolumes = evalResources ./ebs-volume.nix (zipAttrs resourcesByType.ebsVolumes or []);
   resources.elasticIPs = evalResources ./elastic-ip.nix (zipAttrs resourcesByType.elasticIPs or []);
+  resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Phase 1: evaluate only the deployment attributes.
   info = {
@@ -92,6 +93,7 @@ rec {
           #adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
           hetzner = optionalAttrs (v.config.deployment.targetEnv == "hetzner") v.config.deployment.hetzner;
+          container = optionalAttrs (v.config.deployment.targetEnv == "container") v.config.deployment.container;
           route53 = v.config.deployment.route53;
           virtualbox =
             let cfg = v.config.deployment.virtualbox; in
@@ -103,7 +105,7 @@ rec {
 
     network = fold (as: bs: as // bs) {} (network.network or []);
 
-    inherit resources;
+    resources = removeAttrs resources [ "machines" ];
 
   };
 

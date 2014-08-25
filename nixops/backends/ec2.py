@@ -346,7 +346,7 @@ class EC2State(MachineState):
         return backups
 
 
-    def remove_backup(self, backup_id, keep_physical = False):
+    def remove_backup(self, backup_id, keep_physical=False):
         self.log('removing backup {0}'.format(backup_id))
         self.connect()
         _backups = self.backups
@@ -429,7 +429,7 @@ class EC2State(MachineState):
                 self.update_block_device_mapping(k, new_v)
 
 
-    def create_after(self, resources):
+    def create_after(self, resources, defn):
         # EC2 instances can require key pairs, IAM roles, security
         # groups, EBS volumes and elastic IPs.  FIXME: only depend on
         # the specific key pair / role needed for this instance.

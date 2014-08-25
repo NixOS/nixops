@@ -39,7 +39,7 @@ class CommandFailed(Exception):
         self.exitcode = exitcode
 
     def __str__(self):
-        return "{0} (exit code {1}".format(self.message, self.exitcode)
+        return "{0} (exit code {1})".format(self.message, self.exitcode)
 
 
 def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
@@ -295,3 +295,8 @@ def which(program):
 def enum(**enums):
     return type('Enum', (), enums)
 
+
+def write_file(path, contents):
+    f = open(path, "w")
+    f.write(contents)
+    f.close()

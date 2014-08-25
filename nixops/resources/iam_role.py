@@ -106,7 +106,7 @@ class IAMRoleState(nixops.resources.ResourceState):
             self.policy = None
 
 
-    def create_after(self, resources):
+    def create_after(self, resources, defn):
         # IAM roles can refer to S3 buckets.
         return {r for r in resources if
                 isinstance(r, nixops.resources.s3_bucket.S3BucketState)}

@@ -112,6 +112,15 @@ class Deployment(object):
         return res
 
 
+    def get_machine(self, name):
+        res = self.active_resources.get(name, None)
+        if not res:
+            raise Exception("machine ‘{0}’ does not exist".format(name))
+        if not is_machine(res):
+            raise Exception("resource ‘{0}’ is not a machine".format(name))
+        return res
+
+
     def _set_attrs(self, attrs):
         """Update deployment attributes in the state file."""
         with self._db:
@@ -554,11 +563,6 @@ class Deployment(object):
     def build_configs(self, include, exclude, dry_run=False, repair=False):
         """Build the machine configurations in the Nix store."""
 
-        def write_temp_file(tmpfile, contents):
-            f = open(tmpfile, "w")
-            f.write(contents)
-            f.close()
-
         self.logger.log("building all machine configurations...")
 
         # Set the NixOS version suffix, if we're building from Git.
@@ -572,12 +576,12 @@ class Deployment(object):
 
         phys_expr = self.tempdir + "/physical.nix"
         p = self.get_physical_spec()
-        write_temp_file(phys_expr, p)
+        nixops.util.write_file(phys_expr, p)
         if debug: print >> sys.stderr, "generated physical spec:\n" + p
 
         for m in self.active.itervalues():
             if hasattr(m, "public_host_key") and m.public_host_key: # FIXME: use a method in MachineState.
-                write_temp_file("{0}/{1}.public_host_key".format(self.tempdir, m.name), m.public_host_key + "\n")
+                nixops.util.write_file("{0}/{1}.public_host_key".format(self.tempdir, m.name), m.public_host_key + "\n")
 
         selected = [m for m in self.active.itervalues() if should_do(m, include, exclude)]
 
@@ -656,7 +660,7 @@ class Deployment(object):
 
             try:
                 # Set the system profile to the new configuration.
-                setprof = 'nix-env -p /nix/var/nix/profiles/system --set "{0}"'
+                setprof = 'NIX_REMOTE=daemon nix-env -p /nix/var/nix/profiles/system --set "{0}"'
                 if always_activate or self.definitions[m.name].always_activate:
                     m.run_command(setprof.format(m.new_toplevel))
                 else:
@@ -872,7 +876,7 @@ class Deployment(object):
 
                     # Sleep until all dependencies of this resource have
                     # been created.
-                    deps = r.create_after(self.active_resources.itervalues())
+                    deps = r.create_after(self.active_resources.itervalues(), self.definitions[r.name])
                     for dep in deps:
                         dep._created_event.wait()
                         # !!! Should we print a message here?

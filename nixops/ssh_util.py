@@ -51,7 +51,7 @@ class SSHMaster(object):
         if res != 0:
             raise SSHConnectionFailed(
                 "unable to start SSH master connection to "
-                "‘{0}’".format(logger.machine_name)
+                "‘{0}’".format(target)
             )
         self.opts = ["-oControlPath={0}".format(self._control_socket)]
 
@@ -113,7 +113,7 @@ class SSH(object):
 
     def _get_target(self):
         if self._host_fun is None:
-            raise AssertionError("Don't know which SSH host to connect to.")
+            raise AssertionError("don't know which SSH host to connect to")
         return "root@{0}".format(self._host_fun())
 
     def register_flag_fun(self, flag_fun):

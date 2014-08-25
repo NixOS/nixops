@@ -9,13 +9,6 @@ let
 
   cfg = config.deployment.ec2;
 
-  # FIXME: move to nixpkgs/lib/types.nix.
-  union = t1: t2: mkOptionType {
-    name = "${t1.name} or ${t2.name}";
-    check = x: t1.check x || t2.check x;
-    merge = mergeOneOption;
-  };
-
   resource = type: mkOptionType {
     name = "resource of type ‘${type}’";
     check = x: x._type or "" == type;
@@ -33,7 +26,7 @@ let
       disk = mkOption {
         default = "";
         example = "vol-d04895b8";
-        type = union types.str (resource "ebs-volume");
+        type = types.either types.str (resource "ebs-volume");
         apply = x: if builtins.isString x then x else "res-" + x._name;
         description = ''
           EC2 identifier of the disk to be mounted.  This can be an
@@ -290,7 +283,7 @@ in
 
     deployment.ec2.keyPair = mkOption {
       example = "my-keypair";
-      type = union types.str (resource "ec2-keypair");
+      type = types.either types.str (resource "ec2-keypair");
       apply = x: if builtins.isString x then x else x.name;
       description = ''
         Name of the SSH key pair to be used to communicate securely
@@ -316,7 +309,7 @@ in
     deployment.ec2.securityGroups = mkOption {
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
-      type = types.listOf (union types.str (resource "ec2-security-group"));
+      type = types.listOf (types.either types.str (resource "ec2-security-group"));
       apply = map (x: if builtins.isString x then x else x.name);
       description = ''
         Security groups for the instance.  These determine the
@@ -355,7 +348,7 @@ in
     deployment.ec2.placementGroup = mkOption {
       default = "";
       example = "my-cluster";
-      type = union types.str (resource "ec2-placement-group");
+      type = types.either types.str (resource "ec2-placement-group");
       apply = x: if builtins.isString x then x else x.name;
       description = ''
         Placement group for the instance.
@@ -386,7 +379,7 @@ in
     deployment.ec2.elasticIPv4 = mkOption {
       default = "";
       example = "203.0.113.123";
-      type = union types.str (resource "elastic-ip");
+      type = types.either types.str (resource "elastic-ip");
       apply = x: if builtins.isString x then x else "res-" + x._name;
       description = ''
         Elastic IPv4 address to be associated with this machine.

@@ -1,4 +1,4 @@
-{ config, pkgs, uuid, name, ... }:
+{ config, pkgs, name, ... }:
 
 with pkgs.lib;
 
