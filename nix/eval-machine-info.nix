@@ -58,7 +58,7 @@ rec {
                 environment.checkConfigurationOptions = mkOverride 900 checkConfigurationOptions;
               }
             ];
-          extraArgs = { inherit nodes resources; name = machineName; };
+          extraArgs = { inherit nodes resources uuid; name = machineName; };
         };
       }
     ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "_file" ])));
@@ -70,9 +70,10 @@ rec {
     mapAttrs (name: defs:
       (fixMergeModules
         ([ mainModule ./resource.nix ] ++ defs)
-        { inherit pkgs uuid name resources; }
+        { inherit pkgs uuid name resources; nodes = info.machines; }
       ).config) _resources;
 
+  # Amazon resources
   resources.sqsQueues = evalResources ./sqs-queue.nix (zipAttrs resourcesByType.sqsQueues or []);
   resources.ec2KeyPairs = evalResources ./ec2-keypair.nix (zipAttrs resourcesByType.ec2KeyPairs or []);
   resources.sshKeyPairs = evalResources ./ssh-keypair.nix (zipAttrs resourcesByType.sshKeyPairs or []);
@@ -84,6 +85,16 @@ rec {
   resources.elasticIPs = evalResources ./elastic-ip.nix (zipAttrs resourcesByType.elasticIPs or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
+  # Google Compute resources
+  resources.gceDisks = evalResources ./gce-disk.nix (zipAttrs resourcesByType.gceDisks or []);
+  resources.gceStaticIPs = evalResources ./gce-static-ip.nix (zipAttrs resourcesByType.gceStaticIPs or []);
+  resources.gceNetworks = evalResources ./gce-network.nix (zipAttrs resourcesByType.gceNetworks or []);
+  resources.gceHTTPHealthChecks = evalResources ./gce-http-health-check.nix (zipAttrs resourcesByType.gceHTTPHealthChecks or []);
+  resources.gceTargetPools = evalResources ./gce-target-pool.nix (zipAttrs resourcesByType.gceTargetPools or []);
+  resources.gceForwardingRules = evalResources ./gce-forwarding-rule.nix (zipAttrs resourcesByType.gceForwardingRules or []);
+  resources.gceImages = evalResources ./gce-image.nix (zipAttrs resourcesByType.gceImages or []);
+  resources.gseBuckets = evalResources ./gse-bucket.nix (zipAttrs resourcesByType.gseBuckets or []);
+
   # Phase 1: evaluate only the deployment attributes.
   info = {
 
@@ -92,6 +103,7 @@ rec {
         { inherit (v.config.deployment) targetEnv targetPort targetHost encryptedLinksTo storeKeysOnMachine alwaysActivate owners keys;
           #adhoc = optionalAttrs (v.config.deployment.targetEnv == "adhoc") v.config.deployment.adhoc;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
+          gce = optionalAttrs (v.config.deployment.targetEnv == "gce") v.config.deployment.gce;
           hetzner = optionalAttrs (v.config.deployment.targetEnv == "hetzner") v.config.deployment.hetzner;
           container = optionalAttrs (v.config.deployment.targetEnv == "container") v.config.deployment.container;
           route53 = v.config.deployment.route53;

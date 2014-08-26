@@ -8,6 +8,18 @@ let
 
   version = "1.3" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
 
+  # Use this until the patches are upstreamed.
+  # Warning: will be rebased at will
+  libcloud = pkgs.lib.overrideDerivation pkgs.pythonPackages.libcloud ( args: {
+    src = pkgs.fetchgit {
+      url = https://github.com/Phreedom/libcloud.git;
+      rev = "cc70ff7f83e39d5048639f0e1a8f3966b3132ab1";
+      sha256 = "33b654fb42794a8d4ad5982bfa45b6c4c9c6a018a16e591a11ee308cd0160567";
+    };
+
+    preConfigure = "cp libcloud/test/secrets.py-dist libcloud/test/secrets.py";
+  });
+
 in
 
 rec {
@@ -34,7 +46,9 @@ rec {
         cp ${import ./doc/manual { revision = nixopsSrc.rev; }} doc/manual/machine-options.xml
         ${pkgs.lib.concatMapStrings (fn: ''
           cp ${import ./doc/manual/resource.nix { revision = nixopsSrc.rev; module = ./nix + ("/" + fn + ".nix"); }} doc/manual/${fn}-options.xml
-        '') [ "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" "ssh-keypair" ]}
+        '') [ "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" "ssh-keypair" "ec2-security-group" "elastic-ip"
+              "gce-disk" "gce-image" "gce-forwarding-rule" "gce-http-health-check" "gce-network"
+              "gce-static-ip" "gce-target-pool" "gse-bucket" ]}
 
         make -C doc/manual install docbookxsl=${pkgs.docbook5_xsl}/xml/xsl/docbook \
             docdir=$out/manual mandir=$TMPDIR/man
@@ -68,6 +82,7 @@ rec {
         [ pythonPackages.prettytable
           pythonPackages.boto
           pythonPackages.hetzner
+          libcloud
           pythonPackages.sqlite3
         ];
 
@@ -75,6 +90,7 @@ rec {
       shellHook = ''
         export PYTHONPATH=$(pwd):$PYTHONPATH
         export PATH=$(pwd)/scripts:$PATH
+        export SSL_CERT_FILE=$OPENSSL_X509_CERT_FILE
       '';
 
       doCheck = true;
@@ -91,8 +107,8 @@ rec {
           cp -av nix/* $out/share/nix/nixops
 
           # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
-          # the version of openssh is causing errors with big networks (40+).
-          wrapProgram $out/bin/nixops --prefix PATH : "${openssh}/bin"
+          # the version of openssh is causing errors when have big networks (40+)
+          wrapProgram $out/bin/nixops --prefix PATH : "${openssh}/bin" --set SSL_CERT_FILE "\$OPENSSL_X509_CERT_FILE"
         ''; # */
 
       meta.description = "Nix package for ${stdenv.system}";

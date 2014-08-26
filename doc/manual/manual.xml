@@ -108,6 +108,78 @@
       <xi:include href="ssh-keypair-options.xml" />
     </section>
 
+    <section>
+      <title>GCE Disks</title>
+      <para>A GCE Disk is defined by setting
+      <literal>resources.gceDisks.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="gce-disk-options.xml" />
+    </section>
+
+    <section>
+      <title>GCE Images</title>
+      <para>A GCE Image is defined by setting
+      <literal>resources.gceImages.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="gce-image-options.xml" />
+    </section>
+
+    <section>
+      <title>GCE Forwarding Rules</title>
+      <para>A GCE Forwarding Rule is defined by setting
+      <literal>resources.gceForwardingRules.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="gce-forwarding-rule-options.xml" />
+    </section>
+
+    <section>
+      <title>GCE HTTP Health Checks</title>
+      <para>A GCE HTTP Health Check is defined by setting
+      <literal>resources.gceHTTPHealthChecks.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="gce-http-health-check-options.xml" />
+    </section>
+
+    <section>
+      <title>GCE Networks</title>
+      <para>A GCE Network is defined by setting
+      <literal>resources.gceNetworks.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="gce-network-options.xml" />
+    </section>
+
+    <section>
+      <title>GCE Static IPs</title>
+      <para>A GCE Static IP is defined by setting
+      <literal>resources.gceStaticIPs.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="gce-static-ip-options.xml" />
+    </section>
+
+    <section>
+      <title>GCE Target Pools</title>
+      <para>A GCE Target Pool is defined by setting
+      <literal>resources.gceTargetPools.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="gce-target-pool-options.xml" />
+    </section>
+
+    <section>
+      <title>GSE Buckets</title>
+      <para>A GSE Bucket is defined by setting
+      <literal>resources.gseBuckets.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="gse-bucket-options.xml" />
+    </section>
+
   </appendix>
 
   <xi:include href="hacking.xml" />
