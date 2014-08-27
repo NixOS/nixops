@@ -92,8 +92,20 @@ rec {
   resources.gceHTTPHealthChecks = evalResources ./gce-http-health-check.nix (zipAttrs resourcesByType.gceHTTPHealthChecks or []);
   resources.gceTargetPools = evalResources ./gce-target-pool.nix (zipAttrs resourcesByType.gceTargetPools or []);
   resources.gceForwardingRules = evalResources ./gce-forwarding-rule.nix (zipAttrs resourcesByType.gceForwardingRules or []);
-  resources.gceImages = evalResources ./gce-image.nix (zipAttrs resourcesByType.gceImages or []);
   resources.gseBuckets = evalResources ./gse-bucket.nix (zipAttrs resourcesByType.gseBuckets or []);
+  resources.gceImages = evalResources ./gce-image.nix (gce_default_bootstrap_images // ( zipAttrs resourcesByType.gceImages  or []) );
+
+  gce_deployments = flip filterAttrs nodes
+                      ( n: v: let dc = (scrubOptionValue v).config.deployment; in dc.targetEnv == "gce" );
+
+  gce_default_bootstrap_images = flip mapAttrs' gce_deployments (name: depl:
+    let gce = (scrubOptionValue depl).config.deployment.gce; in (
+      nameValuePair ("bootstrap") [{
+        inherit (gce) project serviceAccount accessKey;
+        sourceUri = "gs://nixos/nixos-14.10pre-git-x86_64-linux.raw.tar.gz";
+      }]
+    )
+  );
 
   # Phase 1: evaluate only the deployment attributes.
   info = {
