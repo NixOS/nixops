@@ -22,7 +22,7 @@ with (import ./lib.nix pkgs);
     ipAddress = mkOption {
       default = null;
       example = "resources.gceStaticIPs.exampleIP";
-      type = types.nullOr ( union types.str (resource "gce-static-ip") );
+      type = types.nullOr ( types.either types.str (resource "gce-static-ip") );
       description = ''
         GCE Static IP address resource to bind to or the name of
         an IP address not managed by NixOps. If left unset,
@@ -48,7 +48,7 @@ with (import ./lib.nix pkgs);
 
     targetPool = mkOption {
       example = "resources.gceStaticIPs.exampleIP";
-      type = union types.str (resource "gce-target-pool");
+      type = types.either types.str (resource "gce-target-pool");
       description = ''
         GCE Target Pool resource to receive the matched traffic
         or the name of a target pool not managed by NixOps.

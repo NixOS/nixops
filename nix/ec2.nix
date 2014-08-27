@@ -10,12 +10,6 @@ let
 
   cfg = config.deployment.ec2;
 
-  resource = type: mkOptionType {
-    name = "resource of type ‘${type}’";
-    check = x: x._type or "" == type;
-    merge = mergeOneOption;
-  };
-
   defaultEbsOptimized =
     let props = config.deployment.ec2.physicalProperties;
     in if props == null then false else (props.allowsEbsOptimized or false);

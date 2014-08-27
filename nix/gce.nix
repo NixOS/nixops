@@ -56,7 +56,7 @@ let
       disk = mkOption {
         default = null;
         example = "resources.gceDisks.exampleDisk";
-        type = types.nullOr ( union types.str (resource "gce-disk") );
+        type = types.nullOr ( types.either types.str (resource "gce-disk") );
         description = ''
           GCE Disk resource or name of a disk not managed by NixOps to be mounted.
         '';
@@ -76,7 +76,7 @@ let
       image = mkOption {
         default = null;
         example = "image-432";
-        type = types.nullOr ( union types.str (resource "gce-image") );
+        type = types.nullOr ( types.either types.str (resource "gce-image") );
         description = ''
           The image name or resource from which to create the GCE disk. If
           not specified, an empty disk is created.  Changing the
@@ -236,7 +236,7 @@ in
       ipAddress = mkOption {
         default = null;
         example = "resources.gceStaticIPs.exampleIP";
-        type = types.nullOr ( union types.str (resource "gce-static-ip") );
+        type = types.nullOr ( types.either types.str (resource "gce-static-ip") );
         description = ''
           GCE Static IP address resource to bind to or the name of
           an IP address not managed by NixOps.
@@ -246,7 +246,7 @@ in
       network = mkOption {
         default = null;
         example = "resources.gceNetworks.verySecureNetwork";
-        type = types.nullOr ( union types.str (resource "gce-network") );
+        type = types.nullOr ( types.either types.str (resource "gce-network") );
         description = ''
           The GCE Network to make the instance a part of. Can be either
           a gceNetworks resource or a name of a network not managed by NixOps.
@@ -265,7 +265,7 @@ in
 
       bootstrapImage = mkOption {
         default = resources.gceImages.bootstrap;
-        type = union types.str (resource "gce-image");
+        type = types.either types.str (resource "gce-image");
         description = ''
           Bootstrap image name or resource to use to create the root disk of the instance.
         '';

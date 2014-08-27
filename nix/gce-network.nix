@@ -53,7 +53,7 @@ let
       allowed = mkOption {
         #default = {};
         example = { tcp = [ 80 ]; icmp = null; };
-        type = types.attrsOf (types.nullOr (types.listOf (union types.str types.int) ));
+        type = types.attrsOf (types.nullOr (types.listOf (types.either types.str types.int) ));
         description = ''
           Allowed protocols and ports. Setting protocol to null for example "icmp = null"
           allows all connections made using the protocol to proceed.";

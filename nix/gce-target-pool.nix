@@ -31,7 +31,7 @@ in
     healthCheck = mkOption {
       default = null;
       example = "resources.gceHTTPHealthChecks.my-check";
-      type = types.nullOr (union types.str (resource "gce-http-health-check"));
+      type = types.nullOr (types.either types.str (resource "gce-http-health-check"));
       description = ''
         GCE HTTP Health Check resource or name of a HTTP Health Check resource not managed by NixOps.
 
@@ -46,7 +46,7 @@ in
     machines = mkOption {
       default = [];
       example = [ "machines.httpserver1" "machines.httpserver2" ];
-      type = types.listOf (union types.str machine);
+      type = types.listOf (types.either types.str machine);
       description = ''
         The list of machine resources or fully-qualified GCE Node URLs to add to this pool.
       '';

@@ -154,7 +154,7 @@ in
     logging.logBucket = mkOption {
       default = null;
       example = "resources.gseBuckets.logBucket";
-      type = types.nullOr ( union types.str (resource "gse-bucket") );
+      type = types.nullOr ( types.either types.str (resource "gse-bucket") );
       description = ''
         The destination bucket where the current bucket's logs should be placed.
 
