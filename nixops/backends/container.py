@@ -98,6 +98,14 @@ class ContainerState(MachineState):
     def wait_for_ssh(self, check=False):
         return True
 
+    # Run a command in the container via ‘nixos-container run’. Since
+    # this uses ‘nsenter’, we don't need SSH in the container.
+    def run_command(self, command, **kwargs):
+        command = command.replace("'", r"'\''")
+        return self.host_ssh.run_command(
+            "nixos-container run {0} -- bash --login -c 'HOME=/root {1}'".format(self.vm_id, command),
+            **kwargs)
+
     def get_physical_spec(self):
         return {('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [self.client_public_key]}
 
