@@ -21,6 +21,7 @@ class S3BucketDefinition(nixops.resources.ResourceDefinition):
         self.bucket_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
+        self.policy = xml.find("attrs/attr[@name='policy']/string").get("value")
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -32,6 +33,7 @@ class S3BucketState(nixops.resources.ResourceState):
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     bucket_name = nixops.util.attr_property("ec2.bucketName", None)
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
+    policy = nixops.util.attr_property("ec2.policy", None)
     region = nixops.util.attr_property("ec2.region", None)
 
 
@@ -80,10 +82,23 @@ class S3BucketState(nixops.resources.ResourceState):
             except boto.exception.S3CreateError as e:
                 if e.error_code != "BucketAlreadyOwnedByYou": raise
 
+            bucket = self._conn.get_bucket(defn.bucket_name)
+            if defn.policy:
+                self.log("setting S3 bucket policy on ‘{0}’...".format(bucket))
+                bucket.set_policy(defn.policy.strip())
+            else:
+                try:
+                    bucket.delete_policy()
+                except boto.exception.S3ResponseError as e:
+                    # This seems not to happen - despite docs indicating it should:
+                    # [http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETEpolicy.html]
+                    if e.status != 204: raise # (204 : Bucket didn't have any policy to delete)
+
             with self.depl._db:
                 self.state = self.UP
                 self.bucket_name = defn.bucket_name
                 self.region = defn.region
+                self.policy = defn.policy
 
 
     def destroy(self, wipe=False):
