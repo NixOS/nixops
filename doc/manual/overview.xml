@@ -227,9 +227,10 @@ real    0m3.700s
 NixOps, you can run <command>nixops destroy</command>:
 
 <screen>
-warning: are you sure you want to destroy EC2 machine ‘webserver’? (y/N) y
 $ nixops destroy -d trivial
-destroying VirtualBox VM ‘webserver’...
+warning: are you sure you want to destroy VirtualBox VM ‘webserver’? (y/N) y
+webserver> destroying VirtualBox VM...
+webserver> 0%...10%...20%...30%...40%...50%...60%...70%...80%...90%...100%
 </screen>
 
 You can use the option <option>--confirm</option> to confirm all
