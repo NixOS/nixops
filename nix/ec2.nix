@@ -8,6 +8,17 @@ with (import ./lib.nix pkgs);
 
 let
 
+  types =
+    if pkgs.lib.types ? either then
+      builtins.trace "Please update NixPkgs for this deployment. Next NixOps release will be incompatible with your current version of NixPkgs." pkgs.lib.types
+    else pkgs.lib.types // {
+      either = t1: t2: mkOptionType {
+        name = "${t1.name} or ${t2.name}";
+        check = x: t1.check x || t2.check x;
+        merge = mergeOneOption;
+      };
+    };
+
   cfg = config.deployment.ec2;
 
   defaultEbsOptimized =
