@@ -6,7 +6,7 @@
 
 <para>This chapter gives a quick overview of how to use NixOps.</para>
 
-<simplesect><title>Deploying a VirtualBox VM</title>
+<section><title>Deploying a VirtualBox VM</title>
 
 <para>NixOps deploys machines on the basis of a declarative
 description of what those machines should do, and where they should be
@@ -237,10 +237,10 @@ You can use the option <option>--confirm</option> to confirm all
 questions.  This is useful for automated deployment, but potentially
 dangerous.</para>
 
-</simplesect>
+</section>
 
 
-<simplesect><title>Deploying multiple machines</title>
+<section><title>Deploying multiple machines</title>
 
 <para>A network consisting of only one logical machine is not very
 exciting.  <xref linkend="ex-logical-multi.nix" /> shows a network
@@ -327,10 +327,10 @@ in
 </programlisting>
 </example>
 
-</simplesect>
+</section>
 
 
-<simplesect xml:id="sec-deploying-to-ec2"><title>Deploying to Amazon EC2</title>
+<section xml:id="sec-deploying-to-ec2"><title>Deploying to Amazon EC2</title>
 
 <para><xref linkend="ex-physical-multi-ec2.nix" /> shows a physical
 specification that deploys the load balancer network to Amazon’s
@@ -469,10 +469,10 @@ deployment.ec2.securityGroups = [ "allow-ssh" "allow-http" ];
 
 </para>
 
-</simplesect>
+</section>
 
 
-<simplesect xml:id="sec-deploying-to-gce"><title>Deploying to Google Compute Engine</title>
+<section xml:id="sec-deploying-to-gce"><title>Deploying to Google Compute Engine</title>
 
 <para><xref linkend="ex-physical-multi-gce.nix" /> shows a physical
 specification that deploys the load balancer network to Google Compute
@@ -757,10 +757,10 @@ under NixOps control.
 
 </para>
 
-</simplesect>
+</section>
 
 
-<simplesect><title>Deploying to Hetzner physical machines</title>
+<section><title>Deploying to Hetzner physical machines</title>
 
 <para>In order to deploy to Hetzner machines, you need to have a valid account
 to their server management interface, called the <link
@@ -820,10 +820,10 @@ variables <envar>HETZNER_ROBOT_USER</envar> and
 <envar>HETZNER_ROBOT_PASS</envar>, as you only need them for initial deployment
 and destruction.</para>
 
-</simplesect>
+</section>
 
 
-<simplesect><title>Accessing machines</title>
+<section><title>Accessing machines</title>
 
 <para>We have seen above that you can login to individual machines by
 doing <literal>nixops ssh <replaceable>name</replaceable></literal>,
@@ -842,10 +842,10 @@ backend2...> /dev/xvdb      153899044 192084 145889336   1% /tmp
 By default, the command is executed sequentially on each machine.  You
 can add the flag <option>-p</option> to execute it in parallel.</para>
 
-</simplesect>
+</section>
 
 
-<simplesect><title>Checking machine status</title>
+<section><title>Checking machine status</title>
 
 <para>The command <command>nixops check</command> checks the status of
 each machine in a deployment.  It verifies that the machine still
@@ -875,9 +875,9 @@ This indicates that Apache httpd has failed on
 you should run <command>nixops deploy --check</command> to repair the
 deployment.</para>
 
-</simplesect>
+</section>
 
-<simplesect><title>Network arguments</title>
+<section><title>Network arguments</title>
 
 <para>In NixOps you can pass in arguments from outside the nix
 expression. The network file can be a nix function, which takes a set
@@ -939,7 +939,7 @@ deploy the new configuration.
 
 
 
-</simplesect>
+</section>
 
 <!--
 
