@@ -1036,7 +1036,7 @@ class EC2State(MachineState):
                 change.add_value(",".join(prevrr.resource_records))
         if len(prev_cname_rrs) > 0:
             for prevrr in prev_cname_rrs:
-                change = changes.add_change("DELETE", self.dns_hostname, "CNAME")
+                change = changes.add_change("DELETE", prevrr.name, "CNAME", ttl=prevrr.ttl)
                 change.add_value(",".join(prevrr.resource_records))
 
         change = changes.add_change("CREATE", self.dns_hostname, record_type, ttl=self.dns_ttl)
