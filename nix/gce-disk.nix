@@ -55,6 +55,15 @@ with (import ./lib.nix pkgs);
       '';
     };
 
+    diskType = mkOption {
+      default = "standard";
+      type = types.addCheck types.str
+               (v: elem v [ "standard" "ssd" ]);
+      description = ''
+        The disk storage type (standard/ssd).
+      '';
+    };
+
   };
 
   config = 

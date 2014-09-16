@@ -26,7 +26,7 @@ class GCEDiskDefinition(ResourceDefinition):
         self.copy_option(xml, 'size', int, optional = True)
         self.copy_option(xml, 'snapshot', str, optional = True)
         self.copy_option(xml, 'image', 'resource', optional = True)
-
+        self.copy_option(xml, 'diskType', str)
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -38,6 +38,7 @@ class GCEDiskState(ResourceState):
     region = attr_property("gce.region", None)
     size = attr_property("gce.size", None, int)
     disk_name = attr_property("gce.disk_name", None)
+    disk_type = attr_property("gce.diskType", None)
 
     @classmethod
     def get_type(cls):
@@ -67,6 +68,7 @@ class GCEDiskState(ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(defn.size and self.size != defn.size, 'size')
+        self.no_property_change(defn, 'disk_type')
         self.no_project_change(defn)
         self.no_region_change(defn)
 
@@ -78,6 +80,7 @@ class GCEDiskState(ResourceState):
                 disk = self.disk()
                 if self.state == self.UP:
                     self.handle_changed_property('region', disk.extra['zone'].name, can_fix = False)
+                    self.handle_changed_property('disk_type', disk.extra['type'][3:], can_fix = False)
                     self.handle_changed_property('size', int(disk.size), can_fix = False)
                 else:
                     self.warn_not_supposed_to_exist(valuable_data = True)
@@ -95,13 +98,15 @@ class GCEDiskState(ResourceState):
             try:
                 volume = self.connect().create_volume(defn.size, defn.disk_name, defn.region,
                                                       snapshot = defn.snapshot, image = defn.image,
-                                                      use_existing= False)
+                                                      ex_disk_type = "pd-" + defn.disk_type,
+                                                      use_existing = False)
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("tried creating a disk that already exists; "
                                 "please run 'deploy --check' to fix this")
             self.state = self.UP
             self.region = defn.region
             self.size = volume.size
+            self.disk_type = defn.disk_type
 
 
     def destroy(self, wipe=False):
