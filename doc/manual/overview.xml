@@ -506,6 +506,7 @@ let
 in {
 
   # use nixos-unstable image
+  # this specification is identical to the default one and can omitted
   resources.gceImages.bootstrap = credentials // {
     sourceUri = "gs://nixos/nixos-14.10pre-git-x86_64-linux.raw.tar.gz";
   };
@@ -675,9 +676,11 @@ $ openssl pkcs12 -in pkey.pkcs12 -passin pass:notasecret -nodes -nocerts | opens
 
 <itemizedlist>
 
-  <listitem><para>Each deployment must always provide <literal>resources.gceImages.bootstrap</literal>
-  resource or override the instance's <literal>bootstrapImage</literal> option because
-  it is impossible to create public images.</para></listitem>
+  <listitem><para>A bootstrap image needs to be created for each deployment because it
+  is impossible to create public images. Default bootstrap image specification can be
+  overriden by defining <literal>resources.gceImages.bootstrap</literal>. Additionally,
+  the instance's <literal>bootstrapImage</literal> option can be used to specify
+  an instance-specific bootstrap image.</para></listitem>
 
   <listitem><para>There's no "native" support for starting and stopping instances.
   NixOps emulates starting and stoping by creating and tearing down GCE instances,
