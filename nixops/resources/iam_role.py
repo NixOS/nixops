@@ -76,27 +76,27 @@ class IAMRoleState(nixops.resources.ResourceState):
             try:
                 self._conn.remove_role_from_instance_profile(self.role_name, self.role_name)
             except:
-                self.log("Could not remove role from instance profile. Perhaps already gone.")
+                self.log("could not remove role from instance profile, perhaps it was already gone.")
 
             try:
                 self._conn.get_role_policy(self.role_name, self.role_name)
-                self.log("Removing role policy")
+                self.log("removing role policy")
                 self._conn.delete_role_policy(self.role_name, self.role_name)
             except:
-                self.log("Could not find role policy")
+                self.log("could not find role policy")
 
             try:
                 self._conn.get_role(self.role_name)
-                self.log("Removing role")
+                self.log("removing role")
                 self._conn.delete_role(self.role_name)
             except:
-                self.log("Could not find role")
+                self.log("could not find role")
 
-            self.log("Removing instance profile")
+            self.log("removing instance profile")
             self._conn.delete_instance_profile(self.role_name)
 
         except:
-            self.log("Could not find instance profile")
+            self.log("could not find instance profile")
 
 
         with self.depl._db:

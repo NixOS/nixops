@@ -144,7 +144,7 @@ class GCENetworkState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log("Creating {0}...".format(self.full_name))
+            self.log("creating {0}...".format(self.full_name))
             try:
                 network = self.connect().ex_create_network(defn.network_name, defn.address_range)
             except libcloud.common.google.ResourceExistsError:
@@ -209,7 +209,7 @@ class GCENetworkState(ResourceState):
                                     "please run 'deploy --check' to fix this")
 
             else:
-                self.log("Creating {0}...".format(self.full_firewall_name(k)))
+                self.log("creating {0}...".format(self.full_firewall_name(k)))
                 try:
                     self.connect().ex_create_firewall(self.firewall_name(k), trans_allowed(v['allowed']),
                                                       network= self.network_name,

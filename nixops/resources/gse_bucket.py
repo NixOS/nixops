@@ -244,7 +244,7 @@ class GSEBucketState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
-            self.log("Creating {0}...".format(self.full_name))
+            self.log("creating {0}...".format(self.full_name))
             try:
                 bucket = self.create_bucket(defn)
             except libcloud.common.google.GoogleBaseError as e:

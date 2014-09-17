@@ -830,7 +830,7 @@ class Deployment(object):
             ssh_name = m.get_ssh_name()
             res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + ["sync"])
             if res != 0:
-                m.logger.log("Running sync failed on {0}.".format(m.name))
+                m.logger.log("running sync failed on {0}.".format(m.name))
             m.backup(self.definitions[m.name], backup_id)
 
         nixops.parallel.run_tasks(nr_workers=5, tasks=self.active.itervalues(), worker_fun=worker)

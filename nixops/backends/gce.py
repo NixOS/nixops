@@ -325,7 +325,7 @@ class GCEState(MachineState, ResourceState):
                 extra_msg = ( " from snapshot '{0}'".format(v['snapshot']) if v['snapshot']
                          else " from image '{0}'".format(v['image'])       if v['image']
                          else "" )
-                self.log("Creating GCE disk of {0} GiB{1}..."
+                self.log("creating GCE disk of {0} GiB{1}..."
                          .format(v['size'] if v['size'] else "auto", extra_msg))
                 v['region'] = defn.region
                 try:
