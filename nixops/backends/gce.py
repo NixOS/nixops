@@ -697,7 +697,7 @@ class GCEState(MachineState, ResourceState):
                 self.connect().create_volume(None, disk_name, v.get('region', None),
                                              snapshot = snapshot, use_existing= False)
 
-    def remove_backup(self, backup_id):
+    def remove_backup(self, backup_id, keep_physical=False):
         self.log('removing backup {0}'.format(backup_id))
         _backups = self.backups
         if not backup_id in _backups.keys():
