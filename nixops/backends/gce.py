@@ -65,6 +65,7 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
                 'snapshot': self.get_option_value(xml, 'snapshot', str, optional = True),
                 'image': self.get_option_value(xml, 'image', 'resource', optional = True),
                 'size': self.get_option_value(xml, 'size', int, optional = True),
+                'type': self.get_option_value(xml, 'diskType', str),
                 'deleteOnTermination': self.get_option_value(xml, 'deleteOnTermination', bool),
                 'readOnly': self.get_option_value(xml, 'readOnly', bool),
                 'bootDisk': self.get_option_value(xml, 'bootDisk', bool),
@@ -331,6 +332,7 @@ class GCEState(MachineState, ResourceState):
                 try:
                     self.connect().create_volume(v['size'], v['disk_name'], v['region'],
                                                   snapshot = v['snapshot'], image = v['image'],
+                                                  ex_disk_type = "pd-" + v.get('type', 'standard'),
                                                   use_existing= False)
                 except libcloud.common.google.ResourceExistsError:
                     raise Exception("tried creating a disk that already exists; "
@@ -695,6 +697,7 @@ class GCEState(MachineState, ResourceState):
 
                 self.log("creating disk {0} from snapshot '{1}'".format(disk_name, s_id))
                 self.connect().create_volume(None, disk_name, v.get('region', None),
+                                             ex_disk_type = "pd-" + v.get('type', 'standard'),
                                              snapshot = snapshot, use_existing= False)
 
     def remove_backup(self, backup_id, keep_physical=False):

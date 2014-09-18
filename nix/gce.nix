@@ -98,6 +98,15 @@ let
         '';
       };
 
+      diskType = mkOption {
+        default = "standard";
+        type = types.addCheck types.str
+                (v: elem v [ "standard" "ssd" ]);
+        description = ''
+          The disk storage type (standard/ssd).
+        '';
+      };
+
       readOnly = mkOption {
         default = false;
         type = types.bool;
@@ -281,6 +290,14 @@ in
         '';
       };
 
+      rootDiskType = mkOption {
+        default = "standard";
+        type = types.addCheck types.str
+                (v: elem v [ "standard" "ssd" ]);
+        description = ''
+          The root disk storage type (standard/ssd).
+        '';
+      };
 
       scheduling.automaticRestart = mkOption {
         default = true;
@@ -343,6 +360,7 @@ in
       "${gce_dev_prefix}${config.deployment.gce.machineName}-root" = {
           image = config.deployment.gce.bootstrapImage;
           size = config.deployment.gce.rootDiskSize;
+          diskType = config.deployment.gce.rootDiskType;
           bootDisk = true;
           disk_name = "root";
       };
