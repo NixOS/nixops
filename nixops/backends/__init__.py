@@ -310,7 +310,7 @@ class MachineState(nixops.resources.ResourceState):
         env = dict(os.environ)
         env['NIX_SSHOPTS'] = ' '.join(ssh._get_flags() + ssh.get_master().opts)
         self._logged_exec(
-            ["nix-copy-closure", "--to", "root@" + ssh._get_target(), path]
+            ["nix-copy-closure", "--to", ssh._get_target(), path]
             + ([] if self.has_really_fast_connection() else ["--gzip"]),
             env=env)
 
