@@ -108,7 +108,7 @@ rec {
 
           # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
           # the version of openssh is causing errors when have big networks (40+)
-          wrapProgram $out/bin/nixops --prefix PATH : "${openssh}/bin" --set SSL_CERT_FILE "\$OPENSSL_X509_CERT_FILE"
+          wrapProgram $out/bin/nixops --prefix PATH : "${openssh}/bin"
         ''; # */
 
       meta.description = "Nix package for ${stdenv.system}";
