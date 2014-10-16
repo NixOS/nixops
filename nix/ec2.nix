@@ -81,6 +81,16 @@ let
         '';
       };
 
+      encryptionType = mkOption {
+        default = "luks";
+        type = types.enum [ "luks" "ebs" ];
+        description = ''
+          Whether the EBS volume should be encrypted using LUKS or on the
+          underlying EBS volume (Amazon EBS feature). Possible values are
+          "luks" (default) and "ebs".
+        '';
+      };
+
       cipher = mkOption {
         default = "aes-cbc-essiv:sha256";
         type = types.str;
@@ -469,7 +479,7 @@ in
 
     deployment.ec2.blockDeviceMapping = mkFixStrictness (listToAttrs
       (map (fs: nameValuePair (dmToDevice fs.device)
-        { inherit (fs.ec2) disk size deleteOnTermination encrypt cipher keySize passphrase iops volumeType;
+        { inherit (fs.ec2) disk size deleteOnTermination encrypt cipher keySize passphrase iops volumeType encryptionType;
           fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
         })
        (filter (fs: fs.ec2 != null) (attrValues config.fileSystems))));

@@ -64,6 +64,7 @@ class EC2Definition(MachineDefinition):
                     'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value"),
                     'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true",
                     'encrypt': xml.find("attrs/attr[@name='encrypt']/bool").get("value") == "true",
+                    'encryptionType': xml.find("attrs/attr[@name='encryptionType']/string").get("value"),
                     'passphrase': xml.find("attrs/attr[@name='passphrase']/string").get("value")}
 
         self.block_device_mapping = {_xvd_to_sd(k.get("name")): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
@@ -178,6 +179,7 @@ class EC2State(MachineState):
         block_device_mapping = {}
         for k, v in self.block_device_mapping.items():
             if (v.get('encrypt', False)
+                and v.get('encryptionType', "luks") == "luks"
                 and v.get('passphrase', "") == ""
                 and v.get('generatedKey', "") != ""):
                 block_device_mapping[_sd_to_xvd(k)] = {
@@ -212,7 +214,7 @@ class EC2State(MachineState):
         # the final nix-build). Had to hardcode the default here to
         # make the old way of defining keys work.
         for k, v in self.block_device_mapping.items():
-            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "":
+            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "" and v.get('encryptionType', "luks") == "luks":
                 keys["luks-" + _sd_to_xvd(k).replace('/dev/', '')] = { 'text': v['generatedKey'], 'group': 'root', 'permissions': '0600', 'user': 'root'}
         return keys
 
@@ -640,7 +642,7 @@ class EC2State(MachineState):
 
                 if len(volumes) == 1:
                     device = _sd_to_xvd(k)
-                    if v.get('encrypt', False):
+                    if v.get('encrypt', False) and v.get('encryptionType', "luks") == "luks":
                         dm = device.replace("/dev/", "/dev/mapper/")
                         self.run_command("umount -l {0}".format(dm), check=False)
                         self.run_command("cryptsetup luksClose {0}".format(device.replace("/dev/", "")), check=False)
@@ -903,7 +905,8 @@ class EC2State(MachineState):
             if v['disk'] == '':
                 if k in self.block_device_mapping: continue
                 self.log("creating EBS volume of {0} GiB...".format(v['size']))
-                volume = self._conn.create_volume(size=v['size'], zone=self.zone, volume_type=v['volumeType'], iops=v['iops'])
+                ebs_encrypt = v.get('encryptionType', "luks") == "ebs"
+                volume = self._conn.create_volume(size=v['size'], zone=self.zone, volume_type=v['volumeType'], iops=v['iops'], encrypted=ebs_encrypt)
                 v['volumeId'] = volume.id
 
             elif v['disk'].startswith("vol-"):
@@ -973,7 +976,7 @@ class EC2State(MachineState):
 
         # Auto-generate LUKS keys if the model didn't specify one.
         for k, v in self.block_device_mapping.items():
-            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") == "":
+            if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") == "" and v.get('encryptionType', "luks") == "luks":
                 v['generatedKey'] = nixops.util.generate_random_string(length=256)
                 self.update_block_device_mapping(k, v)
 
