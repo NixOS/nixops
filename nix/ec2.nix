@@ -469,7 +469,7 @@ in
 
     deployment.ec2.blockDeviceMapping = mkFixStrictness (listToAttrs
       (map (fs: nameValuePair (dmToDevice fs.device)
-        { inherit (fs.ec2) disk size deleteOnTermination encrypt cipher keySize passphrase iops;
+        { inherit (fs.ec2) disk size deleteOnTermination encrypt cipher keySize passphrase iops volumeType;
           fsType = if fs.fsType != "auto" then fs.fsType else fs.ec2.fsType;
         })
        (filter (fs: fs.ec2 != null) (attrValues config.fileSystems))));
