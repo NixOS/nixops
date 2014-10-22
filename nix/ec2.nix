@@ -195,17 +195,6 @@ in
       '';
     };
 
-    deployment.ec2.controller = mkOption {
-      example = https://ec2.eu-west-1.amazonaws.com/;
-      type = types.str;
-      description = ''
-        URI of an Amazon EC2-compatible cloud controller web service,
-        used to create and manage virtual machines.  If you're using
-        EC2, it's more convenient to set
-        <option>deployment.ec2.region</option>.
-      '';
-    };
-
     deployment.ec2.region = mkOption {
       default = "";
       example = "us-east-1";
@@ -213,7 +202,6 @@ in
       description = ''
         Amazon EC2 region in which the instance is to be deployed.
         This option only applies when using EC2.  It implicitly sets
-        <option>deployment.ec2.controller</option> and
         <option>deployment.ec2.ami</option>.
       '';
     };
@@ -445,8 +433,6 @@ in
     nixpkgs.system = mkOverride 900 "x86_64-linux";
 
     boot.loader.grub.extraPerEntryConfig = mkIf isEc2Hvm ( mkOverride 10 "root (hd0,0)" );
-
-    deployment.ec2.controller = mkDefault "https://ec2.${cfg.region}.amazonaws.com/";
 
     deployment.ec2.ami = mkDefault (
       let

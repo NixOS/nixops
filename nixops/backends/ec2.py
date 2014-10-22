@@ -38,7 +38,6 @@ class EC2Definition(MachineDefinition):
         self.type = x.find("attr[@name='type']/string").get("value")
         self.region = x.find("attr[@name='region']/string").get("value")
         self.zone = x.find("attr[@name='zone']/string").get("value")
-        self.controller = x.find("attr[@name='controller']/string").get("value")
         self.ami = x.find("attr[@name='ami']/string").get("value")
         if self.ami == "":
             raise Exception("no AMI defined for EC2 machine ‘{0}’".format(self.name))
@@ -96,7 +95,6 @@ class EC2State(MachineState):
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
     region = nixops.util.attr_property("ec2.region", None)
     zone = nixops.util.attr_property("ec2.zone", None)
-    controller = nixops.util.attr_property("ec2.controller", None)  # FIXME: not used
     ami = nixops.util.attr_property("ec2.ami", None)
     instance_type = nixops.util.attr_property("ec2.instanceType", None)
     key_pair = nixops.util.attr_property("ec2.keyPair", None)
@@ -135,7 +133,6 @@ class EC2State(MachineState):
             self.elastic_ipv4 = None
             self.region = None
             self.zone = None
-            self.controller = None
             self.ami = None
             self.instance_type = None
             self.key_pair = None
@@ -790,7 +787,6 @@ class EC2State(MachineState):
 
             with self.depl._db:
                 self.vm_id = instance.id
-                self.controller = defn.controller
                 self.ami = defn.ami
                 self.instance_type = defn.instance_type
                 self.key_pair = defn.key_pair
