@@ -1,4 +1,4 @@
-# Configuration specific to the EC2/Nova/Eucalyptus backend.
+# Configuration specific to the EC2 backend.
 
 { config, pkgs, utils, ... }:
 
@@ -192,17 +192,6 @@ in
         environment variables environment variables
         <envar>EC2_SECRET_KEY</envar> or
         <envar>AWS_SECRET_ACCESS_KEY</envar> are used.
-      '';
-    };
-
-    deployment.ec2.type = mkOption {
-      default = "ec2";
-      example = "nova";
-      type = types.str;
-      description = ''
-        Specifies the type of cloud.  This affects the machine
-        configuration.  Current values are <literal>"ec2"</literal>
-        and <literal>"nova"</literal>.
       '';
     };
 
