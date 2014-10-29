@@ -49,7 +49,7 @@ documentation of the Valgrind package.</para>
 options that tell NixOps to what environment it should be deployed.
 <xref linkend="ex-physical-vbox.nix" /> specifies that
 <literal>webserver</literal> should be deployed as a VirtualBox
-instance.</para>
+instance. Note that for this to work the <literal>vboxnet0</literal> network has to exist - you can add it in the VirtualBox general settings under <emphasis>Networks - Host-only Networks</emphasis> if necessary.</para>
 
 <example xml:id="ex-physical-vbox.nix">
   <title><filename>trivial-vbox.nix</filename>: VirtualBox physical network specification</title>
