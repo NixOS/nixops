@@ -35,7 +35,6 @@ class EC2Definition(MachineDefinition):
         x = xml.find("attrs/attr[@name='ec2']/attrs")
         assert x is not None
         self.access_key_id = x.find("attr[@name='accessKeyId']/string").get("value")
-        self.type = x.find("attr[@name='type']/string").get("value")
         self.region = x.find("attr[@name='region']/string").get("value")
         self.zone = x.find("attr[@name='zone']/string").get("value")
         self.ami = x.find("attr[@name='ami']/string").get("value")
