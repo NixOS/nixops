@@ -656,7 +656,6 @@ class EC2State(MachineState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, EC2Definition)
-        assert defn.type == "ec2"
 
         if self.state != self.UP:
             check = True
