@@ -882,7 +882,6 @@ class EC2State(MachineState):
         # Detect if volumes were manually destroyed.
         for k, v in self.block_device_mapping.items():
             if v.get('needsAttach', False):
-                print v['volumeId']
                 volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'], allow_missing=True)
                 if volume: continue
                 if not allow_recreate:
@@ -931,6 +930,10 @@ class EC2State(MachineState):
                 v['volumeId'] = volume.id
 
             else:
+                if k in self.block_device_mapping:
+                    v['needsAttach'] = False
+                    self.update_block_device_mapping(k, v)
+                    continue
                 raise Exception("adding device mapping ‘{0}’ to a running instance is not (yet) supported".format(v['disk']))
 
             # ‘charonDeleteOnTermination’ denotes whether we have to
