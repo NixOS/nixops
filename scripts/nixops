@@ -700,7 +700,7 @@ def add_common_deployment_options(subparser):
 subparser = add_subparser('deploy', help='deploy the network configuration')
 subparser.set_defaults(op=op_deploy)
 subparser.add_argument('--kill-obsolete', '-k', action='store_true', help='kill obsolete virtual machines')
-subparser.add_argument('--dry-run', action='store_true', help='show what would be done')
+subparser.add_argument('--dry-run', action='store_true', help='show what will be built')
 subparser.add_argument('--repair', action='store_true', help='use --repair when calling nix-build (slow)')
 subparser.add_argument('--build-only', action='store_true', help='build only; do not perform deployment actions')
 subparser.add_argument('--create-only', action='store_true', help='exit after creating missing machines')
