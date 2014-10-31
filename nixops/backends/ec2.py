@@ -737,6 +737,7 @@ class EC2State(MachineState):
             if resize_root:
                 devmap[root_device] = ami.block_device_mapping[root_device]
                 devmap[root_device].size = defn.root_disk_size
+                devmap[root_device].encrypted = None
 
             # If we're attaching any EBS volumes, then make sure that
             # we create the instance in the right placement zone.
