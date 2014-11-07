@@ -388,6 +388,7 @@ class CheckResult(object):
 
 
 import nixops.backends.none
+import nixops.backends.libvirtd
 import nixops.backends.virtualbox
 import nixops.backends.ec2
 import nixops.backends.gce
@@ -419,6 +420,7 @@ def create_definition(xml):
               nixops.backends.ec2.EC2Definition,
               nixops.backends.hetzner.HetznerDefinition,
               nixops.backends.gce.GCEDefinition,
+              nixops.backends.libvirtd.LibvirtdDefinition,
               nixops.backends.container.ContainerDefinition]:
         if target_env == i.get_type():
             return i(xml)
@@ -428,6 +430,7 @@ def create_state(depl, type, name, id):
     """Create a resource state object of the desired type."""
     for i in [nixops.backends.none.NoneState,
               nixops.backends.virtualbox.VirtualBoxState,
+              nixops.backends.libvirtd.LibvirtdState,
               nixops.backends.ec2.EC2State,
               nixops.backends.gce.GCEState,
               nixops.backends.hetzner.HetznerState,
