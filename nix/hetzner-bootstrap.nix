@@ -101,7 +101,7 @@ in stdenv.mkDerivation {
     longDescription = ''
       It works like this:
 
-      Preapare a base image with reference graph, which is to be copied over to
+      Prepare a base image with reference graph, which is to be copied over to
       the mount point and contains wrappers for the system outside the mount
       point. Those wrappers basically just chroot into the mountpoint path and
       execute the corresponding counterparts over there. The base derivation
