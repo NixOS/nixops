@@ -57,7 +57,7 @@ $ nix-install-package --non-interactive --url <replaceable>url</replaceable>
   e.g. <uri>http://hydra.nixos.org/build/5387007/nix/pkg/nixops-1.0pre716_8440d7c-x86_64-linux.nixpkg</uri>.</para>
 
   <para>You can also install the <link
-  xlink:href="http://hydra.nixos.org/job/nixops/master/build/latest-for/x86_64-linux">
+		  xlink:href="http://hydra.nixos.org/jobset/nixops/master#tabs-jobs">
   latest unstable build</link> in the same way.</para>
 
   </listitem>
