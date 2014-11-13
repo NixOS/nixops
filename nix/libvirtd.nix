@@ -41,7 +41,7 @@ in
   options = {
     deployment.libvirtd.imageDir = mkOption {
       type = types.path;
-      example = "/var/lib/libvirt/images";
+      default = "/var/lib/libvirt/images";
       description = ''
         Directory to store VM image files. Note that it should be writable both by you and by libvirtd daemon.
       '';
