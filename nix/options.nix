@@ -21,6 +21,7 @@ in
       ./gce.nix
       ./hetzner.nix
       ./container.nix
+      ./libvirtd.nix
     ];
 
 
