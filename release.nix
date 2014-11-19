@@ -37,7 +37,9 @@ rec {
 
     postUnpack = ''
       # Clean up when building from a working tree.
-      (cd $sourceRoot && (git ls-files -o | xargs -r rm -v))
+      if [ -d $sourceRoot/.git ]; then
+        (cd $sourceRoot && (git ls-files -o | xargs -r rm -v))
+      fi
     '';
 
     distPhase =
