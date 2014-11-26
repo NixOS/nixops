@@ -64,7 +64,6 @@ in
     };
 
     deployment.libvirtd.baseImage = mkOption {
-      default = ssh_image;
       example = "/home/alice/base-disk.qcow2";
       type = types.path;
       description = ''
@@ -83,6 +82,7 @@ in
   ###### implementation
 
   config = mkIf (config.deployment.targetEnv == "libvirtd") {
+    deployment.libvirtd.baseImage = pkgs.lib.mkDefault ssh_image;
 
     nixpkgs.system = mkOverride 900 "x86_64-linux";
 
