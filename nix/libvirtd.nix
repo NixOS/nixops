@@ -64,6 +64,7 @@ in
     };
 
     deployment.libvirtd.baseImage = mkOption {
+      default = null;
       example = "/home/alice/base-disk.qcow2";
       type = types.path;
       description = ''
