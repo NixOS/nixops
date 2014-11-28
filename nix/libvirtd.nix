@@ -66,7 +66,7 @@ in
     deployment.libvirtd.baseImage = mkOption {
       default = null;
       example = "/home/alice/base-disk.qcow2";
-      type = types.path;
+      type = with types; nullOr path;
       description = ''
         The disk is created using the specified
         disk image as a base.
