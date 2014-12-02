@@ -595,7 +595,7 @@ class EC2State(MachineState):
             self.spot_instance_price = defn.spot_instance_price
             self.spot_instance_request_id = request.id
 
-            self.log_start("Waiting for spot instance request to be fulfilled. ")
+            self.log_start("waiting for spot instance request to be fulfilled... ")
             def check_request():
                 req = self._get_spot_instance_request_by_id(request.id)
                 self.log_continue("[{0}] ".format(req.status.code))
