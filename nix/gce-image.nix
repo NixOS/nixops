@@ -1,5 +1,4 @@
 { config, pkgs, uuid, name, ... }:
-L
 with pkgs.lib;
 with (import ./lib.nix pkgs);
 {
