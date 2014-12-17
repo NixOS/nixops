@@ -1,5 +1,5 @@
 { config, pkgs, uuid, name, ... }:
-
+L
 with pkgs.lib;
 with (import ./lib.nix pkgs);
 {
@@ -14,7 +14,7 @@ with (import ./lib.nix pkgs);
     };
 
     sourceUri = mkOption {
-      example = "gs://nixos/nixos-14.10pre-git-x86_64-linux.raw.tar.gz";
+      example = "gs://nixos-images/nixos-14.10pre-git-x86_64-linux.raw.tar.gz";
       type = types.str;
       description = "The full Google Cloud Storage URL where the disk image is stored.";
     };

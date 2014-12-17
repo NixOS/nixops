@@ -102,7 +102,7 @@ rec {
     let gce = (scrubOptionValue depl).config.deployment.gce; in (
       nameValuePair ("bootstrap") [{
         inherit (gce) project serviceAccount accessKey;
-        sourceUri = "gs://nixos/nixos-14.10pre-git-x86_64-linux.raw.tar.gz";
+        sourceUri = "gs://nixos-images/nixos-14.10pre-git-x86_64-linux.raw.tar.gz";
       }]
     )
   );
