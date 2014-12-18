@@ -147,7 +147,7 @@ class SSH(object):
             self._ssh_master.shutdown()
             self._ssh_master = None
 
-    def get_master(self, flags=[], tries=5):
+    def get_master(self, flags=[], timeout=None):
         """
         Start (if necessary) an SSH master connection to speed up subsequent
         SSH sessions. Returns the SSHMaster instance on success.
@@ -155,6 +155,11 @@ class SSH(object):
         flags = flags + self._get_flags()
         if self._ssh_master is not None:
             return weakref.proxy(self._ssh_master)
+
+        tries = 5
+        if timeout is not None:
+            flags = flags + ["-o", "ConnectTimeout={0}".format(timeout)]
+            tries = 1
 
         while True:
             try:
@@ -166,6 +171,7 @@ class SSH(object):
                 if tries == 0:
                     raise
                 pass
+
         return weakref.proxy(self._ssh_master)
 
     def _sanitize_command(self, command, allow_ssh_args):
@@ -203,11 +209,7 @@ class SSH(object):
 
         'timeout' specifies the SSH connection timeout.
         """
-        tries = 5
-        if timeout is not None:
-            flags = flags + ["-o", "ConnectTimeout={0}".format(timeout)]
-            tries = 1
-        master = self.get_master(flags, tries)
+        master = self.get_master(flags, timeout)
         flags = flags + self._get_flags()
         if logged:
             flags.append("-x")
