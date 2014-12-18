@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import atexit
 import os
 import shlex
 import subprocess
@@ -21,13 +22,15 @@ class SSHCommandFailed(nixops.util.CommandFailed):
 
 class SSHMaster(object):
     def __init__(self, target, logger, ssh_flags, passwd):
-        self._tempdir = mkdtemp(prefix="nixops-tmp")
+        self._running = False
+        self._tempdir = nixops.util.SelfDeletingDir(mkdtemp(prefix="nixops-tmp"))
         self._askpass_helper = None
         self._control_socket = self._tempdir + "/ssh-master-socket"
         self._ssh_target = target
         pass_prompts = 0 if "-i" in ssh_flags else 3
         kwargs = {}
         additional_opts = []
+
         if passwd is not None:
             self._askpass_helper = self._make_askpass_helper()
             newenv = dict(os.environ)
@@ -44,10 +47,12 @@ class SSHMaster(object):
             # key checking just because a password is supplied.
             additional_opts = ['-oUserKnownHostsFile=/dev/null',
                                '-oStrictHostKeyChecking=no']
+
         cmd = ["ssh", "-x", self._ssh_target, "-S",
                self._control_socket, "-M", "-N", "-f",
                '-oNumberOfPasswordPrompts={0}'.format(pass_prompts),
                '-oServerAliveInterval=60'] + additional_opts
+
         res = subprocess.call(cmd + ssh_flags, **kwargs)
         if res != 0:
             raise SSHConnectionFailed(
@@ -55,6 +60,14 @@ class SSHMaster(object):
                 "‘{0}’".format(target)
             )
         self.opts = ["-oControlPath={0}".format(self._control_socket)]
+
+        self._running = True
+
+        weakself = weakref.ref(self)
+        def maybe_shutdown():
+            if weakself is not None:
+                weakself().shutdown()
+        atexit.register(maybe_shutdown)
 
     def _make_askpass_helper(self):
         """
@@ -74,6 +87,8 @@ sys.stdout.write(os.environ['NIXOPS_SSH_PASSWORD'])""".format(sys.executable))
         """
         Shutdown master process and clean up temporary files.
         """
+        if not self._running: return
+        self._running = False
         subprocess.call(["ssh", self._ssh_target, "-S",
                          self._control_socket, "-O", "exit"],
                         stderr=nixops.util.devnull)
@@ -84,10 +99,6 @@ sys.stdout.write(os.environ['NIXOPS_SSH_PASSWORD'])""".format(sys.executable))
                 os.unlink(to_unlink)
             except OSError:
                 pass
-        try:
-            os.rmdir(self._tempdir)
-        except OSError:
-            pass
 
     def __del__(self):
         self.shutdown()

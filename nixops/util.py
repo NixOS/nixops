@@ -236,6 +236,7 @@ class SelfDeletingDir(str):
         except AttributeError:
             pass
 
+
 class TeeStderr(StringIO):
     stderr = None
     def __init__(self):
@@ -253,6 +254,7 @@ class TeeStderr(StringIO):
         return self.stderr.fileno()
     def isatty(self):
         return self.stderr.isatty()
+
 
 class TeeStdout(StringIO):
     stdout = None
@@ -291,6 +293,7 @@ def which(program):
                 return exe_file
 
     raise Exception("program ‘{0}’ not found in \$PATH".format(program))
+
 
 def enum(**enums):
     return type('Enum', (), enums)
