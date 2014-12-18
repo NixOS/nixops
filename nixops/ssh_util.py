@@ -2,11 +2,10 @@
 import os
 import shlex
 import subprocess
-import weakref
 import sys
-
+import time
+import weakref
 from tempfile import mkdtemp
-
 import nixops.util
 
 __all__ = ['SSHConnectionFailed', 'SSHCommandFailed', 'SSH']
@@ -164,8 +163,10 @@ class SSH(object):
         if self._host_fun() == "localhost":
             tries = 1
 
+        sleep_time = 1
         while True:
             try:
+                started_at = time.time()
                 self._ssh_master = SSHMaster(self._get_target(), self._logger,
                                              flags, self._get_passwd())
                 break
@@ -173,6 +174,9 @@ class SSH(object):
                 tries = tries - 1
                 if tries == 0:
                     raise
+                self._logger.log("could not connect to ‘{0}’, retrying in {1} seconds...".format(self._get_target(), sleep_time))
+                time.sleep(sleep_time)
+                sleep_time = sleep_time * 2
                 pass
 
         return weakref.proxy(self._ssh_master)
