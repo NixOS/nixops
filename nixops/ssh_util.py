@@ -161,6 +161,9 @@ class SSH(object):
             flags = flags + ["-o", "ConnectTimeout={0}".format(timeout)]
             tries = 1
 
+        if self._host_fun() == "localhost":
+            tries = 1
+
         while True:
             try:
                 self._ssh_master = SSHMaster(self._get_target(), self._logger,
