@@ -51,7 +51,8 @@ class SSHMaster(object):
         cmd = ["ssh", "-x", self._ssh_target, "-S",
                self._control_socket, "-M", "-N", "-f",
                '-oNumberOfPasswordPrompts={0}'.format(pass_prompts),
-               '-oServerAliveInterval=60'] + additional_opts
+               '-oServerAliveInterval=60',
+               '-oControlPersist=600'] + additional_opts
 
         res = subprocess.call(cmd + ssh_flags, **kwargs)
         if res != 0:
