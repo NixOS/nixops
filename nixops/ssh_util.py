@@ -40,6 +40,8 @@ class SSHMaster(object):
             kwargs['stdin'] = nixops.util.devnull
             kwargs['preexec_fn'] = os.setsid
             pass_prompts = 1
+            # FIXME: Remove this. It makes no sense to turn of host
+            # key checking just because a password is supplied.
             additional_opts = ['-oUserKnownHostsFile=/dev/null',
                                '-oStrictHostKeyChecking=no']
         cmd = ["ssh", "-x", self._ssh_target, "-S",
