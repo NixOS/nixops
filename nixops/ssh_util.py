@@ -66,8 +66,9 @@ class SSHMaster(object):
 
         weakself = weakref.ref(self)
         def maybe_shutdown():
-            if weakself is not None:
-                weakself().shutdown()
+            realself = weakself()
+            if realself is not None:
+                realself.shutdown()
         atexit.register(maybe_shutdown)
 
     def _make_askpass_helper(self):
