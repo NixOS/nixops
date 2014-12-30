@@ -437,7 +437,7 @@ in
     deployment.ec2.ami = mkDefault (
       let
         type = if isEc2Hvm then "hvm" else if cfg.ebsBoot then "ebs" else "s3";
-        amis' = amis."${nixosVersion}" or amis."14.04"; # default to 14.04 images
+        amis' = amis."${nixosVersion}" or amis."14.12"; # default to 14.12 images
       in
         with builtins;
         if hasAttr cfg.region amis' then
