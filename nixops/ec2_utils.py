@@ -51,7 +51,7 @@ def get_access_key_id():
     return os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
 
 
-def retry(f, error_codes=[]):
+def retry(f, error_codes=[], logger=None):
     """
         Retry function f up to 7 times. If error_codes argument is empty list, retry on all EC2 response errors,
         otherwise, only on the specified error codes.
@@ -60,6 +60,8 @@ def retry(f, error_codes=[]):
     def handle_exception(e):
         if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
             raise e
+        if logger is not None:
+            logger.log("got (possibly transient) EC2 error code ‘{0}’, retrying...".format(e.error_code))
 
     i = 0
     num_retries = 7

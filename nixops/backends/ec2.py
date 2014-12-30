@@ -232,6 +232,10 @@ class EC2State(MachineState):
         return MachineState.address_to(self, m)
 
 
+    def _retry(self, fun, **kwargs):
+        return nixops.ec2_utils.retry(fun, logger=self, **kwargs)
+
+
     def connect(self):
         if self._conn: return self._conn
         self._conn = nixops.ec2_utils.connect(self.region, self.access_key_id)
@@ -246,6 +250,7 @@ class EC2State(MachineState):
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.route53_access_key_id)
 
         self._conn_route53 = boto.connect_route53(access_key_id, secret_access_key)
+
 
     def _get_spot_instance_request_by_id(self, request_id, allow_missing=False):
         """Get spot instance request object by id."""
@@ -360,7 +365,7 @@ class EC2State(MachineState):
                         self.warn('snapshot {0} not found, skipping'.format(snapshot_id))
                     if not snapshot is None:
                         self.log('removing snapshot {0}'.format(snapshot_id))
-                        nixops.ec2_utils.retry(lambda: snapshot.delete())
+                        self._retry(lambda: snapshot.delete())
 
             _backups.pop(backup_id)
             self.backups = _backups
@@ -371,6 +376,7 @@ class EC2State(MachineState):
                 'CharonMachineName': self.name,
                 'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file)}
 
+
     def backup(self, defn, backup_id):
         self.connect()
 
@@ -378,7 +384,7 @@ class EC2State(MachineState):
         backup = {}
         _backups = self.backups
         for k, v in self.block_device_mapping.items():
-            snapshot = nixops.ec2_utils.retry(lambda: self._conn.create_snapshot(volume_id=v['volumeId']))
+            snapshot = self._retry(lambda: self._conn.create_snapshot(volume_id=v['volumeId']))
             self.log("+ created snapshot of volume ‘{0}’: ‘{1}’".format(v['volumeId'], snapshot.id))
 
             snapshot_tags = {}
@@ -386,7 +392,7 @@ class EC2State(MachineState):
             snapshot_tags.update(self.get_common_tags())
             snapshot_tags['Name'] = "{0} - {3} [{1} - {2}]".format(self.depl.description, self.name, k, backup_id)
 
-            nixops.ec2_utils.retry(lambda: self._conn.create_tags([snapshot.id], snapshot_tags))
+            self._retry(lambda: self._conn.create_tags([snapshot.id], snapshot_tags))
             backup[k] = snapshot.id
         _backups[backup_id] = backup
         self.backups = _backups
@@ -582,7 +588,7 @@ class EC2State(MachineState):
             common_args['security_groups'] = defn.security_groups
 
         if defn.spot_instance_price:
-            request = nixops.ec2_utils.retry(
+            request = self._retry(
                 lambda: self._conn.request_spot_instances(price=defn.spot_instance_price/100.0, **common_args)
             )[0]
 
@@ -590,7 +596,7 @@ class EC2State(MachineState):
             tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
             tags.update(defn.tags)
             tags.update(common_tags)
-            nixops.ec2_utils.retry(lambda: self._conn.create_tags([request.id], tags))
+            self._retry(lambda: self._conn.create_tags([request.id], tags))
 
             self.spot_instance_price = defn.spot_instance_price
             self.spot_instance_request_id = request.id
@@ -611,11 +617,11 @@ class EC2State(MachineState):
 
             request = self._get_spot_instance_request_by_id(request.id)
 
-            instance = nixops.ec2_utils.retry(lambda: self._get_instance_by_id(request.instance_id))
+            instance = self._retry(lambda: self._get_instance_by_id(request.instance_id))
 
             return instance
         else:
-            reservation = nixops.ec2_utils.retry(lambda: self._conn.run_instances(
+            reservation = self._retry(lambda: self._conn.run_instances(
                 client_token=self.client_token, **common_args), error_codes = ['InvalidParameterValue', 'UnauthorizedOperation' ])
 
             assert len(reservation.instances) == 1
@@ -840,7 +846,7 @@ class EC2State(MachineState):
         tags.update(defn.tags)
         tags.update(common_tags)
         if check or self.tags != tags:
-            nixops.ec2_utils.retry(lambda: self._conn.create_tags([self.vm_id], tags))
+            self._retry(lambda: self._conn.create_tags([self.vm_id], tags))
             # TODO: remove obsolete tags?
             self.tags = tags
 
@@ -961,7 +967,7 @@ class EC2State(MachineState):
             volume_tags.update(defn.tags)
             volume_tags['Name'] = "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))
             if ('disk' in v and not v['disk'].startswith("ephemeral")) or 'partOfImage' in v:
-                nixops.ec2_utils.retry(lambda: self._conn.create_tags([v['volumeId']], volume_tags))
+                self._retry(lambda: self._conn.create_tags([v['volumeId']], volume_tags))
 
         # Attach missing volumes.
         for k, v in self.block_device_mapping.items():
