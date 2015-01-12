@@ -72,6 +72,9 @@ class S3BucketState(nixops.resources.ResourceState):
         if not self.access_key_id:
             raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
+        if len(defn.bucket_name) > 63:
+            raise Exception("bucket name ‘{0}’ is longer than 63 characters.".format(defn.bucket_name))
+
         if check or self.state != self.UP:
 
             self.connect()
