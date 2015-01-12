@@ -154,6 +154,7 @@ let
    || cfg.instanceType == "cr1.8xlarge"
    || builtins.substring 0 2 cfg.instanceType == "i2"
    || builtins.substring 0 2 cfg.instanceType == "c3"
+   || builtins.substring 0 2 cfg.instanceType == "c4"
    || builtins.substring 0 2 cfg.instanceType == "r3"
    || builtins.substring 0 2 cfg.instanceType == "m3";
 
