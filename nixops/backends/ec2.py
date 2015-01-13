@@ -605,17 +605,15 @@ class EC2State(MachineState):
             tags.update(common_tags)
             self._retry(lambda: self._conn.create_tags([self.spot_instance_request_id], tags))
 
-            request = [None]
-            def check_request():
-                request[0] = self._get_spot_instance_request_by_id(self.spot_instance_request_id)
-                self.log_continue("[{0}] ".format(request[0].status.code))
-                return request[0].status.code == "fulfilled"
-
             self.log_start("waiting for spot instance request ‘{0}’ to be fulfilled... ".format(self.spot_instance_request_id))
-            nixops.util.check_wait(test=check_request)
+            while True:
+                request = self._get_spot_instance_request_by_id(self.spot_instance_request_id)
+                self.log_continue("[{0}] ".format(request.status.code))
+                if request.status.code == "fulfilled": break
+                time.sleep(3)
             self.log_end("")
 
-            instance = self._retry(lambda: self._get_instance_by_id(request[0].instance_id))
+            instance = self._retry(lambda: self._get_instance_by_id(request.instance_id))
 
             return instance
         else:
