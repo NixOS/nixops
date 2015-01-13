@@ -588,44 +588,80 @@ class EC2State(MachineState):
             common_args['security_groups'] = defn.security_groups
 
         if defn.spot_instance_price:
-            request = self._retry(
-                lambda: self._conn.request_spot_instances(price=defn.spot_instance_price/100.0, **common_args)
-            )[0]
+            if self.spot_instance_request_id is None:
+                # FIXME: Should use a client token here, but
+                # request_spot_instances doesn't support one.
+                request = self._retry(
+                    lambda: self._conn.request_spot_instances(price=defn.spot_instance_price/100.0, **common_args)
+                )[0]
+
+                with self.depl._db:
+                    self.spot_instance_price = defn.spot_instance_price
+                    self.spot_instance_request_id = request.id
 
             common_tags = self.get_common_tags()
             tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
             tags.update(defn.tags)
             tags.update(common_tags)
-            self._retry(lambda: self._conn.create_tags([request.id], tags))
+            self._retry(lambda: self._conn.create_tags([self.spot_instance_request_id], tags))
 
-            self.spot_instance_price = defn.spot_instance_price
-            self.spot_instance_request_id = request.id
-
-            self.log_start("waiting for spot instance request to be fulfilled... ")
+            request = [None]
             def check_request():
-                req = self._get_spot_instance_request_by_id(request.id)
-                self.log_continue("[{0}] ".format(req.status.code))
-                return req.status.code == "fulfilled"
+                request[0] = self._get_spot_instance_request_by_id(self.spot_instance_request_id)
+                self.log_continue("[{0}] ".format(request[0].status.code))
+                return request[0].status.code == "fulfilled"
+
+            self.log_start("waiting for spot instance request ‘{0}’ to be fulfilled... ".format(self.spot_instance_request_id))
+            nixops.util.check_wait(test=check_request)
             self.log_end("")
 
-            try:
-                nixops.util.check_wait(test=check_request)
-            finally:
-                # cancel spot instance request, it isn't needed after instance is provisioned
-                self.spot_instance_request_id = None
-                self._conn.cancel_spot_instance_requests([request.id])
-
-            request = self._get_spot_instance_request_by_id(request.id)
-
-            instance = self._retry(lambda: self._get_instance_by_id(request.instance_id))
+            instance = self._retry(lambda: self._get_instance_by_id(request[0].instance_id))
 
             return instance
         else:
+            # Use a client token to ensure that instance creation is
+            # idempotent; i.e., if we get interrupted before recording
+            # the instance ID, we'll get the same instance ID on the
+            # next run.
+            if not self.client_token:
+                with self.depl._db:
+                    self.client_token = nixops.util.generate_random_string(length=48) # = 64 ASCII chars
+                    self.state = self.STARTING
+
             reservation = self._retry(lambda: self._conn.run_instances(
                 client_token=self.client_token, **common_args), error_codes = ['InvalidParameterValue', 'UnauthorizedOperation' ])
 
             assert len(reservation.instances) == 1
             return reservation.instances[0]
+
+
+    def _cancel_spot_request(self):
+        if self.spot_instance_request_id is None: return
+        self.log_start("cancelling spot instance request ‘{0}’... ".format(self.spot_instance_request_id))
+
+        # Cancel the request.
+        request = self._get_spot_instance_request_by_id(self.spot_instance_request_id, allow_missing=True)
+        if request is not None:
+            request.cancel()
+
+        # Wait until it's really cancelled. It's possible that the
+        # request got fulfilled while we were cancelling it. In that
+        # case, record the instance ID.
+        while True:
+            request = self._get_spot_instance_request_by_id(self.spot_instance_request_id, allow_missing=True)
+            if request is None: break
+            self.log_continue("[{0}] ".format(request.status.code))
+            if request.instance_id is not None and request.instance_id != self.vm_id:
+                if self.vm_id is not None:
+                    raise Exception("spot instance request got fulfilled unexpectedly as instance ‘{0}’".format(request.instance_id))
+                self.vm_id = request.instance_id
+            if request.state != 'open': break
+            time.sleep(3)
+
+        self.log_end("")
+
+        self.spot_instance_request_id = None
+
 
     def after_activation(self, defn):
         # Detach volumes that are no longer in the deployment spec.
@@ -779,15 +815,6 @@ class EC2State(MachineState):
             user_data = "SSH_HOST_DSA_KEY_PUB:{0}\nSSH_HOST_DSA_KEY:{1}\n".format(
                 self.public_host_key, self.private_host_key.replace("\n", "|"))
 
-            # Use a client token to ensure that instance creation is
-            # idempotent; i.e., if we get interrupted before recording
-            # the instance ID, we'll get the same instance ID on the
-            # next run.
-            if not self.client_token:
-                with self.depl._db:
-                    self.client_token = nixops.util.generate_random_string(length=48) # = 64 ASCII chars
-                    self.state = self.STARTING
-
             instance = self.create_instance(defn, zone, devmap, user_data, ebs_optimized)
 
             with self.depl._db:
@@ -800,6 +827,10 @@ class EC2State(MachineState):
                 self.zone = instance.placement
                 self.client_token = None
                 self.private_host_key = None
+
+            # Cancel spot instance request, it isn't needed after the
+            # instance has been provisioned.
+            self._cancel_spot_request()
 
         # There is a short time window during which EC2 doesn't
         # know the instance ID yet.  So wait until it does.
@@ -1080,6 +1111,8 @@ class EC2State(MachineState):
 
 
     def destroy(self, wipe=False):
+        self._cancel_spot_request()
+
         if not (self.vm_id or self.client_token): return True
         if not self.depl.logger.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
 
