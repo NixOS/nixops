@@ -453,7 +453,7 @@ class EC2State(MachineState):
             self.depl.logger.confirm("volume ‘{0}’ is in use by instance ‘{1}’, "
                                      "are you sure you want to attach this volume?".format(volume_id, volume.attach_data.instance_id)):
 
-            self.log_start("detaching volume ‘{0}’ from instance ‘{1}’...".format(volume_id, volume.attach_data.instance_id))
+            self.log_start("detaching volume ‘{0}’ from instance ‘{1}’... ".format(volume_id, volume.attach_data.instance_id))
             volume.detach()
 
             def check_available():
@@ -469,7 +469,7 @@ class EC2State(MachineState):
                 volume.detach(True)
                 nixops.util.check_wait(check_available)
 
-        self.log_start("attaching volume ‘{0}’ as ‘{1}’...".format(volume_id, _sd_to_xvd(device)))
+        self.log_start("attaching volume ‘{0}’ as ‘{1}’... ".format(volume_id, _sd_to_xvd(device)))
         if self.vm_id != volume.attach_data.instance_id:
             # Attach it.
             self._conn.attach_volume(volume_id, self.vm_id, device)
