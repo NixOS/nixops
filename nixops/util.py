@@ -24,12 +24,12 @@ def check_wait(test, initial=10, factor=1, max_tries=60, exception=True):
     wait = initial
     tries = 0
     while tries < max_tries and not test():
-        time.sleep(wait)
         wait = wait * factor
         tries = tries + 1
         if tries == max_tries:
             if exception: raise Exception("operation timed out")
             return False
+        time.sleep(wait)
     return True
 
 
