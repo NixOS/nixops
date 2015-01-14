@@ -64,6 +64,15 @@
     </section>
 
     <section>
+      <title>EBS Volumes</title>
+      <para>An Amazon EBS volume is defined by setting
+      <literal>resources.ebsVolumes.<replaceable>name</replaceable></literal>
+      to an attribute set containing values for the following
+      options.</para>
+      <xi:include href="ebs-volume-options.xml" />
+    </section>
+
+    <section>
       <title>SQS Queues</title>
       <para>An Amazon SQS queue is defined by setting
       <literal>resources.sqsQueues.<replaceable>name</replaceable></literal>
