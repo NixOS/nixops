@@ -112,6 +112,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     spot_instance_request_id = nixops.util.attr_property("ec2.spotInstanceRequestId", None)
     spot_instance_price = nixops.util.attr_property("ec2.spotInstancePrice", None)
     subnet_id = nixops.util.attr_property("ec2.subnetId", None)
+    first_boot = nixops.util.attr_property("ec2.firstBoot", True, type=bool)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -873,10 +874,12 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.run_command("resize2fs {0}".format(_sd_to_xvd(root_device)))
 
         # Add disks that were in the original device mapping of image.
-        for k, dm in instance.block_device_mapping.items():
-            if k not in self.block_device_mapping and dm.volume_id:
-                bdm = {'volumeId': dm.volume_id, 'partOfImage': True}
-                self.update_block_device_mapping(k, bdm)
+        if self.first_boot:
+            for k, dm in instance.block_device_mapping.items():
+                if k not in self.block_device_mapping and dm.volume_id:
+                    bdm = {'volumeId': dm.volume_id, 'partOfImage': True}
+                    self.update_block_device_mapping(k, bdm)
+            self.first_boot = False
 
         # Detect if volumes were manually detached.  If so, reattach
         # them.
