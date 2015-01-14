@@ -99,7 +99,7 @@ def get_volume_by_id(conn, volume_id, allow_missing=False):
     return None
 
 
-def wait_for_volume_available(conn, volume_id, logger):
+def wait_for_volume_available(conn, volume_id, logger, states=['available']):
     """Wait for an EBS volume to become available."""
 
     logger.log_start("waiting for volume ‘{0}’ to become available... ".format(volume_id))
@@ -108,7 +108,7 @@ def wait_for_volume_available(conn, volume_id, logger):
         # Allow volume to be missing due to eventual consistency.
         volume = get_volume_by_id(conn, volume_id, allow_missing=True)
         logger.log_continue("[{0}] ".format(volume.status))
-        return volume.status == 'available'
+        return volume.status in states
 
     nixops.util.check_wait(check_available, max_tries=90)
 

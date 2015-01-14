@@ -19,7 +19,10 @@ class EBSVolumeDefinition(nixops.resources.ResourceDefinition):
 
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
-        self.volume_name = xml.find("attrs/attr[@name='name']/string").get("value")
+        if xml.find("attrs/attr[@name='name']/null") is None:
+            self.volume_name = xml.find("attrs/attr[@name='name']/string").get("value")
+        else:
+            self.volume_name = None
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.zone = xml.find("attrs/attr[@name='zone']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
@@ -44,6 +47,7 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
     size = nixops.util.attr_property("ec2.size", None, int)
     iops = nixops.util.attr_property("ec2.iops", None, int)
     volume_type = nixops.util.attr_property("ec2.volumeType", None)
+    volume_name = nixops.util.attr_property("ec2.volumeName", None)
 
 
     @classmethod
@@ -130,14 +134,22 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
 
             self.log("volume ID is ‘{0}’".format(volume.id))
 
-        if self.state == self.STARTING:
+        volume_tags = self.get_common_tags()
+        volume_tags['Name'] = defn.volume_name or "{0} [{1}]".format(self.depl.description, self.name)
+
+        if self.state == self.STARTING or check or self.volume_name != volume_tags['Name']:
             self.connect(self.region)
 
-            volume_tags = self.get_common_tags()
-            volume_tags['Name'] = "{0} [{1}]".format(self.depl.description, self.name)
             self._conn.create_tags([self.volume_id], volume_tags)
+            self.volume_name = volume_tags['Name']
 
-            nixops.ec2_utils.wait_for_volume_available(self._conn, self.volume_id, self.logger)
+        if self.state == self.STARTING or check:
+            self.connect(self.region)
+
+            nixops.ec2_utils.wait_for_volume_available(
+                self._conn, self.volume_id, self.logger,
+                states=['available', 'in-use'])
+
             self.state = self.UP
 
 
