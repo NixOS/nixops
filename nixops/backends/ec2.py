@@ -102,7 +102,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     instance_profile = nixops.util.attr_property("ec2.instanceProfile", None)
     security_groups = nixops.util.attr_property("ec2.securityGroups", None, 'json')
     placement_group = nixops.util.attr_property("ec2.placementGroup", None, 'json')
-    tags = nixops.util.attr_property("ec2.tags", {}, 'json')
     block_device_mapping = nixops.util.attr_property("ec2.blockDeviceMapping", {}, 'json')
     root_device_type = nixops.util.attr_property("ec2.rootDeviceType", None)
     backups = nixops.util.attr_property("ec2.backups", {}, 'json')
@@ -229,10 +228,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if isinstance(m, EC2State): # FIXME: only if we're in the same region
             return m.private_ipv4
         return MachineState.address_to(self, m)
-
-
-    def _retry(self, fun, **kwargs):
-        return nixops.ec2_utils.retry(fun, logger=self, **kwargs)
 
 
     def connect(self):
@@ -694,6 +689,12 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self.private_key_file = defn.private_key or None
         self.owners = defn.owners
 
+        if self.region is None:
+            self.region = defn.region
+        elif self.region != defn.region:
+            self.warn("cannot change region of a running instance")
+        self.connect()
+
         # Stop the instance (if allowed) to change instance attributes
         # such as the type.
         if self.vm_id and allow_reboot and self._booted_from_ebs() and self.instance_type != defn.instance_type:
@@ -703,7 +704,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # Check whether the instance hasn't been killed behind our
         # backs.  Restart stopped instances.
         if self.vm_id and check:
-            self.connect()
             instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
             if instance is None or instance.state in {"shutting-down", "terminated"}:
                 if not allow_recreate:
@@ -732,11 +732,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # Create the instance.
         if not self.vm_id:
             self.log("creating EC2 instance (AMI ‘{0}’, type ‘{1}’, region ‘{2}’)...".format(
-                defn.ami, defn.instance_type, defn.region))
+                defn.ami, defn.instance_type, self.region))
             if not self.client_token: self._reset_state()
-
-            self.region = defn.region
-            self.connect()
 
             # Figure out whether this AMI is EBS-backed.
             ami = self._conn.get_all_images([defn.ami])[0]
@@ -769,7 +766,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             for k, v in defn.block_device_mapping.iteritems():
                 if not v['disk'].startswith("vol-"): continue
                 # Make note of the placement zone of the volume.
-                volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['disk'])
+                volume = nixops.ec2_utils.get_volume_by_id(self._conn, v['disk'])
                 if not zone:
                     self.log("starting EC2 instance in zone ‘{0}’ due to volume ‘{1}’".format(
                             volume.zone, v['disk']))
@@ -831,8 +828,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # Warn about some EC2 options that we cannot update for an existing instance.
         if self.instance_type != defn.instance_type:
             self.warn("cannot change type of a running instance (use ‘--allow-reboot’)")
-        if self.region != defn.region:
-            self.warn("cannot change region of a running instance")
         if defn.zone and self.zone != defn.zone:
             self.warn("cannot change availability zone of a running instance")
         instance_groups = set([g.name for g in instance.groups])
@@ -850,18 +845,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             )
 
         # Reapply tags if they have changed.
-        common_tags = self.get_common_tags()
-
+        common_tags = defn.tags
         if self.owners != []:
             common_tags['Owners'] = ", ".join(self.owners)
-
-        tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
-        tags.update(defn.tags)
-        tags.update(common_tags)
-        if check or self.tags != tags:
-            self._retry(lambda: self._conn.create_tags([self.vm_id], tags))
-            # TODO: remove obsolete tags?
-            self.tags = tags
+        self.update_tags(self.vm_id, user_tags=common_tags, check=check)
 
         # Assign the elastic IP.  If necessary, dereference the resource.
         elastic_ipv4 = defn.elastic_ipv4
@@ -902,7 +889,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # Detect if volumes were manually destroyed.
         for k, v in self.block_device_mapping.items():
             if v.get('needsAttach', False):
-                volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'], allow_missing=True)
+                volume = nixops.ec2_utils.get_volume_by_id(self._conn, v['volumeId'], allow_missing=True)
                 if volume: continue
                 if not allow_recreate:
                     raise Exception("volume ‘{0}’ (used by EC2 instance ‘{1}’) no longer exists; "

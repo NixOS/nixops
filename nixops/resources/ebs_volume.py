@@ -19,10 +19,7 @@ class EBSVolumeDefinition(nixops.resources.ResourceDefinition):
 
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
-        if xml.find("attrs/attr[@name='name']/null") is None:
-            self.volume_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        else:
-            self.volume_name = None
+        self.tags = {k.get("name"): k.find("string").get("value") for k in xml.findall("attrs/attr[@name='tags']/attrs/attr")}
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.zone = xml.find("attrs/attr[@name='zone']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
@@ -47,7 +44,6 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
     size = nixops.util.attr_property("ec2.size", None, int)
     iops = nixops.util.attr_property("ec2.iops", None, int)
     volume_type = nixops.util.attr_property("ec2.volumeType", None)
-    volume_name = nixops.util.attr_property("ec2.volumeName", None)
 
 
     @classmethod
@@ -87,6 +83,8 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
         if not self.access_key_id:
             raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
+        self.connect(defn.region)
+
         if self._exists():
             if self.region != defn.region or self.zone != defn.zone:
                 raise Exception("changing the region or availability zone of an EBS volume is not supported")
@@ -101,8 +99,6 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
                 raise Exception("changing the IOPS of an EBS volume is currently not supported")
 
         if self.state == self.MISSING:
-
-            self.connect(defn.region)
 
             if defn.size == 0 and defn.snapshot != "":
                 snapshots = self._conn.get_all_snapshots(snapshot_ids=[defn.snapshot])
@@ -133,31 +129,21 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
 
             self.log("volume ID is ‘{0}’".format(volume.id))
 
-        volume_tags = self.get_common_tags()
-        volume_tags['Name'] = defn.volume_name or "{0} [{1}]".format(self.depl.description, self.name)
-
-        if self.state == self.STARTING or check or self.volume_name != volume_tags['Name']:
-            self.connect(self.region)
-
-            self._conn.create_tags([self.volume_id], volume_tags)
-            self.volume_name = volume_tags['Name']
+        self.update_tags(self.volume_id, user_tags=defn.tags, check=check)
 
         if self.state == self.STARTING or check:
-            self.connect(self.region)
-
             nixops.ec2_utils.wait_for_volume_available(
                 self._conn, self.volume_id, self.logger,
                 states=['available', 'in-use'])
-
             self.state = self.UP
 
 
     def destroy(self, wipe=False):
-        if self._exists():
-            self.connect(self.region)
-            volume = nixops.ec2_utils.get_volume_by_id(self._conn, self.volume_id, allow_missing=True)
-            if volume:
-                if not self.depl.logger.confirm("are you sure you want to destroy EBS volume ‘{0}’?".format(self.name)): return False
-                self.log("destroying EBS volume ‘{0}’...".format(self.volume_id))
-                volume.delete()
+        if not self._exists(): return True
+        self.connect(self.region)
+        volume = nixops.ec2_utils.get_volume_by_id(self._conn, self.volume_id, allow_missing=True)
+        if not volume: return True
+        if not self.depl.logger.confirm("are you sure you want to destroy EBS volume ‘{0}’?".format(self.name)): return False
+        self.log("destroying EBS volume ‘{0}’...".format(self.volume_id))
+        volume.delete()
         return True

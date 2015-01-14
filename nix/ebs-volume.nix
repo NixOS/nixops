@@ -8,13 +8,6 @@ with lib;
 
   options = {
 
-    name = mkOption {
-      default = null;
-      example = "My Big Fat Disk";
-      type = types.nullOr types.str;
-      description = "Description of the EBS volume.  This is the <literal>Name</literal> tag of the disk.";
-    };
-
     region = mkOption {
       example = "us-east-1";
       type = types.str;
@@ -47,7 +40,7 @@ with lib;
       '';
     };
 
-  };
+  } // import ./common-ec2-options.nix { inherit lib; };
 
   config = {
     _type = "ebs-volume";
