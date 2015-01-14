@@ -11,8 +11,8 @@ let
   types =
     if pkgs.lib.types ? either then
       pkgs.lib.types
-    else 
-      builtins.trace "Please update NixPkgs for this deployment. Next NixOps release will be incompatible with your current version of NixPkgs." 
+    else
+      builtins.trace "Please update Nixpkgs for this deployment. The next NixOps release will be incompatible with your current version of Nixpkgs."
       (pkgs.lib.types // {
          either = t1: t2: mkOptionType {
            name = "${t1.name} or ${t2.name}";
@@ -126,7 +126,7 @@ let
         default = 0;
         type = types.int;
         description = ''
-          The provisioned IOPs you want to associate with this EBS volume.
+          The provisioned IOPS you want to associate with this EBS volume.
         '';
       };
 
