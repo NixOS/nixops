@@ -1,19 +1,19 @@
 # Configuration specific to the EC2 backend.
 
-{ config, pkgs, utils, ... }:
+{ config, pkgs, lib, utils, ... }:
 
-with pkgs.lib;
+with lib;
 with utils;
 with (import ./lib.nix pkgs);
 
 let
 
   types =
-    if pkgs.lib.types ? either then
-      pkgs.lib.types
+    if lib.types ? either then
+      lib.types
     else
       builtins.trace "Please update Nixpkgs for this deployment. The next NixOps release will be incompatible with your current version of Nixpkgs."
-      (pkgs.lib.types // {
+      (lib.types // {
          either = t1: t2: mkOptionType {
            name = "${t1.name} or ${t2.name}";
            check = x: t1.check x || t2.check x;
@@ -29,6 +29,8 @@ let
 
   ec2DiskOptions = { config, ... }: {
 
+    imports = [ ./common-ebs-options.nix ];
+
     options = {
 
       disk = mkOption {
@@ -43,15 +45,6 @@ let
           volume ID (e.g. <literal>vol-d04895b8</literal>).  Leave
           empty to create an EBS volume automatically.  It can also be
           an EBS resource (e.g. <literal>resources.ebsVolumes.big-disk</literal>).
-        '';
-      };
-
-      size = mkOption {
-        default = 0;
-        type = types.int;
-        description = ''
-          Volume size (in gigabytes) for automatically created
-          EBS volumes.
         '';
       };
 
@@ -141,6 +134,7 @@ let
     };
 
     config = {
+      size = mkIf (config.disk != "") (mkDefault 0);
       # Automatically delete volumes that are automatically created.
       deleteOnTermination = mkDefault (config.disk == "" || substring 0 5 config.disk == "snap-");
     };
