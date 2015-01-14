@@ -5,8 +5,9 @@
 import time
 import boto.ec2
 import nixops.util
-import nixops.resources
 import nixops.ec2_utils
+import nixops.resources
+import nixops.resources.ec2_common
 
 
 class EBSVolumeDefinition(nixops.resources.ResourceDefinition):
@@ -32,7 +33,7 @@ class EBSVolumeDefinition(nixops.resources.ResourceDefinition):
         return "{0} [{1}]".format(self.get_type(), self.region)
 
 
-class EBSVolumeState(nixops.resources.ResourceState):
+class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2CommonState):
     """State of an EBS volume."""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
@@ -130,7 +131,13 @@ class EBSVolumeState(nixops.resources.ResourceState):
             self.log("volume ID is ‘{0}’".format(volume.id))
 
         if self.state == self.STARTING:
-            nixops.ec2_utils.wait_for_volume_available(self.connect(self.region), self.volume_id, self.logger)
+            self.connect(self.region)
+
+            volume_tags = self.get_common_tags()
+            volume_tags['Name'] = "{0} [{1}]".format(self.depl.description, self.name)
+            self._conn.create_tags([self.volume_id], volume_tags)
+
+            nixops.ec2_utils.wait_for_volume_available(self._conn, self.volume_id, self.logger)
             self.state = self.UP
 
 

@@ -5,8 +5,6 @@ import os.path
 import sys
 import re
 import time
-import socket
-import getpass
 import shutil
 import boto.ec2
 import boto.ec2.blockdevicemapping
@@ -15,6 +13,7 @@ from nixops.backends import MachineDefinition, MachineState
 from nixops.nix_expr import Function, RawValue
 from nixops.resources.ebs_volume import EBSVolumeState
 from nixops.resources.elastic_ip import ElasticIPState
+import nixops.resources.ec2_common
 import nixops.util
 import nixops.ec2_utils
 import nixops.known_hosts
@@ -79,7 +78,7 @@ class EC2Definition(MachineDefinition):
         return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")
 
 
-class EC2State(MachineState):
+class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     """State of an EC2 machine."""
 
     @classmethod
@@ -369,12 +368,6 @@ class EC2State(MachineState):
 
             _backups.pop(backup_id)
             self.backups = _backups
-
-
-    def get_common_tags(self):
-        return {'CharonNetworkUUID': self.depl.uuid,
-                'CharonMachineName': self.name,
-                'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file)}
 
 
     def backup(self, defn, backup_id):
