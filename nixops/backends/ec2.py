@@ -471,7 +471,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         def check_attached():
             volume.update()
             res = volume.attach_data.status
-            self.log_continue("[{0}] ".format(res))
+            self.log_continue("[{0}] ".format(res or "not-attached"))
             return res == 'attached'
 
         # If volume is not in attached state, wait for it before going on.
@@ -972,15 +972,17 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             # happens (e.g. in other machine's deployments).
             if volume: nixops.ec2_utils.wait_for_volume_available(self._conn, volume.id, self.logger)
 
-        # Always apply tags to all volumes
+        # Always apply tags to the volumes we just created.
         for k, v in self.block_device_mapping.items():
-            # Tag the volume.
+            if not (('disk' in v and not (v['disk'].startswith("ephemeral")
+                                          or v['disk'].startswith("res-")
+                                          or v['disk'].startswith("vol-")))
+                    or 'partOfImage' in v): continue
             volume_tags = {}
             volume_tags.update(common_tags)
             volume_tags.update(defn.tags)
             volume_tags['Name'] = "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))
-            if ('disk' in v and not v['disk'].startswith("ephemeral")) or 'partOfImage' in v:
-                self._retry(lambda: self._conn.create_tags([v['volumeId']], volume_tags))
+            self._retry(lambda: self._conn.create_tags([v['volumeId']], volume_tags))
 
         # Attach missing volumes.
         for k, v in self.block_device_mapping.items():
