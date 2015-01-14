@@ -115,22 +115,6 @@ let
         '';
       };
 
-      iops = mkOption {
-        default = 0;
-        type = types.int;
-        description = ''
-          The provisioned IOPS you want to associate with this EBS volume.
-        '';
-      };
-
-      volumeType = mkOption {
-        default = if config.iops == 0 then "standard" else "io1";
-        type = types.str;
-        description = ''
-          The volume type for the EBS volume. (standard/io1/gp2)
-        '';
-      };
-
     };
 
     config = {

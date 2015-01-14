@@ -24,6 +24,9 @@ class EBSVolumeDefinition(nixops.resources.ResourceDefinition):
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
         self.size = int(xml.find("attrs/attr[@name='size']/int").get("value"))
         self.snapshot = xml.find("attrs/attr[@name='snapshot']/string").get("value")
+        self.iops = int(xml.find("attrs/attr[@name='iops']/int").get("value"))
+        if self.iops == 0: self.iops = None
+        self.volume_type = xml.find("attrs/attr[@name='volumeType']/string").get("value")
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -38,6 +41,8 @@ class EBSVolumeState(nixops.resources.ResourceState):
     zone = nixops.util.attr_property("ec2.zone", None)
     volume_id = nixops.util.attr_property("ec2.volumeId", None)
     size = nixops.util.attr_property("ec2.size", None, int)
+    iops = nixops.util.attr_property("ec2.iops", None, int)
+    volume_type = nixops.util.attr_property("ec2.volumeType", None)
 
 
     @classmethod
@@ -77,11 +82,18 @@ class EBSVolumeState(nixops.resources.ResourceState):
         if not self.access_key_id:
             raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
-        if self._exists() and (self.region != defn.region or self.zone != defn.zone):
-            raise Exception("changing the region or availability zone of an EBS volume is not supported")
+        if self._exists():
+            if self.region != defn.region or self.zone != defn.zone:
+                raise Exception("changing the region or availability zone of an EBS volume is not supported")
 
-        if self._exists() and (defn.size != 0 and self.size != defn.size):
-            raise Exception("changing the size an EBS volume is currently not supported")
+            if defn.size != 0 and self.size != defn.size:
+                raise Exception("changing the size an EBS volume is currently not supported")
+
+            if self.volume_type != None and defn.volume_type != self.volume_type:
+                raise Exception("changing the type of an EBS volume is currently not supported")
+
+            if defn.iops != self.iops:
+                raise Exception("changing the IOPS of an EBS volume is currently not supported")
 
         if self.state == self.MISSING:
 
@@ -97,7 +109,10 @@ class EBSVolumeState(nixops.resources.ResourceState):
             else:
                 self.log("creating EBS volume of {0} GiB...".format(defn.size))
 
-            volume = self._conn.create_volume(zone=defn.zone, size=defn.size, snapshot=defn.snapshot)
+            print defn.iops
+            volume = self._conn.create_volume(
+                zone=defn.zone, size=defn.size, snapshot=defn.snapshot,
+                iops=defn.iops, volume_type=defn.volume_type)
 
             # FIXME: if we crash before the next step, we forget the
             # volume we just created.  Doesn't seem to be anything we
@@ -109,6 +124,8 @@ class EBSVolumeState(nixops.resources.ResourceState):
                 self.zone = defn.zone
                 self.size = defn.size
                 self.volume_id = volume.id
+                self.iops = defn.iops
+                self.volume_type = defn.volume_type
 
             self.log("volume ID is ‘{0}’".format(volume.id))
 

@@ -23,6 +23,25 @@ with lib;
       '';
     };
 
+    iops = mkOption {
+      default = 0;
+      type = types.int;
+      description = ''
+        The provisioned IOPS you want to associate with this EBS volume.
+      '';
+    };
+
+    volumeType = mkOption {
+      default = if config.iops == 0 then "standard" else "io1";
+      type = types.enum [ "standard" "io1" "gp2" ];
+      description = ''
+        The volume type for the EBS volume, which must be one of
+        <literal>"standard"</literal> (a magnetic volume),
+        <literal>"io1"</literal> (a provisioned IOPS SSD volume) or
+        <literal>"gp2"</literal> (a general purpose SSD volume).
+      '';
+    };
+
   };
 
 }
