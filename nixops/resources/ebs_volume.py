@@ -114,7 +114,6 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
             else:
                 self.log("creating EBS volume of {0} GiB...".format(defn.size))
 
-            print defn.iops
             volume = self._conn.create_volume(
                 zone=defn.zone, size=defn.size, snapshot=defn.snapshot,
                 iops=defn.iops, volume_type=defn.volume_type)
