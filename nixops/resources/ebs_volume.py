@@ -50,9 +50,13 @@ class EBSVolumeState(nixops.resources.ResourceState):
         self._conn = None
 
 
+    def _exists(self):
+        return self.state != self.MISSING
+
+
     def show_type(self):
         s = super(EBSVolumeState, self).show_type()
-        if self.state == self.UP: s = "{0} [{1}]".format(s, self.zone)
+        if self._exists(): s = "{0} [{1}]".format(s, self.zone)
         return s
 
 
@@ -62,8 +66,9 @@ class EBSVolumeState(nixops.resources.ResourceState):
 
 
     def connect(self, region):
-        if self._conn: return
+        if self._conn: return self._conn
         self._conn = nixops.ec2_utils.connect(region, self.access_key_id)
+        return self._conn
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -72,13 +77,13 @@ class EBSVolumeState(nixops.resources.ResourceState):
         if not self.access_key_id:
             raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
-        if self.state == self.UP and (self.region != defn.region or self.zone != defn.zone):
+        if self._exists() and (self.region != defn.region or self.zone != defn.zone):
             raise Exception("changing the region or availability zone of an EBS volume is not supported")
 
-        if self.state == self.UP and (defn.size != 0 and self.size != defn.size):
+        if self._exists() and (defn.size != 0 and self.size != defn.size):
             raise Exception("changing the size an EBS volume is currently not supported")
 
-        if self.state != self.UP:
+        if self.state == self.MISSING:
 
             self.connect(defn.region)
 
@@ -99,7 +104,7 @@ class EBSVolumeState(nixops.resources.ResourceState):
             # can do about this.
 
             with self.depl._db:
-                self.state = self.UP
+                self.state = self.STARTING
                 self.region = defn.region
                 self.zone = defn.zone
                 self.size = defn.size
@@ -107,9 +112,13 @@ class EBSVolumeState(nixops.resources.ResourceState):
 
             self.log("volume ID is ‘{0}’".format(volume.id))
 
+        if self.state == self.STARTING:
+            nixops.ec2_utils.wait_for_volume_available(self.connect(self.region), self.volume_id, self.logger)
+            self.state = self.UP
+
 
     def destroy(self, wipe=False):
-        if self.state == self.UP:
+        if self._exists():
             self.connect(self.region)
             volume = nixops.ec2_utils.get_volume_by_id(self._conn, self.volume_id, allow_missing=True)
             if volume:

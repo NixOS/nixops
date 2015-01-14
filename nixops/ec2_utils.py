@@ -4,6 +4,7 @@ import os
 import boto.ec2
 import time
 import random
+import nixops.util
 
 from boto.exception import EC2ResponseError
 from boto.exception import SQSError
@@ -96,3 +97,19 @@ def get_volume_by_id(conn, volume_id, allow_missing=False):
     except boto.exception.EC2ResponseError as e:
         if e.error_code != "InvalidVolume.NotFound": raise
     return None
+
+
+def wait_for_volume_available(conn, volume_id, logger):
+    """Wait for an EBS volume to become available."""
+
+    logger.log_start("waiting for volume ‘{0}’ to become available... ".format(volume_id))
+
+    def check_available():
+        # Allow volume to be missing due to eventual consistency.
+        volume = get_volume_by_id(conn, volume_id, allow_missing=True)
+        logger.log_continue("[{0}] ".format(volume.status))
+        return volume.status == 'available'
+
+    nixops.util.check_wait(check_available, max_tries=90)
+
+    logger.log_end('')

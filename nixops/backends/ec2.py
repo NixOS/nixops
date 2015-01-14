@@ -418,10 +418,11 @@ class EC2State(MachineState):
                 self.log("creating volume from snapshot ‘{0}’".format(snapshot_id))
                 new_volume = self._conn.create_volume(size=0, snapshot=snapshot_id, zone=self.zone)
 
-                # check if original volume is available, aka detached from the machine
-                self.wait_for_volume_available(volume)
-                # check if new volume is available
-                self.wait_for_volume_available(new_volume)
+                # Check if original volume is available, aka detached from the machine.
+                nixops.ec2_utils.wait_for_volume_available(self._conn, volume.id, self.logger)
+
+                # Check if new volume is available.
+                nixops.ec2_utils.wait_for_volume_available(self._conn, new_volume.id, self.logger)
 
                 self.log("attaching volume ‘{0}’ to ‘{1}’".format(new_volume.id, self.name))
                 new_volume.attach(self.vm_id, k)
@@ -490,16 +491,6 @@ class EC2State(MachineState):
             return res == 0
         nixops.util.check_wait(check_dev)
 
-        self.log_end('')
-
-
-    def wait_for_volume_available(self, volume):
-        def check_available():
-            res = volume.update()
-            self.log_continue("[{0}] ".format(res))
-            return res == 'available'
-
-        nixops.util.check_wait(check_available, max_tries=90)
         self.log_end('')
 
 
@@ -986,7 +977,7 @@ class EC2State(MachineState):
             # in-use).  Doing this after updating the device mapping
             # state, to make it recoverable in case an exception
             # happens (e.g. in other machine's deployments).
-            if volume: self.wait_for_volume_available(volume)
+            if volume: nixops.ec2_utils.wait_for_volume_available(self._conn, volume.id, self.logger)
 
         # Always apply tags to all volumes
         for k, v in self.block_device_mapping.items():
@@ -1096,12 +1087,12 @@ class EC2State(MachineState):
 
 
     def _delete_volume(self, volume_id, allow_keep=False):
-        if not self.depl.logger.confirm("are you sure you want to destroy EC2 volume ‘{0}’?".format(volume_id)):
+        if not self.depl.logger.confirm("are you sure you want to destroy EBS volume ‘{0}’?".format(volume_id)):
             if allow_keep:
                 return
             else:
-                raise Exception("not destroying EC2 volume ‘{0}’".format(volume_id))
-        self.log("destroying EC2 volume ‘{0}’...".format(volume_id))
+                raise Exception("not destroying EBS volume ‘{0}’".format(volume_id))
+        self.log("destroying EBS volume ‘{0}’...".format(volume_id))
         volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id, allow_missing=True)
         if not volume: return
         nixops.util.check_wait(lambda: volume.update() == 'available')
