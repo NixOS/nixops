@@ -530,7 +530,40 @@ def op_scp():
     from_loc = scp_loc(username, ssh_name, args.scp_from, args.source)
     to_loc = scp_loc(username, ssh_name, args.scp_to, args.destination)
     print >> sys.stderr, "{0} -> {1}".format(from_loc, to_loc)
-    res = subprocess.call([ "scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc])
+    res = subprocess.call(["scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc])
+    sys.exit(res)
+
+
+def op_mount():
+    depl = open_deployment()
+    (username, rest) = parse_machine(args.machine)
+    (machine, remote_path) = (rest, "/") if rest.find(":") == -1 else rest.split(":", 1)
+    m = depl.machines.get(machine)
+    if not m: raise Exception("unknown machine ‘{0}’".format(machine))
+    ssh_name = m.get_ssh_name()
+
+    flags = m.get_ssh_flags()
+    new_flags = []
+    n = 0
+    while n < len(flags):
+        if flags[n] == "-i":
+            new_flags.extend(["-o", "IdentityFile=" + flags[n+1]])
+            n = n + 2
+        elif flags[n] == "-p":
+            new_flags.extend(["-p", flags[n+1]])
+            n = n + 2
+        else:
+            raise Exception("don't know how to pass SSH flag ‘{0}’ to sshfs".format(flags[n]))
+
+    for o in args.sshfs_option or []:
+        new_flags.extend(["-o", o])
+
+    # Note: sshfs will go into the background when it has finished
+    # setting up, so we can safely delete the SSH identity file
+    # afterwards.
+    res = subprocess.call(
+        ["sshfs", username + "@" + ssh_name + ":" + remote_path, args.destination]
+        + new_flags)
     sys.exit(res)
 
 
@@ -590,6 +623,7 @@ def setup_logging(args):
                 op_ssh,
                 op_ssh_for_each,
                 op_scp,
+                op_mount,
                 op_info,
                 op_list_deployments,
                 op_list_generations,
@@ -773,6 +807,12 @@ subparser.add_argument('--to', dest='scp_to', action='store_true', help='copy a 
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
 subparser.add_argument('source', metavar='SOURCE', help='source file location')
 subparser.add_argument('destination', metavar='DEST', help='destination file location')
+
+subparser = add_subparser('mount', help='mount a directory from the specified machine into the local filesystem')
+subparser.set_defaults(op=op_mount)
+subparser.add_argument('machine', metavar='MACHINE[:PATH]', help='identifier of the machine, optionally followed by a path')
+subparser.add_argument('destination', metavar='PATH', help='local path')
+subparser.add_argument('--sshfs-option', '-o', action='append', metavar="OPTIONS", help='mount options passed to sshfs')
 
 subparser = add_subparser('rename', help='rename machine in network')
 subparser.set_defaults(op=op_rename)

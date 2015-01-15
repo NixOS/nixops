@@ -1205,6 +1205,101 @@ $ nixops ssh-for-each -p reboot</screen>
 </refsection>
 
 
+<refsection><title>Command <option>nixops mount</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>nixops mount</command>
+  <arg rep='repeat'>
+    <group choice='req'>
+      <arg choice='plain'><option>--option</option></arg>
+      <arg choice='plain'><option>-o</option></arg>
+    </group>
+    <replaceable>option</replaceable>
+  </arg>
+  <arg choice='plain'>
+    <arg><replaceable>username</replaceable>@</arg><replaceable>machine</replaceable><arg>:<arg><replaceable>remote</replaceable></arg></arg>
+  </arg>
+  <arg choice='plain'><replaceable>local</replaceable></arg>
+</cmdsynopsis>
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command mounts the directory
+<replaceable>remote</replaceable> in the file system of the specified
+machine onto the directory <replaceable>local</replaceable> in the
+local file system. If
+<literal>:<replaceable>remote</replaceable></literal> is omitted, the
+entire remote file system is mounted. If you specify an empty path
+(i.e. <literal>:</literal>), then the home directory of the specified
+user is mounted. If no user is specified, <literal>root</literal> is
+assumed.</para>
+
+<para>This command is implemented using <command>sshfs</command>, so
+you must have <command>sshfs</command> installed and the
+<literal>fuse</literal> kernel module loaded.</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+
+  <varlistentry><term><option>--option</option> / <option>-o</option> <replaceable>opt</replaceable></term>
+
+    <listitem><para>Pass additional options to
+    <command>sshfs</command>. See
+    <citerefentry><refentrytitle>sshfs</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for details.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To mount the entire file system of machine <literal>foo</literal>
+onto the local directory <filename>~/mnt</filename>:
+
+<screen>
+$ nixops mount foo ~/mnt
+
+$ ls -l ~/mnt
+total 72
+drwxr-xr-x 1 root  root   4096 Jan 15 11:44 bin
+drwx------ 1 root  root   4096 Jan 14 17:15 boot
+…
+</screen>
+
+</para>
+
+<para>To mount the home directory of user <filename>alice</filename>:
+
+<screen>
+$ nixops mount alice@foo: ~/mnt
+</screen>
+
+</para>
+
+<para>To mount a specific directory, passing the option
+<option>transform_symlinks</option> to ensure that absolute symlinks
+in the remote file system work properly:
+
+<screen>
+$ nixops mount foo:/data ~/mnt -o transform_symlinks
+</screen>
+
+</para>
+
+</refsection>
+
+</refsection>
+
+
 <refsection><title>Command <option>nixops reboot</option></title>
 
 <refsection><title>Synopsis</title>
