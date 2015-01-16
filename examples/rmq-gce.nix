@@ -174,14 +174,6 @@ in
 
 
 joinNetworks [
-    {
-
-        resources.gceImages.bootstrap = credentials // {
-            sourceUri = "gs://nixos/nixos-14.10pre-git-x86_64-linux.raw.tar.gz";
-        };
-
-    }
-
     (mkRabbitMQCluster {
         size = 3;
         password = "123";
