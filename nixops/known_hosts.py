@@ -8,29 +8,18 @@ import fcntl
 lock = threading.Lock()
 
 
-def _rewrite(ip_address, public_host_key):
+def remove(ip_address):
     with lock:
         path = os.path.expanduser("~/.ssh/known_hosts")
         if not os.path.isfile(path): return
-    
+
         with open(os.path.expanduser("~/.ssh/.known_hosts.lock"), 'w') as lockfile:
             fcntl.flock(lockfile, fcntl.LOCK_EX) #unlock is implicit at the end of the with
             f = open(path, 'r')
             contents = f.read()
             f.close()
 
-            def sanitize(contents):
-                return [ line.split('#', 1)[0].strip() for line in contents.splitlines() ]
-
-            def rewrite(l):
-                (names, rest) = l.split(' ', 1)
-                new_names = [ n for n in names.split(',') if n != ip_address ]
-                return ','.join(new_names) + " " + rest if new_names != [] else None
-
-            new = [ l for l in [ rewrite(l) for l in sanitize(contents) if l ] if l is not None ]
-
-            if public_host_key:
-                new.append(ip_address + " " + public_host_key)
+            new = [ x for x in contents.splitlines() if not (x.startswith(ip_address) and x.endswith('# nixops')) ]
 
             tmp = "{0}.tmp-{1}".format(path, os.getpid())
             f = open(tmp, 'w')
@@ -39,9 +28,22 @@ def _rewrite(ip_address, public_host_key):
             os.rename(tmp, path)
 
 
-def remove(ip_address):
-    _rewrite(ip_address, None)
-
-
 def add(ip_address, public_host_key):
-    _rewrite(ip_address, public_host_key)
+    with lock:
+        path = os.path.expanduser("~/.ssh/known_hosts")
+        if not os.path.isfile(path): return
+
+        with open(os.path.expanduser("~/.ssh/.known_hosts.lock"), 'w') as lockfile:
+            fcntl.flock(lockfile, fcntl.LOCK_EX) #unlock is implicit at the end of the with
+            f = open(path, 'r')
+            contents = f.read()
+            f.close()
+
+            new = contents.splitlines()
+            new.append('{0} {1} # nixops'.format(ip_address, public_host_key))
+
+            tmp = "{0}.tmp-{1}".format(path, os.getpid())
+            f = open(tmp, 'w')
+            f.write('\n'.join(new + [""]))
+            f.close()
+            os.rename(tmp, path)
