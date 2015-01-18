@@ -19,12 +19,15 @@ def _rewrite(ip_address, public_host_key):
             contents = f.read()
             f.close()
 
+            def sanitize(contents):
+                return [ line.split('#', 1)[0].strip() for line in contents.splitlines() ]
+
             def rewrite(l):
                 (names, rest) = l.split(' ', 1)
                 new_names = [ n for n in names.split(',') if n != ip_address ]
                 return ','.join(new_names) + " " + rest if new_names != [] else None
 
-            new = [ l for l in [ rewrite(l) for l in contents.splitlines() ] if l is not None ]
+            new = [ l for l in [ rewrite(l) for l in sanitize(contents) if l ] if l is not None ]
 
             if public_host_key:
                 new.append(ip_address + " " + public_host_key)
