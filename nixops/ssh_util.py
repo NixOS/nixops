@@ -8,6 +8,7 @@ import time
 import weakref
 from tempfile import mkdtemp
 import nixops.util
+import nixops.known_hosts as known_hosts
 
 __all__ = ['SSHConnectionFailed', 'SSHCommandFailed', 'SSH']
 
@@ -252,3 +253,39 @@ class SSH(object):
                 raise SSHCommandFailed(err, res)
             else:
                 return res
+
+    def write_host_key(self, logged=True):
+        """
+        Fetch the current target's host key via `ssh-keyscan`, then add it
+        to known_hosts.
+
+        This uses `nixops.known_hosts` to add the key, which is then able to
+        remove the key later.
+        """
+        ipaddr = self._host_fun()
+        cmd = [ "ssh-keyscan", ipaddr ]
+
+        def work(res):
+            lines = [ x for x in res.splitlines() if x.startswith(ipaddr) ]
+            maybeFirst = lines[:1]
+
+            if len(lines) > 0:
+                (host,key) = lines[0].split(' ', 1)
+                known_hosts.add(host, key)
+            else:
+                msg = 'Failed to receive host key from {0}'
+                err = msg.format(self._get_target())
+                raise SSHCommandFailed(err, 1)
+
+        if logged:
+            try:
+                res = nixops.util.logged_exec(cmd, self._logger, capture_stdout=True)
+                work(res)
+
+            except nixops.util.CommandFailed as exc:
+                raise SSHConnectionFailed(exc.message, exc.exitcode)
+        else:
+            p = subprocess.Popen(cmd)
+            (out,err) = p.communicate()
+
+            work(out)

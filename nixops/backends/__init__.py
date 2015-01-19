@@ -317,6 +317,10 @@ class MachineState(nixops.resources.ResourceState):
     def has_really_fast_connection(self):
         return False
 
+    def write_host_key(self):
+        self.log_start("fetching host key...")
+        self.ssh.write_host_key()
+
     def generate_vpn_key(self):
         try:
             self.run_command("test -f /root/.ssh/id_charon_vpn")
