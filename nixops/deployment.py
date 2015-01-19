@@ -32,6 +32,7 @@ import nixops.resources.gce_http_health_check
 import nixops.resources.gce_target_pool
 import nixops.resources.gce_forwarding_rule
 import nixops.resources.gse_bucket
+import nixops.known_hosts
 from nixops.nix_expr import RawValue, Function, nixmerge, py2nix
 import re
 from datetime import datetime
@@ -232,6 +233,8 @@ class Deployment(object):
 
 
     def delete_resource(self, m):
+        if m.private_ipv4 is not None:
+            nixops.known_hosts.remove(m.private_ipv4)
         del self.resources[m.name]
         with self._db:
             self._db.execute("delete from Resources where deployment = ? and id = ?", (self.uuid, m.id))
@@ -928,6 +931,7 @@ class Deployment(object):
                     r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot, allow_recreate=allow_recreate)
                     if is_machine(r):
                         r.wait_for_ssh(check=check)
+                        r.write_host_key()
                         r.generate_vpn_key()
                 except:
                     r._errored = True
