@@ -46,8 +46,8 @@ several nice properties:</para>
 
   <listitem><para>It’s <emphasis>multi-cloud</emphasis>.  Machines in
   a single NixOps deployment can be deployed to different target
-  environment.  For instance, one logical machine can be deployed to a
-  local “physical” machine, another to an automatically instantiated
+  environments.  For instance, one logical machine can be deployed to
+  a local “physical” machine, another to an automatically instantiated
   Amazon EC2 instance in the <literal>eu-west-1</literal> region,
   another in the <literal>us-east-1</literal> region, and so on.
   NixOps arranges the necessary network configuration to ensure that
