@@ -13,8 +13,8 @@
       src = fetchFromGitHub {
         owner = "NixOS";
         repo = "nixos-homepage";
-        rev = "f3a5fb66968552cc21d4cbbb5137ca253af493e3";
-        sha256 = "0ydllq4ir40l6icjzmsq93jvidvf0wyc8nbd10rnklrb4r0qv2vx";
+        rev = "9cb4cb91b4d2e4cb00310804eea5971db85ca1af";
+        sha256 = "0b39slhysmld4kxb69myxri4lnc75w61bzxfq9w1r5ii40zlwkmx";
       };
       buildInputs =
         [ perl
@@ -22,18 +22,24 @@
           perlPackages.TemplatePluginJSONEscape
           perlPackages.TemplatePluginIOAll
           perlPackages.XMLSimple
+          python
           libxslt libxml2 imagemagick
           xhtml1
+          nix
         ];
-      makeFlags = "catalog=${pkgs.xhtml1}/xml/dtd/xhtml1/catalog.xml";
       preBuild =
         ''
           echo '[]' > nixpkgs-commits.json
           echo '[]' > nixpkgs-commit-stats.json
           touch blogs.xml
           echo '[]' > blogs.json
-          touch nixos/amis.nix
-          cp ${config.system.build.manual.manual}/share/doc/nixos/manual.html nixos/manual/manual.html
+          cp ${../nix/ec2-amis.nix} nixos/amis.nix
+          ln -s ${nix}/share/doc/nix/manual nix/manual-raw
+          ln -s ${config.system.build.manual.manual}/share/doc/nixos nixos/manual-raw
+          ln -s ${(import ../release.nix {}).build.x86_64-linux}/share/doc/nixops nixops/manual-raw
+          export NIX_STATE_DIR=$(pwd)/tmp
+          nix-store --init
+          touch nixpkgs/packages.json.gz nixos/options.json.gz
         '';
       installPhase =
         ''

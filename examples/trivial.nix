@@ -1,7 +1,7 @@
 {
   network.description = "Trivial test network";
 
-  machine = 
+  machine =
     { config, pkgs, ... }:
     { imports = [ ./nix-homepage.nix ]; };
 }
