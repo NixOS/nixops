@@ -20,6 +20,7 @@ def _rewrite(ip_address, add, public_host_key):
             f.close()
 
             def rewrite(l):
+                if ' ' not in l: return l
                 (first, rest) = l.split(' ', 1)
                 names = first.split(',')
                 if ip_address not in names: return l
