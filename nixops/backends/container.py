@@ -165,6 +165,8 @@ class ContainerState(MachineState):
 
         if not self.depl.logger.confirm("are you sure you want to destroy NixOS container ‘{0}’?".format(self.name)): return False
 
+        nixops.known_hosts.remove(self.get_ssh_name(), self.public_host_key)
+
         self.host_ssh.run_command("nixos-container destroy {0}".format(self.vm_id))
 
         return True

@@ -8,11 +8,11 @@ import fcntl
 lock = threading.Lock()
 
 
-def _rewrite(ip_address, public_host_key):
+def _rewrite(ip_address, add, public_host_key):
     with lock:
         path = os.path.expanduser("~/.ssh/known_hosts")
         if not os.path.isfile(path): return
-    
+
         with open(os.path.expanduser("~/.ssh/.known_hosts.lock"), 'w') as lockfile:
             fcntl.flock(lockfile, fcntl.LOCK_EX) #unlock is implicit at the end of the with
             f = open(path, 'r')
@@ -20,13 +20,16 @@ def _rewrite(ip_address, public_host_key):
             f.close()
 
             def rewrite(l):
-                (names, rest) = l.split(' ', 1)
-                new_names = [ n for n in names.split(',') if n != ip_address ]
+                (first, rest) = l.split(' ', 1)
+                names = first.split(',')
+                if ip_address not in names: return l
+                if not add and public_host_key is not None and public_host_key != rest: return l
+                new_names = [ n for n in names  if n != ip_address ]
                 return ','.join(new_names) + " " + rest if new_names != [] else None
 
             new = [ l for l in [ rewrite(l) for l in contents.splitlines() ] if l is not None ]
 
-            if public_host_key:
+            if add:
                 new.append(ip_address + " " + public_host_key)
 
             tmp = "{0}.tmp-{1}".format(path, os.getpid())
@@ -37,8 +40,15 @@ def _rewrite(ip_address, public_host_key):
 
 
 def remove(ip_address):
-    _rewrite(ip_address, None)
+    '''Remove any known host key for a given IP address.'''
+    _rewrite(ip_address, False, None)
+
+
+def remove(ip_address, public_host_key):
+    '''Remove a specific known host key.'''
+    _rewrite(ip_address, False, public_host_key)
 
 
 def add(ip_address, public_host_key):
-    _rewrite(ip_address, public_host_key)
+    '''Add a known host key.'''
+    _rewrite(ip_address, True, public_host_key)

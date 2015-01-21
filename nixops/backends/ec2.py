@@ -295,16 +295,26 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         self.log_end("{0} / {1}".format(instance.ip_address, instance.private_ip_address))
 
-        nixops.known_hosts.add(instance.ip_address, self.public_host_key)
+        self._update_known_hosts(instance.ip_address)
 
-        self.private_ipv4 = instance.private_ip_address
-        self.public_ipv4 = instance.ip_address
-        self.public_dns_name = instance.public_dns_name
-        self.ssh_pinged = False
+        with self.depl._db:
+            self.private_ipv4 = instance.private_ip_address
+            self.public_ipv4 = instance.ip_address
+            self.public_dns_name = instance.public_dns_name
+            self.ssh_pinged = False
+
+
+    def _update_known_hosts(self, new_address):
+        assert self.public_host_key is not None
+        if self.public_ipv4 is not None and self.public_ipv4 != new_address:
+            nixops.known_hosts.remove(self.public_ipv4, self.public_host_key)
+        if new_address is not None:
+            nixops.known_hosts.add(new_address, self.public_host_key)
 
 
     def _booted_from_ebs(self):
         return self.root_device_type == "ebs"
+
 
     def update_block_device_mapping(self, k, v):
         x = self.block_device_mapping
@@ -521,7 +531,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                         instance.update()
                     self.log_end("")
 
-                nixops.known_hosts.add(elastic_ipv4, self.public_host_key)
+                self._update_known_hosts(elastic_ipv4)
+
                 with self.depl._db:
                     self.elastic_ipv4 = elastic_ipv4
                     self.public_ipv4 = elastic_ipv4
@@ -1122,6 +1133,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 instance.update()
 
         self.log_end("")
+
+        self._update_known_hosts(None)
 
         # Destroy volumes created for this instance.
         for k, v in self.block_device_mapping.items():
