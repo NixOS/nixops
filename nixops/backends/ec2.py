@@ -734,9 +734,15 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if not self.vm_id:
             self.log("creating EC2 instance (AMI ‘{0}’, type ‘{1}’, region ‘{2}’)...".format(
                 defn.ami, defn.instance_type, self.region))
-            if not self.client_token: self._reset_state()
+            if not self.client_token:
+                self._reset_state()
+                self.region = defn.region
+                self.connect()
 
             # Figure out whether this AMI is EBS-backed.
+            amis = self._conn.get_all_images([defn.ami])
+            if len(amis) == 0:
+                raise Exception("AMI ‘{0}’ does not exist in region ‘{1}’".format(defn.ami, self.region))
             ami = self._conn.get_all_images([defn.ami])[0]
             self.root_device_type = ami.root_device_type
 
