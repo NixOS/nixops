@@ -73,6 +73,7 @@ rec {
           pythonPackages.boto
           pythonPackages.hetzner
           pythonPackages.libcloud
+          pythonPackages.azure
           pythonPackages.sqlite3
         ];
 
