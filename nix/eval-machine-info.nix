@@ -96,6 +96,9 @@ rec {
   resources.rdsDbInstances = evalResources ./ec2-rds-dbinstance.nix (zipAttrs resourcesByType.rdsDbInstances or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
+  # Azure resources
+  resources.azureAffinityGroups = evalResources ./azure-affinity-group.nix (zipAttrs resourcesByType.azureAffinityGroups or []);
+
   # Google Compute resources
   resources.gceDisks = evalResources ./gce-disk.nix (zipAttrs resourcesByType.gceDisks or []);
   resources.gceStaticIPs = evalResources ./gce-static-ip.nix (zipAttrs resourcesByType.gceStaticIPs or []);
