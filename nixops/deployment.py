@@ -585,7 +585,7 @@ class Deployment(object):
 
         return py2nix(reduce(nixmerge, [
             emit_resource(r) for r in active_resources.itervalues()
-        ])) + "\n"
+        ], {})) + "\n"
 
     def get_profile(self):
         profile_dir = "/nix/var/nix/profiles/per-user/" + getpass.getuser()
