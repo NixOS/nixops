@@ -197,15 +197,13 @@ class ResourceState(nixops.resources.ResourceState):
     # While resource is being created, attempts at destroying it also fail silently.
     # Thus we need to wait for certain resource states to settle.
     def is_settled(self, resource):
-        return resource.state != 'Creating' and resource.state != 'Deleting'
+        return resource is None or (resource.state != 'Creating' and
+                                    resource.state != 'Deleting')
 
     def ensure_settled(self):
         def check_settled():
-            try:
-                resource = self.get_resource()
-                return self.is_settled(resource)
-            except azure.WindowsAzureMissingResourceError:
-                return True
+            resource = self.get_resource()
+            return self.is_settled(resource)
 
         check_wait(check_settled, initial=1, max_tries=100, exception=True)
 

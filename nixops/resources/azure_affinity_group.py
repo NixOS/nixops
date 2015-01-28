@@ -59,7 +59,10 @@ class AzureAffinityGroupState(ResourceState):
         return "Azure affinity group '{0}'".format(self.affinity_group_name)
 
     def get_resource(self):
-        return self.sms().get_affinity_group_properties(self.affinity_group_name)
+        try:
+            return self.sms().get_affinity_group_properties(self.affinity_group_name)
+        except azure.WindowsAzureMissingResourceError:
+            return None
 
     def destroy_resource(self):
         self.sms().delete_affinity_group(self.affinity_group_name)
@@ -73,29 +76,26 @@ class AzureAffinityGroupState(ResourceState):
         self.affinity_group_name = defn.affinity_group_name
 
         if check:
-            try:
-                ag = self.get_resource()
-                if self.state == self.UP:
-                    self.handle_changed_property('location', ag.location, can_fix = False)
-                    self.handle_changed_property('label', ag.label)
-                    self.handle_changed_property('description', ag.description)
-                else:
-                    self.warn_not_supposed_to_exist()
-                    self.confirm_destroy()
-
-            except azure.WindowsAzureMissingResourceError:
+            ag = self.get_resource()
+            if not ag:
                 self.warn_missing_resource()
+            elif self.state == self.UP:
+                self.handle_changed_property('location', ag.location, can_fix = False)
+                self.handle_changed_property('label', ag.label)
+                self.handle_changed_property('description', ag.description)
+            else:
+                self.warn_not_supposed_to_exist()
+                self.confirm_destroy()
 
         if self.state != self.UP:
-            self.log("creating {0} in {1}...".format(self.full_name, defn.location))
-            try:
-                self.sms().create_affinity_group(defn.affinity_group_name,
-                                                 defn.label, defn.location,
-                                                 description = defn.description)
-            except azure.WindowsAzureConflictError:
+            if self.get_resource():
                 raise Exception("tried creating an affinity group that already exists; "
                                 "please run 'deploy --check' to fix this")
 
+            self.log("creating {0} in {1}...".format(self.full_name, defn.location))
+            self.sms().create_affinity_group(defn.affinity_group_name,
+                                              defn.label, defn.location,
+                                              description = defn.description)
             self.state = self.UP
             self.copy_properties(defn)
 
