@@ -2,8 +2,10 @@
 
 import os
 import re
+import azure
+import time
 
-from nixops.util import attr_property
+from nixops.util import attr_property, check_wait
 import nixops.resources
 
 from azure import *
@@ -166,3 +168,35 @@ class ResourceState(nixops.resources.ResourceState):
     def properties_changed(self, defn):
         return any( getattr(self, attr) != getattr(defn, attr)
                     for attr in self.defn_properties )
+
+
+    # Certain resources are provisioned and destroyed asynchronously.
+    # While resource is being destroyed, attempts at creating
+    # a resource with the same name fail silently.
+    # While resource is being created, attempts at destroying it also fail silently.
+    # Thus we need to wait for certain resource states to settle.
+    def is_settled(self, resource):
+        return resource.state != 'Creating' and resource.state != 'Deleting'
+
+    def ensure_settled(self):
+        def check_settled():
+            try:
+                resource = self.get_resource()
+                return self.is_settled(resource)
+            except azure.WindowsAzureMissingResourceError:
+                return True
+
+        check_wait(check_settled, initial=1, max_tries=100, exception=True)
+
+    def get_settled_resource(self, initial=1, factor=1, max_tries=60):
+        wait = initial
+        tries = 0
+        resource = self.get_resource()
+        while tries < max_tries and not self.is_settled(resource):
+            wait = wait * factor
+            tries = tries + 1
+            if tries == max_tries:
+                raise Exception("resource failed to settle")
+            time.sleep(wait)
+            resource = self.get_resource()
+        return resource

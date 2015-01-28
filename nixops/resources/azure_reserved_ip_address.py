@@ -62,6 +62,9 @@ class AzureReservedIPAddressState(ResourceState):
     def public_ipv4(self):
         return self.ip_address
 
+    def get_resource(self):
+        return self.sms().get_reserved_ip_address(self.reserved_ip_address_name)
+
     defn_properties = [ 'label', 'location' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -73,7 +76,7 @@ class AzureReservedIPAddressState(ResourceState):
 
         if check:
             try:
-                address = self.sms().get_reserved_ip_address(self.reserved_ip_address_name)
+                address = self.get_settled_resource()
                 if self.state == self.UP:
                     self.handle_changed_property('location', address.location, can_fix = False)
                     self.handle_changed_property('label', address.label, can_fix = False)
@@ -91,12 +94,13 @@ class AzureReservedIPAddressState(ResourceState):
                 self.warn_missing_resource()
 
         if self.state != self.UP:
+            self.ensure_settled()
             self.log("creating {0} in {1}...".format(self.full_name, defn.location))
             try:
                 self.sms().create_reserved_ip_address(defn.reserved_ip_address_name,
                                                       label = defn.label,
                                                       location = defn.location)
-                address = self.sms().get_reserved_ip_address(defn.reserved_ip_address_name)
+                address = self.get_settled_resource()
             except azure.WindowsAzureConflictError:
                 raise Exception("tried creating a reserved IP address that already exists; "
                                 "please run 'deploy --check' to fix this")

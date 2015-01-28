@@ -58,6 +58,9 @@ class AzureAffinityGroupState(ResourceState):
     def full_name(self):
         return "Azure affinity group '{0}'".format(self.affinity_group_name)
 
+    def get_resource(self):
+        return self.sms().get_affinity_group_properties(self.affinity_group_name)
+
     defn_properties = [ 'description', 'label', 'location' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -68,7 +71,7 @@ class AzureAffinityGroupState(ResourceState):
 
         if check:
             try:
-                ag = self.sms().get_affinity_group_properties(self.affinity_group_name)
+                ag = self.get_resource()
                 if self.state == self.UP:
                     self.handle_changed_property('location', ag.location, can_fix = False)
                     self.handle_changed_property('label', ag.label)
@@ -87,9 +90,9 @@ class AzureAffinityGroupState(ResourceState):
         if self.state != self.UP:
             self.log("creating {0} in {1}...".format(self.full_name, defn.location))
             try:
-                ag = self.sms().create_affinity_group(defn.affinity_group_name,
-                                                      defn.label, defn.location,
-                                                      description = defn.description)
+                self.sms().create_affinity_group(defn.affinity_group_name,
+                                                 defn.label, defn.location,
+                                                 description = defn.description)
             except azure.WindowsAzureConflictError:
                 raise Exception("tried creating an affinity group that already exists; "
                                 "please run 'deploy --check' to fix this")
