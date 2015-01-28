@@ -295,21 +295,13 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         self.log_end("{0} / {1}".format(instance.ip_address, instance.private_ip_address))
 
-        self._update_known_hosts(instance.ip_address)
+        nixops.known_hosts.update(self.public_ipv4, instance.ip_address, self.public_host_key)
 
         with self.depl._db:
             self.private_ipv4 = instance.private_ip_address
             self.public_ipv4 = instance.ip_address
             self.public_dns_name = instance.public_dns_name
             self.ssh_pinged = False
-
-
-    def _update_known_hosts(self, new_address):
-        assert self.public_host_key is not None
-        if self.public_ipv4 is not None and self.public_ipv4 != new_address:
-            nixops.known_hosts.remove(self.public_ipv4, self.public_host_key)
-        if new_address is not None:
-            nixops.known_hosts.add(new_address, self.public_host_key)
 
 
     def _booted_from_ebs(self):
@@ -531,7 +523,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                         instance.update()
                     self.log_end("")
 
-                self._update_known_hosts(elastic_ipv4)
+                nixops.known_hosts.update(self.public_ipv4, elastic_ipv4, self.public_host_key)
 
                 with self.depl._db:
                     self.elastic_ipv4 = elastic_ipv4
@@ -1134,7 +1126,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         self.log_end("")
 
-        self._update_known_hosts(None)
+        nixops.known_hosts.update(self.public_ipv4, None, self.public_host_key)
 
         # Destroy volumes created for this instance.
         for k, v in self.block_device_mapping.items():

@@ -53,3 +53,12 @@ def remove(ip_address, public_host_key):
 def add(ip_address, public_host_key):
     '''Add a known host key.'''
     _rewrite(ip_address, True, public_host_key)
+
+
+def update(prev_address, new_address, public_host_key):
+    assert public_host_key is not None
+    # FIXME: this rewrites known_hosts twice.
+    if prev_address is not None and prev_address != new_address:
+        remove(prev_address, public_host_key)
+    if new_address is not None:
+        add(new_address, public_host_key)

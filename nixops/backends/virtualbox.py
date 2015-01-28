@@ -79,7 +79,7 @@ class VirtualBoxState(MachineState):
         return self._ssh_private_key_file or self.write_ssh_private_key(self._client_private_key)
 
     def get_ssh_flags(self, scp=False):
-        return ["-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file()]
+        return ["-i", self.get_ssh_private_key_file()]
 
     def get_physical_spec(self):
         return {'require': [RawValue('<nixops/virtualbox-image-nixops.nix>')]}
@@ -157,7 +157,9 @@ class VirtualBoxState(MachineState):
             ["VBoxManage", "guestproperty", "get", self.vm_id, "/VirtualBox/GuestInfo/Net/1/V4/IP"],
             capture_stdout=True).rstrip()
         if res[0:7] != "Value: ": return
-        self.private_ipv4 = res[7:]
+        new_address = res[7:]
+        nixops.known_hosts.update(self.private_ipv4, new_address, self.public_host_key)
+        self.private_ipv4 = new_address
 
 
     def _update_disk(self, name, state):
@@ -180,13 +182,13 @@ class VirtualBoxState(MachineState):
 
     def _wait_for_ip(self):
         self.log_start("waiting for IP address...")
+        old_address = self.private_ipv4
         while True:
             self._update_ip()
             if self.private_ipv4 != None: break
             time.sleep(1)
             self.log_continue(".")
         self.log_end(" " + self.private_ipv4)
-        nixops.known_hosts.remove(self.private_ipv4)
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -397,6 +399,8 @@ class VirtualBoxState(MachineState):
         self.state = self.STOPPED
 
         time.sleep(1) # hack to work around "machine locked" errors
+
+        nixops.known_hosts.update(self.private_ipv4, None, self.public_host_key)
 
         self._logged_exec(["VBoxManage", "unregistervm", "--delete", self.vm_id])
 
