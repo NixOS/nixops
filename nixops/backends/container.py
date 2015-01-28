@@ -145,7 +145,7 @@ class ContainerState(MachineState):
             self.copy_closure_to(path)
             self.vm_id = self.host_ssh.run_command(
                 "nixos-container create {0} --ensure-unique-name --system-path '{1}'"
-                .format(self.name, path), capture_stdout=True).rstrip()
+                .format(self.name[:7], path), capture_stdout=True).rstrip()
             self.state = self.STOPPED
 
         if self.state == self.STOPPED:
