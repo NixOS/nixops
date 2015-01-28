@@ -158,6 +158,27 @@ class ResourceState(nixops.resources.ResourceState):
                   .format(resource_name or self.full_name, valuable_msg))
 
 
+    def confirm_destroy(self, res_name = None, abort = True):
+        if self.depl.logger.confirm("are you sure you want to destroy {0}?".format(res_name or self.full_name)):
+            self.log("destroying...")
+            self.destroy_resource()
+            return True
+        else:
+            if abort:
+                raise Exception("can't proceed further")
+            else:
+                return False
+
+    def destroy(self, wipe=False):
+        if self.state == self.UP:
+            try:
+                resource = self.get_resource()
+                return self.confirm_destroy(abort = False)
+            except azure.WindowsAzureMissingResourceError:
+                self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
+        return True
+
+
     # API to handle copying properties from definition to state
     # after resource is created or updated and checking that
     # the state is out of sync with the definition

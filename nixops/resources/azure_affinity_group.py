@@ -61,6 +61,9 @@ class AzureAffinityGroupState(ResourceState):
     def get_resource(self):
         return self.sms().get_affinity_group_properties(self.affinity_group_name)
 
+    def destroy_resource(self):
+        self.sms().delete_affinity_group(self.affinity_group_name)
+
     defn_properties = [ 'description', 'label', 'location' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -78,11 +81,7 @@ class AzureAffinityGroupState(ResourceState):
                     self.handle_changed_property('description', ag.description)
                 else:
                     self.warn_not_supposed_to_exist()
-                    if self.depl.logger.confirm("are you sure you want to destroy {0}?".format(self.full_name)):
-                        self.log("destroying...")
-                        self.sms().delete_affinity_group(self.affinity_group_name)
-                    else:
-                        raise Exception("can't proceed further")
+                    self.confirm_destroy()
 
             except azure.WindowsAzureMissingResourceError:
                 self.warn_missing_resource()
@@ -111,18 +110,3 @@ class AzureAffinityGroupState(ResourceState):
                 raise Exception("{0} has been deleted behind our back; "
                                 "please run 'deploy --check' to fix this"
                                 .format(self.full_name))
-
-
-    def destroy(self, wipe=False):
-        if self.state == self.UP:
-            try:
-                self.sms().get_affinity_group_properties(self.affinity_group_name)
-                if self.depl.logger.confirm("are you sure you want to destroy {0} ({1})?".format(self.full_name, self.location)):
-                    self.log("destroying...")
-                    self.sms().delete_affinity_group(self.affinity_group_name)
-                    return True
-                else:
-                    return False
-            except azure.WindowsAzureMissingResourceError:
-                self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
-        return True

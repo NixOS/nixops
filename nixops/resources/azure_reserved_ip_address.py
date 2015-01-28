@@ -65,6 +65,9 @@ class AzureReservedIPAddressState(ResourceState):
     def get_resource(self):
         return self.sms().get_reserved_ip_address(self.reserved_ip_address_name)
 
+    def destroy_resource(self):
+        self.sms().delete_reserved_ip_address(self.reserved_ip_address_name)
+
     defn_properties = [ 'label', 'location' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -84,11 +87,7 @@ class AzureReservedIPAddressState(ResourceState):
                     self.handle_changed_property('azure_id', address.id, can_fix = False)
                 else:
                     self.warn_not_supposed_to_exist(valuable_resource = True)
-                    if self.depl.logger.confirm("are you sure you want to destroy {0}?".format(self.full_name)):
-                        self.log("destroying...")
-                        self.sms().delete_reserved_ip_address(self.reserved_ip_address_name)
-                    else:
-                        raise Exception("can't proceed further")
+                    self.confirm_destroy()
 
             except azure.WindowsAzureMissingResourceError:
                 self.warn_missing_resource()
@@ -109,18 +108,3 @@ class AzureReservedIPAddressState(ResourceState):
             self.copy_properties(defn)
             self.ip_address = address.address
             self.azure_id = address.id
-
-
-    def destroy(self, wipe=False):
-        if self.state == self.UP:
-            try:
-                self.sms().get_reserved_ip_address(self.reserved_ip_address_name)
-                if self.depl.logger.confirm("are you sure you want to destroy {0} ({1})?".format(self.full_name, self.location)):
-                    self.log("destroying...")
-                    self.sms().delete_reserved_ip_address(self.reserved_ip_address_name)
-                    return True
-                else:
-                    return False
-            except azure.WindowsAzureMissingResourceError:
-                self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
-        return True
