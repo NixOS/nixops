@@ -43,11 +43,7 @@ in
         (see <option>deployment.ec2.*</option>).
         <literal>"virtualbox"</literal> causes a VirtualBox VM to be
         created on your machine.  (This requires VirtualBox to be
-        configured on your system.)  <!-- <literal>"adhoc-cloud"</literal>
-        means that a virtual machine should be instantiated by
-        executing certain commands via SSH on a cloud controller
-        machine (see <option>deployment.adhoc.*</option>).  This is
-        primarily useful for debugging NixOps. -->
+        configured on your system.)
       '';
     };
 
