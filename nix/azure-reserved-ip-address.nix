@@ -17,7 +17,7 @@ with (import ./lib.nix pkgs);
       example = "West US";
       type = types.str;
       description = ''
-        The Azure data center where the reserved IP address housld be located.
+        The Azure data center where the reserved IP address should be located.
         This should be the same location that is assigned to the cloud service
         containing the deployment that will use the reserved IP address.
       '';

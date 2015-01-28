@@ -102,7 +102,6 @@ class AzureAffinityGroupState(ResourceState):
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
             try:
-                self.depl.logger.confirm('about to update')
                 self.sms().update_affinity_group(self.affinity_group_name, defn.label,
                                                  description = defn.description)
                 self.copy_properties(defn)
