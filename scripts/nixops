@@ -90,7 +90,12 @@ def set_name(depl, name):
 
 
 def modify_deployment(depl):
-    depl.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in args.nix_exprs]
+    nix_exprs = args.nix_exprs
+    templates = args.templates or []
+    for i in templates: nix_exprs.append("<nixops/templates/{0}.nix>".format(i))
+    if len(nix_exprs) == 0:
+        raise Exception("you must specify the path to a Nix expression and/or use ‘-t’")
+    depl.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in nix_exprs]
     depl.nix_path = [nixops.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
 
 
@@ -684,7 +689,8 @@ subparser = add_subparser('list', help='list all known deployments')
 subparser.set_defaults(op=op_list_deployments)
 
 def add_common_modify_options(subparser):
-    subparser.add_argument('nix_exprs', nargs='+', metavar='NIX-FILE', help='Nix expression(s) defining the network')
+    subparser.add_argument('nix_exprs', nargs='*', metavar='NIX-FILE', help='Nix expression(s) defining the network')
+    subparser.add_argument('--template', '-t', action="append", dest="templates", metavar='TEMPLATE', help='name of template to be used')
 
 subparser = add_subparser('create', help='create a new deployment')
 subparser.set_defaults(op=op_create)
