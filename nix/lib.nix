@@ -1,4 +1,8 @@
-pkgs: with pkgs.lib; {
+lib:
+
+with lib;
+
+{
 
   resource = type: mkOptionType {
     name = "resource of type ‘${type}’";

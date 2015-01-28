@@ -1,6 +1,6 @@
-{ config, pkgs, uuid, name, ... }:
+{ config, pkgs, lib, uuid, name, ... }:
 
-with pkgs.lib;
+with lib;
 with (import ./lib.nix pkgs);
 {
 

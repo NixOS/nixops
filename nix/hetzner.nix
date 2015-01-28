@@ -1,8 +1,8 @@
 # Configuration specific to the Hetzner backend.
 
-{ config, pkgs, ... }:
+{ config, lib, ... }:
 
-with pkgs.lib;
+with lib;
 
 {
   ###### interface

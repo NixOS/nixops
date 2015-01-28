@@ -4,7 +4,7 @@
 
 with lib;
 with utils;
-with (import ./lib.nix pkgs);
+with import ./lib.nix lib;
 
 let
 

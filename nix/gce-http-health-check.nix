@@ -1,7 +1,7 @@
-{ config, pkgs, uuid, name, ... }:
+{ config, lib, pkgs, uuid, name, ... }:
 
-with pkgs.lib;
-with (import ./lib.nix pkgs);
+with lib;
+with import ./lib.nix lib;
 {
 
   options = (import ./gce-credentials.nix pkgs "HTTP health check") // {

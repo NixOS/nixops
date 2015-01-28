@@ -1,6 +1,6 @@
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
-with pkgs.lib;
+with lib;
 
 let
   sz = toString config.deployment.libvirtd.baseImageSize;
@@ -76,7 +76,7 @@ in
     deployment.libvirtd.networks = mkOption {
       default = [ "default" ];
       type = types.listOf types.str;
-      description = "Names of libvirt networks to attach the VM to";
+      description = "Names of libvirt networks to attach the VM to.";
     };
   };
 

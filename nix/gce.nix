@@ -1,9 +1,10 @@
 # Configuration specific to the Google Compute Engine backend.
 
-{ config, pkgs, name, uuid, resources, ... }:
+{ config, lib, pkgs, name, uuid, resources, ... }:
 
-with pkgs.lib;
-with (import ./lib.nix pkgs);
+with lib;
+with import ./lib.nix lib;
+
 let
 
   gce_dev_prefix = "/dev/disk/by-id/scsi-0Google_PersistentDisk_";

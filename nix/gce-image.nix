@@ -1,6 +1,8 @@
-{ config, pkgs, uuid, name, ... }:
-with pkgs.lib;
-with (import ./lib.nix pkgs);
+{ config, lib, pkgs, uuid, name, ... }:
+
+with lib;
+with import ./lib.nix lib;
+
 {
 
   options = (import ./gce-credentials.nix pkgs "image") // {
