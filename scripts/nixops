@@ -899,7 +899,7 @@ if os.path.basename(sys.argv[0]) == "charon":
 
 # Parse the command line and execute the desired operation.
 def error(msg):
-    sys.stderr.write("error: " + nixops.util.ansi_warn(msg) + "\n")
+    sys.stderr.write(nixops.util.ansi_warn("error: ") + msg + "\n")
 
 args = parser.parse_args()
 setup_logging(args)
