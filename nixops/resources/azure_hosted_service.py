@@ -38,7 +38,7 @@ class AzureHostedServiceDefinition(ResourceDefinition):
             raise Exception("Only one of location or affinity group needs to be specified")
 
     def show_type(self):
-        return "{0} [{1}]".format(self.get_type(), self.affinityGroup or self.location)
+        return "{0} [{1}]".format(self.get_type(), self.affinity_group or self.location)
 
 
 class AzureHostedServiceState(ResourceState):
