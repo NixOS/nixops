@@ -8,7 +8,6 @@ import azure
 from nixops.util import attr_property
 from nixops.azure_common import ResourceDefinition, ResourceState
 
-
 def normalize_empty(x):
     return x if x != "" else None
 
@@ -141,3 +140,9 @@ class AzureHostedServiceState(ResourceState):
                 raise Exception("{0} has been deleted behind our back; "
                                 "please run 'deploy --check' to fix this"
                                 .format(self.full_name))
+
+
+    def create_after(self, resources, defn):
+        from nixops.resources.azure_affinity_group import AzureAffinityGroupState
+        return {r for r in resources
+                  if isinstance(r, AzureAffinityGroupState)}
