@@ -550,6 +550,7 @@ class GCEState(MachineState, ResourceState):
             if not self.depl.logger.confirm(question.format(self.full_name)):
                 return False
 
+            known_hosts.remove(self.public_ipv4, self.public_host_key)
             self.log("destroying the GCE machine...")
             node.destroy()
 
