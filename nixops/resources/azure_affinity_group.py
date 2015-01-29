@@ -20,8 +20,8 @@ class AzureAffinityGroupDefinition(ResourceDefinition):
         ResourceDefinition.__init__(self, xml)
 
         self.affinity_group_name = self.get_option_value(xml, 'name', str)
-        self.copy_option(xml, 'location', str)
-        self.copy_option(xml, 'label', str)
+        self.copy_option(xml, 'location', str, empty = False)
+        self.copy_option(xml, 'label', str, empty = False)
         self.copy_option(xml, 'description', str)
 
     def show_type(self):
