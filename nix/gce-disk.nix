@@ -1,7 +1,7 @@
 { config, pkgs, lib, uuid, name, ... }:
 
 with lib;
-with (import ./lib.nix pkgs);
+with import ./lib.nix lib;
 {
 
   options = (import ./gce-credentials.nix pkgs "disk") // {
