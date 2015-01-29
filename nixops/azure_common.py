@@ -172,7 +172,7 @@ class ResourceState(nixops.resources.ResourceState):
     def destroy(self, wipe=False):
         if self.state == self.UP:
             try:
-                resource = self.get_resource()
+                resource = self.get_settled_resource()
                 return self.confirm_destroy(abort = False)
             except azure.WindowsAzureMissingResourceError:
                 self.warn("tried to destroy {0} which didn't exist".format(self.full_name))

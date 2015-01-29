@@ -67,6 +67,9 @@ class AzureAffinityGroupState(ResourceState):
     def destroy_resource(self):
         self.sms().delete_affinity_group(self.affinity_group_name)
 
+    def is_settled(self, resource):
+        return True
+
     defn_properties = [ 'description', 'label', 'location' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -76,7 +79,7 @@ class AzureAffinityGroupState(ResourceState):
         self.affinity_group_name = defn.affinity_group_name
 
         if check:
-            ag = self.get_resource()
+            ag = self.get_settled_resource()
             if not ag:
                 self.warn_missing_resource()
             elif self.state == self.UP:
@@ -88,7 +91,7 @@ class AzureAffinityGroupState(ResourceState):
                 self.confirm_destroy()
 
         if self.state != self.UP:
-            if self.get_resource():
+            if self.get_settled_resource():
                 raise Exception("tried creating an affinity group that already exists; "
                                 "please run 'deploy --check' to fix this")
 
