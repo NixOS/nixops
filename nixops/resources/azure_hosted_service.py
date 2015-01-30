@@ -48,7 +48,7 @@ class AzureHostedServiceState(ResourceState):
     label = attr_property("azure.label", None)
     description = attr_property("azure.description", None)
     affinity_group = attr_property("azure.affinityGroup", None)
-    extended_properties = attr_property("gce.extendedProperties", {}, 'json')
+    extended_properties = attr_property("azure.extendedProperties", {}, 'json')
 
     @classmethod
     def get_type(cls):

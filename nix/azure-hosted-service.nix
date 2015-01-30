@@ -60,6 +60,6 @@ with (import ./lib.nix pkgs);
 
   };
 
-  config._type = "azure-reserved-ip-address";
+  config._type = "azure-hosted-service";
 
 }
