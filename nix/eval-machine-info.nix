@@ -101,6 +101,7 @@ rec {
   resources.azureReservedIPAddresses = evalResources ./azure-reserved-ip-address.nix (zipAttrs resourcesByType.azureReservedIPAddresses or []);
   resources.azureHostedServices = evalResources ./azure-hosted-service.nix (zipAttrs resourcesByType.azureHostedServices or []);
   resources.azureStorages = evalResources ./azure-storage.nix (zipAttrs resourcesByType.azureStorages or []);
+  resources.azureBlobContainers = evalResources ./azure-blob-container.nix (zipAttrs resourcesByType.azureBlobContainers or []);
 
   # Google Compute resources
   resources.gceDisks = evalResources ./gce-disk.nix (zipAttrs resourcesByType.gceDisks or []);
