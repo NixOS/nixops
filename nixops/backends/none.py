@@ -34,6 +34,10 @@ class NoneState(MachineState):
         self.target_host = defn._target_host
 
     def get_ssh_name(self):
+        return self.public_ipv4
+
+    @property
+    def public_ipv4(self):
         assert self.target_host
         return self.target_host
 
