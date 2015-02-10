@@ -69,6 +69,16 @@ with (import ./lib.nix pkgs);
       '';
     };
 
+    activeKey = mkOption {
+      default = "primary";
+      type = types.str;
+      description = ''
+        Specifies which of the access keys should be used by containers, tables and queues.
+        The keys provide the same access, but can be independently regenerated which allows
+        seamless key replacement.
+        Possible values are: primary, secondary.
+      '';
+    };
   };
 
   config._type = "azure-storage";

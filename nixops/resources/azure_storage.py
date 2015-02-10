@@ -27,6 +27,9 @@ class AzureStorageDefinition(ResourceDefinition):
         self.copy_option(xml, 'description', str)
         self.copy_option(xml, 'accountType', str, empty = False)
         self.copy_option(xml, 'affinityGroup', 'resource', optional = True)
+        self.copy_option(xml, 'activeKey', str, empty = False)
+        if self.active_key not in ['primary', 'secondary']:
+            raise Exception("Allowed activeKey values are: 'primary' and 'secondary'")
         self.copy_option(xml, 'location', str, optional = True)
         self.location = normalize_empty(self.location)
         self.extended_properties = {
@@ -51,7 +54,11 @@ class AzureStorageState(ResourceState):
     description = attr_property("azure.description", None)
     affinity_group = attr_property("azure.affinityGroup", None)
     account_type = attr_property("azure.accountType", None)
-    extended_properties = attr_property("gce.extendedProperties", {}, 'json')
+    extended_properties = attr_property("azure.extendedProperties", {}, 'json')
+
+    active_key = attr_property("azure.activeKey", None)
+    primary_key = attr_property("azure.primaryKey", None)
+    secondary_key = attr_property("azure.secondaryKey", None)
 
     @classmethod
     def get_type(cls):
@@ -88,6 +95,10 @@ class AzureStorageState(ResourceState):
         return resource is None or (resource.storage_service_properties.status != 'Creating' and
                                     resource.storage_service_properties.status != 'Deleting')
 
+    @property
+    def access_key(self):
+        return ((self.active_key == 'primary') and self.primary_key) or self.secondary_key
+
     defn_properties = [ 'label', 'location', 'description',
                         'account_type', 'affinity_group', 'extended_properties' ]
 
@@ -97,9 +108,10 @@ class AzureStorageState(ResourceState):
 
         self.copy_credentials(defn)
         self.storage_name = defn.storage_name
+        self.active_key = defn.active_key
 
         if check:
-            storage = self.get_settled_resource()
+            storage = self.get_settled_resource(max_tries=600)
             if not storage:
                 self.warn_missing_resource()
             elif self.state == self.UP:
@@ -116,13 +128,16 @@ class AzureStorageState(ResourceState):
                         for k, v in storage.extended_properties.items()
                         if k not in ['ResourceGroup', 'ResourceLocation'] }
                 self.handle_changed_property('extended_properties', filtered_properties)
+                keys = self.sms().get_storage_account_keys(self.storage_name)
+                self.handle_changed_property('primary_key', keys.storage_service_keys.primary)
+                self.handle_changed_property('secondary_key', keys.storage_service_keys.secondary)
             else:
                 self.warn_not_supposed_to_exist()
                 self.confirm_destroy()
 
         if self.state != self.UP:
-            if self.get_settled_resource():
-                raise Exception("tried creating a hosted service that already exists; "
+            if self.get_settled_resource(max_tries=600):
+                raise Exception("tried creating a storage that already exists; "
                                 "please run 'deploy --check' to fix this")
 
             self.log("creating {0} in {1}...".format(self.full_name, defn.location or defn.affinity_group))
@@ -133,6 +148,11 @@ class AzureStorageState(ResourceState):
                                              account_type = defn.account_type)
             self.state = self.UP
             self.copy_properties(defn)
+            # getting keys fails until the storage is fully provisioned
+            self.get_settled_resource(max_tries=600)
+            keys = self.sms().get_storage_account_keys(defn.storage_name)
+            self.primary_key = keys.storage_service_keys.primary
+            self.secondary_key = keys.storage_service_keys.secondary
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
