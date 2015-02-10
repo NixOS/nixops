@@ -106,8 +106,7 @@ class AzureBLOBContainerState(ResourceState):
             if not container:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                # acl = bs.
-                #self.handle_changed_property('acl', container.acl)
+                # FIXME: currently no way to get acl value
                 metadata = { k[10:] : v
                              for k, v in container.items()
                              if k.startswith('x-ms-meta-') }
