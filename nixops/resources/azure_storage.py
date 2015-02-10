@@ -156,16 +156,15 @@ class AzureStorageState(ResourceState):
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
-            try:
-                self.sms().update_storage_account(self.storage_name, label = defn.label,
-                                                 description = defn.description,
-                                                 extended_properties = defn.extended_properties,
-                                                 account_type = defn.account_type)
-                self.copy_properties(defn)
-            except azure.WindowsAzureError:
+            if not self.get_settled_resource(max_tries=600):
                 raise Exception("{0} has been deleted behind our back; "
                                 "please run 'deploy --check' to fix this"
                                 .format(self.full_name))
+            self.sms().update_storage_account(self.storage_name, label = defn.label,
+                                              description = defn.description,
+                                              extended_properties = defn.extended_properties,
+                                              account_type = defn.account_type)
+            self.copy_properties(defn)
 
 
     def create_after(self, resources, defn):
