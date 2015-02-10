@@ -208,14 +208,21 @@ class ResourceState(nixops.resources.ResourceState):
         check_wait(check_settled, initial=1, max_tries=100, exception=True)
 
     def get_settled_resource(self, initial=1, factor=1, max_tries=60):
+        def _get_resource():
+            try:
+                return self.get_resource()
+            except Exception as e:
+                self.log("Failed getting access to {0}".format(self.full_name))
+                raise
         wait = initial
         tries = 0
-        resource = self.get_resource()
+        resource = _get_resource()
+
         while tries < max_tries and not self.is_settled(resource):
             wait = wait * factor
             tries = tries + 1
             if tries == max_tries:
                 raise Exception("resource failed to settle")
             time.sleep(wait)
-            resource = self.get_resource()
+            resource = _get_resource()
         return resource
