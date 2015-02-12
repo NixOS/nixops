@@ -40,11 +40,6 @@ def _rewrite(ip_address, add, public_host_key):
             os.rename(tmp, path)
 
 
-def remove(ip_address):
-    '''Remove any known host key for a given IP address.'''
-    _rewrite(ip_address, False, None)
-
-
 def remove(ip_address, public_host_key):
     '''Remove a specific known host key.'''
     _rewrite(ip_address, False, public_host_key)

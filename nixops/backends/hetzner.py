@@ -563,7 +563,7 @@ class HetznerState(MachineState):
             vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
             server.set_name(vm_id[:100])
             self.vm_id = vm_id
-            known_hosts.remove(self.main_ipv4)
+            known_hosts.remove(self.main_ipv4, None)
             self.just_installed = True
 
     def start(self):
