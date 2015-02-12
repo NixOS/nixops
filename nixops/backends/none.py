@@ -38,7 +38,6 @@ class NoneState(MachineState):
 
     @property
     def public_ipv4(self):
-        assert self.target_host
         return self.target_host
 
     def _check(self, res):
