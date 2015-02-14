@@ -70,7 +70,7 @@ class AzureBLOBContainerState(ResourceState):
         access_key = self.access_key or (storage and storage.access_key)
 
         if not access_key:
-            raise Exception("Can't obtain the access key needed to create {0}"
+            raise Exception("Can't obtain the access key needed to manage {0}"
                             .format(self.full_name))
         return access_key
 
