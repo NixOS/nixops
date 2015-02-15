@@ -138,6 +138,7 @@ rec {
       flip mapAttrs nodes (n: v': let v = scrubOptionValue v'; in
         { inherit (v.config.deployment) targetEnv targetPort targetHost encryptedLinksTo storeKeysOnMachine alwaysActivate owners keys;
           nixosRelease = v.config.system.nixosRelease or (removeSuffix v.config.system.nixosVersionSuffix v.config.system.nixosVersion);
+          azure = optionalAttrs (v.config.deployment.targetEnv == "azure")  v.config.deployment.azure;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
           gce = optionalAttrs (v.config.deployment.targetEnv == "gce") v.config.deployment.gce;
           hetzner = optionalAttrs (v.config.deployment.targetEnv == "hetzner") v.config.deployment.hetzner;

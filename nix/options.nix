@@ -12,6 +12,7 @@ in
 
   imports =
     [ ./ec2.nix
+      ./azure.nix
       ./route53.nix
       ./virtualbox.nix
       ./ssh-tunnel.nix
