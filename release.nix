@@ -92,7 +92,6 @@ rec {
       shellHook = ''
         export PYTHONPATH=$(pwd):$PYTHONPATH
         export PATH=$(pwd)/scripts:$PATH
-        export SSL_CERT_FILE=$OPENSSL_X509_CERT_FILE
       '';
 
       doCheck = true;
