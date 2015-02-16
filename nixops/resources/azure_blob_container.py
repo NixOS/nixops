@@ -142,5 +142,6 @@ class AzureBLOBContainerState(ResourceState):
 
     def create_after(self, resources, defn):
         from nixops.resources.azure_affinity_group import AzureAffinityGroupState
+        from nixops.resources.azure_storage import AzureStorageState
         return {r for r in resources
-                  if isinstance(r, AzureAffinityGroupState)}
+                  if isinstance(r, AzureAffinityGroupState) or isinstance(r, AzureStorageState)}
