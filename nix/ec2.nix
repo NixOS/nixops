@@ -137,7 +137,8 @@ let
    || builtins.substring 0 2 cfg.instanceType == "c4"
    || builtins.substring 0 2 cfg.instanceType == "r3"
    || builtins.substring 0 2 cfg.instanceType == "m3"
-   || builtins.substring 0 2 cfg.instanceType == "g2";
+   || builtins.substring 0 2 cfg.instanceType == "g2"
+   || builtins.substring 0 2 cfg.instanceType == "t2";
 
   # Map "/dev/mapper/xvdX" to "/dev/xvdX".
   dmToDevice = dev:
@@ -447,6 +448,9 @@ in
         type = config.deployment.ec2.instanceType or "unknown";
         mapping = {
           "t1.micro"    = { cores = 1;  memory = 595;    allowsEbsOptimized = false; };
+          "t2.micro"    = { cores = 1;  memory = 1024;   allowsEbsOptimized = false; };
+          "t2.small"    = { cores = 1;  memory = 2048;   allowsEbsOptimized = false; };
+          "t2.medium"   = { cores = 2;  memory = 4096;   allowsEbsOptimized = false; };
           "m1.small"    = { cores = 1;  memory = 1658;   allowsEbsOptimized = false; };
           "m1.medium"   = { cores = 1;  memory = 3755;   allowsEbsOptimized = false; };
           "m1.large"    = { cores = 2;  memory = 7455;   allowsEbsOptimized = true;  };
