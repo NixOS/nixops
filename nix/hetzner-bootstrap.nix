@@ -1,4 +1,4 @@
-with import <nixpkgs> { system = "x86_64-linux"; };
+with import <nixpkgs> { system = "x86_64-linux"; config.packageOverrides = pkgs : { nix = pkgs.nixUnstable; }; };
 
 let
   pkgsNative = import <nixpkgs> {};
@@ -20,7 +20,7 @@ let
 
     buildCommand = ''
       ensureDir "$out/bin"
-      ln -s "${nixUnstable}"/bin/* "$out/bin/"
+      ln -s "${nix}"/bin/* "$out/bin/"
       ln -s "${stdenv.shell}" "$out/bin/sh"
     '';
   };
@@ -38,7 +38,7 @@ in stdenv.mkDerivation {
     installer="$out/bin/hetzner-bootstrap"
 
     # Create the chroot wrappers for Nix
-    for path in "${nixUnstable}"/bin/*; do
+    for path in "${nix}"/bin/*; do
       base="$(basename "$path")"
       wrapper="usr/bin/$base"
       echo "#!/bin/sh" > "$wrapper"
@@ -71,7 +71,7 @@ in stdenv.mkDerivation {
     stripped_full_storepaths="$(echo "$full_storepaths" | sed -e 's|/*||')"
 
     # Reset timestamps to those of 'nix-store' to prevent annoying warnings.
-    find usr -exec touch -h -r "${nixUnstable}/bin/nix-store" {} +
+    find usr -exec touch -h -r "${nix}/bin/nix-store" {} +
 
     # This is to be extracted on the other end using:
     #
