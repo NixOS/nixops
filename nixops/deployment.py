@@ -701,7 +701,7 @@ class Deployment(object):
 
             try:
                 # Set the system profile to the new configuration.
-                daemon_var = '' if m.state == RESCUE else 'NIX_REMOTE=daemon '
+                daemon_var = '' if m.state == m.RESCUE else 'NIX_REMOTE=daemon '
                 setprof = daemon_var + 'nix-env -p /nix/var/nix/profiles/system --set "{0}"'
                 if always_activate or self.definitions[m.name].always_activate:
                     m.run_command(setprof.format(m.new_toplevel))
