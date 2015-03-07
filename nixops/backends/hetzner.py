@@ -194,6 +194,11 @@ class HetznerState(MachineState):
         bootstrap = os.path.join(bootstrap_out, 'bin/hetzner-bootstrap')
         self.log_end("done. ({0})".format(bootstrap))
 
+        self.log_start("creating nixbld group in rescue system...")
+        self.run_command("getent group nixbld > /dev/null || "
+                         "groupadd -g 30000 nixbld")
+        self.log_end("done.")
+
         self.log_start("checking if tmpfs in rescue system is large enough...")
         dfstat = self.run_command("stat -f -c '%a:%S' /", capture_stdout=True)
         df, bs = dfstat.split(':')
