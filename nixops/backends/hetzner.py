@@ -156,16 +156,17 @@ class HetznerState(MachineState):
             return self.write_ssh_private_key(self.main_ssh_private_key)
 
     def get_ssh_flags(self, scp=False):
-        if self.state == self.RESCUE:
-            return ["-o", "LogLevel=quiet"]
-        else:
-            # XXX: Disabling strict host key checking will only impact the
-            # behaviour on *new* keys, so it should be "reasonably" safe to do
-            # this until we have a better way of managing host keys in
-            # ssh_util. So far this at least avoids to accept every damn host
-            # key on a large deployment.
-            return ["-o", "StrictHostKeyChecking=no",
-                    "-i", self.get_ssh_private_key_file()]
+        return super(HetznerState, self).get_ssh_flags(scp) + (
+          ["-o", "LogLevel=quiet"]
+          if self.state == self.RESCUE else
+          # XXX: Disabling strict host key checking will only impact the
+          # behaviour on *new* keys, so it should be "reasonably" safe to do
+          # this until we have a better way of managing host keys in
+          # ssh_util. So far this at least avoids to accept every damn host
+          # key on a large deployment.
+          ["-o", "StrictHostKeyChecking=no",
+           "-i", self.get_ssh_private_key_file()]
+        )
 
     def _wait_for_rescue(self, ip):
         if not TEST_MODE:

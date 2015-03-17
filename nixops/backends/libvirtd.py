@@ -51,7 +51,7 @@ class LibvirtdState(MachineState):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
 
     def get_ssh_flags(self, scp=False):
-        return [ "-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file() ]
+        return super(LibvirtdState, self).get_ssh_flags(scp) + [ "-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file() ]
 
     def _vm_id(self):
         return "nixops-{0}-{1}".format(self.depl.uuid, self.name)
