@@ -783,4 +783,4 @@ class GCEState(MachineState, ResourceState):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.private_client_key)
 
     def get_ssh_flags(self, scp=False):
-        return [ "-i", self.get_ssh_private_key_file() ]
+        return super(GCEState, self).get_ssh_flags(scp) + [ "-i", self.get_ssh_private_key_file() ]
