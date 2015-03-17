@@ -5,7 +5,7 @@ with import ./lib.nix lib;
 
 {
 
-  options = (import ./gce-credentials.nix pkgs "forwarding rule") // {
+  options = (import ./gce-credentials.nix lib "forwarding rule") // {
 
     name = mkOption {
       example = "my-public-ip";

@@ -5,7 +5,7 @@ with import ./lib.nix lib;
 
 {
 
-  options = (import ./gce-credentials.nix pkgs "IP address") // {
+  options = (import ./gce-credentials.nix lib "IP address") // {
 
     name = mkOption {
       example = "my-public-ip";

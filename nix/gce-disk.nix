@@ -4,7 +4,7 @@ with lib;
 with import ./lib.nix lib;
 {
 
-  options = (import ./gce-credentials.nix pkgs "disk") // {
+  options = (import ./gce-credentials.nix lib "disk") // {
 
     name = mkOption {
       example = "big-fat-disk";

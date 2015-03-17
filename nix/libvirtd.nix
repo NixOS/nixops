@@ -83,7 +83,7 @@ in
   ###### implementation
 
   config = mkIf (config.deployment.targetEnv == "libvirtd") {
-    deployment.libvirtd.baseImage = pkgs.lib.mkDefault ssh_image;
+    deployment.libvirtd.baseImage = mkDefault ssh_image;
 
     nixpkgs.system = mkOverride 900 "x86_64-linux";
 

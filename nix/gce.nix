@@ -194,7 +194,7 @@ in
 
   options = {
 
-    deployment.gce = (import ./gce-credentials.nix pkgs "instance") // {
+    deployment.gce = (import ./gce-credentials.nix lib "instance") // {
 
       machineName = mkOption {
         default = "n-${shorten_uuid uuid}-${name}";

@@ -14,7 +14,7 @@ let
 in
 {
 
-  options = (import ./gce-credentials.nix pkgs "target pool") // {
+  options = (import ./gce-credentials.nix lib "target pool") // {
 
     name = mkOption {
       example = "my-target-pool";

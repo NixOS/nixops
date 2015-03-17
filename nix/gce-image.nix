@@ -5,7 +5,7 @@ with import ./lib.nix lib;
 
 {
 
-  options = (import ./gce-credentials.nix pkgs "image") // {
+  options = (import ./gce-credentials.nix lib "image") // {
 
     name = mkOption {
       example = "my-bootstrap-image";

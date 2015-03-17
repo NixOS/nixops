@@ -69,7 +69,7 @@ let
 in
 {
 
-  options = (import ./gce-credentials.nix pkgs "network") // {
+  options = (import ./gce-credentials.nix lib "network") // {
 
     name = mkOption {
       example = "my-custom-network";

@@ -4,7 +4,7 @@ with lib;
 with import ./lib.nix lib;
 {
 
-  options = (import ./gce-credentials.nix pkgs "HTTP health check") // {
+  options = (import ./gce-credentials.nix lib "HTTP health check") // {
 
     name = mkOption {
       example = "my-health-check";
