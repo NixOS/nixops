@@ -64,7 +64,7 @@ class ResourceDefinition(nixops.resources.ResourceDefinition):
         if not empty:
             ensure_not_empty(value, name)
         if positive:
-            ensure_positive(value, name)
+            value is None or ensure_positive(value, name)
         return value
 
     # store the option value in a property, following the naming conventions
