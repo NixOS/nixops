@@ -109,6 +109,9 @@ class AzureDeploymentState(ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_property_change(defn, 'hosted_service')
+        self.no_property_change(defn, 'label')
+        self.no_property_change(defn, 'slot')
+        self.no_property_change(defn, 'ip_address')
 
         self.copy_credentials(defn)
         self.deployment_name = defn.deployment_name
