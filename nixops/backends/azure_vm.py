@@ -121,7 +121,7 @@ class AzureState(MachineState, ResourceState):
                 return self.sms().get_disk(volume_id).attached_to is None
             check_wait(check_detached, initial=1, max_tries=100, exception=True)
 
-            self.sms().delete_disk(self.root_disk, delete_vhd=True)
+            self.sms().delete_disk(volume_id, delete_vhd=True)
         except azure.WindowsAzureMissingResourceError:
             self.warn("seems to have been destroyed already")
 
