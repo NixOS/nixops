@@ -4,6 +4,53 @@
 
 with pkgs.lib;
 with (import ./lib.nix pkgs);
+let
+
+  endpointOptions = { config, ... }: {
+
+    options = {
+
+      port = mkOption {
+        example = 22;
+        type = types.int;
+        description = ''
+          External port number bound to the public IP of the deployment.
+        '';
+      };
+
+      localPort = mkOption {
+        example = 22;
+        type = types.int;
+        description = ''
+          Local port number bound to the the VM network interface.
+        '';
+      };
+
+      setName = mkOption {
+        default = null;
+        example = 22;
+        type = types.nullOr types.str;
+        description = ''
+          Name of the load-balanced endpoint set.
+        '';
+      };
+
+      directServerReturn = mkOption {
+        default = false;
+        example = true;
+        type = types.bool;
+        description = ''
+          Enable direct server return.
+        '';
+      };
+
+    };
+
+    config = {};
+
+  };
+
+in
 {
   ###### interface
 
@@ -29,16 +76,6 @@ with (import ./lib.nix pkgs);
         '';
       };
 
-      ipAddress = mkOption {
-        default = null;
-        example = "resources.azureReservedIPAddresses.exampleIP";
-        type = types.nullOr ( types.either types.str (resource "azure-reserved-ip-address") );
-        description = ''
-          Azure Static IP address resource to bind to or the name of
-          an IP address not managed by NixOps.
-        '';
-      };
-
 #      storage = mkOption {
 #        default = null;
 #        example = "resources.azureStorages.mystorage";
@@ -48,19 +85,21 @@ with (import ./lib.nix pkgs);
 #        '';
 #      };
 
-      slot = mkOption {
-        default = "staging";
-        example = "production";
-        type = types.str;
-        description = "Deployment slot: staging or production.";
-      };
-
       hostedService = mkOption {
         default = null;
         example = "resources.azureHostedServices.myservice";
         type = types.either types.str (resource "azure-hosted-service");
         description = ''
           Azure hosted service name or resource to deploy the machine to.
+        '';
+      };
+
+      deployment = mkOption {
+        default = null;
+        example = "resources.azureDesployments.mydeployment";
+        type = types.either types.str (resource "azure-deployment");
+        description = ''
+          Azure deployment name or resource to deploy the machine to.
         '';
       };
 
@@ -77,6 +116,26 @@ with (import ./lib.nix pkgs);
         type = types.str;
         description = ''
           URL of the BLOB of the root disk. Will be created if neccessary.
+        '';
+      };
+
+      inputEndpoints.tcp = mkOption {
+        default = { };
+        example = { ssh = { port = 33; localPort = 22; }; };
+        type = types.attrsOf types.optionSet;
+        options = endpointOptions;
+        description = ''
+          TCP input endpoint options.
+        '';
+      };
+
+      inputEndpoints.udp = mkOption {
+        default = { };
+        example = { dns = { port = 53; localPort = 640; }; };
+        type = types.attrsOf types.optionSet;
+        options = endpointOptions;
+        description = ''
+          UDP input endpoint options.
         '';
       };
 

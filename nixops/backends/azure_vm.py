@@ -19,6 +19,7 @@ from nixops.nix_expr import Function, RawValue
 from nixops.backends import MachineDefinition, MachineState
 from nixops.azure_common import ResourceDefinition, ResourceState
 
+from xml.etree import ElementTree
 
 class AzureDefinition(MachineDefinition, ResourceDefinition):
     """
@@ -39,16 +40,31 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'certificatePath', str)
 
         self.copy_option(x, 'roleSize', str, empty = False)
-        self.copy_option(x, 'ipAddress', 'resource', optional = True)
         #self.copy_option(x, 'storage', 'resource')
         self.copy_option(x, 'hostedService', 'resource')
+        self.copy_option(x, 'deployment', 'resource')
 
         self.copy_option(x, 'rootDiskImage', str, empty = False)
         self.copy_option(x, 'rootDiskUrl', str, empty = False)
 
-        self.copy_option(x, 'slot', str)
-        if self.slot not in [ 'production', 'staging' ]:
-            raise Exception('Deployment slot must be either "production" or "staging"')
+        def parse_endpoint(xml, proto):
+            return {
+                'name': xml.get('name'),
+                'protocol': proto,
+                'port': self.get_option_value(xml, 'port', int),
+                'local_port': self.get_option_value(xml, 'localPort', int),
+                'set': self.get_option_value(xml, 'setName', str, optional = True),
+                'dsr': self.get_option_value(xml, 'directServerReturn', bool)
+            }
+
+        ie_xml = x.find("attr[@name='inputEndpoints']/attrs")
+
+        tcp_endpoints = [ parse_endpoint(k, "tcp")
+                          for k in ie_xml.findall("attr[@name='tcp']/attrs/attr") ]
+        udp_endpoints = [ parse_endpoint(k, "udp")
+                          for k in ie_xml.findall("attr[@name='udp']/attrs/attr") ]
+
+        self.input_endpoints = sorted(tcp_endpoints + udp_endpoints)
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.role_size or "???")
@@ -73,10 +89,11 @@ class AzureState(MachineState, ResourceState):
     public_host_key = attr_property("azure.publicHostKey", None)
     private_host_key = attr_property("azure.privateHostKey", None)
 
-    ip_address = attr_property("azure.ipAddress", None)
     storage = attr_property("azure.storage", None)
     hosted_service = attr_property("azure.hostedService", None)
+    deployment = attr_property("azure.deployment", None)
 
+    input_endpoints = attr_property("gce.blockDeviceMapping", {}, 'json')
     block_device_mapping = attr_property("azure.blockDeviceMapping", {}, 'json')
     root_disk = attr_property("azure.rootDisk", None)
 
@@ -131,33 +148,53 @@ class AzureState(MachineState, ResourceState):
         self.state = self.STOPPED
 
 
-    defn_properties = [ 'role_size', 'ip_address' ]
+    defn_properties = [ 'role_size', 'input_endpoints' ]
 
     def is_deployed(self):
         return (self.vm_id or self.block_device_mapping or self.root_disk)
 
     def get_resource(self):
         try:
-            return self.sms().get_role(self.hosted_service, self.resource_id, self.resource_id)
+            return self.sms().get_role(self.hosted_service, self.deployment, self.resource_id)
         except azure.WindowsAzureMissingResourceError:
             return None
 
     def destroy_resource(self):
-        req = self.sms().delete_deployment(self.hosted_service, self.resource_id)
+        req = self.sms().delete_role(self.hosted_service, self.deployment, self.resource_id)
         self.finish_request(req)
 
 
     def is_settled(self, resource):
         return True
 
+    def fetch_PIP(self):
+        d = self.sms().get_deployment_by_name(self.hosted_service, self.deployment)
+        instance = next((r for r in d.role_instance_list if r.instance_name == self.machine_name), None)
+        return (instance and instance.public_ips and instance.public_ips[0].address)
+
+    def mk_network_configuration(self, endpoints):
+        network_configuration = ConfigurationSet()
+        for ie in endpoints:
+            network_configuration.input_endpoints.input_endpoints.append(ConfigurationSetInputEndpoint(
+                name = ie['name'],
+                protocol = ie['protocol'],
+                port = ie['port'],
+                local_port = ie['local_port'],
+                load_balanced_endpoint_set_name = ie['set'],
+                enable_direct_server_return = ie['dsr'] ))
+        return network_configuration
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(self.machine_name != defn.machine_name, "instance name")
+        self.no_property_change(defn, 'hosted_service')
+        self.no_property_change(defn, 'deployment')
 
         self.set_common_state(defn)
         self.copy_credentials(defn)
         self.machine_name = defn.machine_name
         #self.storage = defn.storage
         self.hosted_service = defn.hosted_service
+        self.deployment = defn.deployment
 
         if not self.public_client_key:
             (private, public) = create_key_pair()
@@ -174,7 +211,23 @@ class AzureState(MachineState, ResourceState):
             if vm:
                 self.root_disk = vm.os_virtual_hard_disk.disk_name
                 if self.vm_id:  
-                    print "not implemented"
+                    self.handle_changed_property('public_ipv4', self.fetch_PIP())
+                    known_hosts.add(self.public_ipv4, self.public_host_key)
+
+                    net_cfg = vm.configuration_sets[0]
+                    assert net_cfg.configuration_set_type == 'NetworkConfiguration'
+                    def normalize_empty(x):
+                        return (x if x != "" else None)
+                    ies = []
+                    for ie in net_cfg.input_endpoints:
+                        ies.append({
+                            'protocol': ie.protocol,
+                            'name': ie.name,
+                            'port': int(ie.port),
+                            'local_port': int(ie.local_port),
+                            'dsr': ie.enable_direct_server_return,
+                            'set': normalize_empty(ie.load_balanced_endpoint_set_name) })
+                    self.handle_changed_property('input_endpoints', sorted(ies))
                 else:
                     self.warn_not_supposed_to_exist(valuable_data = True)
                     self.confirm_destroy()
@@ -184,7 +237,22 @@ class AzureState(MachineState, ResourceState):
                     if not allow_recreate: raise Exception("use --allow-recreate to fix")
                     self._node_deleted()
 
+        if self.vm_id and defn.role_size != self.role_size and not allow_reboot:
+            raise Exception("reboot is required to change role size; please run with --allow-reboot")
+
         self.create_node(defn)
+
+        if self.properties_changed(defn):
+            self.log("updating properties of {0}...".format(self.full_name))
+            network_configuration = self.mk_network_configuration(defn.input_endpoints)
+            network_configuration.public_ips.public_ips.append(PublicIP(name = "public"))
+            req = self.sms().update_role(defn.hosted_service, defn.deployment, defn.machine_name,
+                                         network_config = network_configuration,
+                                         role_size = defn.role_size)
+            self.finish_request(req)
+            self.copy_properties(defn)
+            self.public_ipv4 = self.fetch_PIP()
+            known_hosts.add(self.public_ipv4, self.public_host_key)
 
     def create_node(self, defn):
         if not self.vm_id:
@@ -203,26 +271,26 @@ class AzureState(MachineState, ResourceState):
 
             root_disk = OSVirtualHardDisk(source_image_name = defn.root_disk_image,
                                           media_link = defn.root_disk_url)
-            network_configuration = ConfigurationSet()
-            network_configuration.input_endpoints.input_endpoints.append(ConfigurationSetInputEndpoint('ssh', 'tcp', '22', '22'))
-            network_configuration.input_endpoints.input_endpoints.append(ConfigurationSetInputEndpoint('http', 'tcp', '80', '80'))
-            #network_configuration.public_ips.public_ips.append(PublicIP(name = "public"))
+            network_configuration = self.mk_network_configuration(defn.input_endpoints)
+            network_configuration.public_ips.public_ips.append(PublicIP(name = "public"))
 
-            req = self.sms().create_virtual_machine_deployment(defn.hosted_service, defn.machine_name,
-                                                               defn.slot, 'label', defn.machine_name,
-                                                               config, root_disk,
-                                                               network_config = network_configuration,
-                                                               role_size = defn.role_size,
-                                                               reserved_ip_name = defn.ip_address)
+            req = self.sms().add_role(defn.hosted_service, defn.deployment, defn.machine_name,
+                                      config, root_disk,
+                                      availability_set_name = None,
+                                      data_virtual_hard_disks = None,
+                                      network_config = network_configuration,
+                                      role_size = defn.role_size)
             self.finish_request(req)
 
-            vm = self.get_resource()
             self.vm_id = self.machine_name
             self.state = self.STARTING
             self.ssh_pinged = False
             self.copy_properties(defn)
+
+            vm = self.get_resource()
             self.root_disk = vm.os_virtual_hard_disk.disk_name
-            self.public_ipv4 = defn.ip_address and self.sms().get_reserved_ip_address(defn.ip_address).address
+
+            self.public_ipv4 = self.fetch_PIP()
             self.log("got IP: {0}".format(self.public_ipv4))
             known_hosts.add(self.public_ipv4, self.public_host_key)
 
@@ -231,7 +299,7 @@ class AzureState(MachineState, ResourceState):
         if hard:
             self.log("sending hard reset to Azure machine...")
             self.node().reboot()
-            self.sms().restart_role(self.hosted_service, self.machine_name, self.machine_name)
+            self.sms().restart_role(self.hosted_service, self.deployment, self.machine_name)
             #FIXME: how is it different from reboot_role_instance?
             self.state = self.STARTING
         else:
@@ -239,14 +307,19 @@ class AzureState(MachineState, ResourceState):
 
     def start(self):
         if self.vm_id:
-            self.sms().start_role(self.hosted_service, self.machine_name, self.machine_name)
+            self.state = self.STARTING
+            self.log("starting Azure machine...")
+            req = self.sms().start_role(self.hosted_service, self.deployment, self.machine_name)
+            self.finish_request(req)
             self.wait_for_ssh(check=True)
             self.send_keys()
 
     def stop(self):
         if self.vm_id:
            #FIXME: there's also "stopped deallocated" version of this. how to integrate?
-            self.sms().shutdown_role(self.hosted_service, self.machine_name, self.machine_name)
+            self.log("stopping Azure machine... ")
+            req = self.sms().shutdown_role(self.hosted_service, self.deployment, self.machine_name)
+            self.finish_request(req)
             self.ssh.reset()
 
     def destroy(self, wipe=False):
@@ -261,7 +334,6 @@ class AzureState(MachineState, ResourceState):
                     return False
                 self.log("destroying the Azure machine...")
                 self.destroy_resource()
-
             else:
                 self.warn("seems to have been destroyed already")
         self._node_deleted()
