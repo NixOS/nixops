@@ -103,6 +103,7 @@ rec {
   resources.azureStorages = evalResources ./azure-storage.nix (zipAttrs resourcesByType.azureStorages or []);
   resources.azureBlobContainers = evalResources ./azure-blob-container.nix (zipAttrs resourcesByType.azureBlobContainers or []);
   resources.azureBlobs = evalResources ./azure-blob.nix (zipAttrs resourcesByType.azureBlobs or []);
+  resources.azureDeployments = evalResources ./azure-deployment.nix (zipAttrs resourcesByType.azureDeployments or []);
 
   # Google Compute resources
   resources.gceDisks = evalResources ./gce-disk.nix (zipAttrs resourcesByType.gceDisks or []);
