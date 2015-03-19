@@ -35,6 +35,8 @@ class AzureDeploymentDefinition(ResourceDefinition):
 class AzureDeploymentState(ResourceState):
     """State of an Azure Deployment"""
 
+    public_ipv4 = attr_property("publicIpv4", None)
+
     deployment_name = attr_property("azure.name", None)
     label = attr_property("azure.label", None)
     slot = attr_property("azure.slot", None)
@@ -142,16 +144,20 @@ class AzureDeploymentState(ResourceState):
             dummy_config = LinuxConfigurationSet(host_name = self.dummy_name,
                                                  user_name = 'dummy_user',
                                                  user_password = generate_random_string(length=32))
+            network_config = ConfigurationSet()
+            # deployment with a reserved IP must contain at least one input endpoint
+            network_config.input_endpoints.input_endpoints.append(ConfigurationSetInputEndpoint('dummy', 'tcp', '60000', '60000'))
             req = self.sms().create_virtual_machine_deployment(defn.hosted_service, defn.deployment_name,
                                                                defn.slot, defn.label, self.dummy_name,
                                                                dummy_config, dummy_disk,
-                                                               network_config = ConfigurationSet(),
+                                                               network_config = network_config,
                                                                role_size = 'ExtraSmall',
                                                                reserved_ip_name = defn.ip_address)
             self.finish_request(req)
 
             self.state = self.UP
             self.copy_properties(defn)
+            self.public_ipv4 = defn.ip_address and self.sms().get_reserved_ip_address(defn.ip_address).address
             self.deallocate_dummy()
 
 
