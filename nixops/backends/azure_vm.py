@@ -86,7 +86,6 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
                           for k in ie_xml.findall("attr[@name='udp']/attrs/attr") ]
 
         self.input_endpoints = sorted(tcp_endpoints + udp_endpoints)
-        print self.input_endpoints
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.role_size or "???")
@@ -238,14 +237,14 @@ class AzureState(MachineState, ResourceState):
             vm = self.get_settled_resource()
             if vm:
                 self.root_disk = vm.os_virtual_hard_disk.disk_name
-                if self.vm_id:  
+                if self.vm_id:
                     self.handle_changed_property('public_ipv4', self.fetch_PIP())
                     self.update_ssh_known_hosts()
 
                     net_cfg = vm.configuration_sets[0]
                     assert net_cfg.configuration_set_type == 'NetworkConfiguration'
                     ies = []
-                    for ie in net_cfg.input_endpoints:
+                    for ie in (net_cfg.input_endpoints or []):
                         ies.append({
                             'protocol': ie.protocol,
                             'name': ie.name,
