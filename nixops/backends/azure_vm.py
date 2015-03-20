@@ -47,6 +47,8 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'rootDiskImage', str, empty = False)
         self.copy_option(x, 'rootDiskUrl', str, empty = False)
 
+        self.obtain_ip = self.get_option_value(x, 'obtainIP', bool)
+
         def parse_endpoint(xml, proto):
             return {
                 'name': xml.get('name'),
@@ -93,7 +95,9 @@ class AzureState(MachineState, ResourceState):
     hosted_service = attr_property("azure.hostedService", None)
     deployment = attr_property("azure.deployment", None)
 
-    input_endpoints = attr_property("gce.blockDeviceMapping", {}, 'json')
+    obtain_ip = attr_property("azure.obtain_ip", None, bool)
+
+    input_endpoints = attr_property("azure.input_endpoints", {}, 'json')
     block_device_mapping = attr_property("azure.blockDeviceMapping", {}, 'json')
     root_disk = attr_property("azure.rootDisk", None)
 
@@ -148,7 +152,7 @@ class AzureState(MachineState, ResourceState):
         self.state = self.STOPPED
 
 
-    defn_properties = [ 'role_size', 'input_endpoints' ]
+    defn_properties = [ 'role_size', 'input_endpoints', 'obtain_ip' ]
 
     def is_deployed(self):
         return (self.vm_id or self.block_device_mapping or self.root_disk)
@@ -212,7 +216,8 @@ class AzureState(MachineState, ResourceState):
                 self.root_disk = vm.os_virtual_hard_disk.disk_name
                 if self.vm_id:  
                     self.handle_changed_property('public_ipv4', self.fetch_PIP())
-                    known_hosts.add(self.public_ipv4, self.public_host_key)
+                    if self.public_ipv4:
+                        known_hosts.add(self.public_ipv4, self.public_host_key)
 
                     net_cfg = vm.configuration_sets[0]
                     assert net_cfg.configuration_set_type == 'NetworkConfiguration'
@@ -245,14 +250,20 @@ class AzureState(MachineState, ResourceState):
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
             network_configuration = self.mk_network_configuration(defn.input_endpoints)
-            network_configuration.public_ips.public_ips.append(PublicIP(name = "public"))
+            if defn.obtain_ip:
+                network_configuration.public_ips.public_ips.append(PublicIP(name = "public"))
             req = self.sms().update_role(defn.hosted_service, defn.deployment, defn.machine_name,
                                          network_config = network_configuration,
                                          role_size = defn.role_size)
             self.finish_request(req)
             self.copy_properties(defn)
-            self.public_ipv4 = self.fetch_PIP()
-            known_hosts.add(self.public_ipv4, self.public_host_key)
+
+            new_ip = self.fetch_PIP()
+            if self.public_ipv4 != new_ip:
+                self.log("got IP: {0}".format(new_ip))
+            self.public_ipv4 = new_ip
+            if self.public_ipv4:
+                known_hosts.add(self.public_ipv4, self.public_host_key)
 
     def create_node(self, defn):
         if not self.vm_id:
@@ -272,7 +283,8 @@ class AzureState(MachineState, ResourceState):
             root_disk = OSVirtualHardDisk(source_image_name = defn.root_disk_image,
                                           media_link = defn.root_disk_url)
             network_configuration = self.mk_network_configuration(defn.input_endpoints)
-            network_configuration.public_ips.public_ips.append(PublicIP(name = "public"))
+            if defn.obtain_ip:
+                network_configuration.public_ips.public_ips.append(PublicIP(name = "public"))
 
             req = self.sms().add_role(defn.hosted_service, defn.deployment, defn.machine_name,
                                       config, root_disk,
@@ -292,7 +304,8 @@ class AzureState(MachineState, ResourceState):
 
             self.public_ipv4 = self.fetch_PIP()
             self.log("got IP: {0}".format(self.public_ipv4))
-            known_hosts.add(self.public_ipv4, self.public_host_key)
+            if self.public_ipv4:
+                known_hosts.add(self.public_ipv4, self.public_host_key)
 
 
     def reboot(self, hard=False):

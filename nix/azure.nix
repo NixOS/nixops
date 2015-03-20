@@ -139,6 +139,15 @@ in
         '';
       };
 
+      obtainIP = mkOption {
+        default = false;
+        example = true;
+        type = types.bool;
+        description = ''
+          Whether to obtain a dedicated public IP for the instance.
+        '';
+      };
+
     };
 
   };
