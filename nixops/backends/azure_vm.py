@@ -216,8 +216,7 @@ class AzureState(MachineState, ResourceState):
                 self.root_disk = vm.os_virtual_hard_disk.disk_name
                 if self.vm_id:  
                     self.handle_changed_property('public_ipv4', self.fetch_PIP())
-                    if self.public_ipv4:
-                        known_hosts.add(self.public_ipv4, self.public_host_key)
+                    self.update_ssh_known_hosts()
 
                     net_cfg = vm.configuration_sets[0]
                     assert net_cfg.configuration_set_type == 'NetworkConfiguration'
@@ -262,8 +261,7 @@ class AzureState(MachineState, ResourceState):
             if self.public_ipv4 != new_ip:
                 self.log("got IP: {0}".format(new_ip))
             self.public_ipv4 = new_ip
-            if self.public_ipv4:
-                known_hosts.add(self.public_ipv4, self.public_host_key)
+            self.update_ssh_known_hosts()
 
     def create_node(self, defn):
         if not self.vm_id:
@@ -304,8 +302,7 @@ class AzureState(MachineState, ResourceState):
 
             self.public_ipv4 = self.fetch_PIP()
             self.log("got IP: {0}".format(self.public_ipv4))
-            if self.public_ipv4:
-                known_hosts.add(self.public_ipv4, self.public_host_key)
+            self.update_ssh_known_hosts()
 
 
     def reboot(self, hard=False):
@@ -376,14 +373,55 @@ class AzureState(MachineState, ResourceState):
                      isinstance(r, AzureBLOBState) or isinstance(r, AzureReservedIPAddressState) or 
                      isinstance(r, AzureHostedServiceState)}
 
+    def find_ssh_endpoint(self):
+        return next((ie for ie in self.input_endpoints
+                        if ie.get('local_port', 0) == 22), None)
+
+    def get_deployment_IP(self):
+        deployment_resource = (self.deployment and
+                               next((r for r in self.depl.resources.values()
+                                       if getattr(r, 'deployment_name', None) == self.deployment), None))
+        return (deployment_resource and deployment_resource.public_ipv4)
+
+    def get_ssh_host_port(self):
+        if self.public_ipv4:
+            return self.public_ipv4
+        ep = self.find_ssh_endpoint()
+        ip = self.get_deployment_IP()
+        if ip is not None and ep is not None and ep.get('port', None) is not None:
+            return "[{0}]:{1}".format(ip, ep.get('port'))
+        else:
+            return None
+
+    @MachineState.ssh_port.getter
+    def ssh_port(self):
+        if self.public_ipv4:
+            return super(AzureState, self).ssh_port
+        else:
+            ep = self.find_ssh_endpoint()
+            return (ep is not None and ep.get('port', None))
+
+    def update_ssh_known_hosts(self):
+        ssh_host_port = self.get_ssh_host_port()
+        if ssh_host_port:
+            known_hosts.add(ssh_host_port, self.public_host_key)
 
     def get_ssh_name(self):
-        if not self.public_ipv4:
-            raise Exception("{0} does not have a public IPv4 address (yet)".format(self.full_name))
-        return self.public_ipv4
+        ip = self.public_ipv4 or (self.find_ssh_endpoint() and self.get_deployment_IP())
+        if ip is None:
+            raise Exception("{0} does not have a public IPv4 address and is not reachable "
+                            "via an input endpoint on its deployment IP address"
+                            .format(self.full_name))
+        return ip
 
     def get_ssh_private_key_file(self):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.private_client_key)
 
     def get_ssh_flags(self, scp=False):
-        return [ "-i", self.get_ssh_private_key_file() ]
+        port_flags = []
+        if self.public_ipv4 is None:
+            ep = self.find_ssh_endpoint()
+            if ep is not None:
+                port_flags = [ '-p', str(ep.get('port', 0)) ]
+
+        return [ "-i", self.get_ssh_private_key_file() ] + port_flags
