@@ -21,6 +21,11 @@ from nixops.azure_common import ResourceDefinition, ResourceState
 
 from xml.etree import ElementTree
 
+
+def normalize_empty(x):
+    return (x if x != "" else None)
+
+
 class AzureDefinition(MachineDefinition, ResourceDefinition):
     """
     Definition of an Azure machine.
@@ -31,6 +36,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
 
     def __init__(self, xml):
         MachineDefinition.__init__(self, xml)
+
         x = xml.find("attrs/attr[@name='azure']/attrs")
         assert x is not None
 
@@ -50,14 +56,27 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.obtain_ip = self.get_option_value(x, 'obtainIP', bool)
 
         def parse_endpoint(xml, proto):
-            return {
+            probe_xml = xml.find("attrs/attr[@name='probe']/attrs")
+            result =  {
                 'name': xml.get('name'),
                 'protocol': proto,
-                'port': self.get_option_value(xml, 'port', int),
-                'local_port': self.get_option_value(xml, 'localPort', int),
+                'port': self.get_option_value(xml, 'port', int, positive = True),
+                'local_port': self.get_option_value(xml, 'localPort', int, positive = True),
                 'set': self.get_option_value(xml, 'setName', str, optional = True),
-                'dsr': self.get_option_value(xml, 'directServerReturn', bool)
+                'dsr': self.get_option_value(xml, 'directServerReturn', bool),
+                'probe_path': normalize_empty(probe_xml is not None and
+                              self.get_option_value(probe_xml, 'path', str,
+                                                    optional = True) ),
+                'probe_port': probe_xml is not None and
+                              self.get_option_value(probe_xml, 'port', int,
+                                                    optional = True, positive = True),
+                'probe_protocol': probe_xml is not None and
+                                  self.get_option_value(probe_xml, 'protocol', str,
+                                                        optional = True)
             }
+            if result['probe_protocol'] not in ['HTTP', 'TCP', None]:
+                raise Exception('load balancer probe protocol must be either "HTTP" or "TCP"')
+            return result
 
         ie_xml = x.find("attr[@name='inputEndpoints']/attrs")
 
@@ -67,6 +86,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
                           for k in ie_xml.findall("attr[@name='udp']/attrs/attr") ]
 
         self.input_endpoints = sorted(tcp_endpoints + udp_endpoints)
+        print self.input_endpoints
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.role_size or "???")
@@ -179,13 +199,17 @@ class AzureState(MachineState, ResourceState):
     def mk_network_configuration(self, endpoints):
         network_configuration = ConfigurationSet()
         for ie in endpoints:
-            network_configuration.input_endpoints.input_endpoints.append(ConfigurationSetInputEndpoint(
-                name = ie['name'],
-                protocol = ie['protocol'],
-                port = ie['port'],
-                local_port = ie['local_port'],
-                load_balanced_endpoint_set_name = ie['set'],
-                enable_direct_server_return = ie['dsr'] ))
+            cfg = ConfigurationSetInputEndpoint(
+                      name = ie['name'],
+                      protocol = ie['protocol'],
+                      port = ie['port'],
+                      local_port = ie['local_port'],
+                      load_balanced_endpoint_set_name = ie['set'],
+                      enable_direct_server_return = ie['dsr'] )
+            cfg.load_balancer_probe.path = ie['probe_path']
+            cfg.load_balancer_probe.port = ie['probe_port']
+            cfg.load_balancer_probe.protocol = ie['probe_protocol']
+            network_configuration.input_endpoints.input_endpoints.append(cfg)
         return network_configuration
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -220,8 +244,6 @@ class AzureState(MachineState, ResourceState):
 
                     net_cfg = vm.configuration_sets[0]
                     assert net_cfg.configuration_set_type == 'NetworkConfiguration'
-                    def normalize_empty(x):
-                        return (x if x != "" else None)
                     ies = []
                     for ie in net_cfg.input_endpoints:
                         ies.append({
@@ -230,7 +252,10 @@ class AzureState(MachineState, ResourceState):
                             'port': int(ie.port),
                             'local_port': int(ie.local_port),
                             'dsr': ie.enable_direct_server_return,
-                            'set': normalize_empty(ie.load_balanced_endpoint_set_name) })
+                            'set': normalize_empty(ie.load_balanced_endpoint_set_name),
+                            'probe_port': ie.load_balancer_probe and int(ie.load_balancer_probe.port),
+                            'probe_path': normalize_empty(ie.load_balancer_probe and ie.load_balancer_probe.path),
+                            'probe_protocol': ie.load_balancer_probe and ie.load_balancer_probe.protocol.upper() })
                     self.handle_changed_property('input_endpoints', sorted(ies))
                 else:
                     self.warn_not_supposed_to_exist(valuable_data = True)

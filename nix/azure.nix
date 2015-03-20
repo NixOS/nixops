@@ -28,12 +28,42 @@ let
 
       setName = mkOption {
         default = null;
-        example = 22;
+        example = "http_balancer";
         type = types.nullOr types.str;
         description = ''
           Name of the load-balanced endpoint set.
         '';
       };
+
+      probe.path = mkOption {
+        default = null;
+        example = "/";
+        type = types.nullOr types.str;
+        description = ''
+          The relative HTTP path to inspect to determine the availability status of the Virtual Machine.
+          If probe protocol is set to TCP, this value must be NULL.
+        '';
+      };
+
+      probe.protocol = mkOption {
+        default = null;
+        example = "HTTP";
+        type = types.nullOr types.str;
+        description = ''
+          The protocol to use to inspect the availability status of the Virtual Machine.
+          Possible values are: HTTP, TCP.
+        '';
+      };
+
+      probe.port = mkOption {
+        default = null;
+        example = 80;
+        type = types.nullOr types.int;
+        description = ''
+          The port to use to inspect the availability status of the Virtual Machine.
+        '';
+      };
+
 
       directServerReturn = mkOption {
         default = false;
