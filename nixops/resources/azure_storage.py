@@ -141,11 +141,12 @@ class AzureStorageState(ResourceState):
                                 "please run 'deploy --check' to fix this")
 
             self.log("creating {0} in {1}...".format(self.full_name, defn.location or defn.affinity_group))
-            self.sms().create_storage_account(defn.storage_name, defn.description, defn.label,
-                                             location = defn.location,
-                                             affinity_group = defn.affinity_group,
-                                             extended_properties = defn.extended_properties,
-                                             account_type = defn.account_type)
+            req = self.sms().create_storage_account(defn.storage_name, defn.description, defn.label,
+                                                    location = defn.location,
+                                                    affinity_group = defn.affinity_group,
+                                                    extended_properties = defn.extended_properties,
+                                                    account_type = defn.account_type)
+            self.finish_request(req)
             self.state = self.UP
             self.copy_properties(defn)
             # getting keys fails until the storage is fully provisioned
