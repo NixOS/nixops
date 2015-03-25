@@ -116,7 +116,7 @@ let
 in
 {
 
-  options = (import ./gce-credentials.nix pkgs "bucket") // {
+  options = (import ./gce-credentials.nix lib "bucket") // {
 
     name = mkOption {
       example = "my-bucket";
