@@ -234,4 +234,3 @@ class ResourceState(nixops.resources.ResourceState):
         op_status = self.sms().get_operation_status(req.request_id)
         if op_status.status != 'Succeeded':
             raise Exception(op_status.error.__dict__)
-        print op_status.__dict__
