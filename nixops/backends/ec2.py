@@ -1036,7 +1036,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if len(zones) == 0:
             raise Exception('hosted zone for {0} not found'.format(hosted_zone))
 
-        zones = sorted(zones, cmp=lambda a, b: cmp(len(a), len(b)), reverse=True)
+        # use hosted zone with longest match
+        zones = sorted(zones, cmp=lambda a, b: cmp(len(a.Name), len(b.Name)), reverse=True)
         zoneid = zones[0]['Id'].split("/")[2]
         dns_name = '{0}.'.format(self.dns_hostname)
 
@@ -1061,7 +1062,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         changes = boto.route53.record.ResourceRecordSets(connection=self._conn_route53, hosted_zone_id=zoneid)
         if len(prev_a_rrs) > 0:
             for prevrr in prev_a_rrs:
-                change = changes.add_change("DELETE", self.dns_hostname, "A")
+                change = changes.add_change("DELETE", self.dns_hostname, "A", ttl=prevrr.ttl)
                 change.add_value(",".join(prevrr.resource_records))
         if len(prev_cname_rrs) > 0:
             for prevrr in prev_cname_rrs:
