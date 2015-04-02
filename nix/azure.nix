@@ -107,7 +107,7 @@ let
       diskResource = mkOption {
         default = null;
         example = "external-disk2";
-        type = types.nullOr types.str;
+        type = types.nullOr (types.either types.str (resource "azure-disk"));
         description = ''
           The resource or the name of an existing disk not
           managed by NixOps, to attach to the virtual machine.
