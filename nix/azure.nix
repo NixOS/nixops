@@ -254,14 +254,15 @@ in
         '';
       };
 
-#      storage = mkOption {
-#        default = null;
-#        example = "resources.azureStorages.mystorage";
-#        type = types.either types.str (resource "azure-storage");
-#        description = ''
-#          Azure storage service name or resource to use to manage the underlying disk BLOBs.
-#        '';
-#      };
+      storage = mkOption {
+        default = null;
+        example = "resources.azureStorages.mystorage";
+        type = types.nullOr (types.either types.str (resource "azure-storage"));
+        description = ''
+          Azure storage service name or resource to use to manage
+          the disk BLOBs during backup/restore operations.
+        '';
+      };
 
       hostedService = mkOption {
         default = null;
