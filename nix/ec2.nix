@@ -2,8 +2,8 @@
 
 { config, pkgs, lib, utils, ... }:
 
-with lib;
 with utils;
+with lib;
 with import ./lib.nix lib;
 
 let
