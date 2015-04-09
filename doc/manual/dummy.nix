@@ -5,9 +5,9 @@
 # allowed.  So this module, which defines them, is included only for
 # the generation of the manual.
 
-{ config, pkgs, ... }:
+{ config, lib, ... }:
 
-with pkgs.lib;
+with lib;
 
 {
 
