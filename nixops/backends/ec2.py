@@ -317,6 +317,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
 
     def get_backups(self):
+        if not self.region: return {}
         self.connect()
         backups = {}
         current_volumes = set([v['volumeId'] for v in self.block_device_mapping.values()])
