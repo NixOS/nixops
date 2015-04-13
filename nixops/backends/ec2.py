@@ -492,7 +492,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self.log_end('')
 
 
-    def assign_elastic_ip(self, elastic_ipv4, instance, check):
+    def _assign_elastic_ip(self, elastic_ipv4, check):
+        instance = self._get_instance()
+
         # Assign or release an elastic IP address, if given.
         if (self.elastic_ipv4 or "") != elastic_ipv4 or (instance.ip_address != elastic_ipv4) or check:
             if elastic_ipv4 != "":
@@ -831,17 +833,18 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         # There is a short time window during which EC2 doesn't
         # know the instance ID yet.  So wait until it does.
-        while True:
-            try:
-                instance = self._get_instance()
-                break
-            except EC2InstanceDisappeared:
-                pass
-            except boto.exception.EC2ResponseError as e:
-                if e.error_code != "InvalidInstanceID.NotFound":
-                    raise
-            self.log("EC2 instance ‘{0}’ not known yet, waiting...".format(self.vm_id))
-            time.sleep(3)
+        if self.state != self.UP or check:
+            while True:
+                try:
+                    instance = self._get_instance()
+                    break
+                except EC2InstanceDisappeared:
+                    pass
+                except boto.exception.EC2ResponseError as e:
+                    if e.error_code != "InvalidInstanceID.NotFound":
+                        raise
+                self.log("EC2 instance ‘{0}’ not known yet, waiting...".format(self.vm_id))
+                time.sleep(3)
 
         # Warn about some EC2 options that we cannot update for an existing instance.
         if self.instance_type != defn.instance_type:
@@ -872,7 +875,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if elastic_ipv4.startswith("res-"):
             res = self.depl.get_typed_resource(elastic_ipv4[4:], "elastic-ip")
             elastic_ipv4 = res.public_ipv4
-        self.assign_elastic_ip(elastic_ipv4, instance, check)
+        self._assign_elastic_ip(elastic_ipv4, check)
 
         # Wait for the IP address.
         if not self.public_ipv4 or check:
@@ -899,7 +902,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         # Add disks that were in the original device mapping of image.
         if self.first_boot:
-            for k, dm in instance.block_device_mapping.items():
+            for k, dm in self._get_instance().block_device_mapping.items():
                 if k not in self.block_device_mapping and dm.volume_id:
                     bdm = {'volumeId': dm.volume_id, 'partOfImage': True}
                     self.update_block_device_mapping(k, bdm)
@@ -908,7 +911,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # Detect if volumes were manually detached.  If so, reattach
         # them.
         for k, v in self.block_device_mapping.items():
-            if k not in instance.block_device_mapping.keys() and not v.get('needsAttach', False) and v.get('volumeId', None):
+            if k not in self._get_instance().block_device_mapping.keys() and not v.get('needsAttach', False) and v.get('volumeId', None):
                 self.warn("device ‘{0}’ was manually detached!".format(_sd_to_xvd(k)))
                 v['needsAttach'] = True
                 self.update_block_device_mapping(k, v)
@@ -1214,7 +1217,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         if self.elastic_ipv4:
             self.log("restoring previously attached elastic IP")
-            self.assign_elastic_ip(self.elastic_ipv4, instance, True)
+            self._assign_elastic_ip(self.elastic_ipv4, True)
 
         self._wait_for_ip()
 
