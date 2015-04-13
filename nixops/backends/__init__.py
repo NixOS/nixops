@@ -317,14 +317,16 @@ class MachineState(nixops.resources.ResourceState):
     def has_really_fast_connection(self):
         return False
 
-    def generate_vpn_key(self):
+    def generate_vpn_key(self, check=False):
+        key_missing = False
         try:
-            self.run_command("test -f /root/.ssh/id_charon_vpn")
-            _vpn_key_exists = True
+            if check:
+                self.run_command("test -f /root/.ssh/id_charon_vpn")
         except nixops.ssh_util.SSHCommandFailed:
-            _vpn_key_exists = False
+            key_missing = True
 
-        if self.public_vpn_key and _vpn_key_exists: return
+        if self.public_vpn_key and not key_missing: return
+
         (private, public) = nixops.util.create_key_pair(key_name="NixOps VPN key of {0}".format(self.name))
         f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
         f.write(private)

@@ -931,7 +931,7 @@ class Deployment(object):
                     r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot, allow_recreate=allow_recreate)
                     if is_machine(r):
                         r.wait_for_ssh(check=check)
-                        r.generate_vpn_key()
+                        r.generate_vpn_key(check=check)
                 except:
                     r._errored = True
                     raise
