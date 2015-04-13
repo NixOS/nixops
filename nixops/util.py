@@ -178,10 +178,14 @@ def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
 
 
 def ansi_highlight(s, outfile=sys.stderr):
-    return "\033[1;33m" + s + "\033[0m" if outfile.isatty() else s
+    return "\033[1;35m" + s + "\033[0m" if outfile.isatty() else s
 
 
 def ansi_warn(s, outfile=sys.stderr):
+    return "\033[1;33m" + s + "\033[0m" if outfile.isatty() else s
+
+
+def ansi_error(s, outfile=sys.stderr):
     return "\033[1;31m" + s + "\033[0m" if outfile.isatty() else s
 
 

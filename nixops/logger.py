@@ -2,7 +2,7 @@
 import sys
 import threading
 
-from nixops.util import ansi_warn, ansi_success
+from nixops.util import ansi_warn, ansi_error, ansi_success
 
 __all__ = ['Logger']
 
@@ -77,7 +77,7 @@ class Logger(object):
         self.log(ansi_warn("warning: " + msg, outfile=self._log_file))
 
     def error(self, msg):
-        self.log(ansi_warn("error: " + msg, outfile=self._log_file))
+        self.log(ansi_error("error: " + msg, outfile=self._log_file))
 
     def confirm_once(self, question):
         with self._log_lock:
@@ -147,7 +147,7 @@ class MachineLogger(object):
                            outfile=self.main_logger._log_file))
 
     def error(self, msg):
-        self.log(ansi_warn("error: " + msg,
+        self.log(ansi_error("error: " + msg,
                            outfile=self.main_logger._log_file))
 
     def success(self, msg):
