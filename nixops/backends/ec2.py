@@ -118,6 +118,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         MachineState.__init__(self, depl, name, id)
         self._conn = None
         self._conn_route53 = None
+        self._cached_instance = None
 
 
     def _reset_state(self):
@@ -257,15 +258,19 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         return result[0]
 
 
-    def _get_instance_by_id(self, instance_id, allow_missing=False):
-        """Get instance object by instance id."""
-        self.connect()
-        reservations = self._conn.get_all_instances([instance_id])
-        if len(reservations) == 0:
-            if allow_missing:
-                return None
-            raise EC2InstanceDisappeared("EC2 instance ‘{0}’ disappeared!".format(instance_id))
-        return reservations[0].instances[0]
+    def _get_instance(self, instance_id=None, allow_missing=False):
+        """Get instance object for this machine, with caching"""
+        if not instance_id: instance_id = self.vm_id
+        assert instance_id
+        if not self._cached_instance:
+            self.connect()
+            reservations = self._conn.get_all_instances([instance_id])
+            if len(reservations) == 0:
+                if allow_missing:
+                    return None
+                raise EC2InstanceDisappeared("EC2 instance ‘{0}’ disappeared!".format(instance_id))
+            self._cached_instance = reservations[0].instances[0]
+        return self._cached_instance
 
 
     def _get_snapshot_by_id(self, snapshot_id):
@@ -277,8 +282,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         return snapshots[0]
 
 
-    def _wait_for_ip(self, instance):
+    def _wait_for_ip(self):
         self.log_start("waiting for IP address... ".format(self.name))
+
+        instance = self._get_instance()
 
         while True:
             instance.update()
@@ -596,7 +603,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 time.sleep(3)
             self.log_end("")
 
-            instance = self._retry(lambda: self._get_instance_by_id(request.instance_id))
+            instance = self._retry(lambda: self._get_instance(instance_id=request.instance_id))
 
             return instance
         else:
@@ -708,7 +715,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # Check whether the instance hasn't been killed behind our
         # backs.  Restart stopped instances.
         if self.vm_id and check:
-            instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
+            instance = self._get_instance(allow_missing=True)
             if instance is None or instance.state in {"shutting-down", "terminated"}:
                 if not allow_recreate:
                     raise Exception("EC2 instance ‘{0}’ went away; use ‘--allow-recreate’ to create a new one".format(self.name))
@@ -825,7 +832,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # know the instance ID yet.  So wait until it does.
         while True:
             try:
-                instance = self._get_instance_by_id(self.vm_id)
+                instance = self._get_instance()
                 break
             except EC2InstanceDisappeared:
                 pass
@@ -840,18 +847,18 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.warn("cannot change type of a running instance (use ‘--allow-reboot’)")
         if defn.zone and self.zone != defn.zone:
             self.warn("cannot change availability zone of a running instance")
-        instance_groups = set([g.name for g in instance.groups])
+        instance_groups = set([g.name for g in self._get_instance().groups])
         if set(defn.security_groups) != instance_groups:
             self.warn(
                 'cannot change security groups of an existing instance (from [{0}] to [{1}])'.format(
                     ", ".join(set(defn.security_groups)),
                     ", ".join(instance_groups))
             )
-        if defn.placement_group != instance.placement_group:
+        if defn.placement_group != self._get_instance().placement_group:
             self.warn(
                 'cannot change placement group of an existing instance (from [{0}] to [{1}])'.format(
                     defn.placement_group,
-                    instance.placement_group)
+                    self._get_instance().placement_group)
             )
 
         # Reapply tags if they have changed.
@@ -869,8 +876,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         # Wait for the IP address.
         if not self.public_ipv4 or check:
-            instance = self._get_instance_by_id(self.vm_id)
-            self._wait_for_ip(instance)
+            self._wait_for_ip()
 
         if defn.dns_hostname:
             self._update_route53(defn)
@@ -1118,7 +1124,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self.connect()
         instance = None
         if self.vm_id:
-            instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
+            instance = self._get_instance(allow_missing=True)
         else:
             reservations = self._conn.get_all_instances(filters={'client-token': self.client_token})
             if len(reservations) > 0:
@@ -1154,7 +1160,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         self.log_start("stopping EC2 machine... ")
 
-        instance = self._get_instance_by_id(self.vm_id)
+        instance = self._get_instance()
         instance.stop()  # no-op if the machine is already stopped
 
         self.state = self.STOPPING
@@ -1195,7 +1201,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         self.log("starting EC2 machine...")
 
-        instance = self._get_instance_by_id(self.vm_id)
+        instance = self._get_instance()
         instance.start()  # no-op if the machine is already started
 
         self.state = self.STARTING
@@ -1210,7 +1216,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.log("restoring previously attached elastic IP")
             self.assign_elastic_ip(self.elastic_ipv4, instance, True)
 
-        self._wait_for_ip(instance)
+        self._wait_for_ip()
 
         if prev_private_ipv4 != self.private_ipv4 or prev_public_ipv4 != self.public_ipv4:
             self.warn("IP address has changed, you may need to run ‘nixops deploy’")
@@ -1225,7 +1231,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             return
 
         self.connect()
-        instance = self._get_instance_by_id(self.vm_id, allow_missing=True)
+        instance = self._get_instance(allow_missing=True)
         old_state = self.state
         #self.log("instance state is ‘{0}’".format(instance.state if instance else "gone"))
 
@@ -1282,7 +1288,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
     def reboot(self, hard=False):
         self.log("rebooting EC2 machine...")
-        instance = self._get_instance_by_id(self.vm_id)
+        instance = self._get_instance()
         instance.reboot()
         self.state = self.STARTING
 
