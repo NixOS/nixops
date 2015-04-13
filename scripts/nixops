@@ -528,6 +528,8 @@ def scp_loc(user, ssh_name, remote, loc):
 
 
 def op_scp():
+    if args.scp_from == args.scp_to:
+        raise Exception("exactly one of ‘--from’ and ‘--to’ must be specified");
     depl = open_deployment()
     (username, machine) = parse_machine(args.machine)
     m = depl.machines.get(machine)
