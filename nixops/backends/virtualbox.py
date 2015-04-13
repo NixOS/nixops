@@ -82,7 +82,7 @@ class VirtualBoxState(MachineState):
         return ["-i", self.get_ssh_private_key_file()]
 
     def get_physical_spec(self):
-        return {'require': [RawValue('<nixops/virtualbox-image-nixops.nix>')]}
+        return {'imports': [RawValue('<nixops/virtualbox-image-nixops.nix>')]}
 
 
     def address_to(self, m):

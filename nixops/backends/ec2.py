@@ -184,7 +184,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 }
 
         return {
-            'require': [
+            'imports': [
                 RawValue("<nixpkgs/nixos/modules/virtualisation/amazon-config.nix>")
             ],
             ('deployment', 'ec2', 'blockDeviceMapping'): block_device_mapping,

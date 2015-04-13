@@ -758,7 +758,7 @@ class GCEState(MachineState, ResourceState):
                 }
 
         return {
-            'require': [
+            'imports': [
                 RawValue("<nixpkgs/nixos/modules/virtualisation/google-compute-config.nix>")
             ],
             ('deployment', 'gce', 'blockDeviceMapping'): block_device_mapping,
