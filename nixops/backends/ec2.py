@@ -954,7 +954,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             elif v['disk'].startswith("snap-"):
                 if k in self.block_device_mapping: continue
                 self.log("creating volume from snapshot ‘{0}’...".format(v['disk']))
-                volume = self._conn.create_volume(size=0, snapshot=v['disk'], zone=self.zone, volume_type=v['volumeType'], iops=v['iops'])
+                volume = self._conn.create_volume(size=v['size'], snapshot=v['disk'], zone=self.zone, volume_type=v['volumeType'], iops=v['iops'])
                 v['volumeId'] = volume.id
 
             else:
