@@ -555,6 +555,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             )
         )
 
+
     def create_instance(self, defn, zone, devmap, user_data, ebs_optimized):
         common_args = dict(
             instance_type=defn.instance_type,
@@ -853,11 +854,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     ", ".join(set(self.security_groups)),
                     ", ".join(set(defn.security_groups)))
             )
-        if defn.placement_group != self._get_instance().placement_group:
+        if defn.placement_group != (self.placement_group or ""):
             self.warn(
-                'cannot change placement group of an existing instance (from [{0}] to [{1}])'.format(
-                    defn.placement_group,
-                    self._get_instance().placement_group)
+                'cannot change placement group of an existing instance (from ‘{0}’ to ‘{1}’)'.format(
+                    self.placement_group or "",
+                    defn.placement_group)
             )
 
         # Reapply tags if they have changed.
