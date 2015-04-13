@@ -403,7 +403,6 @@ in
   ###### implementation
 
   config = mkIf (config.deployment.targetEnv == "ec2") {
-    ec2.hvm = isEc2Hvm;
 
     nixpkgs.system = mkOverride 900 "x86_64-linux";
 
