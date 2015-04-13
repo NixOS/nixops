@@ -847,12 +847,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.warn("cannot change type of a running instance (use ‘--allow-reboot’)")
         if defn.zone and self.zone != defn.zone:
             self.warn("cannot change availability zone of a running instance")
-        instance_groups = set([g.name for g in self._get_instance().groups])
-        if set(defn.security_groups) != instance_groups:
+        if set(defn.security_groups) != set(self.security_groups):
             self.warn(
                 'cannot change security groups of an existing instance (from [{0}] to [{1}])'.format(
-                    ", ".join(set(defn.security_groups)),
-                    ", ".join(instance_groups))
+                    ", ".join(set(self.security_groups)),
+                    ", ".join(set(defn.security_groups)))
             )
         if defn.placement_group != self._get_instance().placement_group:
             self.warn(
