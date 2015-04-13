@@ -406,7 +406,7 @@ in
 
     nixpkgs.system = mkOverride 900 "x86_64-linux";
 
-    boot.loader.grub.extraPerEntryConfig = mkIf isEc2Hvm ( mkOverride 10 "root (hd0,0)" );
+    boot.loader.grub.extraPerEntryConfig = mkIf config.ec2.hvm (mkOverride 10 "root (hd0,0)");
 
     deployment.ec2.ami = mkDefault (
       let

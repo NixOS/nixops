@@ -113,6 +113,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     spot_instance_price = nixops.util.attr_property("ec2.spotInstancePrice", None)
     subnet_id = nixops.util.attr_property("ec2.subnetId", None)
     first_boot = nixops.util.attr_property("ec2.firstBoot", True, type=bool)
+    virtualization_type = nixops.util.attr_property("ec2.virtualizationType", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -188,6 +189,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             ],
             ('deployment', 'ec2', 'blockDeviceMapping'): block_device_mapping,
             ('deployment', 'ec2', 'instanceId'): self.vm_id,
+            ('ec2', 'hvm'): self.virtualization_type == "hvm",
         }
 
     def get_physical_backup_spec(self, backupid):
@@ -845,6 +847,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                         raise
                 self.log("EC2 instance ‘{0}’ not known yet, waiting...".format(self.vm_id))
                 time.sleep(3)
+
+        if not self.virtualization_type:
+            self.virtualization_type = self._get_instance().virtualization_type
 
         # Warn about some EC2 options that we cannot update for an existing instance.
         if self.instance_type != defn.instance_type:
