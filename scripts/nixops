@@ -536,7 +536,10 @@ def op_scp():
     from_loc = scp_loc(username, ssh_name, args.scp_from, args.source)
     to_loc = scp_loc(username, ssh_name, args.scp_to, args.destination)
     print >> sys.stderr, "{0} -> {1}".format(from_loc, to_loc)
-    res = subprocess.call(["scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc])
+    flags = ["scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc]
+    # Map ssh's ‘-p’ to scp's ‘-P’.
+    flags = ["-P" if f == "-p" else f for f in flags]
+    res = subprocess.call(flags)
     sys.exit(res)
 
 
