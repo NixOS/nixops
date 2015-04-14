@@ -30,6 +30,7 @@ with lib;
       '';
     };
 
+    # FIXME: hostName is a misnomer; rename to dnsName or something like that.
     deployment.route53.hostName = mkOption {
       default = "";
       example = "test.x.logicblox.com";
