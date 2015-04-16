@@ -148,6 +148,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.dns_hostname = None
             self.dns_ttl = None
             self.subnet_id = None
+            self.client_token = None
+            self.spot_instance_request_id = None
 
 
     def get_ssh_name(self):
@@ -748,7 +750,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if not self.vm_id:
             self.log("creating EC2 instance (AMI ‘{0}’, type ‘{1}’, region ‘{2}’)...".format(
                 defn.ami, defn.instance_type, self.region))
-            if not self.client_token:
+            if not self.client_token and not self.spot_instance_request_id:
                 self._reset_state()
                 self.region = defn.region
                 self.connect()
