@@ -703,7 +703,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             raise Exception("please set ‘deployment.ec2.accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         self.private_key_file = defn.private_key or None
-        self.owners = defn.owners
 
         if self.region is None:
             self.region = defn.region
@@ -871,8 +870,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         # Reapply tags if they have changed.
         common_tags = defn.tags
-        if self.owners != []:
-            common_tags['Owners'] = ", ".join(self.owners)
+        if defn.owners != []:
+            common_tags['Owners'] = ", ".join(defn.owners)
         self.update_tags(self.vm_id, user_tags=common_tags, check=check)
 
         # Assign the elastic IP.  If necessary, dereference the resource.
