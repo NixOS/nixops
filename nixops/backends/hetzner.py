@@ -188,19 +188,19 @@ class HetznerState(MachineState):
         partitioning, see reboot_rescue() for description, if not given we will
         only mount based on information provided in self.partitions.
         """
-        self.log_start("building Nix bootstrap installer...")
+        self.log_start("building Nix bootstrap installer... ")
         expr = os.path.join(self.depl.expr_path, "hetzner-bootstrap.nix")
         bootstrap_out = subprocess.check_output(["nix-build", expr,
                                                  "--no-out-link"]).rstrip()
         bootstrap = os.path.join(bootstrap_out, 'bin/hetzner-bootstrap')
         self.log_end("done. ({0})".format(bootstrap))
 
-        self.log_start("creating nixbld group in rescue system...")
+        self.log_start("creating nixbld group in rescue system... ")
         self.run_command("getent group nixbld > /dev/null || "
                          "groupadd -g 30000 nixbld")
         self.log_end("done.")
 
-        self.log_start("checking if tmpfs in rescue system is large enough...")
+        self.log_start("checking if tmpfs in rescue system is large enough... ")
         dfstat = self.run_command("stat -f -c '%a:%S' /", capture_stdout=True)
         df, bs = dfstat.split(':')
         free_mb = (int(df) * int(bs)) // 1024 // 1024
@@ -223,7 +223,7 @@ class HetznerState(MachineState):
         # The command to retrieve our split TAR archive on the other side.
         recv = 'read -d: tarsize; head -c "$tarsize" | {0}; {0}'.format(tarcmd)
 
-        self.log_start("copying bootstrap files to rescue system...")
+        self.log_start("copying bootstrap files to rescue system... ")
         tarstream = subprocess.Popen([bootstrap], stdout=subprocess.PIPE)
         if not self.has_really_fast_connection():
             stream = subprocess.Popen(["gzip", "-c"], stdin=tarstream.stdout,
@@ -237,7 +237,7 @@ class HetznerState(MachineState):
         self.log_end("done.")
 
         if install:
-            self.log_start("partitioning disks...")
+            self.log_start("partitioning disks... ")
             try:
                 out = self.run_command("nixpart -p -", capture_stdout=True,
                                        stdin_string=partitions)
@@ -255,12 +255,12 @@ class HetznerState(MachineState):
             self.partitions = partitions
             self.fs_info = out
         else:
-            self.log_start("mounting filesystems...")
+            self.log_start("mounting filesystems... ")
             self.run_command("nixpart -m -", stdin_string=self.partitions)
         self.log_end("done.")
 
         if not install:
-            self.log_start("checking if system in /mnt is NixOS...")
+            self.log_start("checking if system in /mnt is NixOS... ")
             res = self.run_command("test -e /mnt/etc/NIXOS", check=False)
             if res == 0:
                 self.log_end("yes.")
@@ -268,7 +268,7 @@ class HetznerState(MachineState):
                 self.log_end("NO! Not mounting special filesystems.")
                 return
 
-        self.log_start("bind-mounting special filesystems...")
+        self.log_start("bind-mounting special filesystems... ")
         for mountpoint in ("/proc", "/dev", "/dev/shm", "/sys"):
             self.log_continue("{0}...".format(mountpoint))
             cmd = "mkdir -m 0755 -p /mnt{0} && ".format(mountpoint)
@@ -278,7 +278,7 @@ class HetznerState(MachineState):
 
     def reboot(self, hard=False):
         if hard:
-            self.log_start("sending hard reset to robot...")
+            self.log_start("sending hard reset to robot... ")
             server = self._get_server_by_ip(self.main_ipv4)
             server.reboot('hard')
             self.log_end("done.")
@@ -304,10 +304,10 @@ class HetznerState(MachineState):
         server.rescue.activate()
         rescue_passwd = server.rescue.password
         if hard or (install and self.state not in (self.UP, self.RESCUE)):
-            self.log_start("sending hard reset to robot...")
+            self.log_start("sending hard reset to robot... ")
             server.reboot('hard')
         else:
-            self.log_start("sending reboot command...")
+            self.log_start("sending reboot command... ")
             if self.state == self.RESCUE:
                 self.run_command("(sleep 2; reboot) &", check=False)
             else:
@@ -334,7 +334,7 @@ class HetznerState(MachineState):
                                stdin_string=public)
 
     def _install_base_system(self):
-        self.log_start("creating missing directories...")
+        self.log_start("creating missing directories... ")
         cmds = ["mkdir -m 1777 -p /mnt/tmp /mnt/nix/store"]
         mntdirs = ["var", "etc", "bin", "nix/var/nix/gcroots",
                    "nix/var/nix/temproots", "nix/var/nix/manifests",
@@ -345,7 +345,7 @@ class HetznerState(MachineState):
         self.run_command(' && '.join(cmds))
         self.log_end("done.")
 
-        self.log_start("bind-mounting files in /etc...")
+        self.log_start("bind-mounting files in /etc... ")
         for etcfile in ("resolv.conf", "passwd", "group"):
             self.log_continue("{0}...".format(etcfile))
             cmd = ("if ! test -e /mnt/etc/{0}; then"
@@ -360,7 +360,7 @@ class HetznerState(MachineState):
         self._gen_network_spec()
 
     def _detect_hardware(self):
-        self.log_start("detecting hardware...")
+        self.log_start("detecting hardware... ")
         cmd = "nixos-generate-config --no-filesystems --show-hardware-config"
         hardware = self.run_command(cmd, capture_stdout=True)
         self.hw_info = '\n'.join([line for line in hardware.splitlines()
@@ -552,7 +552,7 @@ class HetznerState(MachineState):
 
         if not self.robot_admin_user or not self.robot_admin_pass:
             self.log_start("creating an exclusive robot admin account for "
-                           "‘{0}’...".format(self.name))
+                           "‘{0}’... ".format(self.name))
             # Create a new Admin account exclusively for this machine.
             server = self._get_server_from_main_robot(self.main_ipv4, defn)
             with self.depl._db:
@@ -582,7 +582,7 @@ class HetznerState(MachineState):
         elif self.state == self.RESCUE:
             self.reboot()
         elif self.state in (self.STOPPED, self.UNREACHABLE):
-            self.log_start("server was shut down, sending hard reset...")
+            self.log_start("server was shut down, sending hard reset... ")
             server = self._get_server_by_ip(self.main_ipv4)
             server.reboot("hard")
             self.log_end("done.")
@@ -594,7 +594,7 @@ class HetznerState(MachineState):
         """
         Wait for the system to shutdown and set state STOPPED afterwards.
         """
-        self.log_start("waiting for system to shutdown...")
+        self.log_start("waiting for system to shutdown... ")
         dotlog = lambda: self.log_continue(".")
         wait_for_tcp_port(self.main_ipv4, 22, open=False, callback=dotlog)
         self.log_continue("[down]")
@@ -607,7 +607,7 @@ class HetznerState(MachineState):
         """
         if self.state not in (self.RESCUE, self.UP):
             return
-        self.log_start("shutting down system...")
+        self.log_start("shutting down system... ")
         self.run_command("systemctl halt", check=False)
         self.log_end("done.")
 
@@ -657,15 +657,15 @@ class HetznerState(MachineState):
         if self.state != self.RESCUE:
             self.reboot_rescue(bootstrap=False, hard=True)
         if wipe:
-            self.log_start("erasing all data on disk...")
+            self.log_start("erasing all data on disk... ")
             # Let it run in the background because it will take a long time.
             cmd = "nohup shred /dev/[sh]d? &> /dev/null < /dev/null &"
             self.run_command(cmd)
             self.log_end("done. (backgrounded)")
-        self.log_start("unsetting server name...")
+        self.log_start("unsetting server name... ")
         server.set_name("")
         self.log_end("done.")
-        self.log_start("removing admin account...")
+        self.log_start("removing admin account... ")
         server.admin.delete()
         self.log_start("done.")
         self.log("machine left in rescue, password: "
@@ -677,14 +677,14 @@ class HetznerState(MachineState):
             return True
 
         # Create the instance as early as possible because if we don't have the
-        # needed credentials, we really don't have to even ask for destruction.
+        # needed credentials, we really don't have to even ask for confirmation.
         server = self._get_server_from_main_robot(self.main_ipv4)
 
         if wipe:
             question = "are you sure you want to completely erase {0}?"
         else:
             question = "are you sure you want to destroy {0}?"
-        question_target = "Hetzner machine ‘{0}’?".format(self.name)
+        question_target = "Hetzner machine ‘{0}’".format(self.name)
         if not self.depl.logger.confirm(question.format(question_target)):
             return False
 
