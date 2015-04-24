@@ -51,6 +51,7 @@ class EC2Definition(MachineDefinition):
         self.ebs_optimized = x.find("attr[@name='ebsOptimized']/bool").get("value") == "true"
         self.subnet_id = x.find("attr[@name='subnetId']/string").get("value")
         self.associate_public_ip_address = x.find("attr[@name='associatePublicIpAddress']/bool").get("value") == "true"
+        self.use_private_ip_address = x.find("attr[@name='usePrivateIpAddress']/bool").get("value") == "true"
         self.security_group_ids = [e.get("value") for e in x.findall("attr[@name='securityGroupIds']/list/string")]
 
         def f(xml):
@@ -86,6 +87,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         return "ec2"
 
     state = nixops.util.attr_property("state", MachineState.MISSING, int)  # override
+    # We need to store this in machine state so wait_for_ip knows what to wait for
+    # Really it seems like this whole class should be parameterized by its definition.
+    # (or the state shouldn't be doing the polling)
+    wants_public_ip_address = nixops.util.attr_property("wantsPublicIpAddress", False, type=bool)
+    use_private_ip_address = nixops.util.attr_property("usePrivateIpAddress", False, type=bool)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
     public_dns_name = nixops.util.attr_property("publicDnsName", None)
@@ -126,6 +132,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         """Discard all state pertaining to an instance."""
         with self.depl._db:
             self.state = MachineState.MISSING
+            self.wants_public_ip_address = None
+            self.use_private_ip_address = None
             self.vm_id = None
             self.public_ipv4 = None
             self.private_ipv4 = None
@@ -151,11 +159,17 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.client_token = None
             self.spot_instance_request_id = None
 
-
     def get_ssh_name(self):
-        if not self.public_ipv4:
-            raise Exception("EC2 machine ‘{0}’ does not have a public IPv4 address (yet)".format(self.name))
-        return self.public_ipv4
+        retVal = None
+        if self.use_private_ip_address:
+            if not self.private_ipv4:
+                raise Exception("EC2 machine '{0}' does not have a private ipv4 address (yet)".format(self.name))
+            retVal = self.private_ipv4
+        else:
+            if not self.public_ipv4:
+                raise Exception("EC2 machine ‘{0}’ does not have a public ipv4 address (yet)".format(self.name))
+            retVal = self.public_ipv4
+        return retVal
 
 
     def get_ssh_private_key_file(self):
@@ -286,8 +300,17 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         return snapshots[0]
 
 
+
     def _wait_for_ip(self):
         self.log_start("waiting for IP address... ".format(self.name))
+
+        def _instance_ip_ready(ins):
+            ready = True
+            if self.wants_public_ip_address and not ins.ip_address:
+                ready = False
+            if self.use_private_ip_address and not ins.private_ip_address:
+                ready = False
+            return ready
 
         instance = self._get_instance()
 
@@ -299,13 +322,18 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             if instance.state != "running":
                 time.sleep(3)
                 continue
-            if instance.ip_address:
+            if _instance_ip_ready(instance):
                 break
             time.sleep(3)
 
         self.log_end("{0} / {1}".format(instance.ip_address, instance.private_ip_address))
 
-        nixops.known_hosts.update(self.public_ipv4, instance.ip_address, self.public_host_key)
+        if self.use_private_ip_address:
+            key_ip = instance.private_ip_address
+        else:
+            key_ip = instance.ip_address
+
+        nixops.known_hosts.update(self.public_ipv4, key_ip, self.public_host_key)
 
         with self.depl._db:
             self.private_ipv4 = instance.private_ip_address
@@ -748,6 +776,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         # Create the instance.
         if not self.vm_id:
+
             self.log("creating EC2 instance (AMI ‘{0}’, type ‘{1}’, region ‘{2}’)...".format(
                 defn.ami, defn.instance_type, self.region))
             if not self.client_token and not self.spot_instance_request_id:
@@ -883,8 +912,16 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             elastic_ipv4 = res.public_ipv4
         self._assign_elastic_ip(elastic_ipv4, check)
 
+        with self.depl._db:
+            self.use_private_ip_address = defn.use_private_ip_address
+            self.wants_public_ip_address = defn.associate_public_ip_address
+
         # Wait for the IP address.
-        if not self.public_ipv4 or check:
+        if (self.wants_public_ip_address and not self.public_ipv4) \
+           or \
+           (self.use_private_ip_address and not self.private_ipv4) \
+           or \
+           check:
             self._wait_for_ip()
 
         if defn.dns_hostname:
