@@ -328,19 +328,19 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         self.log_end("{0} / {1}".format(instance.ip_address, instance.private_ip_address))
 
-        if self.use_private_ip_address:
-            key_ip = instance.private_ip_address
-        else:
-            key_ip = instance.ip_address
-
-        nixops.known_hosts.update(self.public_ipv4, key_ip, self.public_host_key)
-
         with self.depl._db:
             self.private_ipv4 = instance.private_ip_address
             self.public_ipv4 = instance.ip_address
             self.public_dns_name = instance.public_dns_name
             self.ssh_pinged = False
 
+        nixops.known_hosts.update(self.public_ipv4, self._ip_for_ssh_key(), self.public_host_key)
+
+    def _ip_for_ssh_key(self):
+        if self.use_private_ip_address:
+            return self.private_ipv4
+        else:
+            return self.public_ipv4
 
     def _booted_from_ebs(self):
         return self.root_device_type == "ebs"
@@ -937,7 +937,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             ecdsa_key = self.run_command("cat /etc/ssh/ssh_host_ecdsa_key.pub", capture_stdout=True).rstrip()
             self.run_command("rm -f /etc/ssh/ssh_host_dsa_key*; systemctl restart sshd")
             self.public_host_key = ecdsa_key
-            nixops.known_hosts.update(None, self.public_ipv4, self.public_host_key)
+            nixops.known_hosts.update(None, self._ip_for_ssh_key(), self.public_host_key)
 
         if resize_root:
             self.log('resizing root disk...')
