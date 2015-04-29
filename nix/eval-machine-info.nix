@@ -68,10 +68,10 @@ rec {
 
   evalResources = mainModule: _resources:
     mapAttrs (name: defs:
-      (fixMergeModules
+      (builtins.removeAttrs (fixMergeModules
         ([ mainModule ./resource.nix ] ++ defs)
         { inherit pkgs uuid name resources; nodes = info.machines; }
-      ).config) _resources;
+      ).config) ["_module"]) _resources;
 
   # Amazon resources
   resources.sqsQueues = evalResources ./sqs-queue.nix (zipAttrs resourcesByType.sqsQueues or []);
