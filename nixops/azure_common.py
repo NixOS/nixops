@@ -59,12 +59,13 @@ class ResourceDefinition(nixops.resources.ResourceDefinition):
                               for s in elem.findall("string") ] ) if elem is not None else None
 
         if not optional and value is None:
-            raise Exception("option {0} must be set".format(name))
+            raise Exception("{0}: option {1} must be set".format(self.name, name))
 
-        if not empty:
-            ensure_not_empty(value, name)
-        if positive:
-            value is None or ensure_positive(value, name)
+        if not empty and not value:
+            raise Exception("{0}: {1} must not be empty".format(self.name, name))
+
+        if positive and value is not None and (value <= 0):
+            raise Exception("{0}: {1} must be a positive integer".format(self.name, name))
         return value
 
     # store the option value in a property, following the naming conventions
