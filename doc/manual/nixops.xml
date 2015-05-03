@@ -188,6 +188,20 @@ cloud.</para>
 
   </varlistentry>
 
+  <varlistentry><term><envar>AZURE_SUBSCRIPTION_ID</envar></term>
+    <term><envar>AZURE_CERTIFICATE_PATH</envar></term>
+
+    <listitem><para>Azure subscription ID and path to the
+    corresponding certificate(*.pem) file.
+    Used if not set in an Azure machine deployment configuration via
+    <varname>deployment.azure.subscriptionId</varname>
+    and <varname>deployment.azure.certificatePath</varname>,
+    and if not set in an Azure resource specification via
+    <varname>resources.$TYPE.$NAME.subscriptionId</varname> and
+    <varname>resources.$TYPE.$NAME.certificatePath</varname>.
+    </para></listitem>
+  </varlistentry>
+
 </variablelist>
 
 
