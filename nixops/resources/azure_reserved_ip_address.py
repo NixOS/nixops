@@ -4,6 +4,7 @@
 
 import os
 import azure
+import time
 
 from nixops.util import attr_property
 from nixops.azure_common import ResourceDefinition, ResourceState
@@ -102,7 +103,7 @@ class AzureReservedIPAddressState(ResourceState):
             self.sms().create_reserved_ip_address(defn.reserved_ip_address_name,
                                                   label = defn.label,
                                                   location = defn.location)
-
+            time.sleep(10) #FIXME: create_reserved_ip_address should have been an async request
             address = self.get_settled_resource()
             self.state = self.UP
             self.copy_properties(defn)
