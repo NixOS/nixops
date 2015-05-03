@@ -1053,7 +1053,7 @@ class AzureState(MachineState, ResourceState):
                 }
         return {
             'require': [
-                RawValue("<nixpkgs/nixos/modules/virtualisation/azure-config.nix>")
+                RawValue("<nixpkgs/nixos/modules/virtualisation/azure-common.nix>")
             ],
             ('deployment', 'azure', 'blockDeviceMapping'): block_device_mapping,
         }
