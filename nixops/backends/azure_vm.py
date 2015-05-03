@@ -408,6 +408,7 @@ class AzureState(MachineState, ResourceState):
                                                                   delete_vhd = False)
                                 self.finish_request(req)
                                 disk["needs_attach"] = True
+                                self.start()
 
                             self.update_block_device_mapping(d_id, disk)
                         else:
@@ -422,6 +423,7 @@ class AzureState(MachineState, ResourceState):
                                                               self.machine_name, dvhd.lun,
                                                               delete_vhd = False)
                             self.finish_request(req)
+                            self.start()
 
                     # check for detached disks
                     for d_id, disk in self.block_device_mapping.iteritems():
@@ -478,6 +480,15 @@ class AzureState(MachineState, ResourceState):
                     raise Exception("use --allow-recreate to fix")
 
         self._change_existing_disk_parameters(defn)
+
+        # check that reboot is allowed if we need to detach disks
+        for d_id, disk in self.block_device_mapping.items():
+            lun = device_name_to_lun(disk['device'])
+            if( self.vm_id and d_id not in defn.block_device_mapping and
+                lun is not None and not disk.get('needsAttach', False) and
+                not allow_reboot):
+                raise Exception("reboot is required to detach disk {0}; "
+                                "please run with --allow-reboot".format(d_id))
 
         self._create_ephemeral_disks_from_blobs(defn)
         self._create_vm(defn)
@@ -734,6 +745,7 @@ class AzureState(MachineState, ResourceState):
 
     def after_activation(self, defn):
         # detach the volumes that are no longer in the deployment spec
+        stopped = False
         for d_id, disk in self.block_device_mapping.items():
             lun = device_name_to_lun(disk['device'])
             if d_id not in defn.block_device_mapping and lun is not None:
@@ -742,7 +754,9 @@ class AzureState(MachineState, ResourceState):
                 try:
                     if not disk.get('needsAttach', False):
                         # devices aren't removed correctly if the machine is running
-                        self.stop()
+                        if not stopped:
+                            self.stop()
+                            stopped = True
                         self.log("detaching Azure disk '{0}'...".format(d_id))
                         req = self.sms().delete_data_disk(defn.hosted_service, defn.deployment,
                                                           defn.machine_name, lun, delete_vhd = False)
@@ -758,7 +772,8 @@ class AzureState(MachineState, ResourceState):
                     self.warn("Azure disk '{0}' seems to have been destroyed already".format(d_id))
 
                 self.update_block_device_mapping(d_id, None)
-
+        if stopped:
+            self.start()
 
     def reboot(self, hard=False):
         if hard:
