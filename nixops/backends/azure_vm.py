@@ -634,7 +634,7 @@ class AzureState(MachineState, ResourceState):
     # The same problem and solution applies to the root disk.
     def _create_ephemeral_disks_from_blobs(self, defn):
         for d_id, disk in defn.block_device_mapping.iteritems():
-            if d_id in self.block_device_mapping: continue
+            if d_id in self.block_device_mapping or not disk["ephemeral"]: continue
             try:
                 new_name = "nixops-{0}-{1}-{2}".format(self.machine_name, disk["ephemeral_name"],
                                                         random.randrange(1000000000))
