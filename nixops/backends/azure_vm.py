@@ -1075,7 +1075,7 @@ class AzureState(MachineState, ResourceState):
 
     def find_ssh_endpoint(self):
         return next((ie for ie in self.input_endpoints
-                        if ie.get('local_port', 0) == 22), None)
+                        if ie.get('local_port', 0) == super(AzureState, self).ssh_port), None)
 
     def get_deployment_IP(self):
         deployment_resource = (self.deployment and
@@ -1118,10 +1118,4 @@ class AzureState(MachineState, ResourceState):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.private_client_key)
 
     def get_ssh_flags(self, scp=False):
-        port_flags = []
-        if self.public_ipv4 is None:
-            ep = self.find_ssh_endpoint()
-            if ep is not None:
-                port_flags = [ '-p', str(ep.get('port', 0)) ]
-
-        return [ "-i", self.get_ssh_private_key_file() ] + port_flags
+        return [ "-i", self.get_ssh_private_key_file() ] + super(AzureState, self).get_ssh_flags(scp = scp)
