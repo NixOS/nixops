@@ -1062,6 +1062,7 @@ class AzureState(MachineState, ResourceState):
     def create_after(self, resources, defn):
         from nixops.resources.azure_blob import AzureBLOBState
         from nixops.resources.azure_blob_container import AzureBLOBContainerState
+        from nixops.resources.azure_disk import AzureDiskState
         from nixops.resources.azure_deployment import AzureDeploymentState
         from nixops.resources.azure_storage import AzureStorageState
         from nixops.resources.azure_reserved_ip_address import AzureReservedIPAddressState
@@ -1069,7 +1070,8 @@ class AzureState(MachineState, ResourceState):
         return {r for r in resources
                   if isinstance(r, AzureBLOBContainerState) or isinstance(r, AzureStorageState) or
                      isinstance(r, AzureBLOBState) or isinstance(r, AzureReservedIPAddressState) or 
-                     isinstance(r, AzureHostedServiceState) or isinstance(r, AzureDeploymentState)}
+                     isinstance(r, AzureHostedServiceState) or isinstance(r, AzureDeploymentState) or
+                     isinstance(r, AzureDiskState)}
 
     def find_ssh_endpoint(self):
         return next((ie for ie in self.input_endpoints

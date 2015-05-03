@@ -139,3 +139,12 @@ class AzureDiskState(ResourceState):
             self._update_disk(defn.os is not None, defn.label,
                               defn.media_link, defn.disk_name, defn.os or "")
             self.copy_properties(defn)
+
+
+    def create_after(self, resources, defn):
+        from nixops.resources.azure_blob import AzureBLOBState
+        from nixops.resources.azure_blob_container import AzureBLOBContainerState
+        from nixops.resources.azure_storage import AzureStorageState
+        return {r for r in resources
+                  if isinstance(r, AzureBLOBContainerState) or isinstance(r, AzureStorageState) or
+                     isinstance(r, AzureBLOBState)}
