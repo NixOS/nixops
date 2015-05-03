@@ -698,11 +698,14 @@ class AzureState(MachineState, ResourceState):
             disk_cfg = DataVirtualHardDisk()
             curr_disk = self.block_device_mapping.get(d_id, None)
             # create a new ephemeral disk or mount the existing one
-            if disk['ephemeral'] and curr_disk is None:
-                disk_cfg.media_link = disk['media_link']
-                disk_cfg.logical_disk_size_in_gb = disk['size']
+            if disk['ephemeral']:
+                if curr_disk is None:
+                    disk_cfg.media_link = disk['media_link']
+                    disk_cfg.logical_disk_size_in_gb = disk['size']
+                else:
+                    disk_cfg.disk_name = curr_disk['name']
             else:
-                disk_cfg.disk_name = curr_disk['name']
+                disk_cfg.disk_name = disk['name']
             disk_cfg.disk_label = disk['label']
             disk_cfg.host_caching = disk['host_caching']
             disk_cfg.lun = lun
