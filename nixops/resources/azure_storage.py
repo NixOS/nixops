@@ -146,10 +146,12 @@ class AzureStorageState(ResourceState):
                                                     affinity_group = defn.affinity_group,
                                                     extended_properties = defn.extended_properties,
                                                     account_type = defn.account_type)
-            self.finish_request(req)
+            self.log("waiting for the storage creation to finish; this may take several minutes...")
+            self.finish_request(req, max_tries=600)
             self.state = self.UP
             self.copy_properties(defn)
             # getting keys fails until the storage is fully provisioned
+            self.log("waiting for the storage to settle; this may take several minutes...")
             self.get_settled_resource(max_tries=600)
             keys = self.sms().get_storage_account_keys(defn.storage_name)
             self.primary_key = keys.storage_service_keys.primary
