@@ -8,6 +8,7 @@ import azure
 import re
 import base64
 import random
+import threading
 
 from azure.storage import BlobService
 from azure.servicemanagement import *
@@ -314,6 +315,7 @@ class AzureState(MachineState, ResourceState):
             x[k] = v
         self.block_device_mapping = x
 
+    deployment_lock = threading.Lock()
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(self.machine_name != defn.machine_name, "instance name")
@@ -491,25 +493,27 @@ class AzureState(MachineState, ResourceState):
                                 "please run with --allow-reboot".format(d_id))
 
         self._create_ephemeral_disks_from_blobs(defn)
-        self._create_vm(defn)
+        with self.deployment_lock:
+            self._create_vm(defn)
 
         if self.properties_changed(defn):
-            self.log("updating properties of {0}...".format(self.full_name))
-            network_configuration = self.mk_network_configuration(defn.input_endpoints)
-            if defn.obtain_ip:
-                network_configuration.public_ips.public_ips.append(PublicIP(name = "public"))
-            req = self.sms().update_role(defn.hosted_service, defn.deployment, defn.machine_name,
-                                         network_config = network_configuration,
-                                         role_size = defn.role_size)
-            self.finish_request(req)
-            self.copy_properties(defn)
+            with self.deployment_lock:
+                self.log("updating properties of {0}...".format(self.full_name))
+                network_configuration = self.mk_network_configuration(defn.input_endpoints)
+                if defn.obtain_ip:
+                    network_configuration.public_ips.public_ips.append(PublicIP(name = "public"))
+                req = self.sms().update_role(defn.hosted_service, defn.deployment, defn.machine_name,
+                                            network_config = network_configuration,
+                                            role_size = defn.role_size)
+                self.finish_request(req)
+                self.copy_properties(defn)
 
-            new_ip = self.fetch_PIP()
-            if self.public_ipv4 != new_ip:
-                self.log("got IP: {0}".format(new_ip))
-            self.public_ipv4 = new_ip
-            self.update_ssh_known_hosts()
-            self.ssh_pinged = False
+                new_ip = self.fetch_PIP()
+                if self.public_ipv4 != new_ip:
+                    self.log("got IP: {0}".format(new_ip))
+                self.public_ipv4 = new_ip
+                self.update_ssh_known_hosts()
+                self.ssh_pinged = False
 
 
         self._attach_detached_disks(defn)
@@ -820,8 +824,9 @@ class AzureState(MachineState, ResourceState):
                 question = "are you sure you want to destroy {0}?"
                 if not self.depl.logger.confirm(question.format(self.full_name)):
                     return False
-                self.log("destroying the Azure machine...")
-                self.destroy_resource()
+                with self.deployment_lock:
+                    self.log("destroying the Azure machine...")
+                    self.destroy_resource()
             else:
                 self.warn("seems to have been destroyed already")
         self._node_deleted()
