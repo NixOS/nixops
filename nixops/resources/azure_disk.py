@@ -129,6 +129,8 @@ class AzureDiskState(ResourceState):
                               defn.disk_name, defn.os or "")
             self.state = self.UP
             self.copy_properties(defn)
+            self.size = self.sms().get_disk(self.disk_name).logical_disk_size_in_gb
+            self.log("{0} size is {1} GB".format(self.full_name, self.size))
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
