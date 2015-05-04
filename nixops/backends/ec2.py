@@ -90,10 +90,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     # We need to store this in machine state so wait_for_ip knows what to wait for
     # Really it seems like this whole class should be parameterized by its definition.
     # (or the state shouldn't be doing the polling)
-    use_private_ip_address = nixops.util.attr_property("usePrivateIpAddress", False, type=bool)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
     public_dns_name = nixops.util.attr_property("publicDnsName", None)
+    use_private_ip_address = nixops.util.attr_property("ec2.usePrivateIpAddress", False, type=bool)
     associate_public_ip_address = nixops.util.attr_property("ec2.associatePublicIpAddress", False, type=bool)
     elastic_ipv4 = nixops.util.attr_property("ec2.elasticIpv4", None)
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
