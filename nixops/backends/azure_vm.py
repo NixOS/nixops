@@ -404,11 +404,12 @@ class AzureState(MachineState, ResourceState):
                                     raise Exception("reboot is required to reattach the disk at the correct LUN; "
                                                     "please run with --allow-reboot")
                                 self.stop()
-                                self.log("detaching disk {0}...".format(dvhd.disk_name))
-                                req = self.sms().delete_data_disk(self.hosted_service, self.deployment,
-                                                                  self.machine_name, dvhd.lun,
-                                                                  delete_vhd = False)
-                                self.finish_request(req)
+                                with self.deployment_lock:
+                                    self.log("detaching disk {0}...".format(dvhd.disk_name))
+                                    req = self.sms().delete_data_disk(self.hosted_service, self.deployment,
+                                                                      self.machine_name, dvhd.lun,
+                                                                      delete_vhd = False)
+                                    self.finish_request(req)
                                 disk["needs_attach"] = True
                                 self.start()
 
@@ -420,11 +421,12 @@ class AzureState(MachineState, ResourceState):
                                 raise Exception("reboot is required to detach the unexpected disk; "
                                                 "please run with --allow-reboot")
                             self.stop()
-                            self.log("detaching disk {0}...".format(dvhd.disk_name))
-                            req = self.sms().delete_data_disk(self.hosted_service, self.deployment,
-                                                              self.machine_name, dvhd.lun,
-                                                              delete_vhd = False)
-                            self.finish_request(req)
+                            with self.deployment_lock:
+                                self.log("detaching disk {0}...".format(dvhd.disk_name))
+                                req = self.sms().delete_data_disk(self.hosted_service, self.deployment,
+                                                                  self.machine_name, dvhd.lun,
+                                                                  delete_vhd = False)
+                                self.finish_request(req)
                             self.start()
 
                     # check for detached disks
@@ -571,14 +573,15 @@ class AzureState(MachineState, ResourceState):
             if disk is None or not disk.get("needs_attach", False): continue
             lun = device_name_to_lun(disk["device"])
             if lun is not None:
-                self.log("attaching data disk {0} to {1}"
-                         .format(d_id, self.full_name))
-                req = self.sms().add_data_disk(
-                        self.hosted_service, self.deployment, self.machine_name,
-                        lun, disk_name = disk['name'],
-                        host_caching = _disk['host_caching'],
-                        disk_label = _disk['label'] )
-                self.finish_request(req)
+                with self.deployment_lock:
+                    self.log("attaching data disk {0} to {1}"
+                            .format(d_id, self.full_name))
+                    req = self.sms().add_data_disk(
+                            self.hosted_service, self.deployment, self.machine_name,
+                            lun, disk_name = disk['name'],
+                            host_caching = _disk['host_caching'],
+                            disk_label = _disk['label'] )
+                    self.finish_request(req)
                 disk["needs_attach"] = False
                 disk["host_caching"] = _disk["host_caching"]
                 disk["label"] = _disk["label"]
@@ -590,30 +593,31 @@ class AzureState(MachineState, ResourceState):
     def _create_missing_attach_new(self, defn):
         for d_id, disk in defn.block_device_mapping.iteritems():
             if d_id in self.block_device_mapping: continue
-            self.log("attaching data disk {0} to {1}"
-                     .format(d_id, self.full_name))
-            if disk["ephemeral"]:
-                req = self.sms().add_data_disk(
-                          defn.hosted_service, defn.deployment, defn.machine_name,
-                          device_name_to_lun(disk['device']),
-                          host_caching = disk['host_caching'],
-                          media_link = disk['media_link'],
-                          disk_label = disk['label'],
-                          logical_disk_size_in_gb = disk['size']
-                      )
-                self.finish_request(req)
-                dd = self.sms().get_data_disk(defn.hosted_service, defn.deployment, defn.machine_name,
-                                              device_name_to_lun(disk['device']))
-                disk['name'] = dd.disk_name
-            else:
-                req = self.sms().add_data_disk(
-                          defn.hosted_service, defn.deployment, defn.machine_name,
-                          device_name_to_lun(disk['device']),
-                          disk_name = disk['name'],
-                          host_caching = disk['host_caching'],
-                          disk_label = disk['label']
-                      )
-                self.finish_request(req)
+            with self.deployment_lock:
+                self.log("attaching data disk {0} to {1}"
+                        .format(d_id, self.full_name))
+                if disk["ephemeral"]:
+                    req = self.sms().add_data_disk(
+                              defn.hosted_service, defn.deployment, defn.machine_name,
+                              device_name_to_lun(disk['device']),
+                              host_caching = disk['host_caching'],
+                              media_link = disk['media_link'],
+                              disk_label = disk['label'],
+                              logical_disk_size_in_gb = disk['size']
+                          )
+                    self.finish_request(req)
+                    dd = self.sms().get_data_disk(defn.hosted_service, defn.deployment, defn.machine_name,
+                                                  device_name_to_lun(disk['device']))
+                    disk['name'] = dd.disk_name
+                else:
+                    req = self.sms().add_data_disk(
+                              defn.hosted_service, defn.deployment, defn.machine_name,
+                              device_name_to_lun(disk['device']),
+                              disk_name = disk['name'],
+                              host_caching = disk['host_caching'],
+                              disk_label = disk['label']
+                          )
+                    self.finish_request(req)
 
             self.update_block_device_mapping(d_id, disk)
 
@@ -764,10 +768,11 @@ class AzureState(MachineState, ResourceState):
                         if not stopped:
                             self.stop()
                             stopped = True
-                        self.log("detaching Azure disk '{0}'...".format(d_id))
-                        req = self.sms().delete_data_disk(defn.hosted_service, defn.deployment,
-                                                          defn.machine_name, lun, delete_vhd = False)
-                        self.finish_request(req)
+                        with self.deployment_lock:
+                            self.log("detaching Azure disk '{0}'...".format(d_id))
+                            req = self.sms().delete_data_disk(defn.hosted_service, defn.deployment,
+                                                              defn.machine_name, lun, delete_vhd = False)
+                            self.finish_request(req)
                         disk['needsAttach'] = True
                         self.update_block_device_mapping(d_id, disk)
 
@@ -795,13 +800,14 @@ class AzureState(MachineState, ResourceState):
 
     def start(self):
         if self.vm_id:
-            # surprisingly although this was indended to avoid deployment lock-up
-            # it may actually cause it even when a single operation is attempted
-            #self.wait_deployment_unlocked()
-            self.state = self.STARTING
-            self.log("starting Azure machine...")
-            req = self.sms().start_role(self.hosted_service, self.deployment, self.machine_name)
-            self.finish_request(req)
+            with self.deployment_lock:
+                # surprisingly although this was indended to avoid deployment lock-up
+                # it may actually cause it even when a single operation is attempted
+                #self.wait_deployment_unlocked()
+                self.state = self.STARTING
+                self.log("starting Azure machine...")
+                req = self.sms().start_role(self.hosted_service, self.deployment, self.machine_name)
+                self.finish_request(req)
             self.wait_for_ssh(check=True)
             self.send_keys()
 
