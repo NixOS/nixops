@@ -108,7 +108,10 @@ class VirtualBoxState(MachineState):
     @property
     def _vbox_flag_sataportcount(self):
         v = self._vbox_version
-        return '--portcount' if (int(v[0]) >= 4 and int(v[1]) >= 3) else '--sataportcount'
+        if (int(v[0]) >= 5) or (int(v[0]) == 4 and int(v[1]) >= 3):
+            return '--portcount'
+        else:
+            return'--sataportcount'
 
     def _get_vm_info(self, can_fail=False):
         '''Return the output of ‘VBoxManage showvminfo’ in a dictionary.'''
