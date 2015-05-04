@@ -125,8 +125,8 @@ rec {
     system = "x86_64-linux";
   }).test;
 
-  tests.hetzner_backend = (import ./tests/hetzner-backend.nix {
-    nixops = build.x86_64-linux;
-    system = "x86_64-linux";
-  }).test;
+#  tests.hetzner_backend = (import ./tests/hetzner-backend.nix {
+#    nixops = build.x86_64-linux;
+#    system = "x86_64-linux";
+#  }).test;
 }
