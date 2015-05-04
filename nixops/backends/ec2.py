@@ -90,11 +90,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     # We need to store this in machine state so wait_for_ip knows what to wait for
     # Really it seems like this whole class should be parameterized by its definition.
     # (or the state shouldn't be doing the polling)
-    wants_public_ip_address = nixops.util.attr_property("wantsPublicIpAddress", False, type=bool)
     use_private_ip_address = nixops.util.attr_property("usePrivateIpAddress", False, type=bool)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
     public_dns_name = nixops.util.attr_property("publicDnsName", None)
+    associate_public_ip_address = nixops.util.attr_property("ec2.associatePublicIpAddress", False, type=bool)
     elastic_ipv4 = nixops.util.attr_property("ec2.elasticIpv4", None)
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
     region = nixops.util.attr_property("ec2.region", None)
@@ -132,7 +132,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         """Discard all state pertaining to an instance."""
         with self.depl._db:
             self.state = MachineState.MISSING
-            self.wants_public_ip_address = None
+            self.associate_public_ip_address = None
             self.use_private_ip_address = None
             self.vm_id = None
             self.public_ipv4 = None
@@ -306,7 +306,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         def _instance_ip_ready(ins):
             ready = True
-            if self.wants_public_ip_address and not ins.ip_address:
+            if self.associate_public_ip_address and not ins.ip_address:
                 ready = False
             if self.use_private_ip_address and not ins.private_ip_address:
                 ready = False
@@ -914,10 +914,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         with self.depl._db:
             self.use_private_ip_address = defn.use_private_ip_address
-            self.wants_public_ip_address = defn.associate_public_ip_address
+            self.associate_public_ip_address = defn.associate_public_ip_address
 
         # Wait for the IP address.
-        if (self.wants_public_ip_address and not self.public_ipv4) \
+        if (self.associate_public_ip_address and not self.public_ipv4) \
            or \
            (self.use_private_ip_address and not self.private_ipv4) \
            or \
