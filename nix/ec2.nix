@@ -27,6 +27,16 @@ let
     let props = config.deployment.ec2.physicalProperties;
     in if props == null then false else (props.allowsEbsOptimized or false);
 
+  defaultUsePrivateIpAddress =
+    let
+      assocPublicIp = config.deployment.ec2.associatePublicIpAddress;
+      subnetId = config.deployment.ec2.subnetId;
+    in
+      if assocPublicIp == false && subnetId != "" then
+        true
+      else
+        false;
+
   commonEC2Options = import ./common-ec2-options.nix { inherit lib; };
 
   ec2DiskOptions = { config, ... }: {
@@ -320,6 +330,17 @@ in
       description = ''
         If instance in a subnet/VPC, whether to associate a public
         IP address with the instance.
+      '';
+    };
+
+    deployment.ec2.usePrivateIpAddress = mkOption {
+      default = defaultUsePrivateIpAddress;
+      type = types.bool;
+      description = ''
+        If instance is in a subnet/VPC whether to use the private
+	IP address for ssh connections to this host. Defaults to
+	true in the case that you are deploying into a subnet but
+	not associating a public ip address.
       '';
     };
 
