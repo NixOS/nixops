@@ -450,6 +450,11 @@ class Deployment(object):
         # lookups.
         hosts = defaultdict(lambda: defaultdict(list))
 
+        def index_to_private_ip(index):
+            n = 105 + index / 256
+            assert n <= 255
+            return "192.168.{0}.{1}".format(n, index % 256)
+
         for m in active_machines.itervalues():
             for m2 in active_machines.itervalues():
                 ip = m.address_to(m2)
@@ -457,12 +462,7 @@ class Deployment(object):
                     hosts[m.name][ip] += [m2.name, m2.name + "-unencrypted"]
             # Always use the encrypted/unencrypted suffixes for aliases rather
             # than for the canonical name!
-            hosts[m.name]["127.0.0.1"].append(m.name + "-encrypted")
-
-        def index_to_private_ip(index):
-            n = 105 + index / 256
-            assert n <= 255
-            return "192.168.{0}.{1}".format(n, index % 256)
+            hosts[m.name][index_to_private_ip(m.index)].append(m.name + "-encrypted")
 
         def do_machine(m):
             defn = self.definitions[m.name]
