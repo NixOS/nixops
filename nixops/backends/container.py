@@ -111,7 +111,7 @@ class ContainerState(MachineState):
 
     def create_after(self, resources, defn):
         host = defn.host if defn else self.host
-        if host.startswith("__machine-"):
+        if host and host.startswith("__machine-"):
             return {self.depl.get_machine(host[10:])}
         else:
             return {}
