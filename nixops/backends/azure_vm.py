@@ -187,6 +187,7 @@ class AzureState(MachineState, ResourceState):
 
     input_endpoints = attr_property("azure.input_endpoints", {}, 'json')
     block_device_mapping = attr_property("azure.blockDeviceMapping", {}, 'json')
+    generated_encryption_keys = attr_property("azure.generatedEncryptionKeys", {}, 'json')
 
     backups = attr_property("azure.backups", {}, 'json')
 
@@ -239,6 +240,16 @@ class AzureState(MachineState, ResourceState):
 
         except azure.WindowsAzureMissingResourceError:
             self.warn("seems to have been destroyed already")
+
+    def _delete_encryption_key(self, disk_id):
+        if self.generated_encryption_keys.get(disk_id, None) == None:
+            return
+        if self.depl.logger.confirm("Azure disk {0} has an automatically generated encryption key; "
+                                    "if the key is deleted, the data will be lost even if you have "
+                                    "a copy of the disk contents; "
+                                    "are you sure you want to delete the encryption key?"
+                                   .format(disk_id) ):
+            self.update_generated_encryption_keys(disk_id, None)
 
     def _create_disk(self, has_operating_system, label, media_link, name, os):
         if has_operating_system:
@@ -314,6 +325,15 @@ class AzureState(MachineState, ResourceState):
         else:
             x[k] = v
         self.block_device_mapping = x
+
+    def update_generated_encryption_keys(self, k, v):
+        x = self.generated_encryption_keys
+        if v == None:
+            x.pop(k, None)
+        else:
+            x[k] = v
+        self.generated_encryption_keys = x
+
 
     deployment_lock = threading.Lock()
 
@@ -624,9 +644,10 @@ class AzureState(MachineState, ResourceState):
     # generate LUKS key if the model didn't specify one
     def _generate_default_encryption_keys(self):
         for d_id, disk in self.block_device_mapping.iteritems():
-            if disk.get('encrypt', False) and disk.get('passphrase', "") == "" and disk.get('generatedKey', "") == "":
-                disk['generatedKey'] = generate_random_string(length=256)
-                self.update_block_device_mapping(d_id, disk)
+            if disk.get('encrypt', False) and ( disk.get('passphrase', "") == ""
+                                            and self.generated_encryption_keys.get(d_id, None) is None):
+                self.log("generating an encryption key for disk {0}".format(d_id))
+                self.update_generated_encryption_keys(d_id, generate_random_string(length=256))
 
     # This is an ugly hack around the fact that to create a new disk,
     # add_data_disk() needs to be called in a different way depending
@@ -744,16 +765,6 @@ class AzureState(MachineState, ResourceState):
         self.update_ssh_known_hosts()
 
 
-    def warn_automatically_encrypted_disk(self, d_id, disk):
-        if disk['encrypt'] and ( disk['passphrase'] == "" and
-                                  disk.get('generatedKey', "") != "" ):
-            self.warn("azure disk {0} has an automatically generated encryption key "
-                      "that will be lost once the disk resource is deleted; "
-                      "unless you retrieve the encryption key from the NixOps deployment, "
-                      "the access to the data will be lost even if you decide to keep the BLOB; "
-                      "pressing Ctrl+C is your last chance to keep the data".format(d_id))
-
-
     def after_activation(self, defn):
         # detach the volumes that are no longer in the deployment spec
         stopped = False
@@ -777,13 +788,12 @@ class AzureState(MachineState, ResourceState):
                         self.update_block_device_mapping(d_id, disk)
 
                     if disk['ephemeral']:
-                        self.warn_automatically_encrypted_disk(d_id, disk)
                         self._delete_volume(disk_name, disk_id = d_id)
 
                 except azure.WindowsAzureMissingResourceError:
                     self.warn("Azure disk '{0}' seems to have been destroyed already".format(d_id))
-
                 self.update_block_device_mapping(d_id, None)
+                self._delete_encryption_key(d_id)
         if stopped:
             self.start()
 
@@ -843,10 +853,17 @@ class AzureState(MachineState, ResourceState):
         # Destroy volumes created for this instance.
         for d_id, disk in self.block_device_mapping.items():
             if disk['ephemeral']:
-                self.warn_automatically_encrypted_disk(d_id, disk)
                 self._delete_volume(disk['name'], disk_id = d_id)
             self.update_block_device_mapping(d_id, None)
+            self._delete_encryption_key(d_id)
 
+        if self.generated_encryption_keys != {}:
+            if not self.depl.logger.confirm("{0} still has generated encryption keys for disks {1}; "
+                                            "if the keys are deleted, the data will be lost even if you have "
+                                            "a copy of the disks contents; are you sure you want to delete "
+                                            "the remaining encryption keys?"
+                                            .format(self.full_name, self.generated_encryption_keys.keys()) ):
+                raise Exception("can't continue")
         return True
 
 
@@ -1060,10 +1077,10 @@ class AzureState(MachineState, ResourceState):
         for d_id, disk in self.block_device_mapping.items():
             if (disk.get('encrypt', False)
                 and disk.get('passphrase', "") == ""
-                and disk.get('generatedKey', "") != ""):
+                and self.generated_encryption_keys.get(d_id, None) is not None):
                 block_device_mapping[disk["device"]] = {
                     'passphrase': Function("pkgs.lib.mkOverride 10",
-                                           disk['generatedKey'], call=True),
+                                           self.generated_encryption_keys[d_id], call=True),
                 }
         return {
             'require': [
@@ -1078,10 +1095,11 @@ class AzureState(MachineState, ResourceState):
         # there in the first evaluation (though they are present in
         # the final nix-build).
         for d_id, disk in self.block_device_mapping.items():
-            if disk.get('encrypt', False) and disk.get('passphrase', "") == "" and disk.get('generatedKey', "") != "":
+            if disk.get('encrypt', False) and ( disk.get('passphrase', "") == ""
+                                            and self.generated_encryption_keys.get(d_id, None) is not None):
                 key_name = disk["ephemeral_name"] if disk["ephemeral"] else disk["name"]
                 keys[key_name] = {
-                    'text': disk['generatedKey'],
+                    'text': self.generated_encryption_keys[d_id],
                     'group': 'root',
                     'permissions': '0600',
                     'user': 'root'
