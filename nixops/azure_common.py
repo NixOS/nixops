@@ -231,7 +231,11 @@ class ResourceState(nixops.resources.ResourceState):
     def finish_request(self, req, max_tries = 100):
         def check_req():
             return self.sms().get_operation_status(req.request_id).status != 'InProgress'
-        check_wait(check_req, initial=1, max_tries=max_tries, exception=True)
+        try:
+            check_wait(check_req, initial=1, max_tries=max_tries, exception=True)
+        except:
+            self.warn("operation on {0} failed".format(self.full_name))
+            raise
         op_status = self.sms().get_operation_status(req.request_id)
         if op_status.status != 'Succeeded':
             raise Exception(op_status.error.__dict__)
