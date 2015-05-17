@@ -1098,7 +1098,7 @@ class AzureState(MachineState, ResourceState):
             if disk.get('encrypt', False) and ( disk.get('passphrase', "") == ""
                                             and self.generated_encryption_keys.get(d_id, None) is not None):
                 key_name = disk["ephemeral_name"] if disk["ephemeral"] else disk["name"]
-                keys[key_name] = {
+                keys["luks-" + key_name] = {
                     'text': self.generated_encryption_keys[d_id],
                     'group': 'root',
                     'permissions': '0600',
