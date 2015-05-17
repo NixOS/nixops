@@ -953,6 +953,8 @@ class AzureState(MachineState, ResourceState):
                          .format(azure_disk.name, azure_disk.media_link))
                 self._create_disk(azure_disk.os, azure_disk.label,
                                   azure_disk.media_link, azure_disk.name, azure_disk.os)
+        # restore the currently deployed configuration(defn = self)
+        self._create_vm(self)
 
 
     def remove_backup(self, backup_id, keep_physical=False):
