@@ -88,24 +88,13 @@ class AzureDeploymentState(ResourceState):
 
     dummy_name = "dummy_to_be_deleted"
 
-    def check_and_delete_dummy(self):
-        try:
-            vm = self.sms().get_role(self.hosted_service, self.deployment_name, self.dummy_name)
-            self.log('found dummy VM in {0}; deleting...'.format(self.full_name))
-            #FIXME: this functionality should be available via regular delete_role() call in future azure lib versions
-            req = self.sms()._perform_delete( 
-                self.sms()._get_role_path(self.hosted_service, self.deployment_name, self.dummy_name) + '?comp=media',
-                async=True)
-            self.finish_request(req)
-        except azure.WindowsAzureMissingResourceError:
-            return
-
     def deallocate_dummy(self):
       try:
-        self.sms().shutdown_role(self.hosted_service, self.deployment_name, self.dummy_name,
-                                 post_shutdown_action='StoppedDeallocated')
+        req = self.sms().shutdown_role(self.hosted_service, self.deployment_name, self.dummy_name,
+                                       post_shutdown_action='StoppedDeallocated')
         vm = self.sms().get_role(self.hosted_service, self.deployment_name, self.dummy_name)
         self.dummy_root_disk = vm.os_virtual_hard_disk.disk_name
+        self.finish_request(req)
       except azure.WindowsAzureMissingResourceError:
         self.warn("dummy VM wasn't found in {0}".format(self.full_name))
 
