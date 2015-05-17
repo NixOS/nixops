@@ -126,7 +126,9 @@ class AzureDeploymentState(ResourceState):
             elif self.state == self.UP:
                 self.handle_changed_property('label', deployment.label, can_fix = False)
                 self.handle_changed_property('slot', deployment.deployment_slot.lower(), can_fix = False)
-                #FIXME: check the reserved ip
+                self.handle_changed_property('public_ipv4',
+                                             deployment.virtual_ips[0].address if deployment.virtual_ips.virtual_ips else None,
+                                             property_name = 'IP address')
                 self.deallocate_dummy()
             else:
                 self.warn_not_supposed_to_exist()
@@ -197,6 +199,7 @@ class AzureDeploymentState(ResourceState):
         from nixops.resources.azure_blob_container import AzureBLOBContainerState
         from nixops.resources.azure_storage import AzureStorageState
         from nixops.resources.azure_hosted_service import AzureHostedServiceState
+        from nixops.resources.azure_reserved_ip_address import AzureReservedIPAddressState
         return {r for r in resources
                   if isinstance(r, AzureBLOBContainerState) or isinstance(r, AzureStorageState) or
-                  isinstance(r, AzureHostedServiceState) }
+                  isinstance(r, AzureHostedServiceState) or isinstance(r, AzureReservedIPAddressState) }

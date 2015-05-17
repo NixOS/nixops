@@ -183,7 +183,8 @@ class AzureBLOBState(ResourceState):
                                   x_ms_blob_content_language = defn.content_language,
                                   x_ms_blob_content_md5 = md5,
                                   x_ms_blob_cache_control = defn.cache_control,
-                                  x_ms_meta_name_values = defn.metadata)
+                                  x_ms_meta_name_values = defn.metadata,
+                                  max_connections = 8)
             else:
                 self.bs().put_page_blob_from_path(
                                         defn.container, defn.blob_name, defn.file_path,
@@ -196,7 +197,8 @@ class AzureBLOBState(ResourceState):
                                         x_ms_blob_content_language = defn.content_language,
                                         x_ms_blob_content_md5 = md5,
                                         x_ms_blob_cache_control = defn.cache_control,
-                                        x_ms_meta_name_values = defn.metadata)
+                                        x_ms_meta_name_values = defn.metadata,
+                                        max_connections = 8)
             self.state = self.UP
             self.copy_properties(defn)
             self.metadata = defn.metadata

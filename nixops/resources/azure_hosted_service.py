@@ -79,7 +79,8 @@ class AzureHostedServiceState(ResourceState):
             return None
 
     def destroy_resource(self):
-        self.sms().delete_hosted_service(self.resource_id)
+        req = self.sms().delete_hosted_service(self.resource_id)
+        self.finish_request(req)
 
     def is_settled(self, resource):
         return resource is None or (resource.hosted_service_properties.status != 'Creating' and
@@ -121,11 +122,12 @@ class AzureHostedServiceState(ResourceState):
                                 "please run 'deploy --check' to fix this")
 
             self.log("creating {0} in {1}...".format(self.full_name, defn.location or defn.affinity_group))
-            self.sms().create_hosted_service(defn.hosted_service_name, defn.label,
+            req = self.sms().create_hosted_service(defn.hosted_service_name, defn.label,
                                              description = defn.description,
                                              location = defn.location,
                                              affinity_group = defn.affinity_group,
                                              extended_properties = defn.extended_properties)
+            self.finish_request(req)
             self.state = self.UP
             self.copy_properties(defn)
 

@@ -77,21 +77,18 @@ class AzureDiskState(ResourceState):
         return True
 
 
-   # an ugly workaround for a bug:
-   # http://www.biztalkgurus.com/biztalk_server/biztalk_blogs/b/biztalk/archive/2012/10/05/working-with-the-add-disk-operation-of-the-windows-azure-rest-api.aspx
+    # a workaround for a bug in sdk 0.11.0
     def _create_disk(self, has_operating_system, label, media_link, name, os):
         if has_operating_system:
+            return self.sms().add_disk(has_operating_system, label, media_link, name, os)
+        else:
             return self.sms()._perform_post(
                       self.sms()._get_disk_path(),
                       _XmlSerializer.doc_from_data(
                           'Disk',
-                          [('OS', os),
-                          ('HasOperatingSystem', has_operating_system, _lower),
-                          ('Label', label),
-                          ('MediaLink', media_link),
-                          ('Name', name)]))
-        else:
-            return self.sms().add_disk(has_operating_system, label, media_link, name, os)
+                          [('Label', label),
+                           ('MediaLink', media_link),
+                           ('Name', name)]))
 
     def _update_disk(self, has_operating_system, label, media_link, name, os):
         return self.sms().update_disk(name, has_operating_system, label, media_link, name, os)

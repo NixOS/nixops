@@ -70,7 +70,8 @@ class AzureReservedIPAddressState(ResourceState):
             return None
 
     def destroy_resource(self):
-        self.sms().delete_reserved_ip_address(self.reserved_ip_address_name)
+        req = self.sms().delete_reserved_ip_address(self.reserved_ip_address_name)
+        self.finish_request(req)
 
     defn_properties = [ 'label', 'location' ]
 
@@ -100,10 +101,11 @@ class AzureReservedIPAddressState(ResourceState):
                                 "please run 'deploy --check' to fix this")
 
             self.log("creating {0} in {1}...".format(self.full_name, defn.location))
-            self.sms().create_reserved_ip_address(defn.reserved_ip_address_name,
-                                                  label = defn.label,
-                                                  location = defn.location)
-            time.sleep(10) #FIXME: create_reserved_ip_address should have been an async request
+            req = self.sms().create_reserved_ip_address(defn.reserved_ip_address_name,
+                                                        label = defn.label,
+                                                        location = defn.location)
+            self.finish_request(req)
+
             address = self.get_settled_resource()
             self.state = self.UP
             self.copy_properties(defn)

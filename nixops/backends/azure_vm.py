@@ -251,19 +251,18 @@ class AzureState(MachineState, ResourceState):
                                    .format(disk_id) ):
             self.update_generated_encryption_keys(disk_id, None)
 
+    # a workaround for a bug in sdk 0.11.0
     def _create_disk(self, has_operating_system, label, media_link, name, os):
         if has_operating_system:
+            return self.sms().add_disk(has_operating_system, label, media_link, name, os)
+        else:
             return self.sms()._perform_post(
                       self.sms()._get_disk_path(),
                       _XmlSerializer.doc_from_data(
                           'Disk',
-                          [('OS', os),
-                          ('HasOperatingSystem', has_operating_system, _lower),
-                          ('Label', label),
-                          ('MediaLink', media_link),
-                          ('Name', name)]))
-        else:
-            return self.sms().add_disk(has_operating_system, label, media_link, name, os)
+                          [('Label', label),
+                           ('MediaLink', media_link),
+                           ('Name', name)]))
 
 
     def _node_deleted(self):
@@ -295,12 +294,6 @@ class AzureState(MachineState, ResourceState):
         d = self.sms().get_deployment_by_name(self.hosted_service, self.deployment)
         instance = next((r for r in d.role_instance_list if r.instance_name == self.machine_name), None)
         return (instance and instance.public_ips and instance.public_ips[0].address)
-
-    def wait_deployment_unlocked(self):
-        def check_req():
-            self.log("waiting for deployment lock")
-            return not self.sms().get_deployment_by_name(self.hosted_service, self.deployment).locked
-        check_wait(check_req, initial=1, max_tries=100, exception=True)
 
     def mk_network_configuration(self, endpoints):
         network_configuration = ConfigurationSet()
@@ -515,8 +508,8 @@ class AzureState(MachineState, ResourceState):
                                 "please run with --allow-reboot".format(d_id))
 
         self._create_ephemeral_disks_from_blobs(defn)
-        with self.deployment_lock:
-            self._create_vm(defn)
+
+        self._create_vm(defn)
 
         if self.properties_changed(defn):
             with self.deployment_lock:
@@ -685,7 +678,6 @@ class AzureState(MachineState, ResourceState):
         if self.get_settled_resource():
             raise Exception("tried creating a virtual machine that already exists; "
                             "please run 'deploy --check' to fix this")
-        self.log("creating {0}...".format(self.full_name))
 
         custom_data = ('ssh_host_ecdsa_key=$(cat<<____HERE\n{0}\n____HERE\n)\n'
                       'ssh_host_ecdsa_key_pub="{1}"\nssh_root_auth_key="{2}"\n'
@@ -736,13 +728,15 @@ class AzureState(MachineState, ResourceState):
             disk_cfg.lun = lun
             disks.data_virtual_hard_disks.append(disk_cfg)
 
-        req = self.sms().add_role(defn.hosted_service, defn.deployment, defn.machine_name,
-                                  config, root_disk,
-                                  availability_set_name = None,
-                                  data_virtual_hard_disks = disks,
-                                  network_config = network_configuration,
-                                  role_size = defn.role_size)
-        self.finish_request(req)
+        with self.deployment_lock:
+            self.log("creating {0}...".format(self.full_name))
+            req = self.sms().add_role(defn.hosted_service, defn.deployment, defn.machine_name,
+                                      config, root_disk,
+                                      availability_set_name = None,
+                                      data_virtual_hard_disks = disks,
+                                      network_config = network_configuration,
+                                      role_size = defn.role_size)
+            self.finish_request(req)
 
         self.vm_id = self.machine_name
         self.state = self.STARTING
@@ -811,9 +805,6 @@ class AzureState(MachineState, ResourceState):
     def start(self):
         if self.vm_id:
             with self.deployment_lock:
-                # surprisingly although this was indended to avoid deployment lock-up
-                # it may actually cause it even when a single operation is attempted
-                #self.wait_deployment_unlocked()
                 self.state = self.STARTING
                 self.log("starting Azure machine...")
                 req = self.sms().start_role(self.hosted_service, self.deployment, self.machine_name)
@@ -824,7 +815,6 @@ class AzureState(MachineState, ResourceState):
     def stop(self):
         if self.vm_id:
            #FIXME: there's also "stopped deallocated" version of this. how to integrate?
-            #self.wait_deployment_unlocked()
             self.log("stopping Azure machine... ")
             req = self.sms().shutdown_role(self.hosted_service, self.deployment, self.machine_name)
             self.state = self.STOPPING
