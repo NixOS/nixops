@@ -1007,6 +1007,11 @@ This terminates the Azure instances and deletes the alternative endpoint-based l
   but the machine won't see them.
   </para></listitem>
 
+  <listitem><para>You can replace the root disk of a VM, but root disks of different VMs aren't
+  interchangeable because Azure only allows provisioning info to be supplied when creating
+  a new root disk.
+  </para></listitem>
+
   <listitem><para>BLOB URLs must use HTTPS protocol, because HTTP ones get
   converted to HTTPS by Azure, and <literal>deploy --check</literal> will always complain.
   </para></listitem>
@@ -1077,6 +1082,15 @@ This terminates the Azure instances and deletes the alternative endpoint-based l
   is not handled automatically by NixOps to avoid causing damage. Getting out of this ambiguous
   state requires either (re-)deployment of the storage or manual deletion of the affected NixOps
   resources.
+  </para></listitem>
+
+  <listitem><para><literal>deploy --check</literal> has no way to retrieve container ACL,
+  so be careful with manual changes.
+  </para></listitem>
+
+  <listitem><para>Once you set <literal>extendedProperties</literal> of storage or hosted service
+  to something other than <literal>{}</literal>, whether at creation time or by updating a deployed
+  resource, update requests will fail silently and <literal>deploy --check</literal> will complain.
   </para></listitem>
 
 </itemizedlist>
