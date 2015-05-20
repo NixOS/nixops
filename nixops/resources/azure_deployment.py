@@ -89,14 +89,16 @@ class AzureDeploymentState(ResourceState):
     dummy_name = "dummy_to_be_deleted"
 
     def deallocate_dummy(self):
-      try:
-        req = self.sms().shutdown_role(self.hosted_service, self.deployment_name, self.dummy_name,
-                                       post_shutdown_action='StoppedDeallocated')
-        vm = self.sms().get_role(self.hosted_service, self.deployment_name, self.dummy_name)
-        self.dummy_root_disk = vm.os_virtual_hard_disk.disk_name
-        self.finish_request(req)
-      except azure.WindowsAzureMissingResourceError:
-        self.warn("dummy VM wasn't found in {0}".format(self.full_name))
+        try:
+            with self.deployment_lock:
+                self.log("deallocating the dummy VM of {0}".format(self.full_name))
+                req = self.sms().shutdown_role(self.hosted_service, self.deployment_name, self.dummy_name,
+                                              post_shutdown_action='StoppedDeallocated')
+                vm = self.sms().get_role(self.hosted_service, self.deployment_name, self.dummy_name)
+                self.dummy_root_disk = vm.os_virtual_hard_disk.disk_name
+                self.finish_request(req)
+        except azure.WindowsAzureMissingResourceError:
+            self.warn("dummy VM wasn't found in {0}".format(self.full_name))
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_property_change(defn, 'hosted_service')
@@ -117,7 +119,7 @@ class AzureDeploymentState(ResourceState):
                 self.handle_changed_property('slot', deployment.deployment_slot.lower(), can_fix = False)
                 self.handle_changed_property('public_ipv4',
                                              deployment.virtual_ips[0].address if deployment.virtual_ips.virtual_ips else None,
-                                             property_name = 'IP address')
+                                             property_name = 'IP address', can_fix = False)
                 self.deallocate_dummy()
             else:
                 self.warn_not_supposed_to_exist()
@@ -128,7 +130,6 @@ class AzureDeploymentState(ResourceState):
                 raise Exception("tried creating a deployment that already exists; "
                                 "please run 'deploy --check' to fix this")
 
-            self.log("creating {0} in {1}...".format(self.full_name, defn.hosted_service))
             dummy_disk = OSVirtualHardDisk(
                 source_image_name = 'b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-14_10-amd64-server-20150416-en-us-30GB',
                 media_link = defn.dummy_disk_url)
@@ -138,13 +139,17 @@ class AzureDeploymentState(ResourceState):
             network_config = ConfigurationSet()
             # deployment with a reserved IP must contain at least one input endpoint
             network_config.input_endpoints.input_endpoints.append(ConfigurationSetInputEndpoint('dummy', 'tcp', '60000', '60000'))
-            req = self.sms().create_virtual_machine_deployment(defn.hosted_service, defn.deployment_name,
-                                                               defn.slot, defn.label, self.dummy_name,
-                                                               dummy_config, dummy_disk,
-                                                               network_config = network_config,
-                                                               role_size = 'ExtraSmall',
-                                                               reserved_ip_name = defn.ip_address)
-            self.finish_request(req)
+            with self.deployment_lock:
+                self.log("creating {0} in {1}..."
+                         .format(self.full_name, defn.hosted_service))
+                req = self.sms().create_virtual_machine_deployment(
+                                      defn.hosted_service, defn.deployment_name,
+                                      defn.slot, defn.label, self.dummy_name,
+                                      dummy_config, dummy_disk,
+                                      network_config = network_config,
+                                      role_size = 'ExtraSmall',
+                                      reserved_ip_name = defn.ip_address)
+                self.finish_request(req)
 
             self.state = self.UP
             self.copy_properties(defn)

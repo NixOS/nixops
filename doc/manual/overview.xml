@@ -981,6 +981,10 @@ This terminates the Azure instances and deletes the alternative endpoint-based l
   the BLOB URL for the "dummy" root disk.
   </para></listitem>
 
+  <listitem><para><literal>deploy --check</literal> will complain about deployment
+  missing its IP address until you deploy a VM into it.
+  </para></listitem>
+
   <listitem><para>To request public IPs for virtual machines, they need to be
   a part of a deployment with a public IP.
   </para></listitem>
