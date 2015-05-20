@@ -1035,8 +1035,18 @@ This terminates the Azure instances and deletes the alternative endpoint-based l
     to destroy the load balancer, and then deployed with the new configuration.
   </para></listitem>
 
-  <listitem><para>Disks can't be cleanly detached from a running virtual machine.
-  NixOps  has to stop the machine before detaching disks.
+  <listitem><para>Drivers of older linux versions don't automatically detect removed disks
+  and rescan has to be triggered manually. While NixOps tries to do it for you, if it fails,
+  you can run <literal>sg_scan /dev/disk/by-lun/X</literal> to drop the removed disk.
+  </para></listitem>
+
+  <listitem><para>Removal of a disk which is currently in use by dm-mapper(eg via cryptsetup),
+  creates a rather broken state: device node is not completely released, reattaching the disk
+  doesn't fix anything. This can be fixed with a reboot.
+
+  You can trigger such a state for example if your current working dir is within the disk
+  being unmounted, which prevents umount from actually releasing the underlying dm-mapper disk,
+  which prevents dm-mapper from releasing the Azure disk device.
   </para></listitem>
 
   <listitem><para>Creation, modification and deletion of resources and instances are not

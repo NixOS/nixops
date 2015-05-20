@@ -33,6 +33,9 @@ def device_name_to_lun(device):
     match = re.match(r'/dev/disk/by-lun/(\d+)$', device)
     return  None if match is None or int(match.group(1))>31 else int(match.group(1) )
 
+def lun_to_device_name(lun):
+    return ('/dev/disk/by-lun/' + str(lun))
+
 def find_root_disk(block_device_mapping):
    return next((d_id for d_id, d in block_device_mapping.iteritems()
                   if d['device'] == '/dev/sda'), None)
@@ -217,16 +220,25 @@ class AzureState(MachineState, ResourceState):
             self._bs = BlobService(self.storage, storage_resource.access_key)
         return self._bs
 
+    # API calls throw 'conflict' if they involve disks whose
+    # attached_to property is not (yet) None,
+    # a condition that may persist for several seconds after
+    # delete_data_disk and similar requests finish
+    def _wait_disk_detached(self, volume_id, disk_id = None):
+        self.log("waiting for Azure disk {0} to detach..."
+                 .format(disk_id or volume_id))
+
+        def check_detached():
+            return self.sms().get_disk(volume_id).attached_to is None
+        check_wait(check_detached, initial=1, max_tries=100, exception=True)
+
     # delete_vhd = None: ask the user
     def _delete_volume(self, volume_id, disk_id = None, delete_vhd = None):
         if volume_id is None:
             self.warn("attempted to delete a disk without a name; this is a bug")
             return
         try:
-            self.log("waiting for Azure disk {0} to detach...".format(disk_id or volume_id))
-            def check_detached():
-                return self.sms().get_disk(volume_id).attached_to is None
-            check_wait(check_detached, initial=1, max_tries=100, exception=True)
+            self._wait_disk_detached(volume_id, disk_id = disk_id)
 
             if delete_vhd or (delete_vhd is None and
                               self.depl.logger.confirm("are you sure you want to destroy "
@@ -413,10 +425,6 @@ class AzureState(MachineState, ResourceState):
                             if dvhd.lun != device_name_to_lun(disk['device']):
                                 self.warn("disk {0}({1}) is attached to this instance at a wrong LUN"
                                           .format(dvhd.disk_name, dvhd.media_link))
-                                if not allow_reboot:
-                                    raise Exception("reboot is required to reattach the disk at the correct LUN; "
-                                                    "please run with --allow-reboot")
-                                self.stop()
                                 with self.deployment_lock:
                                     self.log("detaching disk {0}...".format(dvhd.disk_name))
                                     req = self.sms().delete_data_disk(self.hosted_service, self.deployment,
@@ -424,23 +432,19 @@ class AzureState(MachineState, ResourceState):
                                                                       delete_vhd = False)
                                     self.finish_request(req)
                                 disk["needs_attach"] = True
-                                self.start()
+                                self._wait_disk_detached(disk['name'], disk_id = d_id)
 
                             self.update_block_device_mapping(d_id, disk)
                         else:
                             self.warn("unexpected disk {0}({1}) is attached to this instance"
                                       .format(dvhd.disk_name, dvhd.media_link))
-                            if not allow_reboot:
-                                raise Exception("reboot is required to detach the unexpected disk; "
-                                                "please run with --allow-reboot")
-                            self.stop()
                             with self.deployment_lock:
                                 self.log("detaching disk {0}...".format(dvhd.disk_name))
                                 req = self.sms().delete_data_disk(self.hosted_service, self.deployment,
                                                                   self.machine_name, dvhd.lun,
                                                                   delete_vhd = False)
                                 self.finish_request(req)
-                            self.start()
+                            self._wait_disk_detached(dvhd.disk_name)
 
                     # check for detached disks
                     for d_id, disk in self.block_device_mapping.iteritems():
@@ -497,15 +501,6 @@ class AzureState(MachineState, ResourceState):
                     raise Exception("use --allow-recreate to fix")
 
         self._change_existing_disk_parameters(defn)
-
-        # check that reboot is allowed if we need to detach disks
-        for d_id, disk in self.block_device_mapping.items():
-            lun = device_name_to_lun(disk['device'])
-            if( self.vm_id and d_id not in defn.block_device_mapping and
-                lun is not None and not disk.get('needs_attach', False) and
-                not allow_reboot):
-                raise Exception("reboot is required to detach disk {0}; "
-                                "please run with --allow-reboot".format(d_id))
 
         self._create_ephemeral_disks_from_blobs(defn)
 
@@ -761,18 +756,24 @@ class AzureState(MachineState, ResourceState):
 
     def after_activation(self, defn):
         # detach the volumes that are no longer in the deployment spec
-        stopped = False
         for d_id, disk in self.block_device_mapping.items():
             lun = device_name_to_lun(disk['device'])
             if d_id not in defn.block_device_mapping and lun is not None:
                 disk_name = disk['name']
 
+                # umount with -l flag in case if the regular umount run by activation failed
+                if not disk.get('needs_attach', False):
+                    if disk.get('encrypt', False):
+                        dm = "/dev/mapper/{0}".format(disk['ephemeral_name'] if disk['ephemeral'] else disk['name'])
+                        self.log("unmounting device '{0}'...".format(dm))
+                        self.run_command("umount -l {0}".format(dm), check=False)
+                        self.run_command("cryptsetup luksClose {0}".format(dm), check=False)
+                    else:
+                        self.log("unmounting device '{0}'...".format(disk['device']))
+                        self.run_command("umount -l {0}".format(disk['device']), check=False)
+
                 try:
                     if not disk.get('needs_attach', False):
-                        # devices aren't removed correctly if the machine is running
-                        if not stopped:
-                            self.stop()
-                            stopped = True
                         with self.deployment_lock:
                             self.log("detaching Azure disk '{0}'...".format(d_id))
                             req = self.sms().delete_data_disk(defn.hosted_service, defn.deployment,
@@ -783,13 +784,18 @@ class AzureState(MachineState, ResourceState):
 
                     if disk['ephemeral']:
                         self._delete_volume(disk_name, disk_id = d_id)
+                    else:
+                        self._wait_disk_detached(disk_name, disk_id = d_id)
 
                 except azure.WindowsAzureMissingResourceError:
                     self.warn("Azure disk '{0}' seems to have been destroyed already".format(d_id))
+
+                # rescan the disk device, to make its device node disappear on older kernels
+                self.run_command("sg_scan {0}".format(disk['device']), check=False)
+
                 self.update_block_device_mapping(d_id, None)
                 self._delete_encryption_key(d_id)
-        if stopped:
-            self.start()
+
 
     def reboot(self, hard=False):
         if hard:
