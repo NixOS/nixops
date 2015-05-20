@@ -975,6 +975,12 @@ This terminates the Azure instances and deletes the alternative endpoint-based l
   <listitem><para>Creating a storage account takes several minutes. Be patient.
   </para></listitem>
 
+  <listitem><para>Azure deployment must always contain at least one VM. To work
+  around this limitation, a "dummy" VM is created and deallocated. You are only
+  billed for the storage of its root disk. <literal>dummyDiskUrl</literal> specifies
+  the BLOB URL for the "dummy" root disk.
+  </para></listitem>
+
   <listitem><para>To request public IPs for virtual machines, they need to be
   a part of a deployment with a public IP.
   </para></listitem>
@@ -1042,6 +1048,21 @@ This terminates the Azure instances and deletes the alternative endpoint-based l
   Usually, this doesn't cause too much trouble, but a good practice is to follow each
   failed or aborted deployment operation with a <literal>deploy --check</literal>
   run to detect and fix any state mismatch(es).
+  </para></listitem>
+
+  <listitem><para>If you are getting <literal>socket.gaierror: [Errno -2] Name or service
+  not known</literal> when dealing with storage services(BLOBs, containers etc), you need
+  to flush DNS cache or wait a little bit. Azure storage API calls are issued using
+  the subdomain name which exists only if storage exists. Thus, running
+  <literal>deploy --check</literal> for a container before its storage is created causes
+  a DNS resolution failure to be cached for some time even after you create the storage.
+  </para></listitem>
+
+  <listitem><para>If a storage is deleted, containers and BLOBs can no longer authenticate
+  and can't differentiate between a network failure and missing storage, so such a situation
+  is not handled automatically by NixOps to avoid causing damage. Getting out of this ambiguous
+  state requires either (re-)deployment of the storage or manual deletion of the affected NixOps
+  resources.
   </para></listitem>
 
 </itemizedlist>
