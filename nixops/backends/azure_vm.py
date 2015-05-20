@@ -269,7 +269,7 @@ class AzureState(MachineState, ResourceState):
         self.vm_id = None
         self.state = self.STOPPED
         for d_id, disk in self.block_device_mapping.iteritems():
-            disk['needsAttach'] = True
+            disk['needs_attach'] = True
             self.update_block_device_mapping(d_id, disk)
 
     defn_properties = [ 'role_size', 'input_endpoints', 'obtain_ip' ]
@@ -502,7 +502,7 @@ class AzureState(MachineState, ResourceState):
         for d_id, disk in self.block_device_mapping.items():
             lun = device_name_to_lun(disk['device'])
             if( self.vm_id and d_id not in defn.block_device_mapping and
-                lun is not None and not disk.get('needsAttach', False) and
+                lun is not None and not disk.get('needs_attach', False) and
                 not allow_reboot):
                 raise Exception("reboot is required to detach disk {0}; "
                                 "please run with --allow-reboot".format(d_id))
@@ -768,7 +768,7 @@ class AzureState(MachineState, ResourceState):
                 disk_name = disk['name']
 
                 try:
-                    if not disk.get('needsAttach', False):
+                    if not disk.get('needs_attach', False):
                         # devices aren't removed correctly if the machine is running
                         if not stopped:
                             self.stop()
@@ -778,7 +778,7 @@ class AzureState(MachineState, ResourceState):
                             req = self.sms().delete_data_disk(defn.hosted_service, defn.deployment,
                                                               defn.machine_name, lun, delete_vhd = False)
                             self.finish_request(req)
-                        disk['needsAttach'] = True
+                        disk['needs_attach'] = True
                         self.update_block_device_mapping(d_id, disk)
 
                     if disk['ephemeral']:
