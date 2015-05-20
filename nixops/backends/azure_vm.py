@@ -8,6 +8,7 @@ import azure
 import re
 import base64
 import random
+import threading
 
 from azure.storage import BlobService
 from azure.servicemanagement import *
@@ -337,6 +338,18 @@ class AzureState(MachineState, ResourceState):
         else:
             x[k] = v
         self.generated_encryption_keys = x
+
+
+    deployment_locks = {}
+    master_lock = threading.Lock()
+
+    @property
+    def deployment_lock(self):
+        with self.master_lock:
+            lock_name = "{0}###{1}".format(self.hosted_service, self.deployment)
+            if lock_name not in self.deployment_locks:
+                self.deployment_locks[lock_name] = threading.Lock()
+            return self.deployment_locks[lock_name]
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):

@@ -4,6 +4,7 @@
 
 import os
 import azure
+import threading
 
 from azure.servicemanagement import *
 from nixops.util import attr_property, generate_random_string, check_wait
@@ -87,6 +88,8 @@ class AzureDeploymentState(ResourceState):
     defn_properties = [ 'label', 'slot', 'ip_address' ]
 
     dummy_name = "dummy_to_be_deleted"
+
+    deployment_lock = threading.Lock()
 
     def deallocate_dummy(self):
         try:

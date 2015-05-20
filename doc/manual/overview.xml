@@ -981,6 +981,12 @@ This terminates the Azure instances and deletes the alternative endpoint-based l
   the BLOB URL for the "dummy" root disk.
   </para></listitem>
 
+  <listitem><para>The following operations can't be executed in parallel if they
+  affect resources in the same Azure deployment: VM creation and deletion; disk
+  attachment and detachment. Spreading VMs over several deployments/hosted services
+  helps to speed up deployment operations.
+  </para></listitem>
+
   <listitem><para><literal>deploy --check</literal> will complain about deployment
   missing its IP address until you deploy a VM into it.
   </para></listitem>

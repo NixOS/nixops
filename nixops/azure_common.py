@@ -4,7 +4,6 @@ import os
 import re
 import azure
 import time
-import threading
 
 from nixops.util import attr_property, check_wait
 import nixops.resources
@@ -82,8 +81,6 @@ class ResourceState(nixops.resources.ResourceState):
 
     subscription_id = attr_property("azure.subscriptionId", None)
     certificate_path = attr_property("azure.certificatePath", None)
-
-    deployment_lock = threading.Lock()
 
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
