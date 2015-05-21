@@ -381,6 +381,7 @@ class AzureState(MachineState, ResourceState):
             if vm:
                 if self.vm_id:
                     self.handle_changed_property('availability_set', vm.availability_set_name)
+                    self.handle_changed_property('role_size', vm.role_size)
                     self.handle_changed_property('public_ipv4', self.fetch_PIP())
                     self.update_ssh_known_hosts()
 
