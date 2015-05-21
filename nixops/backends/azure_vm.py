@@ -73,6 +73,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'baseEphemeralDiskUrl', str, optional = True)
 
         self.obtain_ip = self.get_option_value(x, 'obtainIP', bool)
+        self.copy_option(x, 'availabilitySet', str)
 
         def parse_endpoint(xml, proto):
             probe_xml = xml.find("attrs/attr[@name='probe']/attrs")
@@ -186,9 +187,10 @@ class AzureState(MachineState, ResourceState):
     hosted_service = attr_property("azure.hostedService", None)
     deployment = attr_property("azure.deployment", None)
 
-    obtain_ip = attr_property("azure.obtain_ip", None, bool)
+    obtain_ip = attr_property("azure.obtainIP", None, bool)
+    availability_set = attr_property("azure.availabilitySet", None)
 
-    input_endpoints = attr_property("azure.input_endpoints", {}, 'json')
+    input_endpoints = attr_property("azure.inputEndpoints", {}, 'json')
     block_device_mapping = attr_property("azure.blockDeviceMapping", {}, 'json')
     generated_encryption_keys = attr_property("azure.generatedEncryptionKeys", {}, 'json')
 
@@ -284,7 +286,7 @@ class AzureState(MachineState, ResourceState):
             disk['needs_attach'] = True
             self.update_block_device_mapping(d_id, disk)
 
-    defn_properties = [ 'role_size', 'input_endpoints', 'obtain_ip' ]
+    defn_properties = [ 'role_size', 'input_endpoints', 'obtain_ip', 'availability_set' ]
 
     def is_deployed(self):
         return (self.vm_id or self.block_device_mapping)
@@ -378,6 +380,7 @@ class AzureState(MachineState, ResourceState):
             vm = self.get_settled_resource()
             if vm:
                 if self.vm_id:
+                    self.handle_changed_property('availability_set', vm.availability_set_name)
                     self.handle_changed_property('public_ipv4', self.fetch_PIP())
                     self.update_ssh_known_hosts()
 
@@ -482,8 +485,11 @@ class AzureState(MachineState, ResourceState):
                     self.warn("disk {0} has been unexpectedly deleted".format(d_id))
                     self.update_block_device_mapping(d_id, None)
 
-        if self.vm_id and defn.role_size != self.role_size and not allow_reboot:
-            raise Exception("reboot is required to change role size; please run with --allow-reboot")
+        if self.vm_id and not allow_reboot:
+            if defn.role_size != self.role_size:
+                raise Exception("reboot is required to change the role size; please run with --allow-reboot")
+            if defn.availability_set != self.availability_set:
+                raise Exception("reboot is required to change the availability set name; please run with --allow-reboot")
 
         self._assert_no_impossible_disk_changes(defn)
 
@@ -523,8 +529,9 @@ class AzureState(MachineState, ResourceState):
                 if defn.obtain_ip:
                     network_configuration.public_ips.public_ips.append(PublicIP(name = "public"))
                 req = self.sms().update_role(defn.hosted_service, defn.deployment, defn.machine_name,
-                                            network_config = network_configuration,
-                                            role_size = defn.role_size)
+                                             network_config = network_configuration,
+                                             availability_set_name = defn.availability_set,
+                                             role_size = defn.role_size)
                 self.finish_request(req)
                 self.copy_properties(defn)
 
@@ -737,7 +744,7 @@ class AzureState(MachineState, ResourceState):
             self.log("creating {0}...".format(self.full_name))
             req = self.sms().add_role(defn.hosted_service, defn.deployment, defn.machine_name,
                                       config, root_disk,
-                                      availability_set_name = None,
+                                      availability_set_name = defn.availability_set,
                                       data_virtual_hard_disks = disks,
                                       network_config = network_configuration,
                                       role_size = defn.role_size)

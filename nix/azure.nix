@@ -340,6 +340,16 @@ in
         '';
       };
 
+      availabilitySet = mkOption {
+        default = "";
+        example = "database";
+        type = types.str;
+        description = ''
+          Azure Virtual Machines specified in the same availability set
+          are allocated to different nodes to maximize availability.
+        '';
+      };
+
     };
 
     fileSystems = mkOption {
