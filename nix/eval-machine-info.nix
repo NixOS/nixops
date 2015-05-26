@@ -105,6 +105,7 @@ rec {
   resources.azureBlobs = evalResources ./azure-blob.nix (zipAttrs resourcesByType.azureBlobs or []);
   resources.azureDeployments = evalResources ./azure-deployment.nix (zipAttrs resourcesByType.azureDeployments or []);
   resources.azureDisks = evalResources ./azure-disk.nix (zipAttrs resourcesByType.azureDisks or []);
+  resources.azureOSImages = evalResources ./azure-os-image.nix (zipAttrs resourcesByType.azureOSImages or []);
 
   # Google Compute resources
   resources.gceDisks = evalResources ./gce-disk.nix (zipAttrs resourcesByType.gceDisks or []);
