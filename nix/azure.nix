@@ -237,7 +237,7 @@ in
     deployment.azure = (import ./azure-credentials.nix pkgs "instance") // {
 
       machineName = mkOption {
-        default = "n-${shorten_uuid uuid}-${name}";
+        default = "nixops-${uuid}-${name}";
         example = "custom-machine-name";
         type = types.str;
         description = "The Azure machine <literal>Name</literal>.";
