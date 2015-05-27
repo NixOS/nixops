@@ -485,6 +485,7 @@ class AzureState(MachineState, ResourceState):
                 except azure.WindowsAzureMissingResourceError:
                     self.warn("disk {0} has been unexpectedly deleted".format(d_id))
                     self.update_block_device_mapping(d_id, None)
+                    self._delete_encryption_key(d_id)
 
         if self.vm_id and not allow_reboot:
             if defn.role_size != self.role_size:
