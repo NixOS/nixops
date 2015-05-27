@@ -7,7 +7,7 @@ with (import ./lib.nix pkgs);
   options = (import ./azure-credentials.nix pkgs "disk") // {
 
     name = mkOption {
-      example = "my-disk";
+      example = "my-os-image";
       default = "nixops-${uuid}-${name}";
       type = types.str;
       description = "Description of the Azure OS image. This is the <literal>Name</literal> tag of the image.";

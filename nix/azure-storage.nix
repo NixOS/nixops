@@ -7,10 +7,13 @@ with (import ./lib.nix pkgs);
   options = (import ./azure-credentials.nix pkgs "storage") // {
 
     name = mkOption {
-      example = "my-hosted-service";
-      default = "nixops-${uuid}-${name}";
+      example = "my-storage";
       type = types.str;
-      description = "Description of the Azure storage account. This is the <literal>Name</literal> tag of the storage account.";
+      description = ''
+        Name of the Azure storage account.
+        Must be globally-unique, between 3 and 24 characters in length,
+        and must consist of numbers and lower-case letters only.
+      '';
     };
 
     label = mkOption {
