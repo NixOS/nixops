@@ -10,7 +10,11 @@ with (import ./lib.nix pkgs);
       example = "my-blob-container";
       default = "nixops-${uuid}-${name}";
       type = types.str;
-      description = "Description of the Azure BLOB container. This is the <literal>Name</literal> tag of the container.";
+      description = ''
+        Description of the Azure BLOB container.
+        Must include only lower-case characters.
+        This is the <literal>Name</literal> tag of the container.
+      '';
     };
 
     accessKey = mkOption {
