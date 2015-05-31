@@ -513,6 +513,11 @@ class Deployment(object):
                 attrs_list.append({
                     ('networking', 'publicIPv4'): public_ipv4
                 })
+            public_vpn_key = m.public_vpn_key
+            if public_vpn_key:
+                attrs_list.append({
+                    ('networking', 'vpnPublicKey'): public_vpn_key
+                })
 
             if self.nixos_version_suffix:
                 attrs_list.append({
