@@ -123,6 +123,12 @@ in
       '';
     };
 
+    networking.vpnPublicKey = mkOption {
+      default = null;
+      type = types.nullOr types.path;
+      description = "Public key file of the machine's VPN key (set by nixops)";
+    };
+
   };
 
 
