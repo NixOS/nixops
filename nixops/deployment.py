@@ -464,6 +464,12 @@ class Deployment(object):
             # than for the canonical name!
             hosts[m.name][index_to_private_ip(m.index)].append(m.name + "-encrypted")
 
+            backendExtraHosts = m.getExtraHosts()
+
+            # Add backend specific extra hosts.
+            for ip, hs in backendExtraHosts:
+                hosts[m.name][ip] += hs
+
         def do_machine(m):
             defn = self.definitions[m.name]
             attrs_list = attrs_per_resource[m.name]

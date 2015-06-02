@@ -42,6 +42,21 @@ class ContainerState(MachineState):
     def resource_id(self):
         return self.vm_id
 
+    def _getHostPrivateIp(self):
+        # This is kind of hackish but should return what's expected. I'm not
+        # sure there are any better way of retrieving the host's ip address.
+        hostIp = self.private_ipv4.split('.')[:-1]
+
+        # Host always at ip ending in "1".
+        hostIp.append("1")
+
+        return ".".join(hostIp)
+
+    def getExtraHosts(self):
+        # As a convenience, a container backend adds the container's host as an extra host.
+        extraHosts = [(self._getHostPrivateIp(), ["container-host", "container-host-private"])]
+        return extraHosts
+
     def address_to(self, m):
         if isinstance(m, ContainerState) and self.host == m.host:
             return m.private_ipv4

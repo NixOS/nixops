@@ -227,6 +227,11 @@ class MachineState(nixops.resources.ResourceState):
     def get_ssh_for_copy_closure(self):
         return self.ssh
 
+    def getExtraHosts(self):
+        # No extra hosts by default.
+        extraHosts = []
+        return extraHosts
+
     @property
     def public_ipv4(self):
         return None
