@@ -27,8 +27,8 @@ class LibvirtdDefinition(MachineDefinition):
         self.image_dir = x.find("attr[@name='imageDir']/string").get("value")
         assert self.image_dir is not None
 
-        self.networks = [ k.find("string").get("value")
-                            for k in x.findall("attr[@name='networks']/list") ]
+        self.networks = [ k.get("value")
+                            for k in x.findall("attr[@name='networks']/list/string") ]
         assert len(self.networks) > 0
 
 class LibvirtdState(MachineState):
