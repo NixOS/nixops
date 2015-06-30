@@ -339,9 +339,9 @@ in
       type = types.bool;
       description = ''
         If instance is in a subnet/VPC whether to use the private
-	IP address for ssh connections to this host. Defaults to
-	true in the case that you are deploying into a subnet but
-	not associating a public ip address.
+        IP address for ssh connections to this host. Defaults to
+        true in the case that you are deploying into a subnet but
+        not associating a public ip address.
       '';
     };
 
