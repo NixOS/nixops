@@ -129,7 +129,7 @@ cloud.</para>
   <varlistentry><term><envar>NIXOPS_DEPLOYMENT</envar></term>
 
     <listitem><para>UUID or symbolic name of the deployment on which
-    to operate.  Can be overriden using the <option>-d</option>
+    to operate.  Can be overridden using the <option>-d</option>
     option.</para></listitem>
 
   </varlistentry>
@@ -376,7 +376,7 @@ while <option>-n</option> specifies its new name.</para>
 
 <refsection><title>Description</title>
 
-<para>This command clones an existing deployment; that is, it create a
+<para>This command clones an existing deployment; that is, it creates a
 new deployment that has the same deployment specification and
 parameters, but a different UUID and (optionally) name.  Note that
 <command>nixops clone</command> does not currently clone the state of
@@ -1085,7 +1085,7 @@ machine> instance state is ‘stopped’</screen>
 <refsection><title>Description</title>
 
 <para>This command opens an SSH connection to the specified machine
-and executes the specified command.  If no command if specified, an
+and executes the specified command.  If no command is specified, an
 interactive shell is started.</para>
 
 </refsection>
