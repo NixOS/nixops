@@ -6,7 +6,7 @@
 
 <para>NixOps is a tool for deploying NixOS machines in a network or
 cloud.  It takes as input a declarative specification of a set of
-“logical” machines and then performs any necessary steps actions to
+“logical” machines and then performs any necessary steps or actions to
 realise that specification: instantiate cloud machines, build and
 download dependencies, stop and start services, and so on.  NixOps has
 several nice properties:</para>

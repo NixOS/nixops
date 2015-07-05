@@ -699,19 +699,19 @@ $ openssl pkcs12 -in pkey.pkcs12 -passin pass:notasecret -nodes -nocerts | opens
 
   <para>Another important difference is that NixOps attempts to replicate the last known
   state of the instance(attached disks, tags). Thus, if the state was modified
-  manually(eg via gcloud tool), such changes are lost in a start/stop cycle.</para>
+  manually (e.g. via gcloud tool), such changes are lost in a start/stop cycle.</para>
 
-  <para>Consider rebooting instead which doesn't have these limitation and, in addition, is faster.
+  <para>Consider rebooting instead which doesn't have these limitations and, in addition, is faster.
   </para></listitem>
 
   <listitem><para>Creation, modification and deletion of resources and instances are
   not idempotent in GCE.</para>
 
   <para>In practice, this means that if you hit Ctrl+C or an error happens, while NixOps is
-  creating, destrying or otherwise changing the state a resource, the state of the
+  creating, destroying or otherwise changing the state of a resource, the state of the
   resource expected by NixOps and the actual state may diverge.</para>
 
-  <para>Usually, this doesn't cause too much troubles, but a good practice is to follow
+  <para>Usually, this doesn't cause too much trouble, but a good practice is to follow
   each failed or aborted deployment operation with a <literal>deploy --check</literal>
   run to detect and fix any state mismatch(es).</para></listitem>
 
@@ -726,7 +726,7 @@ $ openssl pkcs12 -in pkey.pkcs12 -passin pass:notasecret -nodes -nocerts | opens
 
 </para>
 
-<para>Migration of resources between zones and putting previosly-existing resources
+<para>Migration of resources between zones and putting previously-existing resources
 under NixOps control.
 
 <itemizedlist>
@@ -818,7 +818,7 @@ This will install NixOS on a machine with the main IP
 <replaceable>1.2.3.4</replaceable>, using a swap partition for each drive and
 use everything else for a single btrfs volume.</para>
 
-<para>In the previous example, there is no occurence of
+<para>In the previous example, there is no occurrence of
 <varname>deployment.hetzner.robotUser</varname> and
 <varname>deployment.hetzner.robotPass</varname>, you can set the credentials to
 your main Robot account there, however it is recommended to use the environment
