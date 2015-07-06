@@ -546,6 +546,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
                 addresses = self._conn.get_all_addresses(addresses=[elastic_ipv4])
                 if addresses[0].instance_id != "" \
+                    and addresses[0].instance_id is not None \
                     and addresses[0].instance_id != self.vm_id \
                     and not self.depl.logger.confirm(
                         "are you sure you want to associate IP address ‘{0}’, which is currently in use by instance ‘{1}’?".format(
