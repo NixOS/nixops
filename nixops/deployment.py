@@ -455,26 +455,27 @@ class Deployment(object):
             assert n <= 255
             return "192.168.{0}.{1}".format(n, index % 256)
 
-        for m in active_machines.itervalues():
-            for m2 in active_machines.itervalues():
-                ip = m.address_to(m2)
-                if ip:
-                    hosts[m.name][ip] += [m2.name, m2.name + "-unencrypted"]
-            # Always use the encrypted/unencrypted suffixes for aliases rather
-            # than for the canonical name!
-            hosts[m.name][index_to_private_ip(m.index)].append(m.name + "-encrypted")
-
         def do_machine(m):
             defn = self.definitions[m.name]
             attrs_list = attrs_per_resource[m.name]
 
             # Emit configuration to realise encrypted peer-to-peer links.
+            for m2 in active_machines.itervalues():
+                ip = m.address_to(m2)
+                if ip:
+                    hosts[m.name][ip] += [m2.name, m2.name + "-unencrypted"]
+
+            # Always use the encrypted/unencrypted suffixes for aliases rather
+            # than for the canonical name!
+            hosts[m.name]["127.0.0.1"].append(m.name + "-encrypted")
+
             for m2_name in defn.encrypted_links_to:
 
                 if m2_name not in active_machines:
                     raise Exception("‘deployment.encryptedLinksTo’ in machine ‘{0}’ refers to an unknown machine ‘{1}’"
                                     .format(m.name, m2_name))
                 m2 = active_machines[m2_name]
+
                 # Don't create two tunnels between a pair of machines.
                 if m.name in self.definitions[m2.name].encrypted_links_to and m.name >= m2.name:
                     continue
