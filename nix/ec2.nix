@@ -256,7 +256,7 @@ in
       default = "";
       type = types.str;
       description = ''
-        EC2 instance id (set by nixops).
+        EC2 instance ID (set by NixOps).
       '';
     };
 
