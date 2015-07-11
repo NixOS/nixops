@@ -405,6 +405,7 @@ import nixops.resources.ec2_security_group
 import nixops.resources.ec2_placement_group
 import nixops.resources.ebs_volume
 import nixops.resources.elastic_ip
+import nixops.resources.ec2_rds_dbinstance
 import nixops.resources.gce_disk
 import nixops.resources.gce_image
 import nixops.resources.gce_static_ip
@@ -446,6 +447,7 @@ def create_state(depl, type, name, id):
               nixops.resources.ec2_placement_group.EC2PlacementGroupState,
               nixops.resources.ebs_volume.EBSVolumeState,
               nixops.resources.elastic_ip.ElasticIPState,
+              nixops.resources.ec2_rds_dbinstance.EC2RDSDbInstanceState,
               nixops.resources.gce_disk.GCEDiskState,
               nixops.resources.gce_image.GCEImageState,
               nixops.resources.gce_static_ip.GCEStaticIPState,
