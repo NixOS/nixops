@@ -33,24 +33,6 @@ class EC2RDSDbInstanceDefinition(nixops.resources.ResourceDefinition):
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
 
-
-        # for rule_xml in xml.findall("attrs/attr[@name='rules']/list/attrs"):
-        #     ip_protocol = rule_xml.find("attr[@name='protocol']/string").get("value")
-        #     if ip_protocol == "icmp":
-        #         from_port = int(rule_xml.find("attr[@name='typeNumber']/int").get("value"))
-        #         to_port = int(rule_xml.find("attr[@name='codeNumber']/int").get("value"))
-        #     else:
-        #         from_port = int(rule_xml.find("attr[@name='fromPort']/int").get("value"))
-        #         to_port = int(rule_xml.find("attr[@name='toPort']/int").get("value"))
-        #     cidr_ip_xml = rule_xml.find("attr[@name='sourceIp']/string")
-        #     if not cidr_ip_xml is None:
-        #         self.rds_dbinstance_rules.append([ ip_protocol, from_port, to_port, cidr_ip_xml.get("value") ])
-        #     else:
-        #         group_name = rule_xml.find("attr[@name='sourceGroup']/attrs/attr[@name='groupName']/string").get("value")
-        #         owner_id = rule_xml.find("attr[@name='sourceGroup']/attrs/attr[@name='ownerId']/string").get("value")
-        #         self.rds_dbinstance_rules.append([ ip_protocol, from_port, to_port, group_name, owner_id ])
-
-
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
 
