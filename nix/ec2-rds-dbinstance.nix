@@ -66,6 +66,11 @@ with lib;
       description = "Optional database name to be created when instance is first created.";
     };
 
+    endpoint = mkOption {
+      type = types.str;
+      description = "The endpoint address of the database instance.  This is set by NixOps.";
+    };
+
   };
 
   config._type = "ec2-rds-dbinstance";
