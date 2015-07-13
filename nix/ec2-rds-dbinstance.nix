@@ -8,6 +8,7 @@ with lib;
 
     id = mkOption {
       type = types.str;
+      default = "nixops-${uuid}-${name}";
       description = "Identifier for RDS database instance";
     };
 
