@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Automatic provisioning of EC2 security groups.
+# Automatic provisioning of AWS RDS Database Instances.
 
 import boto.rds
 import nixops.resources
@@ -50,9 +50,6 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
     rds_dbinstance_engine = nixops.util.attr_property("ec2.rdsEngine", None)
     rds_dbinstance_db_name = nixops.util.attr_property("ec2.rdsDbName", None)
     rds_dbinstance_endpoint = nixops.util.attr_property("ec2.rdsEndpoint", None)
-
-    # internal state
-    old_rds_dbinstances = nixops.util.attr_property("ec2.rdsDbInstances", [], 'json')
 
     requires_reboot_attrs = ('rds_dbinstance_id', 'rds_dbinstance_allocated_storage',
         'rds_dbinstance_instance_class', 'rds_dbinstance_master_password')
