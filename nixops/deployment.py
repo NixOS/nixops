@@ -559,7 +559,7 @@ class Deployment(object):
                 })
 
 
-                # Add SSH public host keys for all machines in network  
+                # Add SSH public host keys for all machines in network.
                 for m2 in active_machines.itervalues():
                     if hasattr(m2, 'public_host_key') and m2.public_host_key:
                         # Using references to files in same tempdir for now, until NixOS has support
@@ -571,9 +571,7 @@ class Deployment(object):
                                  'hostNames': [m2.name + "-unencrypted",
                                                m2.name + "-encrypted",
                                                m2.name],
-                                 'publicKeyFile': RawValue(
-                                      "./{0}.public_host_key".format(m2.name)
-                                 ),
+                                 'publicKey': m2.public_host_key,
                             }
                         })
 
@@ -626,10 +624,6 @@ class Deployment(object):
         p = self.get_physical_spec()
         nixops.util.write_file(phys_expr, p)
         if debug: print >> sys.stderr, "generated physical spec:\n" + p
-
-        for m in self.active.itervalues():
-            if hasattr(m, "public_host_key") and m.public_host_key: # FIXME: use a method in MachineState.
-                nixops.util.write_file("{0}/{1}.public_host_key".format(self.tempdir, m.name), m.public_host_key + "\n")
 
         selected = [m for m in self.active.itervalues() if should_do(m, include, exclude)]
 
