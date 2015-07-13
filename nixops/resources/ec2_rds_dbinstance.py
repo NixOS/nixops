@@ -90,6 +90,12 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         return self.state != self.MISSING and self.state != self.UNKNOWN
 
     def _assert_invariants(self, defn):
+        # NOTE: it is possible to change region, master_username, port, or db_name
+        # by creating a snapshot of the database and recreating the instance,
+        # then restoring the snapshot.  Not sure if this is in the scope of what
+        # nixops intends to manager for the user, or if it violates the principle
+        # of least surprise.
+
         diff = self._diff_defn(defn)
         diff_attrs = set(diff.keys())
 
