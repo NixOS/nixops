@@ -78,7 +78,6 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         return self.rds_dbinstance_id
 
     def create_after(self, resources, defn):
-        #!!! TODO: Handle dependencies between security groups
         return {}
 
     def _connect(self):
@@ -207,7 +206,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                         raise Exception("RDS instance is UP but does not exist, set --allow-recreate to recreate")
                     self.state = MISSING
 
-                if not dbinstance and self.state == self.MISSING or self.state == self.UNKNOWN:
+                if not dbinstance and (self.state == self.MISSING or self.state == self.UNKNOWN):
                     self.logger.log("creating RDS database instance ‘{0}’ (this may take a while)...".format(defn.rds_dbinstance_id))
                     # create a new dbinstance with desired config
                     dbinstance = self._conn.create_dbinstance(defn.rds_dbinstance_id,
