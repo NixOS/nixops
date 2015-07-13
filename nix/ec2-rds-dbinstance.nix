@@ -29,7 +29,6 @@ with lib;
 
     instanceClass = mkOption {
       type = types.str;
-      default = "db.t2.micro";
       example = "db.m3.xlarge";
       description = ''
         RDS instance class. See <link
