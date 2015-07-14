@@ -67,6 +67,7 @@ with lib;
     };
 
     endpoint = mkOption {
+      default = ""; # FIXME: Needs a default until read-only options are supported.
       type = types.str;
       description = "The endpoint address of the database instance.  This is set by NixOps.";
     };
