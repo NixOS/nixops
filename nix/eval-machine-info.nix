@@ -10,7 +10,6 @@ with import <nixpkgs/nixos/lib/testing.nix> { inherit system; };
 with pkgs;
 with lib;
 
-
 rec {
 
   networks =
@@ -104,6 +103,9 @@ rec {
   resources.gceForwardingRules = evalResources ./gce-forwarding-rule.nix (zipAttrs resourcesByType.gceForwardingRules or []);
   resources.gseBuckets = evalResources ./gse-bucket.nix (zipAttrs resourcesByType.gseBuckets or []);
   resources.gceImages = evalResources ./gce-image.nix (gce_default_bootstrap_images // ( zipAttrs resourcesByType.gceImages  or []) );
+
+  # Dynect resources
+  resources.dynectRecords = evalResources ./dynect-record.nix (zipAttrs resourcesByType.dynectRecords or []);
 
   gce_deployments = flip filterAttrs nodes
                       ( n: v: let dc = (scrubOptionValue v).config.deployment; in dc.targetEnv == "gce" );

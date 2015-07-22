@@ -401,6 +401,10 @@ class Deployment(object):
             defn = nixops.resources.gse_bucket.GSEBucketDefinition(x)
             self.definitions[defn.name] = defn
 
+        for x in res.find("attr[@name='dynectRecords']/attrs").findall("attr"):
+            defn = nixops.resources.dynect_record.DynectRecordDefination(x)
+            self.definitions[defn.name] = defn
+
 
     def evaluate_option_value(self, machine_name, option_name, xml=False, include_physical=False):
         """Evaluate a single option of a single machine in the deployment specification."""

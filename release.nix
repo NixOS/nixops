@@ -20,6 +20,24 @@ let
     preConfigure = "cp libcloud/test/secrets.py-dist libcloud/test/secrets.py";
   });
 
+  # TODO: move this into the nixpkgs
+  dyn = pkgs.pythonPackages.buildPythonPackage rec {
+    version = "1.4.0";
+    name = "dyn-${version}";
+
+    src = pkgs.fetchurl {
+      url = "https://pypi.python.org/packages/source/d/dyn/${name}.tar.gz";
+      sha256 = "19shdfm7g51qrry84zr7kvrxpi6p2x0jvsr98640848dmw1l55jr";
+    };
+
+    buildInputs = with pkgs.pythonPackages; [ pytest pytestcov mock pytestpep8 pytest_xdist covCore ];
+
+    meta = {
+      description = "Dynect dns lib";
+      homepage = "http://dyn.readthedocs.org/en/latest/intro.html";
+    };
+  };
+
 in
 
 rec {
@@ -85,6 +103,7 @@ rec {
           pythonPackages.boto
           pythonPackages.hetzner
           libcloud
+          dyn
           pythonPackages.sqlite3
         ];
 

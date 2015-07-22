@@ -413,6 +413,7 @@ import nixops.resources.gce_http_health_check
 import nixops.resources.gce_target_pool
 import nixops.resources.gce_forwarding_rule
 import nixops.resources.gse_bucket
+import nixops.resources.dynect_record
 
 def create_definition(xml):
     """Create a machine definition object from the given XML representation of the machine's attributes."""
@@ -453,8 +454,10 @@ def create_state(depl, type, name, id):
               nixops.resources.gce_http_health_check.GCEHTTPHealthCheckState,
               nixops.resources.gce_target_pool.GCETargetPoolState,
               nixops.resources.gce_forwarding_rule.GCEForwardingRuleState,
-              nixops.resources.gse_bucket.GSEBucketState
+              nixops.resources.gse_bucket.GSEBucketState,
+              nixops.resources.dynect_record.DynectRecordState
               ]:
         if type == i.get_type():
             return i(depl, name, id)
+
     raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))
