@@ -102,6 +102,7 @@ class GCEState(MachineState, ResourceState):
 
     machine_name = attr_property("gce.name", None)
     public_ipv4 = attr_property("publicIpv4", None)
+    private_ipv4 = attr_property("privateIpv4", None)
 
     region = attr_property("gce.region", None)
     instance_type = attr_property("gce.instanceType", None)
@@ -239,9 +240,13 @@ class GCEState(MachineState, ResourceState):
                     self.handle_changed_property('instance_type', node.size)
                     self.handle_changed_property('public_ipv4',
                                                  node.public_ips[0] if node.public_ips else None,
-                                                 property_name = 'IP address')
+                                                 property_name = 'public IP address')
                     if self.public_ipv4:
                         known_hosts.add(self.public_ipv4, self.public_host_key)
+
+                    self.handle_changed_property('private_ipv4',
+                                                 node.private_ips[0] if node.private_ips else None,
+                                                 property_name = 'private IP address')
 
                     if self.ipAddress:
                         try:
@@ -386,8 +391,9 @@ class GCEState(MachineState, ResourceState):
             self.ssh_pinged = False
             self.copy_properties(defn)
             self.public_ipv4 = node.public_ips[0]
-            self.log("got IP: {0}".format(self.public_ipv4))
+            self.log("got public IP: {0}".format(self.public_ipv4))
             known_hosts.add(self.public_ipv4, self.public_host_key)
+            self.private_ipv4 = node.private_ips[0]
             for k,v in self.block_device_mapping.iteritems():
                 v['needsAttach'] = True
                 self.update_block_device_mapping(k, v)
@@ -443,7 +449,7 @@ class GCEState(MachineState, ResourceState):
             self.tags = defn.tags
 
         if self.public_ipv4 and self.ipAddress != defn.ipAddress:
-            self.log("detaching old IP address {0}".format(self.public_ipv4))
+            self.log("detaching old public IP address {0}".format(self.public_ipv4))
             self.connect().connection.async_request(
                 "/zones/{0}/instances/{1}/deleteAccessConfig?accessConfig=External+NAT&networkInterface=nic0"
                 .format(self.region, self.machine_name), method = 'POST')
@@ -451,7 +457,7 @@ class GCEState(MachineState, ResourceState):
             self.ipAddress = None
 
         if self.public_ipv4 is None:
-            self.log("attaching IP address {0}".format(defn.ipAddress or "[Ephemeral]"))
+            self.log("attaching public IP address {0}".format(defn.ipAddress or "[Ephemeral]"))
             self.connect().connection.async_request(
                 "/zones/{0}/instances/{1}/addAccessConfig?networkInterface=nic0"
                 .format(self.region, self.machine_name), method = 'POST', data = {
@@ -462,7 +468,7 @@ class GCEState(MachineState, ResourceState):
                 })
             self.ipAddress = defn.ipAddress
             self.public_ipv4 = self.node().public_ips[0]
-            self.log("got IP: {0}".format(self.public_ipv4))
+            self.log("got public IP: {0}".format(self.public_ipv4))
             known_hosts.add(self.public_ipv4, self.public_host_key)
             self.ssh.reset()
             self.ssh_pinged = False
@@ -503,11 +509,16 @@ class GCEState(MachineState, ResourceState):
 
         if not self.vm_id and self.block_device_mapping:
             prev_public_ipv4 = self.public_ipv4
+            prev_private_ipv4 = self.private_ipv4
             self.create_node(self)
             if prev_public_ipv4 != self.public_ipv4:
-                self.warn("IP address has changed from {0} to {1}, "
+                self.warn("Public IP address has changed from {0} to {1}, "
                           "you may need to run 'nixops deploy'"
                           .format(prev_public_ipv4, self.public_ipv4) )
+            if prev_private_ipv4 != self.private_ipv4:
+                self.warn("Private IP address has changed from {0} to {1}, "
+                          "you may need to run 'nixops deploy'"
+                          .format(prev_private_ipv4, self.private_ipv4) )
             self.wait_for_ssh(check=True)
             self.send_keys()
 
@@ -628,9 +639,13 @@ class GCEState(MachineState, ResourceState):
                             res.messages.append("disk {0} is destroyed".format(disk_name))
                 self.handle_changed_property('public_ipv4',
                                               node.public_ips[0] if node.public_ips else None,
-                                              property_name = 'IP address')
+                                              property_name = 'public IP address')
                 if self.public_ipv4:
                     known_hosts.add(self.public_ipv4, self.public_host_key)
+
+                self.handle_changed_property('private_ip4',
+                                              node.private_ips[0] if node.private_ips else None,
+                                              property_name = 'private IP address')
 
                 MachineState._check(self, res)
 
