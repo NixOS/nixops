@@ -2,6 +2,7 @@
 , networkExprs
 , checkConfigurationOptions ? true
 , uuid
+, deploymentName
 , args
 }:
 
@@ -58,7 +59,7 @@ rec {
                 environment.checkConfigurationOptions = mkOverride 900 checkConfigurationOptions;
               }
             ];
-          extraArgs = { inherit nodes resources uuid; name = machineName; };
+          extraArgs = { inherit nodes resources uuid deploymentName; name = machineName; };
         };
       }
     ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "_file" ])));
@@ -70,7 +71,7 @@ rec {
     mapAttrs (name: defs:
       (builtins.removeAttrs (fixMergeModules
         ([ mainModule ./resource.nix ] ++ defs)
-        { inherit pkgs uuid name resources; nodes = info.machines; }
+        { inherit pkgs uuid deploymentName name resources; nodes = info.machines; }
       ).config) ["_module"]) _resources;
 
   # Amazon resources
