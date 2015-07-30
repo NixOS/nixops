@@ -49,6 +49,7 @@ rec {
           modules =
             modules ++
             defaults ++
+            [ deploymentInfoModule ] ++
             [ { key = "nixops-stuff";
                 # Make NixOps's deployment.* options available.
                 imports = [ ./options.nix ./resource.nix ];
@@ -67,11 +68,19 @@ rec {
   # Compute the definitions of the non-machine resources.
   resourcesByType = zipAttrs (network.resources or []);
 
+  deploymentInfoModule = {
+    deployment = {
+      name = deploymentName;
+      arguments = args;
+      inherit uuid;
+    };
+  };
+
   evalResources = mainModule: _resources:
     mapAttrs (name: defs:
       (builtins.removeAttrs (fixMergeModules
-        ([ mainModule ./resource.nix ] ++ defs)
-        { inherit pkgs uuid deploymentName name resources; nodes = info.machines; }
+        ([ mainModule deploymentInfoModule ./resource.nix ] ++ defs)
+        { inherit pkgs uuid name resources; nodes = info.machines; }
       ).config) ["_module"]) _resources;
 
   # Amazon resources

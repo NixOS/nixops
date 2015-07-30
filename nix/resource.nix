@@ -20,6 +20,26 @@ with lib;
       description = "Type of the resource.";
     };
 
+    deployment.name = mkOption {
+      type = types.str;
+      description = ''
+        The name of the NixOps deployment. This is set by NixOps.
+      '';
+    };
+
+    deployment.uuid = mkOption {
+      type = types.str;
+      description = ''
+        The UUID of the NixOps deployment. This is set by NixOps.
+      '';
+    };
+
+    deployment.arguments = mkOption {
+      description = ''
+        Attribute set representing the NixOps arguments. This is set by NixOps.
+      '';
+    };
+
   };
 
 }
