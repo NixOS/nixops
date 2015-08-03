@@ -325,7 +325,7 @@ in
     };
 
     deployment.ec2.associatePublicIpAddress = mkOption {
-      default = false;
+      default = true;
       type = types.bool;
       description = ''
         If instance in a subnet/VPC, whether to associate a public
