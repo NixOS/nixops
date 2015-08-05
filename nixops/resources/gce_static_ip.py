@@ -68,6 +68,12 @@ class GCEStaticIPState(ResourceState):
     def public_ipv4(self):
         return self.ip_address
 
+    def prefix_definition(self, attr):
+        return {('resources', 'gceStaticIPs'): attr}
+
+    def get_physical_spec(self):
+        return {'publicIPv4': self.public_ipv4}
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(defn.ip_address and self.ip_address != defn.ip_address, 'address')
         self.no_project_change(defn)

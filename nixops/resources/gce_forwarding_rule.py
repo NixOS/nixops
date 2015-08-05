@@ -67,6 +67,12 @@ class GCEForwardingRuleState(ResourceState):
         if self.state == self.UP: s = "{0} [{1}]".format(s, self.region)
         return s
 
+    def prefix_definition(self, attr):
+        return {('resources', 'gceForwardingRules'): attr}
+
+    def get_physical_spec(self):
+        return {'publicIPv4': self.public_ipv4}
+
     @property
     def resource_id(self):
         return self.forwarding_rule_name
