@@ -31,6 +31,16 @@ with import ./lib.nix lib;
       '';
     };
 
+    publicIPv4 = mkOption {
+      default = null;
+      type = types.uniq (types.nullOr types.str);
+      description = ''
+        The assigned IP address of this forwarding rule.
+        This is set by NixOps to the ephemeral IP address of the resource if
+        ipAddress wasn't set, otherwise it should be the same as ipAddress.
+      '';
+    };
+
     protocol = mkOption {
       example = "TCP";
       type = types.addCheck types.str

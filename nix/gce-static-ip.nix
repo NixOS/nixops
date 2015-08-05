@@ -36,6 +36,15 @@ with import ./lib.nix lib;
       '';
     };
 
+    publicIPv4 = mkOption {
+      default = null;
+      type = types.uniq (types.nullOr types.str);
+      description = ''
+        The static IP address assigned.
+        This is set by NixOps to the ephemeral IP address of the resource if
+        ipAddress wasn't set, otherwise it should be the same as ipAddress.
+      '';
+    };
   };
 
   config._type = "gce-static-ip";
