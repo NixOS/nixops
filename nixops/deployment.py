@@ -16,23 +16,6 @@ import nixops.statefile
 import nixops.backends
 import nixops.logger
 import nixops.parallel
-import nixops.resources.ssh_keypair
-import nixops.resources.ec2_keypair
-import nixops.resources.sqs_queue
-import nixops.resources.iam_role
-import nixops.resources.s3_bucket
-import nixops.resources.ec2_security_group
-import nixops.resources.ebs_volume
-import nixops.resources.elastic_ip
-import nixops.resources.ec2_rds_dbinstance
-import nixops.resources.gce_disk
-import nixops.resources.gce_image
-import nixops.resources.gce_static_ip
-import nixops.resources.gce_network
-import nixops.resources.gce_http_health_check
-import nixops.resources.gce_target_pool
-import nixops.resources.gce_forwarding_rule
-import nixops.resources.gse_bucket
 from nixops.nix_expr import RawValue, Function, nixmerge, py2nix
 import re
 from datetime import datetime
@@ -1103,32 +1086,6 @@ def is_machine_defn(r):
     return isinstance(r, nixops.backends.MachineDefinition)
 
 
-import nixops.backends.none
-import nixops.backends.libvirtd
-import nixops.backends.virtualbox
-import nixops.backends.ec2
-import nixops.backends.gce
-import nixops.backends.hetzner
-import nixops.backends.container
-import nixops.resources.ec2_keypair
-import nixops.resources.ssh_keypair
-import nixops.resources.sqs_queue
-import nixops.resources.s3_bucket
-import nixops.resources.iam_role
-import nixops.resources.ec2_security_group
-import nixops.resources.ec2_placement_group
-import nixops.resources.ebs_volume
-import nixops.resources.elastic_ip
-import nixops.resources.ec2_rds_dbinstance
-import nixops.resources.gce_disk
-import nixops.resources.gce_image
-import nixops.resources.gce_static_ip
-import nixops.resources.gce_network
-import nixops.resources.gce_http_health_check
-import nixops.resources.gce_target_pool
-import nixops.resources.gce_forwarding_rule
-import nixops.resources.gse_bucket
-
 def _subclasses(cls):
     sub = cls.__subclasses__()
     return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
@@ -1154,3 +1111,14 @@ def _create_state(depl, type, name, id):
             return cls(depl, name, id)
 
     raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))
+
+
+# Automatically load all resource types.
+def _load_modules_from(dir):
+    for module in os.listdir(os.path.dirname(__file__) + "/" + dir):
+        if module[-3:] != '.py' or module == "__init__.py": continue
+        #if module[:-3] == "ec2_rds_dbinstance": continue
+        __import__("nixops." + dir + "." + module[:-3], globals(), locals())
+
+_load_modules_from("backends")
+_load_modules_from("resources")
