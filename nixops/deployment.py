@@ -43,6 +43,7 @@ import fcntl
 import itertools
 import platform
 from nixops.util import ansi_success
+import inspect
 
 class NixEvalError(Exception):
     pass
@@ -93,7 +94,7 @@ class Deployment(object):
             c = self._db.cursor()
             c.execute("select id, name, type from Resources where deployment = ?", (self.uuid,))
             for (id, name, type) in c.fetchall():
-                r = nixops.backends.create_state(self, type, name, id)
+                r = _create_state(self, type, name, id)
                 self.resources[name] = r
         self.logger.update_log_prefixes()
 
@@ -172,7 +173,7 @@ class Deployment(object):
         c.execute("insert into Resources(deployment, name, type) values (?, ?, ?)",
                   (self.uuid, name, type))
         id = c.lastrowid
-        r = nixops.backends.create_state(self, type, name, id)
+        r = _create_state(self, type, name, id)
         self.resources[name] = r
         return r
 
@@ -332,7 +333,7 @@ class Deployment(object):
         for x in tree.findall("attrs/attr[@name='machines']/attrs/attr"):
             name = x.get("name")
             cfg = config["machines"][name]
-            defn = nixops.backends.create_definition(x, cfg, cfg["targetEnv"])
+            defn = _create_definition(x, cfg, cfg["targetEnv"])
             self.definitions[name] = defn
 
         # Extract info about other kinds of resources.
@@ -340,7 +341,7 @@ class Deployment(object):
             res_type = x.get("name")
             for y in x.findall("attrs/attr"):
                 name = y.get("name")
-                defn = nixops.backends.create_definition(y, config["resources"][res_type][name], res_type)
+                defn = _create_definition(y, config["resources"][res_type][name], res_type)
                 self.definitions[name] = defn
 
 
@@ -1100,3 +1101,56 @@ def is_machine(r):
 
 def is_machine_defn(r):
     return isinstance(r, nixops.backends.MachineDefinition)
+
+
+import nixops.backends.none
+import nixops.backends.libvirtd
+import nixops.backends.virtualbox
+import nixops.backends.ec2
+import nixops.backends.gce
+import nixops.backends.hetzner
+import nixops.backends.container
+import nixops.resources.ec2_keypair
+import nixops.resources.ssh_keypair
+import nixops.resources.sqs_queue
+import nixops.resources.s3_bucket
+import nixops.resources.iam_role
+import nixops.resources.ec2_security_group
+import nixops.resources.ec2_placement_group
+import nixops.resources.ebs_volume
+import nixops.resources.elastic_ip
+import nixops.resources.ec2_rds_dbinstance
+import nixops.resources.gce_disk
+import nixops.resources.gce_image
+import nixops.resources.gce_static_ip
+import nixops.resources.gce_network
+import nixops.resources.gce_http_health_check
+import nixops.resources.gce_target_pool
+import nixops.resources.gce_forwarding_rule
+import nixops.resources.gse_bucket
+
+def _subclasses(cls):
+    sub = cls.__subclasses__()
+    return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
+
+def _create_definition(xml, config, type_name):
+    """Create a resource definition object from the given XML representation of the machine's attributes."""
+
+    for cls in _subclasses(nixops.resources.ResourceDefinition):
+        if type_name == cls.get_resource_type():
+            # FIXME: backward compatibility hack
+            if len(inspect.getargspec(cls.__init__).args) == 2:
+                return cls(xml)
+            else:
+                return cls(xml, config)
+
+    raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type_name))
+
+def _create_state(depl, type, name, id):
+    """Create a resource state object of the desired type."""
+
+    for cls in _subclasses(nixops.resources.ResourceState):
+        if type == cls.get_type():
+            return cls(depl, name, id)
+
+    raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))

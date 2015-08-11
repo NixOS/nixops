@@ -3,7 +3,6 @@
 import os
 import re
 import sys
-import inspect
 import subprocess
 
 import nixops.util
@@ -388,56 +387,3 @@ class CheckResult(object):
 
         # FIXME: add a check whether the active NixOS config on the
         # machine is correct.
-
-
-import nixops.backends.none
-import nixops.backends.libvirtd
-import nixops.backends.virtualbox
-import nixops.backends.ec2
-import nixops.backends.gce
-import nixops.backends.hetzner
-import nixops.backends.container
-import nixops.resources.ec2_keypair
-import nixops.resources.ssh_keypair
-import nixops.resources.sqs_queue
-import nixops.resources.s3_bucket
-import nixops.resources.iam_role
-import nixops.resources.ec2_security_group
-import nixops.resources.ec2_placement_group
-import nixops.resources.ebs_volume
-import nixops.resources.elastic_ip
-import nixops.resources.ec2_rds_dbinstance
-import nixops.resources.gce_disk
-import nixops.resources.gce_image
-import nixops.resources.gce_static_ip
-import nixops.resources.gce_network
-import nixops.resources.gce_http_health_check
-import nixops.resources.gce_target_pool
-import nixops.resources.gce_forwarding_rule
-import nixops.resources.gse_bucket
-
-def _subclasses(cls):
-    sub = cls.__subclasses__()
-    return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
-
-def create_definition(xml, config, type_name):
-    """Create a resource definition object from the given XML representation of the machine's attributes."""
-
-    for cls in _subclasses(nixops.resources.ResourceDefinition):
-        if type_name == cls.get_resource_type():
-            # FIXME: backward compatibility hack
-            if len(inspect.getargspec(cls.__init__).args) == 2:
-                return cls(xml)
-            else:
-                return cls(xml, config)
-
-    raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type_name))
-
-def create_state(depl, type, name, id):
-    """Create a resource state object of the desired type."""
-
-    for cls in _subclasses(nixops.resources.ResourceState):
-        if type == cls.get_type():
-            return cls(depl, name, id)
-
-    raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))
