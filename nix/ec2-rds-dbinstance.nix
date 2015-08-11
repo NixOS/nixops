@@ -56,7 +56,7 @@ with lib;
 
     engine = mkOption {
       type = types.str;
-      description = ''Database engine See <link
+      description = ''Database engine. See <link
       xlink:href='http://boto.readthedocs.org/en/latest/ref/rds.html#boto.rds.RDSConnection.create_dbinstance'
       for valid engines.'';
     };
