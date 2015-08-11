@@ -163,11 +163,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         retVal = None
         if self.use_private_ip_address:
             if not self.private_ipv4:
-                raise Exception("EC2 machine '{0}' does not have a private ipv4 address (yet)".format(self.name))
+                raise Exception("EC2 machine '{0}' does not have a private IPv4 address (yet)".format(self.name))
             retVal = self.private_ipv4
         else:
             if not self.public_ipv4:
-                raise Exception("EC2 machine ‘{0}’ does not have a public ipv4 address (yet)".format(self.name))
+                raise Exception("EC2 machine ‘{0}’ does not have a public IPv4 address (yet)".format(self.name))
             retVal = self.public_ipv4
         return retVal
 
