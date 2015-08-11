@@ -18,6 +18,10 @@ class GCEDiskDefinition(ResourceDefinition):
     def get_type(cls):
         return "gce-disk"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "gceDisks"
+
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 

@@ -17,6 +17,10 @@ class EBSVolumeDefinition(nixops.resources.ResourceDefinition):
     def get_type(cls):
         return "ebs-volume"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "ebsVolumes"
+
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
         self.tags = {k.get("name"): k.find("string").get("value") for k in xml.findall("attrs/attr[@name='tags']/attrs/attr")}

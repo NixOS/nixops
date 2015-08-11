@@ -16,6 +16,10 @@ class GCEHTTPHealthCheckDefinition(ResourceDefinition):
     def get_type(cls):
         return "gce-http-health-check"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "gceHTTPHealthChecks"
+
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 

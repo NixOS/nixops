@@ -14,6 +14,10 @@ class EC2KeyPairDefinition(nixops.resources.ResourceDefinition):
     def get_type(cls):
         return "ec2-keypair"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "ec2KeyPairs"
+
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
         self.keypair_name = xml.find("attrs/attr[@name='name']/string").get("value")

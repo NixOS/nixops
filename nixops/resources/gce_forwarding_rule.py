@@ -19,6 +19,10 @@ class GCEForwardingRuleDefinition(ResourceDefinition):
     def get_type(cls):
         return "gce-forwarding-rule"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "gceForwardingRules"
+
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 

@@ -16,6 +16,10 @@ class ElasticIPDefinition(nixops.resources.ResourceDefinition):
     def get_type(cls):
         return "elastic-ip"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "elasticIPs"
+
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")

@@ -12,6 +12,11 @@ class ResourceDefinition(object):
         """A resource type identifier that must match the corresponding ResourceState class"""
         assert False
 
+    @classmethod
+    def get_resource_type(cls):
+        """A resource type identifier corresponding to the resources.<type> attribute in the Nix expression"""
+        return cls.get_type()
+
     def __init__(self, xml, config={}):
         self.config = config
         self.name = xml.get("name")
@@ -29,7 +34,7 @@ class ResourceState(object):
 
     @classmethod
     def get_type(cls):
-        """A resource type identifier that must match the corresponding ResourceDefinition clsas"""
+        """A resource type identifier that must match the corresponding ResourceDefinition classs"""
         assert False
 
     # Valid values for self.state.  Not all of these make sense for

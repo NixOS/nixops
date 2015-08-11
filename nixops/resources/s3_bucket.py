@@ -16,6 +16,10 @@ class S3BucketDefinition(nixops.resources.ResourceDefinition):
     def get_type(cls):
         return "s3-bucket"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "s3Buckets"
+
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
         self.bucket_name = xml.find("attrs/attr[@name='name']/string").get("value")

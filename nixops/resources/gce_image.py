@@ -16,6 +16,10 @@ class GCEImageDefinition(ResourceDefinition):
     def get_type(cls):
         return "gce-image"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "gceImages"
+
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 

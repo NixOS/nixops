@@ -14,6 +14,10 @@ class EC2SecurityGroupDefinition(nixops.resources.ResourceDefinition):
     def get_type(cls):
         return "ec2-security-group"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "ec2SecurityGroups"
+
     def __init__(self, xml):
         super(EC2SecurityGroupDefinition, self).__init__(xml)
         self.security_group_name = xml.find("attrs/attr[@name='name']/string").get("value")

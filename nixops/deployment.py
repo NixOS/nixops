@@ -329,85 +329,19 @@ class Deployment(object):
         self.rollback_enabled = config["network"].get("enableRollback", False)
 
         # Extract machine information.
-        for x in tree.find("attrs/attr[@name='machines']/attrs").findall("attr"):
+        for x in tree.findall("attrs/attr[@name='machines']/attrs/attr"):
             name = x.get("name")
-            defn = nixops.backends.create_definition(x, config["machines"][name])
-            self.definitions[defn.name] = defn
+            cfg = config["machines"][name]
+            defn = nixops.backends.create_definition(x, cfg, cfg["targetEnv"])
+            self.definitions[name] = defn
 
         # Extract info about other kinds of resources.
-        res = tree.find("attrs/attr[@name='resources']/attrs")
-
-        for x in res.find("attr[@name='ec2KeyPairs']/attrs").findall("attr"):
-            defn = nixops.resources.ec2_keypair.EC2KeyPairDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='sshKeyPairs']/attrs").findall("attr"):
-            defn = nixops.resources.ssh_keypair.SSHKeyPairDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='sqsQueues']/attrs").findall("attr"):
-            defn = nixops.resources.sqs_queue.SQSQueueDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='iamRoles']/attrs").findall("attr"):
-            defn = nixops.resources.iam_role.IAMRoleDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='s3Buckets']/attrs").findall("attr"):
-            defn = nixops.resources.s3_bucket.S3BucketDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='ec2SecurityGroups']/attrs").findall("attr"):
-            defn = nixops.resources.ec2_security_group.EC2SecurityGroupDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='ec2PlacementGroups']/attrs").findall("attr"):
-            defn = nixops.resources.ec2_placement_group.EC2PlacementGroupDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='ebsVolumes']/attrs").findall("attr"):
-            defn = nixops.resources.ebs_volume.EBSVolumeDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='elasticIPs']/attrs").findall("attr"):
-            defn = nixops.resources.elastic_ip.ElasticIPDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='rdsDbInstances']/attrs").findall("attr"):
-            defn = nixops.resources.ec2_rds_dbinstance.EC2RDSDbInstanceDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='gceDisks']/attrs").findall("attr"):
-            defn = nixops.resources.gce_disk.GCEDiskDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='gceImages']/attrs").findall("attr"):
-            defn = nixops.resources.gce_image.GCEImageDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='gceStaticIPs']/attrs").findall("attr"):
-            defn = nixops.resources.gce_static_ip.GCEStaticIPDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='gceNetworks']/attrs").findall("attr"):
-            defn = nixops.resources.gce_network.GCENetworkDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='gceHTTPHealthChecks']/attrs").findall("attr"):
-            defn = nixops.resources.gce_http_health_check.GCEHTTPHealthCheckDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='gceTargetPools']/attrs").findall("attr"):
-            defn = nixops.resources.gce_target_pool.GCETargetPoolDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='gceForwardingRules']/attrs").findall("attr"):
-            defn = nixops.resources.gce_forwarding_rule.GCEForwardingRuleDefinition(x)
-            self.definitions[defn.name] = defn
-
-        for x in res.find("attr[@name='gseBuckets']/attrs").findall("attr"):
-            defn = nixops.resources.gse_bucket.GSEBucketDefinition(x)
-            self.definitions[defn.name] = defn
+        for x in tree.findall("attrs/attr[@name='resources']/attrs/attr"):
+            res_type = x.get("name")
+            for y in x.findall("attrs/attr"):
+                name = y.get("name")
+                defn = nixops.backends.create_definition(y, config["resources"][res_type][name], res_type)
+                self.definitions[name] = defn
 
 
     def evaluate_option_value(self, machine_name, option_name, xml=False, include_physical=False):

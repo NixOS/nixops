@@ -36,6 +36,10 @@ class GSEBucketDefinition(ResourceDefinition):
     def get_type(cls):
         return "gse-bucket"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "gseBuckets"
+
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 

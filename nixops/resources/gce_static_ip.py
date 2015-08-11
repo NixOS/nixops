@@ -16,6 +16,10 @@ class GCEStaticIPDefinition(ResourceDefinition):
     def get_type(cls):
         return "gce-static-ip"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "gceStaticIPs"
+
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 

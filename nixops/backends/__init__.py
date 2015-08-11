@@ -416,52 +416,28 @@ import nixops.resources.gce_target_pool
 import nixops.resources.gce_forwarding_rule
 import nixops.resources.gse_bucket
 
-def create_definition(xml, config):
-    """Create a machine definition object from the given XML representation of the machine's attributes."""
-    target_env = xml.find("attrs/attr[@name='targetEnv']/string").get("value")
-    for i in [nixops.backends.none.NoneDefinition,
-              nixops.backends.virtualbox.VirtualBoxDefinition,
-              nixops.backends.ec2.EC2Definition,
-              nixops.backends.hetzner.HetznerDefinition,
-              nixops.backends.gce.GCEDefinition,
-              nixops.backends.libvirtd.LibvirtdDefinition,
-              nixops.backends.container.ContainerDefinition]:
-        if target_env == i.get_type():
+def _subclasses(cls):
+    sub = cls.__subclasses__()
+    return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
+
+def create_definition(xml, config, type_name):
+    """Create a resource definition object from the given XML representation of the machine's attributes."""
+
+    for cls in _subclasses(nixops.resources.ResourceDefinition):
+        if type_name == cls.get_resource_type():
             # FIXME: backward compatibility hack
-            if len(inspect.getargspec(i.__init__).args) == 2:
-                return i(xml)
+            if len(inspect.getargspec(cls.__init__).args) == 2:
+                return cls(xml)
             else:
-                return i(xml, config)
-    raise nixops.deployment.UnknownBackend("unknown backend type ‘{0}’".format(target_env))
+                return cls(xml, config)
+
+    raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type_name))
 
 def create_state(depl, type, name, id):
     """Create a resource state object of the desired type."""
-    for i in [nixops.backends.none.NoneState,
-              nixops.backends.virtualbox.VirtualBoxState,
-              nixops.backends.libvirtd.LibvirtdState,
-              nixops.backends.ec2.EC2State,
-              nixops.backends.gce.GCEState,
-              nixops.backends.hetzner.HetznerState,
-              nixops.backends.container.ContainerState,
-              nixops.resources.ec2_keypair.EC2KeyPairState,
-              nixops.resources.ssh_keypair.SSHKeyPairState,
-              nixops.resources.sqs_queue.SQSQueueState,
-              nixops.resources.iam_role.IAMRoleState,
-              nixops.resources.s3_bucket.S3BucketState,
-              nixops.resources.ec2_security_group.EC2SecurityGroupState,
-              nixops.resources.ec2_placement_group.EC2PlacementGroupState,
-              nixops.resources.ebs_volume.EBSVolumeState,
-              nixops.resources.elastic_ip.ElasticIPState,
-              nixops.resources.ec2_rds_dbinstance.EC2RDSDbInstanceState,
-              nixops.resources.gce_disk.GCEDiskState,
-              nixops.resources.gce_image.GCEImageState,
-              nixops.resources.gce_static_ip.GCEStaticIPState,
-              nixops.resources.gce_network.GCENetworkState,
-              nixops.resources.gce_http_health_check.GCEHTTPHealthCheckState,
-              nixops.resources.gce_target_pool.GCETargetPoolState,
-              nixops.resources.gce_forwarding_rule.GCEForwardingRuleState,
-              nixops.resources.gse_bucket.GSEBucketState
-              ]:
-        if type == i.get_type():
-            return i(depl, name, id)
+
+    for cls in _subclasses(nixops.resources.ResourceState):
+        if type == cls.get_type():
+            return cls(depl, name, id)
+
     raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))

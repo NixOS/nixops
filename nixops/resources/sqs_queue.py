@@ -16,6 +16,10 @@ class SQSQueueDefinition(nixops.resources.ResourceDefinition):
     def get_type(cls):
         return "sqs-queue"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "sqsQueues"
+
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
         self.queue_name = xml.find("attrs/attr[@name='name']/string").get("value")

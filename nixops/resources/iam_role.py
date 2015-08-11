@@ -18,6 +18,10 @@ class IAMRoleDefinition(nixops.resources.ResourceDefinition):
     def get_type(cls):
         return "iam-role"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "iamRoles"
+
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
         self.role_name = xml.find("attrs/attr[@name='name']/string").get("value")

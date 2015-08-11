@@ -16,6 +16,10 @@ class EC2RDSDbInstanceDefinition(nixops.resources.ResourceDefinition):
     def get_type(cls):
         return "ec2-rds-dbinstance"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "rdsDbInstances"
+
     def __init__(self, xml):
         super(EC2RDSDbInstanceDefinition, self).__init__(xml)
         # rds specific params

@@ -13,6 +13,10 @@ class SSHKeyPairDefinition(nixops.resources.ResourceDefinition):
     def get_type(cls):
         return "ssh-keypair"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "sshKeyPairs"
+
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
 
