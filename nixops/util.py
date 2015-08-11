@@ -307,3 +307,31 @@ def write_file(path, contents):
     f = open(path, "w")
     f.write(contents)
     f.close()
+
+
+def xml_expr_to_python(node):
+    if node.tag == "attrs":
+        res = {}
+        for attr in node.findall("attr"):
+            res[attr.get("name")] = xml_expr_to_python(attr.find("*"))
+        return res
+
+    elif node.tag == "list":
+        res = []
+        for elem in node.findall("*"):
+            res.append(xml_expr_to_python(elem))
+        return res
+
+    elif node.tag == "string":
+        return node.get("value")
+
+    elif node.tag == "bool":
+        return node.get("value") == "true"
+
+    elif node.tag == "int":
+        return int(node.get("value"))
+
+    elif node.tag == "null":
+        return None
+
+    raise Exception("cannot convert XML output of nix-instantiate to Python")

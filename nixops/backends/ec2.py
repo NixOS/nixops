@@ -19,8 +19,10 @@ import nixops.ec2_utils
 import nixops.known_hosts
 from xml import etree
 
+
 class EC2InstanceDisappeared(Exception):
     pass
+
 
 class EC2Definition(MachineDefinition):
     """Definition of an EC2 machine."""
@@ -29,51 +31,34 @@ class EC2Definition(MachineDefinition):
     def get_type(cls):
         return "ec2"
 
-    def __init__(self, xml):
-        MachineDefinition.__init__(self, xml)
-        x = xml.find("attrs/attr[@name='ec2']/attrs")
-        assert x is not None
-        self.access_key_id = x.find("attr[@name='accessKeyId']/string").get("value")
-        self.region = x.find("attr[@name='region']/string").get("value")
-        self.zone = x.find("attr[@name='zone']/string").get("value")
-        self.ami = x.find("attr[@name='ami']/string").get("value")
-        if self.ami == "":
-            raise Exception("no AMI defined for EC2 machine ‘{0}’".format(self.name))
-        self.instance_type = x.find("attr[@name='instanceType']/string").get("value")
-        self.key_pair = x.find("attr[@name='keyPair']/string").get("value")
-        self.private_key = x.find("attr[@name='privateKey']/string").get("value")
-        self.security_groups = [e.get("value") for e in x.findall("attr[@name='securityGroups']/list/string")]
-        self.placement_group = x.find("attr[@name='placementGroup']/string").get("value")
-        self.instance_profile = x.find("attr[@name='instanceProfile']/string").get("value")
-        self.tags = {k.get("name"): k.find("string").get("value") for k in x.findall("attr[@name='tags']/attrs/attr")}
-        self.root_disk_size = int(x.find("attr[@name='ebsInitialRootDiskSize']/int").get("value"))
-        self.spot_instance_price = int(x.find("attr[@name='spotInstancePrice']/int").get("value"))
-        self.ebs_optimized = x.find("attr[@name='ebsOptimized']/bool").get("value") == "true"
-        self.subnet_id = x.find("attr[@name='subnetId']/string").get("value")
-        self.associate_public_ip_address = x.find("attr[@name='associatePublicIpAddress']/bool").get("value") == "true"
-        self.use_private_ip_address = x.find("attr[@name='usePrivateIpAddress']/bool").get("value") == "true"
-        self.security_group_ids = [e.get("value") for e in x.findall("attr[@name='securityGroupIds']/list/string")]
+    def __init__(self, xml, config):
+        MachineDefinition.__init__(self, xml, config)
 
-        def f(xml):
-            return {'disk': xml.find("attrs/attr[@name='disk']/string").get("value"),
-                    'size': int(xml.find("attrs/attr[@name='size']/int").get("value")),
-                    'iops': int(xml.find("attrs/attr[@name='iops']/int").get("value")),
-                    'volumeType': xml.find("attrs/attr[@name='volumeType']/string").get("value"),
-                    'fsType': xml.find("attrs/attr[@name='fsType']/string").get("value"),
-                    'deleteOnTermination': xml.find("attrs/attr[@name='deleteOnTermination']/bool").get("value") == "true",
-                    'encrypt': xml.find("attrs/attr[@name='encrypt']/bool").get("value") == "true",
-                    'encryptionType': xml.find("attrs/attr[@name='encryptionType']/string").get("value"),
-                    'passphrase': xml.find("attrs/attr[@name='passphrase']/string").get("value")}
+        self.access_key_id = config["ec2"]["accessKeyId"]
+        self.region = config["ec2"]["region"]
+        self.zone = config["ec2"]["zone"]
+        self.ami = config["ec2"]["ami"]
+        self.instance_type = config["ec2"]["instanceType"]
+        self.key_pair = config["ec2"]["keyPair"]
+        self.private_key = config["ec2"]["privateKey"]
+        self.security_groups = config["ec2"]["securityGroups"]
+        self.placement_group = config["ec2"]["placementGroup"]
+        self.instance_profile = config["ec2"]["instanceProfile"]
+        self.tags = config["ec2"]["tags"]
+        self.root_disk_size = config["ec2"]["ebsInitialRootDiskSize"]
+        self.spot_instance_price = config["ec2"]["spotInstancePrice"]
+        self.ebs_optimized = config["ec2"]["ebsOptimized"]
+        self.subnet_id = config["ec2"]["subnetId"]
+        self.associate_public_ip_address = config["ec2"]["associatePublicIpAddress"]
+        self.use_private_ip_address = config["ec2"]["usePrivateIpAddress"]
+        self.security_group_ids = config["ec2"]["securityGroupIds"]
+        self.block_device_mapping = {_xvd_to_sd(k): v for k, v in config["ec2"]["blockDeviceMapping"].iteritems()}
+        self.elastic_ipv4 = config["ec2"]["elasticIPv4"]
 
-        self.block_device_mapping = {_xvd_to_sd(k.get("name")): f(k) for k in x.findall("attr[@name='blockDeviceMapping']/attrs/attr")}
-        self.elastic_ipv4 = x.find("attr[@name='elasticIPv4']/string").get("value")
-
-        x = xml.find("attrs/attr[@name='route53']/attrs")
-        assert x is not None
-        self.dns_hostname = x.find("attr[@name='hostName']/string").get("value")
-        self.dns_ttl = x.find("attr[@name='ttl']/int").get("value")
-        self.route53_access_key_id = x.find("attr[@name='accessKeyId']/string").get("value")
-        self.route53_use_public_dns_name = x.find("attr[@name='usePublicDNSName']/bool").get("value") == "true"
+        self.dns_hostname = config["route53"]["hostName"]
+        self.dns_ttl = config["route53"]["ttl"]
+        self.route53_access_key_id = config["route53"]["accessKeyId"]
+        self.route53_use_public_dns_name = config["route53"]["usePublicDNSName"]
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")

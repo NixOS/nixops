@@ -303,6 +303,7 @@ class Deployment(object):
         self.definitions = {}
 
         try:
+            # FIXME: use --json
             xml = subprocess.check_output(
                 ["nix-instantiate"]
                 + self.extra_nix_eval_flags
@@ -318,17 +319,19 @@ class Deployment(object):
 
         tree = ElementTree.fromstring(xml)
 
+        # Convert the XML to a more Pythonic representation. This is
+        # in fact the same as what json.loads() on the output of
+        # "nix-instantiate --json" would yield.
+        config = nixops.util.xml_expr_to_python(tree.find("*"))
+
         # Extract global deployment attributes.
-        info = tree.find("attrs/attr[@name='network']")
-        assert info != None
-        elem = info.find("attrs/attr[@name='description']/string")
-        self.description = elem.get("value") if elem != None else self.default_description
-        elem = info.find("attrs/attr[@name='enableRollback']/bool")
-        self.rollback_enabled = elem != None and elem.get("value") == "true"
+        self.description = config["network"].get("description", self.default_description)
+        self.rollback_enabled = config["network"].get("enableRollback", False)
 
         # Extract machine information.
         for x in tree.find("attrs/attr[@name='machines']/attrs").findall("attr"):
-            defn = nixops.backends.create_definition(x)
+            name = x.get("name")
+            defn = nixops.backends.create_definition(x, config["machines"][name])
             self.definitions[defn.name] = defn
 
         # Extract info about other kinds of resources.

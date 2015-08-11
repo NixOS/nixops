@@ -12,7 +12,8 @@ class ResourceDefinition(object):
         """A resource type identifier that must match the corresponding ResourceState class"""
         assert False
 
-    def __init__(self, xml):
+    def __init__(self, xml, config={}):
+        self.config = config
         self.name = xml.get("name")
         assert self.name
         if not re.match("^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*$", self.name):

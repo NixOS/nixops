@@ -3,6 +3,7 @@
 import os
 import re
 import sys
+import inspect
 import subprocess
 
 import nixops.util
@@ -12,7 +13,7 @@ import nixops.ssh_util
 class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
 
-    def __init__(self, xml):
+    def __init__(self, xml, config={}):
         nixops.resources.ResourceDefinition.__init__(self, xml)
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
@@ -415,7 +416,7 @@ import nixops.resources.gce_target_pool
 import nixops.resources.gce_forwarding_rule
 import nixops.resources.gse_bucket
 
-def create_definition(xml):
+def create_definition(xml, config):
     """Create a machine definition object from the given XML representation of the machine's attributes."""
     target_env = xml.find("attrs/attr[@name='targetEnv']/string").get("value")
     for i in [nixops.backends.none.NoneDefinition,
@@ -426,7 +427,11 @@ def create_definition(xml):
               nixops.backends.libvirtd.LibvirtdDefinition,
               nixops.backends.container.ContainerDefinition]:
         if target_env == i.get_type():
-            return i(xml)
+            # FIXME: backward compatibility hack
+            if len(inspect.getargspec(i.__init__).args) == 2:
+                return i(xml)
+            else:
+                return i(xml, config)
     raise nixops.deployment.UnknownBackend("unknown backend type ‘{0}’".format(target_env))
 
 def create_state(depl, type, name, id):
