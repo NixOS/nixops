@@ -99,8 +99,6 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         diff = self._diff_defn(defn)
         diff_attrs = set(diff.keys())
 
-        print diff, self.state
-
         invariant_attrs = set(['region', 'rds_dbinstance_master_username',
             'rds_dbinstance_engine', 'rds_dbinstance_port', 'rds_dbinstance_db_name'])
 
