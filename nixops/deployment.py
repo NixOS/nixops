@@ -24,6 +24,7 @@ import nixops.resources.s3_bucket
 import nixops.resources.ec2_security_group
 import nixops.resources.ebs_volume
 import nixops.resources.elastic_ip
+import nixops.resources.ec2_rds_dbinstance
 import nixops.resources.gce_disk
 import nixops.resources.gce_image
 import nixops.resources.gce_static_ip
@@ -367,6 +368,10 @@ class Deployment(object):
 
         for x in res.find("attr[@name='elasticIPs']/attrs").findall("attr"):
             defn = nixops.resources.elastic_ip.ElasticIPDefinition(x)
+            self.definitions[defn.name] = defn
+
+        for x in res.find("attr[@name='rdsDbInstances']/attrs").findall("attr"):
+            defn = nixops.resources.ec2_rds_dbinstance.EC2RDSDbInstanceDefinition(x)
             self.definitions[defn.name] = defn
 
         for x in res.find("attr[@name='gceDisks']/attrs").findall("attr"):
