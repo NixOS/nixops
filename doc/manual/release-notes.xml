@@ -169,8 +169,8 @@
   option value.
   </para></listitem>
 
-  <listitem><para>On non-EC2 systems, nixops will generate ecdsa SSH host keypairs 
-  in stead of dsa from now on.</para></listitem>
+  <listitem><para>On non-EC2 systems, NixOps will generate ECDSA SSH
+  host key pairs instead of DSA from now on.</para></listitem>
 
   <listitem><para>VirtualBox deployments use generated SSH host keypairs.
   </para></listitem>
