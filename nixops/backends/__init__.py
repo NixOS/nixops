@@ -52,6 +52,9 @@ class MachineState(nixops.resources.ResourceState):
     # this machine.
     cur_toplevel = nixops.util.attr_property("toplevel", None)
 
+    # Time (in Unix epoch) the instance was started, if known.
+    start_time = nixops.util.attr_property("startTime", None, int)
+
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False

@@ -5,7 +5,9 @@ import os.path
 import sys
 import re
 import time
+import math
 import shutil
+import calendar
 import boto.ec2
 import boto.ec2.blockdevicemapping
 import boto.ec2.networkinterface
@@ -279,6 +281,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     return None
                 raise EC2InstanceDisappeared("EC2 instance ‘{0}’ disappeared!".format(instance_id))
             self._cached_instance = instances[0]
+            self.start_time = calendar.timegm(time.strptime(instances[0].launch_time, "%Y-%m-%dT%H:%M:%S.000Z"))
         return self._cached_instance
 
 
@@ -1329,6 +1332,14 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             raise Exception("cannot get console output of non-existant machine ‘{0}’".format(self.name))
         self.connect()
         return self._conn.get_console_output(self.vm_id).output or "(not available)"
+
+
+    def next_charge_time(self):
+        if not self.start_time:
+            return None
+        # EC2 instances are paid for by the hour.
+        uptime = time.time() - self.start_time
+        return self.start_time + int(math.ceil(uptime / 3600.0) * 3600.0)
 
 
 def _xvd_to_sd(dev):

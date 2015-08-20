@@ -27,6 +27,7 @@ import itertools
 import platform
 from nixops.util import ansi_success
 import inspect
+import time
 
 class NixEvalError(Exception):
     pass
@@ -855,6 +856,8 @@ class Deployment(object):
                             return
 
                     # Now create the resource itself.
+                    if not r.creation_time:
+                        r.creation_time = int(time.time())
                     r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot, allow_recreate=allow_recreate)
                     if is_machine(r):
                         r.wait_for_ssh(check=check)

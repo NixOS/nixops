@@ -52,6 +52,9 @@ class ResourceState(object):
     index = nixops.util.attr_property("index", None, int)
     obsolete = nixops.util.attr_property("obsolete", False, bool)
 
+    # Time (in Unix epoch) the resource was created.
+    creation_time = nixops.util.attr_property("creationTime", None, int)
+
     def __init__(self, depl, name, id):
         self.depl = depl
         self.name = name
@@ -127,7 +130,7 @@ class ResourceState(object):
         elif state == self.STOPPING: return "Stopping"
         elif state == self.STOPPED: return "Stopped"
         elif state == self.UNREACHABLE: return "Unreachable"
-        elif state == self.RESCUE: return "In rescue system"
+        elif state == self.RESCUE: return "Rescue"
         else: raise Exception("machine is in unknown state")
 
     def prefix_definiton(self, attr):
@@ -169,3 +172,8 @@ class ResourceState(object):
             "don't know how to destroy resource ‘{0}’".format(self.name)
         )
         return False
+
+    def next_charge_time(self):
+        """Return the time (in Unix epoch) when this resource will next incur
+        a financial charge (or None if unknown)."""
+        return None
