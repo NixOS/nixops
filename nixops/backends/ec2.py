@@ -267,12 +267,18 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         assert instance_id
         if not self._cached_instance:
             self.connect()
-            reservations = self._conn.get_all_instances([instance_id])
-            if len(reservations) == 0:
+            try:
+                instances = self._conn.get_only_instances([instance_id])
+            except boto.exception.EC2ResponseError as e:
+                if allow_missing and e.error_code == "InvalidInstanceID.NotFound":
+                    instances = []
+                else:
+                    raise
+            if len(instances) == 0:
                 if allow_missing:
                     return None
                 raise EC2InstanceDisappeared("EC2 instance ‘{0}’ disappeared!".format(instance_id))
-            self._cached_instance = reservations[0].instances[0]
+            self._cached_instance = instances[0]
         return self._cached_instance
 
 
@@ -853,14 +859,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # know the instance ID yet.  So wait until it does.
         if self.state != self.UP or check:
             while True:
-                try:
-                    instance = self._get_instance()
-                    break
-                except EC2InstanceDisappeared:
-                    pass
-                except boto.exception.EC2ResponseError as e:
-                    if e.error_code != "InvalidInstanceID.NotFound":
-                        raise
+                if self._get_instance(allow_missing=True): break
                 self.log("EC2 instance ‘{0}’ not known yet, waiting...".format(self.vm_id))
                 time.sleep(3)
 
