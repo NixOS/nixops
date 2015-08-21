@@ -334,4 +334,7 @@ def xml_expr_to_python(node):
     elif node.tag == "null":
         return None
 
+    elif node.tag == "derivation":
+        return {"drvPath": node.get("drvPath/"), "outPath": node.get("outPath")}
+
     raise Exception("cannot convert XML output of nix-instantiate to Python")
