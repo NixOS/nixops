@@ -13,7 +13,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
 
     def __init__(self, xml, config={}):
-        nixops.resources.ResourceDefinition.__init__(self, xml)
+        nixops.resources.ResourceDefinition.__init__(self, xml, config)
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
         self.ssh_port = int(xml.find("attrs/attr[@name='targetPort']/int").get("value"))

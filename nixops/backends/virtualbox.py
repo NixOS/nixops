@@ -20,25 +20,8 @@ class VirtualBoxDefinition(MachineDefinition):
     def get_type(cls):
         return "virtualbox"
 
-    def __init__(self, xml):
-        MachineDefinition.__init__(self, xml)
-        x = xml.find("attrs/attr[@name='virtualbox']/attrs")
-        assert x is not None
-        self.memory_size = x.find("attr[@name='memorySize']/int").get("value")
-        self.headless = x.find("attr[@name='headless']/bool").get("value") == "true"
-
-        def f(xml):
-            return {'port': int(xml.find("attrs/attr[@name='port']/int").get("value")),
-                    'size': int(xml.find("attrs/attr[@name='size']/int").get("value")),
-                    'baseImage': xml.find("attrs/attr[@name='baseImage']/string").get("value")}
-
-        self.disks = {k.get("name"): f(k) for k in x.findall("attr[@name='disks']/attrs/attr")}
-
-        def sf(xml):
-            return {'hostPath': xml.find("attrs/attr[@name='hostPath']/string").get("value"),
-                    'readOnly': xml.find("attrs/attr[@name='readOnly']/bool").get("value") == "true"}
-
-        self.shared_folders = {k.get("name"): sf(k) for k in x.findall("attr[@name='sharedFolders']/attrs/attr")}
+    def __init__(self, xml, config):
+        MachineDefinition.__init__(self, xml, config)
 
 
 class VirtualBoxState(MachineState):
@@ -247,7 +230,7 @@ class VirtualBoxState(MachineState):
 
 
         # Create missing shared folders
-        for sf_name, sf_def in defn.shared_folders.items():
+        for sf_name, sf_def in defn.config["virtualbox"]["sharedFolders"].items():
             sf_state = self.shared_folders.get(sf_name, {})
 
             if not sf_state.get('added', False):
@@ -268,7 +251,7 @@ class VirtualBoxState(MachineState):
 
         # Remove obsolete shared folders
         for sf_name, sf_state in self.shared_folders.items():
-            if sf_name not in defn.shared_folders:
+            if sf_name not in defn.config["virtualbox"]["sharedFolders"]:
                 if not self.started:
                     self.log("removing shared folder ‘{0}’".format(sf_name))
 
@@ -284,7 +267,7 @@ class VirtualBoxState(MachineState):
 
 
         # Create missing disks.
-        for disk_name, disk_def in defn.disks.items():
+        for disk_name, disk_def in defn.config["virtualbox"]["disks"].items():
             disk_state = self.disks.get(disk_name, {})
 
             if not disk_state.get('created', False):
@@ -340,7 +323,7 @@ class VirtualBoxState(MachineState):
 
         # Destroy obsolete disks.
         for disk_name, disk_state in self.disks.items():
-            if disk_name not in defn.disks:
+            if disk_name not in defn.config["virtualbox"]["disks"]:
                 if not self.depl.logger.confirm("are you sure you want to destroy disk ‘{0}’ of VirtualBox instance ‘{1}’?".format(disk_name, self.name)):
                     raise Exception("not destroying VirtualBox disk ‘{0}’".format(disk_name))
                 self.log("destroying disk ‘{0}’".format(disk_name))
@@ -368,12 +351,12 @@ class VirtualBoxState(MachineState):
         if not self.started:
             self._logged_exec(
                 ["VBoxManage", "modifyvm", self.vm_id,
-                 "--memory", defn.memory_size, "--vram", "10",
+                 "--memory", str(defn.config["virtualbox"]["memorySize"]), "--vram", "10",
                  "--nictype1", "virtio", "--nictype2", "virtio",
                  "--nic2", "hostonly", "--hostonlyadapter2", "vboxnet0",
                  "--nestedpaging", "off"])
 
-            self._headless = defn.headless
+            self._headless = defn.config["virtualbox"]["headless"]
             self._start()
 
         if not self.private_ipv4 or check:
