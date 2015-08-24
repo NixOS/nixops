@@ -685,7 +685,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # Detach volumes that are no longer in the deployment spec.
         for k, v in self.block_device_mapping.items():
             if k not in defn.block_device_mapping and not v.get('partOfImage', False):
-                if v['disk'].startswith("ephemeral"):
+                if v.get('disk', '').startswith("ephemeral"):
                     raise Exception("cannot detach ephemeral device ‘{0}’ from EC2 instance ‘{1}’"
                     .format(_sd_to_xvd(k), self.name))
 
@@ -705,7 +705,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     else:
                         self.run_command("umount -l {0}".format(device), check=False)
                     if not self._conn.detach_volume(volumes[0].id, instance_id=self.vm_id, device=k):
-                        raise Exception("unable to detach device ‘{0}’ from EC2 machine ‘{1}’".format(v['disk'], self.name))
+                        raise Exception("unable to detach volume ‘{0}’ from EC2 machine ‘{1}’".format(v['volumeId'], self.name))
                         # FIXME: Wait until the volume is actually detached.
 
                 if v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
