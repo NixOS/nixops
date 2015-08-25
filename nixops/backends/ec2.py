@@ -263,10 +263,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         return result[0]
 
 
-    def _get_instance(self, instance_id=None, allow_missing=False):
+    def _get_instance(self, instance_id=None, allow_missing=False, update=False):
         """Get instance object for this machine, with caching"""
         if not instance_id: instance_id = self.vm_id
         assert instance_id
+
         if not self._cached_instance:
             self.connect()
             try:
@@ -281,7 +282,13 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     return None
                 raise EC2InstanceDisappeared("EC2 instance ‘{0}’ disappeared!".format(instance_id))
             self._cached_instance = instances[0]
-            self.start_time = calendar.timegm(time.strptime(instances[0].launch_time, "%Y-%m-%dT%H:%M:%S.000Z"))
+
+        elif update:
+            self._cached_instance.update()
+
+        if self._cached_instance.launch_time:
+            self.start_time = calendar.timegm(time.strptime(self._cached_instance.launch_time, "%Y-%m-%dT%H:%M:%S.000Z"))
+
         return self._cached_instance
 
 
@@ -306,10 +313,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 ready = False
             return ready
 
-        instance = self._get_instance()
-
         while True:
-            instance.update()
+            instance = self._get_instance(update=True)
             self.log_continue("[{0}] ".format(instance.state))
             if instance.state not in {"pending", "running", "scheduling", "launching", "stopped"}:
                 raise Exception("EC2 instance ‘{0}’ failed to start (state is ‘{1}’)".format(self.vm_id, instance.state))
@@ -535,7 +540,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                             "EC2 instance ‘{0}’ failed to reach running state (state is ‘{1}’)"
                             .format(self.vm_id, instance.state))
                     time.sleep(3)
-                    instance.update()
+                    instance = self._get_instance(update=True)
                 self.log_end("")
 
                 addresses = self._conn.get_all_addresses(addresses=[elastic_ipv4])
@@ -550,13 +555,13 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     self.log("associating IP address ‘{0}’...".format(elastic_ipv4))
                     addresses[0].associate(self.vm_id)
                     self.log_start("waiting for address to be associated with this machine... ")
-                    instance.update()
+                    instance = self._get_instance(update=True)
                     while True:
                         self.log_continue("[{0}] ".format(instance.ip_address))
                         if instance.ip_address == elastic_ipv4:
                             break
                         time.sleep(3)
-                        instance.update()
+                        instance = self._get_instance(update=True)
                     self.log_end("")
 
                 nixops.known_hosts.update(self.public_ipv4, elastic_ipv4, self.public_host_key)
@@ -1172,7 +1177,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 self.log_continue("[{0}] ".format(instance.state))
                 if instance.state == "terminated": break
                 time.sleep(3)
-                instance.update()
+                instance = self._get_instance(update=True)
 
         self.log_end("")
 
@@ -1201,6 +1206,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         # Wait until it's really stopped.
         def check_stopped():
+            instance = self._get_instance(update=True)
             self.log_continue("[{0}] ".format(instance.state))
             if instance.state == "stopped":
                 return True
@@ -1208,7 +1214,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 raise Exception(
                     "EC2 instance ‘{0}’ failed to stop (state is ‘{1}’)"
                     .format(self.vm_id, instance.state))
-            instance.update()
             return False
 
         if not nixops.util.check_wait(check_stopped, initial=3, max_tries=300, exception=False): # = 15 min
