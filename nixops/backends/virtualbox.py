@@ -373,7 +373,7 @@ class VirtualBoxState(MachineState):
         vmstate = self._get_vm_state(can_fail=True)
         if vmstate is None:
             self.log("VM not found, ignored")
-            self.state = self.STOPPED
+            self.state = self.MISSING
             return True
 
         if vmstate == 'running':
@@ -394,20 +394,22 @@ class VirtualBoxState(MachineState):
 
 
     def stop(self):
-        if self._get_vm_state() != 'running': return
+        state = self._get_vm_state()
 
-        self.log_start("shutting down... ")
+        if state not in ['poweroff', 'aborted']:
 
-        self.run_command("systemctl poweroff", check=False)
-        self.state = self.STOPPING
+            self.log_start("shutting down... ")
 
-        while True:
-            state = self._get_vm_state()
-            self.log_continue("[{0}] ".format(state))
-            if state == 'poweroff': break
-            time.sleep(1)
+            self.run_command("systemctl poweroff", check=False)
+            self.state = self.STOPPING
 
-        self.log_end("")
+            while True:
+                state = self._get_vm_state()
+                self.log_continue("[{0}] ".format(state))
+                if state == 'poweroff': break
+                time.sleep(1)
+
+                self.log_end("")
 
         self.state = self.STOPPED
         self.ssh_master = None
