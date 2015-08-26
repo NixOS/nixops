@@ -231,6 +231,10 @@ class MachineState(nixops.resources.ResourceState):
         return self.ssh
 
     @property
+    def public_host_key(self):
+        return None
+
+    @property
     def public_ipv4(self):
         return None
 
