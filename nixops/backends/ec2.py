@@ -448,7 +448,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 new_volume = self._conn.create_volume(size=0, snapshot=snapshot_id, zone=self.zone)
 
                 # Check if original volume is available, aka detached from the machine.
-                nixops.ec2_utils.wait_for_volume_available(self._conn, volume.id, self.logger)
+                if volume:
+                    nixops.ec2_utils.wait_for_volume_available(self._conn, volume.id, self.logger)
 
                 # Check if new volume is available.
                 nixops.ec2_utils.wait_for_volume_available(self._conn, new_volume.id, self.logger)
