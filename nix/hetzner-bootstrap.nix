@@ -8,11 +8,8 @@ let
     udevSoMajor = 0;
   };
 
-  generateConfig = (import <nixpkgs/nixos/modules/installer/tools/tools.nix> {
-    config = {};
-    inherit pkgs;
-    modulesPath = "";
-    lib = pkgs.lib;
+  generateConfig = (import <nixpkgs/nixos> {
+    configuration = {};
   }).config.system.build.nixos-generate-config;
 
   base = stdenv.mkDerivation {
