@@ -193,10 +193,16 @@ def ansi_success(s, outfile=sys.stderr):
     return "\033[1;32m" + s + "\033[0m" if outfile.isatty() else s
 
 
+def _maybe_abspath(s):
+    if s.startswith("http://") or s.startswith("https://") or s.startswith("file://"):
+        return s
+    return os.path.abspath(s)
+
+
 def abs_nix_path(x):
     xs = x.split('=', 1)
-    if len(xs) == 1: return os.path.abspath(x)
-    return xs[0] + '=' + os.path.abspath(xs[1])
+    if len(xs) == 1: return _maybe_abspath(x)
+    return xs[0] + '=' + _maybe_abspath(xs[1])
 
 
 undefined = object()
