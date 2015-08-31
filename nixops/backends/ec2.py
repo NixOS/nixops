@@ -609,6 +609,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             common_args['instance_profile_name'] = defn.instance_profile
 
         if defn.subnet_id != "":
+            if defn.security_groups != [] and defn.security_groups != ["default"]:
+                raise Exception("‘deployment.ec2.securityGroups’ is incompatible with ‘deployment.ec2.subnetId’")
             common_args['network_interfaces'] = self._get_network_interfaces(defn)
         else:
             common_args['security_groups'] = defn.security_groups
