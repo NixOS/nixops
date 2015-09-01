@@ -505,7 +505,8 @@ def op_ssh():
     m = depl.machines.get(machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(machine))
     ssh_name = m.get_ssh_name()
-    print >> sys.stderr, "connecting to {0}...".format(ssh_name)
+    if args.debug:
+        print >> sys.stderr, "connecting to {0}...".format(ssh_name)
     res = subprocess.call(["ssh", username + "@" + ssh_name] + m.get_ssh_flags() + args.args)
     sys.exit(res)
 
