@@ -6,7 +6,7 @@
 
 <!--==================================================================-->
 
-<section xml:id="ssec-relnotes-1.3"><title>Release 1.3 (January 15, 2015)</title>
+<section xml:id="ssec-relnotes-1.3"><title>Release 1.3 (September 15, 2015)</title>
 
 <itemizedlist>
 
@@ -50,10 +50,11 @@
 
 <para>
     This release has contributions from
-    Andreas Herrmann, aszlig, Ben Moseley, Bjørn Forsman, Boris Sukholitko, Chris Forno,
-    David Guibert, Domen Kožar, Eelco Dolstra, Evgeny Egorochkin, Michael Fellinger,
-    Rene Donner,  Rickard Nilsson, Rob Vermaas, Shea Levy, Tom Hunger, Vladimir Kirillov,
-    William Roe.
+    Andreas Herrmann, Andrew Murray, aszlig, Aycan iRiCAN, Bas van Dijk, Ben Moseley,
+    Bjørn Forsman, Boris Sukholitko, Bruce Adams, Chris Forno, Dan Steeves, David Guibert,
+    Domen Kožar, Eelco Dolstra, Evgeny Egorochkin, Leroy Hopson, Michael Alyn Miller,
+    Michael Fellinger, Ossi Herrala, Rene Donner, Rickard Nilsson, Rob Vermaas, Russell O'Connor,
+    Shea Levy, Tomasz Kontusz, Tom Hunger, Trenton Strong, Trent Strong, Vladimir Kirillov, William Roe.
 </para>
 
 </section>
