@@ -414,6 +414,7 @@ class Deployment(object):
                 attrs_list.append({
                     ('networking', 'p2pTunnels', 'ssh', m2.name): {
                         'target': '{0}-unencrypted'.format(m2.name),
+                        'targetPort': m2.ssh_port,
                         'localTunnel': local_tunnel,
                         'remoteTunnel': remote_tunnel,
                         'localIPv4': local_ipv4,
