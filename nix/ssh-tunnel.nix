@@ -26,6 +26,10 @@ with lib;
           type = types.str;
           description = "Host name or IP address of the remote machine.";
         };
+        targetPort = mkOption {
+          type = types.int;
+          description = "Port number that SSH listens to on the remote machine.";
+        };
         privateKey = mkOption {
           type = types.path;
           description = "Path to the private key file used to connect to the remote machine.";
@@ -77,7 +81,7 @@ with lib;
         "ssh -i ${v.privateKey} -x"
         + " -o StrictHostKeyChecking=no -o PermitLocalCommand=yes -o ServerAliveInterval=20"
         + " -o LocalCommand='ifconfig tun${toString v.localTunnel} ${v.localIPv4} pointopoint ${v.remoteIPv4} netmask 255.255.255.255; route add ${v.remoteIPv4}/32 dev tun${toString v.localTunnel}'"
-        + " -w ${toString v.localTunnel}:${toString v.remoteTunnel} ${v.target}"
+        + " -w ${toString v.localTunnel}:${toString v.remoteTunnel} ${v.target} -p ${toString v.targetPort}"
         + " 'ifconfig tun${toString v.remoteTunnel} ${v.remoteIPv4} pointopoint ${v.localIPv4} netmask 255.255.255.255; route add ${v.localIPv4}/32 dev tun${toString v.remoteTunnel}'";
       serviceConfig =
         { Restart = "always";
