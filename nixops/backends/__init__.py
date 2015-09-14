@@ -246,9 +246,9 @@ class MachineState(nixops.resources.ResourceState):
     def private_ipv4(self):
         return None
 
-    def address_to(self, m):
-        """Return the IP address to be used to access machone "m" from this machine."""
-        ip = m.public_ipv4
+    def address_to(self, r):
+        """Return the IP address to be used to access resource "r" from this machine."""
+        ip = getattr(r, 'public_ipv4', None)
         if ip: return ip
         return None
 

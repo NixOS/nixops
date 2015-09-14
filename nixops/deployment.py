@@ -388,7 +388,7 @@ class Deployment(object):
             attrs_list = attrs_per_resource[m.name]
 
             # Emit configuration to realise encrypted peer-to-peer links.
-            for m2 in active_machines.itervalues():
+            for m2 in active_resources.itervalues():
                 ip = m.address_to(m2)
                 if ip:
                     hosts[m.name][ip] += [m2.name, m2.name + "-unencrypted"]
