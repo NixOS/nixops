@@ -182,8 +182,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 and v.get('passphrase', "") == ""
                 and v.get('generatedKey', "") != ""):
                 block_device_mapping[_sd_to_xvd(k)] = {
-                    'passphrase': Function("pkgs.lib.mkOverride 10",
-                                           v['generatedKey'], call=True),
+                    'passphrase': Call(RawValue("pkgs.lib.mkOverride 10"),
+                                           v['generatedKey']),
                 }
 
         return {
@@ -200,7 +200,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if backupid in self.backups:
             for dev, snap in self.backups[backupid].items():
                 if not dev.startswith("/dev/sda"):
-                    val[_sd_to_xvd(dev)] = { 'disk': Function("pkgs.lib.mkOverride 10", snap, call=True)}
+                    val[_sd_to_xvd(dev)] = { 'disk': Call(RawValue("pkgs.lib.mkOverride 10"), snap)}
             val = { ('deployment', 'ec2', 'blockDeviceMapping'): val }
         else:
             val = RawValue("{{}} /* No backup found for id '{0}' */".format(backupid))

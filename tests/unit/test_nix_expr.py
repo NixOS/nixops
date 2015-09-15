@@ -3,7 +3,7 @@ import unittest
 from textwrap import dedent
 
 from nixops.nix_expr import py2nix, nix2py, nixmerge
-from nixops.nix_expr import RawValue, Function
+from nixops.nix_expr import RawValue, Function, Call
 
 __all__ = ['Py2NixTest', 'Nix2PyTest', 'NixMergeTest']
 
@@ -206,10 +206,10 @@ class Py2NixTestBase(unittest.TestCase):
         ), match, maxwidth=26)
 
     def test_function_call(self):
-        self.assert_nix(Function("fun_call", {'a': 'b'}, call=True),
-                        'fun_call { a = "b"; }')
-        self.assert_nix(Function("multiline_call", {'a': 'b'}, call=True),
-                        'multiline_call {\n  a = "b";\n}', maxwidth=0)
+        self.assert_nix(Call(RawValue("fun_call"), {'a': 'b'}),
+                        '( fun_call { a = "b"; } )')
+        self.assert_nix(Call(RawValue("multiline_call"), {'a': 'b'}),
+                        '(\n  multiline_call\n  {\n    a = "b";\n  }\n)', maxwidth=0)
 
     def test_stacked_attrs(self):
         self.assert_nix({('a', 'b'): 'c', ('d'): 'e'},
@@ -260,9 +260,9 @@ class Py2NixTestBase(unittest.TestCase):
                         inline=True, maxwidth=0)
 
     def test_list_compound(self):
-        self.assert_nix([Function("123 //", 456, call=True),
+        self.assert_nix([Call(RawValue("123 //"), 456),
                          RawValue("a b c")],
-                        '[ (123 // 456) (a b c) ]')
+                        '[ (( 123 // 456 )) (a b c) ]')
         self.assert_nix([RawValue("a b c"), {
             'cde': [RawValue("1,2,3"), RawValue("4 5 6"), RawValue("7\n8\n9")]
         }], '[ (a b c) { cde = [ 1,2,3 (4 5 6) (7\n8\n9) ]; } ]')

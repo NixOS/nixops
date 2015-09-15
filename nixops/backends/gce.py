@@ -768,8 +768,7 @@ class GCEState(MachineState, ResourceState):
                 and v.get('passphrase', "") == ""
                 and v.get('generatedKey', "") != ""):
                 block_device_mapping[k] = {
-                    'passphrase': Function("pkgs.lib.mkOverride 10",
-                                           v['generatedKey'], call=True),
+                    'passphrase': Call(RawValue("pkgs.lib.mkOverride 10"), v['generatedKey']),
                 }
 
         return {

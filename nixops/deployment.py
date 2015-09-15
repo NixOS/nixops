@@ -16,7 +16,7 @@ import nixops.statefile
 import nixops.backends
 import nixops.logger
 import nixops.parallel
-from nixops.nix_expr import RawValue, Function, nixmerge, py2nix
+from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
 import re
 from datetime import datetime
 import getpass
@@ -997,7 +997,7 @@ class Deployment(object):
         if self.rollback_enabled: # and len(self.active) == 0:
             profile = self.create_profile()
             attrs = {m.name:
-                     Function("builtins.storePath", m.cur_toplevel, call=True)
+                     Call(RawValue("builtins.storePath", m.cur_toplevel))
                      for m in self.active.itervalues() if m.cur_toplevel}
             if subprocess.call(
                 ["nix-env", "-p", profile, "--set", "*", "-I", "nixops=" + self.expr_path,

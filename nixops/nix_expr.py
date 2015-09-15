@@ -42,21 +42,31 @@ class MultiLineRawValue(RawValue):
 
 
 class Function(object):
-    def __init__(self, head, body, call=False):
+    def __init__(self, head, body):
         self.head = head
         self.body = body
-        self.call = call
 
     def __repr__(self):
-        if self.call:
-            return "{0}: {1}".format(self.head, self.body)
-        else:
-            return "{0} {1}".format(self.head, self.body)
+        return "{0} {1}".format(self.head, self.body)
 
     def __eq__(self, other):
         return (isinstance(other, Function)
                 and other.head == self.head
                 and other.body == self.body)
+
+
+class Call(object):
+    def __init__(self, fun, arg):
+        self.fun = fun
+        self.arg = arg
+
+    def __repr__(self):
+        return "{0} {1}".format(self.fun, self.arg)
+
+    def __eq__(self, other):
+        return (isinstance(other, App)
+                and other.fun == self.fun
+                and other.arg == self.arg)
 
 
 class Container(object):
@@ -207,8 +217,10 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
 
     def _enc_function(node):
         body = _enc(node.body)
-        sep = " " if node.call else ": "
-        return enclose_node(body, node.head + sep)
+        return enclose_node(body, node.head + ": ")
+
+    def _enc_call(node):
+        return Container("(", [_enc(node.fun), _enc(node.arg)], ")")
 
     def _enc(node, inlist=False):
         if isinstance(node, RawValue):
@@ -236,6 +248,11 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
                 return enclose_node(_enc_function(node), "(", ")")
             else:
                 return _enc_function(node)
+        elif isinstance(node, Call):
+            if inlist:
+                return enclose_node(_enc_call(node), "(", ")")
+            else:
+                return _enc_call(node)
         else:
             raise ValueError("unable to encode {0}".format(repr(node)))
 
