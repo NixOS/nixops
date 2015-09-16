@@ -31,8 +31,8 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
     def get_type(cls):
         return "gce"
 
-    def __init__(self, xml):
-        MachineDefinition.__init__(self, xml)
+    def __init__(self, xml, config):
+        MachineDefinition.__init__(self, xml, config)
         x = xml.find("attrs/attr[@name='gce']/attrs")
         assert x is not None
 

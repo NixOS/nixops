@@ -12,8 +12,8 @@ class ContainerDefinition(MachineDefinition):
     def get_type(cls):
         return "container"
 
-    def __init__(self, xml):
-        MachineDefinition.__init__(self, xml)
+    def __init__(self, xml, config):
+        MachineDefinition.__init__(self, xml, config)
         x = xml.find("attrs/attr[@name='container']/attrs")
         assert x is not None
         self.host = x.find("attr[@name='host']/string").get("value")

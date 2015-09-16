@@ -55,6 +55,10 @@ class MachineState(nixops.resources.ResourceState):
     # Time (in Unix epoch) the instance was started, if known.
     start_time = nixops.util.attr_property("startTime", None, int)
 
+    # The value of the ‘system.stateVersion’ attribute at the time the
+    # machine was created.
+    state_version = nixops.util.attr_property("stateVersion", None, str)
+
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False

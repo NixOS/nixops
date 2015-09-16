@@ -448,6 +448,12 @@ class Deployment(object):
                     ('networking', 'vpnPublicKey'): public_vpn_key
                 })
 
+            # Set system.stateVersion if the Nixpkgs version supports it.
+            if nixops.util.parse_nixos_version(defn.config["nixosVersion"]) >= ["15", "09"]:
+                attrs_list.append({
+                    ('system', 'stateVersion'): Call(RawValue("lib.mkDefault"), m.state_version or '14.12')
+                })
+
             if self.nixos_version_suffix:
                 attrs_list.append({
                     ('system', 'nixosVersionSuffix'): self.nixos_version_suffix
@@ -510,7 +516,7 @@ class Deployment(object):
                 return {}
             else:
                 return r.prefix_definition({
-                    r.name: Function("{ config, pkgs, ... }", {
+                    r.name: Function("{ config, lib, pkgs, ... }", {
                         'config': merged,
                         'imports': [physical],
                     })
@@ -859,9 +865,23 @@ class Deployment(object):
                     if not r.creation_time:
                         r.creation_time = int(time.time())
                     r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot, allow_recreate=allow_recreate)
+
                     if is_machine(r):
+                        # The first time the machine is created,
+                        # record the state version. We get it from
+                        # /etc/os-release, rather than from the
+                        # configuration's state.systemVersion
+                        # attribute, because the machine may have been
+                        # booted from an older NixOS image.
+                        if not r.state_version:
+                            os_release = r.run_command("cat /etc/os-release", capture_stdout=True)
+                            match = re.search('VERSION_ID="([0-9]+\.[0-9]+)\..*"', os_release)
+                            if match:
+                                r.state_version = match.group(1)
+
                         r.wait_for_ssh(check=check)
                         r.generate_vpn_key(check=check)
+
                 except:
                     r._errored = True
                     raise

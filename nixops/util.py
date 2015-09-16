@@ -344,3 +344,8 @@ def xml_expr_to_python(node):
         return {"drvPath": node.get("drvPath/"), "outPath": node.get("outPath")}
 
     raise Exception("cannot convert XML output of nix-instantiate to Python")
+
+
+def parse_nixos_version(s):
+    """Split a NixOS version string into a list of components."""
+    return s.split(".")

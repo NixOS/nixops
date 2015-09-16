@@ -47,8 +47,8 @@ class HetznerDefinition(MachineDefinition):
     def get_type(cls):
         return "hetzner"
 
-    def __init__(self, xml):
-        MachineDefinition.__init__(self, xml)
+    def __init__(self, xml, config):
+        MachineDefinition.__init__(self, xml, config)
         x = xml.find("attrs/attr[@name='hetzner']/attrs")
         assert x is not None
         for var, name, valtype in [("main_ipv4", "mainIPv4", "string"),

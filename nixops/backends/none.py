@@ -11,8 +11,8 @@ class NoneDefinition(MachineDefinition):
     def get_type(cls):
         return "none"
 
-    def __init__(self, xml):
-        MachineDefinition.__init__(self, xml)
+    def __init__(self, xml, config):
+        MachineDefinition.__init__(self, xml, config)
         self._target_host = xml.find("attrs/attr[@name='targetHost']/string").get("value")
 
 
