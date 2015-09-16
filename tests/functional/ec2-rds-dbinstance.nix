@@ -7,7 +7,7 @@ in
   resources.rdsDbInstances.test-rds-instance = {
     inherit region;
     id = "myOtherDatabaseIsAFilesystem";
-    instanceClass = "db.t2.micro";
+    instanceClass = "db.r3.large";
     allocatedStorage = 30;
     masterUsername = "administrator";
     masterPassword = "testing123";
