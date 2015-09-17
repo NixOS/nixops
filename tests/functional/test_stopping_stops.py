@@ -7,5 +7,4 @@ class TestStoppingStops(single_machine_test.SingleMachineTest):
         self.depl.deploy()
         self.depl.stop_machines()
         m = self.depl.active.values()[0]
-        m.check()
         tools.assert_equal(m.state, m.STOPPED)
