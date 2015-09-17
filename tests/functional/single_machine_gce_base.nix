@@ -8,7 +8,7 @@ in
       deployment.targetEnv = "gce";
       deployment.gce = {
         inherit region;
-        instanceType = "f1-micro";
+        instanceType = "g1-small";
         tags = [ "test" "instance" ];
         metadata.random = "mess";
       };
