@@ -8,18 +8,6 @@ let
 
   version = "1.3" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
 
-  # Use this until the patches are upstreamed.
-  # Warning: will be rebased at will
-  libcloud = pkgs.lib.overrideDerivation pkgs.pythonPackages.libcloud ( args: {
-    src = pkgs.fetchgit {
-      url = https://github.com/Phreedom/libcloud.git;
-      rev = "784427f549829a00d551e3468184a708420ad1ec";
-      sha256 = "fd0e092b39fa1fde6a8847e6dc69855d30c2dad9e95ee0373297658ff53edf8a";
-    };
-
-    preConfigure = "cp libcloud/test/secrets.py-dist libcloud/test/secrets.py";
-  });
-
 in
 
 rec {
@@ -84,7 +72,7 @@ rec {
         [ pythonPackages.prettytable
           pythonPackages.boto
           pythonPackages.hetzner
-          libcloud
+          pythonPackages.libcloud
           pythonPackages.sqlite3
         ];
 
