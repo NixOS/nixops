@@ -643,7 +643,7 @@ class GCEState(MachineState, ResourceState):
                 if self.public_ipv4:
                     known_hosts.add(self.public_ipv4, self.public_host_key)
 
-                self.handle_changed_property('private_ip4',
+                self.handle_changed_property('private_ipv4',
                                               node.private_ips[0] if node.private_ips else None,
                                               property_name = 'private IP address')
 
