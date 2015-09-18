@@ -377,7 +377,7 @@ class GCEState(MachineState, ResourceState):
             if not boot_disk:
                 raise Exception("no boot disk found for {0}".format(self.full_name))
             try:
-                node = self.connect().create_node(self.machine_name, defn.instance_type, 'none',
+                node = self.connect().create_node(self.machine_name, defn.instance_type, None,
                                  location = self.connect().ex_get_zone(defn.region),
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk.get('region', None)),
                                  ex_metadata = self.full_metadata(defn.metadata), ex_tags = defn.tags,
