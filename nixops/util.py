@@ -227,7 +227,7 @@ def attr_property(name, default, type=str):
     return property(get, set)
 
 
-def create_key_pair(key_name="NixOps auto-generated key", type="ecdsa"):
+def create_key_pair(key_name="NixOps auto-generated key", type="ed25519"):
     key_dir = tempfile.mkdtemp(prefix="nixops-tmp")
     res = subprocess.call(["ssh-keygen", "-t", type, "-f", key_dir + "/key", "-N", '', "-C", key_name],
                           stdout=devnull)

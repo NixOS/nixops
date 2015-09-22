@@ -203,7 +203,7 @@ class VirtualBoxState(MachineState):
                 self.private_host_key = private
 
         self._logged_exec(
-            ["VBoxManage", "guestproperty", "set", self.vm_id, "/VirtualBox/GuestInfo/Charon/PrivateHostKey", self.private_host_key])
+            ["VBoxManage", "guestproperty", "set", self.vm_id, "/VirtualBox/GuestInfo/NixOps/PrivateHostEd25519Key", self.private_host_key])
 
         # Backwards compatibility.
         if self.disk:
