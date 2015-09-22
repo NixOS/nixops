@@ -12,7 +12,7 @@ import boto.ec2
 import boto.ec2.blockdevicemapping
 import boto.ec2.networkinterface
 from nixops.backends import MachineDefinition, MachineState
-from nixops.nix_expr import Function, RawValue
+from nixops.nix_expr import Function, Call, RawValue
 from nixops.resources.ebs_volume import EBSVolumeState
 from nixops.resources.elastic_ip import ElasticIPState
 import nixops.resources.ec2_common
