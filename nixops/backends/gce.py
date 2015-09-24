@@ -150,8 +150,8 @@ class GCEState(MachineState, ResourceState):
         result = metadata.copy()
         result.update({
             'sshKeys': "root:{0}".format(self.public_client_key),
-            'ssh_host_ed25519_key': self.private_host_key,
-            'ssh_host_ed25519_key_pub': self.public_host_key
+            'ssh_host_{0}_key'.format(self.host_key_type): self.private_host_key,
+            'ssh_host_{0}_key_pub'.format(self.host_key_type): self.public_host_key
         })
         return result
 
@@ -213,8 +213,10 @@ class GCEState(MachineState, ResourceState):
             self.public_client_key = public
             self.private_client_key = private
 
+        self.host_key_type = "ed25519" if self.state_version != "14.12" and nixops.util.parse_nixos_version(defn.config["nixosVersion"]) >= ["15", "09"] else "ecdsa"
+
         if not self.public_host_key:
-            (private, public) = create_key_pair()
+            (private, public) = create_key_pair(type=self.host_key_type)
             self.public_host_key = public
             self.private_host_key = private
 
@@ -267,8 +269,8 @@ class GCEState(MachineState, ResourceState):
 
                     actual_metadata = { i['key']: i['value']
                                         for i in node.extra['metadata'].get('items', [])
-                                        if i['key'] not in [ 'ssh_host_ed25519_key', 'sshKeys',
-                                                             'ssh_host_ed25519_key_pub'] }
+                                        if i['key'] not in [ 'ssh_host_{0}_key'.format(self.host_key_type), 'sshKeys',
+                                                             'ssh_host_{0}_key_pub'.format(self.host_key_type)] }
                     self.handle_changed_property('metadata', actual_metadata)
 
                     self.handle_changed_property('automatic_restart',

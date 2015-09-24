@@ -111,10 +111,15 @@ rec {
 
   gce_default_bootstrap_images = flip mapAttrs' gce_deployments (name: depl:
     let gce = (scrubOptionValue depl).config.deployment.gce; in (
-      nameValuePair ("bootstrap") [{
+      nameValuePair ("bootstrap") [({ pkgs, ...}: {
         inherit (gce) project serviceAccount accessKey;
-        sourceUri = "gs://nixos-cloud-images/nixos-14.12.471.1f09b77-x86_64-linux.raw.tar.gz";
-      }]
+        sourceUri =
+          if pkgs.lib.substring 0 5 pkgs.lib.nixpkgsVersion == "14.12" then
+            "gs://nixos-cloud-images/nixos-14.12.471.1f09b77-x86_64-linux.raw.tar.gz"
+          else
+            "gs://nixos-cloud-images/nixos-15.09.425.7870f20-x86_64-linux.raw.tar.gz";
+
+      })]
     )
   );
 
