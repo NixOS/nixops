@@ -8,7 +8,7 @@ import struct
 from nixops import known_hosts
 from nixops.util import wait_for_tcp_port, ping_tcp_port
 from nixops.util import attr_property, create_key_pair, generate_random_string
-from nixops.nix_expr import Function, RawValue
+from nixops.nix_expr import Function, RawValue, Call
 
 from nixops.backends import MachineDefinition, MachineState
 
@@ -150,8 +150,8 @@ class GCEState(MachineState, ResourceState):
         result = metadata.copy()
         result.update({
             'sshKeys': "root:{0}".format(self.public_client_key),
-            'ssh_host_ecdsa_key': self.private_host_key,
-            'ssh_host_ecdsa_key_pub': self.public_host_key
+            'ssh_host_ed25519_key': self.private_host_key,
+            'ssh_host_ed25519_key_pub': self.public_host_key
         })
         return result
 
@@ -214,7 +214,7 @@ class GCEState(MachineState, ResourceState):
             self.private_client_key = private
 
         if not self.public_host_key:
-            (private, public) = create_key_pair(type="ecdsa")
+            (private, public) = create_key_pair()
             self.public_host_key = public
             self.private_host_key = private
 
@@ -267,8 +267,8 @@ class GCEState(MachineState, ResourceState):
 
                     actual_metadata = { i['key']: i['value']
                                         for i in node.extra['metadata'].get('items', [])
-                                        if i['key'] not in [ 'ssh_host_ecdsa_key', 'sshKeys',
-                                                             'ssh_host_ecdsa_key_pub'] }
+                                        if i['key'] not in [ 'ssh_host_ed25519_key', 'sshKeys',
+                                                             'ssh_host_ed25519_key_pub'] }
                     self.handle_changed_property('metadata', actual_metadata)
 
                     self.handle_changed_property('automatic_restart',
@@ -377,7 +377,7 @@ class GCEState(MachineState, ResourceState):
             if not boot_disk:
                 raise Exception("no boot disk found for {0}".format(self.full_name))
             try:
-                node = self.connect().create_node(self.machine_name, defn.instance_type, None,
+                node = self.connect().create_node(self.machine_name, defn.instance_type, "",
                                  location = self.connect().ex_get_zone(defn.region),
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk.get('region', None)),
                                  ex_metadata = self.full_metadata(defn.metadata), ex_tags = defn.tags,

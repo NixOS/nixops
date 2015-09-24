@@ -67,8 +67,10 @@ class GCEImageState(ResourceState):
     defn_properties = [ 'description', 'source_uri' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        self.no_property_change(defn, 'source_uri')
-        self.no_property_change(defn, 'description')
+        if defn.name != "bootstrap":
+            self.no_property_change(defn, 'source_uri')
+            self.no_property_change(defn, 'description')
+
         self.no_project_change(defn)
 
         self.copy_credentials(defn)
