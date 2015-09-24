@@ -65,6 +65,9 @@ class EC2Definition(MachineDefinition):
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")
 
+    def host_key_type(self):
+        return "ed25519" if nixops.util.parse_nixos_version(self.config["nixosVersion"]) >= ["15", "09"] else "dsa"
+
 
 class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     """State of an EC2 machine."""
@@ -841,13 +844,14 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
             # Generate a public/private host key.
             if not self.public_host_key:
-                (private, public) = nixops.util.create_key_pair()
+                (private, public) = nixops.util.create_key_pair(type=defn.host_key_type())
                 with self.depl._db:
                     self.public_host_key = public
                     self.private_host_key = private
 
-            user_data = "SSH_HOST_ED25519_KEY_PUB:{0}\nSSH_HOST_ED25519_KEY:{1}\n".format(
-                self.public_host_key, self.private_host_key.replace("\n", "|"))
+            user_data = "SSH_HOST_{2}_KEY_PUB:{0}\nSSH_HOST_{2}_KEY:{1}\n".format(
+                self.public_host_key, self.private_host_key.replace("\n", "|"),
+                defn.host_key_type().upper())
 
             instance = self.create_instance(defn, zone, devmap, user_data, ebs_optimized)
 
@@ -926,15 +930,17 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # Wait until the instance is reachable via SSH.
         self.wait_for_ssh(check=check)
 
-        # Generate a new ed25519 host key on the instance and restart
+        # Generate a new host key on the instance and restart
         # sshd. This is necessary because we can't count on the
-        # instance data to remain secret.
-        # FIXME: not atomic.
+        # instance data to remain secret.  FIXME: not atomic.
         if "NixOps auto-generated key" in self.public_host_key:
-            ed25519_key = self.run_command(
-                "rm -f /etc/ssh/ssh_host_ed25519_key*; systemctl restart sshd; cat /etc/ssh/ssh_host_ed25519_key.pub",
+            self.log_start("replacing temporary host key...")
+            key_type = defn.host_key_type()
+            new_key = self.run_command(
+                "rm -f /etc/ssh/ssh_host_{0}_key*; systemctl restart sshd; cat /etc/ssh/ssh_host_{0}_key.pub"
+                .format(key_type),
                 capture_stdout=True).rstrip()
-            self.public_host_key = ed25519_key
+            self.public_host_key = new_key
             nixops.known_hosts.update(None, self._ip_for_ssh_key(), self.public_host_key)
 
         if resize_root:
