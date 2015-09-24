@@ -13,8 +13,8 @@
       src = fetchFromGitHub {
         owner = "NixOS";
         repo = "nixos-homepage";
-        rev = "9cb4cb91b4d2e4cb00310804eea5971db85ca1af";
-        sha256 = "0b39slhysmld4kxb69myxri4lnc75w61bzxfq9w1r5ii40zlwkmx";
+        rev = "2aa65af0cf4d15109bf985f4ad2f01941100f5d8";
+        sha256 = "1szmzfpxxsp38mxs2nzx5awbr8av6z11bnv23dvs57y8lyyrp0g2";
       };
       buildInputs =
         [ perl
@@ -29,6 +29,7 @@
         ];
       preBuild =
         ''
+          patchShebangs .
           echo '[]' > nixpkgs-commits.json
           echo '[]' > nixpkgs-commit-stats.json
           touch blogs.xml
@@ -43,6 +44,7 @@
         '';
       installPhase =
         ''
+          rm -rf nix/manual-raw nixos/manual-raw nixops/manual-raw
           mkdir -p $out
           cp -prvd * $out/
         '';
