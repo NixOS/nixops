@@ -23,7 +23,7 @@ class SSHCommandFailed(nixops.util.CommandFailed):
 class SSHMaster(object):
     def __init__(self, target, logger, ssh_flags, passwd):
         self._running = False
-        self._tempdir = nixops.util.SelfDeletingDir(mkdtemp(prefix="nixops-tmp"))
+        self._tempdir = nixops.util.SelfDeletingDir(mkdtemp(prefix="nixops-ssh-tmp"))
         self._askpass_helper = None
         self._control_socket = self._tempdir + "/ssh-master-socket"
         self._ssh_target = target
@@ -94,13 +94,7 @@ sys.stdout.write(os.environ['NIXOPS_SSH_PASSWORD'])""".format(sys.executable))
         subprocess.call(["ssh", self._ssh_target, "-S",
                          self._control_socket, "-O", "exit"],
                         stderr=nixops.util.devnull)
-        for to_unlink in (self._askpass_helper, self._control_socket):
-            if to_unlink is None:
-                continue
-            try:
-                os.unlink(to_unlink)
-            except OSError:
-                pass
+        self._tempdir = None
 
     def __del__(self):
         self.shutdown()

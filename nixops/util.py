@@ -14,6 +14,7 @@ import shutil
 import tempfile
 import subprocess
 import logging
+import atexit
 from StringIO import StringIO
 
 devnull = open(os.devnull, 'rw')
@@ -228,7 +229,7 @@ def attr_property(name, default, type=str):
 
 
 def create_key_pair(key_name="NixOps auto-generated key", type="ed25519"):
-    key_dir = tempfile.mkdtemp(prefix="nixops-tmp")
+    key_dir = tempfile.mkdtemp(prefix="nixops-key-tmp")
     res = subprocess.call(["ssh-keygen", "-t", type, "-f", key_dir + "/key", "-N", '', "-C", key_name],
                           stdout=devnull)
     if res != 0: raise Exception("unable to generate an SSH key")
@@ -239,12 +240,11 @@ def create_key_pair(key_name="NixOps auto-generated key", type="ed25519"):
 
 
 class SelfDeletingDir(str):
-    def __del__(self):
+    def __init__(self, s):
+        str.__init__(s)
+        atexit.register(self._delete)
+    def _delete(self):
         shutil.rmtree(self)
-        try:
-            super(SelfDeletingDir,self).__del__()
-        except AttributeError:
-            pass
 
 
 class TeeStderr(StringIO):
