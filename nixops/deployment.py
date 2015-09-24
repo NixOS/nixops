@@ -60,6 +60,7 @@ class Deployment(object):
         self.extra_nix_flags = []
         self.extra_nix_eval_flags = []
         self.nixos_version_suffix = None
+        self._tempdir = None
 
         self.logger = nixops.logger.Logger(log_file)
 
@@ -70,8 +71,6 @@ class Deployment(object):
             self.expr_path = os.path.realpath(os.path.dirname(__file__) + "/../../../../../share/nix/nixops")
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
-
-        self.tempdir = nixops.util.SelfDeletingDir(tempfile.mkdtemp(prefix="nixops-tmp"))
 
         self.resources = {}
         with self._db:
@@ -84,6 +83,12 @@ class Deployment(object):
 
         self.definitions = None
 
+
+    @property
+    def tempdir(self):
+        if not self._tempdir:
+            self._tempdir = nixops.util.SelfDeletingDir(tempfile.mkdtemp(prefix="nixops-tmp"))
+        return self._tempdir
 
     @property
     def machines(self):
