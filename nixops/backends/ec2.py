@@ -945,7 +945,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.public_host_key = new_key
             nixops.known_hosts.update(None, self._ip_for_ssh_key(), self.public_host_key)
 
-        if resize_root:
+        # Resize the root filesystem. On NixOS >= 15.09, this is done
+        # by the initrd.
+        if resize_root and nixops.util.parse_nixos_version(defn.config["nixosVersion"]) < ["15", "09"]:
             self.log('resizing root disk...')
             self.run_command("resize2fs {0}".format(_sd_to_xvd(root_device)))
 
