@@ -40,6 +40,8 @@ class EC2Definition(MachineDefinition):
         self.region = config["ec2"]["region"]
         self.zone = config["ec2"]["zone"]
         self.ami = config["ec2"]["ami"]
+        if self.ami == "":
+            raise Exception("no AMI defined for EC2 machine ‘{0}’".format(self.name))
         self.instance_type = config["ec2"]["instanceType"]
         self.key_pair = config["ec2"]["keyPair"]
         self.private_key = config["ec2"]["privateKey"]
