@@ -934,7 +934,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # sshd. This is necessary because we can't count on the
         # instance data to remain secret.  FIXME: not atomic.
         if "NixOps auto-generated key" in self.public_host_key:
-            self.log_start("replacing temporary host key...")
+            self.log("replacing temporary host key...")
             key_type = defn.host_key_type()
             new_key = self.run_command(
                 "rm -f /etc/ssh/ssh_host_{0}_key*; systemctl restart sshd; cat /etc/ssh/ssh_host_{0}_key.pub"
