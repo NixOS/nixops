@@ -193,7 +193,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         return {
             'imports': [
-                RawValue("<nixpkgs/nixos/modules/virtualisation/amazon-config.nix>")
+                RawValue("<nixpkgs/nixos/modules/virtualisation/amazon-image.nix>")
             ],
             ('deployment', 'ec2', 'blockDeviceMapping'): block_device_mapping,
             ('deployment', 'ec2', 'instanceId'): self.vm_id,
