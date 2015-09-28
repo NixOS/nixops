@@ -77,7 +77,7 @@ class EC2KeyPairState(nixops.resources.ResourceState):
 
         # Generate the key pair locally.
         if not self.public_key:
-            (private, public) = nixops.util.create_key_pair(type="ed25519")
+            (private, public) = nixops.util.create_key_pair(type="rsa") # EC2 only supports RSA keys.
             with self.depl._db:
                 self.public_key = public
                 self.private_key = private
