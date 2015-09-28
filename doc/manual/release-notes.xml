@@ -6,44 +6,79 @@
 
 <!--==================================================================-->
 
-<section xml:id="ssec-relnotes-1.3"><title>Release 1.3 (September 15, 2015)</title>
+<section xml:id="ssec-relnotes-1.3"><title>Release 1.3 (September 28, 2015)</title>
 
 <itemizedlist>
 
   <listitem><para>General</para>
 
     <itemizedlist>
-        <listitem><para></para></listitem>
+        <listitem><para>NixOps now requires NixOS 14.12 and up.</para></listitem>
+        <listitem><para>
+            Machines in NixOps network now have access to the deployment name,
+            uuid and its arguments, by means of the <code>deployment.name</code>,
+            <code>deployment.uuid</code> and <code>deployment.arguments</code> options.
+        </para></listitem>.
+        <listitem><para>
+            Support for &lt;...> paths in network spec filenames, e.g. you
+            can use: <code>nixops create '&lt;nixops/templates/container.nix>'</code>.
+        </para></listitem>
+        <listitem><para>Support ‘username@machine’ for <code>nixops scp</code></para></listitem>
     </itemizedlist>
   </listitem>
 
   <listitem><para>Amazon EC2</para>
 
     <itemizedlist>
-      <listitem><para></para></listitem>
+        <listitem><para>Support for the latest EC2 instance types, including t2 and c4 instance.</para></listitem>
+        <listitem><para>Support Amazon EBS SSD disks.</para></listitem>
+        <listitem><para>
+             Instances can be placed in an EC2 placement group. This allows
+             instances to be grouped in a low-latency 10 Gbps network.
+        </para></listitem>
+        <listitem><para>Allow starting EC2 instances in a VPC subnet.</para></listitem>
+        <listitem><para>More robust handling of spot instance creation.</para></listitem>
+        <listitem><para>Support for setting bucket policies on S3 buckets created by NixOps.</para></listitem>
+        <listitem><para>Route53 support now uses CNAME to public DNS hostname, in stead of A record to the public IP address.</para></listitem>
+        <listitem><para>Support Amazon RDS instances.</para></listitem>
     </itemizedlist>
   </listitem>
 
   <listitem><para>Google Cloud</para>
 
     <itemizedlist>
-      <listitem><para></para></listitem>
-    </itemizedlist>
-  </listitem>
-
-  <listitem><para>Hetzner</para>
-
-    <itemizedlist>
-      <listitem><para></para></listitem>
+        <listitem><para>New backend for Google Cloud Platform. It includes support for the following resources:</para></listitem>
+        <itemizedlist>
+            <listitem><para>Instances</para></listitem>
+            <listitem><para>Disks</para></listitem>
+            <listitem><para>Images</para></listitem>
+            <listitem><para>Load balancer, HTTP health check, Target pools and forwarding rules.</para></listitem>
+            <listitem><para>Static IPs</para></listitem>
+        </itemizedlist>
     </itemizedlist>
   </listitem>
 
   <listitem><para>VirtualBox</para>
 
     <itemizedlist>
-      <listitem><para></para></listitem>
+      <listitem><para>VirtualBox 5.0 is required for the VirtualBox backend.</para></listitem>
     </itemizedlist>
   </listitem>
+
+  <listitem><para>NixOS container</para>
+
+    <itemizedlist>
+      <listitem><para>New backend for NixOS containers.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Libvirt</para>
+
+    <itemizedlist>
+        <listitem><para>New backend for libvirt using QEMU/KVM.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
 
 
 </itemizedlist>
