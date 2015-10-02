@@ -24,6 +24,7 @@ class EC2SecurityGroupDefinition(nixops.resources.ResourceDefinition):
         self.security_group_description = xml.find("attrs/attr[@name='description']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
+        self.vpc_id = xml.find("attrs/attr[@name='vpcId']/string").get("value")
         self.security_group_rules = []
         for rule_xml in xml.findall("attrs/attr[@name='rules']/list/attrs"):
             ip_protocol = rule_xml.find("attr[@name='protocol']/string").get("value")
@@ -141,8 +142,22 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
         if self.state == self.MISSING or self.state == self.UNKNOWN:
             self._connect()
             try:
-                self.logger.log("creating EC2 security group ‘{0}’...".format(self.security_group_name))
-                grp = self._conn.create_security_group(self.security_group_name, self.security_group_description)
+                if defn.vpc_id:
+                    self.logger.log(
+                        "creating VPC security group ‘{0}’ in '{1}'...".format(
+                            self.security_group_name, defn.vpc_id))
+                    grp = self._conn.create_security_group(
+                        self.security_group_name,
+                        self.security_group_description,
+                        defn.vpc_id)
+                else:
+                    self.logger.log(
+                        "creating EC2 security group ‘{0}’...".format(
+                            self.security_group_name))
+                    grp = self._conn.create_security_group(
+                        self.security_group_name,
+                        self.security_group_description)
+
                 self.security_group_id = grp.id
             except boto.exception.EC2ResponseError as e:
                 if self.state != self.UNKNOWN or e.error_code != u'InvalidGroup.Duplicate':
@@ -193,8 +208,9 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
 
     def destroy(self, wipe=False):
         if self.state == self.UP or self.state == self.STARTING:
-            self.logger.log("deleting EC2 security group `{0}'...".format(self.security_group_name))
+            self.logger.log("deleting EC2 security group `{0}' ID `{1}'...".format(
+                self.security_group_name, self.security_group_id))
             self._connect()
-            self._conn.delete_security_group(self.security_group_name)
+            self._conn.delete_security_group(group_id=self.security_group_id)
             self.state = self.MISSING
         return True

@@ -5,7 +5,6 @@ with lib;
 {
 
   options = {
-
     name = mkOption {
       default = "charon-${uuid}-${name}";
       type = types.str;
@@ -33,6 +32,13 @@ with lib;
       default = null;
       type = types.uniq (types.nullOr types.str);
       description = "The security group ID. This is set by NixOps.";
+    };
+
+    vpcId = mkOption {
+      default = null;
+      type = types.nullOr types.str;
+      description = "The VPC ID for which to create security group.";
+      example = "vpc-a01106c2";
     };
 
     rules = mkOption {
