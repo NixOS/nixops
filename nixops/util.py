@@ -331,6 +331,9 @@ def xml_expr_to_python(node):
     elif node.tag == "string":
         return node.get("value")
 
+    elif node.tag == "path":
+        return node.get("value")
+
     elif node.tag == "bool":
         return node.get("value") == "true"
 
@@ -343,7 +346,7 @@ def xml_expr_to_python(node):
     elif node.tag == "derivation":
         return {"drvPath": node.get("drvPath/"), "outPath": node.get("outPath")}
 
-    raise Exception("cannot convert XML output of nix-instantiate to Python")
+    raise Exception("cannot convert XML output of nix-instantiate to Python: Unknown tag "+node.tag)
 
 
 def parse_nixos_version(s):
