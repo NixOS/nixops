@@ -25,7 +25,7 @@ class SSHMaster(object):
         self._running = False
         self._tempdir = nixops.util.SelfDeletingDir(mkdtemp(prefix="nixops-ssh-tmp"))
         self._askpass_helper = None
-        self._control_socket = self._tempdir + "/ssh-master-socket"
+        self._control_socket = self._tempdir + "/master-socket"
         self._ssh_target = target
         pass_prompts = 0 if "-i" in ssh_flags else 3
         kwargs = {}
