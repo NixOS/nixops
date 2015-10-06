@@ -22,6 +22,12 @@ with lib;
       description = "The IAM policy definition (in JSON format).";
     };
 
+    assumeRolePolicy = mkOption {
+      type = types.str;
+      description = "The IAM AssumeRole policy definition (in JSON format). Empty string (default) uses the existing Assume Role Policy.";
+      default = "";
+    };
+
   };
 
 }

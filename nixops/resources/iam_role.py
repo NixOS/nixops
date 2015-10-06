@@ -27,6 +27,7 @@ class IAMRoleDefinition(nixops.resources.ResourceDefinition):
         self.role_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
         self.policy = xml.find("attrs/attr[@name='policy']/string").get("value")
+        self.assume_role_policy = xml.find("attrs/attr[@name='assumeRolePolicy']/string").get("value")
 
     def show_type(self):
         return "{0}".format(self.get_type())
@@ -39,6 +40,7 @@ class IAMRoleState(nixops.resources.ResourceState):
     role_name = nixops.util.attr_property("ec2.roleName", None)
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
     policy = nixops.util.attr_property("ec2.policy", None)
+    assume_role_policy = nixops.util.attr_property("ec2.assumeRolePolicy", None)
 
     @classmethod
     def get_type(cls):
@@ -108,6 +110,7 @@ class IAMRoleState(nixops.resources.ResourceState):
             self.role_name = None
             self.access_key_id = None
             self.policy = None
+            self.assume_role_policy = None
 
 
     def create_after(self, resources, defn):
@@ -160,6 +163,9 @@ class IAMRoleState(nixops.resources.ResourceState):
 
         if not check:
             self._conn.put_role_policy(defn.role_name, defn.role_name, defn.policy)
+
+        if defn.assume_role_policy != "":
+            self._conn.update_assume_role_policy(defn.role_name, defn.assume_role_policy)
 
         with self.depl._db:
             self.state = self.UP
