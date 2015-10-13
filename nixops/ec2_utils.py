@@ -113,3 +113,17 @@ def wait_for_volume_available(conn, volume_id, logger, states=['available']):
     nixops.util.check_wait(check_available, max_tries=90)
 
     logger.log_end('')
+
+
+def name_to_security_group(conn, name, vpc_id):
+    if not vpc_id or name.startswith('sg-'):
+        return name
+
+    id = None
+    for sg in conn.get_all_security_groups(filters={'group-name':name, 'vpc-id': vpc_id}):
+        if sg.name == name:
+            id = sg.id
+            return id
+
+    raise Exception("could not resolve security group name '{0}' in VPC '{1}'".format(name, vpc_id))
+

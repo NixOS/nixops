@@ -168,7 +168,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                     args = {}
                     args['owner_id']=rule[4]
                     if self.vpc_id:
-                        args['id']=self.name_to_sg(rule[3])
+                        args['id']=nixops.ec2_utils.name_to_security_group(self._conn, rule[3], self.vpc_id)
                     else:
                         args['name']=rule[3]
                     src_group = boto.ec2.securitygroup.SecurityGroup(**args)
@@ -186,7 +186,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                     args = {}
                     args['owner_id']=rule[4]
                     if self.vpc_id:
-                        args['id']=self.name_to_sg(rule[3])
+                        args['id']=nixops.ec2_utils.name_to_security_group(self._conn, rule[3], self.vpc_id)
                     else:
                         args['name']=rule[3]
                     src_group = boto.ec2.securitygroup.SecurityGroup(**args)
@@ -194,19 +194,6 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
         self.security_group_rules = defn.security_group_rules
 
         self.state = self.UP
-
-    def name_to_sg(self, name):
-        if not self.vpc_id or name.startswith('sg-'):
-            return name
-
-        id = None
-        for sg in self._conn.get_all_security_groups(filters={'group-name':name, 'vpc-id': self.vpc_id}):
-            if sg.name == name:
-                id = sg.id
-                self.logger.log("resolved security group '{0}' to '{1}'".format(name, id))
-                return id
-
-        raise Exception("could not resolve security group name '{0}' in VPC '{1}'".format(name, self.vpc_id))
 
     def get_security_group(self):
         if self.vpc_id:
