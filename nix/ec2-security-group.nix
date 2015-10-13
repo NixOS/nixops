@@ -35,6 +35,12 @@ with lib;
       description = "The security group ID. This is set by NixOps.";
     };
 
+    vpcId = mkOption {
+      default = null;
+      type = types.uniq (types.nullOr types.str);
+      description = "The VPC ID to create security group in.";
+    };
+
     rules = mkOption {
       type = types.listOf types.optionSet;
       description = "The security group's rules.";
