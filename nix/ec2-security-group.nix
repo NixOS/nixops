@@ -38,7 +38,7 @@ with lib;
     vpcId = mkOption {
       default = null;
       type = types.uniq (types.nullOr types.str);
-      description = "The VPC ID to create security group in.";
+      description = "The VPC ID to create security group in (default is not set, uses default VPC in EC2-VPC account, in EC2-Classic accounts no VPC is set).";
     };
 
     rules = mkOption {
