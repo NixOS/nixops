@@ -116,6 +116,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
         self._conn = None
+        self._conn_vpc = None
         self._conn_route53 = None
         self._cached_instance = None
 
@@ -246,6 +247,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self._conn = nixops.ec2_utils.connect(self.region, self.access_key_id)
         return self._conn
 
+
+    def connect_vpc(self):
+        if self._conn_vpc:
+            return
+        self._conn_vpc = boto.connect_vpc()
 
     def connect_route53(self):
         if self._conn_route53:
@@ -587,11 +593,13 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
 
     def _get_network_interfaces(self, defn):
+        self.connect_vpc()
+        vpc_id = self._conn_vpc.get_all_subnets([defn.subnet_id])[0].vpc_id
         return boto.ec2.networkinterface.NetworkInterfaceCollection(
             boto.ec2.networkinterface.NetworkInterfaceSpecification(
                 subnet_id=defn.subnet_id,
                 associate_public_ip_address=defn.associate_public_ip_address,
-                groups=defn.security_group_ids
+                groups=map(lambda g: nixops.ec2_utils.name_to_security_group(self._conn, g, vpc_id), defn.security_group_ids)
             )
         )
 
