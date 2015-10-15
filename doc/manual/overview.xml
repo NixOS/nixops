@@ -276,6 +276,7 @@ let
     { services.httpd.enable = true;
       services.httpd.adminAddr = "alice@example.org";
       services.httpd.documentRoot = "${pkgs.valgrind}/share/doc/valgrind/html";
+      networking.firewall.allowedTCPPorts = [ 80 ];
     };
 
 in
@@ -287,7 +288,7 @@ in
     { config, pkgs, nodes, ... }:
     { services.httpd.enable = true;
       services.httpd.adminAddr = "bob@example.org";
-      services.httpd.extraModules = ["proxy_balancer"];
+      services.httpd.extraModules = ["proxy_balancer" "lbmethod_byrequests"];
       services.httpd.extraConfig =
         ''
           &lt;Proxy balancer://cluster>
@@ -298,6 +299,7 @@ in
           ProxyPass         /    balancer://cluster/
           ProxyPassReverse  /    balancer://cluster/
         '';
+      networking.firewall.allowedTCPPorts = [ 80 ];
     };
 
   backend1 = backend;
