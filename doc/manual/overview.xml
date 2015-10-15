@@ -26,7 +26,7 @@ consisting of only one logical machine named
     { config, pkgs, ... }:
     { services.httpd.enable = true;
       services.httpd.adminAddr = "alice@example.org";
-      services.httpd.documentRoot = "${pkgs.valgrind}/share/doc/valgrind/html";
+      services.httpd.documentRoot = "${pkgs.valgrind.doc}/share/doc/valgrind/html";
       networking.firewall.allowedTCPPorts = [ 80 ];
     };
 }
@@ -275,7 +275,7 @@ let
     { config, pkgs, ... }:
     { services.httpd.enable = true;
       services.httpd.adminAddr = "alice@example.org";
-      services.httpd.documentRoot = "${pkgs.valgrind}/share/doc/valgrind/html";
+      services.httpd.documentRoot = "${pkgs.valgrind.doc}/share/doc/valgrind/html";
       networking.firewall.allowedTCPPorts = [ 80 ];
     };
 
