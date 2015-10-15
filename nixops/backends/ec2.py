@@ -593,13 +593,19 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
 
     def _get_network_interfaces(self, defn):
-        self.connect_vpc()
-        vpc_id = self._conn_vpc.get_all_subnets([defn.subnet_id])[0].vpc_id
+        groups = defn.security_group_ids
+
+        sg_names = filter(lambda g: not g.startswith('sg-'), defn.security_group_ids)
+        if sg_names != []:
+            self.connect_vpc()
+            vpc_id = self._conn_vpc.get_all_subnets([defn.subnet_id])[0].vpc_id
+            groups = map(lambda g: nixops.ec2_utils.name_to_security_group(self._conn, g, vpc_id), defn.security_group_ids)
+
         return boto.ec2.networkinterface.NetworkInterfaceCollection(
             boto.ec2.networkinterface.NetworkInterfaceSpecification(
                 subnet_id=defn.subnet_id,
                 associate_public_ip_address=defn.associate_public_ip_address,
-                groups=map(lambda g: nixops.ec2_utils.name_to_security_group(self._conn, g, vpc_id), defn.security_group_ids)
+                groups=groups
             )
         )
 
