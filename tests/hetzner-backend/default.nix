@@ -7,9 +7,33 @@ with pkgs.lib;
 let
   rescuePasswd = "abcd1234";
 
-  rescueDiskImageFun = pkgs.vmTools.diskImageFuns.debian7x86_64;
-  rescueDebDistro = pkgs.vmTools.debDistros.debian7x86_64;
-  rescueDebCodename = "wheezy";
+  rescueDiskImageFun = pkgs.vmTools.diskImageFuns.debian8x86_64;
+  rescueDebDistro = pkgs.vmTools.debDistros.debian8x86_64;
+  rescueDebCodename = "jessie";
+
+  live-build = pkgs.stdenv.mkDerivation rec {
+    name = "live-build-${version}";
+    version = "5.0_a11";
+
+    src = pkgs.fetchgit {
+      url = "git://live.debian.net/git/live-build.git";
+      rev = "refs/tags/debian/${version}-1";
+      sha256 = "0c3kqqsw4pxrnmjqphs8ifcm78yly6zdvnylg9s6njga7mb951g9";
+    };
+
+    dontPatchShebangs = true;
+
+    postPatch = ''
+      find -type f -exec sed -i \
+        -e 's,/usr/lib/live,'"$out"'/lib/live,g' \
+        -e 's,/usr/share/live,'"$out"'/share/live,g' \
+        {} +
+      sed -i \
+        -e 's,/usr/bin,'"$out"'/bin,' \
+        -e 's,/usr/share,'"$out"'/share,' \
+        Makefile
+    '';
+  };
 
   network = pkgs.writeText "network.nix" ''
     let
@@ -80,12 +104,13 @@ let
     }
   '';
 
-  # Packages needed by live-build (Debian Wheezy)
-  rescuePackages = pkgs.vmTools.debDistros.debian70x86_64.packages ++ [
-    "apt" "hostname" "tasksel" "makedev" "locales" "kbd" "linux-image-2.6-amd64"
+  # Packages needed by live-build
+  rescuePackages = [
+    "apt" "hostname" "tasksel" "makedev" "locales" "kbd" "linux-image-amd64"
     "console-setup" "console-common" "eject" "file" "user-setup" "sudo"
-    "squashfs-tools" "syslinux" "genisoimage" "live-boot" "zsync" "librsvg2-bin"
-    "dctrl-tools" "xorriso" "live-config" "live-config-sysvinit"
+    "squashfs-tools" "syslinux-common" "syslinux" "isolinux" "genisoimage"
+    "live-boot" "zsync" "librsvg2-bin" "dctrl-tools" "xorriso" "live-config"
+    "live-config-systemd"
   ];
 
   # Packages to be explicitly installed into the live system.
@@ -106,7 +131,7 @@ let
   rescueISO = pkgs.vmTools.runInLinuxImage (pkgs.stdenv.mkDerivation {
     name = "hetzner-fake-rescue-image";
     diskImage = rescueDiskImageFun {
-      extraPackages = [ "live-build" "cdebootstrap" ];
+      extraPackages = [ "debootstrap" "apt" ];
     };
     memSize = 768;
 
@@ -127,19 +152,27 @@ let
       mkdir -p /build_fake_rescue
       cd /build_fake_rescue
 
+      PATH="${pkgs.gnupg}/bin:${live-build}/bin:$PATH"
+
       ${aptRepository.serve}
 
       lb config --memtest none \
                 --apt-secure false \
+                --apt-source-archives false \
                 --binary-images iso \
                 --distribution "${rescueDebCodename}" \
-                --bootstrap cdebootstrap \
                 --debconf-frontend noninteractive \
+                --debootstrap-options "--include=snakeoil-archive-keyring" \
                 --bootappend-live "$bootOptions" \
                 --mirror-bootstrap http://127.0.0.1 \
-                --debian-installer false
-
-      cat "${aptRepository.publicKey}" > config/archives/snakeoil.key.chroot
+                --mirror-binary http://127.0.0.1 \
+                --debian-installer false \
+                --security false \
+                --updates false \
+                --backports false \
+                --source false \
+                --firmware-binary false \
+                --firmware-chroot false
 
       cat > config/hooks/1000-root_password.chroot <<ROOTPW
       echo "root:${rescuePasswd}" | chpasswd
@@ -166,19 +199,16 @@ let
 
       echo $additionalRescuePackages \
         > config/package-lists/additional.list.chroot
-      echo snakeoil-archive-keyring \
-        > config/package-lists/snakeoil.list.chroot
 
       cat > config/hooks/1000-isolinux_timeout.binary <<ISOLINUX
       sed -i -e 's/timeout 0/timeout 1/' binary/isolinux/isolinux.cfg
       ISOLINUX
 
-      # Ugly workaround for http://bugs.debian.org/643659
-      lb build || lb build
+      lb build
 
       kill -TERM $(< repo.pid)
-      chmod 0644 binary.iso
-      mv binary.iso "$out/rescue.iso"
+      chmod 0644 live-image-*.iso
+      mv live-image-*.iso "$out/rescue.iso"
     '';
   });
 
