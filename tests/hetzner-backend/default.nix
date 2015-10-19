@@ -258,7 +258,7 @@ in makeTest {
         buildInputs = [
           # This is to have the bootstrap installer prebuilt inside the Nix
           # store of the target machine.
-          (import ../nix/hetzner-bootstrap.nix)
+          (import ../../nix/hetzner-bootstrap.nix)
           # ... and this is for other requirements for a basic deployment.
           pkgs.stdenv pkgs.busybox pkgs.module_init_tools pkgs.grub2
           pkgs.xfsprogs pkgs.btrfsProgs pkgs.docbook_xsl_ns pkgs.libxslt
