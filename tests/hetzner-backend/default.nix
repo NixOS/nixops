@@ -7,6 +7,10 @@ with pkgs.lib;
 let
   rescuePasswd = "abcd1234";
 
+  rescueDiskImageFun = pkgs.vmTools.diskImageFuns.debian7x86_64;
+  rescueDebDistro = pkgs.vmTools.debDistros.debian7x86_64;
+  rescueDebCodename = "wheezy";
+
   network = pkgs.writeText "network.nix" ''
     let
       withCommonOptions = otherOpts: { config, ... }: {
@@ -90,26 +94,22 @@ let
     "net-tools"
   ];
 
-  # Debian packages for the rescue live system (Wheezy).
-  rescueDebs = let
-    expr = pkgs.vmTools.debClosureGenerator {
-      packages = rescuePackages ++ additionalRescuePackages;
-      inherit (pkgs.vmTools.debDistros.debian70x86_64) name urlPrefix;
-      packagesLists = [pkgs.vmTools.debDistros.debian70x86_64.packagesList];
-    };
-  in import expr {
-    inherit (pkgs) fetchurl;
+  aptRepository = import ./repository.nix {
+    inherit pkgs;
+    diskImageFun = rescueDiskImageFun;
+    debianDistro = rescueDebDistro;
+    debianCodename = rescueDebCodename;
+    debianPackages = rescuePackages ++ additionalRescuePackages;
   };
 
   # This more or less resembles an image of the Hetzner's rescue system.
   rescueISO = pkgs.vmTools.runInLinuxImage (pkgs.stdenv.mkDerivation {
     name = "hetzner-fake-rescue-image";
-    diskImage = pkgs.vmTools.diskImageFuns.debian70x86_64 {
-      extraPackages = [ "live-build" "cdebootstrap" "reprepro" ];
+    diskImage = rescueDiskImageFun {
+      extraPackages = [ "live-build" "cdebootstrap" ];
     };
     memSize = 768;
 
-    inherit rescueDebs;
     inherit additionalRescuePackages;
 
     bootOptions = [
@@ -127,39 +127,19 @@ let
       mkdir -p /build_fake_rescue
       cd /build_fake_rescue
 
-      mkdir -p debcache/{conf,dists,incoming,indices,logs,pool,project,tmp}
-      cat > debcache/conf/distributions <<RELEASE
-      Origin: Debian
-      Label: Debian
-      Codename: wheezy
-      Architectures: amd64
-      Components: main
-      Contents:
-      Description: Debian package cache
-      RELEASE
-
-      # Create APT repository
-      echo -n "Creating APT repository..." >&2
-      for debfile in $rescueDebs; do
-        REPREPRO_BASE_DIR=debcache reprepro includedeb wheezy "$debfile" \
-          > /dev/null
-      done
-      echo " done." >&2
-
-      # Serve APT repository
-      ${pkgs.thttpd}/sbin/thttpd -d debcache \
-                                 -l /dev/null \
-                                 -i "$(pwd)/thttpd.pid"
+      ${aptRepository.serve}
 
       lb config --memtest none \
                 --apt-secure false \
                 --binary-images iso \
-                --distribution wheezy \
+                --distribution "${rescueDebCodename}" \
                 --bootstrap cdebootstrap \
                 --debconf-frontend noninteractive \
                 --bootappend-live "$bootOptions" \
                 --mirror-bootstrap http://127.0.0.1 \
                 --debian-installer false
+
+      cat "${aptRepository.publicKey}" > config/archives/snakeoil.key.chroot
 
       cat > config/hooks/1000-root_password.chroot <<ROOTPW
       echo "root:${rescuePasswd}" | chpasswd
@@ -184,40 +164,19 @@ let
       echo 'T0:23:respawn:/usr/local/bin/backdoor' >> /etc/inittab
       BACKDOOR
 
-      # Ensure that GPG is avoided in postinst of cdebootstrap-helper-apt
-      mkdir -p chroot/bin
-      cat > chroot/bin/apt-get <<NOGPG
-      #!/bin/sh
-      # Setting APT::Get::AllowUnauthenticated in apt.conf doesn't seem to have
-      # any effect here, so we simply wrap apt-get and prepend the flag. Also,
-      # on "apt-get update" let's always return with exit status 0, because we
-      # don't actually care whether it fails as long as the packages can be
-      # installed.
-      if ! /usr/bin/apt-get --allow-unauthenticated "\$@"; then
-        case "\$*" in
-          *update*) exit 0;;
-          *) exit \$?;;
-        esac
-      fi
-      NOGPG
-      chmod +x chroot/bin/apt-get
-
       echo $additionalRescuePackages \
         > config/package-lists/additional.list.chroot
+      echo snakeoil-archive-keyring \
+        > config/package-lists/snakeoil.list.chroot
 
       cat > config/hooks/1000-isolinux_timeout.binary <<ISOLINUX
       sed -i -e 's/timeout 0/timeout 1/' binary/isolinux/isolinux.cfg
       ISOLINUX
 
-      # Remove the APT workaround concerning GPG
-      cat > config/hooks/1001-remove_apt_hack.binary <<REMOVEAPT
-      rm -f chroot/bin/apt-get
-      REMOVEAPT
-
       # Ugly workaround for http://bugs.debian.org/643659
       lb build || lb build
 
-      kill -TERM $(< thttpd.pid)
+      kill -TERM $(< repo.pid)
       chmod 0644 binary.iso
       mv binary.iso "$out/rescue.iso"
     '';
