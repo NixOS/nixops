@@ -150,6 +150,10 @@ class ResourceState(object):
         """A unique ID to display for this resource"""
         return None
 
+    @property
+    def public_ipv4(self):
+        return None
+
     def create_after(self, resources, defn):
         """Return a set of resources that should be created before this one."""
         return {}

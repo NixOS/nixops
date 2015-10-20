@@ -239,18 +239,12 @@ class MachineState(nixops.resources.ResourceState):
         return None
 
     @property
-    def public_ipv4(self):
-        return None
-
-    @property
     def private_ipv4(self):
         return None
 
     def address_to(self, r):
         """Return the IP address to be used to access resource "r" from this machine."""
-        ip = getattr(r, 'public_ipv4', None)
-        if ip: return ip
-        return None
+        return r.public_ipv4
 
     def wait_for_ssh(self, check=False):
         """Wait until the SSH port is open on this machine."""
