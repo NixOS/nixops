@@ -218,13 +218,9 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
 
     def destroy(self, wipe=False):
         if self.state == self.UP or self.state == self.STARTING:
-            self.logger.log("deleting EC2 security group `{0}'...".format(self.security_group_name))
+            self.logger.log("deleting EC2 security group `{0}' ID `{1}'...".format(
+                self.security_group_name, self.security_group_id))
             self._connect()
-
-            if self.vpc_id:
-                self._conn.delete_security_group(group_id=self.security_group_id)
-            else:
-                self._conn.delete_security_group(self.security_group_name)
-
+            self._conn.delete_security_group(group_id=self.security_group_id)
             self.state = self.MISSING
         return True
