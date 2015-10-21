@@ -146,7 +146,7 @@ let
     bootOptions = [
       "boot=live"
       "config"
-      "console=ttyS0,9600"
+      "console=ttyS0"
       "hostname=rescue"
       "timezone=Europe/Berlin"
       "noeject"
