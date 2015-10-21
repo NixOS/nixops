@@ -1,4 +1,6 @@
-{ pkgs, diskImageFun, debianDistro, debianCodename, debianPackages }:
+{ pkgs, diskImageFun, debianDistro, debianCodename, debianPackages
+, extraPackages ? []
+}:
 
 let
   reprepro = pkgs.stdenv.mkDerivation rec {
@@ -137,7 +139,7 @@ let
 
       # Create APT repository
       echo -n "Creating APT repository..." >&2
-      for debfile in $toInclude ${keyringPackage}; do
+      for debfile in $toInclude ${keyringPackage} ${toString extraPackages}; do
         REPREPRO_BASE_DIR="$out" ${reprepro}/bin/reprepro includedeb \
           "${debianCodename}" "$debfile" > /dev/null
       done

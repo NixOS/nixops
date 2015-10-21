@@ -119,12 +119,18 @@ let
     "net-tools"
   ];
 
+  backdoorDeb = import ./backdoor.nix {
+    inherit pkgs;
+    diskImageFun = rescueDiskImageFun;
+  };
+
   aptRepository = import ./repository.nix {
     inherit pkgs;
     diskImageFun = rescueDiskImageFun;
     debianDistro = rescueDebDistro;
     debianCodename = rescueDebCodename;
     debianPackages = rescuePackages ++ additionalRescuePackages;
+    extraPackages = [ backdoorDeb ];
   };
 
   # This more or less resembles an image of the Hetzner's rescue system.
@@ -178,27 +184,10 @@ let
       echo "root:${rescuePasswd}" | chpasswd
       ROOTPW
 
-      cat > config/hooks/1001-backdoor.chroot <<BACKDOOR
-      cat > /usr/local/bin/backdoor <<BACKDOOR_SCRIPT
-      #!/bin/sh
-      export USER=root
-      export HOME=/root
-      . /etc/profile
-      cd /tmp
-      exec < /dev/hvc0 > /dev/hvc0
-      while ! exec 2> /dev/ttyS0; do sleep 0.1; done
-      echo "connecting to host..." >&2
-      stty -F /dev/hvc0 raw -echo
-      echo
-      PS1= exec /bin/sh
-      BACKDOOR_SCRIPT
-      chmod +x /usr/local/bin/backdoor
-
-      echo 'T0:23:respawn:/usr/local/bin/backdoor' >> /etc/inittab
-      BACKDOOR
-
       echo $additionalRescuePackages \
         > config/package-lists/additional.list.chroot
+      echo backdoor \
+        > config/package-lists/custom.list.chroot
 
       cat > config/hooks/1000-isolinux_timeout.binary <<ISOLINUX
       sed -i -e 's/timeout 0/timeout 1/' binary/isolinux/isolinux.cfg
