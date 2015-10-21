@@ -257,6 +257,27 @@ in makeTest {
   };
 
   testScript = ''
+    sub setupAndStartRescue {
+      my ($name, $hda, $qemuFlags, $ip) = @_;
+      my $node = createMachine({
+        name => $name,
+        hda => $hda,
+        cdrom => "${rescueISO}/rescue.iso",
+        qemuFlags => $qemuFlags,
+        allowReboot => 1,
+      });
+      $node->nest("setting up rescue system", sub {
+        $node->start;
+        $node->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
+        $node->succeed("mkfs.ext4 /dev/vdc");
+        $node->succeed("mkdir -p /nix && mount /dev/vdc /nix");
+        $node->succeed("ifconfig eth1 $ip");
+        $node->succeed("modprobe dm-mod");
+        $node->succeed("echo 'root:${rescuePasswd}' | chpasswd");
+      });
+      return $node;
+    };
+
     $coordinator->start;
 
     createDisk("harddisk1_1", 4 * 1024);
@@ -272,43 +293,13 @@ in makeTest {
     my $imgdir = `pwd`;
     chomp($imgdir);
 
-    my $target1 = createMachine({
-      name => "target1",
-      hda => "harddisk1_1",
-      cdrom => "${rescueISO}/rescue.iso",
-      qemuFlags => '${targetQemuFlags 1}',
-      allowReboot => 1,
-    });
+    my $target1 = setupAndStartRescue(
+      "target1", "harddisk1_1", '${targetQemuFlags 1}', "192.168.1.2"
+    );
 
-    subtest "start virtual rescue for target 1", sub {
-      $target1->start;
-      $target1->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
-      $target1->succeed("mkfs.ext4 /dev/vdc");
-      $target1->succeed("mkdir -p /nix && mount /dev/vdc /nix");
-      $target1->succeed("ifconfig eth1 192.168.1.2");
-      $target1->succeed("modprobe dm-mod");
-      $target1->succeed("echo 'root:${rescuePasswd}' | chpasswd");
-    };
-
-    my $target2 = createMachine({
-      name => "target2",
-      hda => "harddisk2_1",
-      cdrom => "${rescueISO}/rescue.iso",
-      qemuFlags => '${targetQemuFlags 2}',
-      allowReboot => 1,
-    });
-
-    subtest "start virtual rescue for target 2", sub {
-      $target2->start;
-      $target2->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
-      $target2->succeed("mkfs.ext4 /dev/vdc");
-      $target2->succeed("mkdir -p /nix && mount /dev/vdc /nix");
-      $target2->succeed("ifconfig eth1 192.168.1.3");
-      $target2->succeed("modprobe dm-mod");
-      $target2->succeed("echo 'root:${rescuePasswd}' | chpasswd");
-      # XXX: Work around failure on mkfs.btrfs
-      $target2->succeed("mkdir -p /live/medium/live/filesystem.squashfs");
-    };
+    my $target2 = setupAndStartRescue(
+      "target2", "harddisk2_1", '${targetQemuFlags 2}', "192.168.1.3"
+    );
 
     $coordinator->waitForJob("network-interfaces.target");
 
