@@ -180,10 +180,6 @@ let
                 --firmware-binary false \
                 --firmware-chroot false
 
-      cat > config/hooks/1000-root_password.chroot <<ROOTPW
-      echo "root:${rescuePasswd}" | chpasswd
-      ROOTPW
-
       echo $additionalRescuePackages \
         > config/package-lists/additional.list.chroot
       echo backdoor \
@@ -282,6 +278,7 @@ in makeTest {
       $target1->succeed("mkdir -p /nix && mount /dev/vdc /nix");
       $target1->succeed("ifconfig eth1 192.168.1.2");
       $target1->succeed("modprobe dm-mod");
+      $target1->succeed("echo 'root:${rescuePasswd}' | chpasswd");
     };
 
     my $target2 = createMachine({
@@ -299,6 +296,7 @@ in makeTest {
       $target2->succeed("mkdir -p /nix && mount /dev/vdc /nix");
       $target2->succeed("ifconfig eth1 192.168.1.3");
       $target2->succeed("modprobe dm-mod");
+      $target2->succeed("echo 'root:${rescuePasswd}' | chpasswd");
       # XXX: Work around failure on mkfs.btrfs
       $target2->succeed("mkdir -p /live/medium/live/filesystem.squashfs");
     };
