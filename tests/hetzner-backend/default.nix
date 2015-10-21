@@ -274,6 +274,9 @@ in makeTest {
         $node->succeed("ifconfig eth1 $ip");
         $node->succeed("modprobe dm-mod");
         $node->succeed("echo 'root:${rescuePasswd}' | chpasswd");
+        my $re = 's/^(PermitRootLogin|PasswordAuthentication) .*/\\1 yes/';
+        $node->succeed("sed -i -re '$re' /etc/ssh/sshd_config");
+        $node->succeed("systemctl restart ssh");
       });
       return $node;
     };
