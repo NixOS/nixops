@@ -193,9 +193,10 @@ let
       echo backdoor \
         > config/package-lists/custom.list.chroot
 
-      cat > config/hooks/1000-isolinux_timeout.binary <<ISOLINUX
-      sed -i -e 's/timeout 0/timeout 1/' binary/isolinux/isolinux.cfg
-      ISOLINUX
+      cp -rT "${live-build}/share/live/build/bootloaders" \
+        config/bootloaders
+      sed -i -e 's/timeout 0/timeout 1/' \
+        config/bootloaders/isolinux/isolinux.cfg
 
       lb build
 
