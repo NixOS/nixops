@@ -158,7 +158,7 @@ let
       mkdir -p /build_fake_rescue
       cd /build_fake_rescue
 
-      PATH="${pkgs.gnupg}/bin:${live-build}/bin:$PATH"
+      PATH="${pkgs.gnupg}/bin:${live-build}/bin:${pkgs.cpio}/bin:$PATH"
 
       ${aptRepository.serve}
 
@@ -179,6 +179,14 @@ let
                 --source false \
                 --firmware-binary false \
                 --firmware-chroot false
+
+      mkdir -p config/includes.chroot/etc/systemd/journald.conf.d
+      echo rescue > config/includes.chroot/etc/hostname
+      cat > config/includes.chroot/etc/systemd/journald.conf.d/log.conf <<EOF
+      [Journal]
+      ForwardToConsole=yes
+      MaxLevelConsole=debug
+      EOF
 
       echo $additionalRescuePackages \
         > config/package-lists/additional.list.chroot
