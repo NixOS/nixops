@@ -266,7 +266,7 @@ in makeTest {
         qemuFlags => $qemuFlags,
         allowReboot => 1,
       });
-      $node->nest("setting up rescue system", sub {
+      $node->nest("setting up rescue system for $name", sub {
         $node->start;
         $node->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
         $node->succeed("mkfs.ext4 /dev/vdc");
