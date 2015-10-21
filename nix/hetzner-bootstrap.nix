@@ -5,7 +5,6 @@ let
 
   nixpart = pythonPackages.nixpart0.override {
     useNixUdev = false;
-    udevSoMajor = 0;
   };
 
   generateConfig = (import <nixpkgs/nixos> {
