@@ -320,19 +320,6 @@ class HetznerState(MachineState):
         if bootstrap:
             self._bootstrap_rescue(install, partitions)
 
-    def _install_main_ssh_keys(self):
-        """
-        Create a SSH private/public keypair and put the public key into the
-        chroot.
-        """
-        private, public = create_key_pair(
-            key_name="NixOps client key of {0}".format(self.name)
-        )
-        self.main_ssh_private_key, self.main_ssh_public_key = private, public
-        res = self.run_command("umask 077 && mkdir -p /mnt/root/.ssh &&"
-                               " cat > /mnt/root/.ssh/authorized_keys",
-                               stdin_string=public)
-
     def _install_base_system(self):
         self.log_start("creating missing directories... ")
         cmds = ["mkdir -m 1777 -p /mnt/tmp /mnt/nix/store"]
@@ -356,7 +343,10 @@ class HetznerState(MachineState):
 
         self.run_command("touch /mnt/etc/NIXOS")
         self.run_command("activate-remote")
-        self._install_main_ssh_keys()
+
+        self.main_ssh_private_key, self.main_ssh_public_key = create_key_pair(
+            key_name="NixOps client key of {0}".format(self.name)
+        )
         self._gen_network_spec()
 
     def _detect_hardware(self):
@@ -533,9 +523,13 @@ class HetznerState(MachineState):
         }
 
     def get_physical_spec(self):
-        if all([self.net_info, self.fs_info, self.hw_info]):
+        if all([self.net_info, self.fs_info, self.hw_info,
+                self.main_ssh_public_key]):
             return {
-                'config': self.net_info,
+                'config': dict(self.net_info.items() + {
+                    ('users', 'extraUsers', 'root', 'openssh',
+                     'authorizedKeys', 'keys'): [self.main_ssh_public_key]
+                }.items()),
                 'imports': [nix2py(self.fs_info), nix2py(self.hw_info)],
             }
         else:
