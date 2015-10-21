@@ -80,9 +80,15 @@ makeTest {
   nodes =
     { coordinator =
         { config, pkgs, ... }:
-        { environment.systemPackages =
-            [ nixops pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox
-              pkgs.module_init_tools pkgs.perlPackages.ArchiveCpio ];
+        { environment.systemPackages = [ nixops ];
+          # This is needed to make sure the coordinator can build the
+          # deployment without network availability.
+          environment.etc.nix-references.source = let
+            refs = [
+              pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox
+              pkgs.module_init_tools pkgs.perlPackages.ArchiveCpio
+            ];
+          in pkgs.writeText "refs" (concatStringsSep "\n" refs);
           networking.firewall.enable = false;
           virtualisation.writableStore = true;
         };
