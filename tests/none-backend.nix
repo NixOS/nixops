@@ -21,6 +21,7 @@ let
             boot.loader.grub.enable = false;
             # Should NixOps fill in extraHosts for the "none" backend?
             networking.extraHosts = "192.168.1.3 target2\n";
+            virtualisation.writableStore = true;
           };
 
         target2 = target1;
