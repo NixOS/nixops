@@ -45,7 +45,10 @@ let
               services.httpd.adminAddr = "e.dolstra@tudelft.nl";
             ''}
             ${optionalString (n == 3) ''
-              services.httpd.extraModules = ["proxy_balancer"];
+              services.httpd.extraModules = [
+                "proxy_balancer"
+                "lbmethod_byrequests"
+              ];
               services.httpd.extraConfig =
                 "
                   <Proxy balancer://cluster>
