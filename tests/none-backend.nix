@@ -38,6 +38,11 @@ let
           { config, pkgs, ... }:
           { services.openssh.enable = true;
             users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
+            # Ugly again: Replicates assignIPAddresses from build-vms.nix.
+            networking.interfaces.eth1.ip4 = [ {
+              address = "192.168.1.2";
+              prefixLength = 24;
+            } ];
             ${optionalString (n == 1) ''
               environment.systemPackages = [ pkgs.vim ];
             ''}
@@ -66,6 +71,11 @@ let
           { config, pkgs, ... }:
           { services.openssh.enable = true;
             users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
+            # Ugly again: Replicates assignIPAddresses from build-vms.nix.
+            networking.interfaces.eth1.ip4 = [ {
+              address = "192.168.1.3";
+              prefixLength = 24;
+            } ];
             ${optionalString (n == 3) ''
               services.httpd.enable = true;
               services.httpd.adminAddr = "e.dolstra@tudelft.nl";
