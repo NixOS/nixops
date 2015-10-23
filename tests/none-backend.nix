@@ -22,6 +22,7 @@ let
             # Should NixOps fill in extraHosts for the "none" backend?
             networking.extraHosts = "192.168.1.3 target2\n";
             virtualisation.writableStore = true;
+            networking.firewall.enable = false;
           };
 
         target2 = target1;
@@ -36,7 +37,6 @@ let
         target1 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
-            networking.firewall.enable = false;
             users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
             ${optionalString (n == 1) ''
               environment.systemPackages = [ pkgs.vim ];
@@ -65,7 +65,6 @@ let
         target2 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
-            networking.firewall.enable = false;
             users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
             ${optionalString (n == 3) ''
               services.httpd.enable = true;
