@@ -37,23 +37,23 @@ class NoneState(MachineState):
     def resource_id(self):
         return self.vm_id
 
+    def get_physical_spec(self):
+        return {
+            ('config', 'users', 'extraUsers', 'root', 'openssh',
+             'authorizedKeys', 'keys'): [self._ssh_public_key]
+        } if self._ssh_public_key else {}
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, NoneDefinition)
         self.set_common_state(defn)
         self.target_host = defn._target_host
 
         if not self.vm_id:
-            self.log("installing new SSH keypair on machine...")
+            self.log_start("generating new SSH keypair...")
             key_name = "NixOps client key for {0}".format(self.name)
-            privkey, pubkey = create_key_pair(key_name=key_name)
-
-            cmd = ("umask 077; "
-                   "mkdir -p .ssh && cat >> .ssh/authorized_keys || exit 1")
-            self._logged_exec(["ssh", "-p", str(self.ssh_port), "-l", "root",
-                               self.get_ssh_name(), cmd],
-                              stdin_string=pubkey.rstrip() + "\n")
-
-            self._ssh_private_key, self._ssh_public_key = privkey, pubkey
+            self._ssh_private_key, self._ssh_public_key = \
+                create_key_pair(key_name=key_name)
+            self.log_end("done.")
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
     def get_ssh_name(self):
@@ -67,10 +67,10 @@ class NoneState(MachineState):
             return self.write_ssh_private_key(self._ssh_private_key)
 
     def get_ssh_flags(self):
-        if not self.vm_id:
-            return []
-        return ["-o", "StrictHostKeyChecking=no",
-                "-i", self.get_ssh_private_key_file()]
+        if self.vm_id and self.cur_toplevel:
+            return ["-o", "StrictHostKeyChecking=no",
+                    "-i", self.get_ssh_private_key_file()]
+        return []
 
     def _check(self, res):
         if not self.vm_id:
