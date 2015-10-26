@@ -123,7 +123,10 @@ in pkgs.vmTools.runInLinuxImage (pkgs.stdenv.mkDerivation {
     sed -i -e 's/timeout 0/timeout 1/' \
       config/bootloaders/isolinux/isolinux.cfg
 
-    lb build
+    if ! lb build; then
+      cat /build_fake_rescue/chroot/debootstrap/debootstrap.log >&2
+      exit 1
+    fi
 
     kill -TERM $(< repo.pid)
     chmod 0644 live-image-*.iso
