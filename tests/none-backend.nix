@@ -87,6 +87,7 @@ let
 in
 
 makeTest {
+  name = "none-backend";
 
   nodes =
     { coordinator =

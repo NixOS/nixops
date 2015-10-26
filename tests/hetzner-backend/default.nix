@@ -97,6 +97,8 @@ let
   in concatStringsSep " " flags;
 
 in makeTest {
+  name = "hetzner-backend";
+
   nodes.coordinator = {
     networking.firewall.enable = false;
     environment.systemPackages = singleton (overrideDerivation nixops (o: {
