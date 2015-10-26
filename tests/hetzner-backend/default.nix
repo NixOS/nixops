@@ -108,19 +108,17 @@ in makeTest {
 
     # This is needed to make sure the coordinator can build the
     # deployment without network availability.
-    environment.etc.nix-references.source = let
-      refs = [
-        # This is to have the bootstrap installer prebuilt inside the Nix
-        # store of the target machine.
-        (import ../../nix/hetzner-bootstrap.nix)
-        # ... and this is for other requirements for a basic deployment.
-        pkgs.stdenv pkgs.busybox pkgs.module_init_tools pkgs.grub2
-        pkgs.xfsprogs pkgs.btrfsProgs pkgs.docbook_xsl_ns pkgs.libxslt
-        pkgs.docbook5 pkgs.ntp pkgs.perlPackages.ArchiveCpio
-        # Firmware used in <nixpkgs/nixos/modules/installer/scan/not-detected.nix>
-        pkgs.firmwareLinuxNonfree
-      ];
-    in pkgs.writeText "refs" (concatStringsSep "\n" refs);
+    system.extraDependencies = [
+      # This is to have the bootstrap installer prebuilt inside the Nix
+      # store of the target machine.
+      (import ../../nix/hetzner-bootstrap.nix)
+      # ... and this is for other requirements for a basic deployment.
+      pkgs.stdenv pkgs.busybox pkgs.module_init_tools pkgs.grub2
+      pkgs.xfsprogs pkgs.btrfsProgs pkgs.docbook_xsl_ns pkgs.libxslt
+      pkgs.docbook5 pkgs.ntp pkgs.perlPackages.ArchiveCpio
+      # Firmware used in <nixpkgs/nixos/modules/installer/scan/not-detected.nix>
+      pkgs.firmwareLinuxNonfree
+    ];
 
     virtualisation.writableStore = true;
     virtualisation.writableStoreUseTmpfs = false;
