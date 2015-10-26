@@ -21,6 +21,8 @@ let
             boot.loader.grub.enable = false;
             # Should NixOps fill in extraHosts for the "none" backend?
             networking.extraHosts = "192.168.1.3 target2\n";
+            virtualisation.writableStore = true;
+            networking.firewall.enable = false;
           };
 
         target2 = target1;
@@ -35,8 +37,12 @@ let
         target1 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
-            networking.firewall.enable = false;
             users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
+            # Ugly again: Replicates assignIPAddresses from build-vms.nix.
+            networking.interfaces.eth1.ip4 = [ {
+              address = "192.168.1.2";
+              prefixLength = 24;
+            } ];
             ${optionalString (n == 1) ''
               environment.systemPackages = [ pkgs.vim ];
             ''}
@@ -45,7 +51,10 @@ let
               services.httpd.adminAddr = "e.dolstra@tudelft.nl";
             ''}
             ${optionalString (n == 3) ''
-              services.httpd.extraModules = ["proxy_balancer"];
+              services.httpd.extraModules = [
+                "proxy_balancer"
+                "lbmethod_byrequests"
+              ];
               services.httpd.extraConfig =
                 "
                   <Proxy balancer://cluster>
@@ -61,8 +70,12 @@ let
         target2 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
-            networking.firewall.enable = false;
             users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
+            # Ugly again: Replicates assignIPAddresses from build-vms.nix.
+            networking.interfaces.eth1.ip4 = [ {
+              address = "192.168.1.3";
+              prefixLength = 24;
+            } ];
             ${optionalString (n == 3) ''
               services.httpd.enable = true;
               services.httpd.adminAddr = "e.dolstra@tudelft.nl";
@@ -80,9 +93,13 @@ makeTest {
   nodes =
     { coordinator =
         { config, pkgs, ... }:
-        { environment.systemPackages =
-            [ nixops pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox
-              pkgs.module_init_tools pkgs.perlPackages.ArchiveCpio ];
+        { environment.systemPackages = [ nixops ];
+          # This is needed to make sure the coordinator can build the
+          # deployment without network availability.
+          system.extraDependencies = [
+            pkgs.stdenv pkgs.vim pkgs.apacheHttpd pkgs.busybox
+            pkgs.module_init_tools pkgs.perlPackages.ArchiveCpio
+          ];
           networking.firewall.enable = false;
           virtualisation.writableStore = true;
         };
