@@ -37,7 +37,6 @@ let
         target1 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
-            users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
             # Ugly again: Replicates assignIPAddresses from build-vms.nix.
             networking.interfaces.eth1.ip4 = [ {
               address = "192.168.1.2";
@@ -70,7 +69,6 @@ let
         target2 =
           { config, pkgs, ... }:
           { services.openssh.enable = true;
-            users.extraUsers.root.openssh.authorizedKeys.keyFiles = [ ./id_test.pub ];
             # Ugly again: Replicates assignIPAddresses from build-vms.nix.
             networking.interfaces.eth1.ip4 = [ {
               address = "192.168.1.3";
@@ -159,6 +157,14 @@ makeTest {
         $coordinator->succeed("${env} nixops deploy --build-only");
         $coordinator->succeed("${env} nixops deploy");
         $target1->succeed("vim --version >&2");
+      };
+
+      # Check whether NixOps correctly generated/installed the SSH key.
+      subtest "authorized-keys", sub {
+        $coordinator->succeed("rm ~/.ssh/id_dsa");
+        $coordinator->fail("ssh -o BatchMode=yes".
+                           "    -o StrictHostKeyChecking=no target1 : >&2");
+        $coordinator->succeed("${env} nixops ssh-for-each : >&2");
       };
 
       # Test ‘nixops info’.
