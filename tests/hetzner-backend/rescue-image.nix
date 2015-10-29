@@ -5,6 +5,67 @@ let
   rescueDebDistro = pkgs.vmTools.debDistros.debian8x86_64;
   rescueDebCodename = "jessie";
 
+  fetchBackport = { name, version, arch ? "all", archive ? name, sha256 }: let
+    filename = "${name}_${version}_${arch}.deb";
+    archiveLetter = builtins.substring 0 1 archive;
+  in (pkgs.fetchurl {
+    name = builtins.replaceStrings ["~"] ["-"] filename;
+    url = "mirror://debian/pool/main/${archiveLetter}/${archive}/${filename}";
+    inherit sha256;
+  }) // { packageName = name; };
+
+  newKernel = [
+    (fetchBackport {
+      name = "linux-image-4.2.0-0.bpo.1-amd64";
+      version = "4.2.3-2~bpo8+1";
+      arch = "amd64";
+      archive = "linux";
+      sha256 = "0jlwmycdc4xsn2vapbidyp47zrpihj6qgk7p0rjw6fxl86yas56s";
+    })
+    (fetchBackport {
+      name = "linux-image-amd64";
+      version = "4.2+68~bpo8+2";
+      arch = "amd64";
+      archive = "linux-latest";
+      sha256 = "0bhk3wik3bvkha61cqwgx7pg7bqs2q82kxivacqqja2nqzjww2d7";
+    })
+    (fetchBackport {
+      name = "linux-base";
+      version = "4.0~bpo8+1";
+      arch = "all";
+      archive = "linux-base";
+      sha256 = "0nacjll097vhphgvgpzgy3avgxrjrjm0nf4xlzc2hjgrv4gy3hhr";
+    })
+    # Needed because AUFS has been replaced by overlayfs in the new kernel.
+    (fetchBackport {
+      name = "live-tools";
+      version = "5.0~a2-1";
+      sha256 = "0vivl2qkbjmibjgh9diyjbdl9izsn26aclgh4d04kc6jri606693";
+    })
+    (fetchBackport {
+      name = "live-boot";
+      version = "5.0~a5-1";
+      sha256 = "1402k0xygrljk2ng2lbb7jhg4a23sqmdgn0bhms0a34f5w12rnyp";
+    })
+    (fetchBackport {
+      name = "live-boot-initramfs-tools";
+      version = "5.0~a5-1";
+      archive = "live-boot";
+      sha256 = "1ylny8hvwliqnva9z5c82qqmxm3skc8fh50lz5fva4mfkzk9zzbh";
+    })
+    (fetchBackport {
+      name = "live-config";
+      version = "5.0~a5-1";
+      sha256 = "1146hwml89cp7f18xwm4q9fj8yy9hlki93h179v41pzha1b9jskz";
+    })
+    (fetchBackport {
+      name = "live-config-systemd";
+      version = "5.0~a5-1";
+      archive = "live-config";
+      sha256 = "1q2586vxavhz3dc98m1pccim1d8qpcfyskrzmszgi8bnqqn22x2c";
+    })
+  ];
+
   live-build = pkgs.stdenv.mkDerivation rec {
     name = "live-build-${version}";
     version = "5.0_a11";
@@ -31,11 +92,10 @@ let
 
   # Packages needed by live-build
   rescuePackages = [
-    "apt" "hostname" "tasksel" "makedev" "locales" "kbd" "linux-image-amd64"
-    "console-setup" "console-common" "eject" "file" "user-setup" "sudo"
-    "squashfs-tools" "syslinux-common" "syslinux" "isolinux" "genisoimage"
-    "live-boot" "zsync" "librsvg2-bin" "dctrl-tools" "xorriso" "live-config"
-    "live-config-systemd"
+    "apt" "hostname" "tasksel" "makedev" "locales" "kbd" "console-setup"
+    "console-common" "eject" "file" "user-setup" "sudo" "squashfs-tools"
+    "syslinux-common" "syslinux" "isolinux" "genisoimage" "live-boot" "zsync"
+    "librsvg2-bin" "dctrl-tools" "xorriso" "live-config" "live-config-systemd"
   ];
 
   # Packages to be explicitly installed into the live system.
@@ -55,7 +115,7 @@ let
     debianDistro = rescueDebDistro;
     debianCodename = rescueDebCodename;
     debianPackages = rescuePackages ++ additionalRescuePackages;
-    extraPackages = [ backdoorDeb ];
+    extraPackages = [ backdoorDeb ] ++ newKernel;
   };
 
   # This more or less resembles an image of the Hetzner's rescue system.
@@ -115,7 +175,7 @@ in pkgs.vmTools.runInLinuxImage (pkgs.stdenv.mkDerivation {
 
     echo $additionalRescuePackages \
       > config/package-lists/additional.list.chroot
-    echo backdoor \
+    echo backdoor ${toString (map (p: p.packageName) newKernel)} \
       > config/package-lists/custom.list.chroot
 
     cp -rT "${live-build}/share/live/build/bootloaders" \
