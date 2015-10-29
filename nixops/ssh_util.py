@@ -29,7 +29,6 @@ class SSHMaster(object):
         self._ssh_target = target
         pass_prompts = 0 if "-i" in ssh_flags else 3
         kwargs = {}
-        additional_opts = []
 
         if passwd is not None:
             self._askpass_helper = self._make_askpass_helper()
@@ -43,16 +42,12 @@ class SSHMaster(object):
             kwargs['stdin'] = nixops.util.devnull
             kwargs['preexec_fn'] = os.setsid
             pass_prompts = 1
-            # FIXME: Remove this. It makes no sense to turn of host
-            # key checking just because a password is supplied.
-            additional_opts = ['-oUserKnownHostsFile=/dev/null',
-                               '-oStrictHostKeyChecking=no']
 
         cmd = ["ssh", "-x", self._ssh_target, "-S",
                self._control_socket, "-M", "-N", "-f",
                '-oNumberOfPasswordPrompts={0}'.format(pass_prompts),
                '-oServerAliveInterval=60',
-               '-oControlPersist=600'] + additional_opts
+               '-oControlPersist=600']
 
         res = subprocess.call(cmd + ssh_flags, **kwargs)
         if res != 0:

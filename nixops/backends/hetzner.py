@@ -157,7 +157,10 @@ class HetznerState(MachineState):
 
     def get_ssh_flags(self, scp=False):
         return super(HetznerState, self).get_ssh_flags(scp) + (
-          ["-o", "LogLevel=quiet"]
+          ["-o", "LogLevel=quiet",
+           "-o", "UserKnownHostsFile=/dev/null",
+           "-o", "GlobalKnownHostsFile=/dev/null",
+           "-o", "StrictHostKeyChecking=no"]
           if self.state == self.RESCUE else
           # XXX: Disabling strict host key checking will only impact the
           # behaviour on *new* keys, so it should be "reasonably" safe to do
