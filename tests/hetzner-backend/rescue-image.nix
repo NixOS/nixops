@@ -132,6 +132,7 @@ in pkgs.vmTools.runInLinuxImage (pkgs.stdenv.mkDerivation {
     "boot=live"
     "config"
     "console=ttyS0"
+    "loglevel=7"
     "hostname=rescue"
     "timezone=Europe/Berlin"
     "noeject"
@@ -165,13 +166,31 @@ in pkgs.vmTools.runInLinuxImage (pkgs.stdenv.mkDerivation {
               --firmware-binary false \
               --firmware-chroot false
 
-    mkdir -p config/includes.chroot/etc/systemd/journald.conf.d
+    mkdir -p config/includes.chroot/etc/systemd/journald.conf.d \
+             config/includes.chroot/etc/systemd/system.conf.d \
+             config/includes.chroot/etc/systemd/system \
+             config/includes.chroot/etc/sysctl.d
+
     echo rescue > config/includes.chroot/etc/hostname
+
     cat > config/includes.chroot/etc/systemd/journald.conf.d/log.conf <<EOF
     [Journal]
     ForwardToConsole=yes
     MaxLevelConsole=debug
     EOF
+
+    cat > config/includes.chroot/etc/systemd/system.conf.d/log.conf <<EOF
+    [Manager]
+    ShowStatus=no
+    EOF
+
+    cat > config/includes.chroot/etc/sysctl.d/log.conf <<EOF
+    kernel.printk = 7
+    EOF
+
+    for i in serial-getty@ttyS0 serial-getty@hvc0; do
+      ln -s /dev/null "config/includes.chroot/etc/systemd/system/$i.service"
+    done
 
     echo $additionalRescuePackages \
       > config/package-lists/additional.list.chroot

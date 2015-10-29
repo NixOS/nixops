@@ -140,6 +140,8 @@ in makeTest {
         }
 
         $node->start;
+        $node->succeed("echo acpi_pm > /sys/devices/system/clocksource/" .
+                       "clocksource0/current_clocksource");
         $node->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
         $node->succeed("mkfs.ext4 -F /dev/vdc");
         $node->succeed("mkdir -p /nix && mount /dev/vdc /nix");
