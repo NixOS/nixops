@@ -128,19 +128,20 @@ in makeTest {
   };
 
   testScript = ''
-    sub setupAndStartRescue {
-      my ($name, $hda, $qemuFlags, $ip) = @_;
-      my $node = createMachine({
-        name => $name,
-        hda => $hda,
-        cdrom => "${rescueISO}/rescue.iso",
-        qemuFlags => $qemuFlags,
-        allowReboot => 1,
-      });
-      $node->nest("setting up rescue system for $name", sub {
+    my %ips;
+
+    sub startRescue ($) {
+      my $node = shift;
+      my $ip = $ips{$node->name};
+      $node->nest("starting up rescue system for {$node->name}", sub {
+        if ($node->isUp) {
+          $node->sendMonitorCommand("boot_set order=c,once=d");
+          $node->shutdown;
+        }
+
         $node->start;
         $node->succeed("echo 2 > /proc/sys/vm/panic_on_oom");
-        $node->succeed("mkfs.ext4 /dev/vdc");
+        $node->succeed("mkfs.ext4 -F /dev/vdc");
         $node->succeed("mkdir -p /nix && mount /dev/vdc /nix");
         $node->succeed("ifconfig eth1 $ip");
         $node->succeed("modprobe dm-mod");
@@ -150,6 +151,19 @@ in makeTest {
         $node->succeed("systemctl restart ssh");
       });
       return $node;
+    };
+
+    sub setupAndStartRescue {
+      my ($name, $hda, $qemuFlags, $ip) = @_;
+      $ips{$name} = $ip;
+      my $node = createMachine({
+        name => $name,
+        hda => $hda,
+        cdrom => "${rescueISO}/rescue.iso",
+        qemuFlags => $qemuFlags,
+        allowReboot => 1,
+      });
+      return startRescue $node;
     };
 
     $coordinator->start;
@@ -198,11 +212,18 @@ in makeTest {
       $coordinator->succeed("${env} nixops deploy --include=target2");
     };
 
+    subtest "can ssh to rescue system", sub {
+      startRescue $target1;
+      $coordinator->succeed("${env} nixops reboot --hard --rescue " .
+                            "--include=target1");
+      $coordinator->succeed("${env} nixops ssh target1 -- " .
+                            "cat /etc/debian_version >&2");
+    };
 
     # Bring everything up-to-date.
     subtest "deploy all targets", sub {
       $coordinator->succeed("${env} nixops info >&2");
-      $coordinator->succeed("${env} nixops deploy");
+      $coordinator->succeed("${env} nixops deploy --allow-reboot");
       $coordinator->succeed("${env} nixops info >&2");
     };
 
