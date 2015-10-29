@@ -62,6 +62,16 @@ class SSHMaster(object):
             )
         self.opts = ["-oControlPath={0}".format(self._control_socket)]
 
+        timeout = 60.0
+        while not self.is_alive():
+            if timeout < 0:
+                raise SSHConnectionFailed(
+                    "could not establish an SSH master socket to "
+                    "‘{0}’ within 60 seconds".format(target)
+                )
+            time.sleep(0.1)
+            timeout -= 0.1
+
         self._running = True
 
         weakself = weakref.ref(self)
@@ -70,6 +80,12 @@ class SSHMaster(object):
             if realself is not None:
                 realself.shutdown()
         atexit.register(maybe_shutdown)
+
+    def is_alive(self):
+        """
+        Check whether the control socket is still existing.
+        """
+        return os.path.exists(self._control_socket)
 
     def _make_askpass_helper(self):
         """
@@ -162,7 +178,11 @@ class SSH(object):
         """
         flags = flags + self._get_flags()
         if self._ssh_master is not None:
-            return weakref.proxy(self._ssh_master)
+            master = weakref.proxy(self._ssh_master)
+            if master.is_alive():
+                return master
+            else:
+                master.shutdown()
 
         tries = 5
         if timeout is not None:
