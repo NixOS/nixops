@@ -27,9 +27,10 @@ class SSHMaster(object):
         self._askpass_helper = None
         self._control_socket = self._tempdir + "/master-socket"
         self._ssh_target = target
-        pass_prompts = 0 if "-i" in ssh_flags else 3
-        kwargs = {}
-        additional_opts = []
+        self._pass_prompts = 0 if "-i" in ssh_flags else 3
+        self._ssh_flags = ssh_flags
+        self._ssh_kwargs = {}
+        self._additional_opts = []
 
         if passwd is not None:
             self._askpass_helper = self._make_askpass_helper()
@@ -39,40 +40,14 @@ class SSHMaster(object):
                 'SSH_ASKPASS': self._askpass_helper,
                 'NIXOPS_SSH_PASSWORD': passwd,
             })
-            kwargs['env'] = newenv
-            kwargs['stdin'] = nixops.util.devnull
-            kwargs['preexec_fn'] = os.setsid
-            pass_prompts = 1
+            self._ssh_kwargs['env'] = newenv
+            self._ssh_kwargs['stdin'] = nixops.util.devnull
+            self._ssh_kwargs['preexec_fn'] = os.setsid
+            self._pass_prompts = 1
             # FIXME: Remove this. It makes no sense to turn of host
             # key checking just because a password is supplied.
-            additional_opts = ['-oUserKnownHostsFile=/dev/null',
-                               '-oStrictHostKeyChecking=no']
-
-        cmd = ["ssh", "-x", self._ssh_target, "-S",
-               self._control_socket, "-M", "-N", "-f",
-               '-oNumberOfPasswordPrompts={0}'.format(pass_prompts),
-               '-oServerAliveInterval=60',
-               '-oControlPersist=600'] + additional_opts
-
-        res = subprocess.call(cmd + ssh_flags, **kwargs)
-        if res != 0:
-            raise SSHConnectionFailed(
-                "unable to start SSH master connection to "
-                "‘{0}’".format(target)
-            )
-        self.opts = ["-oControlPath={0}".format(self._control_socket)]
-
-        timeout = 60.0
-        while not self.is_alive():
-            if timeout < 0:
-                raise SSHConnectionFailed(
-                    "could not establish an SSH master socket to "
-                    "‘{0}’ within 60 seconds".format(target)
-                )
-            time.sleep(0.1)
-            timeout -= 0.1
-
-        self._running = True
+            self._additional_opts = ['-oUserKnownHostsFile=/dev/null',
+                                     '-oStrictHostKeyChecking=no']
 
         weakself = weakref.ref(self)
         def maybe_shutdown():
@@ -86,6 +61,42 @@ class SSHMaster(object):
         Check whether the control socket is still existing.
         """
         return os.path.exists(self._control_socket)
+
+    def spawn(self, direct=False):
+        """
+        Actually establish the master connection to the target system.
+
+        If 'direct' is True, we make a direct connection without a control
+        socket.
+        """
+        cmd = ["ssh", self._ssh_target]
+        if not direct:
+            cmd += ["-x", "-S", self._control_socket, "-M", "-N", "-f",
+                    '-oControlPersist=600']
+        cmd += ['-oNumberOfPasswordPrompts={0}'.format(self._pass_prompts),
+                '-oServerAliveInterval=60'] + self._additional_opts
+
+        res = subprocess.call(cmd + self._ssh_flags, **self._ssh_kwargs)
+        if direct:
+            return res
+        elif res != 0:
+            raise SSHConnectionFailed(
+                "unable to start SSH master connection to "
+                "‘{0}’".format(target)
+            )
+
+        timeout = 60.0
+        while not self.is_alive():
+            if timeout < 0:
+                raise SSHConnectionFailed(
+                    "could not establish an SSH master socket to "
+                    "‘{0}’ within 60 seconds".format(target)
+                )
+            time.sleep(0.1)
+            timeout -= 0.1
+
+        self.opts = ["-oControlPath={0}".format(self._control_socket)]
+        self._running = True
 
     def _make_askpass_helper(self):
         """
@@ -192,12 +203,14 @@ class SSH(object):
         if self._host_fun() == "localhost":
             tries = 1
 
+        self._ssh_master = SSHMaster(self._get_target(), self._logger,
+                                     flags, self._get_passwd())
+
         sleep_time = 1
         while True:
             try:
                 started_at = time.time()
-                self._ssh_master = SSHMaster(self._get_target(), self._logger,
-                                             flags, self._get_passwd())
+                self._ssh_master.spawn()
                 break
             except Exception:
                 tries = tries - 1
@@ -226,6 +239,19 @@ class SSH(object):
         else:
             return ['--', ' '.join(["'{0}'".format(arg.replace("'", r"'\''"))
                                     for arg in command])]
+
+    def invoke_shell(self, additional_args=[]):
+        """
+        Directly open a SSH shell on the target machine without instantiating a
+        SSH master process first.
+
+        All 'additional_args' are appended to the SSH process directly, so even
+        commands can be appended that way.
+        """
+        flags = self._get_flags() + additional_args
+        master = SSHMaster(self._get_target(), self._logger,
+                           flags, self._get_passwd())
+        return master.spawn(direct=True)
 
     def run_command(self, command, flags=[], timeout=None, logged=True,
                     allow_ssh_args=False, **kwargs):
