@@ -21,13 +21,13 @@ class SSHCommandFailed(nixops.util.CommandFailed):
 
 
 class SSHMaster(object):
-    def __init__(self, target, logger, ssh_flags, passwd):
+    def __init__(self, target, logger, ssh_flags, passwd, user):
         self._running = False
         self._tempdir = nixops.util.SelfDeletingDir(mkdtemp(prefix="nixops-ssh-tmp"))
         self._askpass_helper = None
         self._control_socket = self._tempdir + "/master-socket"
         self._ssh_target = target
-        pass_prompts = 0 if "-i" in ssh_flags else 3
+        pass_prompts = 0 if "-i" in ssh_flags and user is None else 3
         kwargs = {}
 
         if passwd is not None:
@@ -130,10 +130,11 @@ class SSH(object):
         """
         self._host_fun = host_fun
 
-    def _get_target(self):
+    def _get_target(self, user=None):
         if self._host_fun is None:
             raise AssertionError("don't know which SSH host to connect to")
-        return "root@{0}".format(self._host_fun())
+        return "{0}@{1}".format("root" if user is None else user,
+                                self._host_fun())
 
     def register_flag_fun(self, flag_fun):
         """
@@ -166,7 +167,7 @@ class SSH(object):
             self._ssh_master.shutdown()
             self._ssh_master = None
 
-    def get_master(self, flags=[], timeout=None):
+    def get_master(self, flags=[], timeout=None, user=None):
         """
         Start (if necessary) an SSH master connection to speed up subsequent
         SSH sessions. Returns the SSHMaster instance on success.
@@ -191,14 +192,16 @@ class SSH(object):
         while True:
             try:
                 started_at = time.time()
-                self._ssh_master = SSHMaster(self._get_target(), self._logger,
-                                             flags, self._get_passwd())
+                self._ssh_master = SSHMaster(self._get_target(user),
+                                             self._logger, flags,
+                                             self._get_passwd(), user)
                 break
             except Exception:
                 tries = tries - 1
                 if tries == 0:
                     raise
-                self._logger.log("could not connect to ‘{0}’, retrying in {1} seconds...".format(self._get_target(), sleep_time))
+                msg = "could not connect to ‘{0}’, retrying in {1} seconds..."
+                self._logger.log(msg.format(self._get_target(user), sleep_time))
                 time.sleep(sleep_time)
                 sleep_time = sleep_time * 2
                 pass
@@ -223,7 +226,7 @@ class SSH(object):
                                     for arg in command])]
 
     def run_command(self, command, flags=[], timeout=None, logged=True,
-                    allow_ssh_args=False, **kwargs):
+                    allow_ssh_args=False, user=None, **kwargs):
         """
         Execute a 'command' on the current target host using SSH, passing
         'flags' as additional arguments to SSH. The command can be either a
@@ -233,19 +236,22 @@ class SSH(object):
         If 'allow_ssh_args' is set to True, the specified command may contain
         SSH flags.
 
-        All keyword arguments except timeout are passed as-is to
+        The 'user' argument specifies the remote user to connect as. If unset
+        or None, the default is "root".
+
+        All keyword arguments except timeout and user are passed as-is to
         nixops.util.logged_exec(), though if you set 'logged' to False, the
         keyword arguments are passed as-is to subprocess.call() and the command
         is executed interactively with no logging.
 
         'timeout' specifies the SSH connection timeout.
         """
-        master = self.get_master(flags, timeout)
+        master = self.get_master(flags, timeout, user)
         flags = flags + self._get_flags()
         if logged:
             flags.append("-x")
         cmd = ["ssh"] + master.opts + flags
-        cmd.append(self._get_target())
+        cmd.append(self._get_target(user))
         cmd += self._sanitize_command(command, allow_ssh_args)
         if logged:
             try:
@@ -257,7 +263,7 @@ class SSH(object):
             res = subprocess.call(cmd, **kwargs)
             if check and res != 0:
                 msg = "command ‘{0}’ failed on host ‘{1}’"
-                err = msg.format(cmd, self._get_target())
+                err = msg.format(cmd, self._get_target(user))
                 raise SSHCommandFailed(err, res)
             else:
                 return res
