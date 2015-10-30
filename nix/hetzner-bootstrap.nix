@@ -16,7 +16,7 @@ let
     name = "hetzner-nixops-base";
 
     buildCommand = ''
-      ensureDir "$out/bin"
+      mkdir -p "$out/bin"
       ln -s "${nix}"/bin/* "$out/bin/"
       ln -s "${stdenv.shell}" "$out/bin/sh"
     '';
@@ -31,7 +31,7 @@ in stdenv.mkDerivation {
   ];
 
   buildCommand = ''
-    ensureDir "usr/bin" "$out/bin"
+    mkdir -p "usr/bin" "$out/bin"
     installer="$out/bin/hetzner-bootstrap"
     syspath="/nix/var/nix/profiles/system/sw";
 
