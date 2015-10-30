@@ -175,7 +175,7 @@ makeTest {
 
       # Test ‘nixops ssh’.
       subtest "ssh", sub {
-        $coordinator->succeed("${env} nixops ssh target1 -- -v ls / >&2");
+        $coordinator->succeed("${env} nixops ssh target1 -v ls / >&2");
       };
 
       # Test ‘nixops check’.
