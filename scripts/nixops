@@ -504,8 +504,9 @@ def op_ssh():
     (username, machine) = parse_machine(args.machine)
     m = depl.machines.get(machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(machine))
-    sys.exit(m.ssh.run_command(['-l', username] + args.args, logged=False,
-                               check=False, allow_ssh_args=True))
+    flags, command = m.ssh.split_openssh_args(args.args)
+    sys.exit(m.ssh.run_command(command, flags, check=False, logged=False,
+                               user=None if username == "root" else username))
 
 
 def op_ssh_for_each():
@@ -800,7 +801,7 @@ subparser.set_defaults(op=op_show_physical)
 subparser = add_subparser('ssh', help='login on the specified machine via SSH')
 subparser.set_defaults(op=op_ssh)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
-subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
+subparser.add_argument('args', metavar="SSH_ARGS", nargs=argparse.REMAINDER, help='SSH flags and/or command')
 
 subparser = add_subparser('ssh-for-each', help='execute a command on each machine via SSH')
 subparser.set_defaults(op=op_ssh_for_each)
