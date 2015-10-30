@@ -184,6 +184,34 @@ class HetznerState(MachineState):
             self.log_end("[up]")
         self.state = self.RESCUE
 
+    def _bootstrap_rescue_for_existing_system(self):
+        """
+        Make sure that an existing system is easy to work on and set everything
+        up properly to enter a chrooted shell on the target system.
+        """
+        self.log_start("mounting /run... ")
+        self.run_command("mount -t tmpfs -o mode=0755 none /mnt/run")
+        self.log_end("done.")
+
+        self.log_start("symlinking /run/current-system... ")
+        self.run_command("ln -s /nix/var/nix/profiles/system "
+                         "/mnt/run/current-system")
+        self.log_end("done.")
+
+        self.log_start("adding note on ‘nixos-enter’ to motd... ")
+        cmd = "nixos-enter"
+        msg = "Use {} to enter a shell on the target system"
+        msglen = len(msg.format(cmd))
+        csimsg = msg.format('\033[1;32m{}\033[37m'.format(cmd))
+        hborder = "-" * (msglen + 2)
+        fullmsg = '\033[1;30m{}\033[m\n\n'.format('\n'.join([
+            "+{}+".format(hborder),
+            "| \033[37;1m{}\033[30m |".format(csimsg),
+            "+{}+".format(hborder),
+        ]))
+        self.run_command("cat >> /etc/motd", stdin_string=fullmsg)
+        self.log_end("done.")
+
     def _bootstrap_rescue(self, install, partitions):
         """
         Bootstrap everything needed in order to get Nix and the partitioner
@@ -269,6 +297,7 @@ class HetznerState(MachineState):
             res = self.run_command("test -e /mnt/etc/NIXOS", check=False)
             if res == 0:
                 self.log_end("yes.")
+                self._bootstrap_rescue_for_existing_system()
             else:
                 self.log_end("NO! Not mounting special filesystems.")
                 return

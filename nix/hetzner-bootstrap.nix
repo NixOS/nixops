@@ -35,20 +35,34 @@ in stdenv.mkDerivation {
     installer="$out/bin/hetzner-bootstrap"
     syspath="/nix/var/nix/profiles/system/sw";
 
+    mkChrootWrapper() {
+      local name="$1"
+      local dest="$2"
+      local fullpath="$3"
+
+      local wrapper="usr/bin/$name"
+      ( echo "#!/bin/sh"
+        echo "export PATH=\"$syspath/bin\''${PATH:+:}\$PATH\""
+        if [ -n "$fullpath" ]; then
+          echo "if chroot /mnt \"$syspath/bin/true\" > /dev/null 2>&1; then"
+          echo "  exec chroot /mnt \"$syspath/bin/$dest\" \$@"
+          echo "else"
+          echo "  exec chroot /mnt \"$fullpath\" \$@"
+          echo "fi"
+        else
+          echo "exec chroot /mnt \"$syspath/bin\"/$dest"
+        fi
+      ) > "$wrapper"
+      chmod +x "$wrapper"
+    }
+
     # Create the chroot wrappers for Nix
     for path in "${nix}"/bin/*; do
       base="$(basename "$path")"
-      wrapper="usr/bin/$base"
-      ( echo "#!/bin/sh"
-        echo "export PATH=\"$syspath/bin\''${PATH:+:}\$PATH\""
-        echo "if chroot /mnt \"$syspath/bin/true\" > /dev/null 2>&1; then"
-        echo "  exec chroot /mnt \"$syspath/bin/$base\" \$@"
-        echo "else"
-        echo "  exec chroot /mnt \"$path\" \$@"
-        echo "fi"
-      ) > "$wrapper"
-      chmod +x "$wrapper"
+      mkChrootWrapper "$base" "$base" "$path"
     done
+
+    mkChrootWrapper nixos-enter "su -"
 
     # Only a symlink that is going to be put into the Tar file.
     ln -ns "${nixpart}/bin/nixpart" usr/bin/nixpart
