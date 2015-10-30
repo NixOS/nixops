@@ -82,7 +82,7 @@ let
       }
     '';
 
-  env = "NIX_PATH=nixos=${<nixpkgs>}/nixos:nixpkgs=${<nixpkgs>}";
+  env = "NIX_PATH=nixpkgs=${<nixpkgs>}";
 
 in
 
