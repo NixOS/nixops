@@ -33,13 +33,20 @@ in stdenv.mkDerivation {
   buildCommand = ''
     ensureDir "usr/bin" "$out/bin"
     installer="$out/bin/hetzner-bootstrap"
+    syspath="/nix/var/nix/profiles/system/sw";
 
     # Create the chroot wrappers for Nix
     for path in "${nix}"/bin/*; do
       base="$(basename "$path")"
       wrapper="usr/bin/$base"
-      echo "#!/bin/sh" > "$wrapper"
-      echo "chroot /mnt \"$path\" \$@" >> "$wrapper"
+      ( echo "#!/bin/sh"
+        echo "export PATH=\"$syspath/bin\''${PATH:+:}\$PATH\""
+        echo "if chroot /mnt \"$syspath/bin/true\" > /dev/null 2>&1; then"
+        echo "  exec chroot /mnt \"$syspath/bin/$base\" \$@"
+        echo "else"
+        echo "  exec chroot /mnt \"$path\" \$@"
+        echo "fi"
+      ) > "$wrapper"
       chmod +x "$wrapper"
     done
 
