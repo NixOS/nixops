@@ -1120,8 +1120,7 @@ $ nixops ssh foo</screen>
 <screen>
 $ nixops ssh bar -- -X emacs</screen>
 
-Note the use of <literal>--</literal> to force the flag
-<literal>-X</literal> (“enable X11 forwarding”) to be passed to SSH.</para>
+Passes <literal>-X</literal> (“enable X11 forwarding”) to SSH.</para>
 
 </refsection>
 
