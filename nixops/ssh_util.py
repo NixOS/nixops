@@ -208,6 +208,34 @@ class SSH(object):
 
         return weakref.proxy(self._ssh_master)
 
+    @classmethod
+    def split_openssh_args(self, args):
+        """
+        Splits the specified list of arguments into a tuple consisting of the
+        list of flags and a list of strings for the actual command.
+        """
+        non_option_args = "bcDEeFIiLlmOopQRSWw"
+        flags = []
+        command = list(args)
+        while len(command) > 0:
+            arg = command.pop(0)
+            if arg == "--":
+                break
+            elif arg.startswith("-"):
+                if len(command) > 0 and arg[1] in non_option_args:
+                    flags.append(arg)
+                    if len(arg) == 2:
+                        flags.append(command.pop(0))
+                elif len(arg) > 2 and arg[1] != "-":
+                    flags.append(arg[:2])
+                    command.insert(0, "-" + arg[2:])
+                else:
+                    flags.append(arg)
+            else:
+                command.insert(0, arg)
+                break
+        return (flags, command)
+
     def _sanitize_command(self, command, allow_ssh_args):
         """
         Helper method for run_command, which essentially prepares and properly
