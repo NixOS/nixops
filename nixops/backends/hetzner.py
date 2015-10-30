@@ -157,18 +157,18 @@ class HetznerState(MachineState):
 
     def get_ssh_flags(self, scp=False):
         return super(HetznerState, self).get_ssh_flags(scp) + (
-          ["-o", "LogLevel=quiet",
-           "-o", "UserKnownHostsFile=/dev/null",
-           "-o", "GlobalKnownHostsFile=/dev/null",
-           "-o", "StrictHostKeyChecking=no"]
-          if self.state == self.RESCUE else
-          # XXX: Disabling strict host key checking will only impact the
-          # behaviour on *new* keys, so it should be "reasonably" safe to do
-          # this until we have a better way of managing host keys in
-          # ssh_util. So far this at least avoids to accept every damn host
-          # key on a large deployment.
-          ["-o", "StrictHostKeyChecking=no",
-           "-i", self.get_ssh_private_key_file()]
+            ["-o", "LogLevel=quiet",
+             "-o", "UserKnownHostsFile=/dev/null",
+             "-o", "GlobalKnownHostsFile=/dev/null",
+             "-o", "StrictHostKeyChecking=no"]
+            if self.state == self.RESCUE else
+            # XXX: Disabling strict host key checking will only impact the
+            # behaviour on *new* keys, so it should be "reasonably" safe to do
+            # this until we have a better way of managing host keys in
+            # ssh_util. So far this at least avoids to accept every damn host
+            # key on a large deployment.
+            ["-o", "StrictHostKeyChecking=no",
+             "-i", self.get_ssh_private_key_file()]
         )
 
     def _wait_for_rescue(self, ip):
@@ -203,7 +203,9 @@ class HetznerState(MachineState):
                          "groupadd -g 30000 nixbld")
         self.log_end("done.")
 
-        self.log_start("checking if tmpfs in rescue system is large enough... ")
+        self.log_start(
+            "checking if tmpfs in rescue system is large enough... "
+        )
         dfstat = self.run_command("stat -f -c '%a:%S' /", capture_stdout=True)
         df, bs = dfstat.split(':')
         free_mb = (int(df) * int(bs)) // 1024 // 1024
@@ -673,8 +675,8 @@ class HetznerState(MachineState):
         if not self.vm_id:
             return True
 
-        # Create the instance as early as possible because if we don't have the
-        # needed credentials, we really don't have to even ask for confirmation.
+        # Create the instance as early as possible so if we don't have the
+        # needed credentials, we can avoid to ask for confirmation.
         server = self._get_server_from_main_robot(self.main_ipv4)
 
         if wipe:
