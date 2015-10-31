@@ -455,7 +455,7 @@ class Deployment(object):
                 })
 
             # Set system.stateVersion if the Nixpkgs version supports it.
-            if nixops.util.parse_nixos_version(defn.config["nixosVersion"]) >= ["15", "09"]:
+            if nixops.util.parse_nixos_version(defn.config["nixosRelease"]) >= ["15", "09"]:
                 attrs_list.append({
                     ('system', 'stateVersion'): Call(RawValue("lib.mkDefault"), m.state_version or '14.12')
                 })

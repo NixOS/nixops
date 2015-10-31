@@ -213,7 +213,7 @@ class GCEState(MachineState, ResourceState):
             self.public_client_key = public
             self.private_client_key = private
 
-        self.host_key_type = "ed25519" if self.state_version != "14.12" and nixops.util.parse_nixos_version(defn.config["nixosVersion"]) >= ["15", "09"] else "ecdsa"
+        self.host_key_type = "ed25519" if self.state_version != "14.12" and nixops.util.parse_nixos_version(defn.config["nixosRelease"]) >= ["15", "09"] else "ecdsa"
 
         if not self.public_host_key:
             (private, public) = create_key_pair(type=self.host_key_type)

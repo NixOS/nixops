@@ -68,7 +68,7 @@ class EC2Definition(MachineDefinition):
         return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")
 
     def host_key_type(self):
-        return "ed25519" if nixops.util.parse_nixos_version(self.config["nixosVersion"]) >= ["15", "09"] else "dsa"
+        return "ed25519" if nixops.util.parse_nixos_version(self.config["nixosRelease"]) >= ["15", "09"] else "dsa"
 
 
 class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
@@ -962,7 +962,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         # Resize the root filesystem. On NixOS >= 15.09, this is done
         # by the initrd.
-        if resize_root and nixops.util.parse_nixos_version(defn.config["nixosVersion"]) < ["15", "09"]:
+        if resize_root and nixops.util.parse_nixos_version(defn.config["nixosRelease"]) < ["15", "09"]:
             self.log('resizing root disk...')
             self.run_command("resize2fs {0}".format(_sd_to_xvd(root_device)))
 
