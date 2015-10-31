@@ -600,6 +600,7 @@ class HetznerState(MachineState):
             self.vm_id = vm_id
             known_hosts.remove(self.main_ipv4, None)
             self.just_installed = True
+            self.state_version = defn.config['nixosRelease']
 
     def start(self):
         """

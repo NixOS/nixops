@@ -885,7 +885,7 @@ class Deployment(object):
                             if match:
                                 r.state_version = match.group(1)
                                 r.log("setting state version to {0}".format(r.state_version))
-                            elif r.state != r.RESCUE:
+                            else:
                                 r.warn("cannot determine NixOS version")
 
                         r.wait_for_ssh(check=check)
