@@ -189,11 +189,12 @@ class HetznerState(MachineState):
         Make sure that an existing system is easy to work on and set everything
         up properly to enter a chrooted shell on the target system.
         """
-        self.log_start("mounting /run... ")
+        self.log_start("mounting /mnt/run... ")
+        self.run_command("mkdir -m 0755 -p /mnt/run")
         self.run_command("mount -t tmpfs -o mode=0755 none /mnt/run")
         self.log_end("done.")
 
-        self.log_start("symlinking /run/current-system... ")
+        self.log_start("symlinking /mnt/run/current-system... ")
         self.run_command("ln -s /nix/var/nix/profiles/system "
                          "/mnt/run/current-system")
         self.log_end("done.")
