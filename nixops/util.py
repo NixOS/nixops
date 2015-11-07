@@ -149,7 +149,7 @@ def make_non_blocking(fd):
 
 
 def ping_tcp_port(ip, port, timeout=1, ensure_timeout=False):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     s.settimeout(timeout)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
     try:
