@@ -778,6 +778,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     raise Exception("EC2 instance ‘{0}’ went away; use ‘--allow-recreate’ to create a new one".format(self.name))
                 self.log("EC2 instance went away (state ‘{0}’), will recreate".format(instance.state if instance else "gone"))
                 self._reset_state()
+                self.region = defn.region
             elif instance.state == "stopped":
                 self.log("EC2 instance was stopped, restarting...")
 
