@@ -124,7 +124,7 @@ in
       kernelModules = [ "vboxsf" ];
 
       extraUtilsCommands = ''
-        cp -v ${pkgs.linuxPackages.virtualboxGuestAdditions}/sbin/mount.vboxsf \
+        cp -v ${pkgs.linuxPackages.virtualboxGuestAdditions}/bin/mount.vboxsf \
           $out/bin/
       '';
     };
