@@ -73,7 +73,7 @@ def retry(f, error_codes=[], logger=None):
         if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
             raise e
         if logger is not None:
-            logger.log("got (possibly transient) EC2 error code ‘{0}’, retrying...".format(e.error_code))
+            logger.log("got (possibly transient) EC2 error code '{0}': {1}. retrying...".format(e.error_code, e.error_message))
 
     i = 0
     num_retries = 7
