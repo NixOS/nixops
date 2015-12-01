@@ -17,6 +17,10 @@ class AzureReservedIPAddressDefinition(ResourceDefinition):
     def get_type(cls):
         return "azure-reserved-ip-address"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "azureReservedIPAddresses"
+
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 

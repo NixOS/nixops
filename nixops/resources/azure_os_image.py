@@ -16,6 +16,10 @@ class AzureOSImageDefinition(ResourceDefinition):
     def get_type(cls):
         return "azure-os-image"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "azureOSImages"
+
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 

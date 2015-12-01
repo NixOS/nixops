@@ -17,6 +17,10 @@ class AzureDeploymentDefinition(ResourceDefinition):
     def get_type(cls):
         return "azure-deployment"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "azureDeployments"
+
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 

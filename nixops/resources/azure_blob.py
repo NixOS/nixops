@@ -26,6 +26,10 @@ class AzureBLOBDefinition(ResourceDefinition):
     def get_type(cls):
         return "azure-blob"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "azureBlobs"
+
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 

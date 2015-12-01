@@ -16,6 +16,10 @@ class AzureAffinityGroupDefinition(ResourceDefinition):
     def get_type(cls):
         return "azure-affinity-group"
 
+    @classmethod
+    def get_resource_type(cls):
+        return "azureAffinityGroups"
+
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
 
