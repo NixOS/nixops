@@ -1,5 +1,5 @@
-pkgs: name:
-with pkgs.lib;
+lib: name:
+with lib;
 {
 
   subscriptionId = mkOption {

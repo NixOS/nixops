@@ -1,10 +1,10 @@
-{ config, pkgs, uuid, name, ... }:
+{ config, lib, uuid, name, ... }:
 
-with pkgs.lib;
-with (import ./lib.nix pkgs);
+with lib;
+with (import ./lib.nix lib);
 {
 
-  options = (import ./azure-credentials.nix pkgs "hosted service") // {
+  options = (import ./azure-credentials.nix lib "hosted service") // {
 
     name = mkOption {
       example = "my-hosted-service";

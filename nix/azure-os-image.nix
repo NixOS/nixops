@@ -1,10 +1,10 @@
-{ config, pkgs, uuid, name, ... }:
+{ config, lib, pkgs, uuid, name, ... }:
 
-with pkgs.lib;
-with (import ./lib.nix pkgs);
+with lib;
+with (import ./lib.nix lib);
 {
 
-  options = (import ./azure-credentials.nix pkgs "disk") // {
+  options = (import ./azure-credentials.nix lib "disk") // {
 
     name = mkOption {
       example = "my-os-image";

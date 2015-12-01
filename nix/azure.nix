@@ -1,9 +1,9 @@
 # Configuration specific to the Azure backend.
 
-{ config, pkgs, name, uuid, resources, ... }:
+{ config, pkgs, lib, name, uuid, resources, ... }:
 
-with pkgs.lib;
-with (import ./lib.nix pkgs);
+with lib;
+with (import ./lib.nix lib);
 let
 
   luksName = def:
@@ -234,7 +234,7 @@ in
 
   options = {
 
-    deployment.azure = (import ./azure-credentials.nix pkgs "instance") // {
+    deployment.azure = (import ./azure-credentials.nix lib "instance") // {
 
       machineName = mkOption {
         default = "nixops-${uuid}-${name}";
