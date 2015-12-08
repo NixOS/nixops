@@ -29,6 +29,7 @@ class NoneState(MachineState):
     target_host = nixops.util.attr_property("targetHost", None)
     _ssh_private_key = attr_property("none.sshPrivateKey", None)
     _ssh_public_key = attr_property("none.sshPublicKey", None)
+    _ssh_public_key_deployed = attr_property("none.sshPublicKeyDeployed", False, type = bool)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -56,6 +57,12 @@ class NoneState(MachineState):
             self.log_end("done.")
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
+    def switch_to_configuration(self, method, sync, command=None):
+        res = super(NoneState, self).switch_to_configuration(method, sync, command)
+        if res == 0:
+            self._ssh_public_key_deployed = True
+        return res
+
     def get_ssh_name(self):
         assert self.target_host
         return self.target_host
@@ -68,7 +75,7 @@ class NoneState(MachineState):
 
     def get_ssh_flags(self):
         super_state_flags = super(NoneState, self).get_ssh_flags()
-        if self.vm_id and self.cur_toplevel:
+        if self.vm_id and self.cur_toplevel and self._ssh_public_key_deployed:
             return super_state_flags + ["-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file()]
         return super_state_flags
 
