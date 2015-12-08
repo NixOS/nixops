@@ -1,4 +1,4 @@
-{ pkgs }:
+{ pkgs ? import <nixpkgs> {} }:
 
 let
   rescueDiskImageFun = pkgs.vmTools.diskImageFuns.debian8x86_64;
