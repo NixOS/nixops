@@ -176,9 +176,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         return None
 
 
-    def get_ssh_flags(self, scp=False):
+    def get_ssh_flags(self, *args, **kwargs):
         file = self.get_ssh_private_key_file()
-        return super(EC2State, self).get_ssh_flags(scp) + (["-i", file] if file else [])
+        super_flags = super(EC2State, self).get_ssh_flags(*args, **kwargs)
+        return super_flags + (["-i", file] if file else [])
 
     def get_physical_spec(self):
         block_device_mapping = {}

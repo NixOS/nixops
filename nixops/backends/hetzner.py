@@ -155,8 +155,8 @@ class HetznerState(MachineState):
         else:
             return self.write_ssh_private_key(self.main_ssh_private_key)
 
-    def get_ssh_flags(self, scp=False):
-        return super(HetznerState, self).get_ssh_flags(scp) + (
+    def get_ssh_flags(self, *args, **kwargs):
+        return super(HetznerState, self).get_ssh_flags(*args, **kwargs) + (
             ["-o", "LogLevel=quiet",
              "-o", "UserKnownHostsFile=/dev/null",
              "-o", "GlobalKnownHostsFile=/dev/null",
