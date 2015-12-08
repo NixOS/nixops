@@ -17,10 +17,10 @@ let
   newKernel = [
     (fetchBackport {
       name = "linux-image-4.2.0-0.bpo.1-amd64";
-      version = "4.2.3-2~bpo8+1";
+      version = "4.2.6-1~bpo8+1";
       arch = "amd64";
       archive = "linux";
-      sha256 = "0jlwmycdc4xsn2vapbidyp47zrpihj6qgk7p0rjw6fxl86yas56s";
+      sha256 = "1llm88zgh6x9npsgbpg5j2sbk4j8vi8i7nspz0x0xivbzhvdjv0g";
     })
     (fetchBackport {
       name = "linux-image-amd64";
@@ -32,37 +32,36 @@ let
     (fetchBackport {
       name = "linux-base";
       version = "4.0~bpo8+1";
-      arch = "all";
       archive = "linux-base";
       sha256 = "0nacjll097vhphgvgpzgy3avgxrjrjm0nf4xlzc2hjgrv4gy3hhr";
     })
     # Needed because AUFS has been replaced by overlayfs in the new kernel.
     (fetchBackport {
       name = "live-tools";
-      version = "5.0~a2-1";
-      sha256 = "0vivl2qkbjmibjgh9diyjbdl9izsn26aclgh4d04kc6jri606693";
+      version = "5.0~a2-2";
+      sha256 = "0xjwc6m5xkhgivv6bkrr7w48ijra377sz1hk03fa8g0yc3jrk9gr";
     })
     (fetchBackport {
       name = "live-boot";
-      version = "5.0~a5-1";
-      sha256 = "1402k0xygrljk2ng2lbb7jhg4a23sqmdgn0bhms0a34f5w12rnyp";
+      version = "5.0~a5-2";
+      sha256 = "04y9h0pgviplgsfli7lvy7qvi82vwv1axggw7zxal5cyx7x2hvwb";
     })
     (fetchBackport {
       name = "live-boot-initramfs-tools";
-      version = "5.0~a5-1";
+      version = "5.0~a5-2";
       archive = "live-boot";
-      sha256 = "1ylny8hvwliqnva9z5c82qqmxm3skc8fh50lz5fva4mfkzk9zzbh";
+      sha256 = "1sizz8dbi2pmnbj00bysg0bhv51j417v3ggz5q5wpgp4fw9q6x3x";
     })
     (fetchBackport {
       name = "live-config";
-      version = "5.0~a5-1";
-      sha256 = "1146hwml89cp7f18xwm4q9fj8yy9hlki93h179v41pzha1b9jskz";
+      version = "5.20151121";
+      sha256 = "0ablc8db44pcvaz8745hk3xrzjvndz130hvw193ly16m56v9x0jz";
     })
     (fetchBackport {
       name = "live-config-systemd";
-      version = "5.0~a5-1";
+      version = "5.20151121";
       archive = "live-config";
-      sha256 = "1q2586vxavhz3dc98m1pccim1d8qpcfyskrzmszgi8bnqqn22x2c";
+      sha256 = "0sv49rkymmvf782n7v1d69gav5jj01ww5paq014xhfa7bfxvgf9g";
     })
   ];
 
