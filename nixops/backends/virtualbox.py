@@ -61,8 +61,8 @@ class VirtualBoxState(MachineState):
     def get_ssh_private_key_file(self):
         return self._ssh_private_key_file or self.write_ssh_private_key(self._client_private_key)
 
-    def get_ssh_flags(self, **kwargs):
-        super_flags = super(VirtualBoxState, self).get_ssh_flags(**kwargs)
+    def get_ssh_flags(self, *args, **kwargs):
+        super_flags = super(VirtualBoxState, self).get_ssh_flags(*args, **kwargs)
         return super_flags + ["-i", self.get_ssh_private_key_file()]
 
     def get_physical_spec(self):
