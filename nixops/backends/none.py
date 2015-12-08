@@ -29,7 +29,7 @@ class NoneState(MachineState):
     target_host = nixops.util.attr_property("targetHost", None)
     _ssh_private_key = attr_property("none.sshPrivateKey", None)
     _ssh_public_key = attr_property("none.sshPublicKey", None)
-    _ssh_public_key_deployed = attr_property("none.sshPublicKeyDeployed", False, type = bool)
+    _ssh_public_key_deployed = attr_property("none.sshPublicKeyDeployed", False, bool)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
