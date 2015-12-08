@@ -57,10 +57,10 @@ class ContainerState(MachineState):
     def get_ssh_private_key_file(self):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
 
-    def get_ssh_flags(self, **kwargs):
+    def get_ssh_flags(self, *args, **kwargs):
         # When using a remote container host, we have to proxy the ssh
         # connection to the container via the host.
-        flags = super(ContainerState, self).get_ssh_flags(**kwargs)
+        flags = super(ContainerState, self).get_ssh_flags(*args, **kwargs)
         flags += ["-i", self.get_ssh_private_key_file()]
         if self.host == "localhost":
             flags.extend(MachineState.get_ssh_flags(self))
