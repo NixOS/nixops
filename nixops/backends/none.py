@@ -73,8 +73,8 @@ class NoneState(MachineState):
         else:
             return self.write_ssh_private_key(self._ssh_private_key)
 
-    def get_ssh_flags(self):
-        super_state_flags = super(NoneState, self).get_ssh_flags()
+    def get_ssh_flags(self, **kwargs):
+        super_state_flags = super(NoneState, self).get_ssh_flags(**kwargs)
         if self.vm_id and self.cur_toplevel and self._ssh_public_key_deployed:
             return super_state_flags + ["-o", "StrictHostKeyChecking=no", "-i", self.get_ssh_private_key_file()]
         return super_state_flags
