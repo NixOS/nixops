@@ -88,8 +88,8 @@ class LibvirtdState(MachineState):
                  "-o", "{0}/libvirtd-image-{1}".format(self.depl.tempdir, self.name)],
                 capture_stdout=True).rstrip()
 
-            if not os.path.exists(defn.image_dir):
-                os.makedirs(defn.image_dir)
+            if not os.access(defn.image_dir, os.W_OK):
+                raise Exception('{} is not writable by this user or it does not exist'.format(defn.image_dir))
 
             self.disk_path = self._disk_path(defn)
             self._logged_exec(["qemu-img", "create", "-f", "qcow2", "-b",
