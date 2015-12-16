@@ -155,19 +155,30 @@ class LibvirtdState(MachineState):
             self._disk_path(defn),
         )
 
-    def _parse_lease(self):
-        for line in open("/var/lib/libvirt/dnsmasq/{0}.leases".format(self.primary_net)):
-            flds = line.split()
-            if (flds[1] == self.primary_mac):
-                return (flds[0], flds[2])
-        return (0, None)
+    def _parse_ip(self):
+        cmd = [
+            "virsh",
+            "-c",
+            "qemu:///system",
+            "net-dhcp-leases",
+            "--network",
+            self.primary_net,
+        ]
+        lines = subprocess.check_output(cmd)
+        try:
+            i = lines.split().index(self.primary_mac)
+        except ValueError:
+            pass
+        else:
+            ip_with_subnet = lines.split()[i + 2]
+            return ip_with_subnet.split('/')[0]
 
     def _wait_for_ip(self, prev_time):
         self.log_start("waiting for IP address...")
         while True:
-            (l_time, l_ip) = self._parse_lease()
-            if (l_time > prev_time):
-                self.private_ipv4 = l_ip
+            ip = self._parse_ip()
+            if ip:
+                self.private_ipv4 = ip
                 break
             time.sleep(1)
             self.log_continue(".")
@@ -181,14 +192,13 @@ class LibvirtdState(MachineState):
         assert self.vm_id
         assert self.domain_xml
         assert self.primary_net
-        (l_time, l_ip) = self._parse_lease()
         if self._is_running():
-            self.private_ipv4 = l_ip
+            self.private_ipv4 = self._parse_ip()
         else:
             dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
             nixops.util.write_file(dom_file, self.domain_xml)
             self._logged_exec(["virsh", "-c", "qemu:///system", "create", dom_file])
-            self._wait_for_ip(l_time)
+            self._wait_for_ip(0)
 
     def get_ssh_name(self):
         assert self.private_ipv4
