@@ -189,6 +189,7 @@ class LibvirtdState(MachineState):
         return (string.find(ls, self.vm_id) != -1)
 
     def start(self):
+        self.log("starting...")
         assert self.vm_id
         assert self.domain_xml
         assert self.primary_net
@@ -207,11 +208,15 @@ class LibvirtdState(MachineState):
     def stop(self):
         assert self.vm_id
         if self._is_running():
+            self.log_start("shutting down... ")
             self._logged_exec(["virsh", "-c", "qemu:///system", "destroy", self.vm_id])
+        else:
+            self.log("not running")
 
     def destroy(self, wipe=False):
         if not self.vm_id:
             return True
+        self.log_start("destroying... ")
         self.stop()
         if (self.disk_path and os.path.exists(self.disk_path)):
             os.unlink(self.disk_path)
