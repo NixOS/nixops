@@ -175,7 +175,7 @@ class ResourceState(nixops.resources.ResourceState):
             try:
                 resource = self.get_settled_resource()
                 return self.confirm_destroy(abort = False)
-            except azure.WindowsAzureMissingResourceError:
+            except azure.common.AzureMissingResourceHttpError:
                 self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
         return True
 

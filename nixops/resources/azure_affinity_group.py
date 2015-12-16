@@ -65,7 +65,7 @@ class AzureAffinityGroupState(ResourceState):
     def get_resource(self):
         try:
             return self.sms().get_affinity_group_properties(self.affinity_group_name)
-        except azure.WindowsAzureMissingResourceError:
+        except azure.common.AzureMissingResourceHttpError:
             return None
 
     def destroy_resource(self):

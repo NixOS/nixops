@@ -73,7 +73,8 @@ rec {
           pythonPackages.boto
           pythonPackages.hetzner
           pythonPackages.libcloud
-          pythonPackages.azure
+          pythonPackages.azure-servicemanagement-legacy
+          pythonPackages.azure-storage
           pythonPackages.sqlite3
         ];
 

@@ -66,7 +66,7 @@ class AzureOSImageState(ResourceState):
     def get_resource(self):
         try:
             return self.sms().get_os_image(self.resource_id)
-        except azure.WindowsAzureMissingResourceError:
+        except azure.common.AzureMissingResourceHttpError:
             return None
 
     def destroy_resource(self):

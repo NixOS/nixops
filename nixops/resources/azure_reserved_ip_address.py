@@ -70,7 +70,7 @@ class AzureReservedIPAddressState(ResourceState):
     def get_resource(self):
         try:
             return self.sms().get_reserved_ip_address(self.reserved_ip_address_name)
-        except azure.WindowsAzureMissingResourceError:
+        except azure.common.AzureMissingResourceHttpError:
             return None
 
     def destroy_resource(self):

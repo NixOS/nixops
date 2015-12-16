@@ -89,7 +89,7 @@ class AzureStorageState(ResourceState):
     def get_resource(self):
         try:
             return self.sms().get_storage_account_properties(self.resource_id)
-        except azure.WindowsAzureMissingResourceError:
+        except azure.common.AzureMissingResourceHttpError:
             return None
 
     def destroy_resource(self):

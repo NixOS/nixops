@@ -7,7 +7,7 @@ import azure
 
 from nixops.util import attr_property
 from nixops.azure_common import ResourceDefinition, ResourceState
-from azure.servicemanagement import _XmlSerializer, _lower
+from azure.servicemanagement._serialization import _XmlSerializer
 
 def normalize_empty(x):
     return (x if x != "" else None)
@@ -71,7 +71,7 @@ class AzureDiskState(ResourceState):
     def get_resource(self):
         try:
             return self.sms().get_disk(self.resource_id)
-        except azure.WindowsAzureMissingResourceError:
+        except azure.common.AzureMissingResourceHttpError:
             return None
 
     def destroy_resource(self):

@@ -79,7 +79,7 @@ class AzureHostedServiceState(ResourceState):
     def get_resource(self):
         try:
             return self.sms().get_hosted_service_properties(self.resource_id)
-        except azure.WindowsAzureMissingResourceError:
+        except azure.common.AzureMissingResourceHttpError:
             return None
 
     def destroy_resource(self):

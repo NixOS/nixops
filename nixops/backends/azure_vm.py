@@ -10,10 +10,11 @@ import base64
 import random
 import threading
 
-from azure.storage import BlobService
+from azure.storage.blob import BlobService
 from azure.servicemanagement import *
-from azure.servicemanagement import _XmlSerializer, _lower
+from azure.servicemanagement._serialization import _XmlSerializer
 
+import nixops
 from nixops import known_hosts
 from nixops.util import wait_for_tcp_port, ping_tcp_port
 from nixops.util import attr_property, create_key_pair, generate_random_string, check_wait
@@ -252,7 +253,7 @@ class AzureState(MachineState, ResourceState):
                 self.log("keeping the contents but destroying Azure disk resource '{0}'...".format(disk_id or volume_id))
                 self.sms().delete_disk(volume_id, delete_vhd=False)
 
-        except azure.WindowsAzureMissingResourceError:
+        except azure.common.AzureMissingResourceHttpError:
             self.warn("seems to have been destroyed already")
 
     def _delete_encryption_key(self, disk_id):
@@ -294,7 +295,7 @@ class AzureState(MachineState, ResourceState):
     def get_resource(self):
         try:
             return self.sms().get_role(self.hosted_service, self.deployment, self.resource_id)
-        except azure.WindowsAzureMissingResourceError:
+        except azure.common.AzureMissingResourceHttpError:
             return None
 
     def destroy_resource(self):
@@ -372,7 +373,8 @@ class AzureState(MachineState, ResourceState):
             self.private_client_key = private
 
         if not self.public_host_key:
-            (private, public) = create_key_pair(type="ecdsa")
+            host_key_type = "ed25519" if self.state_version != "14.12" and nixops.util.parse_nixos_version(defn.config["nixosRelease"]) >= ["15", "09"] else "ecdsa"
+            (private, public) = create_key_pair(type=host_key_type)
             self.public_host_key = public
             self.private_host_key = private
 
@@ -482,7 +484,7 @@ class AzureState(MachineState, ResourceState):
             for d_id, disk in self.block_device_mapping.iteritems():
                 try:
                     self.sms().get_disk(disk["name"])
-                except azure.WindowsAzureMissingResourceError:
+                except azure.common.AzureMissingResourceHttpError:
                     self.warn("disk {0} has been unexpectedly deleted".format(d_id))
                     self.update_block_device_mapping(d_id, None)
                     self._delete_encryption_key(d_id)
@@ -679,9 +681,9 @@ class AzureState(MachineState, ResourceState):
                 new_disk["needs_attach"] = True
                 self.update_block_device_mapping(d_id, new_disk)
 
-            except azure.WindowsAzureMissingResourceError:
+            except azure.common.AzureMissingResourceHttpError:
                 self.warn("looks like the underlying blob doesn't exist, so it will be created later")
-            except azure.WindowsAzureConflictError:
+            except azure.common.AzureConflictHttpError:
                 self.warn("got ConflictError which most likely means that the blob "
                           "exists and is being used by another disk resource")
 
@@ -806,7 +808,7 @@ class AzureState(MachineState, ResourceState):
                     else:
                         self._wait_disk_detached(disk_name, disk_id = d_id)
 
-                except azure.WindowsAzureMissingResourceError:
+                except azure.common.AzureMissingResourceHttpError:
                     self.warn("Azure disk '{0}' seems to have been destroyed already".format(d_id))
 
                 # rescan the disk device, to make its device node disappear on older kernels
@@ -952,7 +954,7 @@ class AzureState(MachineState, ResourceState):
                     self.bs().get_blob_properties(
                             blob["container"], "{0}?snapshot={1}"
                                                 .format(blob["name"], s_id))
-                except azure.WindowsAzureMissingResourceError:
+                except azure.common.AzureMissingResourceHttpError:
                     self.warn("snapsnot {0} for disk {1} is missing; skipping".format(s_id, d_id))
                     continue
 
@@ -992,7 +994,7 @@ class AzureState(MachineState, ResourceState):
                                         .format(self.storage, blob_url))
 
                     self.bs().delete_blob(blob["container"], blob["name"], snapshot_id)
-                except azure.WindowsAzureMissingResourceError:
+                except azure.common.AzureMissingResourceHttpError:
                     self.warn('snapshot {0} of BLOB {1} not found; skipping'
                               .format(snapshot_id, blob_url))
 
@@ -1031,7 +1033,7 @@ class AzureState(MachineState, ResourceState):
                             snapshot = self.bs().get_blob_properties(
                                             blob["container"], "{0}?snapshot={1}"
                                                                .format(blob["name"], snapshot_id))
-                        except azure.WindowsAzureMissingResourceError:
+                        except azure.common.AzureMissingResourceHttpError:
                             info.append("{0} - {1} - {2} - snapshot has disappeared"
                                         .format(self.name, d_id, snapshot_id))
                             backup_status = "unavailable"
@@ -1081,7 +1083,7 @@ class AzureState(MachineState, ResourceState):
                             res.messages.append("disk {0} is detached".format(d_id))
                             try:
                                 self.sms().get_disk(disk["name"])
-                            except azure.WindowsAzureMissingResourceError:
+                            except azure.common.AzureMissingResourceHttpError:
                                 res.messages.append("disk {0} is destroyed".format(d_id))
 
                     self.handle_changed_property('public_ipv4', self.fetch_PIP())

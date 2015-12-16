@@ -75,7 +75,7 @@ class AzureDeploymentState(ResourceState):
     def get_resource(self):
         try:
             return self.sms().get_deployment_by_name(self.hosted_service, self.resource_id)
-        except azure.WindowsAzureMissingResourceError:
+        except azure.common.AzureMissingResourceHttpError:
             return None
 
     def destroy_resource(self):
@@ -104,7 +104,7 @@ class AzureDeploymentState(ResourceState):
                 vm = self.sms().get_role(self.hosted_service, self.deployment_name, self.dummy_name)
                 self.dummy_root_disk = vm.os_virtual_hard_disk.disk_name
                 self.finish_request(req)
-        except azure.WindowsAzureMissingResourceError:
+        except azure.common.AzureMissingResourceHttpError:
             self.warn("dummy VM wasn't found in {0}".format(self.full_name))
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -138,7 +138,7 @@ class AzureDeploymentState(ResourceState):
                                 "please run 'deploy --check' to fix this")
 
             dummy_disk = OSVirtualHardDisk(
-                source_image_name = 'b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-14_10-amd64-server-20150416-en-us-30GB',
+                source_image_name = 'b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-14_04_3-LTS-amd64-server-20151117-en-us-30GB',
                 media_link = defn.dummy_disk_url)
             dummy_config = LinuxConfigurationSet(host_name = self.dummy_name,
                                                  user_name = 'dummy_user',
@@ -189,7 +189,7 @@ class AzureDeploymentState(ResourceState):
                 check_wait(check_detached, initial=1, max_tries=100, exception=True)
 
                 self.sms().delete_disk(self.dummy_root_disk, delete_vhd=True)
-            except azure.WindowsAzureMissingResourceError:
+            except azure.common.AzureMissingResourceHttpError:
                 self.warn("seems to have been destroyed already")
             self.dummy_root_disk = None
 
