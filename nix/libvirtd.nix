@@ -55,6 +55,14 @@ in
       '';
     };
 
+    deployment.libvirtd.headless = mkOption {
+      default = false;
+      description = ''
+        If set VM  is started in headless mode,
+        i.e., without a visible display on the host's desktop.
+      '';
+    };
+
     deployment.libvirtd.baseImageSize = mkOption {
       default = 10;
       type = types.int;

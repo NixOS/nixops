@@ -25,6 +25,7 @@ class LibvirtdDefinition(MachineDefinition):
         assert x is not None
         self.memory_size = x.find("attr[@name='memorySize']/int").get("value")
         self.extra_devices = x.find("attr[@name='extraDevicesXML']/string").get("value")
+        self.headless = x.find("attr[@name='headless']/bool").get("value") == 'true'
         self.image_dir = x.find("attr[@name='imageDir']/string").get("value")
         assert self.image_dir is not None
 
@@ -137,7 +138,7 @@ class LibvirtdState(MachineState):
             '      <target dev="hda"/>',
             '    </disk>',
             '\n'.join([iface(n) for n in defn.networks]),
-            '    <graphics type="sdl" display=":0.0"/>',
+            '    <graphics type="sdl" display=":0.0"/>' if not defn.headless else "",
             '    <input type="keyboard" bus="usb"/>',
             '    <input type="mouse" bus="usb"/>',
             defn.extra_devices,
