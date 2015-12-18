@@ -55,6 +55,14 @@ in
       '';
     };
 
+    deployment.libvirtd.headless = mkOption {
+      default = false;
+      description = ''
+        If set VM  is started in headless mode,
+        i.e., without a visible display on the host's desktop.
+      '';
+    };
+
     deployment.libvirtd.baseImageSize = mkOption {
       default = 10;
       type = types.int;
@@ -77,6 +85,12 @@ in
       default = [ "default" ];
       type = types.listOf types.str;
       description = "Names of libvirt networks to attach the VM to.";
+    };
+
+    deployment.libvirtd.extraDevicesXML = mkOption {
+      default = "";
+      type = types.str;
+      description = "Additional XML appended at the end of device tag in domain xml. See https://libvirt.org/formatdomain.html";
     };
   };
 
