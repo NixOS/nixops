@@ -35,10 +35,18 @@ class AzureBLOBDefinition(ResourceDefinition):
 
         self.blob_name = self.get_option_value(xml, 'name', str)
         self.copy_option(xml, 'accessKey', str, optional = True)
+
         self.copy_option(xml, 'blobType', str)
-        self.copy_option(xml, 'filePath', str)
         if self.blob_type not in [ 'block', 'page' ]:
             raise Exception('BLOB type must be either "page" or "block"')
+
+        self.copy_option(xml, 'filePath', str, optional = True)
+        self.copy_option(xml, 'copyFromBlob', str, optional = True)
+        if self.file_path and self.copy_from_blob:
+            raise Exception('Must specify either filePath or copyFromBlob, but not both')
+        if not self.file_path and not self.copy_from_blob:
+            raise Exception('Must specify either filePath or copyFromBlob')
+
         self.copy_option(xml, 'container', 'resource')
         self.copy_option(xml, 'storage', 'resource', optional = True)
         self.copy_option(xml, 'contentEncoding', str, optional = True)
@@ -70,6 +78,7 @@ class AzureBLOBState(ResourceState):
     content_length = attr_property("azure.contentLength", None)
     cache_control = attr_property("azure.cacheControl", None)
     metadata = attr_property("azure.metadata", {}, 'json')
+    last_modified = attr_property("azure.last_modified", None)
 
     @classmethod
     def get_type(cls):
@@ -117,7 +126,7 @@ class AzureBLOBState(ResourceState):
         return self._bs
 
     def is_settled(self, resource):
-        return True
+        return resource is None or (resource.get('x-ms-copy-status', 'success') == 'success')
 
     def get_resource(self):
         try:
@@ -132,39 +141,7 @@ class AzureBLOBState(ResourceState):
     defn_properties = [ 'blob_type', 'content_encoding', 'content_language',
                         'cache_control', 'content_type' ]
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
-        self.no_property_change(defn, 'storage')
-        self.no_property_change(defn, 'container')
-        self.no_property_change(defn, 'blob_type')
-
-        self.copy_credentials(defn)
-        self.blob_name = defn.blob_name
-        self.access_key = defn.access_key
-        self.storage = defn.storage
-        self.container = defn.container
-
-        if check:
-            blob = self.get_settled_resource()
-            if not blob:
-                self.warn_missing_resource()
-            elif self.state == self.UP:
-                self.warn_if_changed({'block':'BlockBlob', 'page':'PageBlob'}[self.blob_type],
-                                       blob.get('x-ms-blob-type', None),
-                                      'blob type', can_fix = False)
-                self.handle_changed_property('md5', blob.get('content-md5', None))
-                self.handle_changed_property('content_encoding', blob.get('content-encoding', None))
-                self.handle_changed_property('content_language', blob.get('content-language', None))
-                self.handle_changed_property('content_length', blob.get('content-length', None), can_fix = False)
-                self.handle_changed_property('content_type', blob.get('content-type', None))
-                self.handle_changed_property('cache_control', blob.get('cache-control', None))
-                metadata = { k[10:] : v
-                             for k, v in blob.items()
-                             if k.startswith('x-ms-meta-') }
-                self.handle_changed_property('metadata', metadata)
-            else:
-                self.warn_not_supposed_to_exist()
-                self.confirm_destroy()
-
+    def upload_file(self, defn):
         md5 = md5sum(defn.file_path)
 
         if self.state != self.UP or md5 != self.md5:
@@ -209,6 +186,68 @@ class AzureBLOBState(ResourceState):
             self.md5 = md5
             self.content_length = defn.content_length or os.stat(defn.file_path).st_size
 
+
+    def copy_blob(self, defn):
+        if self.state == self.UP:
+            self.log("updating the contents of {0} in {1}...".format(self.full_name, defn.container))
+        else:
+            self.log("creating {0} in {1}...".format(self.full_name, defn.container))
+            self.last_modified = None
+        try:
+            self.bs().copy_blob(defn.container, defn.blob_name, defn.copy_from_blob,
+                                x_ms_meta_name_values = defn.metadata,
+                                x_ms_source_if_modified_since = self.last_modified)
+            res = self.get_settled_resource(max_tries=600)
+            self.last_modified = res['last-modified']
+            self.content_length = res['content-length']
+            self.copy_properties(defn)
+            self.metadata = defn.metadata
+            self.state = self.UP
+        except azure.common.AzureHttpError as e:
+          if e.status_code == 304 or e.status_code == 412:
+              self.log("update is not necessary, the source BLOB has not been modified")
+          else:
+              raise
+
+
+    def create(self, defn, check, allow_reboot, allow_recreate):
+        self.no_property_change(defn, 'storage')
+        self.no_property_change(defn, 'container')
+        self.no_property_change(defn, 'blob_type')
+
+        self.copy_credentials(defn)
+        self.blob_name = defn.blob_name
+        self.access_key = defn.access_key
+        self.storage = defn.storage
+        self.container = defn.container
+
+        if check:
+            blob = self.get_settled_resource()
+            if not blob:
+                self.warn_missing_resource()
+            elif self.state == self.UP:
+                self.warn_if_changed({'block':'BlockBlob', 'page':'PageBlob'}[self.blob_type],
+                                       blob.get('x-ms-blob-type', None),
+                                      'blob type', can_fix = False)
+                self.handle_changed_property('md5', blob.get('content-md5', None))
+                self.handle_changed_property('content_encoding', blob.get('content-encoding', None))
+                self.handle_changed_property('content_language', blob.get('content-language', None))
+                self.handle_changed_property('content_length', blob.get('content-length', None), can_fix = False)
+                self.handle_changed_property('content_type', blob.get('content-type', None))
+                self.handle_changed_property('cache_control', blob.get('cache-control', None))
+                metadata = { k[10:] : v
+                             for k, v in blob.items()
+                             if k.startswith('x-ms-meta-') }
+                self.handle_changed_property('metadata', metadata)
+            else:
+                self.warn_not_supposed_to_exist()
+                self.confirm_destroy()
+
+        if defn.file_path:
+            self.upload_file(defn)
+        if defn.copy_from_blob:
+            self.copy_blob(defn)
+
         if self.properties_changed(defn) or self.metadata != defn.metadata:
             self.log("updating properties of {0}...".format(self.full_name))
             if not self.get_settled_resource():
@@ -218,7 +257,7 @@ class AzureBLOBState(ResourceState):
             self.bs().set_blob_properties(self.container, self.blob_name,
                                           x_ms_blob_cache_control = defn.cache_control,
                                           x_ms_blob_content_type  = defn.content_type,
-                                          x_ms_blob_content_md5 = md5,
+                                          x_ms_blob_content_md5 = self.md5,
                                           x_ms_blob_content_encoding = defn.content_encoding,
                                           x_ms_blob_content_language = defn.content_language)
             self.copy_properties(defn)

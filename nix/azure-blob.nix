@@ -27,9 +27,21 @@ with (import ./lib.nix lib);
     };
 
     filePath = mkOption {
+      default = null;
       example = "path/to/source/file";
-      type = types.str;
-      description = "Path to the file to upload.";
+      type = types.nullOr types.str;
+      description = "Path to the local file to upload.";
+    };
+
+    copyFromBlob = mkOption {
+      default = null;
+      example = "https://myaccount.blob.core.windows.net/mycontainer/myblob";
+      type = types.nullOr types.str;
+      description = ''
+        Create the BLOB by copying the contents of an existing one.
+        Any BLOB in your subscription or a publicly-accessible BLOB
+        in another subscription can be copied.
+      '';
     };
 
     container = mkOption {
