@@ -75,6 +75,11 @@ rec {
           pythonPackages.libcloud
           pythonPackages.azure-servicemanagement-legacy
           pythonPackages.azure-storage
+          pythonPackages.azure-mgmt-compute
+          pythonPackages.azure-mgmt-network
+          pythonPackages.azure-mgmt-resource
+          pythonPackages.azure-mgmt-storage
+          pythonPackages.adal
           pythonPackages.sqlite3
         ];
 

@@ -11,6 +11,18 @@ import nixops.resources
 from azure import *
 from azure.servicemanagement import *
 
+from azure.mgmt.common import SubscriptionCloudCredentials
+from azure.mgmt.resource import ResourceManagementClient
+from azure.mgmt.compute import ComputeManagementClient
+from azure.mgmt.network import NetworkResourceProviderClient
+from azure.mgmt.storage import StorageManagementClient
+
+import adal
+import logging
+
+logging.getLogger('python_adal').addHandler(logging.StreamHandler())
+
+
 def optional_string(elem):
     return (elem.get("value") if elem is not None else None)
 
@@ -36,7 +48,10 @@ class ResourceDefinition(nixops.resources.ResourceDefinition):
         res_name = self.get_option_value(xml, 'name', str)
 
         self.copy_option(xml, 'subscriptionId', str)
-        self.copy_option(xml, 'certificatePath', str)
+        self.copy_option(xml, 'certificatePath', str, empty = True, optional = True)
+        self.authority_url = self.copy_option(xml, 'authority', str, empty = True, optional = True)
+        self.copy_option(xml, 'user', str, empty = True, optional = True)
+        self.copy_option(xml, 'password', str, empty = True, optional = True)
 
     def get_option_value(self, xml, name, type, optional = False,
                          empty = True, positive = False):
@@ -76,20 +91,60 @@ class ResourceDefinition(nixops.resources.ResourceDefinition):
               self.get_option_value(xml, name, type, optional = optional,
                                     empty = empty, positive = positive) )
 
+    def copy_tags(self, xml):
+        self.tags = {
+            k.get("name"): k.find("string").get("value")
+            for k in xml.findall("attrs/attr[@name='tags']/attrs/attr")
+        }
+
 
 class ResourceState(nixops.resources.ResourceState):
 
     subscription_id = attr_property("azure.subscriptionId", None)
     certificate_path = attr_property("azure.certificatePath", None)
+    authority_url = attr_property("azure.authorityUrl", None)
+    user = attr_property("azure.user", None)
+    password = attr_property("azure.password", None)
 
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._sms = None
+        self._rmc = None
+        self._cmc = None
+        self._nrpc = None
+        self._smc = None
 
     def sms(self):
         if not self._sms:
             self._sms = ServiceManagementService(self.subscription_id, self.certificate_path)
         return self._sms
+
+    def get_mgmt_credentials(self):
+        token = adal.acquire_token_with_username_password(str(self.authority_url), str(self.user), str(self.password))
+        return SubscriptionCloudCredentials(self.subscription_id, token['accessToken'])
+
+    def rmc(self):
+        if not self._rmc:
+            self._rmc = ResourceManagementClient(self.get_mgmt_credentials())
+        return self._rmc
+
+    def cmc(self):
+        if not self._cmc:
+            self.rmc().providers.register('Microsoft.Compute')
+            self._cmc = ComputeManagementClient(self.get_mgmt_credentials())
+        return self._cmc
+
+    def nrpc(self):
+        if not self._nrpc:
+            self.rmc().providers.register('Microsoft.Network')
+            self._nrpc = NetworkResourceProviderClient(self.get_mgmt_credentials())
+        return self._nrpc
+
+    def smc(self):
+        if not self._smc:
+            self.rmc().providers.register('Microsoft.Storage')
+            self._smc = StorageManagementClient(self.get_mgmt_credentials())
+        return self._smc
 
     @property
     def credentials_prefix(self):
@@ -107,9 +162,33 @@ class ResourceState(nixops.resources.ResourceState):
             raise Exception("please set '{0}.certificatePath' or AZURE_CERTIFICATE_PATH".format(self.credentials_prefix))
         return certificate_path
 
+    def defn_authority_url(self, defn):
+        authority_url = defn.authority or os.environ.get('AZURE_AUTHORITY_URL')
+        if not authority_url:
+            raise Exception("please set '{0}.authority' or AZURE_AUTHORITY_URL".format(self.credentials_prefix))
+        return authority_url
+
+    def defn_user(self, defn):
+        user = defn.user or os.environ.get('AZURE_USER')
+        if not user:
+            raise Exception("please set '{0}.user' or AZURE_USER".format(self.credentials_prefix))
+        return user
+
+    def defn_password(self, defn):
+        password = defn.password or os.environ.get('AZURE_PASSWORD')
+        if not password:
+            raise Exception("please set '{0}.password' or AZURE_PASSWORD".format(self.credentials_prefix))
+        return password
+
     def copy_credentials(self, defn):
         self.subscription_id = self.defn_subscription_id(defn)
         self.certificate_path = self.defn_certificate_path(defn)
+
+    def copy_mgmt_credentials(self, defn):
+        self.subscription_id = self.defn_subscription_id(defn)
+        self.authority_url = self.defn_authority_url(defn)
+        self.user = self.defn_user(defn)
+        self.password = self.defn_password(defn)
 
     def is_deployed(self):
         return (self.state == self.UP)
