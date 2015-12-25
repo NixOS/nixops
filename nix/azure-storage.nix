@@ -4,7 +4,7 @@ with lib;
 with (import ./lib.nix lib);
 {
 
-  options = (import ./azure-credentials.nix lib "storage") // {
+  options = (import ./azure-mgmt-credentials.nix lib "storage") // {
 
     name = mkOption {
       example = "my-storage";
@@ -16,49 +16,23 @@ with (import ./lib.nix lib);
       '';
     };
 
-    label = mkOption {
-      default = "";
-      type = types.str;
-      description = "Human-friendly label for the storage up to 100 characters in length.";
-    };
-
-    description = mkOption {
-      default = "";
-      type = types.str;
-      description = "Description of the storage up to 1024 characters in length.";
+    resourceGroup = mkOption {
+      example = "xxx-my-group";
+      type = types.either types.str (resource "azure-resource-group");
+      description = "The name or resource of an Azure resource group to create the storage in.";
     };
 
     location = mkOption {
-      default = null;
-      example = "West US";
-      type = types.nullOr types.str;
-      description = ''
-        The Azure data center location where the storage should be created.
-        You can specify either a location or affinity group, but not both.
-      '';
+      example = "westus";
+      type = types.str;
+      description = "The Azure data center location where the storage should be created.";
     };
 
-    affinityGroup = mkOption {
-      default = null;
-      example = "xxx-my-affinity-group";
-      type = types.nullOr ( types.either types.str (resource "azure-affinity-group") );
-      description = ''
-        The name or resource of an existing affinity group. You can specify either
-        a location or affinity group, but not both.
-      '';
-    };
-
-    extendedProperties = mkOption {
-      default = {};
-      example = { loglevel = "warn"; };
-      type = types.attrsOf types.str;
-      description = ''
-        Extended property name/value pairs of the storage. You can
-        have a maximum of 50 extended property name/value pairs. The maximum
-        length of the Name element is 64 characters, only alphanumeric characters
-        and underscores are valid in the Name, and the name must start with a letter.
-        The value has a maximum length of 255 characters.
-      '';
+    customDomain = mkOption {
+      default = "";
+      example = "mydomain.org";
+      type = types.str;
+      description = "User domain assigned to the storage account. Name is the CNAME source.";
     };
 
     accountType = mkOption {
@@ -68,7 +42,7 @@ with (import ./lib.nix lib);
         Specifies whether the account supports locally-redundant storage,
         geo-redundant storage, zone-redundant storage, or read access
         geo-redundant storage.
-        Possible values are: Standard_LRS, Standard_ZRS, Standard_GRS, Standard_RAGRS
+        Possible values are: Standard_LRS, Standard_ZRS, Standard_GRS, Standard_RAGRS, Premium_LRS
       '';
     };
 
@@ -82,6 +56,14 @@ with (import ./lib.nix lib);
         Possible values are: primary, secondary.
       '';
     };
+
+    tags = mkOption {
+      default = {};
+      example = { environment = "production"; };
+      type = types.attrsOf types.str;
+      description = "Tag name/value pairs to associate with the storage.";
+    };
+
   };
 
   config._type = "azure-storage";

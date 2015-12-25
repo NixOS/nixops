@@ -8,9 +8,7 @@ import azure
 from nixops.util import attr_property
 from nixops.azure_common import ResourceDefinition, ResourceState
 
-
-def normalize_empty(x):
-    return x if x != "" else None
+from azure.mgmt.storage import StorageAccountCreateParameters, StorageAccountUpdateParameters, CustomDomain
 
 class AzureStorageDefinition(ResourceDefinition):
     """Definition of an Azure Storage"""
@@ -27,38 +25,28 @@ class AzureStorageDefinition(ResourceDefinition):
         ResourceDefinition.__init__(self, xml)
 
         self.storage_name = self.get_option_value(xml, 'name', str)
-        self.copy_option(xml, 'label', str, empty = False)
-        self.copy_option(xml, 'description', str)
+        self.copy_option(xml, 'resourceGroup', 'resource')
         self.copy_option(xml, 'accountType', str, empty = False)
-        self.copy_option(xml, 'affinityGroup', 'resource', optional = True)
         self.copy_option(xml, 'activeKey', str, empty = False)
         if self.active_key not in ['primary', 'secondary']:
             raise Exception("Allowed activeKey values are: 'primary' and 'secondary'")
-        self.copy_option(xml, 'location', str, optional = True)
-        self.location = normalize_empty(self.location)
-        self.extended_properties = {
-            k.get("name"): k.find("string").get("value")
-            for k in xml.findall("attrs/attr[@name='extendedProperties']/attrs/attr")
-        }
-        if not self.location and not self.affinity_group:
-            raise Exception("Location or affinity_group must be specified")
-        if self.location and self.affinity_group:
-            raise Exception("Only one of location or affinity group needs to be specified")
+        self.copy_option(xml, 'location', str, empty = False)
+        self.copy_option(xml, 'customDomain', str)
+        self.copy_tags(xml)
 
     def show_type(self):
-        return "{0} [{1}]".format(self.get_type(), self.affinity_group or self.location)
+        return "{0} [{1}]".format(self.get_type(), self.location)
 
 
 class AzureStorageState(ResourceState):
     """State of an Azure Storage"""
 
     storage_name = attr_property("azure.name", None)
+    resource_group = attr_property("azure.resourceGroup", None)
     location = attr_property("azure.location", None)
-    label = attr_property("azure.label", None)
-    description = attr_property("azure.description", None)
-    affinity_group = attr_property("azure.affinityGroup", None)
     account_type = attr_property("azure.accountType", None)
-    extended_properties = attr_property("azure.extendedProperties", {}, 'json')
+    custom_domain = attr_property("azure.customDomain", None)
+    tags = attr_property("azure.tags", {}, 'json')
 
     active_key = attr_property("azure.activeKey", None)
     primary_key = attr_property("azure.primaryKey", None)
@@ -73,7 +61,7 @@ class AzureStorageState(ResourceState):
 
     def show_type(self):
         s = super(AzureStorageState, self).show_type()
-        if self.state == self.UP: s = "{0} [{1}]".format(s, self.affinity_group or self.location)
+        if self.state == self.UP: s = "{0} [{1}]".format(s, self.location)
         return s
 
     @property
@@ -88,93 +76,97 @@ class AzureStorageState(ResourceState):
 
     def get_resource(self):
         try:
-            return self.sms().get_storage_account_properties(self.resource_id)
+            return self.smc().storage_accounts.get_properties(self.resource_group,self.resource_id).storage_account
         except azure.common.AzureMissingResourceHttpError:
             return None
 
     def destroy_resource(self):
-        self.sms().delete_storage_account(self.resource_id)
+        self.smc().storage_accounts.delete(self.resource_group, self.resource_id)
 
     def is_settled(self, resource):
-        return resource is None or (resource.storage_service_properties.status != 'Creating' and
-                                    resource.storage_service_properties.status != 'Deleting')
+        return resource is None or (resource.provisioning_state == 'Succeeded')
 
     @property
     def access_key(self):
         return ((self.active_key == 'primary') and self.primary_key) or self.secondary_key
 
-    defn_properties = [ 'label', 'location', 'description',
-                        'account_type', 'affinity_group', 'extended_properties' ]
+    defn_properties = [ 'location', 'account_type', 'tags', 'custom_domain' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_property_change(defn, 'location')
-        self.no_property_change(defn, 'affinity_group')
+        self.no_property_change(defn, 'resource_group')
 
-        self.copy_credentials(defn)
+        self.copy_mgmt_credentials(defn)
         self.storage_name = defn.storage_name
+        self.resource_group = defn.resource_group
         self.active_key = defn.active_key
 
         if check:
-            storage = self.get_settled_resource(max_tries=600)
+            storage = self.get_settled_resource()
             if not storage:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                self.handle_changed_property('location',
-                                             normalize_empty(storage.storage_service_properties.location),
-                                             can_fix = False)
-                self.handle_changed_property('affinity_group',
-                                             normalize_empty(storage.storage_service_properties.affinity_group),
-                                             can_fix = False)
-                self.handle_changed_property('label', storage.storage_service_properties.label)
-                self.handle_changed_property('account_type', storage.storage_service_properties.account_type)
-                self.handle_changed_property('description', storage.storage_service_properties.description)
-                filtered_properties = { k : v
-                        for k, v in storage.extended_properties.items()
-                        if k not in ['ResourceGroup', 'ResourceLocation'] }
-                self.handle_changed_property('extended_properties', filtered_properties)
-                keys = self.sms().get_storage_account_keys(self.storage_name)
-                self.handle_changed_property('primary_key', keys.storage_service_keys.primary)
-                self.handle_changed_property('secondary_key', keys.storage_service_keys.secondary)
+                self.handle_changed_property('location', storage.location, can_fix = False)
+                self.handle_changed_property('account_type', storage.account_type)
+                self.handle_changed_property('tags', storage.tags)
+                self.handle_changed_property('custom_domain', (storage.custom_domain and storage.custom_domain.name) or "")
+
+                keys = self.smc().storage_accounts.list_keys(self.resource_group, self.storage_name).storage_account_keys
+                self.handle_changed_property('primary_key', keys.key1)
+                self.handle_changed_property('secondary_key', keys.key2)
             else:
                 self.warn_not_supposed_to_exist()
                 self.confirm_destroy()
 
         if self.state != self.UP:
-            if self.get_settled_resource(max_tries=600):
+            if self.get_settled_resource():
                 raise Exception("tried creating a storage that already exists; "
                                 "please run 'deploy --check' to fix this")
 
-            self.log("creating {0} in {1}...".format(self.full_name, defn.location or defn.affinity_group))
-            req = self.sms().create_storage_account(defn.storage_name, defn.description, defn.label,
-                                                    location = defn.location,
-                                                    affinity_group = defn.affinity_group,
-                                                    extended_properties = defn.extended_properties,
-                                                    account_type = defn.account_type)
-            self.log("waiting for the storage creation to finish; this may take several minutes...")
-            self.finish_request(req, max_tries=600)
+            self.log("creating {0} in {1}...".format(self.full_name, defn.location))
+            self.smc().storage_accounts.create(defn.resource_group, defn.storage_name,
+                                               StorageAccountCreateParameters(
+                                                   account_type = defn.account_type,
+                                                   location = defn.location,
+                                                   tags = defn.tags))
             self.state = self.UP
             self.copy_properties(defn)
+            self.custom_domain = ""
             # getting keys fails until the storage is fully provisioned
             self.log("waiting for the storage to settle; this may take several minutes...")
-            self.get_settled_resource(max_tries=600)
-            keys = self.sms().get_storage_account_keys(defn.storage_name)
-            self.primary_key = keys.storage_service_keys.primary
-            self.secondary_key = keys.storage_service_keys.secondary
+            self.get_settled_resource()
+            keys = self.smc().storage_accounts.list_keys(self.resource_group, self.storage_name).storage_account_keys
+            self.primary_key = keys.key1
+            self.secondary_key = keys.key2
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
-            if not self.get_settled_resource(max_tries=600):
+            if not self.get_settled_resource():
                 raise Exception("{0} has been deleted behind our back; "
                                 "please run 'deploy --check' to fix this"
                                 .format(self.full_name))
-            self.sms().update_storage_account(self.storage_name, label = defn.label,
-                                              description = defn.description,
-                                              extended_properties = defn.extended_properties,
-                                              account_type = defn.account_type)
-            self.copy_properties(defn)
+            # as per Azure documentation, this API can only
+            # change one property per call, so we call it 3 times
+            if self.tags != defn.tags:
+                self.smc().storage_accounts.update(self.resource_group, self.storage_name,
+                                                   StorageAccountUpdateParameters(tags = defn.tags))
+                self.tags = defn.tags
+
+            if self.account_type != defn.account_type:
+                self.smc().storage_accounts.update(self.resource_group, self.storage_name,
+                                                   StorageAccountUpdateParameters(
+                                                       account_type = defn.account_type))
+                self.account_type = defn.account_type
+
+            if self.custom_domain != defn.custom_domain:
+                self.smc().storage_accounts.update(self.resource_group, self.storage_name,
+                                                   StorageAccountUpdateParameters(
+                                                       custom_domain =
+                                                           CustomDomain(name = defn.custom_domain)))
+                self.custom_domain = defn.custom_domain
 
 
     def create_after(self, resources, defn):
-        from nixops.resources.azure_affinity_group import AzureAffinityGroupState
+        from nixops.resources.azure_resource_group import AzureResourceGroupState
         return {r for r in resources
-                  if isinstance(r, AzureAffinityGroupState)}
+                  if isinstance(r, AzureResourceGroupState)}
