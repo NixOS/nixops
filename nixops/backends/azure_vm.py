@@ -258,7 +258,11 @@ class AzureState(MachineState, ResourceState):
 
     def get_resource(self):
         try:
-            return self.cmc().virtual_machines.get(self.resource_group, self.resource_id).virtual_machine
+            vm = self.cmc().virtual_machines.get(self.resource_group, self.resource_id).virtual_machine
+            # workaround: if set to [], azure throws an error if we reuse the VM object in update requests
+            if vm.extensions == []:
+                vm.extensions = None
+            return vm
         except azure.common.AzureMissingResourceHttpError:
             return None
 
@@ -386,6 +390,17 @@ class AzureState(MachineState, ResourceState):
         #self._create_missing_attach_new(defn)
 
         self._generate_default_encryption_keys()
+
+        if self.properties_changed(defn):
+            self.log("updating properties of {0}...".format(self.full_name))
+            vm = self.get_settled_resource()
+            if not vm:
+                raise Exception("{0} has been deleted behind our back; "
+                                "please run 'deploy --check' to fix this"
+                                .format(self.full_name))
+            vm.hardware_profile = HardwareProfile(virtual_machine_size = defn.size)
+            self.cmc().virtual_machines.create_or_update(self.resource_group, vm)
+            self.copy_properties(defn)
 
 
     # change existing disk params as much as possible within the technical limitations
