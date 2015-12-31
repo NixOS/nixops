@@ -6,131 +6,39 @@ with lib;
 with (import ./lib.nix lib);
 let
 
-  luksName = def:
-    if (def.ephemeralName == null) || (def.ephemeralName == "")
-    then (def.diskResource.name or def.diskResource)
-    else def.ephemeralName;
+  luksName = def: def.name;
 
   mkDefaultEphemeralName = mountPoint: cfg:
-    let
-      cfg' = cfg // (
-        if (cfg.diskResource == null) && (cfg.ephemeralName == null)
-        then {
-          ephemeralName = replaceChars ["/" "." "_"] ["-" "-" "-"]
-                            (substring 1 ((stringLength mountPoint) - 1) mountPoint); }
-        else {});
-    in cfg' // (
-      if (cfg'.label == null) || (cfg'.label == "")
-      then { label = cfg'.ephemeralName; }
-      else {}
-    );
-
-  endpointOptions = { config, ... }: {
-
-    options = {
-
-      port = mkOption {
-        example = 22;
-        type = types.int;
-        description = ''
-          External port number bound to the public IP of the deployment.
-        '';
-      };
-
-      localPort = mkOption {
-        example = 22;
-        type = types.int;
-        description = ''
-          Local port number bound to the the VM network interface.
-        '';
-      };
-
-      setName = mkOption {
-        default = null;
-        example = "http_balancer";
-        type = types.nullOr types.str;
-        description = ''
-          Name of the load-balanced endpoint set.
-        '';
-      };
-
-      probe.path = mkOption {
-        default = null;
-        example = "/";
-        type = types.nullOr types.str;
-        description = ''
-          The relative HTTP path to inspect to determine the availability status of the Virtual Machine.
-          If probe protocol is set to TCP, this value must be NULL.
-        '';
-      };
-
-      probe.protocol = mkOption {
-        default = null;
-        example = "HTTP";
-        type = types.nullOr types.str;
-        description = ''
-          The protocol to use to inspect the availability status of the Virtual Machine.
-          Possible values are: HTTP, TCP.
-        '';
-      };
-
-      probe.port = mkOption {
-        default = null;
-        example = 80;
-        type = types.nullOr types.int;
-        description = ''
-          The port to use to inspect the availability status of the Virtual Machine.
-        '';
-      };
-
-
-      directServerReturn = mkOption {
-        default = false;
-        example = true;
-        type = types.bool;
-        description = ''
-          Enable direct server return.
-        '';
-      };
-
-    };
-
-    config = {};
-
-  };
-
+    cfg // (
+      if cfg.name == null
+      then {
+          name = replaceChars ["/" "." "_"] ["-" "-" "-"]
+                    (substring 1 ((stringLength mountPoint) - 1) mountPoint); }
+      else {});
 
   azureDiskOptions = { config, ... }: {
 
     options = {
 
-      diskResource = mkOption {
-        default = null;
-        example = "external-disk2";
-        type = types.nullOr (types.either types.str (resource "azure-disk"));
-        description = ''
-          The resource or the name of an existing disk not
-          managed by NixOps, to attach to the virtual machine.
-        '';
-      };
-
-      ephemeralName = mkOption {
+      name = mkOption {
         default = null;
         example = "data";
         type = types.nullOr types.str;
-        description = ''
-          The short name of an ephemeral disk to create. Emphemeral disk resources
-          are automatically created and destroyed by NixOps as needed. The user
-          has an option to keep the BLOB with contents after the disk is destroyed.
-          Ephemeral disk names only need to be unique among the other ephemeral
-          disks of the virtual machine instance.
-        '';
+        description = "The short name of the disk to create.";
       };
 
-      label = mkOption {
-        default = "";
-        type = types.nullOr types.str;
-        description = "Human-friendly label for the Azure disk up to 100 characters in length.";
+      isEphemeral = mkOption {
+        default = true;
+        example = false;
+        type = types.bool;
+        description = ''
+          Whether the disk is ephemeral. Emphemeral disk BLOBs
+          are automatically created and destroyed by NixOps as needed. The user
+          has an option to keep the BLOB with contents after the virtual machine
+          is destroyed.
+          Ephemeral disk names need to be unique only among the other ephemeral
+          disks of the virtual machine.
+        '';
       };
 
       mediaLink = mkOption {
@@ -150,8 +58,8 @@ let
         type = types.nullOr types.int;
         description = ''
           Volume size (in gigabytes) for automatically created
-          Azure disks. This option value is ignored if you are
-          creating a disk backed by an existing BLOB.
+          Azure disks. This option value is ignored if the
+          disk BLOB already exists.
         '';
       };
 
@@ -223,9 +131,7 @@ let
 
     };
 
-    config = {
-      label = mkDefault (config.ephemeralName or "");
-    };
+    config = {};
   };
 
 in
@@ -234,7 +140,7 @@ in
 
   options = {
 
-    deployment.azure = (import ./azure-credentials.nix lib "instance") // {
+    deployment.azure = (import ./azure-mgmt-credentials.nix lib "instance") // {
 
       machineName = mkOption {
         default = "nixops-${uuid}-${name}";
@@ -243,50 +149,49 @@ in
         description = "The Azure machine <literal>Name</literal>.";
       };
 
-
-      roleSize = mkOption {
-        default = "Small";
-        example = "Large";
+      location = mkOption {
+        example = "westus";
         type = types.str;
-        description = ''
-            The size of the virtual machine to allocate.
-            Possible values are: ExtraSmall, Small, Medium, Large, ExtraLarge. 
-        '';
+        description = "The Azure data center location where the virtual machine should be created.";
+      };
+
+      size = mkOption {
+        default = "Basic_A0";
+        example = "Standard_A0";
+        type = types.str;
+        description = "The size of the virtual machine to allocate.";
       };
 
       storage = mkOption {
-        default = null;
         example = "resources.azureStorages.mystorage";
-        type = types.nullOr (types.either types.str (resource "azure-storage"));
+        type = types.either types.str (resource "azure-storage");
         description = ''
           Azure storage service name or resource to use to manage
-          the disk BLOBs during backup/restore operations.
+          the disk BLOBs.
         '';
       };
 
-      hostedService = mkOption {
-        default = null;
-        example = "resources.azureHostedServices.myservice";
-        type = types.either types.str (resource "azure-hosted-service");
+      virtualNetwork = mkOption {
+        example = "resources.azureVirtualNetworks.mynetwork";
+        type = types.either types.str (resource "azure-virtual-network");
         description = ''
-          Azure hosted service name or resource to deploy the machine to.
+          Azure virtual network name or resource to attach the machine to.
         '';
       };
 
-      deployment = mkOption {
-        default = null;
-        example = "resources.azureDesployments.mydeployment";
-        type = types.either types.str (resource "azure-deployment");
+      resourceGroup = mkOption {
+        example = "resources.azureResourceGroups.mygroup";
+        type = types.either types.str (resource "azure-resource-group");
         description = ''
-          Azure deployment name or resource to deploy the machine to.
+          Azure resource group name or resource to create the machine in.
         '';
       };
 
-      rootDiskImage = mkOption {
+      rootDiskImageUrl = mkOption {
         example = "nixos-bootstrap-30GB";
         type = types.str;
         description = ''
-          Bootstrap image URL.
+          Bootstrap image BLOB URL. Must reside on the same storage as VM disks.
         '';
       };
 
@@ -308,26 +213,6 @@ in
         options = azureDiskOptions;
         description = ''
           Block device mapping.
-        '';
-      };
-
-      inputEndpoints.tcp = mkOption {
-        default = { };
-        example = { ssh = { port = 33; localPort = 22; }; };
-        type = types.attrsOf types.optionSet;
-        options = endpointOptions;
-        description = ''
-          TCP input endpoint options.
-        '';
-      };
-
-      inputEndpoints.udp = mkOption {
-        default = { };
-        example = { dns = { port = 53; localPort = 640; }; };
-        type = types.attrsOf types.optionSet;
-        options = endpointOptions;
-        description = ''
-          UDP input endpoint options.
         '';
       };
 
@@ -385,7 +270,7 @@ in
 
     deployment.azure.blockDeviceMapping = {
       "/dev/sda" = {
-        ephemeralName = "root";
+        name = "root";
         hostCaching = "ReadWrite";
       };
     } // (listToAttrs
