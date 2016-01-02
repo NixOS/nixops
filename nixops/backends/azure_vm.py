@@ -19,7 +19,7 @@ import nixops
 from nixops import known_hosts
 from nixops.util import wait_for_tcp_port, ping_tcp_port
 from nixops.util import attr_property, create_key_pair, generate_random_string, check_wait
-from nixops.nix_expr import Function, RawValue
+from nixops.nix_expr import Call, RawValue
 
 from nixops.backends import MachineDefinition, MachineState
 from nixops.azure_common import ResourceDefinition, ResourceState
@@ -38,7 +38,15 @@ def lun_to_device_name(lun):
 
 def find_root_disk(block_device_mapping):
    return next((d_id for d_id, d in block_device_mapping.iteritems()
-                  if d['device'] == '/dev/sda'), None)
+                  if d['device'] == '/dev/sda' and not d.get('needs_attach', False)), None)
+
+def parse_blob_url(blob):
+    match = re.match(r'https?://([^\./]+)\.[^/]+/([^/]+)/(.+)$', blob)
+    return None if match is None else {
+        "storage": match.group(1),
+        "container": match.group(2),
+        "name": match.group(3)
+    }
 
 
 class AzureDefinition(MachineDefinition, ResourceDefinition):
@@ -87,6 +95,16 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
             if not media_link:
                 raise Exception("{0}: ephemeral disk {1} must specify mediaLink"
                                 .format(self.machine_name, disk_name))
+            blob = parse_blob_url(media_link)
+            if not blob:
+                raise Exception("{0}: malformed BLOB URL {1}"
+                                .format(self.machine_name, media_link))
+            if media_link[:5] == 'http:':
+                raise Exception("{0}: please use https in BLOB URL {1}"
+                                .format(self.machine_name, media_link))
+            if self.storage != blob['storage']:
+                raise Exception("{0}: expected storage to be {1} in BLOB URL {2}"
+                                .format(self.machine_name, self.storage, media_link))
             return {
                 'name': disk_name,
                 'device': xml.get("name"),
@@ -98,8 +116,13 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
                 'passphrase': self.get_option_value(xml, 'passphrase', str)
             }
 
-        self.block_device_mapping = { parse_block_device(d)['media_link']: parse_block_device(d)
-                                      for d in x.findall("attr[@name='blockDeviceMapping']/attrs/attr") }
+        devices = [ parse_block_device(_d)
+                    for _d in x.findall("attr[@name='blockDeviceMapping']/attrs/attr") ]
+        self.block_device_mapping = { _d['media_link']: _d for _d in devices }
+
+        media_links = [ _d['media_link'] for _d in devices ]
+        if len(media_links) != len(set(media_links)):
+            raise Exception("{0} has duplicate disk BLOB URLs".format(self.machine_name))
 
         for d_id, disk in self.block_device_mapping.iteritems():
             if disk['device'] != "/dev/sda" and device_name_to_lun(disk['device']) is None:
@@ -175,50 +198,36 @@ class AzureState(MachineState, ResourceState):
             self._bs = BlobService(self.storage, storage_resource.access_key)
         return self._bs
 
-    # API calls throw 'conflict' if they involve disks whose
-    # attached_to property is not (yet) None,
-    # a condition that may persist for several seconds after
-    # delete_data_disk and similar requests finish
-    def _wait_disk_detached(self, volume_id, disk_id = None):
-        self.log("waiting for Azure disk {0} to detach..."
-                 .format(disk_id or volume_id))
-
-        def check_detached():
-            return self.sms().get_disk(volume_id).attached_to is None
-        check_wait(check_detached, initial=1, max_tries=100, exception=True)
-
     # delete_vhd = None: ask the user
-    def _delete_volume(self, media_link, disk_id = None, delete_vhd = None):
+    def _delete_volume(self, media_link, disk_name = None, delete_vhd = None):
         if media_link is None:
             self.warn("attempted to delete a disk without a BLOB URL; this is a bug")
             return
         try:
-            #self._wait_disk_detached(volume_id, disk_id = disk_id)
-
             if delete_vhd or (delete_vhd is None and
                               self.depl.logger.confirm("are you sure you want to destroy "
-                                                       "the contents(BLOB) of Azure disk '{0}'?"
-                                                       .format(disk_id or media_link)) ):
-                self.log("destroying Azure disk BLOB '{0}'...".format(media_link))
-                blob = self.parse_blob_url(media_link)
+                                                       "the contents(BLOB) of Azure disk {0}({1})?"
+                                                       .format(disk_name, media_link)) ):
+                self.log("destroying Azure disk BLOB {0}...".format(media_link))
+                blob = parse_blob_url(media_link)
                 if blob is None:
                     raise Exception("failed to parse BLOB URL {0}".format(media_link))
                 if blob["storage"] != self.storage:
-                    raise Exception("storage {1} provided in the deployment specification "
+                    raise Exception("storage {0} provided in the deployment specification "
                                     "doesn't match the storage of BLOB {1}"
                                     .format(self.storage, media_link))
                 self.bs().delete_blob(blob["container"], blob["name"])
             else:
-                self.log("keeping the Azure disk BLOB '{0}'...".format(disk_id or media_link))
+                self.log("keeping the Azure disk BLOB {0}...".format(media_link))
 
         except azure.common.AzureMissingResourceHttpError:
             self.warn("seems to have been destroyed already")
 
     def blob_exists(self, media_link):
         try:
-            blob = self.parse_blob_url(media_link)
+            blob = parse_blob_url(media_link)
             if blob["storage"] != self.storage:
-                raise Exception("storage {1} provided in the deployment specification "
+                raise Exception("storage {0} provided in the deployment specification "
                                 "doesn't match the storage of BLOB {1}"
                                 .format(self.storage, media_link))
             if blob is None:
@@ -266,16 +275,24 @@ class AzureState(MachineState, ResourceState):
         except azure.common.AzureMissingResourceHttpError:
             return None
 
+    # retrieve the VM resource and complain to the user if it doesn't exist
+    def get_vm_assert_exists(self):
+        vm = self.get_settled_resource()
+        if not vm:
+            raise Exception("{0} has been deleted behind our back; "
+                            "please run 'deploy --check' to fix this"
+                            .format(self.full_name))
+        return vm
+
     def destroy_resource(self):
-        req = self.cmc().virtual_machines.delete(self.resource_group, self.resource_id)
+        self.cmc().virtual_machines.delete(self.resource_group, self.resource_id)
 
     def is_settled(self, resource):
         return True
 
-    def fetch_PIP(self):
-        d = self.sms().get_deployment_by_name(self.hosted_service, self.deployment)
-        instance = next((r for r in d.role_instance_list if r.instance_name == self.machine_name), None)
-        return (instance and instance.public_ips and instance.public_ips[0].address)
+    def fetch_public_ip(self):
+        return self.nrpc().public_ip_addresses.get(
+                   self.resource_group, self.public_ip).public_ip_address.ip_address
 
     def update_block_device_mapping(self, k, v):
         x = self.block_device_mapping
@@ -294,22 +311,11 @@ class AzureState(MachineState, ResourceState):
         self.generated_encryption_keys = x
 
 
-    deployment_locks = {}
-    master_lock = threading.Lock()
-
-    @property
-    def deployment_lock(self):
-        with self.master_lock:
-            lock_name = "{0}###{1}".format(self.hosted_service, self.deployment)
-            if lock_name not in self.deployment_locks:
-                self.deployment_locks[lock_name] = threading.Lock()
-            return self.deployment_locks[lock_name]
-
-
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(self.machine_name != defn.machine_name, "instance name")
         self.no_property_change(defn, 'resource_group')
         self.no_property_change(defn, 'virtual_network')
+        self.no_property_change(defn, 'storage')
         self.no_property_change(defn, 'location')
 
         self.set_common_state(defn)
@@ -335,11 +341,75 @@ class AzureState(MachineState, ResourceState):
             vm = self.get_settled_resource()
             if vm:
                 if self.vm_id:
+                    if vm.provisioning_state == ProvisioningStateTypes.failed:
+                        self.warn("vm resource exists, but is in a failed state")
                     self.handle_changed_property('size', vm.hardware_profile.virtual_machine_size)
-                    public_ipv4 = self.nrpc().public_ip_addresses.get(
-                                      self.resource_group, self.public_ip).public_ip_address.ip_address
-                    self.handle_changed_property('public_ipv4', public_ipv4)
+                    self.handle_changed_property('public_ipv4', self.fetch_public_ip())
                     self.update_ssh_known_hosts()
+
+                    # check the root disk
+                    os_disk_res_name = "OS disk of {0}".format(self.full_name)
+                    _root_disk_id = find_root_disk(self.block_device_mapping)
+                    assert _root_disk_id is not None
+                    root_disk = self.block_device_mapping[_root_disk_id]
+                    self.warn_if_changed(root_disk["host_caching"], vm.storage_profile.os_disk.caching, "host_caching",
+                                         resource_name = os_disk_res_name, can_fix = False)
+                    self.warn_if_changed(root_disk["name"], vm.storage_profile.os_disk.name, "name",
+                                         resource_name = os_disk_res_name, can_fix = False)
+                    self.warn_if_changed(root_disk["media_link"], vm.storage_profile.os_disk.virtual_hard_disk.uri, "media_link",
+                                         resource_name = os_disk_res_name, can_fix = False)
+                    self.update_block_device_mapping(_root_disk_id, root_disk)
+
+                    # check data disks
+                    for d_id, disk in self.block_device_mapping.iteritems():
+                        disk_lun = device_name_to_lun(disk['device'])
+                        if disk_lun is None: continue
+                        vm_disk = next((_vm_disk for _vm_disk in vm.storage_profile.data_disks
+                                                 if _vm_disk.virtual_hard_disk.uri == disk['media_link']), None)
+                        if vm_disk is not None:
+                            disk_res_name = "data disk {0}({1})".format(disk['name'], d_id)
+                            disk["host_caching"] = self.warn_if_changed(disk["host_caching"], vm_disk.caching,
+                                                                        "host_caching", resource_name = disk_res_name)
+                            disk["size"] = self.warn_if_changed(disk["size"], vm_disk.disk_size_gb,
+                                                                "size", resource_name = disk_res_name)
+                            self.warn_if_changed(disk["name"], vm_disk.name,
+                                                 "name", resource_name = disk_res_name, can_fix = False)
+                            if disk.get("needs_attach", False):
+                                self.warn("disk {0}({1}) was not supposed to be attached".format(disk['name'], d_id))
+                                disk["needs_attach"] = False
+
+                            if vm_disk.lun != disk_lun:
+                                self.warn("disk {0}({1}) is attached to this instance at a "
+                                          "wrong LUN {2} instead of {3}"
+                                          .format(disk['name'], disk['media_link'], vm_disk.lun, disk_lun))
+                                self.log("detaching disk {0}({1})...".format(disk['name'], disk['media_link']))
+                                vm.storage_profile.data_disks.remove(vm_disk)
+                                self.cmc().virtual_machines.create_or_update(self.resource_group, vm)
+                                disk["needs_attach"] = True
+                        else:
+                            if not disk.get('needs_attach', False):
+                                self.warn("disk {0}({1}) has been unexpectedly detached".format(disk['name'], d_id))
+                                disk["needs_attach"] = True
+                            if not self.blob_exists(disk['media_link']):
+                                self.warn("disk BLOB {0}({1}) has been unexpectedly deleted".format(disk['name'], d_id))
+                                disk = None
+
+                        self.update_block_device_mapping(d_id, disk)
+
+                    # detach "unexpected" disks
+                    found_unexpected_disks = False
+                    for vm_disk in vm.storage_profile.data_disks:
+                        state_disk_id = next((_d_id for _d_id, _disk in self.block_device_mapping.iteritems()
+                                              if vm_disk.virtual_hard_disk.uri == _disk['media_link']), None)
+                        if state_disk_id is None:
+                            self.warn("unexpected disk {0}({1}) is attached to this virtual machine"
+                                      .format(vm_disk.name, vm_disk.virtual_hard_disk.uri))
+                            vm.storage_profile.data_disks.remove(vm_disk)
+                            found_unexpected_disks = True
+                    if found_unexpected_disks:
+                        self.log("detaching unexpected disk(s)...")
+                        self.cmc().virtual_machines.create_or_update(self.resource_group, vm)
+
                 else:
                     self.warn_not_supposed_to_exist(valuable_data = True)
                     self.confirm_destroy()
@@ -358,146 +428,130 @@ class AzureState(MachineState, ResourceState):
         self._assert_no_impossible_disk_changes(defn)
 
         # change the root disk of a deployed vm
-        # FIXME: implement this better via update_role?
-        #if self.vm_id:
-            #def_root_disk_id = find_root_disk(defn.block_device_mapping)
-            #assert def_root_disk_id is not None
-            #def_root_disk = defn.block_device_mapping[def_root_disk_id]
-            #self_root_disk_id = find_root_disk(self.block_device_mapping)
-            #assert self_root_disk_id is not None
-            #self_root_disk = self.block_device_mapping[self_root_disk_id]
+        # this is not directly supported by create_or_update API
+        if self.vm_id:
+            def_root_disk_id = find_root_disk(defn.block_device_mapping)
+            assert def_root_disk_id is not None
+            def_root_disk = defn.block_device_mapping[def_root_disk_id]
+            state_root_disk_id = find_root_disk(self.block_device_mapping)
+            assert state_root_disk_id is not None
+            state_root_disk = self.block_device_mapping[state_root_disk_id]
 
-            #if ( (def_root_disk_id != def_root_disk_id) or
-                 #(def_root_disk["ephemeral"] != self_root_disk["ephemeral"]) or
-                 #(def_root_disk["host_caching"] != self_root_disk["host_caching"]) or
-                 #(def_root_disk["label"] != self_root_disk["label"]) ):
-                #self.warn("modification of the root disk of {0} is requested, "
-                          #"which requires that the machine is re-created"
-                          #.format(self.full_name))
-                #if allow_recreate:
-                    #self.destroy_resource()
-                    #self._node_deleted()
-                #else:
-                    #raise Exception("use --allow-recreate to fix")
+            if ( (def_root_disk_id != state_root_disk_id) or
+                 (def_root_disk['host_caching'] != state_root_disk['host_caching']) or
+                 (def_root_disk['name'] != state_root_disk['name']) ):
+                self.warn("a modification of the root disk is requested "
+                          "that requires that the virtual machine is re-created")
+                if allow_recreate:
+                    self.log("destroying the virtual machine, but preserving the disk contents...")
+                    self.destroy_resource()
+                    self._node_deleted()
+                else:
+                    raise Exception("use --allow-recreate to fix")
 
-        #self._change_existing_disk_parameters(defn)
-
-        #self._create_ephemeral_disks_from_blobs(defn)
+        self._change_existing_disk_parameters(defn)
 
         self._create_vm(defn)
 
-        #self._attach_detached_disks(defn)
-        #self._create_missing_attach_new(defn)
+        self._create_missing_attach_detached(defn)
 
         self._generate_default_encryption_keys()
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
-            vm = self.get_settled_resource()
-            if not vm:
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            vm = self.get_vm_assert_exists()
             vm.hardware_profile = HardwareProfile(virtual_machine_size = defn.size)
             self.cmc().virtual_machines.create_or_update(self.resource_group, vm)
             self.copy_properties(defn)
 
 
-    # change existing disk params as much as possible within the technical limitations
+    # change existing disk parameters as much as possible within the technical limitations
     def _change_existing_disk_parameters(self, defn):
         for d_id, disk in defn.block_device_mapping.iteritems():
-            curr_disk = self.block_device_mapping.get(d_id, None)
-            if curr_disk is None: continue
-            lun = device_name_to_lun(disk["device"])
+            state_disk = self.block_device_mapping.get(d_id, None)
+            if state_disk is None: continue
+            lun = device_name_to_lun(disk['device'])
             if lun is None: continue
-            if self.vm_id and not curr_disk.get("needs_attach", False):
-                if disk["device"] != curr_disk["device"]:
-                    raise Exception("can't change LUN of the attached disk {0}; "
-                                    "please deploy a configuration with this disk detached first".format(d_id))
-                # update_data_disk seems to allow the label change, but it does nothing
-                if disk["label"] != curr_disk["label"]: #FIXME: recreate vm for this?
-                    raise Exception("can't change the label of the attached disk {0}".format(d_id))
-                if disk["host_caching"] != curr_disk["host_caching"]:
-                    self.log("changing parameters of the attached disk {0}".format(d_id))
-                    req = self.sms().update_data_disk(self.hosted_service, self.deployment, self.machine_name,
-                                                      lun, updated_lun = lun, 
-                                                      disk_name = curr_disk["name"],
-                                                      host_caching = disk["host_caching"] )
-                    self.finish_request(req)
-            curr_disk["device"] = disk["device"]
-            curr_disk["host_caching"] = disk["host_caching"]
-            curr_disk["label"] = disk["label"]
-            curr_disk["passphrase"] = disk["passphrase"]
-            self.update_block_device_mapping(d_id, curr_disk)
+            if self.vm_id and not state_disk.get('needs_attach', False):
+                if disk['host_caching'] != state_disk['host_caching']:
+                    self.log("changing parameters of the attached disk {0}({1})"
+                             .format(disk['name'], d_id))
+                    vm = self.get_vm_assert_exists()
+                    vm_disk = next((_disk for _disk in vm.storage_profile.data_disks
+                                         if _disk.virtual_hard_disk.uri == disk['media_link']), None)
+                    if vm_disk is None:
+                        raise Exception("disk {0}({1}) was supposed to be attached at {2} "
+                                        "but wasn't found; please run deploy --check to fix this"
+                                        .format(disk['name'], d_id, disk['device']))
+                    vm_disk.caching = disk['host_caching']
+                    self.cmc().virtual_machines.create_or_update(self.resource_group, vm)
+                    state_disk['host_caching'] = disk['host_caching']
+            else:
+                state_disk['host_caching'] = disk['host_caching']
+                state_disk['name'] = disk['name']
+                state_disk['device'] = disk['device']
+            state_disk['encrypt'] = disk['encrypt']
+            state_disk['passphrase'] = disk['passphrase']
+            state_disk['is_ephemeral'] = disk['is_ephemeral']
+            self.update_block_device_mapping(d_id, state_disk)
 
-    # check that we aren't making impossible changes like
-    # changing LUN, ephemeral, media_link for ephemeral disks
+    # Certain disk configuration changes can't be deployed in
+    # one step such as replacing a disk attached to a particular
+    # LUN or reattaching a disk at a different LUN.
+    # You can reattach the os disk as a data disk in one step.
+    # You can't reattach the data disk as os disk in one step.
+    # This is a limitation of the disk modification process,
+    # which ensures clean dismounts:
+    # new disks are attached, nixos configuration is deployed
+    # which mounts new disks and dismounts the disks about to
+    # be detached, and only then the disks are detached.
     def _assert_no_impossible_disk_changes(self, defn):
         if self.vm_id is None: return
 
         for d_id, disk in defn.block_device_mapping.iteritems():
-            same_lun_id = next((_id for _id, d in self.block_device_mapping.iteritems()
-                                    if d["device"] == disk["device"]), None)
-            if same_lun_id is not None and (same_lun_id != d_id) and (
-                not self.block_device_mapping[same_lun_id].get("needs_attach", False) ):
-                raise Exception("can't mount Azure disk '{0}' because its LUN({1}) is already "
-                                "occupied by Azure disk '{2}'; you need to deploy a configuration "
+            same_lun_id = next((_id for _id, _d in self.block_device_mapping.iteritems()
+                                    if _d['device'] == disk['device']), None)
+            disk_lun = device_name_to_lun(disk['device'])
+            if same_lun_id is not None and disk_lun is not None and (same_lun_id != d_id) and (
+                  not self.block_device_mapping[same_lun_id].get("needs_attach", False) ):
+                raise Exception("can't attach Azure disk {0}({1}) because the target LUN {2} is already "
+                                "occupied by Azure disk {3}; you need to deploy a configuration "
                                 "with this LUN left empty before using it to attach a different data disk"
-                                .format(d_id, disk["device"], same_lun_id))
+                                .format(disk['name'], disk["media_link"], disk["device"], same_lun_id))
 
-    # attach existing but detached disks
-    def _attach_detached_disks(self, defn):
-        for d_id, _disk in defn.block_device_mapping.iteritems():
-            disk = self.block_device_mapping.get(d_id, None)
-            if disk is None or not disk.get("needs_attach", False): continue
-            lun = device_name_to_lun(disk["device"])
-            if lun is not None:
-                with self.deployment_lock:
-                    self.log("attaching data disk {0} to {1}"
-                            .format(d_id, self.full_name))
-                    req = self.sms().add_data_disk(
-                            self.hosted_service, self.deployment, self.machine_name,
-                            lun, disk_name = disk['name'],
-                            host_caching = _disk['host_caching'],
-                            disk_label = _disk['label'] )
-                    self.finish_request(req)
-                disk["needs_attach"] = False
-                disk["host_caching"] = _disk["host_caching"]
-                disk["label"] = _disk["label"]
-                self.update_block_device_mapping(d_id, disk)
+            state_disk = self.block_device_mapping.get(d_id, None)
+            _lun = state_disk and device_name_to_lun(state_disk['device'])
+            if state_disk and _lun is not None and not state_disk.get('needs_attach', False):
+                if state_disk['device'] != disk['device']:
+                    raise Exception("can't reattach Azure disk {0}({1}) to a different LUN in one step; "
+                                    "you need to deploy a configuration with this disk detached from {2} "
+                                  "before attaching it to {3}"
+                                 .format(disk['name'], d_id, state_disk['device'], disk['device']))
+                if state_disk['name'] != disk['name']:
+                    raise Exception("cannot change the name of the attached disk {0}({1})"
+                                    .format(state_disk['name'], d_id))
 
-    # create missing disks/attach new external disks
-    # creation code assumes that the blob doesn't exist because
-    # otherwise a disk would be created from it by _create_ephemeral_disks_from_blobs()
-    def _create_missing_attach_new(self, defn):
+    # create missing, attach detached disks
+    def _create_missing_attach_detached(self, defn):
         for d_id, disk in defn.block_device_mapping.iteritems():
-            if d_id in self.block_device_mapping: continue
-            with self.deployment_lock:
-                self.log("attaching data disk {0} to {1}"
-                        .format(d_id, self.full_name))
-                if disk["ephemeral"]:
-                    req = self.sms().add_data_disk(
-                              defn.hosted_service, defn.deployment, defn.machine_name,
-                              device_name_to_lun(disk['device']),
-                              host_caching = disk['host_caching'],
-                              media_link = disk['media_link'],
-                              disk_label = disk['label'],
-                              logical_disk_size_in_gb = disk['size']
-                          )
-                    self.finish_request(req)
-                    dd = self.sms().get_data_disk(defn.hosted_service, defn.deployment, defn.machine_name,
-                                                  device_name_to_lun(disk['device']))
-                    disk['name'] = dd.disk_name
-                else:
-                    req = self.sms().add_data_disk(
-                              defn.hosted_service, defn.deployment, defn.machine_name,
-                              device_name_to_lun(disk['device']),
-                              disk_name = disk['name'],
-                              host_caching = disk['host_caching'],
-                              disk_label = disk['label']
-                          )
-                    self.finish_request(req)
+            lun = device_name_to_lun(disk['device'])
+            if lun is None: continue
+            _disk = self.block_device_mapping.get(d_id, None)
+            if _disk and not _disk.get("needs_attach", False): continue
 
+            self.log("attaching data disk {0}({1})".format(disk['name'], d_id))
+            vm = self.get_vm_assert_exists()
+            vm.storage_profile.data_disks.append(DataDisk(
+                name = disk['name'],
+                virtual_hard_disk = VirtualHardDisk(uri = disk['media_link']),
+                caching = disk['host_caching'],
+                create_option = ( DiskCreateOptionTypes.attach
+                                  if self.blob_exists(disk['media_link'])
+                                  else DiskCreateOptionTypes.empty ),
+                lun = lun,
+                disk_size_gb = disk['size']
+            ))
+            self.cmc().virtual_machines.create_or_update(self.resource_group, vm)
             self.update_block_device_mapping(d_id, disk)
 
     # generate LUKS key if the model didn't specify one
@@ -505,37 +559,9 @@ class AzureState(MachineState, ResourceState):
         for d_id, disk in self.block_device_mapping.iteritems():
             if disk.get('encrypt', False) and ( disk.get('passphrase', "") == ""
                                             and self.generated_encryption_keys.get(d_id, None) is None):
-                self.log("generating an encryption key for disk {0}".format(d_id))
+                self.log("generating an encryption key for disk {0}({1})"
+                         .format(disk['name'], d_id))
                 self.update_generated_encryption_keys(d_id, generate_random_string(length=256))
-
-    # This is an ugly hack around the fact that to create a new disk,
-    # add_data_disk() needs to be called in a different way depending
-    # on whether the blob exists and there's no API to check direcly
-    # whether the blob exists or not.
-    # We work around it by attempting to create a disk from the blob instead
-    # of relying on add_data_disk(), and use add_data_disk() only to create
-    # new blobs(for which there's no other API) and attaching existing disks.
-    # The same problem and solution applies to the root disk.
-    def _create_ephemeral_disks_from_blobs(self, defn):
-        for d_id, disk in defn.block_device_mapping.iteritems():
-            if d_id in self.block_device_mapping or not disk["ephemeral"]: continue
-            try:
-                new_name = "nixops-{0}-{1}-{2}".format(self.machine_name, disk["ephemeral_name"],
-                                                        random.randrange(1000000000))
-                self.log("attempting to create a disk resource for {0}".format(d_id))
-                self._create_disk(device_name_to_lun(disk["device"]) is None,
-                                  disk["label"], disk["media_link"],
-                                  new_name, "Linux")
-                new_disk = disk.copy()
-                new_disk["name"] = new_name
-                new_disk["needs_attach"] = True
-                self.update_block_device_mapping(d_id, new_disk)
-
-            except azure.common.AzureMissingResourceHttpError:
-                self.warn("looks like the underlying blob doesn't exist, so it will be created later")
-            except azure.common.AzureConflictHttpError:
-                self.warn("got ConflictError which most likely means that the blob "
-                          "exists and is being used by another disk resource")
 
 
     def _create_vm(self, defn):
@@ -627,7 +653,7 @@ class AzureState(MachineState, ResourceState):
                         create_option = ( DiskCreateOptionTypes.attach
                                           if root_disk_exists
                                           else DiskCreateOptionTypes.from_image),
-                        name = self.machine_name+'-root',
+                        name = root_disk_spec['name'],
                         virtual_hard_disk = VirtualHardDisk(uri = root_disk_spec['media_link']),
                         source_image = (None
                                         if root_disk_exists
@@ -642,8 +668,7 @@ class AzureState(MachineState, ResourceState):
 
         # we take a shortcut: wait for either provisioning to fail or for public ip to get assigned
         def check_req():
-            return ((self.nrpc().public_ip_addresses.get(
-                        self.resource_group, self.public_ip).public_ip_address.ip_address is not None)
+            return ((self.fetch_public_ip() is not None)
                  or (self.cmc().get_long_running_operation_status(req.azure_async_operation).status
                         != ComputeOperationStatus.in_progress))
         check_wait(check_req, initial=1, max_tries=500, exception=True)
@@ -658,8 +683,7 @@ class AzureState(MachineState, ResourceState):
         self.ssh_pinged = False
         self.copy_properties(defn)
 
-        self.public_ipv4 = self.nrpc().public_ip_addresses.get(
-                               self.resource_group, self.public_ip).public_ip_address.ip_address
+        self.public_ipv4 = self.fetch_public_ip()
         self.log("got IP: {0}".format(self.public_ipv4))
         self.update_ssh_known_hosts()
 
@@ -671,37 +695,31 @@ class AzureState(MachineState, ResourceState):
         # detach the volumes that are no longer in the deployment spec
         for d_id, disk in self.block_device_mapping.items():
             lun = device_name_to_lun(disk['device'])
-            if d_id not in defn.block_device_mapping and lun is not None:
-                disk_name = disk['name']
+            if d_id not in defn.block_device_mapping:
 
-                # umount with -l flag in case if the regular umount run by activation failed
-                if not disk.get('needs_attach', False):
+                if not disk.get('needs_attach', False) and lun is not None:
                     if disk.get('encrypt', False):
-                        dm = "/dev/mapper/{0}".format(disk_name)
+                        dm = "/dev/mapper/{0}".format(disk['name'])
                         self.log("unmounting device '{0}'...".format(dm))
+                        # umount with -l flag in case if the regular umount run by activation failed
                         self.run_command("umount -l {0}".format(dm), check=False)
                         self.run_command("cryptsetup luksClose {0}".format(dm), check=False)
                     else:
                         self.log("unmounting device '{0}'...".format(disk['device']))
                         self.run_command("umount -l {0}".format(disk['device']), check=False)
 
-                try:
-                    if not disk.get('needs_attach', False):
-                        with self.deployment_lock:
-                            self.log("detaching Azure disk '{0}'...".format(d_id))
-                            req = self.sms().delete_data_disk(defn.hosted_service, defn.deployment,
-                                                              defn.machine_name, lun, delete_vhd = False)
-                            self.finish_request(req)
-                        disk['needs_attach'] = True
-                        self.update_block_device_mapping(d_id, disk)
+                    self.log("detaching Azure disk {0}({1})...".format(disk['name'], d_id))
+                    vm = self.get_vm_assert_exists()
+                    vm.storage_profile.data_disks = [
+                        _disk
+                        for _disk in vm.storage_profile.data_disks
+                        if _disk.virtual_hard_disk.uri != disk['media_link'] ]
+                    self.cmc().virtual_machines.create_or_update(self.resource_group, vm)
+                    disk['needs_attach'] = True
+                    self.update_block_device_mapping(d_id, disk)
 
-                    if disk['is_ephemeral']:
-                        self._delete_volume(disk_name, disk_id = d_id)
-                    else:
-                        self._wait_disk_detached(disk_name, disk_id = d_id)
-
-                except azure.common.AzureMissingResourceHttpError:
-                    self.warn("Azure disk '{0}' seems to have been destroyed already".format(d_id))
+                if disk['is_ephemeral']:
+                    self._delete_volume(disk['media_link'], disk_name = disk['name'])
 
                 # rescan the disk device, to make its device node disappear on older kernels
                 self.run_command("sg_scan {0}".format(disk['device']), check=False)
@@ -722,10 +740,9 @@ class AzureState(MachineState, ResourceState):
 
     def start(self):
         if self.vm_id:
-            with self.deployment_lock:
-                self.state = self.STARTING
-                self.log("starting Azure machine...")
-                self.cmc().virtual_machines.start(self.resource_group, self.machine_name)
+            self.state = self.STARTING
+            self.log("starting Azure machine...")
+            self.cmc().virtual_machines.start(self.resource_group, self.machine_name)
             self.wait_for_ssh(check=True)
             self.send_keys()
 
@@ -758,17 +775,9 @@ class AzureState(MachineState, ResourceState):
         # Destroy volumes created for this instance.
         for d_id, disk in self.block_device_mapping.items():
             if disk['is_ephemeral']:
-                self._delete_volume(disk['media_link'], disk_id = d_id)
+                self._delete_volume(disk['media_link'], disk_name = disk['name'])
             self.update_block_device_mapping(d_id, None)
             self._delete_encryption_key(d_id)
-
-        if self.generated_encryption_keys != {}:
-            if not self.depl.logger.confirm("{0} still has generated encryption keys for disks {1}; "
-                                            "if the keys are deleted, the data will be lost even if you have "
-                                            "a copy of the disks contents; are you sure you want to delete "
-                                            "the remaining encryption keys?"
-                                            .format(self.full_name, self.generated_encryption_keys.keys()) ):
-                raise Exception("can't continue")
 
         if self.network_interface:
             self.log("destroying the network interface...")
@@ -788,16 +797,16 @@ class AzureState(MachineState, ResourceState):
                 self.warn("seems to have been released already")
             self.public_ip = None
             self.obtain_ip = None
+
+        if self.generated_encryption_keys != {}:
+            if not self.depl.logger.confirm("{0} resource still stores generated encryption keys for disks {1}; "
+                                            "if the resource is deleted, the keys are deleted along with it "
+                                            "and the data will be lost even if you have a copy of the disks' "
+                                            "contents; are you sure you want to delete the encryption keys?"
+                                            .format(self.full_name, self.generated_encryption_keys.keys()) ):
+                raise Exception("cannot continue")
         return True
 
-
-    def parse_blob_url(self, blob):
-        match = re.match(r'https?://([^\./]+)\.[^/]+/([^/]+)/(.+)$', blob)
-        return None if match is None else {
-            "storage": match.group(1),
-            "container": match.group(2),
-            "name": match.group(3)
-        }
 
     def backup(self, defn, backup_id):
         self.log("backing up {0} using ID '{1}'".format(self.full_name, backup_id))
@@ -811,9 +820,9 @@ class AzureState(MachineState, ResourceState):
         for d_id, disk in self.block_device_mapping.iteritems():
             media_link = self.sms().get_disk(disk["name"]).media_link
             self.log("snapshotting the BLOB {0} backing the Azure disk {1}".format(media_link, disk["name"]))
-            blob = self.parse_blob_url(media_link)
+            blob = parse_blob_url(media_link)
             if blob["storage"] != self.storage:
-                raise Exception("storage {1} provided in the deployment specification "
+                raise Exception("storage {0} provided in the deployment specification "
                                 "doesn't match the storage of BLOB {1}"
                                 .format(self.storage, blob_url))
             snapshot = self.bs().snapshot_blob(blob["container"], blob["name"],
@@ -840,13 +849,13 @@ class AzureState(MachineState, ResourceState):
             s_id = self.backups[backup_id].get(azure_disk.media_link, None)
             if s_id and (devices == [] or azure_disk.media_link in devices or
                          disk["name"] in devices or disk["device"] in devices):
-                blob = self.parse_blob_url(azure_disk.media_link)
+                blob = parse_blob_url(azure_disk.media_link)
                 if blob is None:
                     self.warn("failed to parse BLOB URL {0}; skipping"
                               .format(azure_disk.media_link))
                     continue
                 if blob["storage"] != self.storage:
-                    raise Exception("storage {1} provided in the deployment specification "
+                    raise Exception("storage {0} provided in the deployment specification "
                                     "doesn't match the storage of BLOB {1}"
                                     .format(self.storage, blob_url))
                 try:
@@ -854,7 +863,7 @@ class AzureState(MachineState, ResourceState):
                             blob["container"], "{0}?snapshot={1}"
                                                 .format(blob["name"], s_id))
                 except azure.common.AzureMissingResourceHttpError:
-                    self.warn("snapsnot {0} for disk {1} is missing; skipping".format(s_id, d_id))
+                    self.warn("snapshot {0} for disk {1} is missing; skipping".format(s_id, d_id))
                     continue
 
                 self._delete_volume(disk["name"], disk_id = d_id, delete_vhd = False)
@@ -883,11 +892,11 @@ class AzureState(MachineState, ResourceState):
             for blob_url, snapshot_id in _backups[backup_id].iteritems():
                 try:
                     self.log('removing snapshot {0} of BLOB {1}'.format(snapshot_id, blob_url))
-                    blob = self.parse_blob_url(blob_url)
+                    blob = parse_blob_url(blob_url)
                     if blob is None:
                         self.warn("failed to parse BLOB URL {0}; skipping".format(blob_url))
                     if blob["storage"] != self.storage:
-                        raise Exception("storage {1} provided in the deployment specification "
+                        raise Exception("storage {0} provided in the deployment specification "
                                         "doesn't match the storage of BLOB {1}"
                                         .format(self.storage, blob_url))
 
@@ -915,13 +924,13 @@ class AzureState(MachineState, ResourceState):
                 else:
                     snapshot_id = snapshots[media_link]
                     processed.add(media_link)
-                    blob = self.parse_blob_url(media_link)
+                    blob = parse_blob_url(media_link)
                     if blob is None:
                         info.append("failed to parse BLOB URL {0}"
                                     .format(media_link))
                         backup_status = "unavailable"
                     elif blob["storage"] != self.storage:
-                        info.append("storage {1} provided in the deployment specification "
+                        info.append("storage {0} provided in the deployment specification "
                                     "doesn't match the storage of BLOB {1}"
                                     .format(self.storage, media_link))
                         backup_status = "unavailable"
@@ -945,7 +954,8 @@ class AzureState(MachineState, ResourceState):
 
 
     def _check(self, res):
-        if self.subscription_id is None and self.certificate_path is None:
+        if(self.subscription_id is None or self.authority_url is None or
+           self.user is None or self.password is None):
             res.exists = False
             res.is_up = False
             self.state = self.MISSING;
@@ -958,46 +968,43 @@ class AzureState(MachineState, ResourceState):
             self.state = self.MISSING;
         else:
             res.exists = True
-            d = self.sms().get_deployment_by_name(self.hosted_service, self.deployment)
-            role_instance = next((r for r in d.role_instance_list if r.instance_name == self.machine_name), None)
-            if role_instance is None:
-                self.state = self.UNKNOWN
-            else:
-                res.is_up = role_instance.power_state == "Started"
-                if not res.is_up: self.state = self.STOPPED
-                if res.is_up:
-                    # check that all disks are attached
-                    res.disks_ok = True
-                    for d_id, disk in self.block_device_mapping.iteritems():
-                        if device_name_to_lun(disk["device"]) is None:
-                            if vm.os_virtual_hard_disk.disk_name!=disk["name"]:
-                                res.disks_ok = False
-                                res.messages.append("different root disk instead of {0}".format(d_id))
-                            else: continue
-                        if all(disk["name"] != d.disk_name
-                               for d in vm.data_virtual_hard_disks.data_virtual_hard_disks):
+
+            res.is_up = vm.provisioning_state == ProvisioningStateTypes.succeeded
+            if vm.provisioning_state == ProvisioningStateTypes.failed:
+                res.messages.append("vm resource exists, but is in a failed state")
+            if not res.is_up: self.state = self.STOPPED
+            if res.is_up:
+                # check that all disks are attached
+                res.disks_ok = True
+                for d_id, disk in self.block_device_mapping.iteritems():
+                    if device_name_to_lun(disk['device']) is None:
+                        if vm.storage_profile.os_disk.virtual_hard_disk.uri != disk['media_link']:
                             res.disks_ok = False
-                            res.messages.append("disk {0} is detached".format(d_id))
-                            try:
-                                self.sms().get_disk(disk["name"])
-                            except azure.common.AzureMissingResourceHttpError:
-                                res.messages.append("disk {0} is destroyed".format(d_id))
+                            res.messages.append("different root disk instead of {0}".format(d_id))
+                        else: continue
+                    if all(disk['media_link'] != d.virtual_hard_disk.uri
+                           for d in vm.storage_profile.data_disks):
+                        res.disks_ok = False
+                        res.messages.append("disk {0}({1}) is detached".format(disk['name'], d_id))
+                        if not self.blob_exists(disk['media_link']):
+                            res.messages.append("disk {0}({1}) is destroyed".format(disk['name'], d_id))
 
-                    self.handle_changed_property('public_ipv4', self.fetch_PIP())
-                    self.update_ssh_known_hosts()
+                self.handle_changed_property('public_ipv4', self.fetch_public_ip())
+                self.update_ssh_known_hosts()
 
-                    MachineState._check(self, res)
+                MachineState._check(self, res)
 
     def get_physical_spec(self):
-        block_device_mapping = {}
-        for d_id, disk in self.block_device_mapping.items():
+        block_device_mapping = {
+            disk["device"] : {
+                'passphrase': Call(RawValue("pkgs.lib.mkOverride 10"),
+                                   self.generated_encryption_keys[d_id])
+            }
+            for d_id, disk in self.block_device_mapping.items()
             if (disk.get('encrypt', False)
                 and disk.get('passphrase', "") == ""
-                and self.generated_encryption_keys.get(d_id, None) is not None):
-                block_device_mapping[disk["device"]] = {
-                    'passphrase': Function("pkgs.lib.mkOverride 10",
-                                           self.generated_encryption_keys[d_id], call=True),
-                }
+                and self.generated_encryption_keys.get(d_id, None) is not None)
+        }
         return {
             'require': [
                 RawValue("<nixpkgs/nixos/modules/virtualisation/azure-common.nix>")
