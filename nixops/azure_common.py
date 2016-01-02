@@ -4,6 +4,7 @@ import os
 import re
 import azure
 import time
+import threading
 
 from nixops.util import attr_property, check_wait
 import nixops.resources
@@ -106,6 +107,9 @@ class ResourceState(nixops.resources.ResourceState):
     user = attr_property("azure.user", None)
     password = attr_property("azure.password", None)
 
+    tokens_lock = threading.Lock()
+    tokens = {}
+
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._sms = None
@@ -120,7 +124,14 @@ class ResourceState(nixops.resources.ResourceState):
         return self._sms
 
     def get_mgmt_credentials(self):
-        token = adal.acquire_token_with_username_password(str(self.authority_url), str(self.user), str(self.password))
+        with self.tokens_lock:
+            token_id = "{0}|||{1}|||{2}".format(self.authority_url, self.user, self.password)
+            if token_id in self.tokens:
+                token = self.tokens[token_id]
+            else:
+                token = adal.acquire_token_with_username_password(
+                            str(self.authority_url), str(self.user), str(self.password))
+                self.tokens[token_id] = token
         return SubscriptionCloudCredentials(self.subscription_id, token['accessToken'])
 
     def rmc(self):
@@ -132,6 +143,8 @@ class ResourceState(nixops.resources.ResourceState):
         if not self._cmc:
             self.rmc().providers.register('Microsoft.Compute')
             self._cmc = ComputeManagementClient(self.get_mgmt_credentials())
+            self._cmc.long_running_operation_initial_timeout = 3
+            self._cmc.long_running_operation_retry_timeout = 5
         return self._cmc
 
     def nrpc(self):
