@@ -36,6 +36,13 @@ def device_name_to_lun(device):
 def lun_to_device_name(lun):
     return ('/dev/disk/by-lun/' + str(lun))
 
+def defn_find_root_disk(block_device_mapping):
+   return next((d_id for d_id, d in block_device_mapping.iteritems()
+                  if d['device'] == '/dev/sda'), None)
+
+# when we look for the root disk in the deployed state,
+# we must check that the disk is actually attached,
+# because an unattached old root disk may still be around
 def find_root_disk(block_device_mapping):
    return next((d_id for d_id, d in block_device_mapping.iteritems()
                   if d['device'] == '/dev/sda' and not d.get('needs_attach', False)), None)
@@ -129,7 +136,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
                 raise Exception("{0}: blockDeviceMapping only supports /dev/sda and "
                                 "/dev/disk/by-lun/X block devices, where X is in 0..31 range"
                                 .format(self.machine_name))
-        if find_root_disk(self.block_device_mapping) is None:
+        if defn_find_root_disk(self.block_device_mapping) is None:
             raise Exception("{0} needs a root disk".format(self.machine_name))
 
     def show_type(self):
@@ -430,7 +437,7 @@ class AzureState(MachineState, ResourceState):
         # change the root disk of a deployed vm
         # this is not directly supported by create_or_update API
         if self.vm_id:
-            def_root_disk_id = find_root_disk(defn.block_device_mapping)
+            def_root_disk_id = defn_find_root_disk(defn.block_device_mapping)
             assert def_root_disk_id is not None
             def_root_disk = defn.block_device_mapping[def_root_disk_id]
             state_root_disk_id = find_root_disk(self.block_device_mapping)
@@ -602,7 +609,8 @@ class AzureState(MachineState, ResourceState):
             raise Exception("tried creating a virtual machine that already exists; "
                             "please run 'deploy --check' to fix this")
 
-        root_disk_id = find_root_disk(defn.block_device_mapping)
+        root_disk_id = defn_find_root_disk(defn.block_device_mapping)
+        assert root_disk_id is not None
         root_disk_spec = defn.block_device_mapping[root_disk_id]
         existing_root_disk = self.block_device_mapping.get(root_disk_id, None)
 
@@ -818,20 +826,24 @@ class AzureState(MachineState, ResourceState):
         backup = {}
         _backups = self.backups
         for d_id, disk in self.block_device_mapping.iteritems():
-            media_link = self.sms().get_disk(disk["name"]).media_link
-            self.log("snapshotting the BLOB {0} backing the Azure disk {1}".format(media_link, disk["name"]))
+            media_link = disk['media_link']
+            self.log("snapshotting the BLOB {0} backing the Azure disk {1}"
+                     .format(media_link, disk['name']))
             blob = parse_blob_url(media_link)
-            if blob["storage"] != self.storage:
+            if blob is None:
+                raise Exception("failed to parse BLOB URL {0}"
+                                .format(media_link))
+            if blob['storage'] != self.storage:
                 raise Exception("storage {0} provided in the deployment specification "
                                 "doesn't match the storage of BLOB {1}"
-                                .format(self.storage, blob_url))
-            snapshot = self.bs().snapshot_blob(blob["container"], blob["name"],
+                                .format(self.storage, media_link))
+            snapshot = self.bs().snapshot_blob(blob['container'], blob['name'],
                                                x_ms_meta_name_values = {
                                                    'nixops_backup_id': backup_id,
                                                    'description': "backup of disk {0} attached to {1}"
-                                                                  .format(disk["name"], self.machine_name)
+                                                                  .format(disk['name'], self.machine_name)
                                                })
-            backup[media_link] = snapshot["x-ms-snapshot"]
+            backup[media_link] = snapshot['x-ms-snapshot']
             _backups[backup_id] = backup
             self.backups = _backups
 
@@ -840,24 +852,24 @@ class AzureState(MachineState, ResourceState):
 
         if self.vm_id:
             self.stop()
-            self.log("temporarily deprovisioining {0}".format(self.full_name))
+            self.log("temporarily deprovisioning {0}".format(self.full_name))
             self.destroy_resource()
             self._node_deleted()
 
         for d_id, disk in self.block_device_mapping.items():
-            azure_disk = self.sms().get_disk(disk["name"])
-            s_id = self.backups[backup_id].get(azure_disk.media_link, None)
-            if s_id and (devices == [] or azure_disk.media_link in devices or
-                         disk["name"] in devices or disk["device"] in devices):
-                blob = parse_blob_url(azure_disk.media_link)
+            media_link = disk['media_link']
+            s_id = self.backups[backup_id].get(media_link, None)
+            if s_id and (devices == [] or media_link in devices or
+                         disk['name'] in devices or disk['device'] in devices):
+                blob = parse_blob_url(media_link)
                 if blob is None:
                     self.warn("failed to parse BLOB URL {0}; skipping"
-                              .format(azure_disk.media_link))
+                              .format(media_link))
                     continue
                 if blob["storage"] != self.storage:
                     raise Exception("storage {0} provided in the deployment specification "
                                     "doesn't match the storage of BLOB {1}"
-                                    .format(self.storage, blob_url))
+                                    .format(self.storage, media_link))
                 try:
                     self.bs().get_blob_properties(
                             blob["container"], "{0}?snapshot={1}"
@@ -866,18 +878,12 @@ class AzureState(MachineState, ResourceState):
                     self.warn("snapshot {0} for disk {1} is missing; skipping".format(s_id, d_id))
                     continue
 
-                self._delete_volume(disk["name"], disk_id = d_id, delete_vhd = False)
-
                 self.log("restoring BLOB {0} from snapshot"
-                         .format(azure_disk.media_link, s_id))
+                         .format(media_link, s_id))
                 self.bs().copy_blob(blob["container"], blob["name"],
                                    "{0}?snapshot={1}"
-                                   .format(azure_disk.media_link, s_id) )
+                                   .format(media_link, s_id) )
 
-                self.log("re-creating disk resource {0} for BLOB {1}"
-                         .format(azure_disk.name, azure_disk.media_link))
-                self._create_disk(azure_disk.os, azure_disk.label,
-                                  azure_disk.media_link, azure_disk.name, azure_disk.os)
         # restore the currently deployed configuration(defn = self)
         self._create_vm(self)
 
@@ -895,6 +901,7 @@ class AzureState(MachineState, ResourceState):
                     blob = parse_blob_url(blob_url)
                     if blob is None:
                         self.warn("failed to parse BLOB URL {0}; skipping".format(blob_url))
+                        continue
                     if blob["storage"] != self.storage:
                         raise Exception("storage {0} provided in the deployment specification "
                                         "doesn't match the storage of BLOB {1}"
@@ -902,7 +909,7 @@ class AzureState(MachineState, ResourceState):
 
                     self.bs().delete_blob(blob["container"], blob["name"], snapshot_id)
                 except azure.common.AzureMissingResourceHttpError:
-                    self.warn('snapshot {0} of BLOB {1} not found; skipping'
+                    self.warn('snapshot {0} of BLOB {1} does not exist; skipping'
                               .format(snapshot_id, blob_url))
 
             _backups.pop(backup_id)
@@ -916,7 +923,7 @@ class AzureState(MachineState, ResourceState):
             info = []
             processed = set()
             for d_id, disk in self.block_device_mapping.items():
-                media_link = self.sms().get_disk(disk["name"]).media_link
+                media_link = disk['media_link']
                 if not media_link in snapshots.keys():
                     backup_status = "incomplete"
                     info.append("{0} - {1} - not available in backup"
