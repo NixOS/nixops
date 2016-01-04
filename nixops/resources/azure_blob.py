@@ -102,14 +102,19 @@ class AzureBLOBState(ResourceState):
     def full_name(self):
         return "Azure BLOB '{0}'".format(self.resource_id)
 
-    def get_container_resource(self):
-        return next((r for r in self.depl.resources.values()
-                       if getattr(r, 'container_name', None) == self.container), None)
+    def get_container_resource(self, container):
+        return container and next(
+                  (r for r in self.depl.resources.values()
+                     if getattr(r, 'container_name', None) == container), None)
+
+    def get_storage_name(self, defn = None):
+        container_resource = self.get_container_resource((defn or self).container)
+        return (defn or self).storage or (container_resource and container_resource.storage)
 
     def get_key(self):
         storage = self.storage and next((r for r in self.depl.resources.values()
                                            if getattr(r, 'storage_name', None) == self.storage), None)
-        container = self.get_container_resource()
+        container = self.get_container_resource(self.container)
         access_key = self.access_key or (storage and storage.access_key) or (container and container.get_key())
 
         if not access_key:
@@ -119,9 +124,7 @@ class AzureBLOBState(ResourceState):
 
     def bs(self):
         if not self._bs:
-            container_resource = self.get_container_resource()
-            self._bs = BlobService(self.storage or (container_resource and container_resource.storage),
-                                   self.get_key())
+            self._bs = BlobService(self.get_storage_name(), self.get_key())
         return self._bs
 
     def is_settled(self, resource):
@@ -210,7 +213,8 @@ class AzureBLOBState(ResourceState):
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        self.no_property_change(defn, 'storage')
+        self.no_change(self.get_storage_name(defn=self) !=
+                       self.get_storage_name(defn=defn), 'storage')
         self.no_property_change(defn, 'container')
         self.no_property_change(defn, 'blob_type')
 
