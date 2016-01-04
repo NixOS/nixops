@@ -7,9 +7,9 @@ import azure
 from azure.storage.blob import BlobService
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState
+from nixops.azure_common import StorageResourceDefinition, ResourceState
 
-class AzureBLOBContainerDefinition(ResourceDefinition):
+class AzureBLOBContainerDefinition(StorageResourceDefinition):
     """Definition of an Azure BLOB Container"""
 
     @classmethod
@@ -21,10 +21,9 @@ class AzureBLOBContainerDefinition(ResourceDefinition):
         return "azureBlobContainers"
 
     def __init__(self, xml):
-        ResourceDefinition.__init__(self, xml)
+        StorageResourceDefinition.__init__(self, xml)
 
         self.container_name = self.get_option_value(xml, 'name', str)
-        self.copy_option(xml, 'accessKey', str, optional = True)
         self.copy_option(xml, 'acl', str, optional = True)
         self.copy_option(xml, 'storage', 'resource')
         self.metadata = {
@@ -100,7 +99,6 @@ class AzureBLOBContainerState(ResourceState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_property_change(defn, 'storage')
 
-        self.copy_credentials(defn)
         self.container_name = defn.container_name
         self.access_key = defn.access_key
         self.storage = defn.storage

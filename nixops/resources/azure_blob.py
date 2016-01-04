@@ -7,7 +7,7 @@ import azure
 from azure.storage.blob import BlobService
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState
+from nixops.azure_common import StorageResourceDefinition, ResourceState
 
 import hashlib
 import base64
@@ -19,7 +19,7 @@ def md5sum(filename):
             md5.update(chunk)
     return base64.b64encode(md5.digest())
 
-class AzureBLOBDefinition(ResourceDefinition):
+class AzureBLOBDefinition(StorageResourceDefinition):
     """Definition of an Azure BLOB"""
 
     @classmethod
@@ -31,10 +31,9 @@ class AzureBLOBDefinition(ResourceDefinition):
         return "azureBlobs"
 
     def __init__(self, xml):
-        ResourceDefinition.__init__(self, xml)
+        StorageResourceDefinition.__init__(self, xml)
 
         self.blob_name = self.get_option_value(xml, 'name', str)
-        self.copy_option(xml, 'accessKey', str, optional = True)
 
         self.copy_option(xml, 'blobType', str)
         if self.blob_type not in [ 'block', 'page' ]:
@@ -215,7 +214,6 @@ class AzureBLOBState(ResourceState):
         self.no_property_change(defn, 'container')
         self.no_property_change(defn, 'blob_type')
 
-        self.copy_credentials(defn)
         self.blob_name = defn.blob_name
         self.access_key = defn.access_key
         self.storage = defn.storage

@@ -41,18 +41,10 @@ def ensure_positive(value, name):
     if value <= 0:
         raise Exception("{0} must be a positive integer".format(name))
 
-class ResourceDefinition(nixops.resources.ResourceDefinition):
-
+class ResourceDefinitionBase(nixops.resources.ResourceDefinition):
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
-
         res_name = self.get_option_value(xml, 'name', str)
-
-        self.copy_option(xml, 'subscriptionId', str)
-        self.copy_option(xml, 'certificatePath', str, empty = True, optional = True)
-        self.authority_url = self.copy_option(xml, 'authority', str, empty = True, optional = True)
-        self.copy_option(xml, 'user', str, empty = True, optional = True)
-        self.copy_option(xml, 'password', str, empty = True, optional = True)
 
     def get_option_value(self, xml, name, type, optional = False,
                          empty = True, positive = False):
@@ -97,6 +89,26 @@ class ResourceDefinition(nixops.resources.ResourceDefinition):
             k.get("name"): k.find("string").get("value")
             for k in xml.findall("attrs/attr[@name='tags']/attrs/attr")
         }
+
+
+class ResourceDefinition(ResourceDefinitionBase):
+
+    def __init__(self, xml):
+        ResourceDefinitionBase.__init__(self, xml)
+
+        self.copy_option(xml, 'subscriptionId', str)
+        self.copy_option(xml, 'certificatePath', str, empty = True, optional = True)
+        self.authority_url = self.copy_option(xml, 'authority', str, empty = True, optional = True)
+        self.copy_option(xml, 'user', str, empty = True, optional = True)
+        self.copy_option(xml, 'password', str, empty = True, optional = True)
+
+
+class StorageResourceDefinition(ResourceDefinitionBase):
+
+    def __init__(self, xml):
+        ResourceDefinitionBase.__init__(self, xml)
+
+        self.copy_option(xml, 'accessKey', str, optional = True)
 
 
 class ResourceState(nixops.resources.ResourceState):

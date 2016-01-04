@@ -4,7 +4,7 @@ with lib;
 with (import ./lib.nix lib);
 {
 
-  options = (import ./azure-credentials.nix lib "BLOB") // {
+  options = {
 
     name = mkOption {
       example = "my-blob";
