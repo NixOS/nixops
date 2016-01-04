@@ -24,6 +24,9 @@ class AzureBLOBContainerDefinition(StorageResourceDefinition):
         StorageResourceDefinition.__init__(self, xml)
 
         self.container_name = self.get_option_value(xml, 'name', str)
+        if any(c.isupper() for c in self.container_name):
+            raise Exception("{0}: BLOB container names must not contain uppercase letters"
+                            .format(self.container_name))
         self.copy_option(xml, 'acl', str, optional = True)
         self.copy_option(xml, 'storage', 'resource')
         self.metadata = {
