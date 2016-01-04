@@ -1218,7 +1218,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # Destroy volumes created for this instance.
         for k, v in self.block_device_mapping.items():
             if v.get('charonDeleteOnTermination', False):
-                self._delete_volume(v['volumeId'])
+                self._delete_volume(v['volumeId'], True)
                 self.update_block_device_mapping(k, None)
 
         return True
