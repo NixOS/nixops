@@ -21,7 +21,7 @@ from azure.mgmt.storage import StorageManagementClient
 
 from azure.storage.blob import BlobService
 from azure.storage.queue import QueueService
-
+from azure.storage.table import TableService
 
 import adal
 import logging
@@ -358,6 +358,7 @@ class StorageResourceState(ResourceState):
         ResourceState.__init__(self, depl, name, id)
         self._bs = None
         self._qs = None
+        self._ts = None
 
     def get_resource(self):
         try:
@@ -381,3 +382,7 @@ class StorageResourceState(ResourceState):
             self._qs = QueueService(self.get_storage_name(), self.get_key())
         return self._qs
 
+    def ts(self):
+        if not self._ts:
+            self._ts = TableService(self.get_storage_name(), self.get_key())
+        return self._ts

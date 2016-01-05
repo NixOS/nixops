@@ -108,6 +108,7 @@ rec {
   resources.azureDisks = evalResources ./azure-disk.nix (zipAttrs resourcesByType.azureDisks or []);
   resources.azureOSImages = evalResources ./azure-os-image.nix (zipAttrs resourcesByType.azureOSImages or []);
   resources.azureQueues = evalResources ./azure-queue.nix (zipAttrs resourcesByType.azureQueues or []);
+  resources.azureTables = evalResources ./azure-table.nix (zipAttrs resourcesByType.azureTables or []);
   resources.azureVirtualNetworks = evalResources ./azure-virtual-network.nix (zipAttrs resourcesByType.azureVirtualNetworks or []);
 
   # Google Compute resources
