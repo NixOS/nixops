@@ -22,6 +22,7 @@ from azure.mgmt.storage import StorageManagementClient
 from azure.storage.blob import BlobService
 from azure.storage.queue import QueueService
 from azure.storage.table import TableService
+from azure.storage.file import FileService
 
 import adal
 import logging
@@ -359,6 +360,7 @@ class StorageResourceState(ResourceState):
         self._bs = None
         self._qs = None
         self._ts = None
+        self._fs = None
 
     def get_resource(self):
         try:
@@ -386,3 +388,8 @@ class StorageResourceState(ResourceState):
         if not self._ts:
             self._ts = TableService(self.get_storage_name(), self.get_key())
         return self._ts
+
+    def fs(self):
+        if not self._fs:
+            self._fs = FileService(self.get_storage_name(), self.get_key())
+        return self._fs
