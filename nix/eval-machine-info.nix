@@ -105,6 +105,7 @@ rec {
   resources.azureBlobContainers = evalResources ./azure-blob-container.nix (zipAttrs resourcesByType.azureBlobContainers or []);
   resources.azureBlobs = evalResources ./azure-blob.nix (zipAttrs resourcesByType.azureBlobs or []);
   resources.azureDeployments = evalResources ./azure-deployment.nix (zipAttrs resourcesByType.azureDeployments or []);
+  resources.azureDirectories = evalResources ./azure-directory.nix (zipAttrs resourcesByType.azureDirectories or []);
   resources.azureDisks = evalResources ./azure-disk.nix (zipAttrs resourcesByType.azureDisks or []);
   resources.azureOSImages = evalResources ./azure-os-image.nix (zipAttrs resourcesByType.azureOSImages or []);
   resources.azureQueues = evalResources ./azure-queue.nix (zipAttrs resourcesByType.azureQueues or []);
