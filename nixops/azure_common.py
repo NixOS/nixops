@@ -5,6 +5,7 @@ import re
 import azure
 import time
 import threading
+import requests
 
 from nixops.util import attr_property, check_wait
 import nixops.resources
@@ -17,6 +18,8 @@ from azure.mgmt.resource import ResourceManagementClient
 from azure.mgmt.compute import ComputeManagementClient
 from azure.mgmt.network import NetworkResourceProviderClient
 from azure.mgmt.storage import StorageManagementClient
+
+from azure.storage.blob import BlobService
 
 import adal
 import logging
@@ -343,3 +346,29 @@ class ResourceState(nixops.resources.ResourceState):
         op_status = self.sms().get_operation_status(req.request_id)
         if op_status.status != 'Succeeded':
             raise Exception(op_status.error.__dict__)
+
+
+class StorageResourceState(ResourceState):
+
+    access_key = attr_property("azure.accessKey", None)
+
+    def __init__(self, depl, name, id):
+        ResourceState.__init__(self, depl, name, id)
+        self._bs = None
+
+    def get_resource(self):
+        try:
+            return self.get_resource_allow_exceptions()
+        except requests.exceptions.ConnectionError:
+            self.warn("connection error: either storage doesn't exist and thus this resource "
+                      "doesn't exist as well, the storage domain name is in negative DNS cache "
+                      "or your network connection is down; you must either re-deploy the storage, "
+                      "drop DNS cache or delete this resource manually; aborting to avoid data loss")
+            raise
+        except azure.common.AzureMissingResourceHttpError:
+            return None
+
+    def bs(self):
+        if not self._bs:
+            self._bs = BlobService(self.get_storage_name(), self.get_key())
+        return self._bs

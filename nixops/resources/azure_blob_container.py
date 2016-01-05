@@ -4,10 +4,9 @@
 
 import os
 import azure
-from azure.storage.blob import BlobService
 
 from nixops.util import attr_property
-from nixops.azure_common import StorageResourceDefinition, ResourceState
+from nixops.azure_common import StorageResourceDefinition, StorageResourceState
 
 class AzureBLOBContainerDefinition(StorageResourceDefinition):
     """Definition of an Azure BLOB Container"""
@@ -38,11 +37,10 @@ class AzureBLOBContainerDefinition(StorageResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class AzureBLOBContainerState(ResourceState):
+class AzureBLOBContainerState(StorageResourceState):
     """State of an Azure BLOB Container"""
 
     container_name = attr_property("azure.name", None)
-    access_key = attr_property("azure.accessKey", None)
     acl = attr_property("azure.acl", None)
     storage = attr_property("azure.storage", None)
     metadata = attr_property("azure.metadata", {}, 'json')
@@ -50,10 +48,6 @@ class AzureBLOBContainerState(ResourceState):
     @classmethod
     def get_type(cls):
         return "azure-blob-container"
-
-    def __init__(self, depl, name, id):
-        ResourceState.__init__(self, depl, name, id)
-        self._bs = None
 
     def show_type(self):
         s = super(AzureBLOBContainerState, self).show_type()
@@ -70,9 +64,16 @@ class AzureBLOBContainerState(ResourceState):
     def full_name(self):
         return "Azure BLOB container '{0}'".format(self.resource_id)
 
+    def get_storage_name(self):
+        return self.storage
+
+    def get_storage_resource(self):
+        return self.storage and next(
+                  (r for r in self.depl.resources.values()
+                     if getattr(r, 'storage_name', None) == self.storage), None)
+
     def get_key(self):
-        storage = next((r for r in self.depl.resources.values()
-                          if getattr(r, 'storage_name', None) == self.storage), None)
+        storage = self.get_storage_resource()
         access_key = self.access_key or (storage and storage.access_key)
 
         if not access_key:
@@ -80,19 +81,11 @@ class AzureBLOBContainerState(ResourceState):
                             .format(self.full_name))
         return access_key
 
-    def bs(self):
-        if not self._bs:
-            self._bs = BlobService(self.storage, self.get_key())
-        return self._bs
-
     def is_settled(self, resource):
         return True
 
-    def get_resource(self):
-        try:
-            return self.bs().get_container_properties(self.resource_id)
-        except azure.common.AzureMissingResourceHttpError:
-            return None
+    def get_resource_allow_exceptions(self):
+        return self.bs().get_container_properties(self.resource_id)
 
     def destroy_resource(self):
         self.bs().delete_container(self.resource_id, fail_not_exist = True)
