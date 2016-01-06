@@ -6,9 +6,11 @@ import os
 import azure
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState
+from nixops.azure_common import ResourceDefinition, StorageResourceState
 
 from azure.mgmt.storage import StorageAccountCreateParameters, StorageAccountUpdateParameters, CustomDomain
+
+from azure.storage.models import StorageServiceProperties
 
 class AzureStorageDefinition(ResourceDefinition):
     """Definition of an Azure Storage"""
@@ -34,11 +36,51 @@ class AzureStorageDefinition(ResourceDefinition):
         self.copy_option(xml, 'customDomain', str)
         self.copy_tags(xml)
 
+        self.blob_service_properties = self._parse_service_properties(
+                                          xml.find("attrs/attr[@name='blobService']"))
+        self.queue_service_properties = self._parse_service_properties(
+                                          xml.find("attrs/attr[@name='queueService']"))
+        self.table_service_properties = self._parse_service_properties(
+                                          xml.find("attrs/attr[@name='tableService']"))
+        #FIXME: add table service properties once the API is available
+
+    def _parse_retention_policy(self, xml):
+        enable = self.get_option_value(xml, 'enable', bool)
+        return {
+            'enable': enable,
+            'days': self.get_option_value(xml, 'days', int) if enable else None,
+        }
+
+    def _parse_metrics(self, xml):
+        enable = self.get_option_value(xml, 'enable', bool)
+        return {
+            'enable': enable,
+            'include_apis': self.get_option_value(xml, 'includeAPIs', bool) if enable else None,
+            'retention_policy': self._parse_retention_policy(
+                                    xml.find("attrs/attr[@name='retentionPolicy']")),
+        }
+
+    def _parse_service_properties(self, xml):
+        logging_xml = xml.find("attrs/attr[@name='logging']")
+        return {
+            'logging': {
+                'delete': self.get_option_value(logging_xml, 'delete', bool),
+                'read': self.get_option_value(logging_xml, 'read', bool),
+                'write': self.get_option_value(logging_xml, 'write', bool),
+                'retention_policy': self._parse_retention_policy(
+                                        logging_xml.find("attrs/attr[@name='retentionPolicy']")),
+            },
+            'hour_metrics': self._parse_metrics(
+                                xml.find("attrs/attr[@name='hourMetrics']")),
+            'minute_metrics': self._parse_metrics(
+                                  xml.find("attrs/attr[@name='minuteMetrics']")),
+        }
+
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.location)
 
 
-class AzureStorageState(ResourceState):
+class AzureStorageState(StorageResourceState):
     """State of an Azure Storage"""
 
     storage_name = attr_property("azure.name", None)
@@ -47,6 +89,10 @@ class AzureStorageState(ResourceState):
     account_type = attr_property("azure.accountType", None)
     custom_domain = attr_property("azure.customDomain", None)
     tags = attr_property("azure.tags", {}, 'json')
+
+    blob_service_properties = attr_property("azure.blobServiceProperties", {}, 'json')
+    queue_service_properties = attr_property("azure.queueServiceProperties", {}, 'json')
+    table_service_properties = attr_property("azure.tableServiceProperties", {}, 'json')
 
     active_key = attr_property("azure.activeKey", None)
     primary_key = attr_property("azure.primaryKey", None)
@@ -57,7 +103,7 @@ class AzureStorageState(ResourceState):
         return "azure-storage"
 
     def __init__(self, depl, name, id):
-        ResourceState.__init__(self, depl, name, id)
+        StorageResourceState.__init__(self, depl, name, id)
 
     def show_type(self):
         s = super(AzureStorageState, self).show_type()
@@ -90,6 +136,99 @@ class AzureStorageState(ResourceState):
     def access_key(self):
         return ((self.active_key == 'primary') and self.primary_key) or self.secondary_key
 
+
+    # for StorageResourceState compatibility
+    def get_key(self):
+        return self.access_key
+
+    def get_storage_name(self):
+        return self.storage_name
+
+
+    # blob/table/queue/file service properties handling
+    def _set_retention_policy_from_dict(self, obj, props):
+        obj.enabled = props.get('enable', False)
+        obj.days = props.get('days', None) if obj.enabled else None
+
+    def _set_metrics_properties_from_dict(self, obj, props):
+        obj.enabled = props.get('enable', False)
+        obj.include_apis = props.get('include_apis', None)
+        self._set_retention_policy_from_dict(obj.retention_policy,
+                                             props.get('retention_policy', {}))
+
+    def _dict_to_storage_service_properties(self, props):
+        result =  StorageServiceProperties()
+
+        logging_props = props.get('logging', {})
+        result.logging.delete = logging_props.get('delete', False)
+        result.logging.read = logging_props.get('read', False)
+        result.logging.write = logging_props.get('write', False)
+        self._set_retention_policy_from_dict(result.logging.retention_policy,
+                                             logging_props.get('retention_policy', {}))
+        self._set_metrics_properties_from_dict(result.hour_metrics,
+                                               props.get('hour_metrics', {}))
+        self._set_metrics_properties_from_dict(result.minute_metrics,
+                                               props.get('minute_metrics', {}))
+        return result
+
+
+    def _check_retention_policy(self, expected, actual, service_name):
+        #workaround for broken RetentionPolicy.get_days
+        _actual_days = actual.__dict__['days']
+        actual_days = None if _actual_days is None else int(_actual_days)
+
+        return {
+            'enable': self.warn_if_changed(expected.get('enable', False),
+                                           actual.enabled, 'retention policy enable',
+                                           resource_name = service_name),
+            'days': self.warn_if_changed(expected.get('days', None),
+                                         actual_days, 'retention policy days',
+                                         resource_name = service_name),
+        }
+
+    def _check_metrics_properties(self, expected, actual, service_name):
+        # a workaround for broken API
+        include_apis = (True if actual.include_apis == 'true' else 
+                       (False if actual.include_apis == 'false' else
+                        actual.include_apis))
+        return {
+            'enable': self.warn_if_changed(expected.get('enable', False),
+                                           actual.enabled, 'metrics enable',
+                                           resource_name = service_name),
+            'include_apis': self.warn_if_changed(expected.get('include_apis', False),
+                                                 include_apis, 'includeAPIs',
+                                                 resource_name = service_name),
+            'retention_policy': self._check_retention_policy(expected.get('retention_policy', {}),
+                                                             actual.retention_policy,
+                                                             "{0} metrics".format(service_name))
+        }
+
+    def _check_storage_service_properties(self, expected, actual, service_name):
+        expected_logging = expected.get('logging', {})
+        return {
+            'logging': {
+                'delete': self.warn_if_changed(expected_logging.get('delete', False),
+                                               actual.logging.delete, 'delete',
+                                               resource_name = service_name),
+                'read': self.warn_if_changed(expected_logging.get('read', False),
+                                             actual.logging.read, 'read',
+                                             resource_name = service_name),
+                'write': self.warn_if_changed(expected_logging.get('write', False),
+                                              actual.logging.write, 'write',
+                                              resource_name = service_name),
+                'retention_policy': self._check_retention_policy(expected_logging.get('retention_policy', {}),
+                                                                 actual.logging.retention_policy,
+                                                                 "{0} logging".format(service_name)),
+            },
+            'hour_metrics': self._check_metrics_properties(expected.get('hour_metrics', {}),
+                                                           actual.hour_metrics,
+                                                           '{0} hour'.format(service_name)),
+            'minute_metrics': self._check_metrics_properties(expected.get('minute_metrics', {}),
+                                                             actual.minute_metrics,
+                                                             '{0} minute'.format(service_name)),
+        }
+
+
     defn_properties = [ 'location', 'account_type', 'tags', 'custom_domain' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -114,6 +253,21 @@ class AzureStorageState(ResourceState):
                 keys = self.smc().storage_accounts.list_keys(self.resource_group, self.storage_name).storage_account_keys
                 self.handle_changed_property('primary_key', keys.key1)
                 self.handle_changed_property('secondary_key', keys.key2)
+
+                self.blob_service_properties = self._check_storage_service_properties(
+                                                   self.blob_service_properties,
+                                                   self.bs().get_blob_service_properties(),
+                                                   'BLOB service')
+
+                self.queue_service_properties = self._check_storage_service_properties(
+                                                   self.queue_service_properties,
+                                                   self.qs().get_queue_service_properties(),
+                                                   'queue service')
+
+                self.table_service_properties = self._check_storage_service_properties(
+                                                   self.table_service_properties,
+                                                   self.ts().get_table_service_properties(),
+                                                   'table service')
             else:
                 self.warn_not_supposed_to_exist()
                 self.confirm_destroy()
@@ -164,6 +318,36 @@ class AzureStorageState(ResourceState):
                                                        custom_domain =
                                                            CustomDomain(name = defn.custom_domain)))
                 self.custom_domain = defn.custom_domain
+
+        if self.blob_service_properties != defn.blob_service_properties:
+            self.log("updating BLOB service properties of {0}...".format(self.full_name))
+            if not self.get_settled_resource():
+                raise Exception("{0} has been deleted behind our back; "
+                                "please run 'deploy --check' to fix this"
+                                .format(self.full_name))
+            self.bs().set_blob_service_properties(
+                self._dict_to_storage_service_properties(defn.blob_service_properties))
+            self.blob_service_properties = defn.blob_service_properties
+
+        if self.queue_service_properties != defn.queue_service_properties:
+            self.log("updating queue service properties of {0}...".format(self.full_name))
+            if not self.get_settled_resource():
+                raise Exception("{0} has been deleted behind our back; "
+                                "please run 'deploy --check' to fix this"
+                                .format(self.full_name))
+            self.qs().set_queue_service_properties(
+                self._dict_to_storage_service_properties(defn.queue_service_properties))
+            self.queue_service_properties = defn.queue_service_properties
+
+        if self.table_service_properties != defn.table_service_properties:
+            self.log("updating table service properties of {0}...".format(self.full_name))
+            if not self.get_settled_resource():
+                raise Exception("{0} has been deleted behind our back; "
+                                "please run 'deploy --check' to fix this"
+                                .format(self.full_name))
+            self.ts().set_table_service_properties(
+                self._dict_to_storage_service_properties(defn.table_service_properties))
+            self.table_service_properties = defn.table_service_properties
 
 
     def create_after(self, resources, defn):

@@ -2,6 +2,80 @@
 
 with lib;
 with (import ./lib.nix lib);
+let
+
+  retention_policy_options = { enable ? false }: {
+    enable = mkOption {
+      default = enable;
+      example = true;
+      type = types.bool;
+      description = "Whether a retention policy is enabled for the service.";
+    };
+
+    days = mkOption {
+      default = 7;
+      example = 3;
+      type = types.int;
+      description = ''
+        Indicates the number of days that metrics or logging data is retained.
+        All data older than this value will be deleted.
+      '';
+    };
+  };
+
+  metrics_options = { enable ? false }: {
+    enable = mkOption {
+      default = enable;
+      example = true;
+      type = types.bool;
+      description = "Whether metrics are enabled for the service.";
+    };
+
+    includeAPIs = mkOption {
+      default = enable;
+      example = true;
+      type = types.bool;
+      description = ''
+        Whether metrics should generate summary statistics
+        for called API operations.
+      '';
+    };
+
+    retentionPolicy = retention_policy_options { inherit enable; };
+  };
+
+  logging_options = {
+    delete = mkOption {
+      default = false;
+      example = true;
+      type = types.bool;
+      description = "Whether delete requests should be logged.";
+    };
+
+    read = mkOption {
+      default = false;
+      example = true;
+      type = types.bool;
+      description = "Whether read requests should be logged.";
+    };
+
+    write = mkOption {
+      default = false;
+      example = true;
+      type = types.bool;
+      description = "Whether write requests should be logged.";
+    };
+
+    retentionPolicy = retention_policy_options {};
+  };
+
+  service_options = {
+    logging = logging_options;
+    hourMetrics = metrics_options { enable = true; };
+    minuteMetrics = metrics_options {};
+  };
+
+in
 {
 
   options = (import ./azure-mgmt-credentials.nix lib "storage") // {
@@ -64,6 +138,9 @@ with (import ./lib.nix lib);
       description = "Tag name/value pairs to associate with the storage.";
     };
 
+    blobService = service_options;
+    queueService = service_options;
+    tableService = service_options;
   };
 
   config._type = "azure-storage";
