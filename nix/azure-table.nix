@@ -7,7 +7,7 @@ with (import ./lib.nix lib);
   options = {
 
     name = mkOption {
-      example = "my-queue";
+      example = "mytable";
       default = "nixops${lib.replaceChars [ "-" ] [ "" ] uuid}${name}";
       type = types.str;
       description = ''

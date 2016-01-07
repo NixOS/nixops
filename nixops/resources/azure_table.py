@@ -23,6 +23,9 @@ class AzureTableDefinition(StorageResourceDefinition):
         StorageResourceDefinition.__init__(self, xml)
 
         self.table_name = self.get_option_value(xml, 'name', str)
+        if any(c == '-' for c in self.table_name):
+            raise Exception("{0}: table name must not contain dashes"
+                            .format(self.table_name))
         self.copy_option(xml, 'storage', 'resource')
         self.copy_signed_identifiers(xml.find("attrs/attr[@name='acl']"))
 

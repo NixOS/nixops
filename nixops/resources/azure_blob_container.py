@@ -24,7 +24,7 @@ class AzureBLOBContainerDefinition(StorageResourceDefinition):
 
         self.container_name = self.get_option_value(xml, 'name', str)
         if any(c.isupper() for c in self.container_name):
-            raise Exception("{0}: BLOB container names must not contain uppercase letters"
+            raise Exception("{0}: BLOB container name must not contain uppercase letters"
                             .format(self.container_name))
         acl_xml = xml.find("attrs/attr[@name='acl']")
         self.copy_option(acl_xml, 'blobPublicAccess', str, optional = True)
