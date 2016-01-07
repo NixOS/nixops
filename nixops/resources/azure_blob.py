@@ -189,9 +189,14 @@ class AzureBLOBState(StorageResourceState):
                                 x_ms_meta_name_values = defn.metadata,
                                 x_ms_source_if_modified_since = self.last_modified)
             res = self.get_settled_resource(max_tries=600)
-            self.last_modified = res['last-modified']
-            self.content_length = res['content-length']
             self.copy_properties(defn)
+            self.last_modified = res.get('last-modified', None)
+            self.md5 = res.get('content-md5', None)
+            self.content_encoding = res.get('content-encoding', None)
+            self.content_language = res.get('content-language', None)
+            self.content_length = res.get('content-length', None)
+            self.content_type = res.get('content-type', None)
+            self.cache_control =  res.get('cache-control', None)
             self.metadata = defn.metadata
             self.state = self.UP
         except azure.common.AzureHttpError as e:
