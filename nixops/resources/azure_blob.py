@@ -35,8 +35,8 @@ class AzureBLOBDefinition(StorageResourceDefinition):
         self.blob_name = self.get_option_value(xml, 'name', str)
 
         self.copy_option(xml, 'blobType', str)
-        if self.blob_type not in [ 'block', 'page' ]:
-            raise Exception('BLOB type must be either "page" or "block"')
+        if self.blob_type not in [ 'BlockBlob', 'PageBlob' ]:
+            raise Exception('BLOB type must be either "PageBlob" or "BlockBlob"')
 
         self.copy_option(xml, 'filePath', str, optional = True)
         self.copy_option(xml, 'copyFromBlob', str, optional = True)
@@ -75,7 +75,8 @@ class AzureBLOBState(StorageResourceState):
     content_length = attr_property("azure.contentLength", None)
     cache_control = attr_property("azure.cacheControl", None)
     metadata = attr_property("azure.metadata", {}, 'json')
-    last_modified = attr_property("azure.last_modified", None)
+    last_modified = attr_property("azure.lastModified", None)
+    copied_from = attr_property("azure.copiedFrom", None)
 
     @classmethod
     def get_type(cls):
@@ -128,22 +129,28 @@ class AzureBLOBState(StorageResourceState):
     def destroy_resource(self):
         self.bs().delete_blob(self.container, self.resource_id,
                               x_ms_delete_snapshots = 'include' )
+        self.copied_from = None
+        self.last_modified = None
+        self.state = self.MISSING
 
-    defn_properties = [ 'blob_type', 'content_encoding', 'content_language',
+    defn_properties = [ 'content_encoding', 'content_language',
                         'cache_control', 'content_type' ]
 
     def upload_file(self, defn):
         md5 = md5sum(defn.file_path)
 
-        if self.state != self.UP or md5 != self.md5:
-            self.get_settled_resource()
+        if self.state != self.UP or md5 != self.md5 or self.blob_type != defn.blob_type:
+            blob = self.get_settled_resource()
 
             if self.state == self.UP:
                 self.log("updating the contents of {0} in {1}...".format(self.full_name, defn.container))
+                if blob is not None and self.blob_type != defn.blob_type:
+                    self.log("blob type change requested; deleting the destination BLOB first...")
+                    self.destroy_resource()
             else:
                 self.log("creating {0} in {1}...".format(self.full_name, defn.container))
 
-            if defn.blob_type == 'block':
+            if defn.blob_type == 'BlockBlob':
                 self.bs().put_block_blob_from_path(
                                   defn.container, defn.blob_name, defn.file_path,
                                   content_encoding = defn.content_encoding,
@@ -174,13 +181,24 @@ class AzureBLOBState(StorageResourceState):
             self.state = self.UP
             self.copy_properties(defn)
             self.metadata = defn.metadata
+            self.blob_type = defn.blob_type
             self.md5 = md5
+            self.last_modified = None
+            self.copied_from = defn.file_path
             self.content_length = defn.content_length or os.stat(defn.file_path).st_size
 
 
     def copy_blob(self, defn):
         if self.state == self.UP:
-            self.log("updating the contents of {0} in {1}...".format(self.full_name, defn.container))
+            self.log("updating the contents of {0} in {1}..."
+                     .format(self.full_name, defn.container))
+            if self.copied_from != defn.copy_from_blob:
+                self.log("source BLOB location has changed; deleting {0} first.."
+                         .format(self.full_name))
+                self.destroy_resource()
+            elif self.blob_type != defn.blob_type:
+                self.warn("when copying, cannot change the BLOB type from {0} to {1}"
+                         .format(self.blob_type, defn.blob_type))
         else:
             self.log("creating {0} in {1}...".format(self.full_name, defn.container))
             self.last_modified = None
@@ -191,14 +209,22 @@ class AzureBLOBState(StorageResourceState):
             res = self.get_settled_resource(max_tries=600)
             self.copy_properties(defn)
             self.last_modified = res.get('last-modified', None)
+            self.copied_from = defn.copy_from_blob
             self.md5 = res.get('content-md5', None)
             self.content_encoding = res.get('content-encoding', None)
             self.content_language = res.get('content-language', None)
             self.content_length = res.get('content-length', None)
             self.content_type = res.get('content-type', None)
             self.cache_control =  res.get('cache-control', None)
-            self.metadata = defn.metadata
+            self.blob_type = res.get('x-ms-blob-type', None)
+            # workaround for API bug
+            self.metadata = None if defn.metadata == {} else defn.metadata 
             self.state = self.UP
+            if self.blob_type != defn.blob_type:
+                self.warn("cannot change blob type when copying; "
+                          "BLOB of type {0} has been created instead "
+                          "of the requested {1}"
+                          .format(self.blob_type, defn.blob_type))
         except azure.common.AzureHttpError as e:
           if e.status_code == 304 or e.status_code == 412:
               self.log("update is not necessary, the source BLOB has not been modified")
@@ -210,7 +236,6 @@ class AzureBLOBState(StorageResourceState):
         self.no_change(self.get_storage_name(defn=self) !=
                        self.get_storage_name(defn=defn), 'storage')
         self.no_property_change(defn, 'container')
-        self.no_property_change(defn, 'blob_type')
 
         self.blob_name = defn.blob_name
         self.access_key = defn.access_key
@@ -222,9 +247,7 @@ class AzureBLOBState(StorageResourceState):
             if not blob:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                self.warn_if_changed({'block':'BlockBlob', 'page':'PageBlob'}[self.blob_type],
-                                       blob.get('x-ms-blob-type', None),
-                                      'blob type', can_fix = False)
+                self.handle_changed_property('blob_type', blob.get('x-ms-blob-type', None))
                 self.handle_changed_property('md5', blob.get('content-md5', None))
                 self.handle_changed_property('content_encoding', blob.get('content-encoding', None))
                 self.handle_changed_property('content_language', blob.get('content-language', None))

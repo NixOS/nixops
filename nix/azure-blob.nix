@@ -20,10 +20,10 @@ with (import ./lib.nix lib);
     };
 
     blobType = mkOption {
-      default = "block";
-      example = "page";
+      default = "BlockBlob";
+      example = "PageBlob";
       type = types.str;
-      description = "BLOB type: block or page.";
+      description = "BLOB type: BlockBlob or PageBlob.";
     };
 
     filePath = mkOption {
