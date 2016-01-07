@@ -29,6 +29,8 @@ with (import ./lib.nix lib);
       description = "The name or resource of an Azure storage in which the table is to be created.";
     };
 
+    acl.signedIdentifiers = (import ./azure-signed-identifiers.nix lib);
+
   };
 
   config._type = "azure-table";

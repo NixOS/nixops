@@ -23,11 +23,18 @@ with (import ./lib.nix lib);
       description = "Access key for the storage service if not managed by NixOps.";
     };
 
-    acl = mkOption {
+    acl.blobPublicAccess = mkOption {
       default = null;
       type = types.nullOr types.str;
-      description = "Permissions for the container: null(private), 'container' or 'blob'.";
+      description = ''
+        Permissions for the container:
+        null(private),
+        'container'(anonymous clients can enumerate and read all BLOBs) or
+        'blob'(anonymous clients can read but can't enumerate BLOBs in the container).
+      '';
     };
+
+    acl.signedIdentifiers = (import ./azure-signed-identifiers.nix lib);
 
     storage = mkOption {
       example = "xxx-my-storage";

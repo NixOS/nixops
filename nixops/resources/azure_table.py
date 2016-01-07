@@ -24,6 +24,7 @@ class AzureTableDefinition(StorageResourceDefinition):
 
         self.table_name = self.get_option_value(xml, 'name', str)
         self.copy_option(xml, 'storage', 'resource')
+        self.copy_signed_identifiers(xml.find("attrs/attr[@name='acl']"))
 
     def show_type(self):
         return "{0}".format(self.get_type())
@@ -34,6 +35,7 @@ class AzureTableState(StorageResourceState):
 
     table_name = attr_property("azure.name", None)
     storage = attr_property("azure.storage", None)
+    signed_identifiers = attr_property("azure.signedIdentifiers", {}, 'json')
 
     @classmethod
     def get_type(cls):
@@ -92,8 +94,8 @@ class AzureTableState(StorageResourceState):
             if table is None:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                # FIXME: ACL handling
-                self.is_settled(table) # a placeholder
+                self.handle_changed_signed_identifiers(
+                    self.ts().get_table_acl(self.table_name))
             else:
                 self.warn_not_supposed_to_exist()
                 self.confirm_destroy()
@@ -106,6 +108,18 @@ class AzureTableState(StorageResourceState):
             self.log("creating {0} in {1}...".format(self.full_name, defn.storage))
             self.ts().create_table(defn.table_name, fail_on_exist = True)
             self.state = self.UP
+
+        if self.signed_identifiers != defn.signed_identifiers:
+            self.log("updating the ACL of {0}..."
+                     .format(self.full_name))
+            if self.get_settled_resource() is None:
+                raise Exception("{0} has been deleted behind our back; "
+                                "please run 'deploy --check' to fix this"
+                                .format(self.full_name))
+            signed_identifiers = self._dict_to_signed_identifiers(defn.signed_identifiers)
+            self.ts().set_table_acl(self.table_name,
+                                    signed_identifiers = signed_identifiers)
+            self.signed_identifiers = defn.signed_identifiers
 
 
     def create_after(self, resources, defn):

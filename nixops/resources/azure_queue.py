@@ -28,6 +28,7 @@ class AzureQueueDefinition(StorageResourceDefinition):
             k.get("name"): k.find("string").get("value")
             for k in xml.findall("attrs/attr[@name='metadata']/attrs/attr")
         }
+        self.copy_signed_identifiers(xml.find("attrs/attr[@name='acl']"))
 
     def show_type(self):
         return "{0}".format(self.get_type())
@@ -38,6 +39,7 @@ class AzureQueueState(StorageResourceState):
 
     queue_name = attr_property("azure.name", None)
     storage = attr_property("azure.storage", None)
+    signed_identifiers = attr_property("azure.signedIdentifiers", {}, 'json')
     metadata = attr_property("azure.metadata", {}, 'json')
 
     @classmethod
@@ -103,6 +105,8 @@ class AzureQueueState(StorageResourceState):
                              for k, v in queue.items()
                              if k.startswith('x-ms-meta-') }
                 self.handle_changed_property('metadata', metadata)
+                self.handle_changed_signed_identifiers(
+                    self.qs().get_queue_acl(self.queue_name))
             else:
                 self.warn_not_supposed_to_exist()
                 self.confirm_destroy()
@@ -127,6 +131,18 @@ class AzureQueueState(StorageResourceState):
                                 .format(self.full_name))
             self.qs().set_queue_metadata(self.queue_name, x_ms_meta_name_values = defn.metadata)
             self.metadata = defn.metadata
+
+        if self.signed_identifiers != defn.signed_identifiers:
+            self.log("updating the ACL of {0}..."
+                     .format(self.full_name))
+            if not self.get_settled_resource():
+                raise Exception("{0} has been deleted behind our back; "
+                                "please run 'deploy --check' to fix this"
+                                .format(self.full_name))
+            signed_identifiers = self._dict_to_signed_identifiers(defn.signed_identifiers)
+            self.qs().set_queue_acl(self.queue_name,
+                                    signed_identifiers = signed_identifiers)
+            self.signed_identifiers = defn.signed_identifiers
 
 
     def create_after(self, resources, defn):

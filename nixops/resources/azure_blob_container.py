@@ -26,7 +26,9 @@ class AzureBLOBContainerDefinition(StorageResourceDefinition):
         if any(c.isupper() for c in self.container_name):
             raise Exception("{0}: BLOB container names must not contain uppercase letters"
                             .format(self.container_name))
-        self.copy_option(xml, 'acl', str, optional = True)
+        acl_xml = xml.find("attrs/attr[@name='acl']")
+        self.copy_option(acl_xml, 'blobPublicAccess', str, optional = True)
+        self.copy_signed_identifiers(acl_xml)
         self.copy_option(xml, 'storage', 'resource')
         self.metadata = {
             k.get("name"): k.find("string").get("value")
@@ -41,8 +43,9 @@ class AzureBLOBContainerState(StorageResourceState):
     """State of an Azure BLOB Container"""
 
     container_name = attr_property("azure.name", None)
-    acl = attr_property("azure.acl", None)
+    blob_public_access = attr_property("azure.blobPublicAccess", None)
     storage = attr_property("azure.storage", None)
+    signed_identifiers = attr_property("azure.signedIdentifiers", {}, 'json')
     metadata = attr_property("azure.metadata", {}, 'json')
 
     @classmethod
@@ -90,7 +93,7 @@ class AzureBLOBContainerState(StorageResourceState):
     def destroy_resource(self):
         self.bs().delete_container(self.resource_id, fail_not_exist = True)
 
-    defn_properties = [ 'acl', 'metadata' ]
+    defn_properties = [ 'blob_public_access', 'metadata' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_property_change(defn, 'storage')
@@ -104,11 +107,13 @@ class AzureBLOBContainerState(StorageResourceState):
             if not container:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                # FIXME: currently no way to get acl value
+                # FIXME: currently there's no way to get acl.blobPublicAccess value
                 metadata = { k[10:] : v
                              for k, v in container.items()
                              if k.startswith('x-ms-meta-') }
                 self.handle_changed_property('metadata', metadata)
+                self.handle_changed_signed_identifiers(
+                    self.bs().get_container_acl(self.container_name))
             else:
                 self.warn_not_supposed_to_exist()
                 self.confirm_destroy()
@@ -121,21 +126,35 @@ class AzureBLOBContainerState(StorageResourceState):
             self.log("creating {0} in {1}...".format(self.full_name, defn.storage))
             self.bs().create_container(defn.container_name,
                                        x_ms_meta_name_values = defn.metadata,
-                                       x_ms_blob_public_access = defn.acl,
+                                       x_ms_blob_public_access = defn.blob_public_access,
                                        fail_on_exist = True)
             self.state = self.UP
             self.copy_properties(defn)
 
-        if self.properties_changed(defn):
-            self.log("updating properties of {0}...".format(self.full_name))
+        if self.metadata != defn.metadata:
+            self.log("updating the metadata of {0}...".format(self.full_name))
             if not self.get_settled_resource():
                 raise Exception("{0} has been deleted behind our back; "
                                 "please run 'deploy --check' to fix this"
                                 .format(self.full_name))
-            self.bs().set_container_metadata(self.container_name, x_ms_meta_name_values = defn.metadata)
+            self.bs().set_container_metadata(self.container_name,
+                                             x_ms_meta_name_values = defn.metadata)
             self.metadata = defn.metadata
-            self.bs().set_container_acl(self.container_name, x_ms_blob_public_access = defn.acl)
-            self.acl = defn.acl
+
+        if(self.signed_identifiers != defn.signed_identifiers or
+           self.blob_public_access != defn.blob_public_access):
+            self.log("updating the ACL of {0}..."
+                     .format(self.full_name))
+            if not self.get_settled_resource():
+                raise Exception("{0} has been deleted behind our back; "
+                                "please run 'deploy --check' to fix this"
+                                .format(self.full_name))
+            signed_identifiers = self._dict_to_signed_identifiers(defn.signed_identifiers)
+            self.bs().set_container_acl(self.container_name,
+                                        x_ms_blob_public_access = defn.blob_public_access,
+                                        signed_identifiers = signed_identifiers)
+            self.blob_public_access = defn.blob_public_access
+            self.signed_identifiers = defn.signed_identifiers
 
 
     def create_after(self, resources, defn):

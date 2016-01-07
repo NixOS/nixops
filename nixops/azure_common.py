@@ -24,6 +24,8 @@ from azure.storage.queue import QueueService
 from azure.storage.table import TableService
 from azure.storage.file import FileService
 
+from azure.storage.models import SignedIdentifiers, SignedIdentifier, AccessPolicy
+
 import adal
 import logging
 
@@ -92,8 +94,8 @@ class ResourceDefinitionBase(nixops.resources.ResourceDefinition):
 
     def copy_tags(self, xml):
         self.tags = {
-            k.get("name"): k.find("string").get("value")
-            for k in xml.findall("attrs/attr[@name='tags']/attrs/attr")
+            tag.get("name"): tag.find("string").get("value")
+            for tag in xml.findall("attrs/attr[@name='tags']/attrs/attr")
         }
 
 
@@ -116,6 +118,15 @@ class StorageResourceDefinition(ResourceDefinitionBase):
 
         self.copy_option(xml, 'accessKey', str, optional = True)
 
+    def copy_signed_identifiers(self, xml):
+        self.signed_identifiers = {
+            s_id.get("name"): {
+                'start': self.get_option_value(s_id, 'start', str),
+                'expiry': self.get_option_value(s_id, 'expiry', str),
+                'permissions': self.get_option_value(s_id, 'permissions', str),
+            }
+            for s_id in xml.findall("attrs/attr[@name='signedIdentifiers']/attrs/attr")
+        }
 
 class ResourceState(nixops.resources.ResourceState):
 
@@ -393,3 +404,32 @@ class StorageResourceState(ResourceState):
         if not self._fs:
             self._fs = FileService(self.get_storage_name(), self.get_key())
         return self._fs
+
+
+    # Signed Identifiers handling helpers
+    def _signed_identifiers_to_dict(self, signed_identifiers):
+        return {
+            s_id.id: {
+              'start': s_id.access_policy.start,
+              'expiry': s_id.access_policy.expiry,
+              'permissions': s_id.access_policy.permission,
+            }
+            for s_id in signed_identifiers.signed_identifiers
+        }
+
+    def _dict_to_signed_identifiers(self, signed_identifiers):
+        result = SignedIdentifiers()
+        for _id, policy in signed_identifiers.iteritems():
+            identifier = SignedIdentifier()
+            identifier.id = _id
+            identifier.access_policy = AccessPolicy(
+                start = policy['start'],
+                expiry = policy['expiry'],
+                permission = policy['permissions']
+            )
+            result.signed_identifiers.append(identifier)
+        return result
+
+    def handle_changed_signed_identifiers(self, signed_identifiers):
+        self.handle_changed_property('signed_identifiers',
+                                     self._signed_identifiers_to_dict(signed_identifiers))

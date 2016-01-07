@@ -35,6 +35,8 @@ with (import ./lib.nix lib);
       description = "Metadata name/value pairs to associate with the queue.";
     };
 
+    acl.signedIdentifiers = (import ./azure-signed-identifiers.nix lib);
+
   };
 
   config._type = "azure-queue";
