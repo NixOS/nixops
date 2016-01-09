@@ -11,7 +11,6 @@ from nixops.util import attr_property, check_wait
 import nixops.resources
 
 from azure import *
-from azure.servicemanagement import *
 
 from azure.mgmt.common import SubscriptionCloudCredentials
 from azure.mgmt.resource import ResourceManagementClient
@@ -105,7 +104,6 @@ class ResourceDefinition(ResourceDefinitionBase):
         ResourceDefinitionBase.__init__(self, xml)
 
         self.copy_option(xml, 'subscriptionId', str)
-        self.copy_option(xml, 'certificatePath', str, empty = True, optional = True)
         self.authority_url = self.copy_option(xml, 'authority', str, empty = True, optional = True)
         self.copy_option(xml, 'user', str, empty = True, optional = True)
         self.copy_option(xml, 'password', str, empty = True, optional = True)
@@ -131,7 +129,6 @@ class StorageResourceDefinition(ResourceDefinitionBase):
 class ResourceState(nixops.resources.ResourceState):
 
     subscription_id = attr_property("azure.subscriptionId", None)
-    certificate_path = attr_property("azure.certificatePath", None)
     authority_url = attr_property("azure.authorityUrl", None)
     user = attr_property("azure.user", None)
     password = attr_property("azure.password", None)
@@ -141,16 +138,10 @@ class ResourceState(nixops.resources.ResourceState):
 
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._sms = None
         self._rmc = None
         self._cmc = None
         self._nrpc = None
         self._smc = None
-
-    def sms(self):
-        if not self._sms:
-            self._sms = ServiceManagementService(self.subscription_id, self.certificate_path)
-        return self._sms
 
     def get_mgmt_credentials(self):
         with self.tokens_lock:
@@ -198,12 +189,6 @@ class ResourceState(nixops.resources.ResourceState):
             raise Exception("please set '{0}.subscriptionId' or AZURE_SUBSCRIPTION_ID".format(self.credentials_prefix))
         return subscription_id
 
-    def defn_certificate_path(self, defn):
-        certificate_path = defn.certificate_path or os.environ.get('AZURE_CERTIFICATE_PATH')
-        if not certificate_path:
-            raise Exception("please set '{0}.certificatePath' or AZURE_CERTIFICATE_PATH".format(self.credentials_prefix))
-        return certificate_path
-
     def defn_authority_url(self, defn):
         authority_url = defn.authority or os.environ.get('AZURE_AUTHORITY_URL')
         if not authority_url:
@@ -221,10 +206,6 @@ class ResourceState(nixops.resources.ResourceState):
         if not password:
             raise Exception("please set '{0}.password' or AZURE_PASSWORD".format(self.credentials_prefix))
         return password
-
-    def copy_credentials(self, defn):
-        self.subscription_id = self.defn_subscription_id(defn)
-        self.certificate_path = self.defn_certificate_path(defn)
 
     def copy_mgmt_credentials(self, defn):
         self.subscription_id = self.defn_subscription_id(defn)
@@ -348,18 +329,6 @@ class ResourceState(nixops.resources.ResourceState):
             time.sleep(wait)
             resource = _get_resource()
         return resource
-
-    def finish_request(self, req, max_tries = 100):
-        def check_req():
-            return self.sms().get_operation_status(req.request_id).status != 'InProgress'
-        try:
-            check_wait(check_req, initial=1, max_tries=max_tries, exception=True)
-        except:
-            self.warn("operation on {0} failed".format(self.full_name))
-            raise
-        op_status = self.sms().get_operation_status(req.request_id)
-        if op_status.status != 'Succeeded':
-            raise Exception(op_status.error.__dict__)
 
 
 class StorageResourceState(ResourceState):

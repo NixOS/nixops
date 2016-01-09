@@ -97,18 +97,13 @@ rec {
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Azure resources
-  resources.azureAffinityGroups = evalResources ./azure-affinity-group.nix (zipAttrs resourcesByType.azureAffinityGroups or []);
   resources.azureReservedIPAddresses = evalResources ./azure-reserved-ip-address.nix (zipAttrs resourcesByType.azureReservedIPAddresses or []);
   resources.azureResourceGroups = evalResources ./azure-resource-group.nix (zipAttrs resourcesByType.azureResourceGroups or []);
-  resources.azureHostedServices = evalResources ./azure-hosted-service.nix (zipAttrs resourcesByType.azureHostedServices or []);
   resources.azureStorages = evalResources ./azure-storage.nix (zipAttrs resourcesByType.azureStorages or []);
   resources.azureBlobContainers = evalResources ./azure-blob-container.nix (zipAttrs resourcesByType.azureBlobContainers or []);
   resources.azureBlobs = evalResources ./azure-blob.nix (zipAttrs resourcesByType.azureBlobs or []);
-  resources.azureDeployments = evalResources ./azure-deployment.nix (zipAttrs resourcesByType.azureDeployments or []);
   resources.azureDirectories = evalResources ./azure-directory.nix (zipAttrs resourcesByType.azureDirectories or []);
-  resources.azureDisks = evalResources ./azure-disk.nix (zipAttrs resourcesByType.azureDisks or []);
   resources.azureFiles = evalResources ./azure-file.nix (zipAttrs resourcesByType.azureFiles or []);
-  resources.azureOSImages = evalResources ./azure-os-image.nix (zipAttrs resourcesByType.azureOSImages or []);
   resources.azureQueues = evalResources ./azure-queue.nix (zipAttrs resourcesByType.azureQueues or []);
   resources.azureShares = evalResources ./azure-share.nix (zipAttrs resourcesByType.azureShares or []);
   resources.azureTables = evalResources ./azure-table.nix (zipAttrs resourcesByType.azureTables or []);

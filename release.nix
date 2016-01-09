@@ -73,7 +73,6 @@ rec {
           pythonPackages.boto
           pythonPackages.hetzner
           pythonPackages.libcloud
-          pythonPackages.azure-servicemanagement-legacy
           pythonPackages.azure-storage
           pythonPackages.azure-mgmt-compute
           pythonPackages.azure-mgmt-network

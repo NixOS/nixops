@@ -12,8 +12,6 @@ import random
 import threading
 
 from azure.storage.blob import BlobService
-from azure.servicemanagement import *
-from azure.servicemanagement._serialization import _XmlSerializer
 
 import nixops
 from nixops import known_hosts
@@ -181,7 +179,6 @@ class AzureState(MachineState, ResourceState):
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
         ResourceState.__init__(self, depl, name, id)
-        self._sms = None
         self._bs = None
 
     @property
