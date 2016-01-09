@@ -117,20 +117,14 @@ class AzureQueueState(StorageResourceState):
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
-            if not self.get_settled_resource():
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            self.get_settled_resource_assert_exists()
             self.qs().set_queue_metadata(self.queue_name, x_ms_meta_name_values = defn.metadata)
             self.metadata = defn.metadata
 
         if self.signed_identifiers != defn.signed_identifiers:
             self.log("updating the ACL of {0}..."
                      .format(self.full_name))
-            if not self.get_settled_resource():
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            self.get_settled_resource_assert_exists()
             signed_identifiers = self._dict_to_signed_identifiers(defn.signed_identifiers)
             self.qs().set_queue_acl(self.queue_name,
                                     signed_identifiers = signed_identifiers)

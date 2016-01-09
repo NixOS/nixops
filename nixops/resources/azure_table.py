@@ -113,10 +113,7 @@ class AzureTableState(StorageResourceState):
         if self.signed_identifiers != defn.signed_identifiers:
             self.log("updating the ACL of {0}..."
                      .format(self.full_name))
-            if self.get_settled_resource() is None:
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            self.get_settled_resource_assert_exists()
             signed_identifiers = self._dict_to_signed_identifiers(defn.signed_identifiers)
             self.ts().set_table_acl(self.table_name,
                                     signed_identifiers = signed_identifiers)

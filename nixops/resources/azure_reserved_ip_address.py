@@ -144,10 +144,7 @@ class AzureReservedIPAddressState(ResourceState):
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
-            if not self.get_settled_resource():
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            self.get_settled_resource_assert_exists()
             self._update_resource(defn)
 
 

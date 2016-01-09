@@ -279,15 +279,6 @@ class AzureState(MachineState, ResourceState):
         except azure.common.AzureMissingResourceHttpError:
             return None
 
-    # retrieve the VM resource and complain to the user if it doesn't exist
-    def get_vm_assert_exists(self):
-        vm = self.get_settled_resource()
-        if not vm:
-            raise Exception("{0} has been deleted behind our back; "
-                            "please run 'deploy --check' to fix this"
-                            .format(self.full_name))
-        return vm
-
     def destroy_resource(self):
         self.cmc().virtual_machines.delete(self.resource_group, self.resource_id)
 
@@ -463,7 +454,7 @@ class AzureState(MachineState, ResourceState):
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
-            vm = self.get_vm_assert_exists()
+            vm = self.get_settled_resource_assert_exists()
             vm.hardware_profile = HardwareProfile(virtual_machine_size = defn.size)
             self.cmc().virtual_machines.create_or_update(self.resource_group, vm)
             self.copy_properties(defn)
@@ -480,7 +471,7 @@ class AzureState(MachineState, ResourceState):
                 if disk['host_caching'] != state_disk['host_caching']:
                     self.log("changing parameters of the attached disk {0}({1})"
                              .format(disk['name'], d_id))
-                    vm = self.get_vm_assert_exists()
+                    vm = self.get_settled_resource_assert_exists()
                     vm_disk = next((_disk for _disk in vm.storage_profile.data_disks
                                          if _disk.virtual_hard_disk.uri == disk['media_link']), None)
                     if vm_disk is None:
@@ -544,7 +535,7 @@ class AzureState(MachineState, ResourceState):
             if _disk and not _disk.get("needs_attach", False): continue
 
             self.log("attaching data disk {0}({1})".format(disk['name'], d_id))
-            vm = self.get_vm_assert_exists()
+            vm = self.get_settled_resource_assert_exists()
             vm.storage_profile.data_disks.append(DataDisk(
                 name = disk['name'],
                 virtual_hard_disk = VirtualHardDisk(uri = disk['media_link']),
@@ -714,7 +705,7 @@ class AzureState(MachineState, ResourceState):
                         self.run_command("umount -l {0}".format(disk['device']), check=False)
 
                     self.log("detaching Azure disk {0}({1})...".format(disk['name'], d_id))
-                    vm = self.get_vm_assert_exists()
+                    vm = self.get_settled_resource_assert_exists()
                     vm.storage_profile.data_disks = [
                         _disk
                         for _disk in vm.storage_profile.data_disks

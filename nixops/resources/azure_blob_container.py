@@ -125,10 +125,7 @@ class AzureBLOBContainerState(StorageResourceState):
 
         if self.metadata != defn.metadata:
             self.log("updating the metadata of {0}...".format(self.full_name))
-            if not self.get_settled_resource():
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            self.get_settled_resource_assert_exists()
             self.bs().set_container_metadata(self.container_name,
                                              x_ms_meta_name_values = defn.metadata)
             self.metadata = defn.metadata
@@ -137,10 +134,7 @@ class AzureBLOBContainerState(StorageResourceState):
            self.blob_public_access != defn.blob_public_access):
             self.log("updating the ACL of {0}..."
                      .format(self.full_name))
-            if not self.get_settled_resource():
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            self.get_settled_resource_assert_exists()
             signed_identifiers = self._dict_to_signed_identifiers(defn.signed_identifiers)
             self.bs().set_container_acl(self.container_name,
                                         x_ms_blob_public_access = defn.blob_public_access,

@@ -263,10 +263,7 @@ class AzureBLOBState(StorageResourceState):
 
         if self.properties_changed(defn) or self.metadata != defn.metadata:
             self.log("updating properties of {0}...".format(self.full_name))
-            if not self.get_settled_resource():
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            self.get_settled_resource_assert_exists()
             self.bs().set_blob_properties(self.container, self.blob_name,
                                           x_ms_blob_cache_control = defn.cache_control,
                                           x_ms_blob_content_type  = defn.content_type,

@@ -292,10 +292,7 @@ class AzureStorageState(StorageResourceState):
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
-            if not self.get_settled_resource():
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            self.get_settled_resource_assert_exists()
             # as per Azure documentation, this API can only
             # change one property per call, so we call it 3 times
             if self.tags != defn.tags:
@@ -318,30 +315,21 @@ class AzureStorageState(StorageResourceState):
 
         if self.blob_service_properties != defn.blob_service_properties:
             self.log("updating BLOB service properties of {0}...".format(self.full_name))
-            if not self.get_settled_resource():
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            self.get_settled_resource_assert_exists()
             self.bs().set_blob_service_properties(
                 self._dict_to_storage_service_properties(defn.blob_service_properties))
             self.blob_service_properties = defn.blob_service_properties
 
         if self.queue_service_properties != defn.queue_service_properties:
             self.log("updating queue service properties of {0}...".format(self.full_name))
-            if not self.get_settled_resource():
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            self.get_settled_resource_assert_exists()
             self.qs().set_queue_service_properties(
                 self._dict_to_storage_service_properties(defn.queue_service_properties))
             self.queue_service_properties = defn.queue_service_properties
 
         if self.table_service_properties != defn.table_service_properties:
             self.log("updating table service properties of {0}...".format(self.full_name))
-            if not self.get_settled_resource():
-                raise Exception("{0} has been deleted behind our back; "
-                                "please run 'deploy --check' to fix this"
-                                .format(self.full_name))
+            self.get_settled_resource_assert_exists()
             self.ts().set_table_service_properties(
                 self._dict_to_storage_service_properties(defn.table_service_properties))
             self.table_service_properties = defn.table_service_properties

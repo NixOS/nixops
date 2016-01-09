@@ -345,6 +345,15 @@ class ResourceState(nixops.resources.ResourceState):
         return next((r for r in self.depl.resources.values()
                        if isinstance(r, cls) and getattr(r, 'resource_id', None) == name), None)
 
+    # retrieve the resource and complain to the user if it doesn't exist
+    def get_settled_resource_assert_exists(self):
+        res = self.get_settled_resource()
+        if res is None:
+            raise Exception("{0} has been deleted behind our back; "
+                            "please run 'deploy --check' to fix this"
+                            .format(self.full_name))
+        return res
+
 
 class StorageResourceState(ResourceState):
 
