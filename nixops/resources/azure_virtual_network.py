@@ -51,9 +51,6 @@ class AzureVirtualNetworkState(ResourceState):
     def get_type(cls):
         return "azure-virtual-network"
 
-    def __init__(self, depl, name, id):
-        ResourceState.__init__(self, depl, name, id)
-
     def show_type(self):
         s = super(AzureVirtualNetworkState, self).show_type()
         if self.state == self.UP: s = "{0} [{1}]".format(s, self.location)

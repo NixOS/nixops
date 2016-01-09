@@ -54,9 +54,6 @@ class AzureReservedIPAddressState(ResourceState):
     def get_type(cls):
         return "azure-reserved-ip-address"
 
-    def __init__(self, depl, name, id):
-        ResourceState.__init__(self, depl, name, id)
-
     def show_type(self):
         s = super(AzureReservedIPAddressState, self).show_type()
         if self.state == self.UP: s = "{0} [{1}]".format(s, self.location)

@@ -102,9 +102,6 @@ class AzureStorageState(StorageResourceState):
     def get_type(cls):
         return "azure-storage"
 
-    def __init__(self, depl, name, id):
-        StorageResourceState.__init__(self, depl, name, id)
-
     def show_type(self):
         s = super(AzureStorageState, self).show_type()
         if self.state == self.UP: s = "{0} [{1}]".format(s, self.location)
