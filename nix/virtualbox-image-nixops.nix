@@ -10,26 +10,25 @@ in
 
   services.openssh.enable = true;
 
-  jobs.get-vbox-nixops-client-key =
-    { description = "Get NixOps SSH Key";
-      wantedBy = [ "multi-user.target" ];
-      before = [ "sshd.service" ];
-      requires = [ "dev-vboxguest.device" ];
-      after = [ "dev-vboxguest.device" ];
-      path = [ config.boot.kernelPackages.virtualboxGuestAdditions ];
-      preStart =
-        ''
-          set -o pipefail
-          VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/Charon/ClientPublicKey | sed 's/Value: //' > ${clientKeyPath}.tmp
-          mv ${clientKeyPath}.tmp ${clientKeyPath}
+  systemd.services.get-vbox-nixops-client-key = {
+    description = "Get NixOps SSH Key";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "sshd.service" ];
+    requires = [ "dev-vboxguest.device" ];
+    after = [ "dev-vboxguest.device" ];
+    path = [ config.boot.kernelPackages.virtualboxGuestAdditions ];
+    preStart = ''
+      set -o pipefail
+      VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/Charon/ClientPublicKey | sed 's/Value: //' > ${clientKeyPath}.tmp
+      mv ${clientKeyPath}.tmp ${clientKeyPath}
 
-          if [[ ! -f /etc/ssh/ssh_host_ed25519_key ]]; then
-            VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/NixOps/PrivateHostEd25519Key | sed 's/Value: //' > /etc/ssh/ssh_host_ed25519_key.tmp
-            mv /etc/ssh/ssh_host_ed25519_key.tmp /etc/ssh/ssh_host_ed25519_key
-            chmod 0600 /etc/ssh/ssh_host_ed25519_key
-          fi
-        '';
-    };
+      if [[ ! -f /etc/ssh/ssh_host_ed25519_key ]]; then
+        VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/NixOps/PrivateHostEd25519Key | sed 's/Value: //' > /etc/ssh/ssh_host_ed25519_key.tmp
+        mv /etc/ssh/ssh_host_ed25519_key.tmp /etc/ssh/ssh_host_ed25519_key
+        chmod 0600 /etc/ssh/ssh_host_ed25519_key
+      fi
+    '';
+  };
 
   services.openssh.authorizedKeysFiles = [ ".vbox-nixops-client-key" ];
 
