@@ -87,13 +87,25 @@ with (import ./lib.nix lib);
     contentType = mkOption {
       default = null;
       type = types.nullOr types.str;
-      description = "Specifies the blob's content type.";
+      description = "The MIME content type of the BLOB. ";
     };
 
     cacheControl = mkOption {
       default = null;
       type = types.nullOr types.str;
       description = "The Blob service stores this value but does not use or modify it.";
+    };
+
+    contentDisposition = mkOption {
+      default = null;
+      type = types.nullOr types.str;
+      description = ''
+          The Content-Disposition response header field conveys additional
+          information about how to process the response payload, and also
+          can be used to attach additional metadata. For example, if set
+          to "attachment", Content-Disposition indicates that the user-agent
+          should not display the response, but instead show a Save As dialog.
+      '';
     };
 
     metadata = mkOption {

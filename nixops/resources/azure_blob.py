@@ -52,6 +52,7 @@ class AzureBLOBDefinition(StorageResourceDefinition):
         self.copy_option(xml, 'contentType', str, optional = True)
         self.copy_option(xml, 'contentLength', int, optional = True)
         self.copy_option(xml, 'cacheControl', str, optional = True)
+        self.copy_option(xml, 'contentDisposition', str, optional = True)
         self.metadata = {
             k.get("name"): k.find("string").get("value")
             for k in xml.findall("attrs/attr[@name='metadata']/attrs/attr")
@@ -74,6 +75,7 @@ class AzureBLOBState(StorageResourceState):
     content_type = attr_property("azure.contentType", None)
     content_length = attr_property("azure.contentLength", None)
     cache_control = attr_property("azure.cacheControl", None)
+    content_disposition = attr_property("azure.contentDisposition", None)
     metadata = attr_property("azure.metadata", {}, 'json')
     last_modified = attr_property("azure.lastModified", None)
     copied_from = attr_property("azure.copiedFrom", None)
@@ -134,7 +136,7 @@ class AzureBLOBState(StorageResourceState):
         self.state = self.MISSING
 
     defn_properties = [ 'content_encoding', 'content_language',
-                        'cache_control', 'content_type' ]
+                        'cache_control', 'content_type', 'content_disposition' ]
 
     def upload_file(self, defn):
         md5 = md5sum(defn.file_path)
@@ -184,6 +186,7 @@ class AzureBLOBState(StorageResourceState):
             self.blob_type = defn.blob_type
             self.md5 = md5
             self.last_modified = None
+            self.content_disposition = None
             self.copied_from = defn.file_path
             self.content_length = defn.content_length or os.stat(defn.file_path).st_size
 
@@ -217,6 +220,7 @@ class AzureBLOBState(StorageResourceState):
             self.content_type = res.get('content-type', None)
             self.cache_control =  res.get('cache-control', None)
             self.blob_type = res.get('x-ms-blob-type', None)
+            self.content_disposition = res.get('content-disposition', None)
             # workaround for API bug
             self.metadata = None if defn.metadata == {} else defn.metadata 
             self.state = self.UP
@@ -254,6 +258,7 @@ class AzureBLOBState(StorageResourceState):
                 self.handle_changed_property('content_length', blob.get('content-length', None), can_fix = False)
                 self.handle_changed_property('content_type', blob.get('content-type', None))
                 self.handle_changed_property('cache_control', blob.get('cache-control', None))
+                self.handle_changed_property('content_disposition', blob.get('content-disposition', None))
                 metadata = { k[10:] : v
                              for k, v in blob.items()
                              if k.startswith('x-ms-meta-') }
@@ -278,12 +283,12 @@ class AzureBLOBState(StorageResourceState):
                                           x_ms_blob_content_type  = defn.content_type,
                                           x_ms_blob_content_md5 = self.md5,
                                           x_ms_blob_content_encoding = defn.content_encoding,
-                                          x_ms_blob_content_language = defn.content_language)
+                                          x_ms_blob_content_language = defn.content_language,
+                                          x_ms_blob_content_disposition = defn.content_disposition)
             self.copy_properties(defn)
             self.bs().set_blob_metadata(self.container, self.blob_name,
                                              x_ms_meta_name_values = defn.metadata)
             self.metadata = defn.metadata
-
 
 
     def create_after(self, resources, defn):
