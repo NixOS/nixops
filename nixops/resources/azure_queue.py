@@ -27,10 +27,7 @@ class AzureQueueDefinition(StorageResourceDefinition):
 
         self.queue_name = self.get_option_value(xml, 'name', str)
         self.copy_option(xml, 'storage', 'resource')
-        self.metadata = {
-            k.get("name"): k.find("string").get("value")
-            for k in xml.findall("attrs/attr[@name='metadata']/attrs/attr")
-        }
+        self.copy_metadata(xml)
         self.copy_signed_identifiers(xml.find("attrs/attr[@name='acl']"))
 
     def show_type(self):
@@ -99,10 +96,7 @@ class AzureQueueState(StorageResourceState):
             if not queue:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                metadata = { k[10:] : v
-                             for k, v in queue.items()
-                             if k.startswith('x-ms-meta-') }
-                self.handle_changed_property('metadata', metadata)
+                self.handle_changed_metadata(queue)
                 self.handle_changed_signed_identifiers(
                     self.qs().get_queue_acl(self.queue_name))
             else:

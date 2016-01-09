@@ -126,6 +126,13 @@ class StorageResourceDefinition(ResourceDefinitionBase):
             for s_id in xml.findall("attrs/attr[@name='signedIdentifiers']/attrs/attr")
         }
 
+    def copy_metadata(self, xml):
+        self.metadata = {
+            k.get("name"): k.find("string").get("value")
+            for k in xml.findall("attrs/attr[@name='metadata']/attrs/attr")
+        }
+
+
 class ResourceState(nixops.resources.ResourceState):
 
     subscription_id = attr_property("azure.subscriptionId", None)
@@ -410,3 +417,9 @@ class StorageResourceState(ResourceState):
     def handle_changed_signed_identifiers(self, signed_identifiers):
         self.handle_changed_property('signed_identifiers',
                                      self._signed_identifiers_to_dict(signed_identifiers))
+
+    def handle_changed_metadata(self, resource_with_metadata):
+        metadata = { k[10:] : v
+                      for k, v in resource_with_metadata.items()
+                      if k.startswith('x-ms-meta-') }
+        self.handle_changed_property('metadata', metadata)

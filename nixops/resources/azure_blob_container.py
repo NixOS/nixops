@@ -33,10 +33,7 @@ class AzureBLOBContainerDefinition(StorageResourceDefinition):
         self.copy_option(acl_xml, 'blobPublicAccess', str, optional = True)
         self.copy_signed_identifiers(acl_xml)
         self.copy_option(xml, 'storage', 'resource')
-        self.metadata = {
-            k.get("name"): k.find("string").get("value")
-            for k in xml.findall("attrs/attr[@name='metadata']/attrs/attr")
-        }
+        self.copy_metadata(xml)
 
     def show_type(self):
         return "{0}".format(self.get_type())
@@ -106,10 +103,7 @@ class AzureBLOBContainerState(StorageResourceState):
                 self.warn_missing_resource()
             elif self.state == self.UP:
                 # FIXME: currently there's no way to get acl.blobPublicAccess value
-                metadata = { k[10:] : v
-                             for k, v in container.items()
-                             if k.startswith('x-ms-meta-') }
-                self.handle_changed_property('metadata', metadata)
+                self.handle_changed_metadata(container)
                 self.handle_changed_signed_identifiers(
                     self.bs().get_container_acl(self.container_name))
             else:

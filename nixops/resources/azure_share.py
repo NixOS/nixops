@@ -27,10 +27,7 @@ class AzureShareDefinition(StorageResourceDefinition):
 
         self.share_name = self.get_option_value(xml, 'name', str)
         self.copy_option(xml, 'storage', 'resource')
-        self.metadata = {
-            k.get("name"): k.find("string").get("value")
-            for k in xml.findall("attrs/attr[@name='metadata']/attrs/attr")
-        }
+        self.copy_metadata(xml)
 
     def show_type(self):
         return "{0}".format(self.get_type())
@@ -97,10 +94,7 @@ class AzureShareState(StorageResourceState):
             if not share:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                metadata = { k[10:] : v
-                             for k, v in share.items()
-                             if k.startswith('x-ms-meta-') }
-                self.handle_changed_property('metadata', metadata)
+                self.handle_changed_metadata(share)
             else:
                 self.warn_not_supposed_to_exist()
                 self.confirm_destroy()

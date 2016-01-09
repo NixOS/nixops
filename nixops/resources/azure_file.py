@@ -61,10 +61,7 @@ class AzureFileDefinition(StorageResourceDefinition):
         self.copy_option(xml, 'contentLength', int, optional = True)
         self.copy_option(xml, 'cacheControl', str, optional = True)
         self.copy_option(xml, 'contentDisposition', str, optional = True)
-        self.metadata = {
-            k.get("name"): k.find("string").get("value")
-            for k in xml.findall("attrs/attr[@name='metadata']/attrs/attr")
-        }
+        self.copy_metadata(xml)
 
     def show_type(self):
         return "{0}".format(self.get_type())
@@ -216,10 +213,7 @@ class AzureFileState(StorageResourceState):
                 self.handle_changed_property('content_type', file.get('content-type', None))
                 self.handle_changed_property('cache_control', file.get('cache-control', None))
                 self.handle_changed_property('content_disposition', file.get('content-disposition', None))
-                metadata = { k[10:] : v
-                             for k, v in file.items()
-                             if k.startswith('x-ms-meta-') }
-                self.handle_changed_property('metadata', metadata)
+                self.handle_changed_metadata(file)
             else:
                 self.warn_not_supposed_to_exist()
                 self.confirm_destroy()
