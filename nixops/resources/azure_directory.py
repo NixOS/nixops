@@ -8,6 +8,9 @@ import azure
 from nixops.util import attr_property
 from nixops.azure_common import StorageResourceDefinition, StorageResourceState
 
+from nixops.resources.azure_share import AzureShareState
+from nixops.resources.azure_storage import AzureStorageState
+
 class AzureDirectoryDefinition(StorageResourceDefinition):
     """Definition of an Azure Directory"""
 
@@ -70,37 +73,22 @@ class AzureDirectoryState(StorageResourceState):
     def full_name(self):
         return "Azure directory '{0}'".format(self.resource_id)
 
-    def get_share_resource(self, share):
-        return share and next(
-                  (r for r in self.depl.resources.values()
-                     if getattr(r, 'share_name', None) == share), None)
-
-    def get_directory_resource(self, directory):
-        return directory and next(
-                  (r for r in self.depl.resources.values()
-                     if getattr(r, 'directory_name', None) == directory), None)
-
-    def get_storage_resource(self, storage):
-        return storage and next(
-                  (r for r in self.depl.resources.values()
-                     if getattr(r, 'storage_name', None) == storage), None)
-
     def get_share_name(self, defn = None):
-        parent_resource = self.get_directory_resource((defn or self).parent_directory)
+        parent_resource = self.get_resource_state(AzureDirectoryState, (defn or self).parent_directory)
         return( (defn or self).share or
                 (parent_resource and parent_resource.get_share_name()) )
 
     def get_storage_name(self, defn = None):
-        parent_resource = self.get_directory_resource((defn or self).parent_directory)
-        share_resource = self.get_share_resource((defn or self).share)
+        parent_resource = self.get_resource_state(AzureDirectoryState, (defn or self).parent_directory)
+        share_resource = self.get_resource_state(AzureShareState, (defn or self).share)
         return( (defn or self).storage or
                 (share_resource and share_resource.get_storage_name()) or
                 (parent_resource and parent_resource.get_storage_name()) )
 
     def get_key(self):
-        parent = self.get_directory_resource(self.parent_directory)
-        storage = self.get_storage_resource(self.get_storage_name())
-        share = self.get_share_resource(self.share)
+        parent = self.get_resource_state(AzureDirectoryState, self.parent_directory)
+        storage = self.get_resource_state(AzureStorageState, self.get_storage_name())
+        share = self.get_resource_state(AzureShareState, self.share)
         access_key = ( self.access_key or
                       (storage and storage.access_key) or
                       (share and share.get_key()) or
@@ -115,7 +103,7 @@ class AzureDirectoryState(StorageResourceState):
         return True
 
     def get_parent_directory_path(self, defn = None):
-        parent = self.get_directory_resource((defn or self).parent_directory)
+        parent = self.get_resource_state(AzureDirectoryState, (defn or self).parent_directory)
         return (defn or self).parent_directory_path or (parent and parent.get_directory_path())
 
     def get_directory_path(self):
@@ -169,9 +157,6 @@ class AzureDirectoryState(StorageResourceState):
 
 
     def create_after(self, resources, defn):
-        from nixops.resources.azure_share import AzureShareState
-        from nixops.resources.azure_storage import AzureStorageState
-        #print [getattr(r.depl.definitions[r.name],'directory_name', None) for r in resources]
         return { r for r in resources
                    if isinstance(r, AzureShareState) or isinstance(r, AzureStorageState) or
                      (isinstance(r, AzureDirectoryState) and defn.parent_directory and 
@@ -180,8 +165,6 @@ class AzureDirectoryState(StorageResourceState):
                }
 
     def destroy_before(self, resources):
-        from nixops.resources.azure_share import AzureShareState
-        from nixops.resources.azure_storage import AzureStorageState
         return {r for r in resources
                   if isinstance(r, AzureShareState) or isinstance(r, AzureStorageState) 
                   or

@@ -11,6 +11,10 @@ from nixops.azure_common import StorageResourceDefinition, StorageResourceState
 import hashlib
 import base64
 
+from nixops.resources.azure_blob_container import AzureBLOBContainerState
+from nixops.resources.azure_storage import AzureStorageState
+
+
 def md5sum(filename):
     md5 = hashlib.md5()
     with open(filename, 'rb') as f:
@@ -99,22 +103,13 @@ class AzureBLOBState(StorageResourceState):
     def full_name(self):
         return "Azure BLOB '{0}'".format(self.resource_id)
 
-    def get_container_resource(self, container):
-        return container and next(
-                  (r for r in self.depl.resources.values()
-                     if getattr(r, 'container_name', None) == container), None)
-
     def get_storage_name(self, defn = None):
-        container_resource = self.get_container_resource((defn or self).container)
+        container_resource = self.get_resource_state(AzureBLOBContainerState, (defn or self).container)
         return (defn or self).storage or (container_resource and container_resource.storage)
 
-    def get_storage_resource(self):
-        return self.storage and next((r for r in self.depl.resources.values()
-                                        if getattr(r, 'storage_name', None) == self.storage), None)
-
     def get_key(self):
-        storage = self.get_storage_resource()
-        container = self.get_container_resource(self.container)
+        storage = self.get_resource_state(AzureStorageState, self.storage)
+        container = self.get_resource_state(AzureBLOBContainerState, self.container)
         access_key = self.access_key or (storage and storage.access_key) or (container and container.get_key())
 
         if not access_key:
@@ -292,7 +287,5 @@ class AzureBLOBState(StorageResourceState):
 
 
     def create_after(self, resources, defn):
-        from nixops.resources.azure_blob_container import AzureBLOBContainerState
-        from nixops.resources.azure_storage import AzureStorageState
         return {r for r in resources
                   if isinstance(r, AzureBLOBContainerState) or isinstance(r, AzureStorageState)}

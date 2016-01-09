@@ -330,6 +330,14 @@ class ResourceState(nixops.resources.ResourceState):
             resource = _get_resource()
         return resource
 
+    def get_resource_state(self, cls, name):
+        if cls is None:
+            return None
+        if not name:
+            return None
+        return next((r for r in self.depl.resources.values()
+                       if isinstance(r, cls) and getattr(r, 'resource_id', None) == name), None)
+
 
 class StorageResourceState(ResourceState):
 

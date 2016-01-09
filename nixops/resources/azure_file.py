@@ -11,6 +11,10 @@ from nixops.azure_common import StorageResourceDefinition, StorageResourceState
 import hashlib
 import base64
 
+from nixops.resources.azure_directory import AzureDirectoryState
+from nixops.resources.azure_share import AzureShareState
+from nixops.resources.azure_storage import AzureStorageState
+
 def md5sum(filename):
     md5 = hashlib.md5()
     with open(filename, 'rb') as f:
@@ -104,32 +108,17 @@ class AzureFileState(StorageResourceState):
     def full_name(self):
         return "Azure file '{0}'".format(self.resource_id)
 
-    def get_share_resource(self, share):
-        return share and next(
-                  (r for r in self.depl.resources.values()
-                     if getattr(r, 'share_name', None) == share), None)
-
-    def get_directory_resource(self, directory):
-        return directory and next(
-                  (r for r in self.depl.resources.values()
-                     if getattr(r, 'directory_name', None) == directory), None)
-
-    def get_storage_resource(self, storage):
-        return storage and next(
-                  (r for r in self.depl.resources.values()
-                     if getattr(r, 'storage_name', None) == storage), None)
-
     def get_storage_name(self, defn = None):
-        parent_resource = self.get_directory_resource((defn or self).directory)
-        share_resource = self.get_share_resource((defn or self).share)
+        parent_resource = self.get_resource_state(AzureDirectoryState, (defn or self).directory)
+        share_resource = self.get_resource_state(AzureShareState, (defn or self).share)
         return( (defn or self).storage or
                 (share_resource and share_resource.get_storage_name()) or
                 (parent_resource and parent_resource.get_storage_name()) )
 
     def get_key(self):
-        parent = self.get_directory_resource(self.directory)
-        storage = self.get_storage_resource(self.get_storage_name())
-        share = self.get_share_resource(self.share)
+        parent = self.get_resource_state(AzureDirectoryState, self.directory)
+        storage = self.get_resource_state(AzureStorageState, self.get_storage_name())
+        share = self.get_resource_state(AzureShareState, self.share)
         access_key = ( self.access_key or
                       (storage and storage.access_key) or
                       (share and share.get_key()) or
@@ -139,17 +128,18 @@ class AzureFileState(StorageResourceState):
             raise Exception("Can't obtain the access key needed to manage {0}"
                             .format(self.full_name))
         return access_key
+
     def is_settled(self, resource):
         return resource is None or (resource.get('x-ms-copy-status', 'success') == 'success')
 
 
     def get_share_name(self, defn = None):
-        parent = self.get_directory_resource((defn or self).directory)
+        parent = self.get_resource_state(AzureDirectoryState, (defn or self).directory)
         return( (defn or self).share or
                 (parent and parent.get_share_name()) )
 
     def get_directory_path(self, defn = None):
-        directory = self.get_directory_resource((defn or self).directory)
+        directory = self.get_resource_state(AzureDirectoryState, (defn or self).directory)
         return self.directory_path or (directory and directory.get_directory_path())
 
     def get_resource_allow_exceptions(self):
@@ -256,9 +246,6 @@ class AzureFileState(StorageResourceState):
 
 
     def create_after(self, resources, defn):
-        from nixops.resources.azure_directory import AzureDirectoryState
-        from nixops.resources.azure_share import AzureShareState
-        from nixops.resources.azure_storage import AzureStorageState
         return {r for r in resources
                   if isinstance(r, AzureShareState) or isinstance(r, AzureStorageState) or
                      isinstance(r, AzureDirectoryState)}

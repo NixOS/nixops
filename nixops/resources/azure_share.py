@@ -8,6 +8,9 @@ import azure
 from nixops.util import attr_property
 from nixops.azure_common import StorageResourceDefinition, StorageResourceState
 
+from nixops.resources.azure_resource_group import AzureResourceGroupState
+from nixops.resources.azure_storage import AzureStorageState
+
 class AzureShareDefinition(StorageResourceDefinition):
     """Definition of an Azure Share"""
 
@@ -62,13 +65,8 @@ class AzureShareState(StorageResourceState):
     def get_storage_name(self):
         return self.storage
 
-    def get_storage_resource(self):
-        return self.storage and next(
-                  (r for r in self.depl.resources.values()
-                     if getattr(r, 'storage_name', None) == self.storage), None)
-
     def get_key(self):
-        storage = self.get_storage_resource()
+        storage = self.get_resource_state(AzureStorageState, self.storage)
         access_key = self.access_key or (storage and storage.access_key)
 
         if not access_key:
@@ -130,7 +128,5 @@ class AzureShareState(StorageResourceState):
 
 
     def create_after(self, resources, defn):
-        from nixops.resources.azure_resource_group import AzureResourceGroupState
-        from nixops.resources.azure_storage import AzureStorageState
         return {r for r in resources
                   if isinstance(r, AzureResourceGroupState) or isinstance(r, AzureStorageState)}
