@@ -577,7 +577,7 @@ class AzureState(MachineState, ResourceState):
             public_ip_id = self.nrpc().public_ip_addresses.get(
                                self.resource_group, self.public_ip).public_ip_address.id
 
-            subnet = self.nrpc().subnets.get(self.resource_group, self.virtual_network, self.virtual_network).subnet
+            subnet = self.nrpc().subnets.get(self.resource_group, self.virtual_network, "default").subnet
             self.nrpc().network_interfaces.create_or_update(
                 self.resource_group, self.machine_name,
                 NetworkInterface(name = self.machine_name,

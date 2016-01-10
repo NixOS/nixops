@@ -80,6 +80,20 @@ class AzureVirtualNetworkState(ResourceState):
 
     defn_properties = [ 'location', 'tags', 'address_space' ]
 
+    def _create_or_update(self, defn):
+        self.nrpc().virtual_networks.create_or_update(defn.resource_group, defn.network_name,
+                                                      VirtualNetwork(
+                                                          location = defn.location,
+                                                          address_space = AddressSpace(
+                                                              address_prefixes = defn.address_space),
+                                                          subnets = [ Subnet(
+                                                              name = "default",
+                                                              address_prefix = defn.address_space[0],
+                                                          )],
+                                                          tags = defn.tags))
+        self.state = self.UP
+        self.copy_properties(defn)
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_property_change(defn, 'location')
         self.no_property_change(defn, 'resource_group')
@@ -106,25 +120,12 @@ class AzureVirtualNetworkState(ResourceState):
                                 "please run 'deploy --check' to fix this")
 
             self.log("creating {0} in {1}...".format(self.full_name, defn.location))
-            self.nrpc().virtual_networks.create_or_update(defn.resource_group, defn.network_name,
-                                                          VirtualNetwork(
-                                                              location = defn.location,
-                                                              address_space = AddressSpace(
-                                                                  address_prefixes = defn.address_space),
-                                                              tags = defn.tags))
-            self.state = self.UP
-            self.copy_properties(defn)
+            self._create_or_update(defn)
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
             self.get_settled_resource_assert_exists()
-            self.nrpc().virtual_networks.create_or_update(defn.resource_group, defn.network_name,
-                                                          VirtualNetwork(
-                                                              location = defn.location,
-                                                              address_space = AddressSpace(
-                                                                  address_prefixes = defn.address_space),
-                                                              tags = defn.tags))
-            self.copy_properties(defn)
+            self._create_or_update(defn)
 
 
     def create_after(self, resources, defn):
