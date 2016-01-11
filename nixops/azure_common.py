@@ -48,6 +48,44 @@ def ensure_positive(value, name):
     if value <= 0:
         raise Exception("{0} must be a positive integer".format(name))
 
+class ResId(dict):
+    def __init__(self, base, **kwargs):
+        self.update(self.parse(base) or {})
+        self.update(kwargs)
+
+    def __str__(self):
+        return self.id or ""
+
+    # method azure mgmt calls this to get resource references
+    @property
+    def id(self):
+        if all(self.get(x, None)
+               for x in ['subscription', 'group', 'provider', 'type', 'resource']):
+            res_str = ( "/subscriptions/{0}/resourceGroups/{1}"
+                        "/providers/{2}/{3}/{4}"
+                        .format(self['subscription'], self['group'],
+                                self['provider'], self['type'],
+                                self['resource'] ))
+        else:
+            return None
+        if self.get('subresource', None) and self.get('subtype', None):
+            res_str += "/{0}/{1}".format(self['subtype'], self['subresource'])
+        return res_str
+
+    @classmethod
+    def parse(cls, r_id):
+        match = re.match(r'/subscriptions/(?P<subscription>.+?)/resourceGroups/(?P<group>.+?)'
+                          '/providers/(?P<provider>.+?)/(?P<type>.+?)/(?P<resource>.+?)'
+                          '(/(?P<subtype>.+?)/(?P<subresource>.+?))?$', str(r_id))
+        return match and match.groupdict()
+
+    nix_type_conv = {
+        'azure-load-balancer': { 'provider': 'Microsoft.Network', 'type': 'loadBalancers' },
+        'azure-reserved-ip-address': {'provider': 'Microsoft.Network', 'type': 'publicIPAddresses' },
+        'azure-virtual-network': {'provider':'Microsoft.Network', 'type': 'virtualNetworks' },
+    }
+
+
 class ResourceDefinitionBase(nixops.resources.ResourceDefinition):
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
@@ -55,12 +93,13 @@ class ResourceDefinitionBase(nixops.resources.ResourceDefinition):
 
     def get_option_value(self, xml, name, type, optional = False,
                          empty = True, positive = False):
-        types = { str: '/string', int: '/int', bool: '/bool', 'resource': '', 'strlist': '/list' }
+        types = { str: '/string', int: '/int', bool: '/bool', 'resource': '', 'res-id': '', 'strlist': '/list' }
         xml_ = xml.find("attrs")
         xml__= xml_ if xml_ is not None else xml
         elem = xml__.find("attr[@name='%s']%s" % (name, types[type]))
-
-        if type == str:
+        if elem is None:
+            value = None
+        elif type == str:
             value = optional_string(elem)
         elif type == int:
             value = optional_int(elem)
@@ -69,6 +108,17 @@ class ResourceDefinitionBase(nixops.resources.ResourceDefinition):
         elif type == 'resource':
             value = ( optional_string(elem.find("string")) or
                       self.get_option_value(elem, 'name', str, optional = True) )
+        elif type == 'res-id':
+            _type = self.get_option_value(elem, '_type', str, optional = True)
+            res_type = ResId.nix_type_conv.get(_type, {'provider': None, 'type': None })
+            value = ( optional_string(elem.find("string")) or
+                      ResId("",
+                            subscription = self.subscription_id or os.environ.get('AZURE_SUBSCRIPTION_ID'),
+                            provider = res_type['provider'],
+                            type = res_type['type'],
+                            resource = self.get_option_value(elem, 'name', str, optional = True),
+                            group = self.get_option_value(elem, 'resourceGroup', 'resource', optional = True)
+                           ).id )
         elif type == 'strlist':
             value = sorted( [ s.get("value")
                               for s in elem.findall("string") ] ) if elem is not None else None
@@ -255,6 +305,18 @@ class ResourceState(nixops.resources.ResourceState):
                              can_fix = can_fix)
         if can_fix:
             setattr(self, name, actual_state)
+
+    # use warn_if_changed for a very typical use case of dealing
+    # with changed properties which are stored in dictionaries
+    # with user-friendly names
+    def handle_changed_dict(self, resource, name, actual_state,
+                                property_name = None, resource_name = None, can_fix = True):
+        self.warn_if_changed(resource[name], actual_state,
+                             property_name or name.replace('_', ' '),
+                             resource_name = resource_name,
+                             can_fix = can_fix)
+        if can_fix:
+            resource[name] = actual_state
 
     def warn_not_supposed_to_exist(self, resource_name = None,
                               valuable_data = False, valuable_resource = False):
