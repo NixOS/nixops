@@ -69,15 +69,13 @@ with lib;
         wantedBy = [ "network.target" ];
       };
 
-    jobs = flip mapAttrs' config.networking.p2pTunnels.ssh (n: v: nameValuePair "ssh-tunnel-${n}" {
+    systemd.services = flip mapAttrs' config.networking.p2pTunnels.ssh (n: v: nameValuePair "ssh-tunnel-${n}" {
       wantedBy = [ "multi-user.target" "encrypted-links.target" ];
       partOf = [ "encrypted-links.target" ];
-      startOn = "started network-interfaces";
-      stopOn = "stopping network-interfaces";
+      after = [ "network-interfaces.target" ];
       path = [ pkgs.nettools pkgs.openssh ];
-      preStart = "sleep 1"; # FIXME: hack to work around Upstart
       # FIXME: ensure that the remote tunnel device is free
-      exec =
+      script =
         "ssh -i ${v.privateKey} -x"
         + " -o StrictHostKeyChecking=no -o PermitLocalCommand=yes -o ServerAliveInterval=20"
         + " -o LocalCommand='ifconfig tun${toString v.localTunnel} ${v.localIPv4} pointopoint ${v.remoteIPv4} netmask 255.255.255.255; route add ${v.remoteIPv4}/32 dev tun${toString v.localTunnel}'"
