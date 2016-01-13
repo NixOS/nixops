@@ -20,9 +20,7 @@ from nixops.util import attr_property, create_key_pair, generate_random_string, 
 from nixops.nix_expr import Call, RawValue
 
 from nixops.backends import MachineDefinition, MachineState
-from nixops.azure_common import ResourceDefinition, ResourceState
-
-from xml.etree import ElementTree
+from nixops.azure_common import ResourceDefinition, ResourceState, ResId
 
 from azure.mgmt.network import PublicIpAddress, NetworkInterface, NetworkInterfaceIpConfiguration, IpAllocationMethod, ResourceId
 from azure.mgmt.compute import *
@@ -78,14 +76,27 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'size', str, empty = False)
         self.copy_option(x, 'location', str, empty = False)
         self.copy_option(x, 'storage', 'resource')
-        self.copy_option(x, 'virtualNetwork', 'resource')
         self.copy_option(x, 'resourceGroup', 'resource')
 
         self.copy_option(x, 'rootDiskImageUrl', str, empty = False)
         self.copy_option(x, 'baseEphemeralDiskUrl', str, optional = True)
 
-        self.obtain_ip = self.get_option_value(x, 'obtainIP', bool)
         self.copy_option(x, 'availabilitySet', str)
+
+        ifaces_xml = x.find("attr[@name='networkInterfaces']")
+        if_xml = ifaces_xml.find("attrs/attr[@name='default']")
+        self.obtain_ip = self.get_option_value(if_xml, 'obtainIP', bool)
+
+        subnet_xml  = if_xml.find("attrs/attr[@name='subnet']")
+        self.subnet = ResId(self.get_option_value(subnet_xml, 'network', 'res-id'),
+                            subresource = self.get_option_value(subnet_xml, 'name', str),
+                            subtype = 'subnets').id
+
+        self.backend_address_pools = [
+            ResId(self.get_option_value(_x, 'loadBalancer', 'res-id'),
+                  subresource = self.get_option_value(_x, 'name', str),
+                  subtype = 'backendAddressPools').id
+            for _x in if_xml.findall("attrs/attr[@name='backendAddressPools']/list/attrs")]
 
         def opt_disk_name(dname):
             return ("{0}-{1}".format(self.machine_name, dname) if dname is not None else None)
@@ -137,6 +148,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         if defn_find_root_disk(self.block_device_mapping) is None:
             raise Exception("{0} needs a root disk".format(self.machine_name))
 
+
     def show_type(self):
         return "{0} [{1}; {2}]".format(self.get_type(), self.location or "???", self.size or "???")
 
@@ -162,7 +174,8 @@ class AzureState(MachineState, ResourceState):
     private_host_key = attr_property("azure.privateHostKey", None)
 
     storage = attr_property("azure.storage", None)
-    virtual_network = attr_property("azure.virtualNetwork", None)
+    subnet = attr_property("azure.subnet", None)
+    backend_address_pools = attr_property("azure.backendAddressPools", [], 'json')
     resource_group = attr_property("azure.resourceGroup", None)
 
     obtain_ip = attr_property("azure.obtainIP", None, bool)
@@ -306,10 +319,22 @@ class AzureState(MachineState, ResourceState):
         self.generated_encryption_keys = x
 
 
+    def check_network_iface(self):
+        try:
+            iface = self.nrpc().network_interfaces.get(self.resource_group, self.machine_name).network_interface
+        except azure.common.AzureMissingResourceHttpError:
+            iface = None
+        if iface:
+            self.handle_changed_property('subnet', iface.ip_configurations[0].subnet.id)
+            backend_address_pools = [ r.id for r in iface.ip_configurations[0].load_balancer_backend_address_pools ]
+            self.handle_changed_property('backend_address_pools', sorted(backend_address_pools))
+        elif self.network_interface:
+            self.warn("network interface has been destroyed behind our back")
+            self.network_interface = None
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(self.machine_name != defn.machine_name, "instance name")
         self.no_property_change(defn, 'resource_group')
-        self.no_property_change(defn, 'virtual_network')
         self.no_property_change(defn, 'storage')
         self.no_property_change(defn, 'location')
 
@@ -318,7 +343,6 @@ class AzureState(MachineState, ResourceState):
         self.machine_name = defn.machine_name
         self.storage = defn.storage
         self.resource_group = defn.resource_group
-        self.virtual_network = defn.virtual_network
         self.location = defn.location
 
         if not self.public_client_key:
@@ -327,12 +351,13 @@ class AzureState(MachineState, ResourceState):
             self.private_client_key = private
 
         if not self.public_host_key:
-            host_key_type = "ed25519" if self.state_version != "14.12" and nixops.util.parse_nixos_version(defn.config["nixosRelease"]) >= ["15", "09"] else "ecdsa"
+            host_key_type = "ed25519" #if self.state_version != "14.12" and nixops.util.parse_nixos_version(defn.config["nixosRelease"]) >= ["15", "09"] else "ecdsa"
             (private, public) = create_key_pair(type=host_key_type)
             self.public_host_key = public
             self.private_host_key = private
 
         if check:
+            self.check_network_iface()
             vm = self.get_settled_resource()
             if vm:
                 if self.vm_id:
@@ -448,16 +473,24 @@ class AzureState(MachineState, ResourceState):
 
         self._create_vm(defn)
 
-        self._create_missing_attach_detached(defn)
-
-        self._generate_default_encryption_keys()
-
+        # changing vm properties first because size change may be
+        # required before you attach more disks or join a load balancer
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
             vm = self.get_settled_resource_assert_exists()
             vm.hardware_profile = HardwareProfile(virtual_machine_size = defn.size)
             self.cmc().virtual_machines.create_or_update(self.resource_group, vm)
             self.copy_properties(defn)
+
+        self._create_missing_attach_detached(defn)
+
+        self._generate_default_encryption_keys()
+
+        if self.iface_properties_changed(defn):
+            self.log("updating network interface properties of {0}...".format(self.full_name))
+            #FIXME: handle missing network interface
+            iface = self.nrpc().network_interfaces.get(self.resource_group, self.network_interface).network_interface
+            self.create_or_update_iface(defn)
 
 
     # change existing disk parameters as much as possible within the technical limitations
@@ -559,6 +592,33 @@ class AzureState(MachineState, ResourceState):
                 self.update_generated_encryption_keys(d_id, generate_random_string(length=256))
 
 
+    def copy_iface_properties(self, defn):
+        self.backend_address_pools = defn.backend_address_pools
+        self.subnet = defn.subnet
+
+    def iface_properties_changed(self, defn):
+        return ( self.backend_address_pools != defn.backend_address_pools or
+                 self.subnet != defn.subnet )
+
+    def create_or_update_iface(self, defn):
+        public_ip_id = self.nrpc().public_ip_addresses.get(
+                            self.resource_group, self.public_ip).public_ip_address.id
+        self.nrpc().network_interfaces.create_or_update(
+            self.resource_group, self.machine_name,
+            NetworkInterface(name = self.machine_name,
+                             location = defn.location,
+                             ip_configurations = [ NetworkInterfaceIpConfiguration(
+                                 name = 'default',
+                                 private_ip_allocation_method = IpAllocationMethod.dynamic,
+                                 subnet = ResId(defn.subnet),
+                                 load_balancer_backend_address_pools = [
+                                     ResId(pool) for pool in defn.backend_address_pools ],
+                                 public_ip_address = ResId(public_ip_id)
+                             )]
+                           ))
+        self.network_interface = self.machine_name
+        self.copy_iface_properties(defn)
+
     def _create_vm(self, defn):
         if self.public_ip is None and defn.obtain_ip:
             self.log("getting an IP address")
@@ -574,22 +634,7 @@ class AzureState(MachineState, ResourceState):
 
         if self.network_interface is None:
             self.log("creating a network interface")
-            public_ip_id = self.nrpc().public_ip_addresses.get(
-                               self.resource_group, self.public_ip).public_ip_address.id
-
-            subnet = self.nrpc().subnets.get(self.resource_group, self.virtual_network, "default").subnet
-            self.nrpc().network_interfaces.create_or_update(
-                self.resource_group, self.machine_name,
-                NetworkInterface(name = self.machine_name,
-                                 location = defn.location,
-                                 ip_configurations = [ NetworkInterfaceIpConfiguration(
-                                     name='default',
-                                     private_ip_allocation_method = IpAllocationMethod.dynamic,
-                                     subnet = subnet,
-                                     public_ip_address = ResourceId(id = public_ip_id)
-                                 )]
-                                ))
-            self.network_interface = self.machine_name
+            self.create_or_update_iface(defn)
 
         if self.vm_id: return
 

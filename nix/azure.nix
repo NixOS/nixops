@@ -171,12 +171,64 @@ in
         '';
       };
 
-      virtualNetwork = mkOption {
-        example = "resources.azureVirtualNetworks.mynetwork";
-        type = types.either types.str (resource "azure-virtual-network");
-        description = ''
-          Azure virtual network name or resource to attach the machine to.
-        '';
+      networkInterfaces.default = {
+        subnet.network = mkOption {
+          example = "resources.azureVirtualNetworks.mynetwork";
+          type = types.either types.str (resource "azure-virtual-network");
+          description = ''
+            The Azure Resource Id or NixOps resource of
+            the Azure virtual network to attach the network interface to.
+          '';
+        };
+
+        subnet.name = mkOption {
+          default = "default";
+          example = "my-subnet";
+          type = types.str;
+          description = ''
+            Azure virtual subnetwork name to attach the network interface to.
+          '';
+        };
+
+        backendAddressPools = mkOption {
+          default = [];
+          example = [ {
+            name = "website";
+            loadBalancer = "resources.azureLoadBalancers.mybalancer";
+          } ];
+          type = types.listOf types.optionSet;
+          description = "List of Azure load balancer backend address pools to join.";
+          options = { config, ... }: {
+            options = {
+              loadBalancer = mkOption {
+                example = "resources.azureLoadBalancers.mybalancer";
+                type = types.either types.str (resource "azure-load-balancer");
+                description = ''
+                  The Azure Resource Id or NixOps resource of
+                  the Azure load balancer to attach the interface to.
+                '';
+              };
+
+              name = mkOption {
+                default = "default";
+                example = "website";
+                description = ''
+                  The name of the Azure load balancer Backend Address Pool to join.
+                '';
+              };
+            };
+            config = {};
+          };
+        };
+
+        obtainIP = mkOption {
+          default = false;
+          example = true;
+          type = types.bool;
+          description = ''
+            Whether to obtain a dedicated public IP for the interface.
+          '';
+        };
       };
 
       resourceGroup = mkOption {
@@ -213,15 +265,6 @@ in
         options = azureDiskOptions;
         description = ''
           Block device mapping.
-        '';
-      };
-
-      obtainIP = mkOption {
-        default = false;
-        example = true;
-        type = types.bool;
-        description = ''
-          Whether to obtain a dedicated public IP for the instance.
         '';
       };
 
