@@ -6,6 +6,82 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.3.1"><title>Release 1.3.1 (January 14, 2016)</title>
+
+<itemizedlist>
+
+  <listitem><para>General</para>
+
+    <itemizedlist>
+        <listitem><para>#340: "too long for Unix domain socket" error</para></listitem>
+        <listitem><para>#335: Use the correct port when setting up an SSH tunnel</para></listitem>
+        <listitem><para>#336: Add support for non-machine IP resources in /etc/hosts</para></listitem>
+        <listitem><para>Fix determining system.stateVersion</para></listitem>
+        <listitem><para>ssh_util: Reconnect on dead SSH master socket</para></listitem>
+        <listitem><para>#379: Remove reference to `jobs` attribute in NixOS</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: None</para>
+
+    <itemizedlist>
+        <listitem><para>Pass deployment.targetPort to ssh for none backend</para></listitem>
+        <listitem><para>#361: don't use _ssh_private_key if its corresponding public key hasn't been deployed yet</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Amazon EC2</para>
+
+    <itemizedlist>
+        <listitem><para>Allow specifying assumeRolePolicy for IAM roles</para></listitem>
+        <listitem><para>Add vpcId option to EC2 security group resources</para></listitem>
+        <listitem><para>Allow VPC security groups to refer to sec. group names (within the same sec. group) as well as group ids</para></listitem>
+        <listitem><para>Prevent vpc calls to be made if only security group ids are being used (instead of names)</para></listitem>
+        <listitem><para>Use correct credentials for VPC API calls</para></listitem>
+        <listitem><para>Fix "creating EC2 instance (... region ‘None’)" when recreating missing instance</para></listitem>
+        <listitem><para>Allow keeping volumes while destroying deployment</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>VirtualBox</para>
+
+    <itemizedlist>
+      <listitem><para>#359: Change sbin/mount.vboxsf to bin/mount.vboxsf</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Hetzner</para>
+
+    <itemizedlist>
+      <listitem><para>#349: Don't create /root/.ssh/authorized_keys</para></listitem>
+      <listitem><para>#348: Fixup and refactor Hetzner backend tests</para></listitem>
+      <listitem><para>hetzner-bootstrap: Fix wrapping Nix inside chroot</para></listitem>
+      <listitem><para>hetzner-bootstrap: Allow to easily enter chroot</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Libvirt</para>
+
+    <itemizedlist>
+      <listitem><para>#374: Add headless mode</para></listitem>
+      <listitem><para>#374: Use more reliable method to retrieve IP address</para></listitem>
+      <listitem><para>#374: Nicer error message for missing images dir</para></listitem>
+      <listitem><para>#374: Be able to specify xml for devices</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+
+</itemizedlist>
+
+<para>
+    This release has contributions from
+    aszlig, Bas van Dijk, Domen Kožar, Eelco Dolstra, Kevin Cox,
+    Paul Liu, Robin Gloster, Rob Vermaas, Russell O'Connor, Tristan Helmich 
+    and Yves Parès (Ywen)
+</para>
+
+</section>
+
 <section xml:id="ssec-relnotes-1.3"><title>Release 1.3 (September 28, 2015)</title>
 
 <itemizedlist>
