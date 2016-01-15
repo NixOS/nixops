@@ -97,16 +97,17 @@ rec {
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Azure resources
-  resources.azureReservedIPAddresses = evalResources ./azure-reserved-ip-address.nix (zipAttrs resourcesByType.azureReservedIPAddresses or []);
-  resources.azureResourceGroups = evalResources ./azure-resource-group.nix (zipAttrs resourcesByType.azureResourceGroups or []);
-  resources.azureStorages = evalResources ./azure-storage.nix (zipAttrs resourcesByType.azureStorages or []);
+  resources.azureAvailabilitySets = evalResources ./azure-availability-set.nix (zipAttrs resourcesByType.azureAvailabilitySets or []);
   resources.azureBlobContainers = evalResources ./azure-blob-container.nix (zipAttrs resourcesByType.azureBlobContainers or []);
   resources.azureBlobs = evalResources ./azure-blob.nix (zipAttrs resourcesByType.azureBlobs or []);
   resources.azureDirectories = evalResources ./azure-directory.nix (zipAttrs resourcesByType.azureDirectories or []);
   resources.azureFiles = evalResources ./azure-file.nix (zipAttrs resourcesByType.azureFiles or []);
   resources.azureLoadBalancers = evalResources ./azure-load-balancer.nix (zipAttrs resourcesByType.azureLoadBalancers or []);
   resources.azureQueues = evalResources ./azure-queue.nix (zipAttrs resourcesByType.azureQueues or []);
+  resources.azureReservedIPAddresses = evalResources ./azure-reserved-ip-address.nix (zipAttrs resourcesByType.azureReservedIPAddresses or []);
+  resources.azureResourceGroups = evalResources ./azure-resource-group.nix (zipAttrs resourcesByType.azureResourceGroups or []);
   resources.azureShares = evalResources ./azure-share.nix (zipAttrs resourcesByType.azureShares or []);
+  resources.azureStorages = evalResources ./azure-storage.nix (zipAttrs resourcesByType.azureStorages or []);
   resources.azureTables = evalResources ./azure-table.nix (zipAttrs resourcesByType.azureTables or []);
   resources.azureVirtualNetworks = evalResources ./azure-virtual-network.nix (zipAttrs resourcesByType.azureVirtualNetworks or []);
 
