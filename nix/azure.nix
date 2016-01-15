@@ -269,12 +269,14 @@ in
       };
 
       availabilitySet = mkOption {
-        default = "";
-        example = "database";
-        type = types.str;
+        default = null;
+        example = "resources.azureVirtualNetworks.myset";
+        type = types.nullOr (types.either types.str (resource "azure-availability-set"));
         description = ''
+          The Azure Resource Id or NixOps resource of
+          the Azure availability set to place the machine into.
           Azure Virtual Machines specified in the same availability set
-          are allocated to different nodes to maximize availability.
+          are allocated to different hardware nodes to maximize availability.
         '';
       };
 

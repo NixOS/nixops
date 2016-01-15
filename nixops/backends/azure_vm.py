@@ -81,7 +81,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'rootDiskImageUrl', str, empty = False)
         self.copy_option(x, 'baseEphemeralDiskUrl', str, optional = True)
 
-        self.copy_option(x, 'availabilitySet', str)
+        self.copy_option(x, 'availabilitySet', 'res-id', optional = True)
 
         ifaces_xml = x.find("attr[@name='networkInterfaces']")
         if_xml = ifaces_xml.find("attrs/attr[@name='default']")
@@ -364,6 +364,13 @@ class AzureState(MachineState, ResourceState):
                     if vm.provisioning_state == ProvisioningStateTypes.failed:
                         self.warn("vm resource exists, but is in a failed state")
                     self.handle_changed_property('size', vm.hardware_profile.virtual_machine_size)
+                    # workaround: for some reason the availability set name gets capitalized
+                    availability_set = ResId(vm.availability_set_reference and
+                                             vm.availability_set_reference.reference_uri)
+                    _as_res_name = availability_set.get('resource', None)
+                    _as_res_name = _as_res_name.lower() if _as_res_name else None
+                    availability_set['resource'] = _as_res_name
+                    self.handle_changed_property('availability_set', availability_set.id)
                     self.handle_changed_property('public_ipv4', self.fetch_public_ip())
                     self.update_ssh_known_hosts()
 
@@ -439,11 +446,20 @@ class AzureState(MachineState, ResourceState):
                     if not allow_recreate: raise Exception("use --allow-recreate to fix")
                     self._node_deleted()
 
+        if self.vm_id:
+            if defn.availability_set != self.availability_set:
+                self.warn("a change of the availability set is requested "
+                          "that requires that the virtual machine is re-created")
+                if allow_recreate:
+                    self.log("destroying the virtual machine, but preserving the disk contents...")
+                    self.destroy_resource()
+                    self._node_deleted()
+                else:
+                    raise Exception("use --allow-recreate to fix")
+
         if self.vm_id and not allow_reboot:
             if defn.size != self.size:
                 raise Exception("reboot is required to change the virtual machine size; please run with --allow-reboot")
-            if defn.availability_set != self.availability_set:
-                raise Exception("reboot is required to change the availability set name; please run with --allow-reboot")
 
         self._assert_no_impossible_disk_changes(defn)
 
@@ -682,6 +698,7 @@ class AzureState(MachineState, ResourceState):
                                    computer_name=self.machine_name,
                                    custom_data = base64.b64encode(custom_data)
                              ) ),
+                availability_set_reference = defn.availability_set and ResId(defn.availability_set),
                 hardware_profile = HardwareProfile(virtual_machine_size = defn.size),
                 network_profile = NetworkProfile(
                     network_interfaces = [
@@ -1071,16 +1088,16 @@ class AzureState(MachineState, ResourceState):
 
 
     def create_after(self, resources, defn):
+        from nixops.resources.azure_availability_set import AzureAvailabilitySetState
         from nixops.resources.azure_blob import AzureBLOBState
         from nixops.resources.azure_blob_container import AzureBLOBContainerState
         from nixops.resources.azure_storage import AzureStorageState
         from nixops.resources.azure_resource_group import AzureResourceGroupState
         from nixops.resources.azure_virtual_network import AzureVirtualNetworkState
-
         return {r for r in resources
                   if isinstance(r, AzureBLOBContainerState) or isinstance(r, AzureStorageState) or
                      isinstance(r, AzureBLOBState) or isinstance(r, AzureResourceGroupState) or
-                     isinstance(r, AzureVirtualNetworkState)}
+                     isinstance(r, AzureVirtualNetworkState) or isinstance(r, AzureAvailabilitySetState) }
 
     # return ssh host and port formatted for ssh/known_hosts file
     def get_ssh_host_port(self):

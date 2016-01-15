@@ -72,6 +72,10 @@ class ResId(dict):
             res_str += "/{0}/{1}".format(self['subtype'], self['subresource'])
         return res_str
 
+    @property
+    def reference_uri(self):
+        return self.id
+
     @classmethod
     def parse(cls, r_id):
         match = re.match(r'/subscriptions/(?P<subscription>.+?)/resourceGroups/(?P<group>.+?)'
@@ -80,6 +84,7 @@ class ResId(dict):
         return match and match.groupdict()
 
     nix_type_conv = {
+        'azure-availability-set': { 'provider': 'Microsoft.Compute', 'type': 'availabilitySets' },
         'azure-load-balancer': { 'provider': 'Microsoft.Network', 'type': 'loadBalancers' },
         'azure-reserved-ip-address': {'provider': 'Microsoft.Network', 'type': 'publicIPAddresses' },
         'azure-virtual-network': {'provider':'Microsoft.Network', 'type': 'virtualNetworks' },
