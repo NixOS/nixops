@@ -17,7 +17,7 @@ in
     requires = [ "dev-vboxguest.device" ];
     after = [ "dev-vboxguest.device" ];
     path = [ config.boot.kernelPackages.virtualboxGuestAdditions ];
-    preStart = ''
+    script = ''
       set -o pipefail
       VBoxControl -nologo guestproperty get /VirtualBox/GuestInfo/Charon/ClientPublicKey | sed 's/Value: //' > ${clientKeyPath}.tmp
       mv ${clientKeyPath}.tmp ${clientKeyPath}
