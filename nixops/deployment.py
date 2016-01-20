@@ -286,6 +286,22 @@ class Deployment(object):
         args.pop(name, None)
         self.args = args
 
+    def evaluate_args(self):
+        """Evaluate the NixOps network expression's arguments."""
+        try:
+            out = subprocess.check_output(
+                ["nix-instantiate"]
+                + self.extra_nix_eval_flags
+                + self._eval_flags(self.nix_exprs) +
+                ["--eval-only", "--json", "--strict",
+                 "-A", "nixopsArguments"], stderr=self.logger.log_file)
+            if debug: print >> sys.stderr, "JSON output of nix-instantiate:\n" + xml
+            return json.loads(out)
+        except OSError as e:
+            raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
+        except subprocess.CalledProcessError:
+            raise NixEvalError
+
 
     def evaluate(self):
         """Evaluate the Nix expressions belonging to this deployment into a deployment specification."""
@@ -356,6 +372,13 @@ class Deployment(object):
                 stderr=self.logger.log_file)
         except subprocess.CalledProcessError:
             raise NixEvalError
+
+
+    def get_arguments(self):
+        try:
+            return self.evaluate_args()
+        except Exception as e:
+            raise Exception("Could not determine arguments to NixOps deployment.")
 
 
     def get_physical_spec(self):

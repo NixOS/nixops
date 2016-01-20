@@ -424,6 +424,14 @@ def print_physical_backup_spec(backupid):
         config[m.name] = m.get_physical_backup_spec(backupid)
     sys.stdout.write(py2nix(config))
 
+def op_show_arguments():
+    depl = open_deployment()
+    tbl = create_table([("Name", 'l')])
+    for arg in depl.get_arguments():
+        tbl.add_row([arg])
+    print tbl
+
+
 def op_show_physical():
     depl = open_deployment()
     if args.backupid:
@@ -794,6 +802,9 @@ subparser.add_argument('--rescue', action='store_true',
 subparser.add_argument('--hard', action='store_true',
                        help='send a hard reset (power switch) to the machines'
                             ' (if available)')
+
+subparser = add_subparser('show-arguments', help='print the arguments to the network expressions')
+subparser.set_defaults(op=op_show_arguments)
 
 subparser = add_subparser('show-physical', help='print the physical network expression')
 subparser.add_argument('--backup', dest='backupid', default=None, help='print physical network expression for given backup id')
