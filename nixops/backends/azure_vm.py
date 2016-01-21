@@ -64,8 +64,8 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
     def credentials_prefix(self):
       return "deployment.azure"
 
-    def __init__(self, xml):
-        MachineDefinition.__init__(self, xml)
+    def __init__(self, xml, config):
+        MachineDefinition.__init__(self, xml, config)
 
         x = xml.find("attrs/attr[@name='azure']/attrs")
         assert x is not None
@@ -350,7 +350,7 @@ class AzureState(MachineState, ResourceState):
             self.private_client_key = private
 
         if not self.public_host_key:
-            host_key_type = "ed25519" #if self.state_version != "14.12" and nixops.util.parse_nixos_version(defn.config["nixosRelease"]) >= ["15", "09"] else "ecdsa"
+            host_key_type = "ed25519" if self.state_version != "14.12" and nixops.util.parse_nixos_version(defn.config["nixosRelease"]) >= ["15", "09"] else "ecdsa"
             (private, public) = create_key_pair(type=host_key_type)
             self.public_host_key = public
             self.private_host_key = private
