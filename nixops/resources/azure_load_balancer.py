@@ -147,9 +147,6 @@ class AzureLoadBalancerState(ResourceState):
     def destroy_resource(self):
         self.nrpc().load_balancers.delete(self.resource_group, self.resource_id)
 
-    def is_settled(self, resource):
-        return resource is None or (resource.provisioning_state in ['Succeeded', 'Failed'])
-
     defn_properties = [ 'location', 'tags', 'backend_address_pools',
                         'frontend_interfaces', 'probes', 'load_balancing_rules' ]
 

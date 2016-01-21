@@ -126,9 +126,6 @@ class AzureStorageState(StorageResourceState):
     def destroy_resource(self):
         self.smc().storage_accounts.delete(self.resource_group, self.resource_id)
 
-    def is_settled(self, resource):
-        return resource is None or (resource.provisioning_state == 'Succeeded')
-
     @property
     def access_key(self):
         return ((self.active_key == 'primary') and self.primary_key) or self.secondary_key

@@ -66,9 +66,6 @@ class AzureResourceGroupState(ResourceState):
     def destroy_resource(self):
         self.rmc().resource_groups.delete(self.resource_group_name)
 
-    def is_settled(self, resource):
-        return resource is None or (resource.provisioning_state == "Succeeded")
-
     defn_properties = [ 'tags', 'location' ]
 
     def create(self, defn, check, allow_reboot, allow_recreate):

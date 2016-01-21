@@ -369,13 +369,11 @@ class ResourceState(nixops.resources.ResourceState):
 
 
     # Certain resources are provisioned and destroyed asynchronously.
-    # While resource is being destroyed, attempts at creating
-    # a resource with the same name fail silently.
-    # While resource is being created, attempts at destroying it also fail silently.
+    # While resource is being created or destroyed, attempts at
+    # creating, updating or destroying a resource with the same name may fail.
     # Thus we need to wait for certain resource states to settle.
     def is_settled(self, resource):
-        return resource is None or (resource.state != 'Creating' and
-                                    resource.state != 'Deleting')
+        return resource is None or (resource.provisioning_state in ['Succeeded', 'Failed'])
 
     def ensure_settled(self):
         def check_settled():

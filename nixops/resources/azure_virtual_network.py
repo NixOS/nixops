@@ -75,9 +75,6 @@ class AzureVirtualNetworkState(ResourceState):
     def destroy_resource(self):
         self.nrpc().virtual_networks.delete(self.resource_group, self.resource_id)
 
-    def is_settled(self, resource):
-        return resource is None or (resource.provisioning_state == 'Succeeded')
-
     defn_properties = [ 'location', 'tags', 'address_space' ]
 
     def _create_or_update(self, defn):

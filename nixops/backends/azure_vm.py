@@ -295,9 +295,6 @@ class AzureState(MachineState, ResourceState):
     def destroy_resource(self):
         self.cmc().virtual_machines.delete(self.resource_group, self.resource_id)
 
-    def is_settled(self, resource):
-        return True
-
     def fetch_public_ip(self):
         return self.nrpc().public_ip_addresses.get(
                    self.resource_group, self.public_ip).public_ip_address.ip_address

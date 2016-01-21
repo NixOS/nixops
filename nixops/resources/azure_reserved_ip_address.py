@@ -83,9 +83,6 @@ class AzureReservedIPAddressState(ResourceState):
     def destroy_resource(self):
         self.nrpc().public_ip_addresses.delete(self.resource_group, self.resource_id)
 
-    def is_settled(self, resource):
-        return resource is None or (resource.provisioning_state == 'Succeeded')
-
     defn_properties = [ 'location', 'tags', 'idle_timeout', 'domain_name_label', 'reverse_fqdn' ]
 
     def _update_resource(self, defn):
