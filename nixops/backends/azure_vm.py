@@ -60,6 +60,10 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
     def get_type(cls):
         return "azure"
 
+    @property
+    def credentials_prefix(self):
+      return "deployment.azure"
+
     def __init__(self, xml):
         MachineDefinition.__init__(self, xml)
 
@@ -201,8 +205,6 @@ class AzureState(MachineState, ResourceState):
     def show_type(self):
         s = super(AzureState, self).show_type()
         return "{0} [{1}; {2}]".format(s, self.location or "???", self.size or "???")
-
-    credentials_prefix = "deployment.azure"
 
     @property
     def full_name(self):

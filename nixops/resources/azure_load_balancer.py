@@ -80,7 +80,7 @@ class AzureLoadBalancerDefinition(ResourceDefinition):
 
     def _parse_lb_rule(self, xml):
         lb_resid = ResId("",
-                    subscription = self.subscription_id or os.environ.get('AZURE_SUBSCRIPTION_ID'),
+                    subscription = self.get_subscription_id(),
                     group = self.resource_group,
                     provider = 'Microsoft.Network',
                     type = 'loadBalancers',
@@ -131,8 +131,6 @@ class AzureLoadBalancerState(ResourceState):
     @property
     def resource_id(self):
         return self.load_balancer_name
-
-    nix_name = "azureLoadBalancers"
 
     @property
     def full_name(self):

@@ -51,8 +51,6 @@ class AzureResourceGroupState(ResourceState):
     def resource_id(self):
         return self.resource_group_name
 
-    nix_name = "azureResourceGroups"
-
     @property
     def full_name(self):
         return "Azure resource group '{0}'".format(self.resource_group_name)

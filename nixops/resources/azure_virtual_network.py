@@ -60,8 +60,6 @@ class AzureVirtualNetworkState(ResourceState):
     def resource_id(self):
         return self.network_name
 
-    nix_name = "azureVirtualNetworks"
-
     @property
     def full_name(self):
         return "Azure virtual network '{0}'".format(self.resource_id)

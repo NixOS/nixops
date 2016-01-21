@@ -61,8 +61,6 @@ class AzureBLOBContainerState(StorageResourceState):
     def resource_id(self):
         return self.container_name
 
-    nix_name = "azureBlobContainers"
-
     @property
     def full_name(self):
         return "Azure BLOB container '{0}'".format(self.resource_id)

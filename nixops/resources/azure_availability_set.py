@@ -58,8 +58,6 @@ class AzureAvailabilitySetState(ResourceState):
     def resource_id(self):
         return self.availability_set_name
 
-    nix_name = "azureAvailabilitySets"
-
     @property
     def full_name(self):
         return "Azure availability set '{0}'".format(self.resource_id)

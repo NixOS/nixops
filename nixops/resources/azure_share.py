@@ -53,8 +53,6 @@ class AzureShareState(StorageResourceState):
     def resource_id(self):
         return self.share_name
 
-    nix_name = "azureShares"
-
     @property
     def full_name(self):
         return "Azure share '{0}'".format(self.resource_id)

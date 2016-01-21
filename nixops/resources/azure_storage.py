@@ -111,8 +111,6 @@ class AzureStorageState(StorageResourceState):
     def resource_id(self):
         return self.storage_name
 
-    nix_name = "azureStorages"
-
     @property
     def full_name(self):
         return "Azure storage '{0}'".format(self.resource_id)

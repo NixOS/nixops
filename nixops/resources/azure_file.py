@@ -99,8 +99,6 @@ class AzureFileState(StorageResourceState):
     def resource_id(self):
         return self.file_name
 
-    nix_name = "azureFiles"
-
     @property
     def full_name(self):
         return "Azure file '{0}'".format(self.resource_id)

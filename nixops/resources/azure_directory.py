@@ -67,8 +67,6 @@ class AzureDirectoryState(StorageResourceState):
     def resource_id(self):
         return self.directory_name
 
-    nix_name = "azureDirectories"
-
     @property
     def full_name(self):
         return "Azure directory '{0}'".format(self.resource_id)

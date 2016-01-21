@@ -94,8 +94,6 @@ class AzureBLOBState(StorageResourceState):
     def resource_id(self):
         return self.blob_name
 
-    nix_name = "azureBlobs"
-
     @property
     def full_name(self):
         return "Azure BLOB '{0}'".format(self.resource_id)

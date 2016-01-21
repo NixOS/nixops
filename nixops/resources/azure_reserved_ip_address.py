@@ -63,8 +63,6 @@ class AzureReservedIPAddressState(ResourceState):
     def resource_id(self):
         return self.reserved_ip_address_name
 
-    nix_name = "azureReservedIPAddresses"
-
     @property
     def full_name(self):
         return "Azure reserved IP address '{0}'".format(self.reserved_ip_address_name)

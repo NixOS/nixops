@@ -55,8 +55,6 @@ class AzureQueueState(StorageResourceState):
     def resource_id(self):
         return self.queue_name
 
-    nix_name = "azureQueues"
-
     @property
     def full_name(self):
         return "Azure queue '{0}'".format(self.resource_id)

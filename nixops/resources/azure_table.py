@@ -56,8 +56,6 @@ class AzureTableState(StorageResourceState):
     def resource_id(self):
         return self.table_name
 
-    nix_name = "azureTables"
-
     @property
     def full_name(self):
         return "Azure table '{0}'".format(self.resource_id)

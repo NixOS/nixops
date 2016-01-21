@@ -118,7 +118,7 @@ class ResourceDefinitionBase(nixops.resources.ResourceDefinition):
             res_type = ResId.nix_type_conv.get(_type, {'provider': None, 'type': None })
             value = ( optional_string(elem.find("string")) or
                       ResId("",
-                            subscription = self.subscription_id or os.environ.get('AZURE_SUBSCRIPTION_ID'),
+                            subscription = self.get_subscription_id(),
                             provider = res_type['provider'],
                             type = res_type['type'],
                             resource = self.get_option_value(elem, 'name', str, optional = True),
@@ -163,6 +163,33 @@ class ResourceDefinition(ResourceDefinitionBase):
         self.copy_option(xml, 'user', str, empty = True, optional = True)
         self.copy_option(xml, 'password', str, empty = True, optional = True)
 
+    @property
+    def credentials_prefix(self):
+        return "resources.{0}.{1}".format(self.get_resource_type(), self.name)
+
+    def get_subscription_id(self):
+        subscription_id = self.subscription_id or os.environ.get('AZURE_SUBSCRIPTION_ID')
+        if not subscription_id:
+            raise Exception("please set '{0}.subscriptionId' or AZURE_SUBSCRIPTION_ID".format(self.credentials_prefix))
+        return subscription_id
+
+    def get_authority_url(self):
+        authority_url = self.authority or os.environ.get('AZURE_AUTHORITY_URL')
+        if not authority_url:
+            raise Exception("please set '{0}.authority' or AZURE_AUTHORITY_URL".format(self.credentials_prefix))
+        return authority_url
+
+    def get_user(self):
+        user = self.user or os.environ.get('AZURE_USER')
+        if not user:
+            raise Exception("please set '{0}.user' or AZURE_USER".format(self.credentials_prefix))
+        return user
+
+    def get_password(self):
+        password = self.password or os.environ.get('AZURE_PASSWORD')
+        if not password:
+            raise Exception("please set '{0}.password' or AZURE_PASSWORD".format(self.credentials_prefix))
+        return password
 
 class StorageResourceDefinition(ResourceDefinitionBase):
 
@@ -241,39 +268,12 @@ class ResourceState(nixops.resources.ResourceState):
             self._smc = StorageManagementClient(self.get_mgmt_credentials())
         return self._smc
 
-    @property
-    def credentials_prefix(self):
-        return "resources.{0}.$NAME".format(self.nix_name)
-
-    def defn_subscription_id(self, defn):
-        subscription_id = defn.subscription_id or os.environ.get('AZURE_SUBSCRIPTION_ID')
-        if not subscription_id:
-            raise Exception("please set '{0}.subscriptionId' or AZURE_SUBSCRIPTION_ID".format(self.credentials_prefix))
-        return subscription_id
-
-    def defn_authority_url(self, defn):
-        authority_url = defn.authority or os.environ.get('AZURE_AUTHORITY_URL')
-        if not authority_url:
-            raise Exception("please set '{0}.authority' or AZURE_AUTHORITY_URL".format(self.credentials_prefix))
-        return authority_url
-
-    def defn_user(self, defn):
-        user = defn.user or os.environ.get('AZURE_USER')
-        if not user:
-            raise Exception("please set '{0}.user' or AZURE_USER".format(self.credentials_prefix))
-        return user
-
-    def defn_password(self, defn):
-        password = defn.password or os.environ.get('AZURE_PASSWORD')
-        if not password:
-            raise Exception("please set '{0}.password' or AZURE_PASSWORD".format(self.credentials_prefix))
-        return password
 
     def copy_mgmt_credentials(self, defn):
-        self.subscription_id = self.defn_subscription_id(defn)
-        self.authority_url = self.defn_authority_url(defn)
-        self.user = self.defn_user(defn)
-        self.password = self.defn_password(defn)
+        self.subscription_id = defn.get_subscription_id()
+        self.authority_url = defn.get_authority_url()
+        self.user = defn.get_user()
+        self.password = defn.get_password()
 
     def is_deployed(self):
         return (self.state == self.UP)
