@@ -8,6 +8,7 @@ import azure
 from nixops.util import attr_property
 from nixops.azure_common import StorageResourceDefinition, StorageResourceState
 
+from nixops.resources.azure_resource_group import AzureResourceGroupState
 from nixops.resources.azure_share import AzureShareState
 from nixops.resources.azure_storage import AzureStorageState
 
@@ -157,6 +158,7 @@ class AzureDirectoryState(StorageResourceState):
     def create_after(self, resources, defn):
         return { r for r in resources
                    if isinstance(r, AzureShareState) or isinstance(r, AzureStorageState) or
+                      isinstance(r, AzureResourceGroupState) or
                      (isinstance(r, AzureDirectoryState) and defn.parent_directory and 
                          (getattr(self.depl.definitions[r.name], 'directory_name', None)
                               == defn.parent_directory) )
@@ -164,8 +166,8 @@ class AzureDirectoryState(StorageResourceState):
 
     def destroy_before(self, resources):
         return {r for r in resources
-                  if isinstance(r, AzureShareState) or isinstance(r, AzureStorageState) 
-                  or
+                  if isinstance(r, AzureShareState) or isinstance(r, AzureStorageState) or
+                     isinstance(r, AzureResourceGroupState) or
                      (isinstance(r, AzureDirectoryState) and self.parent_directory and
                       getattr(r, 'directory_name', None) == self.parent_directory )
                      }

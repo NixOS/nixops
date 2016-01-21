@@ -11,6 +11,7 @@ from nixops.azure_common import StorageResourceDefinition, StorageResourceState
 import hashlib
 import base64
 
+from nixops.resources.azure_resource_group import AzureResourceGroupState
 from nixops.resources.azure_blob_container import AzureBLOBContainerState
 from nixops.resources.azure_storage import AzureStorageState
 
@@ -277,4 +278,5 @@ class AzureBLOBState(StorageResourceState):
 
     def create_after(self, resources, defn):
         return {r for r in resources
-                  if isinstance(r, AzureBLOBContainerState) or isinstance(r, AzureStorageState)}
+                  if isinstance(r, AzureBLOBContainerState) or isinstance(r, AzureStorageState) or
+                     isinstance(r, AzureResourceGroupState)}

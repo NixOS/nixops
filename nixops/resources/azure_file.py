@@ -11,6 +11,7 @@ from nixops.azure_common import StorageResourceDefinition, StorageResourceState
 import hashlib
 import base64
 
+from nixops.resources.azure_resource_group import AzureResourceGroupState
 from nixops.resources.azure_directory import AzureDirectoryState
 from nixops.resources.azure_share import AzureShareState
 from nixops.resources.azure_storage import AzureStorageState
@@ -237,4 +238,4 @@ class AzureFileState(StorageResourceState):
     def create_after(self, resources, defn):
         return {r for r in resources
                   if isinstance(r, AzureShareState) or isinstance(r, AzureStorageState) or
-                     isinstance(r, AzureDirectoryState)}
+                     isinstance(r, AzureDirectoryState) or isinstance(r, AzureResourceGroupState)}

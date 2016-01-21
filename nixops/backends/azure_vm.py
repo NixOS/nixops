@@ -1090,13 +1090,24 @@ class AzureState(MachineState, ResourceState):
         from nixops.resources.azure_availability_set import AzureAvailabilitySetState
         from nixops.resources.azure_blob import AzureBLOBState
         from nixops.resources.azure_blob_container import AzureBLOBContainerState
-        from nixops.resources.azure_storage import AzureStorageState
+        from nixops.resources.azure_directory import AzureDirectoryState
+        from nixops.resources.azure_file import AzureFileState
+        from nixops.resources.azure_load_balancer import AzureLoadBalancerState
+        from nixops.resources.azure_queue import AzureQueueState
+        from nixops.resources.azure_reserved_ip_address import AzureReservedIPAddressState
         from nixops.resources.azure_resource_group import AzureResourceGroupState
+        from nixops.resources.azure_share import AzureShareState
+        from nixops.resources.azure_storage import AzureStorageState
+        from nixops.resources.azure_table import AzureTableState
         from nixops.resources.azure_virtual_network import AzureVirtualNetworkState
         return {r for r in resources
                   if isinstance(r, AzureBLOBContainerState) or isinstance(r, AzureStorageState) or
                      isinstance(r, AzureBLOBState) or isinstance(r, AzureResourceGroupState) or
-                     isinstance(r, AzureVirtualNetworkState) or isinstance(r, AzureAvailabilitySetState) }
+                     isinstance(r, AzureVirtualNetworkState) or isinstance(r, AzureAvailabilitySetState) or
+                     isinstance(r, AzureDirectoryState) or isinstance(r, AzureFileState) or
+                     isinstance(r, AzureLoadBalancerState) or isinstance(r, AzureQueueState) or
+                     isinstance(r, AzureReservedIPAddressState) or isinstance(r, AzureShareState) or
+                     isinstance(r, AzureTableState)}
 
     # return ssh host and port formatted for ssh/known_hosts file
     def get_ssh_host_port(self):
