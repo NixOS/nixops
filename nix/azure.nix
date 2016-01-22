@@ -224,8 +224,8 @@ in
         };
 
         obtainIP = mkOption {
-          default = false;
-          example = true;
+          default = true;
+          example = false;
           type = types.bool;
           description = ''
             Whether to obtain a dedicated public IP for the interface.
