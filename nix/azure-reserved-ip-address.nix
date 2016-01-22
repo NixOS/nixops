@@ -1,4 +1,4 @@
-{ config, lib, pkgs, uuid, name, ... }:
+{ config, lib, pkgs, uuid, name, resources, ... }:
 
 with lib;
 with (import ./lib.nix lib);
@@ -68,6 +68,9 @@ with (import ./lib.nix lib);
 
   };
 
-  config._type = "azure-reserved-ip-address";
+  config = {
+    _type = "azure-reserved-ip-address";
+    resourceGroup = mkDefault resources.azureResourceGroups.def-group;
+  };
 
 }

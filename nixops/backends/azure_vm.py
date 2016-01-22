@@ -82,8 +82,8 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'storage', 'resource')
         self.copy_option(x, 'resourceGroup', 'resource')
 
-        self.copy_option(x, 'rootDiskImageUrl', str, empty = False)
-        self.copy_option(x, 'baseEphemeralDiskUrl', str, optional = True)
+        self.copy_option(x, 'rootDiskImageBlob', 'resource')
+        self.copy_option(x, 'ephemeralDiskContainer', 'resource', optional = True)
 
         self.copy_option(x, 'availabilitySet', 'res-id', optional = True)
 
@@ -109,9 +109,10 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
             disk_name = self.get_option_value(xml, 'name', str)
 
             media_link = self.get_option_value(xml, 'mediaLink', str, optional = True)
-            if not media_link and self.base_ephemeral_disk_url:
-                media_link = "{0}{1}-{2}.vhd".format(self.base_ephemeral_disk_url,
-                                                self.machine_name, disk_name)
+            if not media_link and self.ephemeral_disk_container:
+                media_link = ( "https://{0}.blob.core.windows.net/{1}/{2}-{3}.vhd"
+                               .format(self.storage, self.ephemeral_disk_container,
+                                       self.machine_name, disk_name))
             if not media_link:
                 raise Exception("{0}: ephemeral disk {1} must specify mediaLink"
                                 .format(self.machine_name, disk_name))
@@ -714,7 +715,10 @@ class AzureState(MachineState, ResourceState):
                         virtual_hard_disk = VirtualHardDisk(uri = root_disk_spec['media_link']),
                         source_image = (None
                                         if root_disk_exists
-                                        else VirtualHardDisk(uri = defn.root_disk_image_url) ),
+                                        else VirtualHardDisk(uri = "https://{0}.blob.core.windows.net/{1}/{2}"
+                                                                   .format(defn.storage,
+                                                                           defn.ephemeral_disk_container,
+                                                                           defn.root_disk_image_blob) ) ),
                         operating_system_type = "Linux"
                     ),
                     data_disks = data_disks

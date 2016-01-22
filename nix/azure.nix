@@ -6,6 +6,8 @@ with lib;
 with (import ./lib.nix lib);
 let
 
+  normalize_location = l: builtins.replaceStrings [" "] [""] (toLower l);
+
   luksName = def: def.name;
 
   mkDefaultEphemeralName = mountPoint: cfg:
@@ -239,21 +241,21 @@ in
         '';
       };
 
-      rootDiskImageUrl = mkOption {
-        example = "nixos-bootstrap-30GB";
-        type = types.str;
+      rootDiskImageBlob = mkOption {
+        example = "nresources.azureBlobs.image-blob";
+        type = types.either types.str (resource "azure-blob");
         description = ''
-          Bootstrap image BLOB URL. Must reside on the same storage as VM disks.
+          Bootstrap image BLOB name or resource.
+          Must reside on the same storage as VM disks.
         '';
       };
 
-      baseEphemeralDiskUrl = mkOption {
-        default = null;
-        example = "http://mystorage.blob.core.windows.net/mycontainer/";
-        type = types.nullOr types.str;
+      ephemeralDiskContainer = mkOption {
+        example = "resources.azureBlobContainers.container";
+        type = types.either types.str (resource "azure-blob-container");
         description = ''
-          Base URL to use to construct BLOB URLs for ephemeral disks which
-          don't explicitly specify mediaLink.
+          Azure BLOB container name or resource in which to create
+          the ephemeral disks that don't specify mediaLink explicitly.
         '';
       };
 
@@ -312,6 +314,17 @@ in
 
   config = mkIf (config.deployment.targetEnv == "azure") {
     nixpkgs.system = mkOverride 900 "x86_64-linux";
+
+    deployment.azure.resourceGroup = mkDefault resources.azureResourceGroups.def-group;
+
+    deployment.azure.storage = mkDefault resources.azureStorages."def-storage-${normalize_location config.deployment.azure.location}";
+
+    deployment.azure.ephemeralDiskContainer = mkDefault resources.azureBlobContainers."${config.deployment.azure.storage._name}-vhds";
+
+    deployment.azure.rootDiskImageBlob = mkDefault resources.azureBlobs."${config.deployment.azure.ephemeralDiskContainer._name}-image";
+
+    deployment.azure.networkInterfaces.default.subnet.network =
+        mkDefault resources.azureVirtualNetworks."dn-${normalize_location config.deployment.azure.location}";
 
     deployment.azure.blockDeviceMapping = {
       "/dev/sda" = {

@@ -1,4 +1,4 @@
-{ config, lib, pkgs, uuid, name, ... }:
+{ config, lib, pkgs, uuid, name, resources, ... }:
 
 with lib;
 with (import ./lib.nix lib);
@@ -143,6 +143,9 @@ in
     tableService = service_options;
   };
 
-  config._type = "azure-storage";
+  config = {
+    _type = "azure-storage";
+    resourceGroup = mkDefault resources.azureResourceGroups.def-group;
+  };
 
 }

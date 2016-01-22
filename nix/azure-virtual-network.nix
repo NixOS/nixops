@@ -1,4 +1,4 @@
-{ config, lib, pkgs, uuid, name, ... }:
+{ config, lib, pkgs, uuid, name, resources, ... }:
 
 with lib;
 with (import ./lib.nix lib);
@@ -40,6 +40,9 @@ with (import ./lib.nix lib);
 
   };
 
-  config._type = "azure-virtual-network";
+  config = {
+    _type = "azure-virtual-network";
+    resourceGroup = mkDefault resources.azureResourceGroups.def-group;
+  };
 
 }

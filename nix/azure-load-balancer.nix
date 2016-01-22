@@ -1,4 +1,4 @@
-{ config, lib, pkgs, uuid, name, ... }:
+{ config, lib, pkgs, uuid, name, resources, ... }:
 
 with lib;
 with (import ./lib.nix lib);
@@ -286,6 +286,9 @@ in
 
   };
 
-  config._type = "azure-load-balancer";
+  config = {
+    _type = "azure-load-balancer";
+    resourceGroup = mkDefault resources.azureResourceGroups.def-group;
+  };
 
 }
