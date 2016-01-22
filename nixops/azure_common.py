@@ -159,7 +159,7 @@ class ResourceDefinition(ResourceDefinitionBase):
         ResourceDefinitionBase.__init__(self, xml)
 
         self.copy_option(xml, 'subscriptionId', str)
-        self.authority_url = self.copy_option(xml, 'authority', str, empty = True, optional = True)
+        self.copy_option(xml, 'authority', str, empty = True, optional = True)
         self.copy_option(xml, 'user', str, empty = True, optional = True)
         self.copy_option(xml, 'password', str, empty = True, optional = True)
 
