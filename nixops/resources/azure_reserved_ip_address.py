@@ -46,6 +46,7 @@ class AzureReservedIPAddressState(ResourceState):
     tags = attr_property("azure.tags", {}, 'json')
     idle_timeout = attr_property("azure.idleTimeout", None, int)
     domain_name_label = attr_property("azure.domainNameLabel", None)
+    fqdn = attr_property("azure.fqdn", None)
     reverse_fqdn = attr_property("azure.reverseFqdn", None)
 
     ip_address = attr_property("azure.ipAddress", None)
@@ -99,7 +100,12 @@ class AzureReservedIPAddressState(ResourceState):
                         ))
         self.state = self.UP
         self.copy_properties(defn)
-        self.ip_address = self.get_settled_resource().ip_address
+        address = self.get_settled_resource()
+        self.ip_address = address.ip_address
+        self.fqdn = address.dns_settings and address.dns_settings.fqdn
+        self.log("reserved IP address: {0}".format(self.ip_address))
+        if self.fqdn:
+            self.log("got domain name: {0}".format(self.fqdn))
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -124,6 +130,7 @@ class AzureReservedIPAddressState(ResourceState):
                                               _dns and _dns.domain_name_label)
                 self.handle_changed_property('reverse_fqdn',
                                               _dns and _dns.reverse_fqdn)
+                self.handle_changed_property('fqdn', _dns and _dns.fqdn)
             else:
                 self.warn_not_supposed_to_exist(valuable_resource = True)
                 self.confirm_destroy()
@@ -135,7 +142,6 @@ class AzureReservedIPAddressState(ResourceState):
 
             self.log("creating {0} in {1}...".format(self.full_name, defn.location))
             self._update_resource(defn)
-            self.log("reserved IP address: {0}".format(self.ip_address))
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
