@@ -921,6 +921,91 @@ This terminates the Azure instances and deletes the alternative native load bala
 
 </itemizedlist></section>
 
+<section><title>Default resources</title>
+  <para>If a virtual machine specification omits <literal>resourceGroup</literal>,
+  <literal>storage</literal>, <literal>ephemeralDiskContainer</literal>,
+  <literal>networkInterfaces.default.subnet.network</literal> or
+  <literal>rootDiskImageBlob</literal>, NixOps will automatically generate
+  "default" resources. You can see them using <command>nixops info</command> command.
+  This substantially reduces the boilerplate code for
+  simple deployments without affecting the complex ones.
+  </para>
+
+  <para>There's only one default resource group. Default storage accounts and
+  networks are created in each datacenter location where they are needed.
+  </para>
+
+  <para>Disk containers are created in each storage account that is used by
+  a virtual machine with <literal>ephemeralDiskContainer</literal> left empty.
+  </para>
+
+  <para>Root image BLOBs are created in each disk container that is used by a virtual
+  machine with <literal>rootDiskImageBlob</literal> left empty.
+  </para>
+</section>
+
+<section><title>Default subresources</title>
+  <para>Several Azure resources can have multiple subresources. For example,
+  network can have several subnets. In each such case, a default subresource is
+  created unless specified otherwise and referencing a subresource via its "parent"
+  references the subresource named "default".
+  </para>
+
+  <para>
+  One such resource type is virtual network with its subnetworks. A virtual network specification
+
+<programlisting>
+resources.azureVirtualNetworks.network = credentials // {
+  location = "West EU";
+};
+</programlisting>
+
+  is identical to
+
+<programlisting>
+resources.azureVirtualNetworks.network = credentials // {
+  location = "West EU";
+  subnets.default = { ... };
+};
+</programlisting>
+
+  and when referencing the default subnet
+
+<programlisting>
+networkInterfaces.default.subnet.network = resources.azureVirtualNetworks.network;
+</programlisting>
+
+  is identical to:
+
+<programlisting>
+networkInterfaces.default.subnet.network = resources.azureVirtualNetworks.network;
+networkInterfaces.default.subnet.name = "default";
+</programlisting>
+  </para>
+
+  <para>Another example is load balancer backend address pools.
+  A load balancer has a default backend address pool:
+
+<programlisting>
+backendAddressPools = [ "default" ];
+</programlisting>
+
+  and a virtual machine can join the default pool with
+
+<programlisting>
+  networkInterfaces.default.backendAddressPools =
+      [{loadBalancer = resources.azureLoadBalancers.lb;}];
+</programlisting>
+
+  instead of
+
+<programlisting>
+  networkInterfaces.default.backendAddressPools =
+      [{loadBalancer = resources.azureLoadBalancers.lb; name = "default"; }];
+</programlisting>
+  </para>
+</section>
+
 <section><title>Backups</title>
   <para>Backups are implemented as BLOB snapshots. Deleting a BLOB, also deletes
   all of its backups.
