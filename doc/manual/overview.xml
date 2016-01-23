@@ -931,8 +931,29 @@ This terminates the Azure instances and deletes the alternative native load bala
   a different/new disk for backup purposes. Renaming a disk, but keeping
   <literal>mediaLink</literal> property unchanged preserves backups.
   </para>
+</section>
 
+<section><title>Storage resources and key management</title>
+  <para>Each storage account has two access keys, any of which can be used to
+  authenticate operations. The keys are automatically generated when a storage
+  account is created and can be independently regenerated at any time using
+  <literal>azure-cli</literal>. Running <literal>deploy --check</literal> on
+  the storage account fetches the updated key(s).
+  </para>
 
+  <para><literal>activeKey</literal> property specifies which of the keys
+  NixOps should use to authenticate storage operations.
+  This allows you to regenerate the inactive key, and then switch to using it,
+  providing for seamless key replacement.
+  </para>
+
+  <para>All storage resources(containers, BLOBs, queues etc) allow you to
+  explicitly specify the access key, but this is only useful if the storage
+  account is not managed by NixOps.
+  If the storage account is managed by NixOps, all you need is to specify
+  the parent resource (storage account for containers, container for BLOBs etc)
+  and NixOps will infer the storage account and active key automatically.
+  </para>
 </section>
 
 <section><title>Azure limitations and quirks to be aware of:</title>
@@ -945,6 +966,17 @@ This terminates the Azure instances and deletes the alternative native load bala
   </para></listitem>
 
   <listitem><para>BLOB URLs must use HTTPS protocol.
+  </para></listitem>
+
+  <listitem><para>BLOB MD5 hash reported by Azure is not reliable.
+  It is just another piece of user-provided metadata and can't be used to check BLOB contents.
+  </para></listitem>
+
+  <listitem><para>BLOB type cannot be changed via copy operation.
+  If a BLOB is created by copying another BLOB(using <literal>copyFromBlob</literal> property),
+  and <literal>blobType</literal> property value doesn't match the type of the source BLOB,
+  <literal>deploy --check</literal> will keep complaining until you change <literal>blobType</literal>
+  property value to match the source BLOB type.
   </para></listitem>
 
   <listitem><para>
