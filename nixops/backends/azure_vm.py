@@ -25,6 +25,21 @@ from nixops.azure_common import ResourceDefinition, ResourceState, ResId
 from azure.mgmt.network import PublicIpAddress, NetworkInterface, NetworkInterfaceIpConfiguration, IpAllocationMethod, ResourceId
 from azure.mgmt.compute import *
 
+from nixops.resources.azure_availability_set import AzureAvailabilitySetState
+from nixops.resources.azure_blob import AzureBLOBState
+from nixops.resources.azure_blob_container import AzureBLOBContainerState
+from nixops.resources.azure_directory import AzureDirectoryState
+from nixops.resources.azure_file import AzureFileState
+from nixops.resources.azure_load_balancer import AzureLoadBalancerState
+from nixops.resources.azure_queue import AzureQueueState
+from nixops.resources.azure_reserved_ip_address import AzureReservedIPAddressState
+from nixops.resources.azure_resource_group import AzureResourceGroupState
+from nixops.resources.azure_share import AzureShareState
+from nixops.resources.azure_storage import AzureStorageState
+from nixops.resources.azure_table import AzureTableState
+from nixops.resources.azure_virtual_network import AzureVirtualNetworkState
+
+
 def device_name_to_lun(device):
     match = re.match(r'/dev/disk/by-lun/(\d+)$', device)
     return  None if match is None or int(match.group(1))>31 else int(match.group(1) )
@@ -306,7 +321,7 @@ class AzureState(MachineState, ResourceState):
         self.cmc().virtual_machines.delete(self.resource_group, self.resource_id)
 
     def fetch_public_ip(self):
-        return self.nrpc().public_ip_addresses.get(
+        return self.public_ip and self.nrpc().public_ip_addresses.get(
                    self.resource_group, self.public_ip).public_ip_address.ip_address
 
     def update_block_device_mapping(self, k, v):
@@ -1117,19 +1132,6 @@ class AzureState(MachineState, ResourceState):
 
 
     def create_after(self, resources, defn):
-        from nixops.resources.azure_availability_set import AzureAvailabilitySetState
-        from nixops.resources.azure_blob import AzureBLOBState
-        from nixops.resources.azure_blob_container import AzureBLOBContainerState
-        from nixops.resources.azure_directory import AzureDirectoryState
-        from nixops.resources.azure_file import AzureFileState
-        from nixops.resources.azure_load_balancer import AzureLoadBalancerState
-        from nixops.resources.azure_queue import AzureQueueState
-        from nixops.resources.azure_reserved_ip_address import AzureReservedIPAddressState
-        from nixops.resources.azure_resource_group import AzureResourceGroupState
-        from nixops.resources.azure_share import AzureShareState
-        from nixops.resources.azure_storage import AzureStorageState
-        from nixops.resources.azure_table import AzureTableState
-        from nixops.resources.azure_virtual_network import AzureVirtualNetworkState
         return {r for r in resources
                   if isinstance(r, AzureBLOBContainerState) or isinstance(r, AzureStorageState) or
                      isinstance(r, AzureBLOBState) or isinstance(r, AzureResourceGroupState) or
@@ -1139,15 +1141,49 @@ class AzureState(MachineState, ResourceState):
                      isinstance(r, AzureReservedIPAddressState) or isinstance(r, AzureShareState) or
                      isinstance(r, AzureTableState)}
 
+    def find_lb_endpoint(self):
+        for _inr in self.inbound_nat_rules:
+            inr = ResId(_inr)
+            lb = self.get_resource_state(AzureLoadBalancerState, inr.get('resource', None))
+
+            nat_rule = lb.inbound_nat_rules.get(inr.get('subresource', None), None)
+            if not nat_rule: continue
+            if nat_rule.get('backend_port', None) != super(AzureState, self).ssh_port: continue
+            port = nat_rule.get('frontend_port', None)
+
+            iface_name = ResId(nat_rule.get('frontend_interface', None)).get('subresource', None)
+            if not iface_name: continue
+            iface = lb.frontend_interfaces.get(iface_name, None)
+            if not iface: continue
+
+            ip_id = ResId(iface.get('public_ip_address', None))
+            ip_resource = self.get_resource_state(AzureReservedIPAddressState, ip_id.get('resource', None))
+            if not ip_resource: continue
+            ip = ip_resource.ip_address
+
+            if ip and port:
+                return { 'ip': ip, 'port': port }
+        return None
+
     # return ssh host and port formatted for ssh/known_hosts file
     def get_ssh_host_port(self):
-        return self.public_ipv4
+        if self.public_ipv4:
+            return self.public_ipv4
+        ep = self.find_lb_endpoint() or {}
+        ip = ep.get('ip', None)
+        port = ep.get('port', None)
+        if ip is not None and port is not None:
+            return "[{0}]:{1}".format(ip, port)
+        else:
+            return None
 
     @MachineState.ssh_port.getter
     def ssh_port(self):
         if self.public_ipv4:
             return super(AzureState, self).ssh_port
-        return None
+        else:
+            return (self.find_lb_endpoint() or {}).get('port', None)
+
 
     def update_ssh_known_hosts(self):
         ssh_host_port = self.get_ssh_host_port()
@@ -1155,9 +1191,10 @@ class AzureState(MachineState, ResourceState):
             known_hosts.add(ssh_host_port, self.public_host_key)
 
     def get_ssh_name(self):
-        ip = self.public_ipv4
+        ip = self.public_ipv4 or (self.find_lb_endpoint() or {}).get('ip', None)
         if ip is None:
             raise Exception("{0} does not have a public IPv4 address and is not reachable "
+                            "via an inbound NAT rule on a load balancer"
                             .format(self.full_name))
         return ip
 
