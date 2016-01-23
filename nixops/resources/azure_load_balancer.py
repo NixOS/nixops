@@ -42,6 +42,10 @@ class AzureLoadBalancerDefinition(ResourceDefinition):
             _lbr.get("name"): self._parse_lb_rule(_lbr)
             for _lbr in xml.findall("attrs/attr[@name='loadBalancingRules']/attrs/attr")
         }
+        self.inbound_nat_rules = {
+            _inr.get("name"): self._parse_nat_rule(_inr)
+            for _inr in xml.findall("attrs/attr[@name='inboundNatRules']/attrs/attr")
+        }
         self.copy_tags(xml)
 
     def _parse_frontend_interface(self, xml):
@@ -76,6 +80,25 @@ class AzureLoadBalancerDefinition(ResourceDefinition):
             'path': path,
             'interval': self.get_option_value(xml, 'interval', int),
             'number_of_probes': self.get_option_value(xml, 'numberOfProbes', int),
+        }
+
+    def _parse_nat_rule(self, xml):
+        lb_resid = ResId("",
+                    subscription = self.get_subscription_id(),
+                    group = self.resource_group,
+                    provider = 'Microsoft.Network',
+                    type = 'loadBalancers',
+                    resource = self.load_balancer_name)
+
+        return {
+            'frontend_interface': ResId(lb_resid,
+                                        subresource = self.get_option_value(xml, 'frontendInterface', str),
+                                        subtype = 'frontendIPConfigurations').id,
+            'protocol': self.get_option_value(xml, 'protocol', str),
+            'frontend_port': self.get_option_value(xml, 'frontendPort', int),
+            'backend_port': self.get_option_value(xml, 'backendPort', int),
+            'enable_floating_ip': self.get_option_value(xml, 'enableFloatingIp', bool),
+            'idle_timeout': self.get_option_value(xml, 'idleTimeout', int),
         }
 
     def _parse_lb_rule(self, xml):
@@ -115,6 +138,7 @@ class AzureLoadBalancerState(ResourceState):
     frontend_interfaces = attr_property("azure.frontendInterfaces", {}, 'json')
     probes = attr_property("azure.probes", {}, 'json')
     load_balancing_rules = attr_property("azure.loadBalancingRules", {}, 'json')
+    inbound_nat_rules = attr_property("azure.inboundNatRules", {}, 'json')
     resource_group = attr_property("azure.resourceGroup", None)
     location = attr_property("azure.location", None)
     tags = attr_property("azure.tags", {}, 'json')
@@ -145,7 +169,7 @@ class AzureLoadBalancerState(ResourceState):
     def destroy_resource(self):
         self.nrpc().load_balancers.delete(self.resource_group, self.resource_id)
 
-    defn_properties = [ 'location', 'tags', 'backend_address_pools',
+    defn_properties = [ 'location', 'tags', 'backend_address_pools',  'inbound_nat_rules',
                         'frontend_interfaces', 'probes', 'load_balancing_rules' ]
 
     def _create_or_update(self, defn):
@@ -189,6 +213,17 @@ class AzureLoadBalancerState(ResourceState):
                         idle_timeout_in_minutes = _r['idle_timeout'],
                         enable_floating_ip = _r['enable_floating_ip'],
                     ) for _name, _r in defn.load_balancing_rules.iteritems()
+                ],
+                inbound_nat_rules = [
+                    InboundNatRule(
+                        name = _name,
+                        frontend_ip_configuration = ResId(_r['frontend_interface']),
+                        protocol = _r['protocol'],
+                        frontend_port = _r['frontend_port'],
+                        backend_port = _r['backend_port'],
+                        idle_timeout_in_minutes = _r['idle_timeout'],
+                        enable_floating_ip = _r['enable_floating_ip'],
+                    ) for _name, _r in defn.inbound_nat_rules.iteritems()
                 ],
                 tags = defn.tags))
         self.state = self.UP
@@ -321,6 +356,48 @@ class AzureLoadBalancerState(ResourceState):
             update_rules(_name, _s_rule)
 
 
+    def handle_changed_nat_rules(self, rules):
+        def update_rules(k, v):
+            x = self.inbound_nat_rules
+            if v == None:
+                x.pop(k, None)
+            else:
+                x[k] = v
+            self.inbound_nat_rules = x
+
+        for _rule in rules:
+            _s_name = next((_n for _n, _x in self.inbound_nat_rules.iteritems() if _n == _rule.name), None)
+            if _s_name is None:
+                self.warn("found unexpected inbound NAT rule {0}".format(_rule.name))
+                update_rules(_rule.name, {"dummy": True})
+        for _name, _s_rule in self.inbound_nat_rules.iteritems():
+            if _s_rule.get("dummy", False): continue
+            rule_res_name = "inbound NAT rule {0}".format(_name)
+            rule = next((_r for _r in rules if _r.name == _name), None)
+            if rule is None:
+                self.warn("{0} has been deleted behind our back".format(rule_res_name))
+                update_rules(_name, None)
+                continue
+            self.handle_changed_dict(_s_rule, 'frontend_interface',
+                                     rule.frontend_ip_configuration.id,
+                                     resource_name = rule_res_name)
+            self.handle_changed_dict(_s_rule, 'protocol', rule.protocol,
+                                     resource_name = rule_res_name)
+            self.handle_changed_dict(_s_rule, 'frontend_port',
+                                     rule.frontend_port,
+                                     resource_name = rule_res_name)
+            self.handle_changed_dict(_s_rule, 'backend_port',
+                                     rule.backend_port,
+                                     resource_name = rule_res_name)
+            self.handle_changed_dict(_s_rule, 'idle_timeout',
+                                     rule.idle_timeout_in_minutes,
+                                     resource_name = rule_res_name)
+            self.handle_changed_dict(_s_rule, 'enable_floating_ip',
+                                     rule.enable_floating_ip,
+                                     resource_name = rule_res_name)
+            update_rules(_name, _s_rule)
+
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_property_change(defn, 'location')
         self.no_property_change(defn, 'resource_group')
@@ -339,6 +416,7 @@ class AzureLoadBalancerState(ResourceState):
                 self.handle_changed_probes(lb.probes)
                 self.handle_changed_frontend_interfaces(lb.frontend_ip_configurations)
                 self.handle_changed_lb_rules(lb.load_balancing_rules)
+                self.handle_changed_nat_rules(lb.inbound_nat_rules)
             else:
                 self.warn_not_supposed_to_exist()
                 self.confirm_destroy()

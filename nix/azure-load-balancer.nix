@@ -205,6 +205,69 @@ let
     config = {};
   };
 
+  natRuleOptions = { config, ... }: {
+    options = {
+
+      frontendInterface = mkOption {
+        default = "default";
+        example = "webservers";
+        type = types.str;
+        description = "The name of a frontend interface over which this Inbound NAT Rule operates.";
+      };
+
+      protocol = mkOption {
+        default = "Tcp";
+        example = "Udp";
+        type = types.str;
+        description = "The transport protocol for the external endpoint. Possible values are Udp or Tcp.";
+      };
+
+      frontendPort = mkOption {
+        example = 80;
+        type = types.int;
+        description = ''
+            The port for the external endpoint.
+            Port numbers for each Rule must be unique within the Load Balancer.
+            Possible values range between 1 and 65535, inclusive.
+        '';
+      };
+
+      backendPort = mkOption {
+        example = 80;
+        type = types.int;
+        description = ''
+            The port used for internal connections on the endpoint.
+            Possible values range between 1 and 65535, inclusive.
+        '';
+      };
+
+      enableFloatingIp = mkOption {
+        default = false;
+        example = true;
+        type = types.bool;
+        description = ''
+            Floating IP is pertinent to failover scenarios:
+            a "floating" IP is reassigned to a secondary server
+            in case the primary server fails.
+            Floating IP is required for SQL AlwaysOn.
+        '';
+      };
+
+      idleTimeout = mkOption {
+        default = 4;
+        example = 30;
+        type = types.int;
+        description = ''
+          Specifies the timeout in minutes for the Tcp idle connection.
+          The value can be set between 4 and 30 minutes.
+          This property is only used when the protocol is set to <literal>Tcp</literal>.
+        '';
+      };
+
+    };
+    config = {};
+  };
+
 in
 {
 
@@ -268,6 +331,19 @@ in
       type = types.attrsOf types.optionSet;
       options = lbRuleOptions;
       description = "An attribute set of load balancer rules.";
+    };
+
+    inboundNatRules = mkOption {
+      default = {};
+      example = {
+        admin-ssh = {
+          frontendPort = 2201;
+          backendPort = 22;
+        };
+      };
+      type = types.attrsOf types.optionSet;
+      options = natRuleOptions;
+      description = "An attribute set of inbound NAT rules.";
     };
 
     probes = mkOption {
