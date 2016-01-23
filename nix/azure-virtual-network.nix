@@ -38,6 +38,15 @@ with (import ./lib.nix lib);
       description = "Tag name/value pairs to associate with the virtual network.";
     };
 
+    dnsServers = mkOption {
+      default = [];
+      example = [ "8.8.8.8" "8.8.4.4" ];
+      type = types.nullOr (types.listOf types.str);
+      description = ''
+        List of DNS servers IP addresses to provide via DHCP.
+        Leave empty to provide the default Azure DNS servers.
+      '';
+    };
   };
 
   config = {

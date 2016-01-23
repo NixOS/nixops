@@ -8,7 +8,7 @@ import azure
 from nixops.util import attr_property
 from nixops.azure_common import ResourceDefinition, ResourceState
 
-from azure.mgmt.network import VirtualNetwork, AddressSpace, Subnet
+from azure.mgmt.network import VirtualNetwork, AddressSpace, Subnet, DhcpOptions
 
 class AzureVirtualNetworkDefinition(ResourceDefinition):
     """Definition of an Azure Virtual Network"""
@@ -29,6 +29,7 @@ class AzureVirtualNetworkDefinition(ResourceDefinition):
         if len(self.address_space) == 0:
             raise Exception("virtual network {0}: must specify at least one address space"
                             .format(self.network_name))
+        self.copy_option(xml, 'dnsServers', 'strlist')
         self.copy_option(xml, 'resourceGroup', 'resource')
         self.copy_option(xml, 'location', str, empty = False)
 
@@ -43,6 +44,7 @@ class AzureVirtualNetworkState(ResourceState):
 
     network_name = attr_property("azure.name", None)
     address_space = attr_property("azure.addressSpace", [], 'json')
+    dns_servers = attr_property("azure.dnsServers", [], 'json')
     resource_group = attr_property("azure.resourceGroup", None)
     location = attr_property("azure.location", None)
     tags = attr_property("azure.tags", {}, 'json')
@@ -73,19 +75,22 @@ class AzureVirtualNetworkState(ResourceState):
     def destroy_resource(self):
         self.nrpc().virtual_networks.delete(self.resource_group, self.resource_id)
 
-    defn_properties = [ 'location', 'tags', 'address_space' ]
+    defn_properties = [ 'location', 'tags', 'address_space', 'dns_servers' ]
 
     def _create_or_update(self, defn):
-        self.nrpc().virtual_networks.create_or_update(defn.resource_group, defn.network_name,
-                                                      VirtualNetwork(
-                                                          location = defn.location,
-                                                          address_space = AddressSpace(
-                                                              address_prefixes = defn.address_space),
-                                                          subnets = [ Subnet(
-                                                              name = "default",
-                                                              address_prefix = defn.address_space[0],
-                                                          )],
-                                                          tags = defn.tags))
+        self.nrpc().virtual_networks.create_or_update(
+            defn.resource_group, defn.network_name,
+            VirtualNetwork(
+                location = defn.location,
+                address_space = AddressSpace(
+                    address_prefixes = defn.address_space),
+                dhcp_options = DhcpOptions(
+                    dns_servers = defn.dns_servers),
+                subnets = [ Subnet(
+                    name = "default",
+                    address_prefix = defn.address_space[0],
+                )],
+                tags = defn.tags))
         self.state = self.UP
         self.copy_properties(defn)
 
@@ -105,6 +110,8 @@ class AzureVirtualNetworkState(ResourceState):
                 self.handle_changed_property('location', network.location, can_fix = False)
                 self.handle_changed_property('tags', network.tags)
                 self.handle_changed_property('address_space', network.address_space.address_prefixes)
+                self.handle_changed_property('dns_servers',
+                                             network.dhcp_options and network.dhcp_options.dns_servers)
             else:
                 self.warn_not_supposed_to_exist()
                 self.confirm_destroy()
