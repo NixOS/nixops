@@ -31,6 +31,7 @@ from nixops.resources.azure_blob_container import AzureBLOBContainerState
 from nixops.resources.azure_directory import AzureDirectoryState
 from nixops.resources.azure_file import AzureFileState
 from nixops.resources.azure_load_balancer import AzureLoadBalancerState
+from nixops.resources.azure_network_security_group import AzureNetworkSecurityGroupState
 from nixops.resources.azure_queue import AzureQueueState
 from nixops.resources.azure_reserved_ip_address import AzureReservedIPAddressState
 from nixops.resources.azure_resource_group import AzureResourceGroupState
@@ -105,6 +106,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         ifaces_xml = x.find("attr[@name='networkInterfaces']")
         if_xml = ifaces_xml.find("attrs/attr[@name='default']")
         self.obtain_ip = self.get_option_value(if_xml, 'obtainIP', bool)
+        self.copy_option(if_xml, 'securityGroup', 'res-id', optional = True)
 
         subnet_xml  = if_xml.find("attrs/attr[@name='subnet']")
         self.subnet = ResId(self.get_option_value(subnet_xml, 'network', 'res-id'),
@@ -206,6 +208,7 @@ class AzureState(MachineState, ResourceState):
     resource_group = attr_property("azure.resourceGroup", None)
 
     obtain_ip = attr_property("azure.obtainIP", None, bool)
+    security_group = attr_property("azure.securityGroup", None)
     availability_set = attr_property("azure.availabilitySet", None)
 
     block_device_mapping = attr_property("azure.blockDeviceMapping", {}, 'json')
@@ -348,6 +351,8 @@ class AzureState(MachineState, ResourceState):
             iface = None
         if iface:
             self.handle_changed_property('subnet', iface.ip_configurations[0].subnet.id)
+            self.handle_changed_property('security_group', iface.network_security_group and
+                                                           iface.network_security_group.id)
             backend_address_pools = [ r.id for r in iface.ip_configurations[0].load_balancer_backend_address_pools ]
             self.handle_changed_property('backend_address_pools', sorted(backend_address_pools))
             inbound_nat_rules = [ r.id for r in iface.ip_configurations[0].load_balancer_inbound_nat_rules ]
@@ -662,22 +667,41 @@ class AzureState(MachineState, ResourceState):
         self.backend_address_pools = defn.backend_address_pools
         self.inbound_nat_rules = defn.inbound_nat_rules
         self.obtain_ip = defn.obtain_ip
+        self.security_group = defn.security_group
         self.subnet = defn.subnet
 
     def iface_properties_changed(self, defn):
         return ( self.backend_address_pools != defn.backend_address_pools or
                  self.inbound_nat_rules != defn.inbound_nat_rules or
                  self.obtain_ip != defn.obtain_ip or
+                 self.security_group != defn.security_group or
                  self.subnet != defn.subnet )
 
     def create_or_update_iface(self, defn):
         public_ip_id = self.nrpc().public_ip_addresses.get(
                             self.resource_group,
                             self.public_ip).public_ip_address.id if defn.obtain_ip else None
+        print             NetworkInterface(name = self.machine_name,
+                             location = defn.location,
+                             network_security_group = defn.security_group and
+                                                      ResId(defn.security_group),
+                             ip_configurations = [ NetworkInterfaceIpConfiguration(
+                                 name = 'default',
+                                 private_ip_allocation_method = IpAllocationMethod.dynamic,
+                                 subnet = ResId(defn.subnet),
+                                 load_balancer_backend_address_pools = [
+                                     ResId(pool) for pool in defn.backend_address_pools ],
+                                 load_balancer_inbound_nat_rules = [
+                                     ResId(rule) for rule in defn.inbound_nat_rules ],
+                                 public_ip_address = public_ip_id and ResId(public_ip_id),
+                             )]
+                           ).__dict__
         self.nrpc().network_interfaces.create_or_update(
             self.resource_group, self.machine_name,
             NetworkInterface(name = self.machine_name,
                              location = defn.location,
+                             network_security_group = defn.security_group and
+                                                      ResId(defn.security_group),
                              ip_configurations = [ NetworkInterfaceIpConfiguration(
                                  name = 'default',
                                  private_ip_allocation_method = IpAllocationMethod.dynamic,
@@ -1139,7 +1163,7 @@ class AzureState(MachineState, ResourceState):
                      isinstance(r, AzureDirectoryState) or isinstance(r, AzureFileState) or
                      isinstance(r, AzureLoadBalancerState) or isinstance(r, AzureQueueState) or
                      isinstance(r, AzureReservedIPAddressState) or isinstance(r, AzureShareState) or
-                     isinstance(r, AzureTableState)}
+                     isinstance(r, AzureTableState) or isinstance(r, AzureNetworkSecurityGroupState) }
 
     def find_lb_endpoint(self):
         for _inr in self.inbound_nat_rules:

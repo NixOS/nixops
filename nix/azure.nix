@@ -261,6 +261,17 @@ in
             Whether to obtain a dedicated public IP for the interface.
           '';
         };
+
+        securityGroup = mkOption {
+          default = null;
+          example = "resources.azureSecurityGroups.my-security-group";
+          type = types.nullOr (types.either types.str (resource "azure-network-security-group"));
+          description = ''
+            The Azure Resource Id or NixOps resource of
+            the Azure network security group to associate to the interface.
+          '';
+        };
+
       };
 
       resourceGroup = mkOption {

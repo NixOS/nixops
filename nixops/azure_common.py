@@ -88,6 +88,7 @@ class ResId(dict):
         'azure-load-balancer': { 'provider': 'Microsoft.Network', 'type': 'loadBalancers' },
         'azure-reserved-ip-address': {'provider': 'Microsoft.Network', 'type': 'publicIPAddresses' },
         'azure-virtual-network': {'provider':'Microsoft.Network', 'type': 'virtualNetworks' },
+        'azure-network-security-group': { 'provider':'Microsoft.Network', 'type': 'networkSecurityGroups' },
     }
 
 
