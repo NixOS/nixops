@@ -102,6 +102,12 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
                   subtype = 'backendAddressPools').id
             for _x in if_xml.findall("attrs/attr[@name='backendAddressPools']/list/attrs")]
 
+        self.inbound_nat_rules = [
+            ResId(self.get_option_value(_x, 'loadBalancer', 'res-id'),
+                  subresource = self.get_option_value(_x, 'name', str),
+                  subtype = 'inboundNatRules').id
+            for _x in if_xml.findall("attrs/attr[@name='inboundNatRules']/list/attrs")]
+
         def opt_disk_name(dname):
             return ("{0}-{1}".format(self.machine_name, dname) if dname is not None else None)
 
@@ -181,6 +187,7 @@ class AzureState(MachineState, ResourceState):
     storage = attr_property("azure.storage", None)
     subnet = attr_property("azure.subnet", None)
     backend_address_pools = attr_property("azure.backendAddressPools", [], 'json')
+    inbound_nat_rules = attr_property("azure.inboundNatRules", [], 'json')
     resource_group = attr_property("azure.resourceGroup", None)
 
     obtain_ip = attr_property("azure.obtainIP", None, bool)
@@ -328,6 +335,8 @@ class AzureState(MachineState, ResourceState):
             self.handle_changed_property('subnet', iface.ip_configurations[0].subnet.id)
             backend_address_pools = [ r.id for r in iface.ip_configurations[0].load_balancer_backend_address_pools ]
             self.handle_changed_property('backend_address_pools', sorted(backend_address_pools))
+            inbound_nat_rules = [ r.id for r in iface.ip_configurations[0].load_balancer_inbound_nat_rules ]
+            self.handle_changed_property('inbound_nat_rules', sorted(inbound_nat_rules))
         elif self.network_interface:
             self.warn("network interface has been destroyed behind our back")
             self.network_interface = None
@@ -610,10 +619,12 @@ class AzureState(MachineState, ResourceState):
 
     def copy_iface_properties(self, defn):
         self.backend_address_pools = defn.backend_address_pools
+        self.inbound_nat_rules = defn.inbound_nat_rules
         self.subnet = defn.subnet
 
     def iface_properties_changed(self, defn):
         return ( self.backend_address_pools != defn.backend_address_pools or
+                 self.inbound_nat_rules != defn.inbound_nat_rules or
                  self.subnet != defn.subnet )
 
     def create_or_update_iface(self, defn):
@@ -629,6 +640,8 @@ class AzureState(MachineState, ResourceState):
                                  subnet = ResId(defn.subnet),
                                  load_balancer_backend_address_pools = [
                                      ResId(pool) for pool in defn.backend_address_pools ],
+                                 load_balancer_inbound_nat_rules = [
+                                     ResId(rule) for rule in defn.inbound_nat_rules ],
                                  public_ip_address = ResId(public_ip_id)
                              )]
                            ))

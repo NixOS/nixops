@@ -223,6 +223,36 @@ in
           };
         };
 
+        inboundNatRules = mkOption {
+          default = [];
+          example = [ {
+            name = "admin-machine-ssh";
+            loadBalancer = "resources.azureLoadBalancers.mybalancer";
+          } ];
+          type = types.listOf types.optionSet;
+          description = "List of Azure load balancer inbound NAT rules to use.";
+          options = { config, ... }: {
+            options = {
+              loadBalancer = mkOption {
+                example = "resources.azureLoadBalancers.mybalancer";
+                type = types.either types.str (resource "azure-load-balancer");
+                description = ''
+                  The Azure Resource Id or NixOps resource of
+                  the Azure load balancer to attach the interface to.
+                '';
+              };
+
+              name = mkOption {
+                example = "admin-machine-ssh";
+                description = ''
+                  The name of the Azure load balancer Inbound NAT Rule to use.
+                '';
+              };
+            };
+            config = {};
+          };
+        };
+
         obtainIP = mkOption {
           default = true;
           example = false;
