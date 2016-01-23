@@ -776,102 +776,88 @@ under NixOps control.
   be able to deploy virtual machines.
   It states that the three machines need to be instantiated in azure location
   <literal>West US</literal>.
-  It also specifies an alternative load balancer implemented using a load-balanced enpoint.
+  It also specifies an alternative load balancer implemented using a native Azure Load Balancer resource.
   </para>
 
 <example xml:id="ex-physical-multi-azure.nix">
   <title><filename>load-balancer-azure.nix</filename>: Azure physical network specification</title>
   <programlisting>
-
 let
-  # change this as necessary or wipe and use ENV vars
+
+  # change this as necessary or delete and use ENV vars
   credentials = {
     subscriptionId = "00000000-0000-0000-0000-000000000000";
-    certificatePath = "/path/to/azure/certificate.pem";
+    authority = "https://login.windows.net/AUTHORITY.onmicrosoft.com";
+    user = "user@AUTHORITY.onmicrosoft.com";
+    password = "**********";
   };
 
-  # storage name must be unique and short
-  storage_name = "someuniquestoragename";
-  disk_container_name = "disks";
-
-  azure = { tcp_ep_config } : { resources, ...}:  {
-    networking.firewall.allowedTCPPorts = [ 80 ];
-    networking.firewall.allowPing = true;
+  azure = { backendAddressPools ? [] }: { resources, ...}:  {
     deployment.targetEnv = "azure";
     deployment.azure = credentials // {
-      storage = resources.azureStorages.storage;
-      hostedService = resources.azureHostedServices.reliableService;
-      deployment = resources.azureDeployments.deployment;
-      baseEphemeralDiskUrl = "https://${storage_name}.blob.core.windows.net/${disk_container_name}/";
-      obtainIP = true;
-      inputEndpoints.tcp = tcp_ep_config;
+      location = "westus";
+      size = "Standard_A0"; # minimal size that supports load balancing
+      availabilitySet = resources.azureAvailabilitySets.set;
+      networkInterfaces.default.backendAddressPools = backendAddressPools;
     };
   };
 
-  lb_ep_config = { http = { port = 81; localPort = 80; setName = "httpbalancer";
-                            probe = { protocol="TCP"; path=null; port = 80; }; }; };
-in
-{
+  azure_backend = {resources, ...}@args:
+    azure { backendAddressPools = [{loadBalancer = resources.azureLoadBalancers.lb;}]; } args;
 
-  # storage and container are required to store disk BLOBs
-  resources.azureStorages.storage = credentials // {
-    name = storage_name;
-    location = "West US";
-    label = "disk storage";
-  };
+in {
 
-  resources.azureBlobContainers.disks =  {resources,...}: credentials // {
-    name = disk_container_name;
-    storage = resources.azureStorages.storage;
-  };
-
-  resources.azureReservedIPAddresses.LBIP = credentials // {
+  resources.azureReservedIPAddresses.lb-ip = credentials // {
     location = "West US";
   };
 
-  # virtual machines must belong to a deployment, which must belong to a hosted service
-  resources.azureHostedServices.reliableService = {resources,...}: credentials // {
-    location = "West US";
-    label = "load balancer test";
+  resources.azureAvailabilitySets.set = credentials // {
+    location = "westus";
   };
 
-  resources.azureDeployments.deployment = {resources, ...}: credentials // {
-    hostedService = resources.azureHostedServices.reliableService;
-    slot = "production";
-    label = "no idea";
-    dummyDiskUrl = "http://${storage_name}.blob.core.windows.net/${disk_container_name}/deployment-dummy-root";
-    ipAddress = resources.azureReservedIPAddresses.LBIP;
+  resources.azureLoadBalancers.lb = {resources,...}: credentials // {
+    location = "westus";
+    frontendInterfaces.default.publicIpAdress = resources.azureReservedIPAddresses.lb-ip;
+    loadBalancingRules.web = {
+      frontendPort = 80;
+      backendPort = 80;
+    };
   };
 
-  # apart from their own public IP addresses,
-  # HTTP ports of the machines are routed to ports on "LBIP" IP address
-  proxy    = azure { tcp_ep_config =
-                       { http = { port = 80; localPort = 80; }; };
-                   };
-  backend1 = azure { tcp_ep_config = lb_ep_config; };
-  backend2 = azure { tcp_ep_config = lb_ep_config; };
+  proxy    = azure {};
+  backend1 = azure_backend;
+  backend2 = azure_backend;
+
+}
   </programlisting>
 </example>
 
 <para>
   The deployment proceeds like this:
   <screen>
-reliableService> creating Azure hosted service 'nixops-18fd0214-f192-11e4-aac1-b8e8560f8b58-reliableService' in West US...
-LBIP...........> creating Azure reserved IP address 'nixops-18fd0214-f192-11e4-aac1-b8e8560f8b58-LBIP' in West US...
-storage........> creating Azure storage 'someuniquestoragename' in West US...
-storage........> waiting for the storage creation to finish; this may take several minutes...
-storage........> waiting for the storage to settle; this may take several minutes...
-disks..........> creating Azure BLOB container 'disks' in someuniquestoragename...
-deployment.....> creating Azure deployment 'nixops-18fd0214-f192-11e4-aac1-b8e8560f8b58-deployment' in nixops-18fd0214-f192-11e4-aac1-b8e8560f8b58-reliableService...
-proxy..........> attempting to create a disk resource for https://someuniquestoragename.blob.core.windows.net/disks/n-18fd0214f19211e4aac1b8e8560f8b58-proxy-root
-backend2.......> attempting to create a disk resource for https://someuniquestoragename.blob.core.windows.net/disks/n-18fd0214f19211e4aac1b8e8560f8b58-backend2-root
-backend1.......> attempting to create a disk resource for https://someuniquestoragename.blob.core.windows.net/disks/n-18fd0214f19211e4aac1b8e8560f8b58-backend1-root
-backend1.......> warning: looks like the underlying blob doesn't exist, so it will be created later
-backend1.......> creating Azure machine 'n-18fd0214f19211e4aac1b8e8560f8b58-backend1'...
-backend2.......> warning: looks like the underlying blob doesn't exist, so it will be created later
-backend2.......> creating Azure machine 'n-18fd0214f19211e4aac1b8e8560f8b58-backend2'...
-proxy..........> warning: looks like the underlying blob doesn't exist, so it will be created later
-proxy..........> creating Azure machine 'n-18fd0214f19211e4aac1b8e8560f8b58-proxy'...
+def-group....................> creating Azure resource group 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-def-group' in westus...
+dn-westus....................> creating Azure virtual network 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-dn-westus' in westus...
+set..........................> creating Azure availability set 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-set' in westus...
+lb-ip........................> creating Azure reserved IP address 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-lb-ip' in West US...
+def-storage-westus...........> creating Azure storage '71616e2ec165westus' in westus...
+lb-ip........................> reserved IP address: 40.78.67.191
+lb...........................> creating Azure load balancer 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-lb' in westus...
+def-storage-westus...........> waiting for the storage to settle; this may take several minutes...
+def-storage-westus...........> updating BLOB service properties of Azure storage '71616e2ec165westus'...
+def-storage-westus...........> updating queue service properties of Azure storage '71616e2ec165westus'...
+def-storage-westus...........> updating table service properties of Azure storage '71616e2ec165westus'...
+def-storage-westus-vhds......> creating Azure BLOB container 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-vhds' in 71616e2ec165westus...
+def-storage-westus-vhds-image> creating Azure BLOB 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-unstable-image.vhd' in nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-vhds...
+def-storage-westus-vhds-image> updating properties of Azure BLOB 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-unstable-image.vhd'...
+backend2.....................> getting an IP address
+proxy........................> getting an IP address
+backend1.....................> getting an IP address
+backend2.....................> creating a network interface
+backend1.....................> creating a network interface
+proxy........................> creating a network interface
+backend1.....................> creating Azure machine 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-backend1'...
+backend2.....................> creating Azure machine 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-backend2'...
+proxy........................> creating Azure machine 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-proxy'...
 <replaceable>...</replaceable>
 proxy......> activation finished successfully
 backend2...> activation finished successfully
@@ -879,9 +865,9 @@ backend1...> activation finished successfully
   </screen>
 </para>
 
-<para>Here NixOps has created an azure storage, container for blobs, deployment IP address,
-hosted service, deployment, 3 root disks for the instances and started three instances
-running the default NixOS image.  Other than that, deployment
+<para>Here NixOps has created a resource group, storage, container for blobs,
+root image blob, availability set, load balancer and started three instances
+running the default NixOS image. Other than that, deployment
 is the same as for VirtualBox: NixOps builds the machine
 configurations, copies their closure over to the Azure instances, and
 activates the new configurations.</para>
@@ -892,18 +878,21 @@ resources, not just machines:
 <screen>
 $ nixops info -d load-balancer-azure
 <replaceable>...</replaceable>
-+-----------------+--------------------+-------------------------------------+-------------------------------------------------------------+---------------+
-| Name            |       Status       | Type                                | Resource Id                                                 | IP address    |
-+-----------------+--------------------+-------------------------------------+-------------------------------------------------------------+---------------+
-| backend1        |  Up / Up-to-date   | azure [Small]                       | n-18fd0214f19211e4aac1b8e8560f8b58-backend1                 | 104.42.29.230 |
-| backend2        |  Up / Up-to-date   | azure [Small]                       | n-18fd0214f19211e4aac1b8e8560f8b58-backend2                 | 104.42.25.147 |
-| proxy           |  Up / Up-to-date   | azure [Small]                       | n-18fd0214f19211e4aac1b8e8560f8b58-proxy                    | 104.42.29.70  |
-| disks           |  Up / Up-to-date   | azure-blob-container                | disks                                                       |               |
-| deployment      |  Up / Up-to-date   | azure-deployment [production]       | nixops-18fd0214-f192-11e4-aac1-b8e8560f8b58-deployment      | 104.42.102.50 |
-| reliableService |  Up / Up-to-date   | azure-hosted-service [West US]      | nixops-18fd0214-f192-11e4-aac1-b8e8560f8b58-reliableService |               |
-| LBIP            |  Up / Up-to-date   | azure-reserved-ip-address [West US] | nixops-18fd0214-f192-11e4-aac1-b8e8560f8b58-LBIP            | 104.42.102.50 |
-| storage         |  Up / Up-to-date   | azure-storage [West US]             | someuniquestoragename                                       |               |
-+-----------------+--------------------+-------------------------------------+-------------------------------------------------------------+---------------+
++-------------------------------+-----------------+-------------------------------------+----------------------------------------------------------------+--------------+
+| Name                          |      Status     | Type                                | Resource Id                                                    | IP address   |
++-------------------------------+-----------------+-------------------------------------+----------------------------------------------------------------+--------------+
+| backend1                      | Up / Up-to-date | azure [westus; Standard_A0]         | nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-backend1           | 40.78.60.145 |
+| backend2                      | Up / Up-to-date | azure [westus; Standard_A0]         | nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-backend2           | 40.78.58.17  |
+| proxy                         | Up / Up-to-date | azure [westus; Standard_A0]         | nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-proxy              | 40.78.59.32  |
+| set                           | Up / Up-to-date | azure-availability-set [westus]     | nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-set                |              |
+| def-storage-westus-vhds-image | Up / Up-to-date | azure-blob                          | nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-unstable-image.vhd |              |
+| def-storage-westus-vhds       | Up / Up-to-date | azure-blob-container                | nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-vhds               |              |
+| lb                            | Up / Up-to-date | azure-load-balancer [westus]        | nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-lb                 |              |
+| lb-ip                         | Up / Up-to-date | azure-reserved-ip-address [West US] | nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-lb-ip              | 40.78.67.191 |
+| def-group                     | Up / Up-to-date | azure-resource-group [westus]       | nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-def-group          |              |
+| def-storage-westus            | Up / Up-to-date | azure-storage [westus]              | 71616e2ec165westus                                             |              |
+| dn-westus                     | Up / Up-to-date | azure-virtual-network [westus]      | nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-dn-westus          |              |
++-------------------------------+-----------------+-------------------------------------+----------------------------------------------------------------+--------------+
 </screen>
 </para>
 
@@ -913,40 +902,22 @@ $ nixops info -d load-balancer-azure
 $ nixops destroy -d load-balancer-azure
 </screen>
 
-This terminates the Azure instances and deletes the alternative endpoint-based load balancer.</para>
+This terminates the Azure instances and deletes the alternative native load balancer.</para>
 
 <section><title>Prequisites</title>
 <itemizedlist>
 
-  <listitem><para>You need an Azure subscription Id</para></listitem>
-
-  <listitem><para>You need to create two certificates, one for the server
-  (a .cer file) and one for the client (a .pem file). To create the .pem file, execute this:
-  <programlisting>
-  openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout mycert.pem -out mycert.pem
-  </programlisting>
-  To create the .cer certificate, execute this:
-  <programlisting>
-  openssl x509 -inform pem -in mycert.pem -outform der -out mycert.cer
-  </programlisting>
-  For more information, see
-  <link xlink:href="http://msdn.microsoft.com/en-us/library/windowsazure/gg981929.aspx">Managing Certificates in Azure</link>.
-  </para>
-
-  <para>After you have created these files, you will need to upload the .cer file to
-  Azure via the "Upload" action of the "Settings" tab of the management portal.
-  </para></listitem>
-
-  <listitem><para>You must supply the credentials(subscription ID, path to *.pem file
-  in the local filesystem) to your deployments via either <literal>*.subscriptionId</literal>
-  and <literal>*.certificatePath</literal> options or <literal>AZURE_SUBSCRIPTION_ID</literal>
-  and <literal>AZURE_CERTIFICATE_PATH</literal> environment variables. Options take precedence
-  over environment variables and are specified per resource/machine.
+  <listitem><para>You must supply the credentials(subscription ID, authority URL, user, password)
+  to your deployments via either <literal>*.subscriptionId</literal>,
+  <literal>*.authority</literal>, <literal>*.user</literal> and <literal>*.password</literal>
+  options or <literal>AZURE_SUBSCRIPTION_ID</literal>, <literal>AZURE_AUTHORITY_URL</literal>,
+  <literal>AZURE_USER</literal> and <literal>AZURE_PASSWORD</literal> environment variables.
+  Options take precedence over environment variables and are specified per resource/machine.
   </para></listitem>
 
   <listitem><para>You need to ensure that SSH ports of all machines are reachable
-  either directly via machines' public IP addresses or via enpoints on the public
-  IP address of the deployment</para></listitem>
+  either directly via machines' public IP addresses or via NAT rules on the public
+  IP address of a load balancer</para></listitem>
 
 </itemizedlist></section>
 
@@ -955,16 +926,12 @@ This terminates the Azure instances and deletes the alternative endpoint-based l
   all of its backups.
   </para>
 
-  <para>Backups are tracked by BLOB URLs and not disk names, so if an external
+  <para>Backups are tracked by BLOB URLs and not disk names, so if an ephemeral
   disk changes its <literal>mediaLink</literal> property, it will be treated as
-  a different/new disk for backup purposes.
+  a different/new disk for backup purposes. Renaming a disk, but keeping
+  <literal>mediaLink</literal> property unchanged preserves backups.
   </para>
 
-  <para>If you intend to use backups, it's important that all the disks and BLOBs
-  used by a virtual machine are stored in the same storage account. You can only specify
-  a single storage account per virtual machine. All the other BLOBs and disks will be
-  ignored by the backup code.
-  </para>
 
 </section>
 
@@ -972,82 +939,17 @@ This terminates the Azure instances and deletes the alternative endpoint-based l
 
 <itemizedlist>
 
-  <listitem><para>Creating a storage account takes several minutes. Be patient.
-  </para></listitem>
-
-  <listitem><para>Azure deployment must always contain at least one VM. To work
-  around this limitation, a "dummy" VM is created and deallocated. You are only
-  billed for the storage of its root disk. <literal>dummyDiskUrl</literal> specifies
-  the BLOB URL for the "dummy" root disk.
-  </para></listitem>
-
-  <listitem><para>The following operations can't be executed in parallel if they
-  affect resources in the same Azure deployment: VM creation and deletion; disk
-  attachment and detachment. Spreading VMs over several deployments/hosted services
-  helps to speed up deployment operations.
-  </para></listitem>
-
-  <listitem><para><literal>deploy --check</literal> will complain about deployment
-  missing its IP address until you deploy a VM into it.
-  </para></listitem>
-
-  <listitem><para>To request public IPs for virtual machines, they need to be
-  a part of a deployment with a public IP.
-  </para></listitem>
-
-  <listitem><para>You don't need a virtual machine to have a public IP address to manage it.
-  NixOps will automatically use enpoints which route to the SSH port of the virtual machine
-  to manage machines without a public IP address.
-  <programlisting>
-    some_machine.deployment.azure.inputEndpoints.tcp.ssh = {port = random_port; localPort = 22; };
-  </programlisting>
-  </para></listitem>
-
-  <listitem><para>If a deployment has a public IP address assigned, each virtual machine
-  needs to have at least 1 endpoint, even if it routes to an unused port. Usually, it's
-  a good idea to expose the SSH port unless the virtual machine has its own public IP.
-  </para></listitem>
-
-  <listitem><para>Virtual machines have a limited number of disk slots, depending on their size.
-  Attaching disks to LUNs higher than the maximum disk slot number succeeds,
-  but the machine won't see them.
-  </para></listitem>
-
   <listitem><para>You can replace the root disk of a VM, but root disks of different VMs aren't
   interchangeable because Azure only allows provisioning info to be supplied when creating
   a new root disk.
   </para></listitem>
 
-  <listitem><para>BLOB URLs must use HTTPS protocol, because HTTP ones get
-  converted to HTTPS by Azure, and <literal>deploy --check</literal> will always complain.
+  <listitem><para>BLOB URLs must use HTTPS protocol.
   </para></listitem>
 
-  <listitem><para>The first machine to deploy with an endpoint
-  in a load balancing mode, gets to configure the load balancer.</para>
-
-  <para>All other machines must supply either a simple <literal>port, protocol, setName</literal> configuration without
-  any load balancer properties, or full but matching configuration. If machines deploy with
-  conflicting load balancer parameters for a particular endpoint, you get an error.</para>
-
-  <para>Since there's no way to reliably predict in which order machines are deployed,
-  the only practical approach is to always specify an identical configuration
-  for all the load-balanced endpoints.
-
-  Another consequence of this is that changing the load balancer configuration is impossible.
-  You have to destroy it and create a new one.</para>
-
-  <para>It makes sense to factor out load-balanced endpoint configuration like this:
-    <programlisting>
-    let
-      http_lb_config = { http = { port = 80; localPort = 80; setName = "httpbalancer";
-                                  probe = { protocol="HTTP"; path="/"; port = 80; }; }; };
-    in
-      machine*.deployment.azure.inputEndpoints.tcp = machine_specific_config // http_lb_config;
-    </programlisting>
-
-    To change the endpoint configuration, machines are first deployed with
-    <literal>http_lb_config = {}</literal>
-    to destroy the load balancer, and then deployed with the new configuration.
+  <listitem><para>
+  Virtual machines that are members of a load balancer backend pool
+  must belong to an availability set, and must belong to the same set.
   </para></listitem>
 
   <listitem><para>Drivers of older linux versions don't automatically detect removed disks
@@ -1092,11 +994,6 @@ This terminates the Azure instances and deletes the alternative endpoint-based l
 
   <listitem><para><literal>deploy --check</literal> has no way to retrieve container ACL,
   so be careful with manual changes.
-  </para></listitem>
-
-  <listitem><para>Once you set <literal>extendedProperties</literal> of storage or hosted service
-  to something other than <literal>{}</literal>, whether at creation time or by updating a deployed
-  resource, update requests will fail silently and <literal>deploy --check</literal> will complain.
   </para></listitem>
 
 </itemizedlist>
