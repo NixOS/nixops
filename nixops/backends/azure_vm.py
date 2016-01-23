@@ -287,7 +287,7 @@ class AzureState(MachineState, ResourceState):
         self.public_ipv4 = None
 
 
-    defn_properties = [ 'size', 'obtain_ip', 'availability_set' ]
+    defn_properties = [ 'size', 'availability_set' ]
 
     def is_deployed(self):
         return (self.vm_id or self.block_device_mapping or self.public_ip or self.network_interface)
@@ -340,6 +340,17 @@ class AzureState(MachineState, ResourceState):
         elif self.network_interface:
             self.warn("network interface has been destroyed behind our back")
             self.network_interface = None
+
+    def delete_ip_address(self):
+        if self.public_ip:
+            self.log("releasing the ip address...")
+            try:
+                self.nrpc().public_ip_addresses.get(self.resource_group, self.public_ip)
+                self.nrpc().public_ip_addresses.delete(self.resource_group, self.public_ip)
+            except azure.common.AzureMissingResourceHttpError:
+                self.warn("seems to have been released already")
+            self.public_ip = None
+            self.public_ipv4 = None
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_change(self.machine_name != defn.machine_name, "instance name")
@@ -496,6 +507,17 @@ class AzureState(MachineState, ResourceState):
 
         self._change_existing_disk_parameters(defn)
 
+        if self.public_ip is None and defn.obtain_ip:
+            self.log("getting an IP address")
+            self.nrpc().public_ip_addresses.create_or_update(
+                self.resource_group, self.machine_name,
+                PublicIpAddress(
+                    location = defn.location,
+                    public_ip_allocation_method = 'Dynamic',
+                    idle_timeout_in_minutes = 4,
+                ))
+            self.public_ip = self.machine_name
+
         self._create_vm(defn)
 
         # changing vm properties first because size change may be
@@ -516,6 +538,10 @@ class AzureState(MachineState, ResourceState):
             #FIXME: handle missing network interface
             iface = self.nrpc().network_interfaces.get(self.resource_group, self.network_interface).network_interface
             self.create_or_update_iface(defn)
+
+        # delete IP address if it is not needed anymore
+        if self.public_ip and not self.obtain_ip:
+            self.delete_ip_address()
 
 
     # change existing disk parameters as much as possible within the technical limitations
@@ -620,16 +646,19 @@ class AzureState(MachineState, ResourceState):
     def copy_iface_properties(self, defn):
         self.backend_address_pools = defn.backend_address_pools
         self.inbound_nat_rules = defn.inbound_nat_rules
+        self.obtain_ip = defn.obtain_ip
         self.subnet = defn.subnet
 
     def iface_properties_changed(self, defn):
         return ( self.backend_address_pools != defn.backend_address_pools or
                  self.inbound_nat_rules != defn.inbound_nat_rules or
+                 self.obtain_ip != defn.obtain_ip or
                  self.subnet != defn.subnet )
 
     def create_or_update_iface(self, defn):
         public_ip_id = self.nrpc().public_ip_addresses.get(
-                            self.resource_group, self.public_ip).public_ip_address.id
+                            self.resource_group,
+                            self.public_ip).public_ip_address.id if defn.obtain_ip else None
         self.nrpc().network_interfaces.create_or_update(
             self.resource_group, self.machine_name,
             NetworkInterface(name = self.machine_name,
@@ -642,25 +671,17 @@ class AzureState(MachineState, ResourceState):
                                      ResId(pool) for pool in defn.backend_address_pools ],
                                  load_balancer_inbound_nat_rules = [
                                      ResId(rule) for rule in defn.inbound_nat_rules ],
-                                 public_ip_address = ResId(public_ip_id)
+                                 public_ip_address = public_ip_id and ResId(public_ip_id),
                              )]
                            ))
         self.network_interface = self.machine_name
         self.copy_iface_properties(defn)
+        self.public_ipv4 = self.fetch_public_ip()
+        if self.public_ipv4:
+            self.log("got IP: {0}".format(self.public_ipv4))
+        self.update_ssh_known_hosts()
 
     def _create_vm(self, defn):
-        if self.public_ip is None and defn.obtain_ip:
-            self.log("getting an IP address")
-            self.nrpc().public_ip_addresses.create_or_update(
-                self.resource_group, self.machine_name,
-                PublicIpAddress(
-                    location = defn.location,
-                    public_ip_allocation_method = 'Dynamic',
-                    idle_timeout_in_minutes = 4,
-                ))
-            self.public_ip = self.machine_name
-            self.obtain_ip = defn.obtain_ip
-
         if self.network_interface is None:
             self.log("creating a network interface")
             self.create_or_update_iface(defn)
@@ -862,15 +883,7 @@ class AzureState(MachineState, ResourceState):
                 self.warn("seems to have been destroyed already")
             self.network_interface = None
 
-        if self.public_ip:
-            self.log("releasing the ip address...")
-            try:
-                self.nrpc().public_ip_addresses.get(self.resource_group, self.public_ip)
-                self.nrpc().public_ip_addresses.delete(self.resource_group, self.public_ip)
-            except azure.common.AzureMissingResourceHttpError:
-                self.warn("seems to have been released already")
-            self.public_ip = None
-            self.obtain_ip = None
+        self.delete_ip_address()
 
         if self.generated_encryption_keys != {}:
             if not self.depl.logger.confirm("{0} resource still stores generated encryption keys for disks {1}; "
