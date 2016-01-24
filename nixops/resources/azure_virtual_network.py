@@ -6,7 +6,7 @@ import os
 import azure
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState
+from nixops.azure_common import ResourceDefinition, ResourceState, ResId
 
 from azure.mgmt.network import VirtualNetwork, AddressSpace, Subnet, DhcpOptions
 
@@ -35,6 +35,17 @@ class AzureVirtualNetworkDefinition(ResourceDefinition):
 
         self.copy_tags(xml)
 
+        self.subnets = {
+            _s.get("name"): self._parse_subnet(_s)
+            for _s in xml.findall("attrs/attr[@name='subnets']/attrs/attr")
+        }
+
+    def _parse_subnet(self, xml):
+        return {
+            'address_prefix': self.get_option_value(xml, 'addressPrefix', str, empty = False),
+            'security_group': self.get_option_value(xml, 'securityGroup', 'res-id', optional = True),
+        }
+
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.location)
 
@@ -45,6 +56,7 @@ class AzureVirtualNetworkState(ResourceState):
     network_name = attr_property("azure.name", None)
     address_space = attr_property("azure.addressSpace", [], 'json')
     dns_servers = attr_property("azure.dnsServers", [], 'json')
+    subnets = attr_property("azure.subnets", {}, 'json')
     resource_group = attr_property("azure.resourceGroup", None)
     location = attr_property("azure.location", None)
     tags = attr_property("azure.tags", {}, 'json')
@@ -75,7 +87,7 @@ class AzureVirtualNetworkState(ResourceState):
     def destroy_resource(self):
         self.nrpc().virtual_networks.delete(self.resource_group, self.resource_id)
 
-    defn_properties = [ 'location', 'tags', 'address_space', 'dns_servers' ]
+    defn_properties = [ 'location', 'tags', 'address_space', 'dns_servers', 'subnets' ]
 
     def _create_or_update(self, defn):
         self.nrpc().virtual_networks.create_or_update(
@@ -86,13 +98,50 @@ class AzureVirtualNetworkState(ResourceState):
                     address_prefixes = defn.address_space),
                 dhcp_options = DhcpOptions(
                     dns_servers = defn.dns_servers),
-                subnets = [ Subnet(
-                    name = "default",
-                    address_prefix = defn.address_space[0],
-                )],
+                subnets = [
+                    Subnet(
+                        name = _name,
+                        address_prefix = _s['address_prefix'],
+                        network_security_group = _s['security_group'] and
+                                                 ResId(_s['security_group']),
+                    ) for _name, _s in defn.subnets.iteritems()
+                ],
                 tags = defn.tags))
         self.state = self.UP
         self.copy_properties(defn)
+
+
+    def handle_changed_subnets(self, subnets):
+        def update_subnets(k, v):
+            x = self.subnets
+            if v == None:
+                x.pop(k, None)
+            else:
+                x[k] = v
+            self.subnets = x
+
+        for _subnet in subnets:
+            _s_name = next((_n for _n, _x in self.subnets.iteritems() if _n == _subnet.name), None)
+            if _s_name is None:
+                self.warn("found unexpected subnet {0}".format(_subnet.name))
+                update_subnets(_subnet.name, {"dummy": True})
+        for _name, _s_subnet in self.subnets.iteritems():
+            if _s_subnet.get("dummy", False): continue
+            subnet_res_name = "subnet {0}".format(_name)
+            subnet = next((_r for _r in subnets if _r.name == _name), None)
+            if subnet is None:
+                self.warn("{0} has been deleted behind our back".format(subnet_res_name))
+                update_subnets(_name, None)
+                continue
+            self.handle_changed_dict(_s_subnet, 'address_prefix',
+                                     subnet.address_prefix,
+                                     resource_name = subnet_res_name)
+            self.handle_changed_dict(_s_subnet, 'security_group',
+                                     subnet.network_security_group and
+                                     subnet.network_security_group.id,
+                                     resource_name = subnet_res_name)
+            update_subnets(_name, _s_subnet)
+
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_property_change(defn, 'location')
@@ -109,9 +158,12 @@ class AzureVirtualNetworkState(ResourceState):
             elif self.state == self.UP:
                 self.handle_changed_property('location', network.location, can_fix = False)
                 self.handle_changed_property('tags', network.tags)
-                self.handle_changed_property('address_space', network.address_space.address_prefixes)
+                self.handle_changed_property('address_space',
+                                             network.address_space.address_prefixes)
+                self.handle_changed_subnets(network.subnets)
                 self.handle_changed_property('dns_servers',
-                                             network.dhcp_options and network.dhcp_options.dns_servers)
+                                             network.dhcp_options and
+                                             network.dhcp_options.dns_servers)
             else:
                 self.warn_not_supposed_to_exist()
                 self.confirm_destroy()

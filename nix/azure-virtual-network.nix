@@ -2,6 +2,34 @@
 
 with lib;
 with (import ./lib.nix lib);
+let
+
+  subnetOptions = { config, ... }: {
+
+    options = {
+
+      addressPrefix = mkOption {
+        example = "10.1.0.0/24";
+        type = types.str;
+        description = "Address prefix for the subnet in CIDR notation.";
+      };
+
+      securityGroup = mkOption {
+        default = null;
+        example = "resources.azureSecurityGroups.my-security-group";
+        type = types.nullOr (types.either types.str (resource "azure-network-security-group"));
+        description = ''
+          The Azure Resource Id or NixOps resource of
+          the Azure network security group to
+          apply to all NICs in the subnet.
+        '';
+      };
+
+    };
+    config = {};
+  };
+
+in
 {
 
   options = (import ./azure-mgmt-credentials.nix lib "virtual network") // {
@@ -47,11 +75,23 @@ with (import ./lib.nix lib);
         Leave empty to provide the default Azure DNS servers.
       '';
     };
+
+    subnets = mkOption {
+      example = {};
+      type = types.attrsOf types.optionSet;
+      options = subnetOptions;
+      description = "An attribute set of subnets";
+    };
+
   };
 
   config = {
     _type = "azure-virtual-network";
     resourceGroup = mkDefault resources.azureResourceGroups.def-group;
+    subnets = mkIf (length config.addressSpace > 0 )
+                   (mkDefault { default =
+                                  { addressPrefix = head config.addressSpace; };
+                              } );
   };
 
 }
