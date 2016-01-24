@@ -301,9 +301,10 @@ class AzureLoadBalancerState(ResourceState):
                 self.warn("frontend interface {0} has been deleted behind our back".format(_name))
                 update_interfaces(_name, None)
                 continue
-            self.handle_changed_dict(_s_if, 'private_ip_address',
-                                     interface.private_ip_address,
-                                     resource_name = if_res_name)
+            if _s_if['private_ip_address'] is not None:
+                self.handle_changed_dict(_s_if, 'private_ip_address',
+                                        interface.private_ip_address,
+                                        resource_name = if_res_name)
             self.handle_changed_dict(_s_if, 'private_ip_allocation_method',
                                      interface.private_ip_allocation_method,
                                      resource_name = if_res_name)
