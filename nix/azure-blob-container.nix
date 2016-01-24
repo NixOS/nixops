@@ -25,7 +25,7 @@ with (import ./lib.nix lib);
 
     acl.blobPublicAccess = mkOption {
       default = null;
-      type = types.nullOr types.str;
+      type = types.enum [ null "container" "blob" ] ;
       description = ''
         Permissions for the container:
         null(private),

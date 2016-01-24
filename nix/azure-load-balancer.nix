@@ -31,7 +31,7 @@ let
       protocol = mkOption {
         default = "Tcp";
         example = "Udp";
-        type = types.str;
+        type = types.enum [ "Tcp" "Udp" ];
         description = "The transport protocol for the external endpoint. Possible values are Udp or Tcp.";
       };
 
@@ -80,7 +80,7 @@ let
       loadDistribution = mkOption {
         default = "Default";
         example = "SourceIP";
-        type = types.str;
+        type = types.enum [ "Default" "SourceIP" "SourceIPProtocol" ];
         description = ''
             Specifies the load balancing distribution type to be used by the Load Balancer Rule.
             Possible values are: Default - The load balancer is configured to use a 5 tuple hash
@@ -101,7 +101,7 @@ let
       protocol = mkOption {
         default = "Tcp";
         example = "Http";
-        type = types.str;
+        type = types.enum [ "Tcp" "Http" ];
         description = ''
           Specifies the protocol of the probe request.
           Possible values are Http or Tcp. If Tcp is specified, a received ACK is required for
@@ -218,7 +218,7 @@ let
       protocol = mkOption {
         default = "Tcp";
         example = "Udp";
-        type = types.str;
+        type = types.enum [ "Tcp" "Udp" ];
         description = "The transport protocol for the external endpoint. Possible values are Udp or Tcp.";
       };
 

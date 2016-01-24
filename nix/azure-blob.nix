@@ -22,7 +22,7 @@ with (import ./lib.nix lib);
     blobType = mkOption {
       default = "BlockBlob";
       example = "PageBlob";
-      type = types.str;
+      type = types.enum [ "BlockBlob" "PageBlob" ];
       description = "BLOB type: BlockBlob or PageBlob.";
     };
 

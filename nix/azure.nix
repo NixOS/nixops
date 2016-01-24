@@ -81,8 +81,7 @@ let
 
       hostCaching = mkOption {
         default = "None";
-        type = types.addCheck types.str
-                (v: elem v [ "None" "ReadOnly" "ReadWrite" ]);
+        type = types.enum [ "None" "ReadOnly" "ReadWrite" ];
         description = ''
           Specifies the platform caching behavior of data disk blob for
           read/write efficiency. The default vault is None.
