@@ -261,7 +261,24 @@ class AzureState(MachineState, ResourceState):
                     raise Exception("storage {0} provided in the deployment specification "
                                     "doesn't match the storage of BLOB {1}"
                                     .format(self.storage, media_link))
-                self.bs().delete_blob(blob["container"], blob["name"])
+                try:
+                    self.bs().delete_blob(blob["container"], blob["name"])
+                except azure.common.AzureConflictHttpError as e:
+                    if "<Error><Code>SnapshotsPresent</Code><Message>" in e.message:
+                        if not self.depl.logger.confirm(
+                                  "the BLOB of Azure disk {0}({1}) has snapshots(backups); "
+                                  "deleting the disk BLOB also deletes snapshots; "
+                                  "keep the disk contents(BLOB)?"
+                                  .format(disk_name, media_link)):
+                            self.log("destroying Azure disk BLOB {0} and its snapshots..."
+                                     .format(media_link))
+                            self.bs().delete_blob(blob["container"], blob["name"],
+                                                  x_ms_delete_snapshots = 'include')
+                        else:
+                            self.log("keeping the Azure disk BLOB {0}..."
+                                     .format(media_link))
+                    else:
+                        raise e
             else:
                 self.log("keeping the Azure disk BLOB {0}...".format(media_link))
 
