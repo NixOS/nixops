@@ -97,7 +97,7 @@ rec {
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Azure resources
-  resources.azureAvailabilitySets = evalResources ./azure-availability-set.nix (zipAttrs resourcesByType.azureAvailabilitySets or []);
+  resources.azureAvailabilitySets = evalAzureResources ./azure-availability-set.nix (zipAttrs resourcesByType.azureAvailabilitySets or []);
   resources.azureBlobContainers =
       evalResources ./azure-blob-container.nix
           (azure_default_containers // (zipAttrs resourcesByType.azureBlobContainers or []));
@@ -106,21 +106,51 @@ rec {
           (azure_default_blobs // (zipAttrs resourcesByType.azureBlobs or []));
   resources.azureDirectories = evalResources ./azure-directory.nix (zipAttrs resourcesByType.azureDirectories or []);
   resources.azureFiles = evalResources ./azure-file.nix (zipAttrs resourcesByType.azureFiles or []);
-  resources.azureLoadBalancers = evalResources ./azure-load-balancer.nix (zipAttrs resourcesByType.azureLoadBalancers or []);
-  resources.azureSecurityGroups = evalResources ./azure-network-security-group.nix (zipAttrs resourcesByType.azureSecurityGroups or []);
+  resources.azureLoadBalancers = evalAzureResources ./azure-load-balancer.nix (zipAttrs resourcesByType.azureLoadBalancers or []);
+  resources.azureSecurityGroups = evalAzureResources ./azure-network-security-group.nix (zipAttrs resourcesByType.azureSecurityGroups or []);
   resources.azureQueues = evalResources ./azure-queue.nix (zipAttrs resourcesByType.azureQueues or []);
-  resources.azureReservedIPAddresses = evalResources ./azure-reserved-ip-address.nix (zipAttrs resourcesByType.azureReservedIPAddresses or []);
+  resources.azureReservedIPAddresses = evalAzureResources ./azure-reserved-ip-address.nix (zipAttrs resourcesByType.azureReservedIPAddresses or []);
   resources.azureResourceGroups =
-      evalResources ./azure-resource-group.nix
+      evalAzureResourceGroups ./azure-resource-group.nix
           (azure_default_group // (zipAttrs resourcesByType.azureResourceGroups or []));
   resources.azureShares = evalResources ./azure-share.nix (zipAttrs resourcesByType.azureShares or []);
   resources.azureStorages =
-      evalResources ./azure-storage.nix
+      evalAzureResources ./azure-storage.nix
           (azure_default_storages // (zipAttrs resourcesByType.azureStorages or []));
   resources.azureTables = evalResources ./azure-table.nix (zipAttrs resourcesByType.azureTables or []);
   resources.azureVirtualNetworks =
-      evalResources ./azure-virtual-network.nix
+      evalAzureResources ./azure-virtual-network.nix
           (azure_default_networks // (zipAttrs resourcesByType.azureVirtualNetworks or []));
+
+  # check if there are duplicate elements in a sorted list
+  noDups = l:
+    if length l > 1
+    then
+      if (head l) == (head (tail l))
+      then throw "found resources with duplicate names: ${head l}"
+      else noDups (tail l)
+    else true;
+
+  evalAzureResources = module: resources:
+    let
+      resourceGroup = r:
+        if isAttrs r.resourceGroup
+        then r.resourceGroup.name
+        else r.resourceGroup;
+      resourceNames = rs:
+        sort lessThan
+             (mapAttrsToList (n: v: toLower ("${resourceGroup v}/${v.name}")) rs);
+      resources' = evalResources module resources;
+    in assert (noDups (resourceNames resources')); resources';
+
+  evalAzureResourceGroups = module: resources:
+    let
+      resourceNames = rs:
+        sort lessThan
+             (mapAttrsToList (n: v: toLower v.name) rs);
+      resources' = evalResources module resources;
+    in assert (noDups (resourceNames resources')); resources';
+
 
   azure_deployments = filterAttrs ( n: v: (scrubOptionValue v).config.deployment.targetEnv == "azure") nodes;
 
