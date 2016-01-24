@@ -28,6 +28,13 @@ class AzureLoadBalancerDefinition(ResourceDefinition):
         self.copy_option(xml, 'resourceGroup', 'resource')
         self.copy_option(xml, 'location', str, empty = False)
 
+        self.lb_resid = ResId("",
+                              subscription = self.get_subscription_id(),
+                              group = self.resource_group,
+                              provider = 'Microsoft.Network',
+                              type = 'loadBalancers',
+                              resource = self.load_balancer_name)
+
         self.copy_option(xml, 'backendAddressPools', 'strlist')
 
         self.frontend_interfaces = {
@@ -83,16 +90,13 @@ class AzureLoadBalancerDefinition(ResourceDefinition):
         }
 
     def _parse_nat_rule(self, xml):
-        lb_resid = ResId("",
-                    subscription = self.get_subscription_id(),
-                    group = self.resource_group,
-                    provider = 'Microsoft.Network',
-                    type = 'loadBalancers',
-                    resource = self.load_balancer_name)
-
+        frontend_interface_name = self.get_option_value(xml, 'frontendInterface', str)
+        if frontend_interface_name not in self.frontend_interfaces:
+            raise Exception("{0}: referenced frontend interface {1} doesn't exist "
+                            .format(self.load_balancer_name, frontend_interface_name))
         return {
-            'frontend_interface': ResId(lb_resid,
-                                        subresource = self.get_option_value(xml, 'frontendInterface', str),
+            'frontend_interface': ResId(self.lb_resid,
+                                        subresource = frontend_interface_name,
                                         subtype = 'frontendIPConfigurations').id,
             'protocol': self.get_option_value(xml, 'protocol', str),
             'frontend_port': self.get_option_value(xml, 'frontendPort', int),
@@ -102,22 +106,30 @@ class AzureLoadBalancerDefinition(ResourceDefinition):
         }
 
     def _parse_lb_rule(self, xml):
-        lb_resid = ResId("",
-                    subscription = self.get_subscription_id(),
-                    group = self.resource_group,
-                    provider = 'Microsoft.Network',
-                    type = 'loadBalancers',
-                    resource = self.load_balancer_name)
-
         probe = self.get_option_value(xml, 'probe', str, optional = True)
+        if probe and probe not in self.probes:
+            raise Exception("{0}: referenced probe {1} doesn't exist "
+                            .format(self.load_balancer_name, probe))
+
+        frontend_interface_name = self.get_option_value(xml, 'frontendInterface', str)
+        if frontend_interface_name not in self.frontend_interfaces:
+            raise Exception("{0}: referenced frontend interface {1} doesn't exist "
+                            .format(self.load_balancer_name, frontend_interface_name))
+
+        backend_pool_name = self.get_option_value(xml, 'backendAddressPool', str)
+        if backend_pool_name not in self.backend_address_pools:
+            raise Exception("{0}: referenced backend address pool {1} doesn't exist "
+                            .format(self.load_balancer_name, backend_pool_name))
+
         return {
-            'frontend_interface': ResId(lb_resid,
-                                        subresource = self.get_option_value(xml, 'frontendInterface', str),
+            'frontend_interface': ResId(self.lb_resid,
+                                        subresource = frontend_interface_name,
                                         subtype = 'frontendIPConfigurations').id,
-            'backend_address_pool': ResId(lb_resid,
-                                          subresource = self.get_option_value(xml, 'backendAddressPool', str),
+            'backend_address_pool': ResId(self.lb_resid,
+                                          subresource = backend_pool_name,
                                           subtype = 'backendAddressPools').id,
-            'probe': probe and ResId(lb_resid, subtype = 'probes', subresource = probe).id,
+            'probe': probe and ResId(self.lb_resid, subtype = 'probes',
+                                     subresource = probe).id,
             'protocol': self.get_option_value(xml, 'protocol', str),
             'frontend_port': self.get_option_value(xml, 'frontendPort', int),
             'backend_port': self.get_option_value(xml, 'backendPort', int),
