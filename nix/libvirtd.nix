@@ -4,7 +4,7 @@ with lib;
 
 let
   sz = toString config.deployment.libvirtd.baseImageSize;
-  base_image = import ./libvirtd-image.nix { size = sz; };
+  base_image = import ./libvirtd-root-image.nix { size = sz; };
   the_key = builtins.getEnv "NIXOPS_LIBVIRTD_PUBKEY";
   ssh_image = pkgs.vmTools.runInLinuxVM (
     pkgs.runCommand "libvirtd-ssh-image"
@@ -92,6 +92,44 @@ in
       type = types.str;
       description = "Additional XML appended at the end of device tag in domain xml. See https://libvirt.org/formatdomain.html";
     };
+
+    deployment.libvirtd.disks = mkOption {
+      default = {};
+      example =
+        { big-disk = {
+            device = "hdb";
+            size = 1048576;
+          };
+        };
+      type = types.attrsOf types.optionSet;
+      description = ''
+        Definition of the disk images attached to this domain.  If baseImage is not provided then a
+        disk image containing a single EXT4 partition will be created.  The name of this option set
+        will be the label of the created EXT4 partition.
+      '';
+
+      options = {
+        device = mkOption {
+          type = types.string;
+          description = "IDE device the disk will be attached to.";
+        };
+
+        size = mkOption {
+          type = types.int;
+          description = "Size (in megabytes) of this disk.";
+        };
+
+        baseImage = mkOption {
+          default = null;
+          example = "/home/alice/another-disk.qcow2";
+          type = with types; nullOr path;
+          description = ''
+            The image to use as the base of the device image. If no baseImage path is set then a disk
+            image contianing a single EXT4 partition will be created.
+          '';
+        };
+      };
+    };
   };
 
   ###### implementation
@@ -110,6 +148,6 @@ in
     services.openssh.enable = true;
     services.openssh.startWhenNeeded = false;
     services.openssh.extraConfig = "UseDNS no";
-};
+  };
 
 }

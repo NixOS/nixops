@@ -140,7 +140,7 @@ rec {
             optionalAttrs (v.config.deployment.targetEnv == "virtualbox") (cfg
               // { disks = mapAttrs (n: v: v //
                 { baseImage = if isDerivation v.baseImage then "drv" else toString v.baseImage; }) cfg.disks; });
-          libvirtd = v.config.deployment.libvirtd;
+          libvirtd = optionalAttrs (v.config.deployment.targetEnv == "libvirtd") v.config.deployment.libvirtd;
         }
       );
 
