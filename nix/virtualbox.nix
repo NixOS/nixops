@@ -131,7 +131,7 @@ in
 
     deployment.virtualbox.disks.disk1 =
       { port = 0;
-        size = 0;
+        size = mkDefault 0;
         baseImage = mkDefault (
           let
             unpack = name: sha256: pkgsNative.runCommand "virtualbox-nixops-${name}.vdi" {}
