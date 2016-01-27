@@ -40,10 +40,11 @@ rec {
               "gce-disk" "gce-image" "gce-forwarding-rule" "gce-http-health-check" "gce-network"
               "gce-static-ip" "gce-target-pool" "gse-bucket" ]}
 
-        make -C doc/manual install docdir=$out/manual mandir=$TMPDIR/man
+        for i in scripts/nixops setup.py doc/manual/manual.xml; do
+          substituteInPlace $i --subst-var-by version ${version}
+        done
 
-        substituteInPlace scripts/nixops --subst-var-by version ${version}
-        substituteInPlace setup.py --subst-var-by version ${version}
+        make -C doc/manual install docdir=$out/manual mandir=$TMPDIR/man
 
         releaseName=nixops-$VERSION
         mkdir ../$releaseName

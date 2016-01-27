@@ -5,6 +5,7 @@
   <info>
 
     <title>NixOps User's Guide</title>
+    <subtitle>Version @version@</subtitle>
 
     <author>
       <personname>
@@ -29,13 +30,12 @@
     </author>
 
     <copyright>
-      <year>2012</year>
-      <year>2013</year>
+      <year>2012-2016</year>
       <holder>Eelco Dolstra</holder>
       <holder>Rob Vermaas</holder>
     </copyright>
 
-    <date>June 2013</date>
+    <date>January 2016</date>
 
   </info>
 
