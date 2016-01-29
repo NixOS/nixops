@@ -109,6 +109,7 @@ rec {
   resources.azureDNSZones = evalResources ./azure-dns-zone.nix (zipAttrs resourcesByType.azureDNSZones or []);
   resources.azureFiles = evalResources ./azure-file.nix (zipAttrs resourcesByType.azureFiles or []);
   resources.azureLoadBalancers = evalAzureResources ./azure-load-balancer.nix (zipAttrs resourcesByType.azureLoadBalancers or []);
+  resources.azureLocalNetworkGateways = evalAzureResources ./azure-local-network-gateway.nix (zipAttrs resourcesByType.azureLocalNetworkGateways or []);
   resources.azureSecurityGroups = evalAzureResources ./azure-network-security-group.nix (zipAttrs resourcesByType.azureSecurityGroups or []);
   resources.azureQueues = evalResources ./azure-queue.nix (zipAttrs resourcesByType.azureQueues or []);
   resources.azureReservedIPAddresses = evalAzureResources ./azure-reserved-ip-address.nix (zipAttrs resourcesByType.azureReservedIPAddresses or []);
