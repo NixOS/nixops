@@ -121,6 +121,7 @@ rec {
       evalAzureResources ./azure-storage.nix
           (azure_default_storages // (zipAttrs resourcesByType.azureStorages or []));
   resources.azureTables = evalResources ./azure-table.nix (zipAttrs resourcesByType.azureTables or []);
+  resources.azureVirtualNetworkGateways = evalAzureResources ./azure-virtual-network-gateway.nix (zipAttrs resourcesByType.azureVirtualNetworkGateways or []);
   resources.azureVirtualNetworks =
       evalAzureResources ./azure-virtual-network.nix
           (azure_default_networks // (zipAttrs resourcesByType.azureVirtualNetworks or []));
