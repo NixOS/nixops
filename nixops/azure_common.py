@@ -90,6 +90,8 @@ class ResId(dict):
         'azure-virtual-network': {'provider':'Microsoft.Network', 'type': 'virtualNetworks' },
         'azure-network-security-group': { 'provider':'Microsoft.Network', 'type': 'networkSecurityGroups' },
         'azure-dns-zone': { 'provider':'Microsoft.Network', 'type': 'dnsZones' },
+        'azure-local-network-gateway': { 'provider':'Microsoft.Network', 'type': 'localNetworkGateways' },
+        'azure-virtual-network-gateway': { 'provider':'Microsoft.Network', 'type': 'virtualNetworkGateways' },
     }
 
 

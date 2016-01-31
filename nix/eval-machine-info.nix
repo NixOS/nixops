@@ -108,6 +108,7 @@ rec {
   resources.azureDNSRecordSets = evalResources ./azure-dns-record-set.nix (zipAttrs resourcesByType.azureDNSRecordSets or []);
   resources.azureDNSZones = evalResources ./azure-dns-zone.nix (zipAttrs resourcesByType.azureDNSZones or []);
   resources.azureFiles = evalResources ./azure-file.nix (zipAttrs resourcesByType.azureFiles or []);
+  resources.azureGatewayConnections = evalAzureResources ./azure-gateway-connection.nix (zipAttrs resourcesByType.azureGatewayConnections or []);
   resources.azureLoadBalancers = evalAzureResources ./azure-load-balancer.nix (zipAttrs resourcesByType.azureLoadBalancers or []);
   resources.azureLocalNetworkGateways = evalAzureResources ./azure-local-network-gateway.nix (zipAttrs resourcesByType.azureLocalNetworkGateways or []);
   resources.azureSecurityGroups = evalAzureResources ./azure-network-security-group.nix (zipAttrs resourcesByType.azureSecurityGroups or []);
