@@ -106,22 +106,23 @@ rec {
           (azure_default_blobs // (zipAttrs resourcesByType.azureBlobs or []));
   resources.azureDirectories = evalResources ./azure-directory.nix (zipAttrs resourcesByType.azureDirectories or []);
   resources.azureDNSRecordSets = evalResources ./azure-dns-record-set.nix (zipAttrs resourcesByType.azureDNSRecordSets or []);
-  resources.azureDNSZones = evalResources ./azure-dns-zone.nix (zipAttrs resourcesByType.azureDNSZones or []);
+  resources.azureDNSZones = evalAzureResources ./azure-dns-zone.nix (zipAttrs resourcesByType.azureDNSZones or []);
   resources.azureFiles = evalResources ./azure-file.nix (zipAttrs resourcesByType.azureFiles or []);
   resources.azureGatewayConnections = evalAzureResources ./azure-gateway-connection.nix (zipAttrs resourcesByType.azureGatewayConnections or []);
   resources.azureLoadBalancers = evalAzureResources ./azure-load-balancer.nix (zipAttrs resourcesByType.azureLoadBalancers or []);
   resources.azureLocalNetworkGateways = evalAzureResources ./azure-local-network-gateway.nix (zipAttrs resourcesByType.azureLocalNetworkGateways or []);
-  resources.azureSecurityGroups = evalAzureResources ./azure-network-security-group.nix (zipAttrs resourcesByType.azureSecurityGroups or []);
   resources.azureQueues = evalResources ./azure-queue.nix (zipAttrs resourcesByType.azureQueues or []);
   resources.azureReservedIPAddresses = evalAzureResources ./azure-reserved-ip-address.nix (zipAttrs resourcesByType.azureReservedIPAddresses or []);
   resources.azureResourceGroups =
       evalAzureResourceGroups ./azure-resource-group.nix
           (azure_default_group // (zipAttrs resourcesByType.azureResourceGroups or []));
+  resources.azureSecurityGroups = evalAzureResources ./azure-network-security-group.nix (zipAttrs resourcesByType.azureSecurityGroups or []);
   resources.azureShares = evalResources ./azure-share.nix (zipAttrs resourcesByType.azureShares or []);
   resources.azureStorages =
       evalAzureResources ./azure-storage.nix
           (azure_default_storages // (zipAttrs resourcesByType.azureStorages or []));
   resources.azureTables = evalResources ./azure-table.nix (zipAttrs resourcesByType.azureTables or []);
+  resources.azureTrafficManagerProfiles = evalAzureResources ./azure-traffic-manager-profile.nix (zipAttrs resourcesByType.azureTrafficManagerProfiles or []);
   resources.azureVirtualNetworkGateways = evalAzureResources ./azure-virtual-network-gateway.nix (zipAttrs resourcesByType.azureVirtualNetworkGateways or []);
   resources.azureVirtualNetworks =
       evalAzureResources ./azure-virtual-network.nix
