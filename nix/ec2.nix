@@ -432,8 +432,12 @@ in
 
     deployment.ec2.ami = mkDefault (
       let
-        # FIXME: select hvm-pv AMIs if appropriate.
-        type = if isEc2Hvm then "hvm-ebs" else if cfg.ebsBoot then "pv-ebs" else "pv-s3";
+        # FIXME: select hvm-s3 AMIs if appropriate.
+        type =
+          if isEc2Hvm then
+            if cfg.ebsBoot then "hvm-ebs" else "hvm-s3"
+          else
+            if cfg.ebsBoot then "pv-ebs" else "pv-s3";
         amis' = amis."${nixosVersion}" or amis."15.09"; # default to 15.09 images
       in
         with builtins;
