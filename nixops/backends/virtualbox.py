@@ -289,6 +289,8 @@ class VirtualBoxState(MachineState):
                              "-o", "{0}/vbox-image-{1}".format(self.depl.tempdir, self.name)],
                             capture_stdout=True).rstrip()
                     self._logged_exec(["VBoxManage", "clonehd", base_image, disk_path])
+                    if disk_def['size'] != 0:
+                        self._logged_exec(["VBoxManage", "modifyhd", disk_path, "--resize", str(disk_def['size'])])
                 else:
                     # Create an empty disk.
                     if disk_def['size'] <= 0:
