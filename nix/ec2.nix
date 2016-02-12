@@ -489,6 +489,11 @@ in
           "m4.2xlarge"  = { cores = 8;  memory = 32768;  allowsEbsOptimized = true;  };
           "m4.xlarge"   = { cores = 4;  memory = 16384;  allowsEbsOptimized = true;  };
           "m4.large"    = { cores = 2;  memory = 8192;   allowsEbsOptimized = true;  };
+          "c4.8xlarge"  = { cores = 36; memory = 61440;  allowsEbsOptimized = true;  };
+          "c4.4xlarge"  = { cores = 16; memory = 30720;  allowsEbsOptimized = true;  };
+          "c4.2xlarge"  = { cores = 8;  memory = 15360;  allowsEbsOptimized = true;  };
+          "c4.xlarge"   = { cores = 4;  memory = 7680;   allowsEbsOptimized = true;  };
+          "c4.large"    = { cores = 2;  memory = 3840;   allowsEbsOptimized = true;  };
           "c1.medium"   = { cores = 2;  memory = 1697;   allowsEbsOptimized = false; };
           "c1.xlarge"   = { cores = 8;  memory = 6953;   allowsEbsOptimized = true;  };
           "cc1.4xlarge" = { cores = 16; memory = 21542;  allowsEbsOptimized = false; };
