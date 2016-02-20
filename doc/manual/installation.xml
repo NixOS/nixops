@@ -38,7 +38,6 @@ $ export NIX_PATH=/nix/var/nix/profiles/per-user/root/channels/nixos
 
 <screen>
 $ cd /some/dir
-$ git clone git://github.com/NixOS/nixos.git
 $ git clone git://github.com/NixOS/nixpkgs.git
 $ export NIX_PATH=/some/dir
 </screen>
