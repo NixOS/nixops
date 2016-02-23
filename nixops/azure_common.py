@@ -28,7 +28,7 @@ from azure.storage.models import SignedIdentifiers, SignedIdentifier, AccessPoli
 import adal
 import logging
 
-logging.getLogger('python_adal').addHandler(logging.StreamHandler())
+logging.getLogger('python_adal').addHandler(logging.NullHandler())
 
 
 def optional_string(elem):
@@ -242,8 +242,12 @@ class ResourceState(nixops.resources.ResourceState):
             if token_id in self.tokens:
                 token = self.tokens[token_id]
             else:
-                token = adal.acquire_token_with_username_password(
-                            str(self.authority_url), str(self.user), str(self.password))
+                try:
+                    token = adal.acquire_token_with_username_password(
+                                str(self.authority_url), str(self.user), str(self.password))
+                except Exception as e:
+                    e.args = ("Auth failure: {0}".format(e.args[0]),) + e.args[1:] 
+                    raise
                 self.tokens[token_id] = token
         return SubscriptionCloudCredentials(self.subscription_id, token['accessToken'])
 
