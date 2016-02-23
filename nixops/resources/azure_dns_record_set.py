@@ -124,7 +124,6 @@ class AzureDNSRecordSetState(ResourceState):
 
         if check:
             rset = self.get_settled_resource()
-            print rset
             if not rset:
                 self.warn_missing_resource()
             elif self.state == self.UP:

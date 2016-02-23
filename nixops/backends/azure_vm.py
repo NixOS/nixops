@@ -698,21 +698,6 @@ class AzureState(MachineState, ResourceState):
         public_ip_id = self.nrpc().public_ip_addresses.get(
                             self.resource_group,
                             self.public_ip).public_ip_address.id if defn.obtain_ip else None
-        print             NetworkInterface(name = self.machine_name,
-                             location = defn.location,
-                             network_security_group = defn.security_group and
-                                                      ResId(defn.security_group),
-                             ip_configurations = [ NetworkInterfaceIpConfiguration(
-                                 name = 'default',
-                                 private_ip_allocation_method = IpAllocationMethod.dynamic,
-                                 subnet = ResId(defn.subnet),
-                                 load_balancer_backend_address_pools = [
-                                     ResId(pool) for pool in defn.backend_address_pools ],
-                                 load_balancer_inbound_nat_rules = [
-                                     ResId(rule) for rule in defn.inbound_nat_rules ],
-                                 public_ip_address = public_ip_id and ResId(public_ip_id),
-                             )]
-                           ).__dict__
         self.nrpc().network_interfaces.create_or_update(
             self.resource_group, self.machine_name,
             NetworkInterface(name = self.machine_name,
