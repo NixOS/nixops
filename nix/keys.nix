@@ -118,7 +118,7 @@ in
       "things to break."
     )];
 
-    system.activationScripts.nixops-keys =
+    system.activationScripts.nixops-keys = stringAfter [ "users" "groups" ]
       ''
         mkdir -p /run/keys -m 0750
         chown root:keys /run/keys
@@ -136,6 +136,14 @@ in
               touch /run/keys/done
             '')
         }
+
+        ${concatStringsSep "\n" (flip mapAttrsToList config.deployment.keys (name: value:
+          # Make sure each key has correct ownership, since the configured owning
+          # user or group may not have existed when first uploaded.
+          ''
+            [[ -f "/run/keys/${name}" ]] && chown '${value.user}:${value.group}' "/run/keys/${name}"
+          ''
+        ))}
       '';
 
     systemd.services.nixops-keys =
