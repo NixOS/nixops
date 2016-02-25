@@ -366,9 +366,17 @@ class ResourceState(nixops.resources.ResourceState):
         if self.state == self.UP:
             try:
                 resource = self.get_settled_resource()
-                return self.confirm_destroy(abort = False)
+                if resource is None:
+                    self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
+                else:
+                    return self.confirm_destroy(abort = False)
             except azure.common.AzureMissingResourceHttpError:
                 self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
+            except azure.common.AzureHttpError as e:
+                if e.status_code == 204:
+                    self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
+                else:
+                    raise
         return True
 
 
