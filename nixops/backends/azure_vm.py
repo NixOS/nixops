@@ -20,7 +20,7 @@ from nixops.util import attr_property, create_key_pair, generate_random_string, 
 from nixops.nix_expr import Call, RawValue
 
 from nixops.backends import MachineDefinition, MachineState
-from nixops.azure_common import ResourceDefinition, ResourceState, ResId
+from nixops.azure_common import ResourceDefinition, ResourceState, ResId, normalize_location
 
 from azure.mgmt.network import PublicIpAddress, NetworkInterface, NetworkInterfaceIpConfiguration, IpAllocationMethod, ResourceId
 from azure.mgmt.compute import *
@@ -94,7 +94,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'password', str, empty = True, optional = True)
 
         self.copy_option(x, 'size', str, empty = False)
-        self.copy_option(x, 'location', str, empty = False)
+        self.copy_location(x)
         self.copy_option(x, 'storage', 'resource')
         self.copy_option(x, 'resourceGroup', 'resource')
 
@@ -420,6 +420,8 @@ class AzureState(MachineState, ResourceState):
                 if self.vm_id:
                     if vm.provisioning_state == ProvisioningStateTypes.failed:
                         self.warn("vm resource exists, but is in a failed state")
+                    self.handle_changed_property('location', normalize_location(vm.location),
+                                                 can_fix = False)
                     self.handle_changed_property('size', vm.hardware_profile.virtual_machine_size)
                     # workaround: for some reason the availability set name gets capitalized
                     availability_set = ResId(vm.availability_set_reference and

@@ -48,6 +48,9 @@ def ensure_positive(value, name):
     if value <= 0:
         raise Exception("{0} must be a positive integer".format(name))
 
+def normalize_location(location):
+    return None if location is None else location.lower().replace(' ', '')
+
 class ResId(dict):
     def __init__(self, base, **kwargs):
         self.update(self.parse(base) or {})
@@ -194,6 +197,11 @@ class ResourceDefinition(ResourceDefinitionBase):
         if not password:
             raise Exception("please set '{0}.password' or AZURE_PASSWORD".format(self.credentials_prefix))
         return password
+
+    def copy_location(self, xml):
+        self.location = normalize_location(
+                            self.get_option_value(xml, 'location', str, empty = False))
+
 
 class StorageResourceDefinition(ResourceDefinitionBase):
 

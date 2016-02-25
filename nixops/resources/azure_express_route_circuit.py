@@ -13,7 +13,7 @@ except:
     from urllib.parse import quote
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState, ResId
+from nixops.azure_common import ResourceDefinition, ResourceState, ResId, normalize_location
 from azure.common import AzureHttpError
 
 from azure.mgmt.network import *
@@ -34,7 +34,7 @@ class AzureExpressRouteCircuitDefinition(ResourceDefinition):
 
         self.circuit_name = self.get_option_value(xml, 'name', str)
         self.copy_option(xml, 'resourceGroup', 'resource')
-        self.copy_option(xml, 'location', str, empty = False)
+        self.copy_location(xml)
         self.copy_tags(xml)
 
         sku_xml = xml.find("attrs/attr[@name='sku']")
@@ -201,7 +201,7 @@ class AzureExpressRouteCircuitState(ResourceState):
             elif self.state == self.UP:
                 self.handle_changed_property('tags', circuit.get('tags', {}))
                 self.handle_changed_property('location',
-                                             circuit.get('location', None),
+                                             normalize_location(circuit.get('location', None)),
                                              can_fix = False)
                 sku = circuit.get('sku', {})
                 self.handle_changed_property('tier', sku.get('tier', None))

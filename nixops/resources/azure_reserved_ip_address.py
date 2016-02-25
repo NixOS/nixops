@@ -7,7 +7,7 @@ import azure
 import time
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState
+from nixops.azure_common import ResourceDefinition, ResourceState, normalize_location
 
 from azure.mgmt.network import *
 
@@ -27,7 +27,7 @@ class AzureReservedIPAddressDefinition(ResourceDefinition):
 
         self.reserved_ip_address_name = self.get_option_value(xml, 'name', str)
         self.copy_option(xml, 'resourceGroup', 'resource')
-        self.copy_option(xml, 'location', str)
+        self.copy_location(xml)
         self.copy_tags(xml)
         self.copy_option(xml, 'idleTimeout', int)
         self.copy_option(xml, 'domainNameLabel', str, optional = True)
@@ -121,7 +121,8 @@ class AzureReservedIPAddressState(ResourceState):
             if not address:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                self.handle_changed_property('location', address.location, can_fix = False)
+                self.handle_changed_property('location', normalize_location(address.location),
+                                             can_fix = False)
                 self.handle_changed_property('tags', address.tags)
                 self.handle_changed_property('ip_address', address.ip_address, property_name = '')
                 self.handle_changed_property('idle_timeout', address.idle_timeout_in_minutes)

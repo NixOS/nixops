@@ -13,7 +13,7 @@ except:
     from urllib.parse import quote
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState, ResId
+from nixops.azure_common import ResourceDefinition, ResourceState, ResId, normalize_location
 from azure.common import AzureHttpError
 
 from azure.mgmt.network import *
@@ -59,8 +59,9 @@ class AzureTrafficManagerProfileDefinition(ResourceDefinition):
                                        optional = (self.traffic_routing_method != 'Weighted'))
         priority = self.get_option_value(xml, 'priority', int,
                                          optional = (self.traffic_routing_method != 'Priority'))
-        location = self.get_option_value(xml, 'location', str,
-                                         optional = (self.traffic_routing_method != 'Performance'))
+        location = normalize_location(
+                       self.get_option_value(xml, 'location', str,
+                           optional = (self.traffic_routing_method != 'Performance')))
         return {
             'target': self.get_option_value(xml, 'target', str, empty = False),
             'endpointStatus': enabled,
@@ -215,16 +216,17 @@ class AzureTrafficManagerProfieState(ResourceState):
                                      resource_name = ep_res_name)
             if self.traffic_routing_method == 'Weighted':
                 self.handle_changed_dict(_s_ep, 'weight',
-                                        properties.get('weight', None),
-                                        resource_name = ep_res_name)
+                                         properties.get('weight', None),
+                                         resource_name = ep_res_name)
             if self.traffic_routing_method == 'Priority':
                 self.handle_changed_dict(_s_ep, 'priority',
-                                        properties.get('priority', None),
-                                        resource_name = ep_res_name)
+                                         properties.get('priority', None),
+                                         resource_name = ep_res_name)
             if self.traffic_routing_method == 'Performance':
                 self.handle_changed_dict(_s_ep, 'endpointLocation',
-                                        properties.get('endpointLocation', None),
-                                        resource_name = ep_res_name)
+                                         normalize_location(
+                                             properties.get('endpointLocation', None)),
+                                         resource_name = ep_res_name)
             update_endpoints(_name, _s_ep)
 
 

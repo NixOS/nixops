@@ -6,7 +6,7 @@ import os
 import azure
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState
+from nixops.azure_common import ResourceDefinition, ResourceState, normalize_location
 from azure.mgmt.resource import ResourceGroup
 
 class AzureResourceGroupDefinition(ResourceDefinition):
@@ -24,7 +24,7 @@ class AzureResourceGroupDefinition(ResourceDefinition):
         ResourceDefinition.__init__(self, xml)
 
         self.resource_group_name = self.get_option_value(xml, 'name', str)
-        self.copy_option(xml, 'location', str, empty = False)
+        self.copy_location(xml)
         self.copy_tags(xml)
 
     def show_type(self):
@@ -77,7 +77,8 @@ class AzureResourceGroupState(ResourceState):
             if not rg:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                self.handle_changed_property('location', rg.location, can_fix = False)
+                self.handle_changed_property('location', normalize_location(rg.location),
+                                             can_fix = False)
                 self.handle_changed_property('tags', rg.tags)
             else:
                 self.warn_not_supposed_to_exist()

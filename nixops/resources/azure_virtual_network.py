@@ -6,7 +6,7 @@ import os
 import azure
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState, ResId
+from nixops.azure_common import ResourceDefinition, ResourceState, ResId, normalize_location
 
 from azure.mgmt.network import VirtualNetwork, AddressSpace, Subnet, DhcpOptions
 
@@ -31,7 +31,7 @@ class AzureVirtualNetworkDefinition(ResourceDefinition):
                             .format(self.network_name))
         self.copy_option(xml, 'dnsServers', 'strlist')
         self.copy_option(xml, 'resourceGroup', 'resource')
-        self.copy_option(xml, 'location', str, empty = False)
+        self.copy_location(xml)
 
         self.copy_tags(xml)
 
@@ -156,7 +156,9 @@ class AzureVirtualNetworkState(ResourceState):
             if not network:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                self.handle_changed_property('location', network.location, can_fix = False)
+                self.handle_changed_property('location',
+                                             normalize_location(network.location),
+                                             can_fix = False)
                 self.handle_changed_property('tags', network.tags)
                 self.handle_changed_property('address_space',
                                              network.address_space.address_prefixes)

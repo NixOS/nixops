@@ -6,7 +6,7 @@ import os
 import azure
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState, ResId
+from nixops.azure_common import ResourceDefinition, ResourceState, ResId, normalize_location
 
 from azure.mgmt.network import *
 
@@ -26,7 +26,7 @@ class AzureVirtualNetworkGatewayDefinition(ResourceDefinition):
 
         self.gateway_name = self.get_option_value(xml, 'name', str)
         self.copy_option(xml, 'resourceGroup', 'resource')
-        self.copy_option(xml, 'location', str, empty = False)
+        self.copy_location(xml)
         self.copy_tags(xml)
         self.copy_option(xml, 'gatewaySize', str, empty = False)
         self.copy_option(xml, 'gatewayType', str, empty = False)
@@ -166,7 +166,8 @@ class AzureVirtualNetworkGatewayState(ResourceState):
                 self.warn_missing_resource()
             elif self.state == self.UP:
                 self.handle_changed_property('location',
-                                             gateway['location'], can_fix = False)
+                                             normalize_location(gateway['location']),
+                                             can_fix = False)
                 self.handle_changed_property('tags', gateway['tags'])
                 properties = gateway['properties']
                 # azure provides sku specification which doesn't directly map to gatewaySize

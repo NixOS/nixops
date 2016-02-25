@@ -6,7 +6,7 @@ import os
 import azure
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState, ResId
+from nixops.azure_common import ResourceDefinition, ResourceState, ResId, normalize_location
 
 from azure.mgmt.network import *
 
@@ -26,7 +26,7 @@ class AzureLoadBalancerDefinition(ResourceDefinition):
 
         self.load_balancer_name = self.get_option_value(xml, 'name', str)
         self.copy_option(xml, 'resourceGroup', 'resource')
-        self.copy_option(xml, 'location', str, empty = False)
+        self.copy_location(xml)
 
         self.lb_resid = ResId("",
                               subscription = self.get_subscription_id(),
@@ -424,7 +424,8 @@ class AzureLoadBalancerState(ResourceState):
             if not lb:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                self.handle_changed_property('location', lb.location, can_fix = False)
+                self.handle_changed_property('location', normalize_location(lb.location),
+                                             can_fix = False)
                 self.handle_changed_property('tags', lb.tags)
                 self.handle_changed_probes(lb.probes)
                 self.handle_changed_frontend_interfaces(lb.frontend_ip_configurations)

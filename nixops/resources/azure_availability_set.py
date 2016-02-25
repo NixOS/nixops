@@ -6,7 +6,7 @@ import os
 import azure
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState
+from nixops.azure_common import ResourceDefinition, ResourceState, normalize_location
 
 from azure.mgmt.compute import AvailabilitySet
 
@@ -26,7 +26,7 @@ class AzureVirtualNetworkDefinition(ResourceDefinition):
 
         self.availability_set_name = self.get_option_value(xml, 'name', str)
         self.copy_option(xml, 'resourceGroup', 'resource')
-        self.copy_option(xml, 'location', str, empty = False)
+        self.copy_location(xml)
         self.copy_tags(xml)
         self.copy_option(xml, 'platformUpdateDomainCount', int)
         self.copy_option(xml, 'platformFaultDomainCount', int)
@@ -106,7 +106,8 @@ class AzureAvailabilitySetState(ResourceState):
             if not aset:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                self.handle_changed_property('location', aset.location, can_fix = False)
+                self.handle_changed_property('location', normalize_location(aset.location),
+                                             can_fix = False)
                 self.handle_changed_property('tags', aset.tags)
                 self.handle_changed_property('platform_update_domain_count',
                                              aset.platform_update_domain_count,

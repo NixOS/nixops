@@ -6,7 +6,7 @@ import os
 import azure
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, StorageResourceState
+from nixops.azure_common import ResourceDefinition, StorageResourceState, normalize_location
 
 from azure.mgmt.storage import StorageAccountCreateParameters, StorageAccountUpdateParameters, CustomDomain
 
@@ -32,7 +32,7 @@ class AzureStorageDefinition(ResourceDefinition):
         self.copy_option(xml, 'activeKey', str, empty = False)
         if self.active_key not in ['primary', 'secondary']:
             raise Exception("Allowed activeKey values are: 'primary' and 'secondary'")
-        self.copy_option(xml, 'location', str, empty = False)
+        self.copy_location(xml)
         self.copy_option(xml, 'customDomain', str)
         self.copy_tags(xml)
 
@@ -237,7 +237,8 @@ class AzureStorageState(StorageResourceState):
             if not storage:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                self.handle_changed_property('location', storage.location, can_fix = False)
+                self.handle_changed_property('location', normalize_location(storage.location),
+                                             can_fix = False)
                 self.handle_changed_property('account_type', storage.account_type)
                 self.handle_changed_property('tags', storage.tags)
                 self.handle_changed_property('custom_domain', (storage.custom_domain and storage.custom_domain.name) or "")

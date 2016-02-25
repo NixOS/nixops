@@ -6,7 +6,7 @@ import os
 import azure
 
 from nixops.util import attr_property
-from nixops.azure_common import ResourceDefinition, ResourceState, ResId
+from nixops.azure_common import ResourceDefinition, ResourceState, ResId, normalize_location
 
 from azure.mgmt.network import *
 
@@ -26,7 +26,7 @@ class AzureNetworkSecurityGroupDefinition(ResourceDefinition):
 
         self.nsg_name = self.get_option_value(xml, 'name', str)
         self.copy_option(xml, 'resourceGroup', 'resource')
-        self.copy_option(xml, 'location', str, empty = False)
+        self.copy_location(xml)
         self.copy_tags(xml)
 
         self.security_rules = {
@@ -179,7 +179,8 @@ class AzureNetworkSecurityGroupState(ResourceState):
             if not nsg:
                 self.warn_missing_resource()
             elif self.state == self.UP:
-                self.handle_changed_property('location', nsg.location, can_fix = False)
+                self.handle_changed_property('location', normalize_location(nsg.location),
+                                             can_fix = False)
                 self.handle_changed_property('tags', nsg.tags)
                 self.handle_changed_security_rules(nsg.security_rules)
             else:
