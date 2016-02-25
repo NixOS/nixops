@@ -184,5 +184,6 @@ class AzureVirtualNetworkState(ResourceState):
 
     def create_after(self, resources, defn):
         from nixops.resources.azure_resource_group import AzureResourceGroupState
+        from nixops.resources.azure_network_security_group import AzureNetworkSecurityGroupState
         return {r for r in resources
-                  if isinstance(r, AzureResourceGroupState)}
+                  if isinstance(r, AzureResourceGroupState) or isinstance(r, AzureNetworkSecurityGroupState) }
