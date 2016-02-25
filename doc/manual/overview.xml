@@ -817,7 +817,7 @@ in {
 
   resources.azureLoadBalancers.lb = {resources,...}: credentials // {
     location = "westus";
-    frontendInterfaces.default.publicIpAdress = resources.azureReservedIPAddresses.lb-ip;
+    frontendInterfaces.default.publicIpAddress = resources.azureReservedIPAddresses.lb-ip;
     loadBalancingRules.web = {
       frontendPort = 80;
       backendPort = 80;
@@ -1054,7 +1054,7 @@ backendAddressPools = [ "default" ];
 <programlisting>
 resources.azureLoadBalancers.lb = {resources,...}: credentials // {
   location = "westus";
-  frontendInterfaces.default.publicIpAdress = resources.azureReservedIPAddresses.lb-ip;
+  frontendInterfaces.default.publicIpAddress = resources.azureReservedIPAddresses.lb-ip;
   inboundNatRules.machine3-ssh = {
     frontendPort = 2201;
     backendPort = 22;

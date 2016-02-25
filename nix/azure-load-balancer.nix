@@ -190,7 +190,7 @@ let
         '';
       };
 
-      publicIpAdress = mkOption {
+      publicIpAddress = mkOption {
         default = null;
         example = "my-reserved-ip";
         type = types.nullOr (types.either types.str (resource "azure-reserved-ip-address"));
@@ -311,7 +311,7 @@ in
       example = {
         default = {
           subnet.network = "my-virtual-network";
-          publicIpAdress = "my-reserved-address";
+          publicIpAddress = "my-reserved-address";
         };
       };
       type = types.attrsOf types.optionSet;

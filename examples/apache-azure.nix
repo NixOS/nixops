@@ -29,7 +29,7 @@ in {
 
   resources.azureLoadBalancers.lb = {resources,...}: credentials // {
     location = "westus";
-    frontendInterfaces.default.publicIpAdress = resources.azureReservedIPAddresses.lb-ip;
+    frontendInterfaces.default.publicIpAddress = resources.azureReservedIPAddresses.lb-ip;
     loadBalancingRules.web = {
       frontendPort = 80;
       backendPort = 80;

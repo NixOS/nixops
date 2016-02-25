@@ -63,7 +63,7 @@ class AzureLoadBalancerDefinition(ResourceDefinition):
         network = self.get_option_value(subnet_xml, 'network', 'res-id', optional = True)
         subnet = network and ResId(network, subtype = 'subnets',
                                         subresource = self.get_option_value(subnet_xml, 'name', str)).id
-        public_ip = self.get_option_value(xml, 'publicIpAdress', 'res-id', optional = True)
+        public_ip = self.get_option_value(xml, 'publicIpAddress', 'res-id', optional = True)
         if subnet and public_ip:
             raise Exception('{0}: can specify either subnet or public IP but not both at once'
                             .format(self.load_balancer_name))
