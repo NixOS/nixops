@@ -146,21 +146,54 @@ in
         ))}
       '';
 
-    systemd.services.nixops-keys =
-      { enable = config.deployment.keys != {};
-        description = "Waiting for NixOps Keys";
-        wantedBy = [ "keys.target" ];
-        before = [ "keys.target" ];
-        unitConfig.DefaultDependencies = false; # needed to prevent a cycle
-        serviceConfig.Type = "oneshot";
-        serviceConfig.RemainAfterExit = true;
-        script =
-          ''
-            while ! [ -e /run/keys/done ]; do
-              sleep 0.1
-            done
+    systemd.services = (
+      { nixops-keys =
+        { enable = config.deployment.keys != {};
+          description = "Waiting for NixOps Keys";
+          wantedBy = [ "keys.target" ];
+          before = [ "keys.target" ];
+          unitConfig.DefaultDependencies = false; # needed to prevent a cycle
+          serviceConfig.Type = "oneshot";
+          serviceConfig.RemainAfterExit = true;
+          script =
+            ''
+              while ! [ -e /run/keys/done ]; do
+                sleep 0.1
+              done
+            '';
+        };
+      }
+      //
+      (flip mapAttrs' config.deployment.keys (name: keyCfg:
+        nameValuePair "${name}-key" {
+          enable = true;
+          serviceConfig.TimeoutStartSec = "infinity";
+          serviceConfig.Restart = "always";
+          serviceConfig.RestartSec = "100ms";
+          path = [ pkgs.inotifyTools ];
+          preStart = ''
+            (while read f; do if [ "$f" = "${name}" ]; then break; fi; done \
+              < <(inotifywait -qm --format '%f' -e create /run/keys) ) &
+
+            if [[ -e "/run/keys/${name}" ]]; then
+              echo 'flapped down'
+              kill %1
+              exit 0
+            fi
+            wait %1
           '';
-      };
+          script = ''
+            inotifywait -qq -e delete_self "/run/keys/${name}" &
+
+            if [[ ! -e "/run/keys/${name}" ]]; then
+              echo 'flapped up'
+              exit 0
+            fi
+            wait %1
+          '';
+        }
+      ))
+    );
 
   };
 
