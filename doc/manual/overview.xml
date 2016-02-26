@@ -1128,6 +1128,18 @@ machine3.deployment.azure = {
   run to detect and fix any state mismatch(es).
   </para></listitem>
 
+  <listitem><para>Resource creation and deletion operations take time to settle during
+  which the resource is in a transient state. You are most likely to encounter this if
+  you abort resource creation and run <literal>deploy --check</literal>, which will
+  silently wait for the resource to settle.</para>
+
+  <para>In certain circumstances you may encounter "resource failed to settle" error,
+  which means that waiting for the resource to settle timed out. This shouldn't happen
+  often as all operations have sensible timeouts. You are most likely to hit this
+  if an aborted creation of a resource is followed by <literal>deploy --check</literal>
+  which has a small timeout or if Azure gets unusually slow due to maintenance events.
+  </para></listitem>
+
   <listitem><para>If you are getting <literal>socket.gaierror: [Errno -2] Name or service
   not known</literal> when dealing with storage services(BLOBs, containers etc), you need
   to flush DNS cache or wait a little bit. Azure storage API calls are issued using
@@ -1141,6 +1153,11 @@ machine3.deployment.azure = {
   is not handled automatically by NixOps to avoid causing damage. Getting out of this ambiguous
   state requires either (re-)deployment of the storage or manual deletion of the affected NixOps
   resources.
+  </para></listitem>
+
+  <listitem><para>Queues, Tables, BLOB Containers and Shares disappear instantly on deletion,
+  but it takes some time for deletes to settle. You will get an error if you try re-creating
+  such a resource too soon after deletion. Usually, storage resources settle within several seconds.
   </para></listitem>
 
   <listitem><para><literal>deploy --check</literal> has no way to retrieve container ACL,
