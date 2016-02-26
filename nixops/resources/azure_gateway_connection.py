@@ -151,6 +151,7 @@ class AzureGatewayConnectionState(ResourceState):
             if not connection:
                 self.warn_missing_resource()
             elif self.state == self.UP:
+                self.warn_if_failed(connection)
                 self.handle_changed_property('location',
                                              normalize_location(connection.location),
                                              can_fix = False)

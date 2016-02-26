@@ -294,6 +294,13 @@ class ResourceState(nixops.resources.ResourceState):
     def is_deployed(self):
         return (self.state == self.UP)
 
+    def is_failed(self, resource):
+        return resource.provisioning_state == 'Failed'
+
+    def warn_if_failed(self, resource):
+        if self.is_failed(resource):
+            self.warn("resource exists, but is in a failed state")
+
     def no_change(self, condition, property_name):
         if self.is_deployed() and condition:
           raise Exception("cannot change the {0} of a deployed {1}"

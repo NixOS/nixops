@@ -103,6 +103,7 @@ class AzureLocalNetworkGatewayState(ResourceState):
             if not gateway:
                 self.warn_missing_resource()
             elif self.state == self.UP:
+                self.warn_if_failed(gateway)
                 self.handle_changed_property('location',
                                              normalize_location(gateway.location), can_fix = False)
                 self.handle_changed_property('tags', gateway.tags)

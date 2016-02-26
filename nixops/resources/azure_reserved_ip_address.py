@@ -121,6 +121,7 @@ class AzureReservedIPAddressState(ResourceState):
             if not address:
                 self.warn_missing_resource()
             elif self.state == self.UP:
+                self.warn_if_failed(address)
                 self.handle_changed_property('location', normalize_location(address.location),
                                              can_fix = False)
                 self.handle_changed_property('tags', address.tags)

@@ -418,8 +418,7 @@ class AzureState(MachineState, ResourceState):
             vm = self.get_settled_resource()
             if vm:
                 if self.vm_id:
-                    if vm.provisioning_state == ProvisioningStateTypes.failed:
-                        self.warn("vm resource exists, but is in a failed state")
+                    self.warn_if_failed(vm)
                     self.handle_changed_property('location', normalize_location(vm.location),
                                                  can_fix = False)
                     self.handle_changed_property('size', vm.hardware_profile.virtual_machine_size)

@@ -156,6 +156,7 @@ class AzureVirtualNetworkState(ResourceState):
             if not network:
                 self.warn_missing_resource()
             elif self.state == self.UP:
+                self.warn_if_failed(network)
                 self.handle_changed_property('location',
                                              normalize_location(network.location),
                                              can_fix = False)

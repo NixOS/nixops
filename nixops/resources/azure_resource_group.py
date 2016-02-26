@@ -77,6 +77,7 @@ class AzureResourceGroupState(ResourceState):
             if not rg:
                 self.warn_missing_resource()
             elif self.state == self.UP:
+                self.warn_if_failed(rg)
                 self.handle_changed_property('location', normalize_location(rg.location),
                                              can_fix = False)
                 self.handle_changed_property('tags', rg.tags)

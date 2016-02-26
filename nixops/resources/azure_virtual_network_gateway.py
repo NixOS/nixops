@@ -112,6 +112,9 @@ class AzureVirtualNetworkGatewayState(ResourceState):
         return resource is None or (resource.get('properties', {})
                                             .get('provisioningState', None) in ['Succeeded', 'Failed'])
 
+    def is_failed(self, resource):
+        return resource.get('properties', {}).get('provisioningState', None) == 'Failed'
+
     def is_deployed(self):
         return (self.ip_address is not None) or (self.state == self.UP)
 
@@ -165,6 +168,7 @@ class AzureVirtualNetworkGatewayState(ResourceState):
             if not gateway:
                 self.warn_missing_resource()
             elif self.state == self.UP:
+                self.warn_if_failed(gateway)
                 self.handle_changed_property('location',
                                              normalize_location(gateway['location']),
                                              can_fix = False)

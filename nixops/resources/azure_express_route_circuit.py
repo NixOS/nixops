@@ -83,6 +83,9 @@ class AzureExpressRouteCircuitState(ResourceState):
         return resource is None or (resource.get('properties', {})
                                             .get('provisioningState', None) in ['Succeeded', 'Failed'])
 
+    def is_failed(self, resource):
+        return resource.get('properties', {}).get('provisioningState', None) == 'Failed'
+
     def get_resource_url(self):
         return ("https://management.azure.com/subscriptions/{0}"
                "/resourceGroups/{1}/providers/Microsoft.Network"
@@ -199,6 +202,7 @@ class AzureExpressRouteCircuitState(ResourceState):
             if not circuit:
                 self.warn_missing_resource()
             elif self.state == self.UP:
+                self.warn_if_failed(circuit)
                 self.handle_changed_property('tags', circuit.get('tags', {}))
                 self.handle_changed_property('location',
                                              normalize_location(circuit.get('location', None)),
