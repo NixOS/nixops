@@ -586,8 +586,13 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     self.ssh_pinged = False
 
             elif self.elastic_ipv4 != None:
-                self.log("disassociating IP address ‘{0}’...".format(self.elastic_ipv4))
-                self._conn.disassociate_address(public_ip=self.elastic_ipv4)
+                addresses = self._conn.get_all_addresses(addresses=[self.elastic_ipv4])
+                if len(addresses) == 1 and addresses[0].instance_id == self.vm_id:
+                    self.log("disassociating IP address ‘{0}’...".format(self.elastic_ipv4))
+                    self._conn.disassociate_address(public_ip=self.elastic_ipv4)
+                else:
+                    self.log("address ‘{0}’ was not associated with instance ‘{1}’".format(self.elastic_ipv4, self.vm_id))
+
                 with self.depl._db:
                     self.elastic_ipv4 = None
                     self.public_ipv4 = None
