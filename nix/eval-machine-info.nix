@@ -141,6 +141,7 @@ rec {
               // { disks = mapAttrs (n: v: v //
                 { baseImage = if isDerivation v.baseImage then "drv" else toString v.baseImage; }) cfg.disks; });
           libvirtd = v.config.deployment.libvirtd;
+          publicIPv4 = v.config.networking.publicIPv4;
         }
       );
 

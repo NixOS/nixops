@@ -116,8 +116,9 @@ in
     };
 
     networking.publicIPv4 = mkOption {
+      default = null;
       example = "198.51.100.123";
-      type = types.str;
+      type = types.nullOr types.str;
       description = ''
         Publicly routable IPv4 address of this machine.
       '';
