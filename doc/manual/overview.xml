@@ -1146,6 +1146,12 @@ machine3.deployment.azure = {
   the resource or deploying it with known good or fixed parameters resolves
   this problem.</para></listitem>
 
+  <listitem><para>Azure resource names are case-insensitive and must only be unique
+  within their container(resource group, share etc), while NixOps resource names
+  are case-sensitive and global. NixOps has a check for resource uniqueness which usually
+  catches the naming clashes.
+  </para></listitem>
+
   <listitem><para>If you are getting <literal>socket.gaierror: [Errno -2] Name or service
   not known</literal> when dealing with storage services(BLOBs, containers etc), you need
   to flush DNS cache or wait a little bit. Azure storage API calls are issued using
