@@ -7,6 +7,7 @@ let
 
   machine = mkOptionType {
     name = "GCE machine";
+    typerep = "(GCEMachine)";
     check = x: x ? gce;
     merge = mergeOneOption;
   };

@@ -6,6 +6,7 @@ let
 
   machine = mkOptionType {
     name = "a machine";
+    typerep = "(machine)";
     check = x: x._type or "" == "machine";
     merge = mergeOneOption;
   };
