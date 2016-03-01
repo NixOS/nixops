@@ -84,6 +84,9 @@ rec {
 
       doCheck = true;
 
+      # Needed by libcloud during tests
+      SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+
       postInstall =
         ''
           # Backward compatibility symlink.
