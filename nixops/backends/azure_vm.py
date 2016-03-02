@@ -219,6 +219,8 @@ class AzureState(MachineState, ResourceState):
     public_ip = attr_property("azure.publicIP", None)
     network_interface = attr_property("azure.networkInterface", None)
 
+    known_ssh_host_port = attr_property("azure.knownSshHostPort", None)
+
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
         ResourceState.__init__(self, depl, name, id)
@@ -316,9 +318,9 @@ class AzureState(MachineState, ResourceState):
         for d_id, disk in self.block_device_mapping.iteritems():
             disk['needs_attach'] = True
             self.update_block_device_mapping(d_id, disk)
-        ssh_host_port = self.get_ssh_host_port()
-        if ssh_host_port and self.public_host_key:
-            known_hosts.remove(ssh_host_port, self.public_host_key)
+        if self.known_ssh_host_port and self.public_host_key:
+            known_hosts.remove(self.known_ssh_host_port, self.public_host_key)
+            self.known_ssh_host_port = None
         self.public_ipv4 = None
 
 
@@ -1213,9 +1215,14 @@ class AzureState(MachineState, ResourceState):
 
 
     def update_ssh_known_hosts(self):
+        if self.known_ssh_host_port:
+            known_hosts.remove(self.known_ssh_host_port, self.public_host_key)
+            self.known_ssh_host_port = None
+
         ssh_host_port = self.get_ssh_host_port()
         if ssh_host_port:
             known_hosts.add(ssh_host_port, self.public_host_key)
+            self.known_ssh_host_port = ssh_host_port
 
     def get_ssh_name(self):
         ip = self.public_ipv4 or (self.find_lb_endpoint() or {}).get('ip', None)
