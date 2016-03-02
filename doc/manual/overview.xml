@@ -1075,6 +1075,64 @@ machine3.deployment.azure = {
   </para>
 </section>
 
+<section><title>Resource names and IDs</title>
+  <para>The best way to specify a reference to a resource that is managed by NixOps is
+  via <literal>resources.azure*.resourceName</literal>. However, if you need to reference
+  a resource not managed by NixOps, you can do so by resource name or ID.
+  </para>
+
+  <para>If the property description says "The name or resource of..." such
+  as for resource groups and storages, the reference is by name:
+<programlisting>
+  resources.azureResourceGroups.group = credentials // {
+    name = "my-test-group";
+    location = "West US";
+  };
+
+  resources.azureAvailabilitySets.set1 = {resources,...}: credentials // {
+    resourceGroup = resources.azureResourceGroups.group;
+    location = "West US";
+  };
+
+  resources.azureAvailabilitySets.set2 = credentials // {
+    resourceGroup = "my-test-group";
+    location = "West US";
+  };
+</programlisting>
+  </para>
+
+  <para>If the property description says "The Azure Resource Id or NixOps resource...",
+  the reference is by full Azure resource ID:
+<programlisting>
+  resources.azureVirtualNetworks.network = credentials // {
+    name = "test-network";
+    location = "West US";
+    addressSpace = [ "10.1.0.0/16" "10.4.0.0/16" ];
+    subnets = {
+      default.addressPrefix = "10.1.11.0/24";
+      GatewaySubnet.addressPrefix = "10.1.10.0/24";
+    };
+  };
+
+  resources.azureVirtualNetworkGateways.gateway1 = {resources,...}: credentials // {
+    location = "West US";
+    gatewayType = "RouteBased";
+    subnet.network = resources.azureVirtualNetworks.network;
+    subnet.name = "GatewaySubnet";
+  };
+
+  resources.azureVirtualNetworkGateways.gateway2 = credentials // {
+    location = "West US";
+    gatewayType = "RouteBased";
+    subnet.network = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups" +
+                     "/nixops-00000000-0000-0000-0000-000000000000-def-group/providers" +
+                     "/Microsoft.Network/virtualNetworks/test-network";
+    subnet.name = "GatewaySubnet";
+  };
+</programlisting>
+  </para>
+</section>
+
 <section><title>Azure limitations and quirks to be aware of:</title>
 
 <itemizedlist>
