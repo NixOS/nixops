@@ -1099,7 +1099,8 @@ class AzureState(MachineState, ResourceState):
         else:
             res.exists = True
 
-            res.is_up = vm.provisioning_state == ProvisioningStateTypes.succeeded
+            res.is_up = vm.provisioning_state in [ ProvisioningStateTypes.succeeded,
+                                                   ProvisioningStateTypes.creating ]
             if vm.provisioning_state == ProvisioningStateTypes.failed:
                 res.messages.append("vm resource exists, but is in a failed state")
             if not res.is_up: self.state = self.STOPPED

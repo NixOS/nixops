@@ -27,6 +27,12 @@ class SingleMachineTest(generic_deployment_test.GenericDeploymentTest):
         ]
         self.run_check()
 
+    def test_azure(self):
+        self.depl.nix_exprs = self.depl.nix_exprs + [
+            ('%s/single_machine_azure_base.nix' % (parent_dir))
+        ]
+        self.run_check()
+
     def check_command(self, command):
         self.depl.evaluate()
         machine = self.depl.machines.values()[0]
