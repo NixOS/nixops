@@ -1234,7 +1234,7 @@ class AzureState(MachineState, ResourceState):
         return ip
 
     def get_ssh_private_key_file(self):
-        return self._ssh_private_key_file or self.write_ssh_private_key(self.private_client_key)
+        return self._ssh_private_key_file or (self.private_client_key and self.write_ssh_private_key(self.private_client_key))
 
     def get_ssh_flags(self, scp=False):
         return [ "-i", self.get_ssh_private_key_file() ] + super(AzureState, self).get_ssh_flags(scp = scp)
