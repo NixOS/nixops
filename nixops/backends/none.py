@@ -50,11 +50,11 @@ class NoneState(MachineState):
         self.target_host = defn._target_host
 
         if not self.vm_id:
-            self.log_start("generating new SSH keypair...")
+            self.log_start("generating new SSH keypair... ")
             key_name = "NixOps client key for {0}".format(self.name)
             self._ssh_private_key, self._ssh_public_key = \
                 create_key_pair(key_name=key_name)
-            self.log_end("done.")
+            self.log_end("done")
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
     def switch_to_configuration(self, method, sync, command=None):
