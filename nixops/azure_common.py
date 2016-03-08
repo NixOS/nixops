@@ -251,8 +251,12 @@ class ResourceState(nixops.resources.ResourceState):
                 token = self.tokens[token_id]
             else:
                 try:
-                    token = adal.acquire_token_with_username_password(
-                                str(self.authority_url), str(self.user), str(self.password))
+                    if '@' in str(self.user):
+                        token = adal.acquire_token_with_username_password(
+                                    str(self.authority_url), str(self.user), str(self.password))
+                    else:
+                        token = adal.acquire_token_with_client_credentials(
+                                    str(self.authority_url), str(self.user), str(self.password))
                 except Exception as e:
                     e.args = ("Auth failure: {0}".format(e.args[0]),) + e.args[1:] 
                     raise
