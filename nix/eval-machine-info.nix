@@ -208,7 +208,9 @@ rec {
         container = azure.ephemeralDiskContainer;
         name = "nixops-${uuid}-unstable-image.vhd";
         blobType = "PageBlob";
-        copyFromBlob = "https://nixos.blob.core.windows.net/images/nixos-unstable-nixops.vhd";
+        copyFromBlob = if args ? azure-image-url
+                       then args.azure-image-url
+                       else "https://nixos.blob.core.windows.net/images/nixos-unstable-nixops.vhd";
       })]
     )
   ) azure_deployments;
