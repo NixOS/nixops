@@ -9,7 +9,7 @@
 
 # the number of HTTP servers to deploy per location
 , backendCount ? 2
-}:
+, ...}:
 
 with (import <nixpkgs> {}).lib;
 let
