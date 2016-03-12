@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from nixops.backends import MachineDefinition, MachineState
+from nixops.nix_expr import py2nix
 import nixops.util
 import nixops.ssh_util
 import subprocess
@@ -126,10 +127,14 @@ class ContainerState(MachineState):
         if self.vm_id is None:
             self.log("building initial configuration...")
 
+            eval_args = self.depl._eval_args(self.depl.nix_exprs)
+            eval_args['checkConfigurationOptions'] = False
             expr = " ".join([
                 '{ imports = [ <nixops/container-base.nix> ];',
                 '  boot.isContainer = true;',
                 '  networking.hostName = "{0}";'.format(self.name),
+                '  nixpkgs.system = let final = import <nixops/eval-machine-info.nix> {0};'.format(py2nix(eval_args, inline=True)),
+                '  in final.resources.machines.{0}.nixpkgs.system;'.format(self.name),
                 '  users.extraUsers.root.openssh.authorizedKeys.keys = [ "{0}" ];'.format(self.client_public_key),
                 '}'])
 

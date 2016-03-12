@@ -250,16 +250,26 @@ class Deployment(object):
         flags.extend(["-I", "nixops=" + self.expr_path])
         return flags
 
+    def _eval_args(self, exprs):
+        args = {key: RawValue(val) for key, val in self.args.iteritems()}
+        exprs_ = [RawValue(x) if x[0] == '<' else x for x in exprs]
+        eval_args = {
+            'networkExprs' : exprs_,
+            'args' : args,
+            'uuid' : self.uuid,
+            'deploymentName' : self.name if self.name else ""
+        }
+        return eval_args
+
 
     def _eval_flags(self, exprs):
         flags = self._nix_path_flags()
-        args = {key: RawValue(val) for key, val in self.args.iteritems()}
-        exprs_ = [RawValue(x) if x[0] == '<' else x for x in exprs]
+        args = self._eval_args(exprs)
         flags.extend(
-            ["--arg", "networkExprs", py2nix(exprs_, inline=True),
-             "--arg", "args", py2nix(args, inline=True),
-             "--argstr", "uuid", self.uuid,
-             "--argstr", "deploymentName", self.name if self.name else "",
+            ["--arg", "networkExprs", py2nix(args['networkExprs'], inline=True),
+             "--arg", "args", py2nix(args['args'], inline=True),
+             "--argstr", "uuid", args['uuid'],
+             "--argstr", "deploymentName", args['deploymentName'],
              "<nixops/eval-machine-info.nix>"])
         return flags
 
@@ -592,34 +602,6 @@ class Deployment(object):
 
         names = map(lambda m: m.name, selected)
 
-        # If we're not running on Linux, then perform the build on the
-        # target machines.  FIXME: Also enable this if we're on 32-bit
-        # and want to deploy to 64-bit.
-        if platform.system() != 'Linux' and os.environ.get('NIX_REMOTE') != 'daemon':
-            if os.environ.get('NIX_REMOTE_SYSTEMS') == None:
-                remote_machines = []
-                for m in sorted(selected, key=lambda m: m.index):
-                    key_file = m.get_ssh_private_key_file()
-                    if not key_file: raise Exception("do not know private SSH key for machine ‘{0}’".format(m.name))
-                    # FIXME: Figure out the correct machine type of ‘m’ (it might not be x86_64-linux).
-                    remote_machines.append("root@{0} {1} {2} 2 1\n".format(m.get_ssh_name(), 'i686-linux,x86_64-linux', key_file))
-                    # Use only a single machine for now (issue #103).
-                    break
-                remote_machines_file = "{0}/nix.machines".format(self.tempdir)
-                with open(remote_machines_file, "w") as f:
-                    f.write("".join(remote_machines))
-                os.environ['NIX_REMOTE_SYSTEMS'] = remote_machines_file
-            else:
-                self.logger.log("using predefined remote systems file: {0}".format(os.environ['NIX_REMOTE_SYSTEMS']))
-
-            # FIXME: Use ‘--option use-build-hook true’ instead of setting
-            # $NIX_BUILD_HOOK, once Nix supports that.
-            os.environ['NIX_BUILD_HOOK'] = os.path.dirname(os.path.realpath(nixops.util.which("nix-build"))) + "/../libexec/nix/build-remote.pl"
-
-            load_dir = "{0}/current-load".format(self.tempdir)
-            if not os.path.exists(load_dir): os.makedirs(load_dir, 0700)
-            os.environ['NIX_CURRENT_LOAD'] = load_dir
-
         try:
             configs_path = subprocess.check_output(
                 ["nix-build"]
@@ -896,6 +878,32 @@ class Deployment(object):
                     r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot, allow_recreate=allow_recreate)
 
                     if is_machine(r):
+                        # If we're not running on Linux, then perform the build on the
+                        # target machines.  FIXME: Also enable this if we're on 32-bit
+                        # and want to deploy to 64-bit.
+                        if platform.system() != 'Linux' and os.environ.get('NIX_REMOTE') != 'daemon':
+                            if os.environ.get('NIX_REMOTE_SYSTEMS') == None:
+                                # Use only a single machine for now (issue #103).
+                                key_file = r.get_ssh_private_key_file()
+                                if not key_file: raise Exception("do not know private SSH key for machine ‘{0}’".format(r.name))
+                                # FIXME: Figure out the correct machine type of ‘m’ (it might not be x86_64-linux).
+                                remote_machine = "root@{0} {1} {2} 2 1\n".format(r.get_ssh_name(), 'i686-linux,x86_64-linux', key_file)
+                                remote_machines_file = "{0}/nix.machines".format(self.tempdir)
+                                with open(remote_machines_file, "w") as f:
+                                    f.write(remote_machine)
+                                os.environ['NIX_REMOTE_SYSTEMS'] = remote_machines_file
+
+                                # FIXME: Use ‘--option use-build-hook true’ instead of setting
+                                # $NIX_BUILD_HOOK, once Nix supports that.
+                                os.environ['NIX_BUILD_HOOK'] = os.path.dirname(os.path.realpath(nixops.util.which("nix-build"))) + "/../libexec/nix/build-remote.pl"
+
+                                load_dir = "{0}/current-load".format(self.tempdir)
+                                if not os.path.exists(load_dir): os.makedirs(load_dir, 0700)
+                                os.environ['NIX_CURRENT_LOAD'] = load_dir
+
+                            else:
+                                self.logger.log("using remote systems file: {0}".format(os.environ['NIX_REMOTE_SYSTEMS']))
+
                         # The first time the machine is created,
                         # record the state version. We get it from
                         # /etc/os-release, rather than from the

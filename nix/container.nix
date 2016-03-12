@@ -33,6 +33,7 @@ in
 
     boot.isContainer = true;
 
+    nixpkgs.system = mkIf (! any (platform: platform == builtins.currentSystem) platforms.linux) (mkOverride 999 "x86_64-linux");
   };
 
 }
