@@ -18,6 +18,10 @@ let
   credentials = {
   };
 
+  mkIPName = location: "ip-${location}";
+  mkSetName = location: "set-${location}";
+  mkLBName = location: "lb-${location}";
+
   backend =
     location:
     { config, pkgs, resources, ... }:
@@ -27,14 +31,14 @@ let
       deployment.azure = credentials // {
         location = location;
         size = "Standard_A0"; # minimal size that supports load balancing
-        availabilitySet = resources.azureAvailabilitySets."set-${location}";
+        availabilitySet = resources.azureAvailabilitySets."${mkSetName location}";
         networkInterfaces.default.backendAddressPools =
-          [ { loadBalancer = resources.azureLoadBalancers."lb-${location}"; } ];
+          [ { loadBalancer = resources.azureLoadBalancers."${mkLBName location}"; } ];
       };
     };
 
-  mkResources = prefix: fn:
-    listToAttrs (map (l: nameValuePair "${prefix}${l}" (fn l)) locations);
+  mkResources = mkname: fn:
+    listToAttrs (map (l: nameValuePair "${mkname l}" (fn l)) locations);
 
   mkBackendsInLocation = location:
     listToAttrs (map (n: nameValuePair "b-${location}-${toString n}" (backend location)) (range 1 backendCount));
@@ -43,18 +47,18 @@ let
 
 in {
 
-  resources.azureReservedIPAddresses = mkResources "ip-" (location: credentials // {
+  resources.azureReservedIPAddresses = mkResources mkIPName (location: credentials // {
     inherit location;
     domainNameLabel = service_name;
   });
 
-  resources.azureAvailabilitySets = mkResources "set-" (location: credentials // {
+  resources.azureAvailabilitySets = mkResources mkSetName (location: credentials // {
     inherit location;
   });
 
-  resources.azureLoadBalancers = mkResources "lb-" (location: {resources,...}: credentials // {
+  resources.azureLoadBalancers = mkResources mkLBName (location: {resources,...}: credentials // {
     inherit location;
-    frontendInterfaces.default.publicIpAddress = resources.azureReservedIPAddresses."ip-${location}";
+    frontendInterfaces.default.publicIpAddress = resources.azureReservedIPAddresses."${mkIPName location}";
     loadBalancingRules.web = {
       frontendPort = 80;
       backendPort = 80;
@@ -71,7 +75,7 @@ in {
     dns.relativeName = service_name;
     dns.ttl = 30;
     trafficRoutingMethod = "Performance";
-    endpoints = mkResources "" (location: { target = "${service_name}.${location}.cloudapp.azure.com"; inherit location; });
+    endpoints = mkResources id (location: { target = "${service_name}.${location}.cloudapp.azure.com"; inherit location; });
   };
 
 } // mkBackends
