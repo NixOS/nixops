@@ -191,6 +191,7 @@ class AzureState(MachineState, ResourceState):
 
     machine_name = attr_property("azure.name", None)
     public_ipv4 = attr_property("publicIpv4", None)
+    private_ipv4 = attr_property("privateIpv4", None)
 
     size = attr_property("azure.size", None)
     location = attr_property("azure.location", None)
@@ -346,6 +347,10 @@ class AzureState(MachineState, ResourceState):
         return self.public_ip and self.nrpc().public_ip_addresses.get(
                    self.resource_group, self.public_ip).public_ip_address.ip_address
 
+    def fetch_private_ip(self):
+        return self.network_interface and self.nrpc().network_interfaces.get(
+                   self.resource_group, self.network_interface).network_interface.ip_configurations[0].private_ip_address
+
     def update_block_device_mapping(self, k, v):
         x = self.block_device_mapping
         if v == None:
@@ -432,6 +437,7 @@ class AzureState(MachineState, ResourceState):
                     availability_set['resource'] = _as_res_name
                     self.handle_changed_property('availability_set', availability_set.id)
                     self.handle_changed_property('public_ipv4', self.fetch_public_ip())
+                    self.handle_changed_property('private_ipv4', self.fetch_private_ip())
                     self.update_ssh_known_hosts()
 
                     # check the root disk
@@ -724,6 +730,7 @@ class AzureState(MachineState, ResourceState):
         if self.public_ipv4:
             self.log("got IP: {0}".format(self.public_ipv4))
         self.update_ssh_known_hosts()
+        self.private_ipv4 = self.fetch_private_ip()
 
     def _create_vm(self, defn):
         if self.network_interface is None:
@@ -825,6 +832,7 @@ class AzureState(MachineState, ResourceState):
         self.public_ipv4 = self.fetch_public_ip()
         self.log("got IP: {0}".format(self.public_ipv4))
         self.update_ssh_known_hosts()
+        self.private_ipv4 = self.fetch_private_ip()
 
         for d_id, disk in defn.block_device_mapping.iteritems():
             self.update_block_device_mapping(d_id, disk)
@@ -1122,6 +1130,7 @@ class AzureState(MachineState, ResourceState):
 
                 self.handle_changed_property('public_ipv4', self.fetch_public_ip())
                 self.update_ssh_known_hosts()
+                self.handle_changed_property('private_ipv4', self.fetch_private_ip())
 
                 MachineState._check(self, res)
 
