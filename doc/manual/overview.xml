@@ -900,6 +900,16 @@ $ nixops info -d load-balancer-azure
 </screen>
 </para>
 
+<para>Opening http://40.78.60.145, http://40.78.58.17, http://40.78.59.32,
+  or http://40.78.67.191 in a web browser should now show the Nixos homepage.
+  Also, you can log into any of the machines as <literal>root</literal>:
+<screen>
+$ nixops ssh -d load-balancer-azure backend1
+connecting to 40.78.60.145...
+[root@backend1:~]#
+</screen>
+</para>
+
 <para>The resources can be destroyed by running:
 
 <screen>
