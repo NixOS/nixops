@@ -769,6 +769,7 @@ under NixOps control.
 
 
 <section xml:id="sec-deploying-to-azure"><title>Deploying to Microsoft Azure</title>
+  <para>Note: only ARM(Azure Resource Manager) mode is supported by this backend.</para>
 
   <para><xref linkend="ex-physical-multi-azure.nix" /> shows a physical
   specification that deploys the load balancer network to Azure along with
