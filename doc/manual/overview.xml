@@ -835,6 +835,9 @@ in {
 <para>
   The deployment proceeds like this:
   <screen>
+$ nixops create ./load-balancer.nix ./load-balancer-azure.nix -d load-balancer-azure
+$ nixops deploy -d load-balancer-azure
+<replaceable>...</replaceable>
 def-group....................> creating Azure resource group 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-def-group' in westus...
 dn-westus....................> creating Azure virtual network 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-dn-westus' in westus...
 set..........................> creating Azure availability set 'nixops-71616e2e-c165-11e5-b910-b8e8560f8b58-set' in westus...
