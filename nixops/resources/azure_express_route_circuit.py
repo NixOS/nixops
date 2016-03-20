@@ -190,6 +190,7 @@ class AzureExpressRouteCircuitState(ResourceState):
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
+        self.no_subscription_id_change(defn)
         self.no_property_change(defn, 'resource_group')
         self.no_property_change(defn, 'location')
 

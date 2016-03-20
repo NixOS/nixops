@@ -313,6 +313,9 @@ class ResourceState(nixops.resources.ResourceState):
     def no_property_change(self, defn, name):
         self.no_change(getattr(self, name) != getattr(defn, name), name.replace('_', ' ') )
 
+    def no_subscription_id_change(self, defn):
+        self.no_change(self.subscription_id != defn.get_subscription_id(), 'subscription ID')
+
     def warn_missing_resource(self):
         if self.state == self.UP:
             self.warn("{0} is supposed to exist, but is missing; recreating...".format(self.full_name))
