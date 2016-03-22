@@ -470,37 +470,7 @@ in
     deployment.ec2.physicalProperties =
       let
         type = config.deployment.ec2.instanceType or "unknown";
-        mapping = {
-          "t1.micro"    = { cores = 1;  memory = 595;    allowsEbsOptimized = false; };
-          "t2.micro"    = { cores = 1;  memory = 1024;   allowsEbsOptimized = false; };
-          "t2.small"    = { cores = 1;  memory = 2048;   allowsEbsOptimized = false; };
-          "t2.medium"   = { cores = 2;  memory = 4096;   allowsEbsOptimized = false; };
-          "m1.small"    = { cores = 1;  memory = 1658;   allowsEbsOptimized = false; };
-          "m1.medium"   = { cores = 1;  memory = 3755;   allowsEbsOptimized = false; };
-          "m1.large"    = { cores = 2;  memory = 7455;   allowsEbsOptimized = true;  };
-          "m1.xlarge"   = { cores = 4;  memory = 14985;  allowsEbsOptimized = true;  };
-          "m2.xlarge"   = { cores = 2;  memory = 17084;  allowsEbsOptimized = false; };
-          "m2.2xlarge"  = { cores = 4;  memory = 34241;  allowsEbsOptimized = true;  };
-          "m2.4xlarge"  = { cores = 8;  memory = 68557;  allowsEbsOptimized = true;  };
-          "m3.xlarge"   = { cores = 4;  memory = 14985;  allowsEbsOptimized = true;  };
-          "m3.2xlarge"  = { cores = 8;  memory = 30044;  allowsEbsOptimized = true;  };
-          "m4.10xlarge" = { cores = 40; memory = 163840; allowsEbsOptimized = true;  };
-          "m4.4xlarge"  = { cores = 16; memory = 65536;  allowsEbsOptimized = true;  };
-          "m4.2xlarge"  = { cores = 8;  memory = 32768;  allowsEbsOptimized = true;  };
-          "m4.xlarge"   = { cores = 4;  memory = 16384;  allowsEbsOptimized = true;  };
-          "m4.large"    = { cores = 2;  memory = 8192;   allowsEbsOptimized = true;  };
-          "c4.8xlarge"  = { cores = 36; memory = 61440;  allowsEbsOptimized = true;  };
-          "c4.4xlarge"  = { cores = 16; memory = 30720;  allowsEbsOptimized = true;  };
-          "c4.2xlarge"  = { cores = 8;  memory = 15360;  allowsEbsOptimized = true;  };
-          "c4.xlarge"   = { cores = 4;  memory = 7680;   allowsEbsOptimized = true;  };
-          "c4.large"    = { cores = 2;  memory = 3840;   allowsEbsOptimized = true;  };
-          "c1.medium"   = { cores = 2;  memory = 1697;   allowsEbsOptimized = false; };
-          "c1.xlarge"   = { cores = 8;  memory = 6953;   allowsEbsOptimized = true;  };
-          "cc1.4xlarge" = { cores = 16; memory = 21542;  allowsEbsOptimized = false; };
-          "cc2.8xlarge" = { cores = 32; memory = 59930;  allowsEbsOptimized = false; };
-          "hi1.4xlarge" = { cores = 16; memory = 60711;  allowsEbsOptimized = false; };
-          "cr1.8xlarge" = { cores = 32; memory = 245756; allowsEbsOptimized = false; };
-        };
+        mapping = import ./ec2-properties.nix;
       in attrByPath [ type ] null mapping;
 
   };
