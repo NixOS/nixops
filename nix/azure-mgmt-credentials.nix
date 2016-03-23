@@ -32,6 +32,16 @@ with lib;
     '';
   };
 
+  servicePrincipal = mkOption {
+    default = "";
+    example = "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa";
+    type = types.str;
+    description = ''
+      The Azure Service Principal Id. If left empty, it defaults to the
+      contents of the environment variable <envar>AZURE_SERVICE_PRINCIPAL</envar>.
+    '';
+  };
+
   password = mkOption {
     default = "";
     example = "password";

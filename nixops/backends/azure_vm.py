@@ -91,6 +91,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'subscriptionId', str)
         self.authority_url = self.copy_option(x, 'authority', str, empty = True, optional = True)
         self.copy_option(x, 'user', str, empty = True, optional = True)
+        self.copy_option(x, 'servicePrincipal', str, empty = True, optional = True)
         self.copy_option(x, 'password', str, empty = True, optional = True)
 
         self.copy_option(x, 'size', str, empty = False)

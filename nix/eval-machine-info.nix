@@ -164,7 +164,7 @@ rec {
   azure_default_group = flip mapAttrs' azure_deployments (name: depl:
     let azure = (scrubOptionValue depl).config.deployment.azure; in (
       nameValuePair ("def-group") [ {
-        inherit (azure) subscriptionId authority user password location;
+        inherit (azure) subscriptionId authority user servicePrincipal password location;
       }]
     )
   );
@@ -175,7 +175,7 @@ rec {
   azure_default_networks = mapAttrs' (name: depl:
     let azure = (scrubOptionValue depl).config.deployment.azure; in (
       nameValuePair ("dn-${normalize_location azure.location}") [({ resources, ...}: {
-        inherit (azure) subscriptionId authority user password location;
+        inherit (azure) subscriptionId authority user servicePrincipal password location;
         resourceGroup = resources.azureResourceGroups.def-group;
         addressSpace = [ "10.1.0.0/16" ];
       })]
@@ -185,7 +185,7 @@ rec {
   azure_default_storages = mapAttrs' (name: depl:
     let azure = (scrubOptionValue depl).config.deployment.azure; in (
       nameValuePair ("def-storage-${normalize_location azure.location}") [({ resources, ...}: {
-        inherit (azure) subscriptionId authority user password location;
+        inherit (azure) subscriptionId authority user servicePrincipal password location;
         resourceGroup = resources.azureResourceGroups.def-group;
         name = "${builtins.substring 0 12 (builtins.replaceStrings ["-"] [""] uuid)}${normalize_location azure.location}";
       })]
