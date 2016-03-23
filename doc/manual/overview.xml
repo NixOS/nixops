@@ -921,17 +921,61 @@ This terminates the Azure instances and deletes the alternative native load bala
 <section><title>Prequisites</title>
 <itemizedlist>
 
-  <listitem><para>You must supply the credentials(subscription ID, authority URL, user, password)
-  to your deployments via either <literal>*.subscriptionId</literal>,
-  <literal>*.authority</literal>, <literal>*.user</literal> and <literal>*.password</literal>
-  options or <literal>AZURE_SUBSCRIPTION_ID</literal>, <literal>AZURE_AUTHORITY_URL</literal>,
-  <literal>AZURE_USER</literal> and <literal>AZURE_PASSWORD</literal> environment variables.
-  Options take precedence over environment variables and are specified per resource/machine.
+  <listitem><para>You need Azure credentials to authenticate requests.
+  The authentication methods supported are user/password and service principal/password.
+  You need to ensure your Azure account has an Active Directory, and add a user or service principal to it.
+  Refer to these guides:
+  <link xlink:href="http://innerdot.com/azure/a-gaffers-guide-to-azure-introduction-and-getting-started">
+  creating an active directory and users</link> and
+  <link xlink:href="http://innerdot.com/azure/a-gaffers-guide-to-azure-service-principals-and-applications">
+  applications and service principals</link>.
   </para></listitem>
+
+  <listitem><para>You must supply the credentials(subscription ID, authority URL,
+  user or service principal, password) to your deployments via either
+  <literal>*.subscriptionId</literal>, <literal>*.authority</literal>, <literal>*.user</literal>,
+  <literal>*.servicePrincipal</literal> and <literal>*.password</literal>
+  options or <literal>AZURE_SUBSCRIPTION_ID</literal>, <literal>AZURE_AUTHORITY_URL</literal>,
+  <literal>AZURE_USER</literal>, <literal>AZURE_SERVICE_PRINCIPAL</literal>
+  and <literal>AZURE_PASSWORD</literal> environment variables.
+  Options take precedence over environment variables and are specified per resource/machine.
+  </para>
+
+  <para>You must specify either user or service principal but not both.
+  If either <literal>*.user</literal> or <literal>*.servicePrincipal</literal> is set,
+  both <literal>AZURE_USER</literal> and <literal>AZURE_SERVICE_PRINCIPAL</literal>
+  are ignored for the resource.</para>
+
+  <para>Example credentials for user/password authentication:
+<programlisting>
+credentials = {
+  subscriptionId = "00000000-0000-0000-0000-000000000000";
+  authority = "https://login.windows.net/YOURDIRECTORYNAME.onmicrosoft.com";
+  user = "user@YOURDIRECTORYNAME.onmicrosoft.com";
+  password = "**********";
+};
+</programlisting>
+  </para>
+
+  <para>Example credentials for service principal/password authentication:
+<programlisting>
+credentials = {
+  subscriptionId = "00000000-0000-0000-0000-000000000000";
+  authority = "https://login.windows.net/YOURDIRECTORYNAME.onmicrosoft.com";
+  servicePrincipal = "44444444-4444-4444-4444-444444444444";
+  password = "**********";
+};
+</programlisting>
+  </para>
+
+  <para>Authority URL can also be specified as
+  <literal>https://login.windows.net/TENANT_ID</literal>.</para>
+
+  </listitem>
 
   <listitem><para>You need to ensure that SSH ports of all machines are reachable
   either directly via machines' public IP addresses or via NAT rules on the public
-  IP address of a load balancer</para></listitem>
+  IP address of a load balancer.</para></listitem>
 
 </itemizedlist></section>
 
