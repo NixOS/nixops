@@ -892,6 +892,10 @@ class AzureState(MachineState, ResourceState):
             self.state = self.STARTING
             self.log("starting Azure machine...")
             self.cmc().virtual_machines.start(self.resource_group, self.machine_name)
+
+            if self.fetch_private_ip() != self.private_ipv4 or self.fetch_public_ip() != self.public_ipv4:
+                self.warn("IP address has changed, you may need to run 'nixops deploy'")
+
             self.wait_for_ssh(check=True)
             self.send_keys()
 
