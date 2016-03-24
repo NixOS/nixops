@@ -32,6 +32,7 @@ class AzureReservedIPAddressDefinition(ResourceDefinition):
         self.copy_option(xml, 'idleTimeout', int)
         self.copy_option(xml, 'domainNameLabel', str, optional = True)
         self.copy_option(xml, 'reverseFqdn', str, optional = True)
+        self.allocation_method = 'Static'
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.location)
@@ -46,6 +47,7 @@ class AzureReservedIPAddressState(ResourceState):
     tags = attr_property("azure.tags", {}, 'json')
     idle_timeout = attr_property("azure.idleTimeout", None, int)
     domain_name_label = attr_property("azure.domainNameLabel", None)
+    allocation_method = attr_property("azure.allocationMethod", None)
     fqdn = attr_property("azure.fqdn", None)
     reverse_fqdn = attr_property("azure.reverseFqdn", None)
 
@@ -82,9 +84,10 @@ class AzureReservedIPAddressState(ResourceState):
     def destroy_resource(self):
         self.nrpc().public_ip_addresses.delete(self.resource_group, self.resource_id)
 
-    defn_properties = [ 'location', 'tags', 'idle_timeout', 'domain_name_label', 'reverse_fqdn' ]
+    defn_properties = [ 'location', 'tags', 'idle_timeout', 'allocation_method',
+                        'domain_name_label', 'reverse_fqdn' ]
 
-    def _update_resource(self, defn):
+    def create_or_update(self, defn):
         dns_settings = PublicIpAddressDnsSettings(
                                 domain_name_label = defn.domain_name_label,
                                 reverse_fqdn = defn.reverse_fqdn
@@ -93,7 +96,7 @@ class AzureReservedIPAddressState(ResourceState):
                         defn.resource_group, defn.reserved_ip_address_name,
                         PublicIpAddress(
                             location = defn.location,
-                            public_ip_allocation_method = 'Static',
+                            public_ip_allocation_method = defn.allocation_method,
                             idle_timeout_in_minutes = defn.idle_timeout,
                             tags = defn.tags,
                             dns_settings = dns_settings
@@ -128,6 +131,7 @@ class AzureReservedIPAddressState(ResourceState):
                 self.handle_changed_property('tags', address.tags)
                 self.handle_changed_property('ip_address', address.ip_address, property_name = '')
                 self.handle_changed_property('idle_timeout', address.idle_timeout_in_minutes)
+                self.handle_changed_property('allocation_method', address.public_ip_allocation_method)
                 _dns = address.dns_settings
                 self.handle_changed_property('domain_name_label',
                                               _dns and _dns.domain_name_label)
@@ -144,12 +148,12 @@ class AzureReservedIPAddressState(ResourceState):
                                 "please run 'deploy --check' to fix this")
 
             self.log("creating {0} in {1}...".format(self.full_name, defn.location))
-            self._update_resource(defn)
+            self.create_or_update(defn)
 
         if self.properties_changed(defn):
             self.log("updating properties of {0}...".format(self.full_name))
             self.get_settled_resource_assert_exists()
-            self._update_resource(defn)
+            self.create_or_update(defn)
 
 
     def create_after(self, resources, defn):
