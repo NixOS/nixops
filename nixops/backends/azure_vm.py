@@ -22,7 +22,7 @@ from nixops.nix_expr import Call, RawValue
 from nixops.backends import MachineDefinition, MachineState
 from nixops.azure_common import ResourceDefinition, ResourceState, ResId, normalize_location
 
-from azure.mgmt.network import PublicIpAddress, NetworkInterface, NetworkInterfaceIpConfiguration, IpAllocationMethod, ResourceId
+from azure.mgmt.network import PublicIpAddress, NetworkInterface, NetworkInterfaceIpConfiguration, IpAllocationMethod, PublicIpAddressDnsSettings, ResourceId
 from azure.mgmt.compute import *
 
 from nixops.resources.azure_availability_set import AzureAvailabilitySetState
@@ -106,8 +106,24 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
 
         ifaces_xml = x.find("attr[@name='networkInterfaces']")
         if_xml = ifaces_xml.find("attrs/attr[@name='default']")
-        self.obtain_ip = self.get_option_value(if_xml, 'obtainIP', bool)
         self.copy_option(if_xml, 'securityGroup', 'res-id', optional = True)
+
+        ip_xml = if_xml.find("attrs/attr[@name='ip']")
+        self.obtain_ip = self.get_option_value(ip_xml, 'obtain', bool)
+        self.ip_domain_name_label = self.get_option_value(ip_xml, 'domainNameLabel', str, optional = True)
+        self.ip_allocation_method = self.get_option_value(ip_xml, 'allocationMethod', str)
+        self.ip_resid = self.get_option_value(ip_xml, 'resource', 'res-id', optional = True)
+
+        if self.ip_resid and self.obtain_ip:
+            raise Exception("{0}: must set ip.obtain = false to use a reserved IP address"
+                            .format(self.machine_name))
+        if self.obtain_ip:
+            self.ip_resid = ResId("",
+                                  subscription = self.get_subscription_id(),
+                                  group = self.resource_group,
+                                  provider = 'Microsoft.Network',
+                                  type = 'publicIPAddresses',
+                                  resource = self.machine_name).id
 
         subnet_xml  = if_xml.find("attrs/attr[@name='subnet']")
         self.subnet = ResId(self.get_option_value(subnet_xml, 'network', 'res-id'),
@@ -210,6 +226,9 @@ class AzureState(MachineState, ResourceState):
     resource_group = attr_property("azure.resourceGroup", None)
 
     obtain_ip = attr_property("azure.obtainIP", None, bool)
+    ip_domain_name_label = attr_property("azure.ipDomainNameLabel", None)
+    ip_resid = attr_property("azure.ipResId", None)
+    ip_allocation_method = attr_property("azure.ipAllocationMethod", None)
     security_group = attr_property("azure.securityGroup", None)
     availability_set = attr_property("azure.availabilitySet", None)
 
@@ -345,8 +364,9 @@ class AzureState(MachineState, ResourceState):
         self.cmc().virtual_machines.delete(self.resource_group, self.resource_id)
 
     def fetch_public_ip(self):
-        return self.public_ip and self.nrpc().public_ip_addresses.get(
-                   self.resource_group, self.public_ip).public_ip_address.ip_address
+        ip_resid = self.ip_resid and ResId(self.ip_resid)
+        return self.ip_resid and self.nrpc().public_ip_addresses.get(
+                   ip_resid['group'], ip_resid['resource']).public_ip_address.ip_address
 
     def fetch_private_ip(self):
         return self.network_interface and self.nrpc().network_interfaces.get(
@@ -375,6 +395,9 @@ class AzureState(MachineState, ResourceState):
         except azure.common.AzureMissingResourceHttpError:
             iface = None
         if iface:
+            ip_resid = iface.ip_configurations[0].public_ip_address
+            self.handle_changed_property('ip_resid', ip_resid and ip_resid.id,
+                                         property_name = "IP resource ID")
             self.handle_changed_property('subnet', iface.ip_configurations[0].subnet.id)
             self.handle_changed_property('security_group', iface.network_security_group and
                                                            iface.network_security_group.id)
@@ -386,6 +409,22 @@ class AzureState(MachineState, ResourceState):
             self.warn("network interface has been destroyed behind our back")
             self.network_interface = None
 
+    def check_ip(self):
+        if not self.public_ip: return
+        try:
+            ip = self.nrpc().public_ip_addresses.get(self.resource_group, self.public_ip).public_ip_address
+        except azure.common.AzureMissingResourceHttpError:
+            ip = None
+        if ip:
+            _dns = ip.dns_settings
+            self.handle_changed_property('ip_domain_name_label',
+                                         _dns and _dns.domain_name_label)
+            self.handle_changed_property('ip_allocation_method',
+                                         ip.public_ip_allocation_method)
+        else:
+            self.warn("IP address has been destroyed behind our back")
+            self.public_ip = None
+
     def delete_ip_address(self):
         if self.public_ip:
             self.log("releasing the ip address...")
@@ -395,7 +434,6 @@ class AzureState(MachineState, ResourceState):
             except azure.common.AzureMissingResourceHttpError:
                 self.warn("seems to have been released already")
             self.public_ip = None
-            self.public_ipv4 = None
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_subscription_id_change(defn)
@@ -423,6 +461,7 @@ class AzureState(MachineState, ResourceState):
             self.private_host_key = private
 
         if check:
+            self.check_ip()
             self.check_network_iface()
             vm = self.get_settled_resource()
             if vm:
@@ -557,14 +596,10 @@ class AzureState(MachineState, ResourceState):
 
         if self.public_ip is None and defn.obtain_ip:
             self.log("getting an IP address")
-            self.nrpc().public_ip_addresses.create_or_update(
-                self.resource_group, self.machine_name,
-                PublicIpAddress(
-                    location = defn.location,
-                    public_ip_allocation_method = 'Dynamic',
-                    idle_timeout_in_minutes = 4,
-                ))
-            self.public_ip = self.machine_name
+            self.create_or_update_ip(defn)
+        if self.public_ip and defn.obtain_ip and self.ip_properties_changed(defn):
+            self.log("updating IP address properties")
+            self.create_or_update_ip(defn)
 
         self._create_vm(defn)
 
@@ -695,6 +730,7 @@ class AzureState(MachineState, ResourceState):
         self.backend_address_pools = defn.backend_address_pools
         self.inbound_nat_rules = defn.inbound_nat_rules
         self.obtain_ip = defn.obtain_ip
+        self.ip_resid = defn.ip_resid
         self.security_group = defn.security_group
         self.subnet = defn.subnet
 
@@ -702,13 +738,11 @@ class AzureState(MachineState, ResourceState):
         return ( self.backend_address_pools != defn.backend_address_pools or
                  self.inbound_nat_rules != defn.inbound_nat_rules or
                  self.obtain_ip != defn.obtain_ip or
+                 self.ip_resid != defn.ip_resid or
                  self.security_group != defn.security_group or
                  self.subnet != defn.subnet )
 
     def create_or_update_iface(self, defn):
-        public_ip_id = self.nrpc().public_ip_addresses.get(
-                            self.resource_group,
-                            self.public_ip).public_ip_address.id if defn.obtain_ip else None
         self.nrpc().network_interfaces.create_or_update(
             self.resource_group, self.machine_name,
             NetworkInterface(name = self.machine_name,
@@ -723,7 +757,7 @@ class AzureState(MachineState, ResourceState):
                                      ResId(pool) for pool in defn.backend_address_pools ],
                                  load_balancer_inbound_nat_rules = [
                                      ResId(rule) for rule in defn.inbound_nat_rules ],
-                                 public_ip_address = public_ip_id and ResId(public_ip_id),
+                                 public_ip_address = defn.ip_resid and ResId(defn.ip_resid),
                              )]
                            ))
         self.network_interface = self.machine_name
@@ -733,6 +767,29 @@ class AzureState(MachineState, ResourceState):
             self.log("got IP: {0}".format(self.public_ipv4))
         self.update_ssh_known_hosts()
         self.private_ipv4 = self.fetch_private_ip()
+
+    def copy_ip_properties(self, defn):
+        self.ip_allocation_method = defn.ip_allocation_method
+        self.ip_domain_name_label = defn.ip_domain_name_label
+
+    def ip_properties_changed(self, defn):
+        return ( self.ip_allocation_method != defn.ip_allocation_method or
+                 self.ip_domain_name_label != defn.ip_domain_name_label )
+
+    def create_or_update_ip(self, defn):
+        dns_settings = PublicIpAddressDnsSettings(
+                          domain_name_label = defn.ip_domain_name_label,
+                       ) if defn.ip_domain_name_label else None
+        self.nrpc().public_ip_addresses.create_or_update(
+            self.resource_group, self.machine_name,
+            PublicIpAddress(
+                location = defn.location,
+                public_ip_allocation_method = defn.ip_allocation_method,
+                dns_settings = dns_settings,
+                idle_timeout_in_minutes = 4,
+            ))
+        self.public_ip = self.machine_name
+        self.copy_ip_properties(defn)
 
     def _create_vm(self, defn):
         if self.network_interface is None:

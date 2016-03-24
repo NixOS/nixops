@@ -1101,7 +1101,7 @@ backendAddressPools = [ "default" ];
 
 <section><title>Managing virtual machines without public IP addresses</title>
   <para>If a virtual machine doesn't have a public IP address
-  (has obtainIP set to false), NixOps is unable to reach the
+  (has ip.obtain set to false), NixOps is unable to reach the
   SSH port of the machine and manage it.
   However, if you route the SSH port of the machine via an inboud NAT rule
   to a load balancer frontend interface that has a public IP address,
@@ -1125,7 +1125,7 @@ resources.azureLoadBalancers.lb = {resources,...}: credentials // {
 
 machine3.deployment.azure = {
   networkInterfaces.default ={
-    obtainIP = false;
+    ip.obtain = false;
     inboundNatRules = [{loadBalancer = resources.azureLoadBalancers.lb; name = "machine3-ssh";}];
   };
 };

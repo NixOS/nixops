@@ -252,12 +252,50 @@ in
           };
         };
 
-        obtainIP = mkOption {
+        ip.resource = mkOption {
+          default = null;
+          example = "my-reserved-ip";
+          type = types.nullOr (types.either types.str (resource "azure-reserved-ip-address"));
+          description = ''
+            The Azure Resource Id or NixOps resource of
+            an Azure reserved IP address resource to use for the network interface.
+            To use a reserved IP, you must set ip.obtain to false.
+          '';
+        };
+
+        ip.obtain = mkOption {
           default = true;
           example = false;
           type = types.bool;
           description = ''
             Whether to obtain a dedicated public IP for the interface.
+          '';
+        };
+
+        ip.domainNameLabel = mkOption {
+          default = null;
+          example = "mylabel";
+          type = types.nullOr types.str;
+          description = ''
+              The concatenation of the domain name label and the regionalized DNS
+              zone make up the fully qualified domain name associated with the
+              public IP address. If a domain name label is specified, an A DNS
+              record is created for the public IP in the Microsoft Azure DNS
+              system. Example FQDN: mylabel.northus.cloudapp.azure.com.
+          '';
+        };
+
+        ip.allocationMethod = mkOption {
+          default = "Dynamic";
+          example = "Static";
+          type = types.enum [ "Dynamic" "Static" ];
+          description = ''
+              Dynamically-allocated IP address changes if the associated VM
+              is deallocated, deleted, re-created, stopped and may change
+              in certain other circumstances.
+              Statically-allocated IP address stays the same regardless of
+              what happens to the VM, but is billed for regardless of whether
+              the VM is active and usable.
           '';
         };
 
