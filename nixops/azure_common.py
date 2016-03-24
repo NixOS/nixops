@@ -165,6 +165,9 @@ class ResourceDefinition(ResourceDefinitionBase):
     def __init__(self, xml):
         ResourceDefinitionBase.__init__(self, xml)
 
+        self.copy_credentials(xml)
+
+    def copy_credentials(self, xml):
         self.copy_option(xml, 'subscriptionId', str)
         self.copy_option(xml, 'authority', str, empty = True, optional = True)
         self.copy_option(xml, 'user', str, empty = True, optional = True)
