@@ -323,7 +323,7 @@ in
         example = "nresources.azureBlobs.image-blob";
         type = types.either types.str (resource "azure-blob");
         description = ''
-          Bootstrap image BLOB name or resource.
+          Bootstrap image BLOB URL, name or resource.
           Must reside on the same storage as VM disks.
         '';
       };

@@ -787,6 +787,27 @@ class AzureState(MachineState, ResourceState):
         self.public_ip = self.machine_name
         self.copy_ip_properties(defn)
 
+    def defn_root_image_url(self, defn):
+        # pass thru the full blob url if specified
+        if defn.root_disk_image_blob.lower().startswith(('http://', 'https://')):
+            return defn.root_disk_image_blob
+
+        # obtain container name from the blob resource if deployed by nixops,
+        # otherwise assume it's stored in ephemeral_disk_container
+        # Azure requires that the root image and VM blobs are in the
+        # same storage, so we assume the blob storage is the same as vm storage
+        blob_resource = self.get_resource_state(AzureBLOBState, defn.root_disk_image_blob)
+        blob_container = blob_resource and blob_resource.container
+        if(blob_resource and blob_resource.get_storage_name() and
+                            (blob_resource.get_storage_name() != defn.storage) ):
+            raise("root disk image BLOB must reside "
+                  "in the same storage as {0} disk BLOBs"
+                  .format(self.full_name))
+        return("https://{0}.blob.core.windows.net/{1}/{2}"
+               .format(defn.storage,
+                       blob_container or defn.ephemeral_disk_container,
+                       defn.root_disk_image_blob))
+
     def _create_vm(self, defn):
         if self.network_interface is None:
             self.log("creating a network interface")
@@ -855,10 +876,7 @@ class AzureState(MachineState, ResourceState):
                         virtual_hard_disk = VirtualHardDisk(uri = root_disk_spec['media_link']),
                         source_image = (None
                                         if root_disk_exists
-                                        else VirtualHardDisk(uri = "https://{0}.blob.core.windows.net/{1}/{2}"
-                                                                   .format(defn.storage,
-                                                                           defn.ephemeral_disk_container,
-                                                                           defn.root_disk_image_blob) ) ),
+                                        else VirtualHardDisk(uri = self.defn_root_image_url(defn)) ),
                         operating_system_type = "Linux"
                     ),
                     data_disks = data_disks
