@@ -869,7 +869,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     prefer_ebs_optimized = True
 
             # if we have PIOPS volume and instance type supports EBS Optimized flags, then use ebs_optimized
-            ebs_optimized = prefer_ebs_optimized and defn.ebs_optimized
+            self.ebs_optimized = prefer_ebs_optimized and defn.ebs_optimized
 
             # Generate a public/private host key.
             if not self.public_host_key:
@@ -882,7 +882,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 self.public_host_key, self.private_host_key.replace("\n", "|"),
                 defn.host_key_type().upper())
 
-            instance = self.create_instance(defn, zone, devmap, user_data, ebs_optimized)
+            instance = self.create_instance(defn, zone, devmap, user_data, self.ebs_optimized)
 
             with self.depl._db:
                 self.vm_id = instance.id
