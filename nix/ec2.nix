@@ -159,7 +159,9 @@ let
 
   nixosVersion = builtins.substring 0 5 config.system.nixosVersion;
 
-  amis = import ./ec2-amis.nix;
+  amis =
+    let p = pkgs.path + "/nixos/modules/virtualisation/ec2-amis.nix"; in
+    if pathExists p then import p else import ./ec2-amis.nix;
 
 in
 

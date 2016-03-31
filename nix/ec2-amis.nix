@@ -1,3 +1,6 @@
+# This file is obsolete and will be removed soon. Change
+# <nixpkgs/nixos/modules/virtualisation/ec2-amis.nix> instead.
+
 {
   "14.04".ap-northeast-1.hvm-ebs = "ami-71c6f470";
   "14.04".ap-northeast-1.pv-ebs = "ami-4dcbf84c";
