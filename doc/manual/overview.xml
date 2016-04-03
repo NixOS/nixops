@@ -1000,6 +1000,20 @@ credentials = {
   <para>Root image BLOBs are created in each disk container that is used by a virtual
   machine with <literal>rootDiskImageBlob</literal> left empty.
   </para>
+
+  <para>The default root disk image BLOB resources can be set to mirror
+  your custom image instead of the default NixOps-provided one using:
+<screen>
+$ nixops set-args -d load-balancer-azure --argstr azure-image-url "http://mystorage.windows.net/images/nixos-custom.vhd"
+
+$ nixops info -d load-balancer-azure
+<replaceable>...</replaceable>
+Nix arguments: azure-image-url = "http://mystorage.windows.net/images/nixos-custom.vhd"
+<replaceable>...</replaceable>
+
+$ nixops set-args -d load-balancer-azure --unset azure-image-url
+</screen>
+  </para>
 </section>
 
 <section><title>Default subresources</title>
