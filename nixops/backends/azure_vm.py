@@ -436,7 +436,7 @@ class AzureState(MachineState, ResourceState):
         self.no_change(self.machine_name != defn.machine_name, "instance name")
         self.no_property_change(defn, 'resource_group')
         self.no_property_change(defn, 'storage')
-        self.no_property_change(defn, 'location')
+        self.no_location_change(defn)
 
         self.set_common_state(defn)
         self.copy_mgmt_credentials(defn)

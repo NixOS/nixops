@@ -93,7 +93,7 @@ class AzureAvailabilitySetState(ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.no_subscription_id_change(defn)
-        self.no_property_change(defn, 'location')
+        self.no_location_change(defn)
         self.no_property_change(defn, 'resource_group')
         self.no_property_change(defn, 'platform_update_domain_count')
         self.no_property_change(defn, 'platform_fault_domain_count')

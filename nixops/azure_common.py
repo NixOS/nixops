@@ -335,6 +335,11 @@ class ResourceState(nixops.resources.ResourceState):
     def no_subscription_id_change(self, defn):
         self.no_change(self.subscription_id != defn.get_subscription_id(), 'subscription ID')
 
+    def no_location_change(self, defn):
+        self.no_change(normalize_location(self.location) !=
+                       normalize_location(defn.location),
+                       'location')
+
     def warn_missing_resource(self):
         if self.state == self.UP:
             self.warn("{0} is supposed to exist, but is missing; recreating...".format(self.full_name))
