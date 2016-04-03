@@ -1276,6 +1276,13 @@ machine3.deployment.azure = {
   the resource or deploying it with known good or fixed parameters resolves
   this problem.</para></listitem>
 
+  <listitem>You may get "Failed getting access" authentication error when deleting a resource
+  even if you have specified correct credentials. This happens because NixOps copies
+  the credentials to the internal state database only on <command>nixops deploy</command>
+  and the state database currently stores outdated credentials for example because you
+  were asked to change your password by Azure. This can be resolved by a
+  <command>nixops deploy</command> run.</listitem>
+
   <listitem><para>Azure resource names are case-insensitive and must only be unique
   within their container(resource group, share etc), while NixOps resource names
   are case-sensitive and global. NixOps has a check for resource uniqueness which usually
