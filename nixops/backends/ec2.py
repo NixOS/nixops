@@ -19,6 +19,7 @@ import nixops.util
 import nixops.ec2_utils
 import nixops.known_hosts
 from xml import etree
+import datetime
 
 class EC2InstanceDisappeared(Exception):
     pass
@@ -49,6 +50,7 @@ class EC2Definition(MachineDefinition):
         self.tags = config["ec2"]["tags"]
         self.root_disk_size = config["ec2"]["ebsInitialRootDiskSize"]
         self.spot_instance_price = config["ec2"]["spotInstancePrice"]
+        self.spot_instance_timeout = config["ec2"]["spotInstanceTimeout"]
         self.ebs_optimized = config["ec2"]["ebsOptimized"]
         self.subnet_id = config["ec2"]["subnetId"]
         self.associate_public_ip_address = config["ec2"]["associatePublicIpAddress"]
@@ -643,6 +645,12 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         if defn.spot_instance_price:
             if self.spot_instance_request_id is None:
+
+                if defn.spot_instance_timeout:
+                    common_args['valid_until'] = \
+                        (datetime.datetime.now() +
+                         datetime.timedelta(0, defn.spot_instance_timeout)).isoformat()
+
                 # FIXME: Should use a client token here, but
                 # request_spot_instances doesn't support one.
                 request = self._retry(
@@ -664,6 +672,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 request = self._get_spot_instance_request_by_id(self.spot_instance_request_id)
                 self.log_continue("[{0}] ".format(request.status.code))
                 if request.status.code == "fulfilled": break
+                if request.status.code in {"schedule-expired", "canceled-before-fulfillment", "bad-parameters", "system-error"}:
+                    self.spot_instance_request_id = None
+                    self.log_end("")
+                    raise Exception("spot instance request failed with result ‘{0}’".format(request.status.code))
                 time.sleep(3)
             self.log_end("")
 
