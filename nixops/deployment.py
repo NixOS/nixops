@@ -1049,7 +1049,7 @@ class Deployment(object):
         if self.rollback_enabled: # and len(self.active) == 0:
             profile = self.create_profile()
             attrs = {m.name:
-                     Call(RawValue("builtins.storePath", m.cur_toplevel))
+                     Call(RawValue("builtins.storePath"), m.cur_toplevel)
                      for m in self.active.itervalues() if m.cur_toplevel}
             if subprocess.call(
                 ["nix-env", "-p", profile, "--set", "*", "-I", "nixops=" + self.expr_path,
