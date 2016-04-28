@@ -6,6 +6,61 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.4"><title>Release 1.4 (April 30, 2016)</title>
+
+<itemizedlist>
+
+  <listitem><para>General</para>
+
+    <itemizedlist>
+      <listitem><para>Added <emph>show-arguments</emph> command to query nixops arguments that are defined in the nix expressions</para></listitem>
+      <listitem><para></para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: None</para>
+
+    <itemizedlist>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Amazon EC2</para>
+
+    <itemizedlist>
+      <listitem><para>Use hvm-s3 AMIs when appropriate</para></listitem>
+      <listitem><para>Allow EBS optimized flag to be changed (needs --allow-reboot)</para></listitem>
+      <listitem><para>Allow to recover from spot instance kill, when using external volume defined as resource (resources.ebsVolumes)</para></listitem>
+      <listitem><para>When disassociating an elastic IP, make sure to check the current instance is the one who is currently associated with it, in case someone else has 'stolen' the elastic IP</para></listitem>
+      <listitem><para>Use generated list for deployment.ec2.physicalProperties, based on Amazon Pricing listing</para></listitem>
+      <listitem><para>EC2 AMI registry has been moved the the nixpkgs repository</para></listitem>
+      <listitem><para>Allow a timeout on spot instance creation</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Azure</para>
+
+    <itemizedlist>
+      <listitem><para>New Azure Cloud backend contributed by Evgeny Egorochkin</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>VirtualBox</para>
+
+    <itemizedlist>
+      <listitem><para>Respect deployment.virtualbox.disks.*.size for images with a baseImage</para></listitem>
+      <listitem><para>Allow overriding the VirtualBox base image size for disk1</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+</itemizedlist>
+
+<para>
+    This release has contributions from aszlig, Corbin Simpson, Domen Kožar, Eelco Dolstra,
+    Evgeny Egorochkin, Nathan Zadoks, Pascal Wittmann, Rob Vermaas and Susan Potter.
+</para>
+
+</section>
+
 <section xml:id="ssec-relnotes-1.3.1"><title>Release 1.3.1 (January 14, 2016)</title>
 
 <itemizedlist>
