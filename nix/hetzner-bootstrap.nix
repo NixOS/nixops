@@ -1,4 +1,4 @@
-with import <nixpkgs> { system = "x86_64-linux"; config.packageOverrides = pkgs : { nix = pkgs.nixUnstable; }; };
+with import <nixpkgs> { system = "x86_64-linux"; config.packageOverrides = pkgs : { nix = pkgs.nixUnstable.out or pkgs.nixUnstable; }; };
 
 let
   pkgsNative = import <nixpkgs> {};
