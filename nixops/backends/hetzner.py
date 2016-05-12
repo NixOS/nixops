@@ -67,6 +67,8 @@ class HetznerState(MachineState):
     def get_type(cls):
         return "hetzner"
 
+    PARTITIONING_FAILED = 1000
+
     state = attr_property("state", MachineState.UNKNOWN, int)
 
     main_ipv4 = attr_property("hetzner.mainIPv4", None)
@@ -282,7 +284,11 @@ class HetznerState(MachineState):
                     self.reboot_rescue(install, partitions)
                     return
                 else:
+                    self.state = self.PARTITIONING_FAILED
                     raise
+            except:
+                self.state = self.PARTITIONING_FAILED
+                raise
 
             # This is the *only* place to set self.partitions unless we have
             # implemented a way to repartition the system!
@@ -338,12 +344,12 @@ class HetznerState(MachineState):
         server = self._get_server_by_ip(self.main_ipv4)
         server.rescue.activate()
         rescue_passwd = server.rescue.password
-        if hard or (install and self.state not in (self.UP, self.RESCUE)):
+        if hard or (install and self.state not in (self.UP, self.RESCUE, self.PARTITIONING_FAILED)):
             self.log_start("sending hard reset to robot... ")
             server.reboot('hard')
         else:
             self.log_start("sending reboot command... ")
-            if self.state == self.RESCUE:
+            if self.state == self.RESCUE or self.state == self.PARTITIONING_FAILED:
                 self.run_command("(sleep 2; reboot) &", check=False)
             else:
                 self.run_command("systemctl reboot", check=False)
@@ -591,7 +597,11 @@ class HetznerState(MachineState):
 
         if not self.vm_id:
             self.log("installing machine...")
-            self.reboot_rescue(install=True, partitions=defn.partitions)
+            if self.state == self.PARTITIONING_FAILED:
+                self.state = self.RESCUE
+                self._bootstrap_rescue(True, defn.partitions)
+            else:
+                self.reboot_rescue(install=True, partitions=defn.partitions)
             self._install_base_system()
             self._detect_hardware()
             server = self._get_server_by_ip(self.main_ipv4)
