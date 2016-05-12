@@ -92,7 +92,7 @@ rec {
       # For "nix-build --run-env".
       shellHook = ''
         export PYTHONPATH=$(pwd):$PYTHONPATH
-        export PATH=$(pwd)/scripts:$PATH
+        export PATH=$(pwd)/scripts:${openssh}/bin:$PATH
       '';
 
       doCheck = true;
