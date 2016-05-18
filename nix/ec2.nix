@@ -149,6 +149,7 @@ let
    || builtins.substring 0 2 cfg.instanceType == "m3"
    || builtins.substring 0 2 cfg.instanceType == "m4"
    || builtins.substring 0 2 cfg.instanceType == "g2"
+   || builtins.substring 0 2 cfg.instanceType == "x1"
    || builtins.substring 0 2 cfg.instanceType == "t2";
 
   # Map "/dev/mapper/xvdX" to "/dev/xvdX".
