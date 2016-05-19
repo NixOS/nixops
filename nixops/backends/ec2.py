@@ -600,15 +600,17 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     self.public_ipv4 = None
                     self.ssh_pinged = False
 
-
-    def _get_network_interfaces(self, defn):
-        groups = defn.security_group_ids
-
-        sg_names = filter(lambda g: not g.startswith('sg-'), defn.security_group_ids)
+    def security_groups_to_ids(self, subnetId, groups):
+        sg_names = filter(lambda g: not g.startswith('sg-'), groups)
         if sg_names != []:
             self.connect_vpc()
-            vpc_id = self._conn_vpc.get_all_subnets([defn.subnet_id])[0].vpc_id
-            groups = map(lambda g: nixops.ec2_utils.name_to_security_group(self._conn, g, vpc_id), defn.security_group_ids)
+            vpc_id = self._conn_vpc.get_all_subnets([subnetId])[0].vpc_id
+            groups = map(lambda g: nixops.ec2_utils.name_to_security_group(self._conn, g, vpc_id), groups)
+
+        return groups
+
+    def _get_network_interfaces(self, defn):
+        groups = self.security_groups_to_ids(defn.subnet_id, defn.security_group_ids)
 
         return boto.ec2.networkinterface.NetworkInterfaceCollection(
             boto.ec2.networkinterface.NetworkInterfaceSpecification(
@@ -791,6 +793,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # backs.  Restart stopped instances.
         if self.vm_id and check:
             instance = self._get_instance(allow_missing=True)
+
             if instance is None or instance.state in {"shutting-down", "terminated"}:
                 if not allow_recreate:
                     raise Exception("EC2 instance ‘{0}’ went away; use ‘--allow-recreate’ to create a new one".format(self.name))
@@ -936,6 +939,14 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     ", ".join(set(self.security_groups)),
                     ", ".join(set(defn.security_groups)))
             )
+        instance = self._get_instance()
+
+        instance_groups = [g.id for g in instance.groups]
+        new_instance_groups = self.security_groups_to_ids(defn.subnet_id, defn.security_group_ids)
+        if instance.vpc_id and set(instance_groups) != set(new_instance_groups):
+            self.log("updating security groups from {0} to {1}...".format(instance_groups, new_instance_groups))
+            instance.modify_attribute("groupSet", new_instance_groups)
+
         if defn.placement_group != (self.placement_group or ""):
             self.warn(
                 'cannot change placement group of an existing instance (from ‘{0}’ to ‘{1}’)'.format(
