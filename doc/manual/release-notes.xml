@@ -6,7 +6,7 @@
 
 <!--==================================================================-->
 
-<section xml:id="ssec-relnotes-1.4"><title>Release 1.4 (April 30, 2016)</title>
+<section xml:id="ssec-relnotes-1.4"><title>Release 1.4 (May 24, 2016)</title>
 
 <itemizedlist>
 
@@ -34,6 +34,8 @@
       <listitem><para>Use generated list for deployment.ec2.physicalProperties, based on Amazon Pricing listing</para></listitem>
       <listitem><para>EC2 AMI registry has been moved the the nixpkgs repository</para></listitem>
       <listitem><para>Allow a timeout on spot instance creation</para></listitem>
+      <listitem><para>Allow updating security groups on running instances in a VPC</para></listitem>
+      <listitem><para>Support x1 instances</para></listitem>
     </itemizedlist>
   </listitem>
 
