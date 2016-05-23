@@ -506,8 +506,13 @@ class GCEState(MachineState, ResourceState):
                 self.stop()
 
             if node and (node.state == NodeState.STOPPED):
-                self.warn("kicking the machine with a hard reboot to start it")
-                self.reboot_sync(hard=True)
+                self.log("starting GCE machine")
+                self.connect().ex_start_node(node)
+                self.public_ipv4 = self.node().public_ips[0]
+                self.private_ipv4 = self.node().private_ips[0]
+                known_hosts.add(self.public_ipv4, self.public_host_key)
+                self.wait_for_ssh(check=True)
+                self.send_keys()
 
         if not self.vm_id and self.block_device_mapping:
             prev_public_ipv4 = self.public_ipv4
@@ -537,21 +542,17 @@ class GCEState(MachineState, ResourceState):
 
         if node.state != NodeState.TERMINATED:
             self.log_start("stopping GCE machine... ")
-            self.run_command("poweroff", check=False)
+            self.connect().ex_stop_node(node)
             self.state = self.STOPPING
 
             def check_stopped():
-                self.log_continue(".")
-                return self.node().state == NodeState.TERMINATED
+                return self.node().state == NodeState.STOPPED
             if nixops.util.check_wait(check_stopped, initial=3, max_tries=100, exception=False): # = 5 min
                 self.log_end("stopped")
             else:
                 self.log_end("(timed out)")
 
         self.state = self.STOPPED
-        self.log("tearing down the instance; disk contents are preserved");
-        node.destroy()
-        self._node_deleted()
         self.ssh.reset()
 
     def destroy(self, wipe=False):
