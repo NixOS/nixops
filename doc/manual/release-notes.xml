@@ -13,8 +13,8 @@
   <listitem><para>General</para>
 
     <itemizedlist>
-      <listitem><para>Added <emph>show-arguments</emph> command to query nixops arguments that are defined in the nix expressions</para></listitem>
-      <listitem><para></para></listitem>
+      <listitem><para>Added <emphasis>show-arguments</emphasis> command to query nixops arguments that are defined in the nix expressions</para></listitem>
+      <listitem><para>Added <emphasis>--dry-activate</emphasis> option to the deploy command, to see what services will be stopped/started/restarted. </para></listitem>
     </itemizedlist>
   </listitem>
 
