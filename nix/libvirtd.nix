@@ -92,6 +92,12 @@ in
       type = types.str;
       description = "Additional XML appended at the end of device tag in domain xml. See https://libvirt.org/formatdomain.html";
     };
+
+    deployment.libvirtd.extraDomainXML = mkOption {
+      default = "";
+      type = types.str;
+      description = "Additional XML appended at the end of domain xml. See https://libvirt.org/formatdomain.html";
+    };
   };
 
   ###### implementation
