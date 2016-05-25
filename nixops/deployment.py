@@ -657,7 +657,7 @@ class Deployment(object):
 
 
     def activate_configs(self, configs_path, include, exclude, allow_reboot,
-                         force_reboot, check, sync, always_activate):
+                         force_reboot, check, sync, always_activate, dry_activate):
         """Activate the new configuration on a machine."""
 
         def worker(m):
@@ -689,12 +689,16 @@ class Deployment(object):
 
                 if force_reboot or m.state == m.RESCUE:
                     switch_method = "boot"
+                elif dry_activate:
+                    switch_method = "dry-activate"
                 else:
                     switch_method = "switch"
 
                 # Run the switch script.  This will also update the
                 # GRUB boot loader.
                 res = m.switch_to_configuration(switch_method, sync)
+
+                if dry_activate: return
 
                 if res != 0 and res != 100:
                     raise Exception("unable to activate new configuration")
@@ -846,7 +850,7 @@ class Deployment(object):
     def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
                 include=[], exclude=[], check=False, kill_obsolete=False,
                 allow_reboot=False, allow_recreate=False, force_reboot=False,
-                max_concurrent_copy=5, sync=True, always_activate=False, repair=False):
+                max_concurrent_copy=5, sync=True, always_activate=False, repair=False, dry_activate=False):
         """Perform the deployment defined by the deployment specification."""
 
         self.evaluate_active(include, exclude, kill_obsolete)
@@ -926,7 +930,7 @@ class Deployment(object):
 
         # Build the machine configurations.
         if dry_run:
-            self.build_configs(dry_run=True, repair=repair, include=include, exclude=exclude)
+            self.build_configs(dry_run=dry_run, repair=repair, include=include, exclude=exclude)
             return
 
         # Record configs_path in the state so that the ‘info’ command
@@ -946,7 +950,9 @@ class Deployment(object):
         self.activate_configs(self.configs_path, include=include,
                               exclude=exclude, allow_reboot=allow_reboot,
                               force_reboot=force_reboot, check=check,
-                              sync=sync, always_activate=always_activate)
+                              sync=sync, always_activate=always_activate, dry_activate=dry_activate)
+
+        if dry_activate: return
 
         # Trigger cleanup of resources, e.g. disks that need to be detached etc. Needs to be
         # done after activation to make sure they are not in use anymore.
