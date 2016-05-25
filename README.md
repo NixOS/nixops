@@ -4,7 +4,7 @@ NixOps
 NixOps (formerly known as Charon) is a tool for deploying NixOS
 machines in a network or cloud.
 
-* [Manual](http://hydra.nixos.org/job/nixops/master/tarball/latest/download-by-type/doc/manual)
+* [Manual](https://nixos.org/nixops/manual/)
 * [Installation instructions](http://hydra.nixos.org/job/nixops/master/tarball/latest/download-by-type/doc/manual#chap-installation)
 * [Continuous build](http://hydra.nixos.org/jobset/nixops/master#tabs-jobs)
 * [Source code](https://github.com/NixOS/nixops)
