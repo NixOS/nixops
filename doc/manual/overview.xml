@@ -1381,6 +1381,70 @@ and destruction.</para>
 
 </section>
 
+<section><title>Deploying to Libvirtd (Qemu)</title>
+
+
+<para>In order to use libvirtd backend, a couple of manual steps need to be
+taken. Libvirtd backend is currently supported only on NixOS.
+</para>
+
+<para>Configure your host NixOS machine to enable libvirtd daemon,
+add your user to libvirtd group and change firewall not to filter DHCP packets.
+
+<programlisting>
+  virtualisation.libvirtd.enable = true;
+  users.extraUsers.myuser.extraGroups = [ "libvirtd" ];
+  networking.firewall.checkReversePath = false;
+</programlisting>
+</para>
+
+<para>Next we have to make sure our user has access to create images by
+  executing:
+  <programlisting>
+  $ sudo mkdir /var/lib/libvirtd/images
+  $ sudo chown myuser:libvirtd /var/lib/libvirtd/images</programlisting>
+</para>
+
+<para>We're ready to create the deployment, start by creating
+<literal>example.nix</literal>:
+
+<programlisting>
+{
+  example = { config, pkgs, lib, }: {
+  };
+}
+</programlisting>
+
+and libvirtd specification <literal>example-libvirtd.nix</literal>:
+
+<programlisting>
+{
+  example = {
+    deployment.targetEnv = "libvirtd";
+    deployment.headless = true;
+  };
+}
+</programlisting>
+</para>
+
+<para>Finally, let's deploy it with NixOps:
+
+<programlisting>
+  $ nixops create -d example-libvirtd ./example.nix ./example-libvirtd.nix
+  $ nixops deploy -d example-libvirtd
+</programlisting>
+</para>
+
+<warning>
+<para>Note that headless mode has to be turned ON for the moment in order to
+  avoid X permissions error currently
+  <link xlink:href="https://github.com/NixOS/nixops/issues/422">
+  known to be broken upstream</link>
+</para>
+</warning>
+
+</section>
+
 
 <section><title>Accessing machines</title>
 
@@ -1495,8 +1559,6 @@ Running <code>nixops deploy</code> after changing the arguments will
 deploy the new configuration.
 
 </para>
-
-
 
 </section>
 
