@@ -239,7 +239,7 @@ rec {
     in (
       nameValuePair ("bootstrap") [({ pkgs, ...}: {
         inherit (gce) project serviceAccount accessKey;
-        sourceUri = images."${pkgs.lib.substring 0 5 pkgs.lib.nixpkgsVersion}" or images."15.09";
+        sourceUri = images."${pkgs.lib.substring 0 5 pkgs.lib.nixpkgsVersion}" or images."16.03";
       })]
     )
   );
