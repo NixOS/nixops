@@ -47,6 +47,14 @@ in
       '';
     };
 
+    deployment.libvirtd.vcpu = mkOption {
+      default = 1;
+      type = types.int;
+      description = ''
+        Number of Virtual CPUs.
+      '';
+    };
+
     deployment.libvirtd.memorySize = mkOption {
       default = 512;
       type = types.int;

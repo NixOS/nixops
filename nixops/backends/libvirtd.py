@@ -23,6 +23,7 @@ class LibvirtdDefinition(MachineDefinition):
 
         x = xml.find("attrs/attr[@name='libvirtd']/attrs")
         assert x is not None
+        self.vcpu = x.find("attr[@name='vcpu']/int").get("value")
         self.memory_size = x.find("attr[@name='memorySize']/int").get("value")
         self.extra_devices = x.find("attr[@name='extraDevicesXML']/string").get("value")
         self.extra_domain = x.find("attr[@name='extraDomainXML']/string").get("value")
@@ -44,6 +45,7 @@ class LibvirtdState(MachineState):
     primary_mac = nixops.util.attr_property("libvirtd.primaryMAC", None)
     domain_xml = nixops.util.attr_property("libvirtd.domainXML", None)
     disk_path = nixops.util.attr_property("libvirtd.diskPath", None)
+    vcpu = nixops.util.attr_property("libvirtd.vcpu", None)
 
     @classmethod
     def get_type(cls):
@@ -127,7 +129,7 @@ class LibvirtdState(MachineState):
             '<domain type="kvm">',
             '  <name>{0}</name>',
             '  <memory unit="MiB">{1}</memory>',
-            '  <vcpu>1</vcpu>',
+            '  <vcpu>{4}</vcpu>',
             '  <os>',
             '    <type arch="x86_64">hvm</type>',
             '  </os>',
@@ -156,6 +158,7 @@ class LibvirtdState(MachineState):
             defn.memory_size,
             qemu_kvm,
             self._disk_path(defn),
+            defn.vcpu
         )
 
     def _parse_ip(self):
