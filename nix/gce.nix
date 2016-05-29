@@ -23,10 +23,11 @@ let
 
   addr_manager = pkgs.stdenv.mkDerivation {
     name = "google-address-manager";
-    src = pkgs.fetchgit {
-      url = https://github.com/GoogleCloudPlatform/compute-image-packages.git;
+    src = pkgs.fetchFromGitHub {
+      owner = "GoogleCloudPlatform";
+      repo = "compute-image-packages";
       rev = "6cb6f9d2219dca1d14aeb60177a15492814032a3";
-      sha256 = "46b15e8cea75da53e88591379745ffef53e9114950ff0fa1c25f7515df104dde";
+      sha256 = "10qgdd2sahvb3pwajbrw2zi8ad2xqgpi782lzzkp6yzvwyiybn18";
     };
     preConfigure = ''
       substituteInPlace google-daemon/usr/share/google/google_daemon/address_manager.py --replace /sbin/ip ${pkgs.iproute}/sbin/ip
