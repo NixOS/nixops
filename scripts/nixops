@@ -73,7 +73,6 @@ def open_deployment():
     depl.extra_nix_path = sum(args.nix_path or [], [])
     for (n, v) in args.nix_options or []: depl.extra_nix_flags.extend(["--option", n, v])
     if args.max_jobs != None: depl.extra_nix_flags.extend(["--max-jobs", str(args.max_jobs)])
-    if args.max_jobs != None: depl.extra_nix_flags.extend(["--max-jobs", str(args.max_jobs)])
     if args.keep_going: depl.extra_nix_flags.append("--keep-going")
     if args.keep_failed: depl.extra_nix_flags.append("--keep-failed")
     if args.show_trace: depl.extra_nix_flags.append("--show-trace")
