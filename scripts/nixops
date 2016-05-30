@@ -73,6 +73,7 @@ def open_deployment():
     depl.extra_nix_path = sum(args.nix_path or [], [])
     for (n, v) in args.nix_options or []: depl.extra_nix_flags.extend(["--option", n, v])
     if args.max_jobs != None: depl.extra_nix_flags.extend(["--max-jobs", str(args.max_jobs)])
+    if args.cores != None: depl.extra_nix_flags.extend(["--cores", str(args.cores)])
     if args.keep_going: depl.extra_nix_flags.append("--keep-going")
     if args.keep_failed: depl.extra_nix_flags.append("--keep-failed")
     if args.show_trace: depl.extra_nix_flags.append("--show-trace")
@@ -691,6 +692,7 @@ def add_subparser(name, help):
     # Nix options that we pass along.
     subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='append a directory to the Nix search path')
     subparser.add_argument("--max-jobs", '-j', type=int, metavar='N', help='set maximum number of concurrent Nix builds')
+    subparser.add_argument("--cores", type=int, metavar='N', help='sets the value of the NIX_BUILD_CORES environment variable in the invocation of builders')
     subparser.add_argument("--keep-going", action='store_true', help='keep going after failed builds')
     subparser.add_argument("--keep-failed", '-K', action='store_true', help='keep temporary directories of failed builds')
     subparser.add_argument('--show-trace', action='store_true', help='print a Nix stack trace if evaluation fails')
