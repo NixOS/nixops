@@ -151,6 +151,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.dns_hostname = None
             self.dns_ttl = None
             self.subnet_id = None
+
             self.client_token = None
             self.spot_instance_request_id = None
 
@@ -943,7 +944,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         instance_groups = [g.id for g in instance.groups]
         new_instance_groups = self.security_groups_to_ids(defn.subnet_id, defn.security_group_ids)
-        if instance.vpc_id and set(instance_groups) != set(new_instance_groups):
+        if defn.subnet_id and instance.vpc_id and set(instance_groups) != set(new_instance_groups):
             self.log("updating security groups from {0} to {1}...".format(instance_groups, new_instance_groups))
             instance.modify_attribute("groupSet", new_instance_groups)
 
