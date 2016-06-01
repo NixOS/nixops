@@ -146,6 +146,13 @@ class GCEState(MachineState, ResourceState):
     def node(self):
        return self.connect().ex_get_node(self.machine_name, self.region)
 
+    def address_to(self, resource):
+        """Return the IP address to be used to access "resource" from this machine."""
+        if isinstance(resource, GCEState) and resource.network == self.network:
+            return resource.private_ipv4
+        else:
+            return MachineState.address_to(self, resource)
+
     def full_metadata(self, metadata):
         result = metadata.copy()
         result.update({
