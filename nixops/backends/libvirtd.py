@@ -181,7 +181,7 @@ class LibvirtdState(MachineState):
             return ip_with_subnet.split('/')[0]
 
     def _wait_for_ip(self, prev_time):
-        self.log_start("waiting for IP address...")
+        self.log_start("waiting for IP address to appear in DHCP leases...")
         while True:
             ip = self._parse_ip()
             if ip:
@@ -196,13 +196,14 @@ class LibvirtdState(MachineState):
         return (string.find(ls, self.vm_id) != -1)
 
     def start(self):
-        self.log("starting...")
         assert self.vm_id
         assert self.domain_xml
         assert self.primary_net
         if self._is_running():
+            self.log("connecting...")
             self.private_ipv4 = self._parse_ip()
         else:
+            self.log("starting...")
             dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
             nixops.util.write_file(dom_file, self.domain_xml)
             self._logged_exec(["virsh", "-c", "qemu:///system", "create", dom_file])
