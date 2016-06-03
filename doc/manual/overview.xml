@@ -240,7 +240,6 @@ You can use the option <option>--confirm</option> to confirm all
 questions.  This is useful for automated deployment, but potentially
 dangerous.</para>
 
-</section>
 
 
 <section><title>Deploying multiple machines</title>
@@ -334,6 +333,7 @@ in
 
 </section>
 
+</section>
 
 <section xml:id="sec-deploying-to-ec2"><title>Deploying to Amazon EC2</title>
 
