@@ -15,6 +15,8 @@
     <itemizedlist>
       <listitem><para>Added <emphasis>show-arguments</emphasis> command to query nixops arguments that are defined in the nix expressions</para></listitem>
       <listitem><para>Added <emphasis>--dry-activate</emphasis> option to the deploy command, to see what services will be stopped/started/restarted. </para></listitem>
+      <listitem><para>Added <emphasis>--fallback</emphasis> option to the deploy command to match the same flag on nix-build. </para></listitem>
+      <listitem><para>Added <emphasis>--cores</emphasis> option to the deploy command to match the same flag on nix-build. </para></listitem>
     </itemizedlist>
   </listitem>
 
@@ -46,11 +48,22 @@
     </itemizedlist>
   </listitem>
 
-  <listitem><para>VirtualBox</para>
+  <listitem><para>Backend: VirtualBox</para>
 
     <itemizedlist>
       <listitem><para>Respect deployment.virtualbox.disks.*.size for images with a baseImage</para></listitem>
       <listitem><para>Allow overriding the VirtualBox base image size for disk1</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Libvirt</para>
+
+    <itemizedlist>
+      <listitem><para>Improve logging messages</para></listitem>
+      <listitem><para>#345: Use qemu-system-x86_64 instead of qemu-kvm for non-NixOS support</para></listitem>
+      <listitem><para>add extraDomainXML NixOS option</para></listitem>
+      <listitem><para>add extraDevicesXML NixOS option</para></listitem>
+      <listitem><para>add vcpu NixOS option</para></listitem>
     </itemizedlist>
   </listitem>
 
