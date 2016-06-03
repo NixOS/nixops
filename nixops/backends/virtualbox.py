@@ -420,7 +420,7 @@ class VirtualBoxState(MachineState):
 
     def start(self):
         if self._get_vm_state() == 'running': return
-        self.log("restarting...")
+        self.log("starting...")
 
         prev_ipv4 = self.private_ipv4
 
