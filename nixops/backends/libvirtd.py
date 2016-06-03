@@ -111,6 +111,10 @@ class LibvirtdState(MachineState):
         return "{0}/{1}.img".format(defn.image_dir, self._vm_id())
 
     def _make_domain_xml(self, defn):
+        qemu_executable = "qemu-system-x86_64"
+        qemu = spawn.find_executable(qemu_executable)
+        assert qemu is not None, "{} executable not found. Please install QEMU first.".format(qemu_executable)
+
         def maybe_mac(n):
             if n == self.primary_net:
                 return '<mac address="' + self.primary_mac + '" />'
@@ -150,13 +154,10 @@ class LibvirtdState(MachineState):
             '</domain>',
         ])
 
-        qemu_kvm = spawn.find_executable("qemu-kvm")
-        assert qemu_kvm is not None, "qemu-kvm executable not found"
-
         return domain_fmt.format(
             self._vm_id(),
             defn.memory_size,
-            qemu_kvm,
+            qemu,
             self._disk_path(defn),
             defn.vcpu
         )
