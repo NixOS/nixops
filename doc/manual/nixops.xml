@@ -1348,9 +1348,8 @@ $ nixops mount foo:/data ~/mnt -o transform_symlinks
 
 <refsection><title>Description</title>
 
-<para>This command reboots all non-obsolete machines.  If the option
-<option>--parallel</option> is given, the command is executed on all
-machines in parallel; otherwise, it’s executed sequentially.</para>
+<para>This command reboots all non-obsolete machines in parallel. 
+</para>
 
 </refsection>
 
