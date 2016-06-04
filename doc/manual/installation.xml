@@ -6,59 +6,21 @@
 
 <para>NixOps runs on Linux and Mac OS X.  (It may also run on other
 platforms; the main prerequisite is that Nix runs on your
-platform.)  Installing it requires the following steps:</para>
+platform.) Installing it requires the following steps:</para>
 
 <orderedlist>
 
-  <listitem><para>Install the Nix package manager.  You need at least
-  version 1.5.  It’s available from the <link
+  <listitem><para>Install the Nix package manager. It’s available from the <link
   xlink:href="http://nixos.org/nix/download.html">Nix website</link>
   in binary form for several platforms.  Please refer to the <link
   xlink:href="http://nixos.org/nix/manual/#chap-installation">installation
   instruction</link> in the Nix manual for more
   details.</para></listitem>
 
-  <listitem><para>Obtain the NixOS and Nixpkgs sources and add them to
-  <envar>NIX_PATH</envar> environment variable so that NixOps can find
-  them.  The easiest way to do this is to use the NixOS channel, which
-  also ensures that you get pre-built binaries so that your machine
-  doesn’t have to compile everything locally:
-
+  <listitem><para>Install the latest version of NixOps.
 <screen>
-$ nix-channel --add http://nixos.org/channels/nixos-unstable
-$ nix-channel --update
-$ export NIX_PATH=/nix/var/nix/profiles/per-user/root/channels/nixos
+$ nix-env -iA nixops
 </screen>
-
-  (You may have to replace <literal>root</literal> in the last line by
-  your own user name if you’ve installed Nix under another user
-  account.)</para>
-
-  <para>Alternatively, you can check out the sources using Git:
-
-<screen>
-$ cd /some/dir
-$ git clone git://github.com/NixOS/nixpkgs.git
-$ export NIX_PATH=/some/dir
-</screen>
-
-  </para></listitem>
-
-  <listitem><para>Install the latest version of NixOps.  The latest
-  stable release can be found at <link
-  xlink:href="http://hydra.nixos.org/project/nixops#tabs-releases"/>.
-  The easiest way to install it is by using the “one-click” install,
-  which can be done from the command line by running
-<screen>
-$ nix-install-package --non-interactive --url <replaceable>url</replaceable>
-</screen>
-  where <replaceable>url</replaceable> is the URL of the Nix package,
-  e.g. <uri>http://hydra.nixos.org/build/5387007/nix/pkg/nixops-1.0pre716_8440d7c-x86_64-linux.nixpkg</uri>.</para>
-
-  <para>You can also install the <link
-		  xlink:href="http://hydra.nixos.org/jobset/nixops/master#tabs-jobs">
-  latest unstable build</link> in the same way.</para>
-
   </listitem>
 
 </orderedlist>
