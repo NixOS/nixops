@@ -21,6 +21,7 @@ platform.) Installing it requires the following steps:</para>
 <screen>
 $ nix-env -iA nixops
 </screen>
+</para>
   </listitem>
 
 </orderedlist>
