@@ -654,6 +654,7 @@ class Deployment(object):
         nixops.parallel.run_tasks(
             nr_workers=max_concurrent_copy,
             tasks=self.active.itervalues(), worker_fun=worker)
+        self.logger.log(ansi_success("{0}> closures copied successfully".format(self.name), outfile=self.logger._log_file))
 
 
     def activate_configs(self, configs_path, include, exclude, allow_reboot,
