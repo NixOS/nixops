@@ -427,9 +427,11 @@ def print_physical_backup_spec(backupid):
 
 def op_show_arguments():
     depl = open_deployment()
-    tbl = create_table([("Name", 'l')])
-    for arg in depl.get_arguments():
-        tbl.add_row([arg])
+    tbl = create_table([('Name', 'l'), ('Location', 'l')])
+    args = depl.get_arguments()
+    for arg in sorted(args.keys()):
+        files = sorted(args[arg])
+        tbl.add_row([arg, "\n".join(files)])
     print tbl
 
 
