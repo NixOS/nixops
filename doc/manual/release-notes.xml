@@ -6,7 +6,7 @@
 
 <!--==================================================================-->
 
-<section xml:id="ssec-relnotes-1.4"><title>Release 1.4 (Jun 2, 2016)</title>
+<section xml:id="ssec-relnotes-1.4"><title>Release 1.4 (Jun 15, 2016)</title>
 
 <itemizedlist>
 
@@ -70,9 +70,9 @@
 </itemizedlist>
 
 <para>
-    This release has contributions from Anders Papitto, aszlig, Aycan iRiCAN, Corbin Simpson,
-    Domen Kožar, Eelco Dolstra, Evgeny Egorochkin, Igor Pashev, Nathan Zadoks, Pascal Wittmann,
-    Rob Vermaas, Ruslan Babayev, Susan Potter and Danylo Hlynskyi.
+    This release has contributions from Amine Chikhaoui, Anders Papitto, aszlig, Aycan iRiCAN,
+    Corbin Simpson, Domen Kožar, Eelco Dolstra, Evgeny Egorochkin, Igor Pashev, Maarten Hoogendoorn,
+    Nathan Zadoks, Pascal Wittmann, Rob Vermaas, Ruslan Babayev, Susan Potter and Danylo Hlynskyi.
 </para>
 
 </section>
