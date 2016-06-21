@@ -1266,6 +1266,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.warn("cannot stop non-EBS-backed instance")
             return
 
+        if not self.depl.logger.confirm("are you sure you want to stop machine '{}'".format(self.name)):
+            return
+
         self.log_start("stopping EC2 machine... ")
 
         instance = self._get_instance()
