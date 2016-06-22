@@ -43,7 +43,11 @@ class EC2SecurityGroupDefinition(nixops.resources.ResourceDefinition):
                 self.security_group_rules.append([ ip_protocol, from_port, to_port, cidr_ip_xml.get("value") ])
             else:
                 group_name = rule_xml.find("attr[@name='sourceGroup']/attrs/attr[@name='groupName']/string").get("value")
-                owner_id = rule_xml.find("attr[@name='sourceGroup']/attrs/attr[@name='ownerId']/string").get("value")
+                owner_id_xml = rule_xml.find("attr[@name='sourceGroup']/attrs/attr[@name='ownerId']/string")
+                if not owner_id_xml is None:
+                    owner_id = owner_id_xml.get("value")
+                else:
+                    owner_id = None
                 self.security_group_rules.append([ ip_protocol, from_port, to_port, group_name, owner_id ])
 
 
@@ -166,7 +170,8 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                     grp.authorize(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], cidr_ip=rule[3])
                 else:
                     args = {}
-                    args['owner_id']=rule[4]
+                    if not rule[4] is None:
+                        args['owner_id']=rule[4]
                     if self.vpc_id:
                         args['id']=nixops.ec2_utils.name_to_security_group(self._conn, rule[3], self.vpc_id)
                     else:
@@ -184,7 +189,8 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                     grp.revoke(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], cidr_ip=rule[3])
                 else:
                     args = {}
-                    args['owner_id']=rule[4]
+                    if not rule[4] is None:
+                        args['owner_id']=rule[4]
                     if self.vpc_id:
                         args['id']=nixops.ec2_utils.name_to_security_group(self._conn, rule[3], self.vpc_id)
                     else:
