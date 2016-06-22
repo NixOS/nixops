@@ -167,7 +167,9 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                 grp = self.get_security_group()
             for rule in new_rules:
                 if len(rule) == 4:
+                    # VVVV SOMETHING HERE TO RETRY
                     grp.authorize(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], cidr_ip=rule[3])
+                    # ^^^^ SOMETHING HERE TO RETRY
                 else:
                     args = {}
                     if not rule[4] is None:
