@@ -114,6 +114,71 @@ cloud.</para>
 </refsection>
 
 
+<refsection><title>Common options passed along to Nix</title>
+
+<variablelist>
+
+  <varlistentry><term><option>-I</option></term>
+
+    <listitem><para>Append a directory to the Nix search path.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--max-jobs</option></term>
+
+    <listitem><para>Set maximum number of concurrent Nix builds.</para>
+    </listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--cores</option></term>
+
+    <listitem><para>Sets the value of the NIX_BUILD_CORES environment variable
+    in the invocation of builders</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--keep-going</option></term>
+
+    <listitem><para>Keep going after failed builds.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--keep-failed</option></term>
+
+    <listitem><para>Keep temporary directories of failed builds.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--show-trace</option></term>
+
+    <listitem><para>Print a Nix stack trace if evaluation fails.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--fallback</option></term>
+
+    <listitem><para>Fall back on installation from source.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--option</option></term>
+
+    <listitem><para>Set a Nix option.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>--read-only-mode</option></term>
+
+    <listitem><para>Run Nix evaluations in read-only mode.</para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+</refsection>
+
+
 <refsection><title>Environment variables</title>
 
 <variablelist>
@@ -1192,7 +1257,7 @@ non-obsolete machines.</para>
     The default is to do each machine sequentially.</para></listitem>
 
   </varlistentry>
-  
+
   <varlistentry><term><option>--include</option>
     <replaceable>machine-name...</replaceable></term>
 
@@ -1348,7 +1413,7 @@ $ nixops mount foo:/data ~/mnt -o transform_symlinks
 
 <refsection><title>Description</title>
 
-<para>This command reboots all non-obsolete machines in parallel. 
+<para>This command reboots all non-obsolete machines in parallel.
 </para>
 
 </refsection>

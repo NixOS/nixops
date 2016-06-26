@@ -1,9 +1,11 @@
 *~
-*.pyc
-examples/*.json
-examples/*.lock
-result
-tests/test.nixops*
 .coverage
 coverage.xml
+examples/*.json
+examples/*.lock
 html/
+*.pyc
+result
+*.sw[a-z]
+tags
+tests/test.nixops*
