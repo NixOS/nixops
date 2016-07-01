@@ -403,9 +403,9 @@ in
       type = types.int;
       description = ''
         The duration (in seconds) that the spot instance request is
-	valid. If the request cannot be satisfied in this amount of
-	time, the request will be cancelled automatically, and NixOps
-	will fail with an error message. The default (0) is no timeout.
+        valid. If the request cannot be satisfied in this amount of
+        time, the request will be cancelled automatically, and NixOps
+        will fail with an error message. The default (0) is no timeout.
       '';
     };
 
