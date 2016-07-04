@@ -34,7 +34,7 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
     region = nixops.util.attr_property("ec2.region", None)
     fs_id = nixops.util.attr_property("ec2.fsId", None)
     fsmt_id = nixops.util.attr_property("ec2.fsmtId", None)
-    ip_address = nixops.util.attr_property("ec2.ipAddress", None)
+    private_ipv4 = nixops.util.attr_property("privateIpv4", None)
 
     @classmethod
     def get_type(cls):
@@ -47,7 +47,7 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
             self.region = None
             self.fs_id = None
             self.fsmt_id = None
-            self.ip_address = None
+            self.private_ipv4 = None
 
     def _exists(self):
         return self.state != self.MISSING
@@ -89,7 +89,10 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
             # subnet ID pair. A repeated call can give either a
             # MountTargetConflict error or a LifeCycleState=creating
             # response.
-            res = client.create_mount_target(FileSystemId=fs_id, SubnetId=defn.config["subnet"], IpAddress=defn.config["ipAddress"])
+            args = {}
+            if defn.config["ipAddress"]:
+                args["IpAddress"] = defn.config["ipAddress"]
+            res = client.create_mount_target(FileSystemId=fs_id, SubnetId=defn.config["subnet"], **args)
 
             with self.depl._db:
                 self.state = self.STARTING
@@ -97,7 +100,7 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
                 self.fs_id = fs_id
                 self.region = defn.config["region"]
                 self.access_key_id = access_key_id
-                self.ip_address = res["IpAddress"]
+                self.private_ipv4 = res["IpAddress"]
 
         if self.state == self.STARTING:
 
@@ -125,7 +128,7 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
 
     def get_physical_spec(self):
         return {
-            ('ipAddress'): self.ip_address,
+            ('ipAddress'): self.private_ipv4,
         }
 
     def destroy(self, wipe=False):
