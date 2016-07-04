@@ -20,7 +20,7 @@ with lib;
 
     region = mkOption {
       type = types.str;
-      description = "Amazon EC2 region.";
+      description = "AWS region.";
     };
 
     accessKeyId = mkOption {

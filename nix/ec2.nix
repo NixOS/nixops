@@ -197,7 +197,7 @@ in
       example = "us-east-1";
       type = types.str;
       description = ''
-        Amazon EC2 region in which the instance is to be deployed.
+        AWS region in which the instance is to be deployed.
         This option only applies when using EC2.  It implicitly sets
         <option>deployment.ec2.ami</option>.
       '';

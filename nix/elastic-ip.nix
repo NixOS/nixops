@@ -9,7 +9,7 @@ with lib;
     region = mkOption {
       example = "us-east-1";
       type = types.str;
-      description = "Amazon EC2 region.";
+      description = "AWS region.";
     };
 
     accessKeyId = mkOption {

@@ -78,6 +78,7 @@ rec {
       propagatedBuildInputs =
         [ pythonPackages.prettytable
           pythonPackages.boto
+          pythonPackages.boto3
           pythonPackages.hetzner
           pythonPackages.libcloud
           pythonPackages.azure-storage

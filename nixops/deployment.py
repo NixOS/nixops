@@ -1179,7 +1179,6 @@ def _create_state(depl, type, name, id):
 def _load_modules_from(dir):
     for module in os.listdir(os.path.dirname(__file__) + "/" + dir):
         if module[-3:] != '.py' or module == "__init__.py": continue
-        #if module[:-3] == "ec2_rds_dbinstance": continue
         __import__("nixops." + dir + "." + module[:-3], globals(), locals())
 
 _load_modules_from("backends")
