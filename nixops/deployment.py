@@ -833,6 +833,8 @@ class Deployment(object):
 
         self.logger.update_log_prefixes()
 
+        to_destroy = []
+
         # Determine the set of active resources.  (We can't just
         # delete obsolete resources from ‘self.resources’ because they
         # contain important state that we don't want to forget about.)
@@ -845,7 +847,11 @@ class Deployment(object):
                 self.logger.log("resource ‘{0}’ is obsolete".format(m.name))
                 if not m.obsolete: m.obsolete = True
                 if not should_do(m, include, exclude): continue
-                if kill_obsolete and m.destroy(): self.delete_resource(m)
+                if kill_obsolete:
+                    to_destroy.append(m.name)
+
+        if to_destroy:
+            self._destroy_resources(include=to_destroy)
 
 
     def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
@@ -1015,39 +1021,43 @@ class Deployment(object):
             self._rollback(**kwargs)
 
 
+    def _destroy_resources(self, include=[], exclude=[], wipe=False):
+
+        for r in self.resources.itervalues():
+            r._destroyed_event = threading.Event()
+            r._errored = False
+            for rev_dep in r.destroy_before(self.resources.itervalues()):
+                try:
+                    rev_dep._wait_for.append(r)
+                except AttributeError:
+                    rev_dep._wait_for = [ r ]
+
+        def worker(m):
+            try:
+                if not should_do(m, include, exclude): return
+                try:
+                    for dep in m._wait_for:
+                        dep._destroyed_event.wait()
+                        # !!! Should we print a message here?
+                        if dep._errored:
+                            m._errored = True
+                            return
+                except AttributeError:
+                    pass
+                if m.destroy(wipe=wipe): self.delete_resource(m)
+            except:
+                m._errored = True
+                raise
+            finally:
+                m._destroyed_event.set()
+
+        nixops.parallel.run_tasks(nr_workers=-1, tasks=self.resources.values(), worker_fun=worker)
+
     def destroy_resources(self, include=[], exclude=[], wipe=False):
-        """Destroy all active or obsolete resources."""
+        """Destroy all active and obsolete resources."""
 
         with self._get_deployment_lock():
-            for r in self.resources.itervalues():
-                r._destroyed_event = threading.Event()
-                r._errored = False
-                for rev_dep in r.destroy_before(self.resources.itervalues()):
-                    try:
-                        rev_dep._wait_for.append(r)
-                    except AttributeError:
-                        rev_dep._wait_for = [ r ]
-
-            def worker(m):
-                try:
-                    if not should_do(m, include, exclude): return
-                    try:
-                        for dep in m._wait_for:
-                            dep._destroyed_event.wait()
-                            # !!! Should we print a message here?
-                            if dep._errored:
-                                m._errored = True
-                                return
-                    except AttributeError:
-                        pass
-                    if m.destroy(wipe=wipe): self.delete_resource(m)
-                except:
-                    m._errored = True
-                    raise
-                finally:
-                    m._destroyed_event.set()
-
-            nixops.parallel.run_tasks(nr_workers=-1, tasks=self.resources.values(), worker_fun=worker)
+            self._destroy_resources(include, exclude, wipe)
 
         # Remove the destroyed machines from the rollback profile.
         # This way, a subsequent "nix-env --delete-generations old" or

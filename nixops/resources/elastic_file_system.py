@@ -128,7 +128,7 @@ class ElasticFileSystemState(nixops.resources.ResourceState, \
                 raise Exception("cannot delete Elastic File System ‘{0}’ because it still has mount targets".format(self.name))
 
             try:
-                print client.delete_file_system(FileSystemId=self.fs_id)
+                client.delete_file_system(FileSystemId=self.fs_id)
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == 'FileSystemNotFound':
                     pass
@@ -137,7 +137,6 @@ class ElasticFileSystemState(nixops.resources.ResourceState, \
                 try:
                     fss = client.describe_file_systems(FileSystemId=self.fs_id)["FileSystems"]
                     assert(len(fss) == 1)
-                    print fss
                     if fss[0]["LifeCycleState"] == "deleted":
                         break
                     self.log_continue(".")
