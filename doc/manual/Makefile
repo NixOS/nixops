@@ -8,7 +8,7 @@ xsltproc = xsltproc --nonet \
  --param callout.graphics.extension \'.gif\' \
  --param contrib.inline.enabled 0
 
-docbookxsl = http://docbook.sourceforge.net/release/xsl-ns/1.78.1
+docbookxsl = http://docbook.sourceforge.net/release/xsl-ns/current
 
 all: manual.html man
 
