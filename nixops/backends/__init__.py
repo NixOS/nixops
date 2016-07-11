@@ -146,7 +146,7 @@ class MachineState(nixops.resources.ResourceState):
 
                 if match and match.group(1) == "tmp.mount":
                     try:
-                        self.run_command("cat /etc/fstab | grep -v '^#' | cut -d' ' -f 2 | grep '^/tmp$' &> /dev/null")
+                        self.run_command("cat /etc/fstab | cut -d' ' -f 2 | grep '^/tmp$' &> /dev/null")
                     except:
                         continue
                     res.failed_units.append(match.group(1))
