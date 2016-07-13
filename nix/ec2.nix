@@ -310,7 +310,7 @@ in
     };
 
     deployment.ec2.securityGroupIds = mkOption {
-      default = [];
+      default = [ "default" ];
       type = types.listOf types.str;
       description = ''
         Security Group IDs for the instance. Necessary if starting
