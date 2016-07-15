@@ -60,6 +60,16 @@ with lib;
       '';
     };
 
+    deployment.route53.usePrivateIp = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        Whether to use the private or public IPv4 address when creating an A record.
+        Note: if this option is set to true, setting the option usePublicDNSName wont have any effect.
+      '';
+    };
+
+
   };
 
 

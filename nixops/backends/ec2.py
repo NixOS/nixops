@@ -63,6 +63,7 @@ class EC2Definition(MachineDefinition):
         self.dns_ttl = config["route53"]["ttl"]
         self.route53_access_key_id = config["route53"]["accessKeyId"]
         self.route53_use_public_dns_name = config["route53"]["usePublicDNSName"]
+        self.route53_use_private_ip = config["route53"]["usePrivateIp"]
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")
@@ -107,6 +108,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     dns_hostname = nixops.util.attr_property("route53.hostName", None)
     dns_ttl = nixops.util.attr_property("route53.ttl", None, int)
     route53_access_key_id = nixops.util.attr_property("route53.accessKeyId", None)
+    route53_use_private_ip = nixops.util.attr_property("route53.usePrivateIp", None)
     client_token = nixops.util.attr_property("ec2.clientToken", None)
     spot_instance_request_id = nixops.util.attr_property("ec2.spotInstanceRequestId", None)
     spot_instance_price = nixops.util.attr_property("ec2.spotInstancePrice", None)
@@ -1132,8 +1134,17 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self.dns_ttl = defn.dns_ttl
         self.route53_access_key_id = defn.route53_access_key_id
         self.route53_use_public_dns_name = defn.route53_use_public_dns_name
-        record_type = 'CNAME' if self.route53_use_public_dns_name else 'A'
-        dns_value = self.public_dns_name if self.route53_use_public_dns_name else self.public_ipv4
+        self.route53_use_private_ip = defn.route53_use_private_ip
+        record_type = 'A'
+
+        if self.route53_use_private_ip:
+            dns_value = self.private_ipv4
+        else:
+            if self.route53_use_public_dns_name:
+                record_type = 'CNAME'
+                dns_value = self.public_dns_name
+            else:
+                dns_value = self.public_ipv4
 
         self.log('sending Route53 DNS: {0} {1} {2}'.format(self.dns_hostname, record_type, dns_value))
 
