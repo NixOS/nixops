@@ -1,2 +1,3 @@
 #! /bin/sh -e
-exec nix-shell release.nix -A build.x86_64-linux --exclude tarball "$@"
+SYSTEM=$(nix-instantiate --eval --expr "builtins.currentSystem")
+exec nix-shell release.nix -A build.$SYSTEM --exclude tarball "$@"
