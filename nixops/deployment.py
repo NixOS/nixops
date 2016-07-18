@@ -1125,6 +1125,7 @@ class Deployment(object):
 
     def send_keys(self, include=[], exclude=[]):
         """Send LUKS encryption keys to machines."""
+        self.evaluate()
 
         def worker(m):
             if not should_do(m, include, exclude): return

@@ -8,6 +8,7 @@ import subprocess
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
+from pprint import pprint
 
 class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
@@ -30,6 +31,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
 
         self.keys = {k.get("name"): _extract_key_options(k) for k in
                      xml.findall("attrs/attr[@name='keys']/attrs/attr")}
+        pprint(self.keys)
 
 
 class MachineState(nixops.resources.ResourceState):
