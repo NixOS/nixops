@@ -375,6 +375,7 @@ def op_deploy():
 
 def op_send_keys():
     depl = open_deployment()
+    depl.evaluate()
     depl.send_keys(include=args.include or [], exclude=args.exclude or [])
 
 
