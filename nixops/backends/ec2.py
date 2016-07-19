@@ -605,7 +605,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
     def security_groups_to_ids(self, subnetId, groups):
         sg_names = filter(lambda g: not g.startswith('sg-'), groups)
-        if sg_names != []:
+        if sg_names != [ ] and subnetId != "":
             self.connect_vpc()
             vpc_id = self._conn_vpc.get_all_subnets([subnetId])[0].vpc_id
             groups = map(lambda g: nixops.ec2_utils.name_to_security_group(self._conn, g, vpc_id), groups)

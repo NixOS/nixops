@@ -1013,7 +1013,7 @@ class Deployment(object):
         self.activate_configs(self.configs_path, include=include,
                               exclude=exclude, allow_reboot=allow_reboot,
                               force_reboot=force_reboot, check=check,
-                              sync=sync, always_activate=True)
+                              sync=sync, always_activate=True, dry_activate=False)
 
 
     def rollback(self, **kwargs):
