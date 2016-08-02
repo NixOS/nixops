@@ -1130,7 +1130,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         self.dns_hostname = defn.dns_hostname
         self.dns_ttl = defn.dns_ttl
-        self.route53_access_key_id = defn.route53_access_key_id
+        self.route53_access_key_id = defn.route53_access_key_id or nixops.ec2_utils.get_access_key_id()
         self.route53_use_public_dns_name = defn.route53_use_public_dns_name
         record_type = 'CNAME' if self.route53_use_public_dns_name else 'A'
         dns_value = self.public_dns_name if self.route53_use_public_dns_name else self.public_ipv4
