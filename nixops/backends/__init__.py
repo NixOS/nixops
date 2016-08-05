@@ -261,6 +261,9 @@ class MachineState(nixops.resources.ResourceState):
         if self.ssh_pinged and (not check or self._ssh_pinged_this_time): return
         self.log_start("waiting for SSH...")
 
+        n = 0
+        timeout = 60
+
         while True:
             try:
                 self.ssh.run_command("exit", self.get_ssh_flags(),
@@ -273,7 +276,10 @@ class MachineState(nixops.resources.ResourceState):
                 return True
             except nixops.ssh_util.SSHConnectionFailed as error:
                 time.sleep(1)
+                n = n + 1
                 self.log_continue('.')
+                if timeout != -1 and n >= timeout:
+                    raise Exception("timed out waiting for ssh: {}".format(error))
 
     def write_ssh_private_key(self, private_key):
         key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
