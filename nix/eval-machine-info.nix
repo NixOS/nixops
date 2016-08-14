@@ -99,6 +99,10 @@ rec {
   resources.elasticFileSystemMountTargets = evalResources ./elastic-file-system-mount-target.nix (zipAttrs resourcesByType.elasticFileSystemMountTargets or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
+  # Datadog resources
+
+  resources.datadogMonitors = evalResources ./datadog-monitor.nix (zipAttrs resourcesByType.datadogMonitors or []);
+
   # Azure resources
   resources.azureAvailabilitySets = evalAzureResources ./azure-availability-set.nix (zipAttrs resourcesByType.azureAvailabilitySets or []);
   resources.azureBlobContainers =
@@ -233,7 +237,7 @@ rec {
 
   gce_default_bootstrap_images = flip mapAttrs' gce_deployments (name: depl:
     let
-      gce = (scrubOptionValue depl).config.deployment.gce; 
+      gce = (scrubOptionValue depl).config.deployment.gce;
       images = {
         "14.12" = "gs://nixos-cloud-images/nixos-14.12.471.1f09b77-x86_64-linux.raw.tar.gz";
         "15.09" = "gs://nixos-cloud-images/nixos-15.09.425.7870f20-x86_64-linux.raw.tar.gz";

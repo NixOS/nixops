@@ -88,6 +88,7 @@ rec {
           pythonPackages.azure-mgmt-storage
           pythonPackages.adal
           pythonPackages.sqlite3
+          pythonPackages.datadog
         ];
 
       # For "nix-build --run-env".
