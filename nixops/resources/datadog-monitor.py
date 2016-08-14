@@ -71,6 +71,8 @@ class DatadogMonitorState(nixops.resources.ResourceState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         if check or self.state != self.UP:
             self.connect(app_key=defn.app_key, api_key=defn.api_key)
+            if self.monitor_id != None:
+                self._dd_api.Monitor.delete(self.monitor_id)
             self.log("creating Datadog monitor '{0}...'".format(defn.monitor_name))
             response = self._dd_api.Monitor.create(
                 type=defn.monitor_type, query=defn.monitor_query, name=defn.monitor_name,
