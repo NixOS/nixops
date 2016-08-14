@@ -405,6 +405,8 @@ def op_reboot():
 
 def op_stop():
     depl = open_deployment()
+    if args.confirm:
+        depl.logger.set_autoresponse("y")
     depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
 
 
@@ -420,7 +422,7 @@ def op_rename():
 
 def print_physical_backup_spec(backupid):
     depl = open_deployment()
-    config = {}    
+    config = {}
     for m in depl.active.itervalues():
         config[m.name] = m.get_physical_backup_spec(backupid)
     sys.stdout.write(py2nix(config))
