@@ -3,7 +3,6 @@
 import nixops.util
 import nixops.resources
 import nixops.datadog_utils
-import json
 
 
 class DatadogMonitorDefinition(nixops.resources.ResourceDefinition):

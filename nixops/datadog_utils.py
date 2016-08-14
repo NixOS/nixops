@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
+
 from datadog import initialize, api
-import sys
 
 def initializeDatadog(api_key, app_key):
     options = {'api_key': api_key, 'app_key': app_key}
