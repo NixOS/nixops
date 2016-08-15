@@ -50,7 +50,9 @@ class DatadogMonitorState(nixops.resources.ResourceState):
         self._dd_api = None
         self._key_options = None
 
-
+    def _exists(self):
+        return self.state != self.MISSING
+    
     def show_type(self):
         s = super(DatadogMonitorState, self).show_type()
         return s

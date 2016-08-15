@@ -16,7 +16,7 @@ with lib;
             description = "The Datadog App Key.";
         };
          name = mkOption {
-          default = "datadog-monitor-${uuid}-${name}";
+          default = "datadog-monitor-${name}";
           type = types.str;
           description = "Name of the datadog resource.";
         };
