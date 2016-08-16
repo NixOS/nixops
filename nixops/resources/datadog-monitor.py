@@ -18,12 +18,20 @@ class DatadogMonitorDefinition(nixops.resources.ResourceDefinition):
 
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
+        self.thresholds = {}
         self.monitor_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.monitor_type = xml.find("attrs/attr[@name='type']/string").get("value")
         self.monitor_query = xml.find("attrs/attr[@name='query']/string").get("value")
         self.api_key = xml.find("attrs/attr[@name='api_key']/string").get("value")
         self.app_key = xml.find("attrs/attr[@name='app_key']/string").get("value")
         self.monitor_message =  xml.find("attrs/attr[@name='message']/string").get("value")
+        for alert in xml.findall("attrs/attr[@name='thresholds']/attrs/attr"):
+            if alert.attrib.get('name') == "ok":
+                self.thresholds['ok'] = int(alert.find("int").get("value"))
+            if alert.attrib.get('name') == "critical":
+                self.thresholds['critical'] = int(alert.find("int").get("value"))
+            if alert.attrib.get('name') == "warning":
+                self.thresholds['warning'] = int(alert.find("int").get("value"))
 
     def show_type(self):
         return "{0}".format(self.get_type())
@@ -52,7 +60,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
 
     def _exists(self):
         return self.state != self.MISSING
-    
+
     def show_type(self):
         s = super(DatadogMonitorState, self).show_type()
         return s
@@ -76,9 +84,11 @@ class DatadogMonitorState(nixops.resources.ResourceState):
             if self.monitor_id != None:
                 self._dd_api.Monitor.delete(self.monitor_id)
             self.log("creating Datadog monitor '{0}...'".format(defn.monitor_name))
+            options = self._key_options
+            if defn.thresholds != {}: options.update(defn.thresholds)
             response = self._dd_api.Monitor.create(
                 type=defn.monitor_type, query=defn.monitor_query, name=defn.monitor_name,
-                message=defn.monitor_message, options=self._key_options)
+                message=defn.monitor_message, options=options)
             if 'errors' in response:
                 raise Exception(str(response['errors']))
             else:
