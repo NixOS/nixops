@@ -1421,7 +1421,7 @@ and libvirtd specification <literal>example-libvirtd.nix</literal>:
 {
   example = {
     deployment.targetEnv = "libvirtd";
-    deployment.headless = true;
+    deployment.libvirtd.headless = true;
   };
 }
 </programlisting>
