@@ -632,7 +632,7 @@ class Deployment(object):
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
 
-        if self.rollback_enabled:
+        if self.rollback_enabled and not dry_run:
             profile = self.create_profile()
             if subprocess.call(["nix-env", "-p", profile, "--set", configs_path]) != 0:
                 raise Exception("cannot update profile ‘{0}’".format(profile))
