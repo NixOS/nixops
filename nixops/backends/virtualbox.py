@@ -133,8 +133,11 @@ class VirtualBoxState(MachineState):
         self._logged_exec(
             ["VBoxManage", "guestproperty", "set", self.vm_id, "/VirtualBox/GuestInfo/Charon/ClientPublicKey", self._client_public_key])
 
-        self._logged_exec(["VBoxManage", "startvm", self.vm_id] +
-                          (["--type", "headless"] if self._headless else []))
+        if self._headless:
+          self._logged_exec(["VBoxHeadless", "--startvm", self.vm_id])
+        else:
+          self._logged_exec(["VBoxManage", "startvm", self.vm_id])
+
 
         self.state = self.STARTING
 
@@ -285,7 +288,7 @@ class VirtualBoxState(MachineState):
                             ["nix-build"]
                             + self.depl._eval_flags(self.depl.nix_exprs) +
                             ["--arg", "checkConfigurationOptions", "false",
-                             "-A", "nodes.{0}.config.deployment.virtualbox.disks.{1}.baseImage".format(self.name, disk_name),
+                             "-A", 'nodes."{0}".config.deployment.virtualbox.disks.{1}.baseImage'.format(self.name, disk_name),
                              "-o", "{0}/vbox-image-{1}".format(self.depl.tempdir, self.name)],
                             capture_stdout=True).rstrip()
                     self._logged_exec(["VBoxManage", "clonehd", base_image, disk_path])
