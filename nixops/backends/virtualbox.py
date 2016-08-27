@@ -133,11 +133,8 @@ class VirtualBoxState(MachineState):
         self._logged_exec(
             ["VBoxManage", "guestproperty", "set", self.vm_id, "/VirtualBox/GuestInfo/Charon/ClientPublicKey", self._client_public_key])
 
-        if self._headless:
-          self._logged_exec(["VBoxHeadless", "--startvm", self.vm_id])
-        else:
-          self._logged_exec(["VBoxManage", "startvm", self.vm_id])
-
+        self._logged_exec(["VBoxManage", "startvm", self.vm_id] +
+                          (["--type", "headless"] if self._headless else []))
 
         self.state = self.STARTING
 
