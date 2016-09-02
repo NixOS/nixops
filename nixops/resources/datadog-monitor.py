@@ -87,6 +87,13 @@ class DatadogMonitorState(nixops.resources.ResourceState):
         else:
             return response['id']
 
+    def monitor_exist(self, id):
+        result = self._dd_api.Monitor.get(id)
+        if 'errors' in result:
+            return False
+        else:
+            return True
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         monitorId = None
         self.connect(app_key=defn.app_key, api_key=defn.api_key)
@@ -98,7 +105,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
 
         if self.state == self.UP:
             if defn.thresholds != {}: options.update(defn.thresholds)
-            if 'errors' in self._dd_api.Monitor.get(self.monitorId):
+            if self.monitor_exist(self.monitorId) == False:
                 self.warn("monitor with id {0} doesn't exist anymore.. recreating ...".format(self.monitorId))
                 monitorId = self.create_monitor(defn=defn, options=options)
             else:
@@ -126,6 +133,9 @@ class DatadogMonitorState(nixops.resources.ResourceState):
         if self.state == self.UP:
             self.log("deleting Datadog monitor ‘{0}’...".format(self.monitorName))
             self.connect(self.app_key,self.api_key)
-            self._dd_api.Monitor.delete(self.monitorId)
+            if self.monitor_exist(self.monitorId) == False:
+                self.warn("monitor with id {0} already deleted".format(self.monitorId))
+            else:
+                self._dd_api.Monitor.delete(self.monitorId)
 
         return True
