@@ -1401,8 +1401,8 @@ add your user to libvirtd group and change firewall not to filter DHCP packets.
 <para>Next we have to make sure our user has access to create images by
   executing:
   <programlisting>
-  $ sudo mkdir /var/lib/libvirtd/images
-  $ sudo chown myuser:libvirtd /var/lib/libvirtd/images</programlisting>
+  $ sudo mkdir /var/lib/libvirt/images
+  $ sudo chown myuser:libvirtd /var/lib/libvirt/images</programlisting>
 </para>
 
 <para>We're ready to create the deployment, start by creating
