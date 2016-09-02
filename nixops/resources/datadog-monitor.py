@@ -131,11 +131,11 @@ class DatadogMonitorState(nixops.resources.ResourceState):
 
     def destroy(self, wipe=False):
         if self.state == self.UP:
-            self.log("deleting Datadog monitor ‘{0}’...".format(self.monitorName))
             self.connect(self.app_key,self.api_key)
             if self.monitor_exist(self.monitorId) == False:
                 self.warn("monitor with id {0} already deleted".format(self.monitorId))
             else:
+                self.log("deleting Datadog monitor ‘{0}’...".format(self.monitorName))
                 self._dd_api.Monitor.delete(self.monitorId)
 
         return True
