@@ -82,9 +82,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
         monitorId = None
         self.connect(app_key=defn.app_key, api_key=defn.api_key)
         options = self._keyOptions
-        if check or self.state != self.UP:
-            if self.monitorId != None:
-                self._dd_api.Monitor.delete(self.monitorId)
+        if self.state != self.UP:
             self.log("creating Datadog monitor '{0}...'".format(defn.monitorName))
             if defn.thresholds != {}: options.update(defn.thresholds)
             response = self._dd_api.Monitor.create(
@@ -95,14 +93,15 @@ class DatadogMonitorState(nixops.resources.ResourceState):
             else:
                 monitorId = response['id']
 
+        if self.state == self.UP:
+            if defn.thresholds != {}: options.update(defn.thresholds)
+            response = self._dd_api.Monitor.update(
+                self.monitorId, query=defn.monitorQuery, name=defn.monitorName,
+                message=defn.monitorMessage, options=options)
+            if 'errors' in response:
+                raise Exception(str(response['errors']))
+
         with self.depl._db:
-            if self.state == self.UP:
-                if defn.thresholds != {}: options.update(defn.thresholds)
-                response = self._dd_api.Monitor.update(
-                    self.monitorId, query=defn.monitorQuery, name=defn.monitorName,
-                    message=defn.monitorMessage, options=options)
-                if 'errors' in response:
-                    raise Exception(str(response['errors']))
             self.state = self.UP
             self.api_key = defn.api_key
             self.app_key = defn.app_key
