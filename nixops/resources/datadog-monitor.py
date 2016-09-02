@@ -78,6 +78,15 @@ class DatadogMonitorState(nixops.resources.ResourceState):
         if self._dd_api: return
         self._dd_api, self._keyOptions = nixops.datadog_utils.initializeDatadog(app_key=app_key, api_key=api_key)
 
+    def create_monitor(self, defn, options):
+        response = self._dd_api.Monitor.create(
+            type=defn.monitorType, query=defn.monitorQuery, name=defn.monitorName,
+            message=defn.monitorMessage, options=options)
+        if 'errors' in response:
+            raise Exception(str(response['errors']))
+        else:
+            return response['id']
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         monitorId = None
         self.connect(app_key=defn.app_key, api_key=defn.api_key)
@@ -85,21 +94,19 @@ class DatadogMonitorState(nixops.resources.ResourceState):
         if self.state != self.UP:
             self.log("creating Datadog monitor '{0}...'".format(defn.monitorName))
             if defn.thresholds != {}: options.update(defn.thresholds)
-            response = self._dd_api.Monitor.create(
-                type=defn.monitorType, query=defn.monitorQuery, name=defn.monitorName,
-                message=defn.monitorMessage, options=options)
-            if 'errors' in response:
-                raise Exception(str(response['errors']))
-            else:
-                monitorId = response['id']
+            monitorId = self.create_monitor(defn=defn, options=options)
 
         if self.state == self.UP:
             if defn.thresholds != {}: options.update(defn.thresholds)
-            response = self._dd_api.Monitor.update(
+            if 'errors' in self._dd_api.Monitor.get(self.monitorId):
+                self.warn("monitor with id {0} doesn't exist anymore.. recreating ...".format(self.monitorId))
+                monitorId = self.create_monitor(defn=defn, options=options)
+            else:
+                response = self._dd_api.Monitor.update(
                 self.monitorId, query=defn.monitorQuery, name=defn.monitorName,
                 message=defn.monitorMessage, options=options)
-            if 'errors' in response:
-                raise Exception(str(response['errors']))
+                if 'errors' in response:
+                    raise Exception(str(response['errors']))
 
         with self.depl._db:
             self.state = self.UP
