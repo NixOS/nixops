@@ -350,9 +350,13 @@ class VirtualBoxState(MachineState):
         if not self.started:
             self._logged_exec(
                 ["VBoxManage", "modifyvm", self.vm_id,
-                 "--memory", str(defn.config["virtualbox"]["memorySize"]), "--vram", "10",
-                 "--nictype1", "virtio", "--nictype2", "virtio",
-                 "--nic2", "hostonly", "--hostonlyadapter2", "vboxnet0",
+                 "--memory", str(defn.config["virtualbox"]["memorySize"]),
+                 "--cpus", str(defn.config["virtualbox"]["vcpu"]),
+                 "--vram", "10",
+                 "--nictype1", "virtio",
+                 "--nictype2", "virtio",
+                 "--nic2", "hostonly",
+                 "--hostonlyadapter2", "vboxnet0",
                  "--nestedpaging", "off",
                  "--paravirtprovider", "kvm"])
 

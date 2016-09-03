@@ -18,6 +18,14 @@ in
 
   options = {
 
+    deployment.virtualbox.vcpu = mkOption {
+      default = 1;
+      type = types.int;
+      description = ''
+        Number of Virtual CPUs.
+      '';
+    };
+
     deployment.virtualbox.memorySize = mkOption {
       default = 512;
       type = types.int;
