@@ -19,7 +19,7 @@ platform.) Installing it requires the following steps:</para>
 
   <listitem><para>Install the latest version of NixOps.
 <screen>
-$ nix-env -iA nixops
+$ nix-env -i nixops
 </screen>
 </para>
   </listitem>
