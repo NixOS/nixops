@@ -236,6 +236,10 @@ class MachineState(nixops.resources.ResourceState):
         else:
             return ["-p", str(self.ssh_port)]
 
+    def adapt_ssh_flag_for_use_with_scp(self, flags):
+      # For scp, the "-P" flag is used to specify the port. "-p"
+      # attempt to preserve file attributes.
+      return (map (lambda x: '-P' if x == '-p' else x, flags))
 
     def get_ssh_password(self):
         return None
@@ -353,7 +357,7 @@ class MachineState(nixops.resources.ResourceState):
 
     def upload_file(self, source, target, recursive=False):
         master = self.ssh.get_master()
-        cmdline = ["scp"] + self.get_ssh_flags(True) + master.opts
+        cmdline = ["scp"] + self.get_ssh_flags(True) + self.adapt_ssh_flag_for_use_with_scp(master.opts)
         if recursive:
             cmdline += ['-r']
         cmdline += [source, "root@" + self.get_ssh_name() + ":" + target]
@@ -361,7 +365,7 @@ class MachineState(nixops.resources.ResourceState):
 
     def download_file(self, source, target, recursive=False):
         master = self.ssh.get_master()
-        cmdline = ["scp"] + self.get_ssh_flags(True) + master.opts
+        cmdline = ["scp"] + self.get_ssh_flags(True) + self.adapt_ssh_flag_for_use_with_scp(master.opts)
         if recursive:
             cmdline += ['-r']
         cmdline += ["root@" + self.get_ssh_name() + ":" + source, target]
