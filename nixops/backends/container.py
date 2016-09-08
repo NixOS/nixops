@@ -4,6 +4,9 @@ from nixops.backends import MachineDefinition, MachineState
 import nixops.util
 import nixops.ssh_util
 import subprocess
+import time
+import threading
+import sys
 
 class ContainerDefinition(MachineDefinition):
     """Definition of a NixOS container."""
@@ -120,6 +123,8 @@ class ContainerState(MachineState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, ContainerDefinition)
 
+        self.set_common_state(defn)
+
         if not self.client_private_key:
             (self.client_private_key, self.client_public_key) = nixops.util.create_key_pair()
 
@@ -179,11 +184,60 @@ class ContainerState(MachineState):
         self.host_ssh.run_command("nixos-container stop {0}".format(self.vm_id))
         self.state = self.STOPPED
 
+
+    def get_container_status(self):
+        try:
+            status = self.host_ssh.run_command("nixos-container status {0}".format(self.vm_id), capture_stdout=True).rstrip()
+        except nixops.ssh_util.SSHConnectionFailed:
+            status = "unknown_ssh_connection_failed"
+        except nixops.ssh_util.SSHCommandFailed:
+            status = "unknown_ssh_command_failed"
+        return status
+
+    def wait_container_available(self):
+        # For some reason, it seems to work best if I wait before sending the command to
+        # check the status of the container instead of the reverse.
+        time.sleep(1)
+        while True:
+            status = self.get_container_status()
+            self.log("waiting for container... Current status: {0}".format(status))
+            if status in {"up", "down"}:
+                break
+            time.sleep(1)
+
+    def send_key_task(self):
+        # Do not attempt anything when there are no keys so as to
+        # avoid breaking setups with no keys to send.
+        if not self.get_keys().items():
+          return
+
+        # For some reason, it seems that when there are keys listed in the
+        # container deployment, it becomes impossible to use the start command
+        # after a stop. The instance simply hangs and it is impossible to even 
+        # ping it. Once we solve this mystery, the following code should become
+        # useful.
+
+        # When performing the command `nixos-container status` on the container,
+        # I get: the following:
+        # `Failed to start container@webserv-18.service: Interactive authentication required.`
+        # which may give us some hint as to the source of the problem.
+
+        self.wait_container_available()
+        self.log("sending keys...")
+        self.send_keys()
+
     def start(self):
         if not self.vm_id: return True
         self.log("starting container...")
+        # As the nixos-container is blocking, we need to lauch a
+        # thread so as to send the keys. Otherwise, the deployment
+        # would block on a service that depends on those keys and as such
+        # we would never get a chance to send them.
+        send_key_thread = threading.Thread(target=self.send_key_task)
+        send_key_thread.start()
         self.host_ssh.run_command("nixos-container start {0}".format(self.vm_id))
         self.state = self.STARTING
+        send_key_thread.join()
 
     def _check(self, res):
         if not self.vm_id:
