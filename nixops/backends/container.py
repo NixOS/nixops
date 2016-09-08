@@ -63,9 +63,9 @@ class ContainerState(MachineState):
         flags = super(ContainerState, self).get_ssh_flags(*args, **kwargs)
         flags += ["-i", self.get_ssh_private_key_file()]
         if self.host == "localhost":
-            flags.extend(MachineState.get_ssh_flags(self))
+            flags.extend(MachineState.get_ssh_flags(self, *args, **kwargs))
         else:
-            cmd = "ssh -x -a root@{0} {1} nc -c {2} {3}".format(self.get_host_ssh(), " ".join(self.get_host_ssh_flags()), self.private_ipv4, self.ssh_port)
+            cmd = "ssh -x -a root@{0} {1} nc -c {2} {3}".format(self.get_host_ssh(), " ".join(self.get_host_ssh_flags(*args, **kwargs)), self.private_ipv4, self.ssh_port)
             flags.extend(["-o", "ProxyCommand=" + cmd])
         return flags
 
@@ -87,12 +87,12 @@ class ContainerState(MachineState):
         else:
             return self.host
 
-    def get_host_ssh_flags(self):
+    def get_host_ssh_flags(self, *args, **kwargs):
         if self.host.startswith("__machine-"):
             m = self.depl.get_machine(self.host[10:])
             if not m.started:
                 raise Exception("host machine ‘{0}’ of container ‘{1}’ is not up".format(m.name, self.name))
-            return m.get_ssh_flags()
+            return m.get_ssh_flags(*args, **kwargs)
         else:
             return []
 
