@@ -26,12 +26,13 @@ class DatadogMonitorDefinition(nixops.resources.ResourceDefinition):
         self.app_key = xml.find("attrs/attr[@name='app_key']/string").get("value")
         self.monitorMessage =  xml.find("attrs/attr[@name='message']/string").get("value")
         for alert in xml.findall("attrs/attr[@name='thresholds']/attrs/attr"):
-            if alert.attrib.get('name') == "ok":
-                self.thresholds['ok'] = int(alert.find("int").get("value"))
-            if alert.attrib.get('name') == "critical":
-                self.thresholds['critical'] = int(alert.find("int").get("value"))
-            if alert.attrib.get('name') == "warning":
-                self.thresholds['warning'] = int(alert.find("int").get("value"))
+            if alert.find("int") != None:
+                if alert.attrib.get('name') == "ok":
+                    self.thresholds['ok'] = int(alert.find("int").get("value"))
+                if alert.attrib.get('name') == "critical":
+                    self.thresholds['critical'] = int(alert.find("int").get("value"))
+                if alert.attrib.get('name') == "warning":
+                    self.thresholds['warning'] = int(alert.find("int").get("value"))
 
     def show_type(self):
         return "{0}".format(self.get_type())

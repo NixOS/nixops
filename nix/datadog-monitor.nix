@@ -39,15 +39,18 @@ with lib;
         thresholds =
         {
             ok = mkOption {
-              type = types.int;
+              default = null;
+              type = types.nullOr (types.int);
               description = "";
             };
             warning = mkOption {
-              type = types.int;
+              default = null;
+              type = types.nullOr (types.int);
               description = "";
             };
             critical = mkOption {
-              type = types.int;
+              default = null;
+              type = types.nullOr (types.int);
               description = "";
             };
           };
