@@ -3,6 +3,7 @@
 import nixops.util
 import nixops.resources
 import nixops.datadog_utils
+import ast
 
 
 class DatadogMonitorDefinition(nixops.resources.ResourceDefinition):
@@ -18,21 +19,38 @@ class DatadogMonitorDefinition(nixops.resources.ResourceDefinition):
 
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
-        self.thresholds = {}
+        self.extraOptions = {}
+        self.extraOptions['thresholds']= {};
         self.monitorName = xml.find("attrs/attr[@name='name']/string").get("value")
         self.monitorType = xml.find("attrs/attr[@name='type']/string").get("value")
         self.monitorQuery = xml.find("attrs/attr[@name='query']/string").get("value")
         self.api_key = xml.find("attrs/attr[@name='api_key']/string").get("value")
         self.app_key = xml.find("attrs/attr[@name='app_key']/string").get("value")
-        self.monitorMessage =  xml.find("attrs/attr[@name='message']/string").get("value")
+        self.monitorMessage = xml.find("attrs/attr[@name='message']/string").get("value")
+        self.setOptionalAttr(xml=xml,name='renotify_interval',type='int')
+        self.setOptionalAttr(xml=xml,name='silenced',type='string')
+        self.setOptionalAttr(xml=xml,name='escalation_message',type='string')
+        self.setOptionalAttr(xml=xml,name='notify_no_data',type='bool')
+        self.setOptionalAttr(xml=xml,name='no_data_timeframe',type='int')
+        self.setOptionalAttr(xml=xml,name='timeout_h',type='int')
+        self.setOptionalAttr(xml=xml,name='require_full_window',type='bool')
+        self.setOptionalAttr(xml=xml,name='notify_audit',type='bool')
+        self.setOptionalAttr(xml=xml,name='locked',type='bool')
+        self.setOptionalAttr(xml=xml,name='include_tags',type='bool')
         for alert in xml.findall("attrs/attr[@name='thresholds']/attrs/attr"):
             if alert.find("int") != None:
                 if alert.attrib.get('name') == "ok":
-                    self.thresholds['ok'] = int(alert.find("int").get("value"))
+                    self.extraOptions['thresholds']['ok'] = int(alert.find("int").get("value"))
                 if alert.attrib.get('name') == "critical":
-                    self.thresholds['critical'] = int(alert.find("int").get("value"))
+                    self.extraOptions['thresholds']['critical'] = int(alert.find("int").get("value"))
                 if alert.attrib.get('name') == "warning":
-                    self.thresholds['warning'] = int(alert.find("int").get("value"))
+                    self.extraOptions['thresholds']['warning'] = int(alert.find("int").get("value"))
+
+    def setOptionalAttr(self,xml,name,type):
+        attr = xml.find("attrs/attr[@name='{0}']/{1}".format(name,type))
+        if attr != None:
+            value = attr.get('value')
+            self.extraOptions[name]= ast.literal_eval(value) if name == 'silenced' else value
 
     def show_type(self):
         return "{0}".format(self.get_type())
@@ -101,11 +119,11 @@ class DatadogMonitorState(nixops.resources.ResourceState):
         options = self._keyOptions
         if self.state != self.UP:
             self.log("creating Datadog monitor '{0}...'".format(defn.monitorName))
-            if defn.thresholds != {}: options.update(defn.thresholds)
+            if defn.extraOptions != {}: options.update(defn.extraOptions)
             monitorId = self.create_monitor(defn=defn, options=options)
 
         if self.state == self.UP:
-            if defn.thresholds != {}: options.update(defn.thresholds)
+            if defn.extraOptions != {}: options.update(defn.extraOptions)
             if self.monitor_exist(self.monitorId) == False:
                 self.warn("monitor with id {0} doesn't exist anymore.. recreating ...".format(self.monitorId))
                 monitorId = self.create_monitor(defn=defn, options=options)
