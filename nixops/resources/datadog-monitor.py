@@ -66,6 +66,19 @@ class DatadogMonitorState(nixops.resources.ResourceState):
     monitorQuery = nixops.util.attr_property("monitor_query", None)
     monitorMessage = nixops.util.attr_property("monitor_message", None)
     monitorId = nixops.util.attr_property("monitor_id", None)
+    renotifyInterval = nixops.util.attr_property("monitor_renotify_interval", None)
+    silenced =  nixops.util.attr_property("monitor_silenced", None)
+    escalationMessage =  nixops.util.attr_property("monitor_escalation_message", None)
+    notifyNoData =  nixops.util.attr_property("monitor_notify_no_data", None)
+    noDataTimeframe =  nixops.util.attr_property("monitor_no_data_timeframe", None)
+    timeoutH =  nixops.util.attr_property("monitor_timeout_h", None)
+    requireFullWindow =  nixops.util.attr_property("monitor_require_full_window", None)
+    notifyAudit =  nixops.util.attr_property("monitor_notify_audit", None)
+    locked =  nixops.util.attr_property("monitor_locked", None)
+    includeTags =  nixops.util.attr_property("monitor_include_tags", None)
+    thresholdsOk =  nixops.util.attr_property("monitor_thresholds_ok", None)
+    thresholdsWarning =  nixops.util.attr_property("monitor_thresholds_warning", None)
+    thresholdsCritical =  nixops.util.attr_property("monitor_thresholds_critical", None)
 
     @classmethod
     def get_type(cls):
@@ -142,9 +155,29 @@ class DatadogMonitorState(nixops.resources.ResourceState):
             self.monitorType = defn.monitorType
             self.monitorQuery = defn.monitorQuery
             self.monitorMessage = defn.monitorMessage
+            self.renotifyInterval = self.getOptionIfExist(name='renotify_interval',defn=defn)
+            self.silenced = self.getOptionIfExist(name='silenced',defn=defn)
+            self.escalationMessage = self.getOptionIfExist(name='escalation_message',defn=defn)
+            self.notifyNoData = self.getOptionIfExist(name='notify_no_data',defn=defn)
+            self.noDataTimeframe = self.getOptionIfExist(name='no_data_timeframe',defn=defn)
+            self.timeoutH = self.getOptionIfExist(name='timeout_h',defn=defn)
+            self.requireFullWindow = self.getOptionIfExist(name='require_full_window',defn=defn)
+            self.notifyAudit = self.getOptionIfExist(name='notify_audit',defn=defn)
+            self.locked = self.getOptionIfExist(name='locked',defn=defn)
+            self.includeTags = self.getOptionIfExist(name='include_tags',defn=defn)
+            if defn.extraOptions['thresholds'] != {}:
+                thresholds = defn.extraOptions['thresholds']
+                for k in thresholds:
+                    if k=='ok': self.thresholdsOk = thresholds[k]
+                    if k=='critical': self.thresholdsCritical = thresholds[k]
+                    if k=='warning': self.thresholdsWarning = thresholds[k]
             if monitorId != None: self.monitorId = monitorId
 
-
+    def getOptionIfExist(self,name,defn):
+        if name in defn.extraOptions:
+            return defn.extraOptions[name] if name != 'silenced' else str(defn.extraOptions[name])
+        else:
+            return None
 
 
 
