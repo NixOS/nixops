@@ -2,7 +2,7 @@
 
 from datadog import initialize, api
 
-def initializeDatadog(api_key, app_key):
-    options = {'api_key': api_key, 'app_key': app_key}
+def initializeDatadog(apiKey, appKey):
+    options = {'api_key': apiKey, 'app_key': appKey}
     initialize(**options)
     return (api, options)
