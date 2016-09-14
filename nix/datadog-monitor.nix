@@ -93,17 +93,14 @@ with lib;
             ok = mkOption {
               default = null;
               type = types.nullOr (types.int);
-              description = "";
             };
             warning = mkOption {
               default = null;
               type = types.nullOr (types.int);
-              description = "";
             };
             critical = mkOption {
               default = null;
               type = types.nullOr (types.int);
-              description = "";
             };
           };
         };
