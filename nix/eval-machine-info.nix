@@ -100,7 +100,6 @@ rec {
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Datadog resources
-
   resources.datadogMonitors = evalResources ./datadog-monitor.nix (zipAttrs resourcesByType.datadogMonitors or []);
 
   # Azure resources
