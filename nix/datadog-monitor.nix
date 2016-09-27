@@ -104,8 +104,5 @@ with lib;
             };
           };
         };
-  config = {
-    renotify_interval = mkIf (builtins.isString config.escalationMessage) (throw "renotifyInterval can't be used when the escalationMessage is set.");
-    _type = "datadog-monitor";
-  };
+  config._type = "datadog-monitor";
 }

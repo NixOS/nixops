@@ -27,16 +27,16 @@ class DatadogMonitorDefinition(nixops.resources.ResourceDefinition):
         self.api_key = xml.find("attrs/attr[@name='apiKey']/string").get("value")
         self.app_key = xml.find("attrs/attr[@name='appKey']/string").get("value")
         self.message = xml.find("attrs/attr[@name='message']/string").get("value")
-        self.setOptionalAttr(xml=xml, name="renotifyInterval", type='int')
-        self.setOptionalAttr(xml=xml, name='silenced', type='string')
-        self.setOptionalAttr(xml=xml, name='escalationMessage', type='string')
-        self.setOptionalAttr(xml=xml, name='notify_no_data', type='bool')
-        self.setOptionalAttr(xml=xml, name='noDataTimeframe', type='int')
-        self.setOptionalAttr(xml=xml, name='timeoutH', type='int')
-        self.setOptionalAttr(xml=xml, name='requireFullWindow', type='bool')
-        self.setOptionalAttr(xml=xml, name='notifyAudit', type='bool')
-        self.setOptionalAttr(xml=xml, name='locked', type='bool')
-        self.setOptionalAttr(xml=xml, name='includeTags', type='bool')
+        self.setOptionalAttr(xml=xml, name='renotifyInterval', api_name="renotify_interval", type='int')
+        self.setOptionalAttr(xml=xml, name='silenced', api_name='silenced', type='string')
+        self.setOptionalAttr(xml=xml, name='escalationMessage', api_name='escalation_message', type='string')
+        self.setOptionalAttr(xml=xml, name='notifyNoData', api_name='notify_no_data', type='bool')
+        self.setOptionalAttr(xml=xml, name='noDataTimeframe', api_name='no_data_timeframe', type='int')
+        self.setOptionalAttr(xml=xml, name='timeoutH', api_name='timeout_h', type='int')
+        self.setOptionalAttr(xml=xml, name='requireFullWindow', api_name='require_full_window', type='bool')
+        self.setOptionalAttr(xml=xml, name='notifyAudit', api_name='notify_audit', type='bool')
+        self.setOptionalAttr(xml=xml, name='locked', api_name='locked', type='bool')
+        self.setOptionalAttr(xml=xml, name='includeTags', api_name='include_tags', type='bool')
         for alert in xml.findall("attrs/attr[@name='thresholds']/attrs/attr"):
             if alert.find("int") != None:
                 if alert.attrib.get('name') == "ok":
@@ -46,11 +46,11 @@ class DatadogMonitorDefinition(nixops.resources.ResourceDefinition):
                 if alert.attrib.get('name') == "warning":
                     self.extra_options['thresholds']['warning'] = int(alert.find("int").get("value"))
 
-    def setOptionalAttr(self,xml,name,type):
+    def setOptionalAttr(self,xml,name,api_name,type):
         attr = xml.find("attrs/attr[@name='{0}']/{1}".format(name,type))
         if attr != None:
             value = attr.get('value')
-            self.extra_options[name]= ast.literal_eval(value) if name == 'silenced' else value
+            self.extra_options[api_name]= ast.literal_eval(value) if name == 'silenced' else value
 
     def show_type(self):
         return "{0}".format(self.get_type())
@@ -155,16 +155,16 @@ class DatadogMonitorState(nixops.resources.ResourceState):
             self.monitor_type = defn.monitor_type
             self.query = defn.query
             self.message = defn.message
-            self.renotify_interval = self.getOptionIfExist(name='renotifyInterval',defn=defn)
+            self.renotifyInterval = self.getOptionIfExist(name='renotify_interval',defn=defn)
             self.silenced = self.getOptionIfExist(name='silenced',defn=defn)
-            self.escalation_message = self.getOptionIfExist(name='escalationMessage',defn=defn)
-            self.notify_no_data = self.getOptionIfExist(name='notifyNoData',defn=defn)
-            self.no_data_timeframe = self.getOptionIfExist(name='noDataTimeframe',defn=defn)
-            self.timeout_h = self.getOptionIfExist(name='timeoutH',defn=defn)
-            self.require_full_window = self.getOptionIfExist(name='requireFullWindow',defn=defn)
-            self.notify_audit = self.getOptionIfExist(name='notifyAudit',defn=defn)
+            self.escalationMessage = self.getOptionIfExist(name='escalation_message',defn=defn)
+            self.notifyNoData = self.getOptionIfExist(name='notify_no_data',defn=defn)
+            self.noDataTimeframe = self.getOptionIfExist(name='no_data_timeframe',defn=defn)
+            self.timeoutH = self.getOptionIfExist(name='timeout_h',defn=defn)
+            self.requireFullWindow = self.getOptionIfExist(name='require_full_window',defn=defn)
+            self.notifyAudit = self.getOptionIfExist(name='notify_audit',defn=defn)
             self.locked = self.getOptionIfExist(name='locked',defn=defn)
-            self.include_tags = self.getOptionIfExist(name='includeTags',defn=defn)
+            self.includeTags = self.getOptionIfExist(name='include_tags',defn=defn)
             if defn.extra_options['thresholds'] != {}:
                 thresholds = defn.extra_options['thresholds']
                 for k in thresholds:
