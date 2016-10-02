@@ -1562,6 +1562,88 @@ deploy the new configuration.
 
 </section>
 
+<section>
+  <title>Managing keys</title>
+
+  <para>
+    Files in <filename>/nix/store/</filename> are readable by every
+    user on that host, so storing secret keys embedded in nix derivations
+    is insecure. To address this, nixops provides the configuration
+    option <varname>deployment.keys</varname>, which nixops manages
+    separately from the main configuration derivation for each machine.
+  </para>
+
+  <para>
+    Add a key to a machine like so.
+
+    <screen>
+{
+  machine =
+    { config, pkgs, ... }:
+    {
+      deployment.keys.my-secret.text = "shhh this is a secret";
+      deployment.keys.my-secret.user = "myuser";
+      deployment.keys.my-secret.group = "wheel";
+      deployment.keys.my-secret.permissions = "0640";
+    };
+}
+    </screen>
+
+    This will create a file <filename>/run/keys/my-secret</filename>
+    with the specified contents, ownership, and permissions.
+  </para>
+
+  <para>
+    Among the key options, only <varname>text</varname> is required. The
+    <varname>user</varname> and <varname>group</varname> options both default
+    to <literal>"root"</literal>, and <varname>permissions</varname> defaults
+    to <literal>"0600"</literal>.
+  </para>
+
+  <para>
+    Keys from <varname>deployment.keys</varname> are stored under <filename>/run/</filename>
+    on a temporary filesystem and will not persist across a reboot.
+    To send a rebooted machine its keys, use <command>nixops send-keys</command>. Note that all
+    <command>nixops</command> commands implicitly upload keys when appropriate,
+    so manually sending keys should only be necessary after an unattended reboot.
+  </para>
+
+  <para>
+    If you have a custom service that depends on a key from <varname>deployment.keys</varname>,
+    you can opt to let systemd track that dependency. Each key gets a corresponding
+    systemd service <literal>"${keyname}-key.service"</literal> which is active
+    while the key is present, and otherwise inactive when the key is absent. See
+    <xref linkend="key-dependency.nix" /> for how to set this up.
+
+    <example xml:id="key-dependency.nix">
+      <title><filename>key-dependency.nix</filename>: track key dependence with systemd</title>
+      <programlisting>
+{
+  machine =
+    { config, pkgs, ... }:
+    {
+      deployment.keys.my-secret.text = "shhh this is a secret";
+
+      systemd.services.my-service = {
+        after = [ "my-secret-key.service" ];
+        wants = [ "my-secret-key.service" ];
+        script = ''
+          export MY_SECRET=$(cat /run/keys/my-secret)
+          run-my-program
+        '';
+      };
+    };
+}
+      </programlisting>
+    </example>
+
+    These dependencies will ensure that the service is only started when the keys it
+    requires are present. For example, after a reboot, the services will be delayed
+    until the keys are available, and <command>systemctl status</command> and friends
+    will lead you to the cause.
+  </para>
+</section>
+
 <!--
 
 <para>EC2 logical.nix</para>

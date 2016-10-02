@@ -575,8 +575,9 @@ $ nixops delete -d foo</screen>
 specification described by the Nix expressions given in the preceding
 <command>nixops create</command> call.  It creates missing virtual
 machines, builds each machine configuration, copies the closure of
-each configuration to the corresponding machine, and activates
-them.</para>
+each configuration to the corresponding machine, uploads any keys
+described in <varname>deployment.keys</varname>, and activates
+the new configuration.</para>
 
 </refsection>
 
@@ -1872,6 +1873,68 @@ input.  See <command>nixops export</command> for examples.</para>
 
 </refsection>
 
+</refsection>
+
+
+<refsection>
+  <title>Command <option>nixops send-keys</option></title>
+
+  <refsection>
+    <title>Synopsis</title>
+    <cmdsynopsis>
+      <command>nixops send-keys</command>
+      <arg>
+        <option>--include</option>
+        <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+      </arg>
+      <arg>
+        <option>--exclude</option>
+        <arg choice='plain' rep='repeat'><replaceable>machine-name</replaceable></arg>
+      </arg>
+    </cmdsynopsis>
+  </refsection>
+
+  <refsection>
+    <title>Description</title>
+    <para>
+      This command uploads the keys described in <varname>deployment.keys</varname>
+      to remote machines in the <literal>/run/keys/</literal> directory.
+    </para>
+    <para>
+      Keys are <emphasis>not</emphasis> persisted across reboots by default.
+      If a machine reboot is triggered from outside <literal>nixops</literal>, it will
+      need <command>nixops send-keys</command> to repopulate its keys.
+    </para>
+    <para>
+      Note that <command>nixops deploy</command> does an implicit <command>send-keys</command>
+      where appropriate, so manually sending keys is only necessary after unattended reboots.
+    </para>
+  </refsection>
+
+  <refsection>
+    <title>Options</title>
+    <variablelist>
+      <varlistentry>
+        <term>
+          <option>--include</option> <replaceable>machine-name...</replaceable>
+        </term>
+        <listitem>
+          <para>Only operate on the machines explicitly mentioned
+          here, excluding other machines.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <option>--exclude</option> <replaceable>machine-name...</replaceable>
+        </term>
+        <listitem>
+          <para>Only operate on the machines that are
+          <emphasis>not</emphasis> mentioned here.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsection>
 </refsection>
 
 

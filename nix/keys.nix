@@ -91,15 +91,20 @@ in
       apply = mapAttrs convertOldKeyType;
 
       description = ''
-        The set of keys to be deployed to the machine.  Each attribute
+        <para>The set of keys to be deployed to the machine.  Each attribute
         maps a key name to a file that can be accessed as
         <filename>/run/keys/<replaceable>name</replaceable></filename>.
         Thus, <literal>{ password.text = "foobar"; }</literal> causes a
         file <filename>/run/keys/password</filename> to be created
         with contents <literal>foobar</literal>.  The directory
         <filename>/run/keys</filename> is only accessible to root and
-        the <literal>keys</literal> group.  So keep in mind to add any
-        users that need to have access to a particular key to this group.
+        the <literal>keys</literal> group, so keep in mind to add any
+        users that need to have access to a particular key to this group.</para>
+
+        <para>Each key also gets a systemd service <literal><replaceable>name</replaceable>-key.service</literal>
+        which is active while the key is present and inactive while the key
+        is absent.  Thus, <literal>{ password.text = "foobar"; }</literal> gets
+        a <literal>password-key.service</literal>.</para>
       '';
     };
 
