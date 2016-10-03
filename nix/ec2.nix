@@ -160,9 +160,7 @@ let
 
   nixosVersion = builtins.substring 0 5 config.system.nixosVersion;
 
-  amis =
-    let p = pkgs.path + "/nixos/modules/virtualisation/ec2-amis.nix"; in
-    if pathExists p then import p else import ./ec2-amis.nix;
+  amis = import <nixpkgs/nixos/modules/virtualisation/ec2-amis.nix>;
 
 in
 
@@ -230,8 +228,8 @@ in
       type = types.int;
       description = ''
         Preferred size (G) of the root disk of the EBS-backed instance. By
-        default, EBS-backed images have a root disk of 20G. Only supported
-        on creation of the instance.
+        default, EBS-backed images have a size determined by the
+        AMI. Only supported on creation of the instance.
       '';
     };
 
@@ -452,7 +450,7 @@ in
             if cfg.ebsBoot then "hvm-ebs" else "hvm-s3"
           else
             if cfg.ebsBoot then "pv-ebs" else "pv-s3";
-        amis' = amis."${nixosVersion}" or amis."15.09"; # default to 15.09 images
+        amis' = amis."${nixosVersion}" or amis.latest;
       in
         with builtins;
         if hasAttr cfg.region amis' then
