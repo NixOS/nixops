@@ -357,7 +357,8 @@ class VirtualBoxState(MachineState):
                  "--memory", str(defn.config["virtualbox"]["memorySize"]), "--vram", "10",
                  "--nictype1", "virtio", "--nictype2", "virtio",
                  "--nic2", "hostonly", "--hostonlyadapter2", "vboxnet0",
-                 "--nestedpaging", "off"])
+                 "--nestedpaging", "off"
+                 "--paravirtprovider", "kvm"])
 
             self._headless = defn.config["virtualbox"]["headless"]
             self._start()
