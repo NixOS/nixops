@@ -32,6 +32,22 @@ let
       '';
     };
 
+    options.uid = mkOption {
+      internal = true;
+      type = types.int;
+      description = ''
+        Internal read-only option which should be the UID of the user.
+      '';
+    };
+
+    options.gid = mkOption {
+      internal = true;
+      type = types.int;
+      description = ''
+        Internal read-only option which should be the GID of the group.
+      '';
+    };
+
     options.permissions = mkOption {
       default = "0600";
       example = "0640";
@@ -50,6 +66,11 @@ let
             + " \"<value>\"` instead of `deployment.keys.${key} ="
             + " \"<value>\"`.";
   in if isString val then builtins.trace warning { text = val; } else val;
+
+  setIds = keyOptions: keyOptions // {
+             inherit (config.users.users.${keyOptions.user}) uid;
+             inherit (config.users.groups.${keyOptions.group}) gid;
+           };
 
   keyType = mkOptionType {
     name = "string or key options";
@@ -88,8 +109,7 @@ in
       default = {};
       example = { password.text = "foobar"; };
       type = types.attrsOf keyType;
-      apply = mapAttrs convertOldKeyType;
-
+      apply = mapAttrs (key: val: setIds (convertOldKeyType key val));
       description = ''
         The set of keys to be deployed to the machine.  Each attribute
         maps a key name to a file that can be accessed as

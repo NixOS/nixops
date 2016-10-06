@@ -26,6 +26,10 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
                 elem = x.find("attrs/attr[@name='{0}']/string".format(key))
                 if elem is not None:
                     opts[key] = elem.get("value")
+            for key in ('uid', 'gid'):
+                elem = x.find("attrs/attr[@name='{0}']/int".format(key))
+                if elem is not None:
+                    opts[key] = elem.get("value")
             return opts
 
         self.keys = {k.get("name"): _extract_key_options(k) for k in
@@ -218,7 +222,7 @@ class MachineState(nixops.resources.ResourceState):
             chmod = "chmod '{0}' " + outfile_esc
             chown = "chown '{0}:{1}' " + outfile_esc
             self.run_command(' && '.join([
-                chown.format(opts['user'], opts['group']),
+                chown.format(opts['uid'], opts['gid']),
                 chmod.format(opts['permissions'])
             ]))
             os.remove(tmp)
