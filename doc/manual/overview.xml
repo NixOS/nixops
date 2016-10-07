@@ -1410,7 +1410,7 @@ add your user to libvirtd group and change firewall not to filter DHCP packets.
 
 <programlisting>
 {
-  example = { config, pkgs, lib, }: {
+  example = { config, pkgs, lib, ... }: {
   };
 }
 </programlisting>
