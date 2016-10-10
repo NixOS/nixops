@@ -24,7 +24,6 @@ with lib;
           description = "A description of the timeboard's content.";
         };
         graphs = mkOption {
-          default = {};
           type = types.listOf types.optionSet;
           description = "A list of graph definitions";
           options = {
