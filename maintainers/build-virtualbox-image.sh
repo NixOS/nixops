@@ -7,5 +7,5 @@ mkdir ova && tar -xf ./result/*.ova -C ova && mv ova/{nixos*,nixos}.vmdk
 name=virtualbox-nixops-$version.vmdk.xz
 xz < ./ova/nixos.vmdk > $name
 rm -fr ova
-scp -p $name hydra-mirror@nixos.org:/data/releases/nixos/virtualbox-nixops-images/
+aws s3 cp $name s3://nix-releases/nixos/virtualbox-nixops-images/$name
 sha256sum $name
