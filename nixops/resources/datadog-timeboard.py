@@ -76,7 +76,9 @@ class DatadogTimeboardState(nixops.resources.ResourceState):
 
     @property
     def resource_id(self):
-        return self.title
+        t = self.title
+        if self.url: t = "{0} [ {1} ]".format(t, self.url)
+        return t
 
     def prefix_definition(self, attr):
         return {('resources', 'datadogTimeboards'): attr}
