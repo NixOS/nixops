@@ -32,13 +32,13 @@ with lib;
               type = types.str;
             };
             definition = mkOption {
-                description = "The graph definition.";
-                type = type.str;
+              description = "The graph definition.";
+              type = types.str;
             };
           };
         };
         templateVariables = mkOption {
-          default = {};
+          default = [];
           type = types.listOf types.optionSet;
           description = "A list of template variables for using Dashboard templating.";
           options = {
@@ -47,15 +47,18 @@ with lib;
               description = "The name of the variable.";
             };
             prefix = mkOption {
-              type = types.str;
+              default = null;
+              type = types.nullOr (types.str);
               description = "The tag prefix associated with the variable. Only tags with this prefix will appear in the variable dropdown.";
             };
             default = mkOption {
-              type = types.str;
+              default = null;
+              type = types.nullOr (types.str);
               description = "The default value for the template variable on dashboard load";
             };
           };
         };
+      };
 
   config._type = "datadog-timeboard";
 }

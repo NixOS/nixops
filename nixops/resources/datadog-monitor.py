@@ -131,7 +131,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
         self.connect(app_key=defn.app_key, api_key=defn.api_key)
         options = self._key_options
         if self.state != self.UP:
-            self.log("creating Datadog monitor '{0}...'".format(defn.monitor_name))
+            self.log("creating datadog monitor '{0}...'".format(defn.monitor_name))
             if defn.extra_options != {}: options.update(defn.extra_options)
             monitor_id = self.create_monitor(defn=defn, options=options)
 
@@ -185,9 +185,9 @@ class DatadogMonitorState(nixops.resources.ResourceState):
         if self.state == self.UP:
             self.connect(self.app_key,self.api_key)
             if self.monitor_exist(self.monitor_id) == False:
-                self.warn("monitor with id {0} already deleted".format(self.monitor_id))
+                self.warn("datadog monitor with id {0} already deleted".format(self.monitor_id))
             else:
-                self.log("deleting Datadog monitor ‘{0}’...".format(self.monitor_name))
+                self.log("deleting datadog monitor ‘{0}’...".format(self.monitor_name))
                 self._dd_api.Monitor.delete(self.monitor_id)
 
         return True
