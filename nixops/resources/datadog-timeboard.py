@@ -7,7 +7,7 @@ import json
 
 
 class DatadogTimeboardDefinition(nixops.resources.ResourceDefinition):
-    """Definition of a Datadog monitor."""
+    """Definition of a Datadog timeboard."""
 
     @classmethod
     def get_type(cls):
@@ -46,7 +46,7 @@ class DatadogTimeboardDefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 class DatadogTimeboardState(nixops.resources.ResourceState):
-    """State of a Datadog monitor"""
+    """State of a Datadog timeboard"""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     api_key = nixops.util.attr_property("apiKey", None)
@@ -118,7 +118,7 @@ class DatadogTimeboardState(nixops.resources.ResourceState):
 
         if self.state == self.UP:
             if self.timeboard_exist(self.timeboard_id) == False:
-                self.warn("datadog timeboard with id {0} doesn't exist anymore.. recreating ...".format(self.monitor_id))
+                self.warn("datadog timeboard with id {0} doesn't exist anymore.. recreating ...".format(self.timeboard_id))
                 timeboard_id = self.create_timeboard(defn=defn)
             else:
                 response = self._dd_api.Timeboard.update(
