@@ -95,7 +95,7 @@ class DatadogTimeboardState(nixops.resources.ResourceState):
 
     def create_timeboard(self, defn, template_variables):
         response = self._dd_api.Timeboard.create(
-            title=defn.title, description=defn.description, graphs=defn.graphs)
+            title=defn.title, description=defn.description, graphs=defn.graphs, template_variables=template_variables)
         if 'errors' in response:
             raise Exception(str(response['errors']))
         else:
