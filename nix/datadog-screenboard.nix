@@ -15,27 +15,19 @@ with lib;
             type = types.str;
             description = "The Datadog App Key.";
         };
-        title = mkOption {
+        boardTitle = mkOption {
+          default = "";
           type = types.str;
-          description = "The title of the timeboard.";
+          description = "The name of the dashboard.";
         };
         description = mkOption {
+          default = "";
           type = types.str;
-          description = "A description of the timeboard's content.";
+          description = "A description of the dashboard's content.";
         };
-        graphs = mkOption {
-          type = types.listOf types.optionSet;
-          description = "A list of graph definitions";
-          options = {
-            title = mkOption {
-              description = "The name of the graph.";
-              type = types.str;
-            };
-            definition = mkOption {
-              description = "The graph definition.";
-              type = types.str;
-            };
-          };
+        widgets = mkOption {
+          type = types.listOf types.str;
+          description = "A list of widget definitions.";
         };
         templateVariables = mkOption {
           default = [];
@@ -58,6 +50,16 @@ with lib;
             };
           };
         };
+        width = mkOption {
+          default = null;
+          type = types.nullOr (types.int);
+          description = "Screenboard width in pixels.";
+        };
+        height = mkOption {
+          default = null;
+          type = types.nullOr (types.int);
+          description = "Height in pixels.";
+        };
         readOnly = mkOption {
           default = false;
           type = types.bool;
@@ -65,5 +67,5 @@ with lib;
         };
       };
 
-  config._type = "datadog-timeboard";
+  config._type = "datadog-screenboard";
 }
