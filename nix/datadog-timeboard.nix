@@ -61,7 +61,7 @@ with lib;
         readOnly = mkOption {
           default = false;
           type = types.bool;
-          description = "The read-only status of the screenboard.";
+          description = "The read-only status of the timeboard.";
         };
       };
 
