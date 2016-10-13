@@ -161,7 +161,6 @@ class SNSTopicState(nixops.resources.ResourceState):
                 defn_endpoints.append(subscriber['endpoint'])
         return defn_endpoints
 
-
     def destroy(self, wipe=False):
         self._destroy()
         return True
