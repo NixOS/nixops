@@ -20,22 +20,6 @@ class SNSTopicDefinition(nixops.resources.ResourceDefinition):
     def get_resource_type(cls):
         return "snsTopics"
 
-    def __init__(self, xml):
-        nixops.resources.ResourceDefinition.__init__(self, xml)
-        self.topic_name = xml.find("attrs/attr[@name='name']/string").get("value")
-        self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
-        self.region = xml.find("attrs/attr[@name='region']/string").get("value")
-        dn = xml.find("attrs/attr[@name='displayName']/string")
-        self.display_name = dn.get("value") if dn != None else None
-        self.policy = xml.find("attrs/attr[@name='policy']/string").get("value")
-        self.subscriptions = []
-        subscriptions = xml.findall("attrs/attr[@name='subscriptions']/list/attrs")
-        for subscription in subscriptions:
-            subscriber = {}
-            subscriber['protocol'] = subscription.find("attr[@name='protocol']/string").get("value")
-            subscriber['endpoint'] = subscription.find("attr[@name='endpoint']/string").get("value")
-            self.subscriptions.append(subscriber)
-
     def show_type(self):
         return "{0}".format(self.get_type())
 
@@ -103,38 +87,47 @@ class SNSTopicState(nixops.resources.ResourceState):
             self.arn = None
 
     def topic_exists(self,arn):
-        return True
+        response = self._conn.get_all_topics()
+        topics = response['ListTopicsResponse']['ListTopicsResult']['Topics']
+        current_topics = []
+        if len(topics) > 0:
+            for topic in topics:
+                topic_arn = topic['TopicArn']
+                current_topics.append(topic_arn)
+            if arn in current_topics:
+                return True
+        return False
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
+        self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         arn = self.arn
-        if self.state == self.UP and (self.topic_name != defn.topic_name or self.region != defn.region):
+        if self.state == self.UP and (self.topic_name != defn.config['name'] or self.region != defn.config['region']):
             self.log("topic definition changed, recreating...")
             self._destroy()
             self._conn = None
 
-        self.region = defn.region
+        self.region = defn.config['region']
         self.connect()
 
-        if self.arn == None:
-            self.log("creating SNS topic ‘{0}’...".format(defn.topic_name))
-            topic = self._conn.create_topic(defn.topic_name)
+        if self.arn == None or not self.topic_exists(arn=self.arn):
+            self.log("creating SNS topic ‘{0}’...".format(defn.config['name']))
+            topic = self._conn.create_topic(defn.config['name'])
             arn = topic.get('CreateTopicResponse').get('CreateTopicResult')['TopicArn']
 
-        if defn.display_name != None:
-            self._conn.set_topic_attributes(topic=arn,attr_name="DisplayName",attr_value=defn.display_name)
+        if defn.config['displayName'] != None:
+            self._conn.set_topic_attributes(topic=arn,attr_name="DisplayName",attr_value=defn.config['displayName'])
 
-        if defn.policy != "":
-            policy = self._conn.set_topic_attributes(topic=arn,attr_name="Policy",attr_value=defn.policy)
+        if defn.config['policy'] != "":
+            policy = self._conn.set_topic_attributes(topic=arn,attr_name="Policy",attr_value=defn.config['policy'])
 
         current_subscribers, current_subscriptions_arns = self.get_current_subscribers(arn=arn)
 
-        if len(defn.subscriptions) > 0:
-            for subscriber in defn.subscriptions:
+        if len(defn.config['subscriptions']) > 0:
+            for subscriber in defn.config['subscriptions']:
                 protocol = subscriber['protocol']
                 endpoint = subscriber['endpoint']
                 if endpoint not in current_subscribers:
@@ -150,11 +143,11 @@ class SNSTopicState(nixops.resources.ResourceState):
 
         with self.depl._db:
             self.state = self.UP
-            self.topic_name = defn.topic_name
-            self.display_name = defn.display_name
-            self.policy = defn.policy
+            self.topic_name = defn.config['name']
+            self.display_name = defn.config['displayName']
+            self.policy = defn.config['policy']
             self.arn = arn
-            self.subscriptions = defn.subscriptions
+            self.subscriptions = defn.config['subscriptions']
 
 
     def get_current_subscribers(self,arn):
@@ -170,8 +163,8 @@ class SNSTopicState(nixops.resources.ResourceState):
 
     def get_defn_endpoints(self,defn):
         defn_endpoints = []
-        if len(defn.subscriptions) > 0:
-            for subscriber in defn.subscriptions:
+        if len(defn.config['subscriptions']) > 0:
+            for subscriber in defn.config['subscriptions']:
                 defn_endpoints.append(subscriber['endpoint'])
         return defn_endpoints
 
