@@ -40,17 +40,14 @@ class SNSTopicState(nixops.resources.ResourceState):
     def get_type(cls):
         return "sns-topic"
 
-
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._conn = None
-
 
     def show_type(self):
         s = super(SNSTopicState, self).show_type()
         if self.region: s = "{0} [{1}]".format(s, self.region)
         return s
-
 
     @property
     def resource_id(self):
@@ -65,14 +62,12 @@ class SNSTopicState(nixops.resources.ResourceState):
     def get_definition_prefix(self):
         return "resources.snsTopics."
 
-
     def connect(self):
         if self._conn: return
         assert self.region
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
         self._conn = boto.sns.connect_to_region(
             region_name=self.region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
-
 
     def _destroy(self):
         if self.state != self.UP: return
@@ -97,7 +92,6 @@ class SNSTopicState(nixops.resources.ResourceState):
             if arn in current_topics:
                 return True
         return False
-
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
@@ -148,7 +142,6 @@ class SNSTopicState(nixops.resources.ResourceState):
             self.policy = defn.config['policy']
             self.arn = arn
             self.subscriptions = defn.config['subscriptions']
-
 
     def get_current_subscribers(self,arn):
         response = self._conn.get_all_subscriptions_by_topic(topic=arn)
