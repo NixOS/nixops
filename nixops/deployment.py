@@ -628,6 +628,7 @@ class Deployment(object):
                  "-A", "machines", "-o", self.tempdir + "/configs"]
                 + (["--dry-run"] if dry_run else [])
                 + (["--repair"] if repair else []),
+                + (["--show-trace"] if debug else []),
                 stderr=self.logger.log_file).rstrip()
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
