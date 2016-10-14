@@ -88,6 +88,15 @@
       </section>
 
       <section>
+        <title>SNS Topics</title>
+        <para>An Amazon SNS topic is defined by setting
+        <literal>resources.snsTopics.<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="sns-topic-options.xml" />
+      </section>
+
+      <section>
         <title>EC2 Keypairs</title>
         <para>An Amazon EC2 keypair is defined by setting
         <literal>resources.ec2KeyPairs.<replaceable>name</replaceable></literal>
