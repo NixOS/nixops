@@ -443,14 +443,18 @@ AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ dev # my AWS devel
   <envar>EC2_ACCESS_KEY</envar> and
   <envar>EC2_SECRET_KEY</envar>.</para></listitem>
 
-  <!--
-  <listitem><para>You need to create an SSH key pair using the
-  <command>ec2-create-keypair</command> command line tool or using the
+  <listitem><para>If you want to use an SSH key pair created with the
+  <command>ec2-create-keypair</command> command line tool or the
   AWS web interface, set <varname>deployment.ec2.keyPair</varname> to
   the name of the key pair, and set
   <varname>deployment.ec2.privateKey</varname> to the path of the
-  private key.</para></listitem>
-  -->
+  private key:
+  <programlisting>
+    deployment.ec2.keyPair = "your-key-name";
+    deployment.ec2.privateKey = "/path/to/your-key-name.pem";</programlisting>
+  You can leave out <varname>deployment.ec2.privateKey</varname> option
+  in case the key is findable by SSH through its normal mechanisms (e.g. it is listed in <filename>~/.ssh/config</filename> or was added to the ssh-agent)
+  </para></listitem>
 
   <listitem><para>You need to ensure that your EC2 security groups are
   set up to allow (at the very least) SSH traffic from your network.
