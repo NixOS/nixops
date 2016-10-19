@@ -22,7 +22,7 @@
           perlPackages.TemplatePluginJSONEscape
           perlPackages.TemplatePluginIOAll
           perlPackages.XMLSimple
-          python
+          python2
           libxslt libxml2 imagemagick
           xhtml1
           nix
