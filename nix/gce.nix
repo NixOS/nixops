@@ -31,7 +31,7 @@ let
     };
     preConfigure = ''
       substituteInPlace google-daemon/usr/share/google/google_daemon/address_manager.py --replace /sbin/ip ${pkgs.iproute}/sbin/ip
-      substituteInPlace google-daemon/usr/share/google/google_daemon/manage_addresses.py --replace /usr/bin/python ${pkgs.python}/bin/python
+      substituteInPlace google-daemon/usr/share/google/google_daemon/manage_addresses.py --replace /usr/bin/python ${pkgs.python2}/bin/python2
     '';
     installPhase = ''
       mkdir -p $out/share/google_daemon

@@ -67,27 +67,27 @@ rec {
   build = pkgs.lib.genAttrs [ "x86_64-linux" "i686-linux" "x86_64-darwin" ] (system:
     with import <nixpkgs> { inherit system; };
 
-    pythonPackages.buildPythonPackage rec {
+    python2Packages.buildPythonPackage rec {
       name = "nixops-${version}";
       namePrefix = "";
 
       src = "${tarball}/tarballs/*.tar.bz2";
 
-      buildInputs = [ pythonPackages.nose pythonPackages.coverage ];
+      buildInputs = [ python2Packages.nose python2Packages.coverage ];
 
-      propagatedBuildInputs =
-        [ pythonPackages.prettytable
-          pythonPackages.boto
-          pythonPackages.boto3
-          pythonPackages.hetzner
-          pythonPackages.libcloud
-          pythonPackages.azure-storage
-          pythonPackages.azure-mgmt-compute
-          pythonPackages.azure-mgmt-network
-          pythonPackages.azure-mgmt-resource
-          pythonPackages.azure-mgmt-storage
-          pythonPackages.adal
-          pythonPackages.sqlite3
+      propagatedBuildInputs = with python2Packages;
+        [ prettytable
+          boto
+          boto3
+          hetzner
+          libcloud
+          azure-storage
+          azure-mgmt-compute
+          azure-mgmt-network
+          azure-mgmt-resource
+          azure-mgmt-storage
+          adal
+          sqlite3
         ];
 
       # For "nix-build --run-env".
