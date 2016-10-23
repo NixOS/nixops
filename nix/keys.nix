@@ -128,8 +128,8 @@ in
               let
                 # FIXME: The key file should be marked as private once
                 # https://github.com/NixOS/nix/issues/8 is fixed.
-                keyFile = pkgs.writeText name value;
-              in "ln -sfn ${keyFile.text} /run/keys/${name}\n")
+                keyFile = pkgs.writeText name value.text;
+              in "ln -sfn ${keyFile} /run/keys/${name}\n")
               config.deployment.keys)
             + ''
               # FIXME: delete obsolete keys?
