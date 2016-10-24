@@ -17,31 +17,6 @@ class DatadogTimeboardDefinition(nixops.resources.ResourceDefinition):
     def get_resource_type(cls):
         return "datadogTimeboards"
 
-    def __init__(self, xml):
-        nixops.resources.ResourceDefinition.__init__(self, xml)
-        self.api_key = xml.find("attrs/attr[@name='apiKey']/string").get("value")
-        self.app_key = xml.find("attrs/attr[@name='appKey']/string").get("value")
-        self.title = xml.find("attrs/attr[@name='title']/string").get("value")
-        self.description = xml.find("attrs/attr[@name='description']/string").get("value")
-        self.graphs = []
-        for graph in xml.findall("attrs/attr[@name='graphs']/list/attrs"):
-            graph_entry = {}
-            graph_entry['title'] = graph.find("attr[@name='title']/string").get("value")
-            graph_entry['definition'] = json.loads(graph.find("attr[@name='definition']/string").get("value"))
-            self.graphs.append(graph_entry)
-        self.template_variables = []
-        tvariables = xml.findall("attrs/attr[@name='templateVariables']/list/attrs")
-        for variable in tvariables:
-            template_variable = {}
-            template_variable['name'] = variable.find("attr[@name='name']/string").get("value")
-            prefix = variable.find("attr[@name='prefix']/string")
-            template_variable['prefix'] = prefix.get("value") if prefix != None else None
-            default = variable.find("attr[@name='default']/string")
-            template_variable['default'] = default.get("value") if default != None else None
-            self.template_variables.append(template_variable)
-        read_only = xml.find("attrs/attr[@name='readOnly']/bool").get("value")
-        self.read_only = True if read_only=="true" else False
-
     def show_type(self):
         return "{0}".format(self.get_type())
 
@@ -91,10 +66,10 @@ class DatadogTimeboardState(nixops.resources.ResourceState):
         if self._dd_api: return
         self._dd_api, self._key_options = nixops.datadog_utils.initializeDatadog(app_key=app_key, api_key=api_key)
 
-    def create_timeboard(self, defn, template_variables):
+    def create_timeboard(self, defn, graphs, template_variables, read_only):
         response = self._dd_api.Timeboard.create(
-            title=defn.title, description=defn.description, graphs=defn.graphs,
-             template_variables=template_variables, read_only=defn.read_only)
+            title=defn.config['title'], description=defn.config['description'], graphs=graphs,
+             template_variables=template_variables, read_only=read_only)
         if 'errors' in response:
             raise Exception(str(response['errors']))
         else:
@@ -110,21 +85,28 @@ class DatadogTimeboardState(nixops.resources.ResourceState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         timeboard_id = None
         url = None
-        self.connect(app_key=defn.app_key, api_key=defn.api_key)
-        tv = defn.template_variables
-        template_variables = tv if len(tv)>0 else None
+        self.connect(app_key=defn.config['appKey'], api_key=defn.config['apiKey'])
+        template_variables = nixops.datadog_utils.get_template_variables(defn=defn)
+        read_only = True if defn.config['readOnly']=="true" else False
+        graphs = []
+        for g in defn.config['graphs']:
+            graph = {}
+            graph['title'] = g['title']
+            graph['definition'] = json.loads(g['definition'])
+            graphs.append(graph)
+
         if self.state != self.UP:
-            self.log("creating datadog timeboard '{0}...'".format(defn.title))
-            timeboard_id, url = self.create_timeboard(defn=defn, template_variables=template_variables)
+            self.log("creating datadog timeboard '{0}...'".format(defn.config['title']))
+            timeboard_id, url = self.create_timeboard(defn=defn, graphs=graphs, template_variables=template_variables, read_only=read_only)
 
         if self.state == self.UP:
             if self.timeboard_exist(self.timeboard_id) == False:
                 self.warn("datadog timeboard with id {0} doesn't exist anymore.. recreating ...".format(self.timeboard_id))
-                timeboard_id, url = self.create_timeboard(defn=defn, template_variables=template_variables)
+                timeboard_id, url = self.create_timeboard(defn=defn, graphs=graphs, template_variables=template_variables, read_only=read_only)
             else:
                 response = self._dd_api.Timeboard.update(
-                self.timeboard_id, title=defn.title, description=defn.description, graphs=defn.graphs,
-                 template_variables=template_variables, read_only=defn.read_only)
+                self.timeboard_id, title=defn.config['title'], description=defn.config['description'], graphs=graphs,
+                 template_variables=template_variables, read_only=read_only)
                 if 'errors' in response:
                     raise Exception(str(response['errors']))
                 else:
@@ -132,15 +114,15 @@ class DatadogTimeboardState(nixops.resources.ResourceState):
 
         with self.depl._db:
             self.state = self.UP
-            self.api_key = defn.api_key
-            self.app_key = defn.app_key
+            self.api_key = defn.config['apiKey']
+            self.app_key = defn.config['appKey']
             if timeboard_id != None: self.timeboard_id = timeboard_id
-            self.title = defn.title
-            self.graphs = defn.graphs
-            self.template_variables = defn.template_variables
-            self.description = defn.description
+            self.title = defn.config['title']
+            self.graphs = graphs
+            self.template_variables = template_variables
+            self.description = defn.config['description']
             self.url = url
-            self.read_only = defn.read_only
+            self.read_only = read_only
 
     def _destroy(self):
         if self.state == self.UP:

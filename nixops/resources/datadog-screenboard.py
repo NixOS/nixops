@@ -17,34 +17,6 @@ class DatadogScreenboardDefinition(nixops.resources.ResourceDefinition):
     def get_resource_type(cls):
         return "datadogScreenboards"
 
-    def __init__(self, xml):
-        nixops.resources.ResourceDefinition.__init__(self, xml)
-        self.api_key = xml.find("attrs/attr[@name='apiKey']/string").get("value")
-        self.app_key = xml.find("attrs/attr[@name='appKey']/string").get("value")
-        self.board_title = xml.find("attrs/attr[@name='boardTitle']/string").get("value")
-        description = xml.find("attrs/attr[@name='description']/string").get("value")
-        self.description = description if description != "" else None
-        self.widgets = []
-        for widget in xml.findall("attrs/attr[@name='widgets']/list"):
-            widget_entry = json.loads(widget.find("string").get("value"))
-            self.widgets.append(widget_entry)
-        self.template_variables = []
-        tvariables = xml.findall("attrs/attr[@name='templateVariables']/list/attrs")
-        for variable in tvariables:
-            template_variable = {}
-            template_variable['name'] = variable.find("attr[@name='name']/string").get("value")
-            prefix = variable.find("attr[@name='prefix']/string")
-            template_variable['prefix'] = prefix.get("value") if prefix != None else None
-            default = variable.find("attr[@name='default']/string")
-            template_variable['default'] = default.get("value") if default != None else None
-            self.template_variables.append(template_variable)
-        width = xml.find("attrs/attr[@name='width']/int")
-        self.width = width.get('value') if width != None else None
-        height = xml.find("attrs/attr[@name='height']/int")
-        self.height = height.get('value') if height != None else None
-        read_only = xml.find("attrs/attr[@name='readOnly']/bool").get("value")
-        self.read_only = True if read_only=="true" else False
-
     def show_type(self):
         return "{0}".format(self.get_type())
 
@@ -78,7 +50,9 @@ class DatadogScreenboardState(nixops.resources.ResourceState):
 
     @property
     def resource_id(self):
-        return self.board_title
+        r = self.board_title
+        if self.screenboard_id: r = "{0} [ {1} ]".format(r, self.screenboard_id)
+        return r
 
     def get_definition_prefix(self):
         return "resources.datadogScreenboards."
@@ -87,10 +61,10 @@ class DatadogScreenboardState(nixops.resources.ResourceState):
         if self._dd_api: return
         self._dd_api, self._key_options = nixops.datadog_utils.initializeDatadog(app_key=app_key, api_key=api_key)
 
-    def create_screenboard(self, defn, template_variables):
+    def create_screenboard(self, defn, widgets, template_variables, read_only):
         response = self._dd_api.Screenboard.create(
-            board_title=defn.board_title, description=defn.description, widgets=defn.widgets,
-             template_variables=template_variables, width=defn.width, height=defn.height, read_only=defn.read_only)
+            board_title=defn.config["boardTitle"], description=defn.config['description'], widgets=widgets,
+             template_variables=template_variables, width=defn.config['width'], height=defn.config['height'], read_only=read_only)
         if 'errors' in response:
             raise Exception(str(response['errors']))
         else:
@@ -105,33 +79,36 @@ class DatadogScreenboardState(nixops.resources.ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         screenboard_id = None
-        self.connect(app_key=defn.app_key, api_key=defn.api_key)
-        tv = defn.template_variables
-        template_variables = tv if len(tv)>0 else None
+        self.connect(app_key=defn.config['appKey'], api_key=defn.config['apiKey'])
+        template_variables = nixops.datadog_utils.get_template_variables(defn=defn)
+        read_only = True if defn.config['readOnly']=="true" else False
+        widgets = []
+        for widget in defn.config['widgets']:
+            widgets.append(json.loads(widget))
         if self.state != self.UP:
-            self.log("creating datadog screenboard '{0}...'".format(defn.board_title))
-            screenboard_id = self.create_screenboard(defn=defn, template_variables=template_variables)
+            self.log("creating datadog screenboard '{0}...'".format(defn.config['boardTitle']))
+            screenboard_id = self.create_screenboard(defn=defn, widgets=widgets, template_variables=template_variables, read_only=read_only)
         if self.state == self.UP:
             if self.screenboard_exist(self.screenboard_id) == False:
                 self.warn("datadog screenboard with id {0} doesn't exist anymore.. recreating ...".format(self.screenboard_id))
-                screenboard_id = self.create_screenboard(defn=defn, template_variables=template_variables)
+                screenboard_id = self.create_screenboard(defn=defn, widgets=widgets, template_variables=template_variables, read_only=read_only)
             else:
                 response = self._dd_api.Screenboard.update(
-                self.screenboard_id, board_title=defn.board_title, description=defn.description, widgets=defn.widgets,
-                 template_variables=template_variables, width=defn.width, height=defn.height, read_only=defn.read_only)
+                self.screenboard_id, board_title=defn.config['boardTitle'], description=defn.config['description'], widgets=widgets,
+                 template_variables=template_variables, width=defn.config['width'], height=defn.config['height'], read_only=read_only)
                 if 'errors' in response:
                     raise Exception(str(response['errors']))
 
         with self.depl._db:
             self.state = self.UP
-            self.api_key = defn.api_key
-            self.app_key = defn.app_key
+            self.api_key = defn.config['apiKey']
+            self.app_key = defn.config['appKey']
             if screenboard_id != None: self.screenboard_id = screenboard_id
-            self.board_title = defn.board_title
-            self.widgets = defn.widgets
-            self.template_variables = defn.template_variables
-            self.description = defn.description
-            self.read_only = defn.read_only
+            self.board_title = defn.config['boardTitle']
+            self.widgets = widgets
+            self.template_variables = defn.config['templateVariables']
+            self.description = defn.config['description']
+            self.read_only = read_only
 
     def _destroy(self):
         if self.state == self.UP:
