@@ -1449,6 +1449,88 @@ and libvirtd specification <literal>example-libvirtd.nix</literal>:
 
 </section>
 
+<section><title>Deploying Datadog resources</title>
+<para>NixOps allows deploying Datadog resources (monitors, timeboards, screenboards)
+using a declarative description. Before deploying Datadog resources, you need to
+generate an api_key and app_key from
+<link xlink:href="https://app.datadoghq.com/account/settings#api">here</link>.
+The following is a minimal specification of a datadog resource deployment which takes a host as an argument
+</para>
+<warning>
+<para>
+  Note that if you don't specify the api_key/app_key options, they will be defaulted to the environment variables DATADOG_API_KEY and DATADOG_APP_KEY.
+</para>
+</warning>
+<example xml:id="datadog-timeboard.nix">
+  <title><filename>datadog-timeboard.nix</filename>: Datadog timeboard specification</title>
+<programlisting>
+  { host
+   , ...
+  }:
+  let
+    app_key = "...";
+    api_key = "...";
+  in
+  {
+    resources.datadogTimeboards.host-timeboard = { config, ...}:
+    {
+      appKey = app_key;
+      apiKey = api_key;
+      title = "Timeboard created using NixOps";
+      description = "Timeboard created using NixOps";
+      templateVariables = [
+        {
+          name = "host";
+          prefix = "host";
+          default = "${host}";
+        }
+      ];
+      graphs = [
+        {
+          title = "system.disk.free";
+          definition = builtins.toJSON {
+            requests= [
+              {
+                type= "line";
+                conditional_formats= [];
+                aggregator= "avg";
+                q= "avg:system.disk.free{device:/dev/dm-0,host:${host}}";
+              }
+            ];
+            viz= "timeseries";
+          };
+        }
+      ];
+    };
+  }
+</programlisting>
+</example>
+<para>
+  In this example, the graph definition is a JSON string, which can be customized by following the JSON graphing
+   <link xlink:href="http://docs.datadoghq.com/graphingjson/">documentation</link>.
+  This is similar for the monitor options and screenboard widgets which are defined using a JSON string as well.
+</para>
+<para>
+  Once deployed, the deployment specification would be:
+  <programlisting>
+$ nixops deploy -d timeboards
+host-timeboard> creating datadog timeboard 'Timeboard created using NixOps...'
+building all machine configurations...
+timeboards> closures copied successfully
+timeboards> deployment finished successfully
+
+$ nixops info -d timeboards
+...
+Nix arguments: host = "myhost"
+
++----------------+-----------------+-------------------+--------------------------------------------------------------------------------+------------+
+| Name           |      Status     | Type              | Resource Id                                                                    | IP address |
++----------------+-----------------+-------------------+--------------------------------------------------------------------------------+------------+
+| host-timeboard | Up / Up-to-date | datadog-timeboard | Timeboard created using NixOps [ /dash/203062/timeboard-created-using-nixops ] |            |
++----------------+-----------------+-------------------+--------------------------------------------------------------------------------+------------+
+  </programlisting>
+</para>
+</section>
 
 <section><title>Accessing machines</title>
 
