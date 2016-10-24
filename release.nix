@@ -88,7 +88,7 @@ rec {
           azure-mgmt-storage
           adal
           sqlite3
-	  datadog
+          datadog
         ];
 
       # For "nix-build --run-env".
