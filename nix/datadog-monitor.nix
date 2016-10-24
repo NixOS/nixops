@@ -32,7 +32,7 @@ with lib;
           type = types.str;
           description = "Message to send for a set of users.";
         };
-        options = mkOption {
+        monitorOptions = mkOption {
           type = types.str;
           description = "A dictionary of options for the monitor.";
         };

@@ -5,13 +5,15 @@
       apiKey = "...";
       type = "metric alert";
       message = "notify the user @user@example.com";
-      renotifyInterval = 20;
-      includeTags = true;
-      noDataTimeframe = 10;
-      notifyAudit= false;
       query = "avg(last_5m):sum:system.net.bytes_rcvd{host:${config.deployment.name}.machine} > 100";
-      thresholds.ok = 10;
-      thresholds.warning = 50;
-      thresholds.critical = 100;
+      monitorOptions = builtins.toJSON {
+        renotify_interval = 20;
+        include_tags = true;
+        no_data_timeframe = 10;
+        notify_audit= false;
+        thresholds.ok = 10;
+        thresholds.warning = 50;
+        thresholds.critical = 100;
+      };
     };
 }
