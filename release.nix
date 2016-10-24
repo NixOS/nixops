@@ -36,7 +36,7 @@ rec {
         cp ${import ./doc/manual { revision = nixopsSrc.rev; }} doc/manual/machine-options.xml
         ${pkgs.lib.concatMapStrings (fn: ''
           cp ${import ./doc/manual/resource.nix { revision = nixopsSrc.rev; module = ./nix + ("/" + fn + ".nix"); }} doc/manual/${fn}-options.xml
-        '') [ "ebs-volume" "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" "ssh-keypair" "ec2-security-group" "elastic-ip"
+        '') [ "ebs-volume" "sns-topic" "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" "ssh-keypair" "ec2-security-group" "elastic-ip"
               "gce-disk" "gce-image" "gce-forwarding-rule" "gce-http-health-check" "gce-network"
               "gce-static-ip" "gce-target-pool" "gse-bucket"
               "azure-availability-set" "azure-blob-container" "azure-blob" "azure-directory"
@@ -67,28 +67,28 @@ rec {
   build = pkgs.lib.genAttrs [ "x86_64-linux" "i686-linux" "x86_64-darwin" ] (system:
     with import <nixpkgs> { inherit system; };
 
-    pythonPackages.buildPythonPackage rec {
+    python2Packages.buildPythonPackage rec {
       name = "nixops-${version}";
       namePrefix = "";
 
       src = "${tarball}/tarballs/*.tar.bz2";
 
-      buildInputs = [ pythonPackages.nose pythonPackages.coverage ];
+      buildInputs = [ python2Packages.nose python2Packages.coverage ];
 
-      propagatedBuildInputs =
-        [ pythonPackages.prettytable
-          pythonPackages.boto
-          pythonPackages.boto3
-          pythonPackages.hetzner
-          pythonPackages.libcloud
-          pythonPackages.azure-storage
-          pythonPackages.azure-mgmt-compute
-          pythonPackages.azure-mgmt-network
-          pythonPackages.azure-mgmt-resource
-          pythonPackages.azure-mgmt-storage
-          pythonPackages.adal
-          pythonPackages.sqlite3
-          pythonPackages.datadog
+      propagatedBuildInputs = with python2Packages;
+        [ prettytable
+          boto
+          boto3
+          hetzner
+          libcloud
+          azure-storage
+          azure-mgmt-compute
+          azure-mgmt-network
+          azure-mgmt-resource
+          azure-mgmt-storage
+          adal
+          sqlite3
+	  datadog
         ];
 
       # For "nix-build --run-env".

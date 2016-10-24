@@ -1028,11 +1028,14 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             if v.get('needsAttach', False):
                 volume = nixops.ec2_utils.get_volume_by_id(self._conn, v['volumeId'], allow_missing=True)
                 if volume: continue
-                if not allow_recreate:
-                    raise Exception("volume ‘{0}’ (used by EC2 instance ‘{1}’) no longer exists; "
-                                    "run ‘nixops stop’, then ‘nixops deploy --allow-recreate’ to create a new, empty volume"
-                                    .format(v['volumeId'], self.name))
-                self.warn("volume ‘{0}’ has disappeared; will create an empty volume to replace it".format(v['volumeId']))
+                if k not in defn.block_device_mapping:
+                    self.warn("forgetting about volume ‘{0}’ that no longer exists and is no longer needed by the deployment specification".format(v['volumeId']))
+                else:
+                    if not allow_recreate:
+                        raise Exception("volume ‘{0}’ (used by EC2 instance ‘{1}’) no longer exists; "
+                                        "run ‘nixops stop’, then ‘nixops deploy --allow-recreate’ to create a new, empty volume"
+                                        .format(v['volumeId'], self.name))
+                    self.warn("volume ‘{0}’ has disappeared; will create an empty volume to replace it".format(v['volumeId']))
                 self.update_block_device_mapping(k, None)
 
         # Create missing volumes.
