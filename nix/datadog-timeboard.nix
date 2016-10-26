@@ -32,11 +32,13 @@ with lib;
               type = types.str;
             };
             definition = mkOption {
-              description = "The graph definition.
+              description = ''
+              The graph definition.
               <para>
               See datadog JSON graphing documentation for more details
               <link xlink:href='http://docs.datadoghq.com/graphingjson/'/>
-              </para>";
+              </para>
+              '';
               type = types.str;
             };
           };
