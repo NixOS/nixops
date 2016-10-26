@@ -28,11 +28,11 @@ with lib;
         widgets = mkOption {
           type = types.listOf types.str;
           description = ''
-          A list of widget definitions.
-          <para>
-          See the datadog screenboard API for more details on creating screenboard widgets
-          <link xlink:href='http://docs.datadoghq.com/api/screenboards/'/>
-          </para>
+            A list of widget definitions.
+            <para>
+            See the datadog screenboard API for more details on creating screenboard widgets
+            <link xlink:href='http://docs.datadoghq.com/api/screenboards/'/>
+            </para>
           '';
         };
         templateVariables = mkOption {

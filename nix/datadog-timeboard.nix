@@ -33,11 +33,11 @@ with lib;
             };
             definition = mkOption {
               description = ''
-              The graph definition.
-              <para>
-              See datadog JSON graphing documentation for more details
-              <link xlink:href='http://docs.datadoghq.com/graphingjson/'/>
-              </para>
+                The graph definition.
+                <para>
+                See datadog JSON graphing documentation for more details
+                <link xlink:href='http://docs.datadoghq.com/graphingjson/'/>
+                </para>
               '';
               type = types.str;
             };

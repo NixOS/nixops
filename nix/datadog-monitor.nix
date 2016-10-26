@@ -27,11 +27,11 @@ with lib;
         query = mkOption {
           type = types.str;
           description = ''
-          The query that defines the monitor.
-          <para>
-          See the datadog API documentation for more details about query creation
-          <link xlink:href='http://docs.datadoghq.com/api/#monitors'/>
-          </para>
+            The query that defines the monitor.
+            <para>
+            See the datadog API documentation for more details about query creation
+            <link xlink:href='http://docs.datadoghq.com/api/#monitors'/>
+            </para>
           '';
         };
         message = mkOption {
@@ -41,31 +41,31 @@ with lib;
         monitorOptions = mkOption {
           type = types.str;
           description = ''
-          A dictionary of options for the monitor.
-          <para>
-          See the API documentation for more details about the available options
-          <link xlink:href='http://docs.datadoghq.com/api/#monitors'/>
-          </para>
+            A dictionary of options for the monitor.
+            <para>
+            See the API documentation for more details about the available options
+            <link xlink:href='http://docs.datadoghq.com/api/#monitors'/>
+            </para>
           '';
         };
         silenced = mkOption {
           default = null;
           type = types.nullOr (types.str);
           description = ''
-          dictionary of scopes to timestamps or None.
-           Each scope will be muted until the given POSIX timestamp or forever if the value is None.
-           <para>
-           Examples:
-           <para>
-           To mute the alert completely:
-           {'*': None}
-           </para>
-           <para>
-           To mute role:db for a short time:
-           {'role:db': 1412798116}
-           </para>
-           </para>
-           '';
+            dictionary of scopes to timestamps or None.
+            Each scope will be muted until the given POSIX timestamp or forever if the value is None.
+            <para>
+            Examples:
+            <para>
+            To mute the alert completely:
+            {'*': None}
+            </para>
+            <para>
+            To mute role:db for a short time:
+            {'role:db': 1412798116}
+            </para>
+            </para>
+          '';
         };
   };
   config._type = "datadog-monitor";
