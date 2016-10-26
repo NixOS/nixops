@@ -13,7 +13,7 @@ with lib;
         appKey = mkOption {
             default = "";
             type = types.str;
-            description = "The Datadog App Key.";
+            description = "The Datadog APP Key.";
         };
         boardTitle = mkOption {
           default = "";
@@ -27,7 +27,11 @@ with lib;
         };
         widgets = mkOption {
           type = types.listOf types.str;
-          description = "A list of widget definitions.";
+          description = "A list of widget definitions.
+          <para>
+          See the datadog screenboard API for more details on creating screenboard widgets
+          <link xlink:href='http://docs.datadoghq.com/api/screenboards/'/>
+          </para>";
         };
         templateVariables = mkOption {
           default = [];
