@@ -411,6 +411,34 @@
 
     </section>
 
+    <section>
+      <title>Datadog Resources</title>
+      <section>
+        <title>Datadog Monitor Resource</title>
+        <para>A Datadog monitor is defined by setting
+        <literal>resources.datadogMonitors.<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="datadog-monitor-options.xml" />
+      </section>
+      <section>
+        <title>Datadog Timeboard Resource</title>
+        <para>A Datadog timeboard is defined by setting
+        <literal>resources.dataogTimeboards.<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="datadog-timeboard-options.xml" />
+      </section>
+      <section>
+        <title>Datadog Screenboard Resource</title>
+        <para>A Datadog screenboard is defined by setting
+        <literal>resources.dataogScreenboards.<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="datadog-screenboard-options.xml" />
+      </section>
+    </section>
+
   </appendix>
 
   <xi:include href="hacking.xml" />

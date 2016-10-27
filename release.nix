@@ -39,6 +39,7 @@ rec {
         '') [ "ebs-volume" "sns-topic" "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" "ssh-keypair" "ec2-security-group" "elastic-ip"
               "gce-disk" "gce-image" "gce-forwarding-rule" "gce-http-health-check" "gce-network"
               "gce-static-ip" "gce-target-pool" "gse-bucket"
+              "datadog-monitor" "datadog-timeboard" "datadog-screenboard"
               "azure-availability-set" "azure-blob-container" "azure-blob" "azure-directory"
               "azure-dns-record-set" "azure-dns-zone" "azure-express-route-circuit"
               "azure-file" "azure-gateway-connection" "azure-load-balancer" "azure-local-network-gateway"
@@ -88,6 +89,7 @@ rec {
           azure-mgmt-storage
           adal
           sqlite3
+          datadog
         ];
 
       # For "nix-build --run-env".

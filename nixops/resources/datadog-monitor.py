@@ -1,0 +1,123 @@
+# -*- coding: utf-8 -*-
+
+import nixops.util
+import nixops.resources
+import nixops.datadog_utils
+import json
+import ast
+
+
+class DatadogMonitorDefinition(nixops.resources.ResourceDefinition):
+    """Definition of a Datadog monitor."""
+
+    @classmethod
+    def get_type(cls):
+        return "datadog-monitor"
+
+    @classmethod
+    def get_resource_type(cls):
+        return "datadogMonitors"
+
+    def show_type(self):
+        return "{0}".format(self.get_type())
+
+class DatadogMonitorState(nixops.resources.ResourceState):
+    """State of a Datadog monitor"""
+
+    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    api_key = nixops.util.attr_property("apiKey", None)
+    app_key = nixops.util.attr_property("appKey", None)
+    monitor_name = nixops.util.attr_property("name", None)
+    monitor_type = nixops.util.attr_property("type", None)
+    query = nixops.util.attr_property("query", None)
+    message = nixops.util.attr_property("message", None)
+    monitor_id = nixops.util.attr_property("monitorId", None)
+    options = nixops.util.attr_property("monitorOptions",[],'json')
+
+    @classmethod
+    def get_type(cls):
+        return "datadog-monitor"
+
+    def __init__(self, depl, name, id):
+        nixops.resources.ResourceState.__init__(self, depl, name, id)
+        self._dd_api = None
+        self._key_options = None
+
+    def _exists(self):
+        return self.state != self.MISSING
+
+    def show_type(self):
+        s = super(DatadogMonitorState, self).show_type()
+        return s
+
+    @property
+    def resource_id(self):
+        r = self.monitor_name
+        if self.monitor_id: r = "{0} [ {1} ]".format(r, self.monitor_id)
+        return r
+
+    def get_definition_prefix(self):
+        return "resources.datadogMonitors."
+
+    def connect(self, app_key, api_key):
+        if self._dd_api: return
+        self._dd_api, self._key_options = nixops.datadog_utils.initializeDatadog(app_key=app_key, api_key=api_key)
+
+    def create_monitor(self, defn, options):
+        response = self._dd_api.Monitor.create(
+            type=defn.config['type'], query=defn.config['query'], name=defn.config['name'],
+            message=defn.config['name'], options=options)
+        if 'errors' in response:
+            raise Exception(str(response['errors']))
+        else:
+            return response['id']
+
+    def monitor_exist(self, id):
+        result = self._dd_api.Monitor.get(id)
+        if 'errors' in result:
+            return False
+        else:
+            return True
+
+    def create(self, defn, check, allow_reboot, allow_recreate):
+        monitor_id = None
+        self.connect(app_key=defn.config['appKey'], api_key=defn.config['apiKey'])
+        options = json.loads(defn.config['monitorOptions'])
+        silenced = defn.config['silenced']
+        if silenced!=None: options['silenced'] = ast.literal_eval(silenced)
+        options.update(self._key_options)
+        if self.state != self.UP:
+            self.log("creating datadog monitor '{0}...'".format(defn.config['name']))
+            monitor_id = self.create_monitor(defn=defn, options=options)
+
+        if self.state == self.UP:
+            if self.monitor_exist(self.monitor_id) == False:
+                self.warn("monitor with id {0} doesn't exist anymore.. recreating ...".format(self.monitor_id))
+                monitor_id = self.create_monitor(defn=defn, options=options)
+            else:
+                response = self._dd_api.Monitor.update(
+                self.monitor_id, query=defn.config['query'], name=defn.config['name'],
+                message=defn.config['message'], options=options)
+                if 'errors' in response:
+                    raise Exception(str(response['errors']))
+
+        with self.depl._db:
+            self.state = self.UP
+            self.api_key = defn.config['apiKey']
+            self.app_key = defn.config['appKey']
+            self.monitor_name = defn.config['name']
+            self.monitor_type = defn.config['type']
+            self.query = defn.config['query']
+            self.message = defn.config['message']
+            self.options = defn.config['monitorOptions']
+            if monitor_id != None: self.monitor_id = monitor_id
+
+    def destroy(self, wipe=False):
+        if self.state == self.UP:
+            self.connect(self.app_key,self.api_key)
+            if self.monitor_exist(self.monitor_id) == False:
+                self.warn("datadog monitor with id {0} already deleted".format(self.monitor_id))
+            else:
+                self.log("deleting datadog monitor ‘{0}’...".format(self.monitor_name))
+                self._dd_api.Monitor.delete(self.monitor_id)
+        return True

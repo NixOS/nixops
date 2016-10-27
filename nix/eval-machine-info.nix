@@ -100,6 +100,11 @@ rec {
   resources.elasticFileSystemMountTargets = evalResources ./elastic-file-system-mount-target.nix (zipAttrs resourcesByType.elasticFileSystemMountTargets or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
+  # Datadog resources
+  resources.datadogMonitors = evalResources ./datadog-monitor.nix (zipAttrs resourcesByType.datadogMonitors or []);
+  resources.datadogTimeboards = evalResources ./datadog-timeboard.nix (zipAttrs resourcesByType.datadogTimeboards or []);
+  resources.datadogScreenboards = evalResources ./datadog-screenboard.nix (zipAttrs resourcesByType.datadogScreenboards or []);
+
   # Azure resources
   resources.azureAvailabilitySets = evalAzureResources ./azure-availability-set.nix (zipAttrs resourcesByType.azureAvailabilitySets or []);
   resources.azureBlobContainers =
