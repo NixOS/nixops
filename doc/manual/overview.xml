@@ -1446,6 +1446,29 @@ and libvirtd specification <literal>example-libvirtd.nix</literal>:
 </programlisting>
 </para>
 
+<note>
+<title>Serial console:</title>
+<para>If you want to access the serial console of the guest (<literal>virsh
+console</literal>) we also need the following:
+
+<programlisting>
+<![CDATA[
+boot.kernelParams = [ "console=ttyS0,115200" ];
+deployment.libvirtd.extraDevicesXML = ''
+  <serial type='pty'>
+    <target port='0'/>
+  </serial>
+  <console type='pty'>
+    <target type='serial' port='0'/>
+  </console>
+'';
+]]>
+</programlisting>
+
+<tip>In order to log in you have to set a (root) password.</tip>
+</para>
+</note>
+
 <para>Finally, let's deploy it with NixOps:
 
 <programlisting>
