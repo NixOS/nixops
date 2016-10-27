@@ -183,8 +183,10 @@ in
         deployment model, but looked up in the file
         <filename>~/.ec2-keys</filename>, which should specify, on
         each line, an Access Key ID followed by the corresponding
-        Secret Access Key.  If it does not appear in that file, the
-        environment variables environment variables
+        Secret Access Key. If the lookup was unsuccessful it is continued
+        in the standard AWS tools <filename>~/.aws/credentials</filename> file.
+        If it does not appear in these files, the
+        environment variables
         <envar>EC2_SECRET_KEY</envar> or
         <envar>AWS_SECRET_ACCESS_KEY</envar> are used.
       '';

@@ -352,7 +352,7 @@ provision them.)</para>
 let
 
   region = "eu-west-1";
-  accessKeyId = "dev"; # symbolic name looked up in ~/.ec2-keys
+  accessKeyId = "dev"; # symbolic name looked up in ~/.ec2-keys or a ~/.aws/credentials profile name
 
   ec2 =
     { resources, ... }:
@@ -438,6 +438,21 @@ AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ dev # my AWS devel
   Here <literal>dev</literal> is a symbolic name for the AWS account,
   which you can use in
   <varname>deployment.ec2.accessKeyId</varname>.</para>
+
+  <para>Also you can use a standard way of storing credentials in a
+  <filename>~/.aws/credentials</filename>:
+
+<programlisting>
+[dev]
+aws_access_key_id = AKIAIUTDLWJKSLSJDLDQ
+aws_secret_access_key = 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
+</programlisting>
+
+  Profile name <literal>dev</literal> is the same as a previously
+  mentioned symbolic name which you can set in
+  <varname>deployment.ec2.accessKeyId</varname>.
+  It is also possible to use an alternative credentials file by setting
+  the <envar>AWS_SHARED_CREDENTIALS_FILE</envar> environment variable.</para>
 
   <para>Alternatively, you can set the environment variables
   <envar>EC2_ACCESS_KEY</envar> and

@@ -11,32 +11,50 @@ from boto.exception import EC2ResponseError
 from boto.exception import SQSError
 from boto.exception import BotoServerError
 
-def fetch_aws_secret_key(access_key_id):
-    """Fetch the secret access key corresponding to the given access key ID from the environment or from ~/.ec2-keys"""
-    secret_access_key = os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
-    path = os.path.expanduser("~/.ec2-keys")
-    if os.path.isfile(path):
-        f = open(path, 'r')
-        contents = f.read()
-        f.close()
-        for l in contents.splitlines():
-            l = l.split("#")[0] # drop comments
-            w = l.split()
-            if len(w) < 2 or len(w) > 3: continue
-            if len(w) == 3 and w[2] == access_key_id:
-                access_key_id = w[0]
-                secret_access_key = w[1]
-                break
-            if w[0] == access_key_id:
-                secret_access_key = w[1]
-                break
+from boto.pyami.config import Config
 
-    if not secret_access_key:
-        raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/.ec2-keys"
+def fetch_aws_secret_key(access_key_id):
+    """
+        Fetch the secret access key corresponding to the given access key ID from ~/.ec2-keys,
+        or from ~/.aws/credentials, or from the environment (in that priority).
+    """
+
+    def parse_ec2_keys():
+        path = os.path.expanduser("~/.ec2-keys")
+        if os.path.isfile(path):
+            with open(path, 'r') as f:
+                contents = f.read()
+                for l in contents.splitlines():
+                    l = l.split("#")[0] # drop comments
+                    w = l.split()
+                    if len(w) < 2 or len(w) > 3: continue
+                    if len(w) == 3 and w[2] == access_key_id: return (w[0], w[1])
+                    if w[0] == access_key_id: return (access_key_id, w[1])
+        return None
+
+    def parse_aws_credentials():
+        path = os.getenv('AWS_SHARED_CREDENTIALS_FILE', "~/.aws/credentials")
+        conf = Config(os.path.expanduser(path))
+
+        if access_key_id == conf.get('default', 'aws_access_key_id'):
+            return (access_key_id, conf.get('default', 'aws_secret_access_key'))
+        return (conf.get(access_key_id, 'aws_access_key_id'),
+                conf.get(access_key_id, 'aws_secret_access_key'))
+
+    def ec2_keys_from_env():
+        return (access_key_id,
+                os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY'))
+
+    sources = (get_credentials() for get_credentials in
+                [parse_ec2_keys, parse_aws_credentials, ec2_keys_from_env])
+    # Get the first existing access-secret key pair
+    credentials = next( (keys for keys in sources if keys and keys[1]), None)
+
+    if not credentials:
+        raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/.ec2-keys or ~/.aws/credentials"
                         .format(access_key_id))
 
-    return (access_key_id, secret_access_key)
-
+    return credentials
 
 def connect(region, access_key_id):
     """Connect to the specified EC2 region using the given access key."""
