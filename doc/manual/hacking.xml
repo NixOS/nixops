@@ -43,7 +43,8 @@ Note that some of the tests involve the creation of EC2 resources and
 thus cost money.  You must set the environment variable
 <envar>EC2_ACCESS_KEY</envar> and (optionally)
 <envar>EC2_SECRET_KEY</envar>.  (If the latter is not set, it will be
-looked up in <filename>~/.ec2-keys</filename>, as described in <xref
+looked up in <filename>~/.ec2-keys</filename> or in
+<filename>~/.aws/credentials</filename>, as described in <xref
 linkend="sec-deploying-to-ec2"/>.)  To run a specific test, run
 <literal>python2 tests.py
 <replaceable>test-name</replaceable></literal>, e.g.

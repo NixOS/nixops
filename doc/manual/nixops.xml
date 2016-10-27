@@ -215,7 +215,16 @@ cloud.</para>
     <listitem><para>AWS Secret Access Key used to communicate with the
     Amazon EC2 cloud.  It is only used if no secret key corresponding
     to the AWS Access Key ID is defined in
-    <filename>~/.ec2-keys</filename>.</para></listitem>
+    <filename>~/.ec2-keys</filename>
+    or <filename>~/.aws/credentials</filename>.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><envar>AWS_SHARED_CREDENTIALS_FILE</envar></term>
+
+    <listitem><para>Alternative path to the the shared credentials
+    file, which is located in <filename>~/.aws/credentials</filename>
+    by default.</para></listitem>
 
   </varlistentry>
 
@@ -309,6 +318,42 @@ deployment.ec2.accessKeyId = "prod";
     This is useful if you have an AWS account with multiple user
     accounts and you don’t want to hard-code an Access Key ID in
     a NixOps specification.</para>
+
+    </listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><filename>~/.aws/credentials</filename></term>
+
+    <listitem><para>This file pairs AWS Access Key IDs with their
+    corresponding Secret Access Keys under symbolic profile names.
+    It consists of sections marked by profile names. Sections contain
+    newline-separated "assignments" of "variables"
+    <literal>aws_access_key_id</literal> and <literal>aws_secret_access_key</literal>
+    to a desired Access Key ID and a Secret Access Key, respectively, e.g.:
+
+<programlisting>
+[dev]
+aws_access_key_id = AKIAIUTDLWJKSLSJDLDQ
+aws_secret_access_key = Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/
+
+[prod]
+aws_access_key_id = AKIAEODJSLXMDLLJKDLW
+aws_secret_access_key = DLeodsk32kldlDLSKdflexfpgiklf130r4dl23qp
+</programlisting>
+
+    Symbolic profile names are specified in
+    <option>deployment.ec2.accessKeyId</option>, e.g.:
+
+<programlisting>
+deployment.ec2.accessKeyId = "prod";
+</programlisting>
+
+    If an actual Access Key IDs is used in
+    <option>deployment.ec2.accessKeyId</option> its corresponding Secret Access Key is
+    looked up under <literal>[default]</literal> profile name.
+    Location of credentials file can be customized by setting the
+    <envar>AWS_SHARED_CREDENTIALS_FILE</envar> environment variable. </para>
 
     </listitem>
 
