@@ -334,12 +334,12 @@ deployment.ec2.accessKeyId = "prod";
 
 <programlisting>
 [dev]
-aws_access_key_id = AKIAIUTDLWJKSLSJDLDQ
-aws_secret_access_key = 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
+aws_access_key_id = AKIAIUTDLWJKS.....DQ
+aws_secret_access_key = Grsjf37cDKKWndklek3jdxnSK............Dl/
 
 [prod]
-aws_access_key_id = AKIAEODJSLXMDLLJKDLW
-aws_secret_access_key = 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
+aws_access_key_id = AKIAEODJSLXMD.....LW
+aws_secret_access_key = DLeodsk32kldlDLSKdflexfpg............3qp
 </programlisting>
 
     Symbolic profile names are specified in
