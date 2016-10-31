@@ -134,10 +134,10 @@ in
         size = mkDefault 0;
         baseImage = mkDefault (
           let
-            unpack = name: sha256: pkgsNative.runCommand "virtualbox-nixops-${name}.vdi" { preferLocalBuild = true; allowSubstitutes = false; }
+            unpack = name: sha256: pkgsNative.runCommand "virtualbox-nixops-${name}.vmdk" { preferLocalBuild = true; allowSubstitutes = false; }
               ''
                 xz -d < ${pkgsNative.fetchurl {
-                  url = "http://nixos.org/releases/nixos/virtualbox-nixops-images/virtualbox-nixops-${name}.vdi.xz";
+                  url = "http://nixos.org/releases/nixos/virtualbox-nixops-images/virtualbox-nixops-${name}.vmdk.xz";
                   inherit sha256;
                 }} > $out
               '';
