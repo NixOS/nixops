@@ -1228,6 +1228,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if not (self.vm_id or self.client_token): return True
         if not self.depl.logger.confirm("are you sure you want to destroy EC2 machine ‘{0}’?".format(self.name)): return False
 
+        if wipe:
+            log.warn("wipe is not supported")
+
         self.log_start("destroying EC2 machine... ".format(self.name))
 
         # Find the instance, either by its ID or by its client token.
