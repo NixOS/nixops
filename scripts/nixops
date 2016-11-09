@@ -576,6 +576,9 @@ def op_mount():
         elif flags[n] == "-p":
             new_flags.extend(["-p", flags[n+1]])
             n = n + 2
+        elif flags[n] == "-o":
+            new_flags.extend(["-o", flags[n+1]])
+            n = n + 2
         else:
             raise Exception("don't know how to pass SSH flag ‘{0}’ to sshfs".format(flags[n]))
 
