@@ -162,8 +162,7 @@ in
           location = "westus";
         };
       };
-      type = types.attrsOf types.optionSet;
-      options = endpointOptions;
+      type = with types; attrsOf (submodule endpointOptions);
       description = "An attribute set of endpoints";
     };
 

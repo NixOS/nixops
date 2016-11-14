@@ -267,8 +267,7 @@ in
       blockDeviceMapping = mkOption {
         default = { };
         example = { "/dev/sda".image = "bootstrap-img"; "/dev/sdb".disk = "vol-d04895b8"; };
-        type = types.attrsOf types.optionSet;
-        options = gceDiskOptions;
+        type = with types; attrsOf (submodule gceDiskOptions);
         description = ''
           Block device mapping.
         '';
@@ -331,8 +330,7 @@ in
         options = {
           gce = mkOption {
             default = null;
-            type = types.uniq (types.nullOr types.optionSet);
-            options = gceDiskOptions;
+            type = with types; uniq (nullOr (submodule gceDiskOptions));
             description = ''
               GCE disk to be attached to this mount point.  This is
               shorthand for defining a separate

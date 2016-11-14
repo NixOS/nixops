@@ -314,8 +314,7 @@ in
           publicIpAddress = "my-reserved-address";
         };
       };
-      type = types.attrsOf types.optionSet;
-      options = frontendInterfaceOptions;
+      type = with types; attrsOf (submodule frontendInterfaceOptions);
       description = "An attribute set of frontend network interfaces.";
     };
 
@@ -328,8 +327,7 @@ in
           probe = "web";
         };
       };
-      type = types.attrsOf types.optionSet;
-      options = lbRuleOptions;
+      type = with types; attrsOf (submodule lbRuleOptions);
       description = "An attribute set of load balancer rules.";
     };
 
@@ -341,8 +339,7 @@ in
           backendPort = 22;
         };
       };
-      type = types.attrsOf types.optionSet;
-      options = natRuleOptions;
+      type = with types; attrsOf (submodule natRuleOptions);
       description = "An attribute set of inbound NAT rules.";
     };
 
@@ -355,8 +352,7 @@ in
           path = "/is-alive";
         };
       };
-      type = types.attrsOf types.optionSet;
-      options = probeOptions;
+      type = with types; attrsOf (submodule probeOptions);
       description = "An attribute set of load balancer probes";
     };
 

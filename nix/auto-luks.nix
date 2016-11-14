@@ -14,7 +14,61 @@ with utils;
     deployment.autoLuks = mkOption {
       default = { };
       example = { secretdisk = { device = "/dev/xvdf"; passphrase = "foobar"; }; };
-      type = types.attrsOf types.optionSet;
+      type = with types; attrsOf (submodule {
+        options = {
+          device = mkOption {
+            example = "/dev/xvdg";
+            type = types.str;
+            description = ''
+              The underlying (encrypted) device.
+            '';
+          };
+
+          cipher = mkOption {
+            default = "aes-cbc-essiv:sha256";
+            type = types.str;
+            description = ''
+              The cipher used to encrypt the volume.
+            '';
+          };
+
+          keySize = mkOption {
+            default = 128;
+            type = types.int;
+            description = ''
+              The size in bits of the encryption key.
+            '';
+          };
+
+          passphrase = mkOption {
+            default = "";
+            type = types.str;
+            description = ''
+              The passphrase (key file) used to decrypt the key to access
+              the volume.  If left empty, a passphrase is generated
+              automatically; this passphrase is lost when you destroy the
+              machine or underlying device, unless you copy it from
+              NixOps's state file.  Note that unless
+              <option>deployment.storeKeysOnMachine</option> is set to
+              <literal>false</literal>, the passphrase is stored in the
+              Nix store of the instance, so an attacker who gains access
+              to the disk containing the store can subsequently decrypt
+              the encrypted volume.
+            '';
+          };
+
+          autoFormat = mkOption {
+            default = false;
+            type = types.bool;
+            description = ''
+              If the underlying device does not currently contain a
+              filesystem (as determined by <command>blkid</command>, then
+              automatically initialise it using <command>cryptsetup
+              luksFormat</command>.
+            '';
+          };
+        };
+      });
       description = ''
         The LUKS volumes to be created.  The name of each attribute
         set specifies the name of the LUKS volume; thus, the resulting
@@ -22,57 +76,6 @@ with utils;
         <filename>/dev/mapper/<replaceable>name</replaceable></filename>.
       '';
 
-      options.device = mkOption {
-        example = "/dev/xvdg";
-        type = types.str;
-        description = ''
-          The underlying (encrypted) device.
-        '';
-      };
-
-      options.cipher = mkOption {
-        default = "aes-cbc-essiv:sha256";
-        type = types.str;
-        description = ''
-          The cipher used to encrypt the volume.
-        '';
-      };
-
-      options.keySize = mkOption {
-        default = 128;
-        type = types.int;
-        description = ''
-          The size in bits of the encryption key.
-        '';
-      };
-
-      options.passphrase = mkOption {
-        default = "";
-        type = types.str;
-        description = ''
-          The passphrase (key file) used to decrypt the key to access
-          the volume.  If left empty, a passphrase is generated
-          automatically; this passphrase is lost when you destroy the
-          machine or underlying device, unless you copy it from
-          NixOps's state file.  Note that unless
-          <option>deployment.storeKeysOnMachine</option> is set to
-          <literal>false</literal>, the passphrase is stored in the
-          Nix store of the instance, so an attacker who gains access
-          to the disk containing the store can subsequently decrypt
-          the encrypted volume.
-        '';
-      };
-
-      options.autoFormat = mkOption {
-        default = false;
-        type = types.bool;
-        description = ''
-          If the underlying device does not currently contain a
-          filesystem (as determined by <command>blkid</command>, then
-          automatically initialise it using <command>cryptsetup
-          luksFormat</command>.
-        '';
-      };
 
     };
 

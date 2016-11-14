@@ -197,9 +197,8 @@ in
             name = "website";
             loadBalancer = "resources.azureLoadBalancers.mybalancer";
           } ];
-          type = types.listOf types.optionSet;
           description = "List of Azure load balancer backend address pools to join.";
-          options = { config, ... }: {
+          type = with types; listOf (submodule ({ config, ... }: {
             options = {
               loadBalancer = mkOption {
                 example = "resources.azureLoadBalancers.mybalancer";
@@ -219,7 +218,7 @@ in
               };
             };
             config = {};
-          };
+          }));
         };
 
         inboundNatRules = mkOption {
@@ -228,9 +227,8 @@ in
             name = "admin-machine-ssh";
             loadBalancer = "resources.azureLoadBalancers.mybalancer";
           } ];
-          type = types.listOf types.optionSet;
           description = "List of Azure load balancer inbound NAT rules to use.";
-          options = { config, ... }: {
+          type = with types; listOf (submodule ({ config, ... }: {
             options = {
               loadBalancer = mkOption {
                 example = "resources.azureLoadBalancers.mybalancer";
@@ -249,7 +247,7 @@ in
               };
             };
             config = {};
-          };
+          }));
         };
 
         ip.resource = mkOption {
@@ -341,8 +339,7 @@ in
         default = { };
         example = { "/dev/disk/by-lun/1".mediaLink =
                         "http://mystorage.blob.core.windows.net/mycontainer/machine-disk"; };
-        type = types.attrsOf types.optionSet;
-        options = azureDiskOptions;
+        type = with types; attrsOf (submodule azureDiskOptions);
         description = ''
           Block device mapping.
         '';
@@ -367,8 +364,7 @@ in
         options = {
           azure = mkOption {
             default = null;
-            type = types.uniq (types.nullOr types.optionSet);
-            options = azureDiskOptions;
+            type = with types; uniq (nullOr (submodule azureDiskOptions));
             description = ''
               Azure disk to be attached to this mount point.  This is
               a shorthand for defining a separate

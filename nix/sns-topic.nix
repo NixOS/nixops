@@ -35,21 +35,22 @@ with lib;
     };
 
     subscriptions = mkOption {
-      type = types.listOf types.optionSet;
       description = "List of subscriptions to apply to the topic.";
       default = [];
-      options = {
-        protocol = mkOption {
-          default = null;
-          description = "The protocol to use.";
-          type = types.str;
+      type = with types; listOf (submodule {
+        options = {
+          protocol = mkOption {
+            default = null;
+            description = "The protocol to use.";
+            type = types.str;
+          };
+          endpoint = mkOption {
+            default = null;
+            description = "The endpoint to send data to.";
+            type = types.str;
+          };
         };
-        endpoint = mkOption {
-          default = null;
-          description = "The endpoint to send data to.";
-          type = types.str;
-        };
-      };
+      });
     };
 
     arn = mkOption {

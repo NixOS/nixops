@@ -140,8 +140,7 @@ in
           direction = "Inbound";
         };
       };
-      type = types.attrsOf types.optionSet;
-      options = securityRuleOptions;
+      type = with types; attrsOf (submodule securityRuleOptions);
       description = "An attribute set of security rules.";
     };
 

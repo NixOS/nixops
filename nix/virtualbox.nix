@@ -42,34 +42,35 @@ in
             size = 1048576;
           };
         };
-      type = types.attrsOf types.optionSet;
       description = "Definition of the virtual disks attached to this instance.";
+      type = with types; attrsOf (submodule {
+        options = {
 
-      options = {
+          port = mkOption {
+            example = 1;
+            type = types.int;
+            description = "SATA port number to which the disk is attached.";
+          };
 
-        port = mkOption {
-          example = 1;
-          type = types.int;
-          description = "SATA port number to which the disk is attached.";
+          size = mkOption {
+            type = types.int;
+            description = "Size (in megabytes) of this disk.";
+          };
+
+          baseImage = mkOption {
+            default = null;
+            example = "/home/alice/base-disk.vdi";
+            type = types.nullOr types.path;
+            description = ''
+              If set, this disk is created as a clone of the specified
+              disk image (and the <literal>size</literal> attribute is
+              ignored).
+            '';
+          };
+
         };
 
-        size = mkOption {
-          type = types.int;
-          description = "Size (in megabytes) of this disk.";
-        };
-
-        baseImage = mkOption {
-          default = null;
-          example = "/home/alice/base-disk.vdi";
-          type = types.nullOr types.path;
-          description = ''
-            If set, this disk is created as a clone of the specified
-            disk image (and the <literal>size</literal> attribute is
-            ignored).
-          '';
-        };
-
-      };
+      });
     };
 
     deployment.virtualbox.sharedFolders = mkOption {
@@ -82,31 +83,32 @@ in
           };
         };
 
-      type = types.attrsOf types.optionSet;
-
       description = ''
         Definition of the host folders that should be shared with this instance.
       '';
 
-      options = {
+      type = with types; attrsOf (submodule {
 
-        hostPath = mkOption {
-          example = "/home";
-          type = types.str;
-          description = ''
-            The path of the host directory that should be shared to the guest
-          '';
+        options = {
+
+          hostPath = mkOption {
+            example = "/home";
+            type = types.str;
+            description = ''
+              The path of the host directory that should be shared to the guest
+            '';
+          };
+
+          readOnly = mkOption {
+            type = types.bool;
+            default = true;
+            description = ''
+              Specifies if the shared folder should be read-only for the guest
+            '';
+          };
+
         };
-
-        readOnly = mkOption {
-          type = types.bool;
-          default = true;
-          description = ''
-            Specifies if the shared folder should be read-only for the guest
-          '';
-        };
-
-      };
+      });
     };
 
   };
