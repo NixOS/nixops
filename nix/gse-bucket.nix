@@ -133,8 +133,7 @@ in
         responseHeaders = [ "header1"  "header2" ];
       } ];
       default = [];
-      type = types.listOf types.optionSet;
-      options = corsOptions;
+      type = with types; listOf (submodule corsOptions);
       description = ''
         <link xlink:href="http://www.w3.org/TR/cors/">Cross-Origin Resource Sharing</link>
         configuration.
@@ -144,8 +143,7 @@ in
     lifecycle = mkOption {
       example = [ { conditions.age = 40; } ];
       default = [];
-      type = types.listOf types.optionSet;
-      options = lifecycleOptions;
+      type = with types; listOf (submodule lifecycleOptions);
       description = ''
         Object Lifecycle Configuration for the bucket contents.
       '';

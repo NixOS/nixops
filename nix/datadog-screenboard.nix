@@ -37,24 +37,25 @@ with lib;
         };
         templateVariables = mkOption {
           default = [];
-          type = types.listOf types.optionSet;
           description = "A list of template variables for using Dashboard templating.";
-          options = {
-            name = mkOption {
-              type = types.str;
-              description = "The name of the variable.";
+          type = with types; listOf (submodule {
+            options = {
+              name = mkOption {
+                type = types.str;
+                description = "The name of the variable.";
+              };
+              prefix = mkOption {
+                default = null;
+                type = types.nullOr (types.str);
+                description = "The tag prefix associated with the variable. Only tags with this prefix will appear in the variable dropdown.";
+              };
+              default = mkOption {
+                default = null;
+                type = types.nullOr (types.str);
+                description = "The default value for the template variable on dashboard load";
+              };
             };
-            prefix = mkOption {
-              default = null;
-              type = types.nullOr (types.str);
-              description = "The tag prefix associated with the variable. Only tags with this prefix will appear in the variable dropdown.";
-            };
-            default = mkOption {
-              default = null;
-              type = types.nullOr (types.str);
-              description = "The default value for the template variable on dashboard load";
-            };
-          };
+          });
         };
         width = mkOption {
           default = null;

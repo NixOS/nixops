@@ -20,37 +20,38 @@ with lib;
               remoteIPv4 = "172.16.12.2";
             };
         };
-      type = types.attrsOf types.optionSet;
-      options = {
-        target = mkOption {
-          type = types.str;
-          description = "Host name or IP address of the remote machine.";
+      type = with types; attrsOf (submodule {
+        options = {
+          target = mkOption {
+            type = types.str;
+            description = "Host name or IP address of the remote machine.";
+          };
+          targetPort = mkOption {
+            type = types.int;
+            description = "Port number that SSH listens to on the remote machine.";
+          };
+          privateKey = mkOption {
+            type = types.path;
+            description = "Path to the private key file used to connect to the remote machine.";
+          };
+          localTunnel = mkOption {
+            type = types.int;
+            description = "Local tunnel device number.";
+          };
+          remoteTunnel = mkOption {
+            type = types.int;
+            description = "Remote tunnel device number.";
+          };
+          localIPv4 = mkOption {
+            type = types.str;
+            description = "IPv4 address of the local endpoint of the tunnel.";
+          };
+          remoteIPv4 = mkOption {
+            type = types.str;
+            description = "IPv4 address of the remote endpoint of the tunnel.";
+          };
         };
-        targetPort = mkOption {
-          type = types.int;
-          description = "Port number that SSH listens to on the remote machine.";
-        };
-        privateKey = mkOption {
-          type = types.path;
-          description = "Path to the private key file used to connect to the remote machine.";
-        };
-        localTunnel = mkOption {
-          type = types.int;
-          description = "Local tunnel device number.";
-        };
-        remoteTunnel = mkOption {
-          type = types.int;
-          description = "Remote tunnel device number.";
-        };
-        localIPv4 = mkOption {
-          type = types.str;
-          description = "IPv4 address of the local endpoint of the tunnel.";
-        };
-        remoteIPv4 = mkOption {
-          type = types.str;
-          description = "IPv4 address of the remote endpoint of the tunnel.";
-        };
-      };
+      });
       description = ''
         A set of peer-to-peer tunnels set up automatically over SSH.
       '';

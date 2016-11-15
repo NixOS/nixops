@@ -3,7 +3,6 @@ with lib;
 
 mkOption {
   default = {};
-  type = types.attrsOf types.optionSet;
   example = {
     "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTI=" = {
       start = "2013-11-26T08:49:37.0000000Z";
@@ -17,7 +16,7 @@ mkOption {
     access policies that may be used with Shared Access Signatures.
   '';
 
-  options = { config, ... }: {
+  type = with types; attrsOf (submodule ({ config, ... }: {
     options = {
       start = mkOption {
         example = "2013-11-26T08:49:37.0000000Z";
@@ -49,5 +48,5 @@ mkOption {
 
     };
     config = {};
-  }; 
+  }));
 }

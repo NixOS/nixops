@@ -78,8 +78,7 @@ in
 
     subnets = mkOption {
       example = {};
-      type = types.attrsOf types.optionSet;
-      options = subnetOptions;
+      type = with types; attrsOf (submodule subnetOptions);
       description = "An attribute set of subnets";
     };
 

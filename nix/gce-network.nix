@@ -98,8 +98,7 @@ in
             allowed.tcp = [ 80 ];
           };
         };
-        type = types.attrsOf types.optionSet;
-        options = gceFirewallOptions;
+        type = with types; attrsOf (submodule gceFirewallOptions);
         description = ''
           Firewall rules.
         '';

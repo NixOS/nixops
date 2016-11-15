@@ -15,7 +15,6 @@ with utils;
     deployment.autoRaid0 = mkOption {
       default = { };
       example = { bigdisk.devices = [ "/dev/xvdg" "/dev/xvdh" ]; };
-      type = types.attrsOf types.optionSet;
       description = ''
         The RAID-0 volumes to be created.  The name of each attribute
         set specifies the name of both the volume group and the
@@ -23,11 +22,15 @@ with utils;
         <filename>/dev/<replaceable>name</replaceable>/<replaceable>name</replaceable></filename>.
       '';
 
-      options.devices = mkOption {
-        example = [ "/dev/xvdg" "/dev/xvdh" ];
-        type = types.listOf types.str;
-        description = "The underlying devices to be combined into a RAID-0 volume.";
-      };
+      type = with types; attrsOf (submodule {
+        options = {
+          devices = mkOption {
+            example = [ "/dev/xvdg" "/dev/xvdh" ];
+            type = types.listOf types.str;
+            description = "The underlying devices to be combined into a RAID-0 volume.";
+          };
+        };
+      });
 
     };
 
