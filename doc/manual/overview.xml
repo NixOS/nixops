@@ -529,12 +529,6 @@ let
 
 in {
 
-  # use nixos-unstable image
-  # this specification is identical to the default one and can omitted
-  resources.gceImages.bootstrap = credentials // {
-    sourceUri = "gs://nixos/nixos-14.10pre-git-x86_64-linux.raw.tar.gz";
-  };
-
   # create a network that allows SSH traffic(by default), pings
   # and HTTP traffic for machines tagged "public-http"
   resources.gceNetworks.lb-net = credentials // {
