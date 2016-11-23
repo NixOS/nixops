@@ -854,13 +854,16 @@ class Deployment(object):
             self._destroy_resources(include=to_destroy)
 
 
-    def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
+    def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False, evaluate_only=False,
                 include=[], exclude=[], check=False, kill_obsolete=False,
                 allow_reboot=False, allow_recreate=False, force_reboot=False,
                 max_concurrent_copy=5, sync=True, always_activate=False, repair=False, dry_activate=False):
         """Perform the deployment defined by the deployment specification."""
 
         self.evaluate_active(include, exclude, kill_obsolete)
+
+        if evaluate_only:
+            return
 
         # Assign each resource an index if it doesn't have one.
         for r in self.active_resources.itervalues():
