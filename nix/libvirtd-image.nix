@@ -8,7 +8,7 @@ let
 
       boot.loader.grub.version = 2;
       boot.loader.grub.device = "/dev/sda";
-      boot.loader.grub.timeout = 0;
+      boot.loader.timeout = 0;
 
       services.openssh.enable = true;
       services.openssh.startWhenNeeded = false;
