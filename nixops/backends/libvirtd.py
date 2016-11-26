@@ -2,6 +2,7 @@
 
 from distutils import spawn
 import os
+import copy
 import random
 import string
 import subprocess
@@ -84,13 +85,14 @@ class LibvirtdState(MachineState):
             (self.client_private_key, self.client_public_key) = nixops.util.create_key_pair()
 
         if self.vm_id is None:
-            os.putenv("NIXOPS_LIBVIRTD_PUBKEY", self.client_public_key)
+            newEnv = copy.deepcopy(os.environ)
+            newEnv["NIXOPS_LIBVIRTD_PUBKEY"] = self.client_public_key
             base_image = self._logged_exec(
                 ["nix-build"] + self.depl._eval_flags(self.depl.nix_exprs) +
                 ["--arg", "checkConfigurationOptions", "false",
                  "-A", "nodes.{0}.config.deployment.libvirtd.baseImage".format(self.name),
                  "-o", "{0}/libvirtd-image-{1}".format(self.depl.tempdir, self.name)],
-                capture_stdout=True).rstrip()
+                capture_stdout=True, env=newEnv).rstrip()
 
             if not os.access(defn.image_dir, os.W_OK):
                 raise Exception('{} is not writable by this user or it does not exist'.format(defn.image_dir))
