@@ -66,15 +66,23 @@ class DigitalOceanState(MachineState):
     def create_after(self, resources, defn):
         return set()
 
+    def get_auth_token(self):
+        return os.environ.get('DIGITAL_OCEAN_AUTH_TOKEN')
+
     def destroy(self, wipe=False):
-        droplet = digitalocean.Droplet(id=self.droplet_id)
+        droplet = digitalocean.Droplet(id=self.droplet_id, token=self.get_auth_token())
         droplet.destroy()
+        self.public_ipv4 = None
+        self.droplet_id = None
 
     def create(self, defn, check, allow_reboot, allow_recreate):
+        if self.droplet_id is not None:
+            return
+
         """Create or update the resource defined by ‘defn’."""
-        self.manager = digitalocean.Manager(token=defn.auth_token)
+        self.manager = digitalocean.Manager(token=self.get_auth_token())
         droplet = digitalocean.Droplet(
-            token=defn.auth_token,
+            token=self.get_auth_token(),
             name='Example',
             region=defn.region,
             ssh_keys=[SSH_KEY],
