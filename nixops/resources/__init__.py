@@ -10,7 +10,7 @@ class ResourceDefinition(object):
     @classmethod
     def get_type(cls):
         """A resource type identifier that must match the corresponding ResourceState class"""
-        assert False
+        raise NotImplementedError("get_type")
 
     @classmethod
     def get_resource_type(cls):
@@ -35,7 +35,7 @@ class ResourceState(object):
     @classmethod
     def get_type(cls):
         """A resource type identifier that must match the corresponding ResourceDefinition classs"""
-        assert False
+        raise NotImplementedError("get_type")
 
     # Valid values for self.state.  Not all of these make sense for
     # all resource types.
@@ -164,7 +164,7 @@ class ResourceState(object):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         """Create or update the resource defined by ‘defn’."""
-        assert False
+        raise NotImplementedError("create")
 
     def after_activation(self, defn):
         """Actions to be performed after the network is activated"""
