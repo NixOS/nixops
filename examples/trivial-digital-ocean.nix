@@ -4,13 +4,6 @@
   environment.systemPackages = [ pkgs.git ];
   services.nginx.enable = true;
 
-  # TODO the root fs stuff should move into
-  imports = [ <nixpkgs/nixos/modules/profiles/qemu-guest.nix> ];
-  boot.loader.grub.device = "/dev/vda";
-  fileSystems."/" = { device = "/dev/vda1"; fsType = "ext4"; };
-
-  users.extraUsers.root.password = "test";
-
   networking.useDHCP = true;
   networking.firewall.allowPing = true;
   networking.firewall.enable = false;

@@ -68,12 +68,16 @@ class DigitalOceanState(MachineState):
         prefixLength = bin(int(socket.inet_aton(self.netmask).encode('hex'), 16)).count('1')
 
         return Function("{ ... }", {
+            'imports': [ RawValue('<nixpkgs/nixos/modules/profiles/qemu-guest.nix>') ],
             'networking': {
                 'defaultGateway': self.default_gateway,
                 ('interfaces', 'eth0'): {
                     'ip4': [{"address": self.public_ipv4, 'prefixLength': prefixLength}],
                 },
-            }
+            },
+            ('boot', 'loader', 'grub', 'device'): '/dev/vda',
+            ('fileSystems', '/'): { 'device': '/dev/vda1', 'fsType': 'ext4'},
+            ('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [SSH_KEY],
         })
 
     def get_ssh_private_key_file(self):
