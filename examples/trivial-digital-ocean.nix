@@ -9,7 +9,11 @@
   boot.loader.grub.device = "/dev/vda";
   fileSystems."/" = { device = "/dev/vda1"; fsType = "ext4"; };
 
+  users.extraUsers.root.password = "test";
+
+  networking.useDHCP = true;
   networking.firewall.allowPing = true;
+  networking.firewall.enable = false;
   services.openssh.enable = true;
 
   deployment.targetEnv = "digital-ocean";
