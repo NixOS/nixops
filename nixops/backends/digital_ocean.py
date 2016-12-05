@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-auto-loaded via _load_modules_from in deployment.py
-"""
 import os
 import os.path
 import sys
@@ -20,6 +17,8 @@ import digitalocean
 import socket
 
 SSH_KEY = """ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAtq8LpgrnFQWpIcK5YdrQNzu22sPrbkHKD83g8v/s7Nu3Omb7h5TLBOZ6DYPSorGMKGjDFqo0witXRagWq95HaA9epFXmhJlO3NTxyTAzIZSzql+oJkqszNpmYY09L00EIplE/YKXPlY2a+sGx3CdJxbglGfTcqf0J2DW4wO2ikZSOXRiLEbztyDwc+TNwYJ3WtzTFWhG/9hbbHGZtpwQl6X5l5d2Mhl2tlKJ/zQYWV1CVXLSyKhkb4cQPkL05enguCQgijuI/WsUE6pqdl4ypziXGjlHAfH+zO06s6EDMQYr50xgYRuCBicF86GF8/fOuDJS5CJ8/FWr16fiWLa2Aw== tom@leto"""
+
+infect_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'nixos-infect'))
 
 class DigitalOceanDefinition(MachineDefinition, nixops.resources.ResourceDefinition):
     @classmethod
@@ -57,7 +56,6 @@ class DigitalOceanState(MachineState):
         MachineState.__init__(self, depl, name, id)
 
     def get_ssh_name(self):
-        print "SSH name",self.public_ipv4
         return self.public_ipv4
 
     def get_ssh_flags(self, *args, **kwargs):
@@ -71,11 +69,12 @@ class DigitalOceanState(MachineState):
             'imports': [ RawValue('<nixpkgs/nixos/modules/profiles/qemu-guest.nix>') ],
             'networking': {
                 'defaultGateway': self.default_gateway,
-                ('interfaces', 'eth0'): {
+                'nameservers': ['8.8.8.8'], # default provided by DO
+                ('interfaces', 'enp0s3'): {
                     'ip4': [{"address": self.public_ipv4, 'prefixLength': prefixLength}],
                 },
             },
-            ('boot', 'loader', 'grub', 'device'): '/dev/vda',
+            ('boot', 'loader', 'grub', 'device'): 'nodev', # keep ubuntu bootloader?
             ('fileSystems', '/'): { 'device': '/dev/vda1', 'fsType': 'ext4'},
             ('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [SSH_KEY],
         })
@@ -90,8 +89,12 @@ class DigitalOceanState(MachineState):
         return os.environ.get('DIGITAL_OCEAN_AUTH_TOKEN')
 
     def destroy(self, wipe=False):
-        droplet = digitalocean.Droplet(id=self.droplet_id, token=self.get_auth_token())
-        droplet.destroy()
+        self.log("destroying droplet {}".format(self.droplet_id))
+        try:
+            droplet = digitalocean.Droplet(id=self.droplet_id, token=self.get_auth_token())
+            droplet.destroy()
+        except digitalocean.baseapi.NotFoundError:
+            self.log("droplet not found - assuming it's been destroyed already")
         self.public_ipv4 = None
         self.droplet_id = None
 
@@ -106,9 +109,10 @@ class DigitalOceanState(MachineState):
             name='Example',
             region=defn.region,
             ssh_keys=[SSH_KEY],
-            image='ubuntu-14-04-x64', # only for lustration
+            image='ubuntu-16-04-x64', # only for lustration
             size_slug=defn.size,
         )
+        self.log_start("Creating droplet ...")
         droplet.create()
 
         status = 'in-progress'
@@ -119,22 +123,25 @@ class DigitalOceanState(MachineState):
                 if action.status != 'in-progress':
                     status = action.status
             time.sleep(1)
+            self.log_continue("[{}] ".format(status))
+
         if status != 'completed':
-            raise Exception("unexptected status: {}".format(status))
+            raise Exception("unexpected status: {}".format(status))
 
         droplet.load()
         self.droplet_id = droplet.id
         self.public_ipv4 = droplet.ip_address
-        # TODO not sure when I'd have more than one interface?
+        self.log_end("{}".format(droplet.ip_address))
+
+
+        # Not sure when I'd have more than one interface from the DO
+        # API but networks is an array nevertheless.
         self.default_gateway = droplet.networks['v4'][0]['gateway']
         self.netmask = droplet.networks['v4'][0]['netmask']
-        print "N", droplet.networks
 
-        # N {u'v4': [{u'type': u'public', u'netmask': u'255.255.240.0', u'ip_address': u'138.197.32.239', u'gateway': u'138.197.32.1'}], u'v6': []}
-
+        # run modified nixos-infect
+        # - no reboot
+        # - predictable network interface naming (enp0s3 etc)
         self.wait_for_ssh()
-
-        self.run_command('curl https://raw.githubusercontent.com/elitak/nixos-infect/master/nixos-infect | bash 2>&1')
-
-
+        self.run_command('bash </dev/stdin 2>&1', stdin=open(infect_path))
         self.reboot_sync()
