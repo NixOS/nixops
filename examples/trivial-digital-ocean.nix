@@ -3,7 +3,6 @@
 
   machine = { config, pkgs, ... }: {
     services.nginx.enable = true;
-    networking.firewall.allowPing = true;
     services.openssh.enable = true;
 
     deployment.targetEnv = "digital-ocean";

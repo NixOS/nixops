@@ -54,7 +54,6 @@ class DigitalOceanState(MachineState):
     state = nixops.util.attr_property("state", MachineState.MISSING, int)  # override
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     default_gateway = nixops.util.attr_property("defaultGateway", None)
-    public_dns_name = nixops.util.attr_property("publicDnsName", None)
     netmask = nixops.util.attr_property("netmask", None)
     region = nixops.util.attr_property("digital-ocean.region", None)
     size = nixops.util.attr_property("digital-ocean.size", None)
@@ -165,5 +164,6 @@ class DigitalOceanState(MachineState):
         # - no reboot
         # - predictable network interface naming (enp0s3 etc)
         self.wait_for_ssh()
+        self.log_start("running modified nixos-infect")
         self.run_command('bash </dev/stdin 2>&1', stdin=open(infect_path))
         self.reboot_sync()
