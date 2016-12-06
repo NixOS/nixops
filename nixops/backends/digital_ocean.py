@@ -164,6 +164,6 @@ class DigitalOceanState(MachineState):
         # - no reboot
         # - predictable network interface naming (enp0s3 etc)
         self.wait_for_ssh()
-        self.log_start("running modified nixos-infect")
+        self.log_start("running nixos-infect")
         self.run_command('bash </dev/stdin 2>&1', stdin=open(infect_path))
         self.reboot_sync()
