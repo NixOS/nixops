@@ -5,13 +5,13 @@ with lib;
 with import ./lib.nix lib;
 
 let
-  cfg = config.deployment.digital-ocean;
+  cfg = config.deployment.digitalOcean;
 in
 {
   ###### interface
   options = {
 
-    deployment.digital-ocean.authToken = mkOption {
+    deployment.digitalOcean.authToken = mkOption {
       default = "";
       example = "8b2f4e96af3997853bfd4cd8998958eab871d9614e35d63fab45a5ddf981c4da";
       type = types.str;
@@ -22,7 +22,7 @@ in
       '';
     };
 
-    deployment.digital-ocean.region = mkOption {
+    deployment.digitalOcean.region = mkOption {
       default = "";
       example = "nyc3";
       type = types.str;
@@ -32,16 +32,18 @@ in
       '';
     };
 
-    deployment.digital-ocean.size = mkOption {
+    deployment.digitalOcean.size = mkOption {
       example = "512mb";
       type = types.str;
       description = ''
-        The size slug between <literal>512mb</literal> and <literal>64gb</literal>;
+        The size identifier between <literal>512mb</literal> and <literal>64gb</literal>.
+        The supported size IDs for a region can be queried via API:
+        https://developers.digitalocean.com/documentation/v2/#list-all-sizes
       '';
     };
   };
 
-  config = mkIf (config.deployment.targetEnv == "digital-ocean") {
+  config = mkIf (config.deployment.targetEnv == "digitalOcean") {
     nixpkgs.system = mkOverride 900 "x86_64-linux";
   };
 }

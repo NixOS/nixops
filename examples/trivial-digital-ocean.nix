@@ -5,8 +5,8 @@
     services.nginx.enable = true;
     services.openssh.enable = true;
 
-    deployment.targetEnv = "digital-ocean";
-    deployment.digital-ocean.region = "ams2";
-    deployment.digital-ocean.size = "512mb";
+    deployment.targetEnv = "digitalOcean";
+    deployment.digitalOcean.region = "ams2";
+    deployment.digitalOcean.size = "512mb";
   };
 }

@@ -34,13 +34,13 @@ infect_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'dat
 class DigitalOceanDefinition(MachineDefinition, nixops.resources.ResourceDefinition):
     @classmethod
     def get_type(cls):
-        return "digital-ocean"
+        return "digitalOcean"
 
     def __init__(self, xml, config):
         MachineDefinition.__init__(self, xml, config)
-        self.auth_token = config["digital-ocean"]["authToken"]
-        self.region = config["digital-ocean"]["region"]
-        self.size = config["digital-ocean"]["size"]
+        self.auth_token = config["digitalOcean"]["authToken"]
+        self.region = config["digitalOcean"]["region"]
+        self.size = config["digitalOcean"]["size"]
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -49,17 +49,17 @@ class DigitalOceanDefinition(MachineDefinition, nixops.resources.ResourceDefinit
 class DigitalOceanState(MachineState):
     @classmethod
     def get_type(cls):
-        return "digital-ocean"
+        return "digitalOcean"
 
     state = nixops.util.attr_property("state", MachineState.MISSING, int)  # override
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     default_gateway = nixops.util.attr_property("defaultGateway", None)
     netmask = nixops.util.attr_property("netmask", None)
-    region = nixops.util.attr_property("digital-ocean.region", None)
-    size = nixops.util.attr_property("digital-ocean.size", None)
-    auth_token = nixops.util.attr_property("digital-ocean.authToken", None)
-    droplet_id = nixops.util.attr_property("digital-ocean.dropletId", None)
-    key_pair = nixops.util.attr_property("digital-ocean.keyPair", None)
+    region = nixops.util.attr_property("digitalOcean.region", None)
+    size = nixops.util.attr_property("digitalOcean.size", None)
+    auth_token = nixops.util.attr_property("digitalOcean.authToken", None)
+    droplet_id = nixops.util.attr_property("digitalOcean.dropletId", None)
+    key_pair = nixops.util.attr_property("digitalOcean.keyPair", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
