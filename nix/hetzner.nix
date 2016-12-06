@@ -72,7 +72,7 @@ with lib;
   config = mkIf (config.deployment.targetEnv == "hetzner") {
     nixpkgs.system = mkOverride 900 "x86_64-linux";
     boot.loader.grub.version = 2;
-    boot.loader.grub.timeout = 1;
+    boot.loader.timeout = 1;
     services.openssh.enable = true;
 
     # Blacklist nvidiafb by default as it causes issues with some GPUs.
