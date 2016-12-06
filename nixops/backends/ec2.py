@@ -182,7 +182,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     def get_ssh_flags(self, *args, **kwargs):
         file = self.get_ssh_private_key_file()
         super_flags = super(EC2State, self).get_ssh_flags(*args, **kwargs)
-        return super_flags + (["-i", file] if file else [])
+        return super_flags + ["-o", "StrictHostKeyChecking=no"] + (["-i", file] if file else [])
 
     def get_physical_spec(self):
         block_device_mapping = {}
