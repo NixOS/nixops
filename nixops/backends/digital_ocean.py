@@ -31,7 +31,7 @@ import digitalocean
 infect_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'nixos-infect'))
 
 
-class DigitalOceanDefinition(MachineDefinition, nixops.resources.ResourceDefinition):
+class DigitalOceanDefinition(MachineDefinition):
     @classmethod
     def get_type(cls):
         return "digitalOcean"
