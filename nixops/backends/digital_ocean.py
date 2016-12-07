@@ -121,6 +121,8 @@ class DigitalOceanState(MachineState):
         if ssh_key is None:
             raise Exception('Please specify a ssh-key resource (resources.sshKeyPairs.ssh-key = {}).')
 
+        self.set_common_state(defn)
+
         if self.droplet_id is not None:
             return
 
