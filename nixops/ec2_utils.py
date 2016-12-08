@@ -34,6 +34,9 @@ def fetch_aws_secret_key(access_key_id):
 
     def parse_aws_credentials():
         path = os.getenv('AWS_SHARED_CREDENTIALS_FILE', "~/.aws/credentials")
+        if not os.path.exists(os.path.expanduser(path)):
+            return None
+
         conf = Config(os.path.expanduser(path))
 
         if access_key_id == conf.get('default', 'aws_access_key_id'):
