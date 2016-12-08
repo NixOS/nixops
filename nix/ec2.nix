@@ -147,6 +147,7 @@ let
    || builtins.substring 0 2 cfg.instanceType == "c4"
    || builtins.substring 0 2 cfg.instanceType == "r3"
    || builtins.substring 0 2 cfg.instanceType == "r4"
+   || builtins.substring 0 2 cfg.instanceType == "f1"
    || builtins.substring 0 2 cfg.instanceType == "m3"
    || builtins.substring 0 2 cfg.instanceType == "m4"
    || builtins.substring 0 2 cfg.instanceType == "g2"
