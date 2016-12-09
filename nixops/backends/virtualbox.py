@@ -74,10 +74,6 @@ class VirtualBoxState(MachineState):
             return m.private_ipv4
         return MachineState.address_to(self, m)
 
-
-    def has_really_fast_connection(self):
-        return True
-
     @property
     def _vbox_version(self):
         v = getattr(self, '_vbox_version_obj', None)

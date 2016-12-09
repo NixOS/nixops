@@ -120,6 +120,8 @@ in
 
     nixpkgs.system = mkOverride 900 "x86_64-linux";
 
+    deployment.hasFastConnection = true;
+
     # Add vboxsf support to initrd to support booting from
     # shared folders
     boot.initrd = mkIf (cfg.sharedFolders != {}) {

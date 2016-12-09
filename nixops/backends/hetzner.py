@@ -259,7 +259,7 @@ class HetznerState(MachineState):
 
         self.log_start("copying bootstrap files to rescue system... ")
         tarstream = subprocess.Popen([bootstrap], stdout=subprocess.PIPE)
-        if not self.has_really_fast_connection():
+        if not self.has_fast_connection:
             stream = subprocess.Popen(["gzip", "-c"], stdin=tarstream.stdout,
                                       stdout=subprocess.PIPE)
             self.run_command("gzip -d | ({0})".format(recv),

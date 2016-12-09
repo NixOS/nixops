@@ -124,6 +124,8 @@ in
     services.openssh.enable = true;
     services.openssh.startWhenNeeded = false;
     services.openssh.extraConfig = "UseDNS no";
+
+    deployment.hasFastConnection = true;
 };
 
 }
