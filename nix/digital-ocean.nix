@@ -45,5 +45,6 @@ in
 
   config = mkIf (config.deployment.targetEnv == "digitalOcean") {
     nixpkgs.system = mkOverride 900 "x86_64-linux";
+    services.openssh.enable = true;
   };
 }
