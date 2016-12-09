@@ -138,24 +138,11 @@ let
   };
 
   isEc2Hvm =
-      cfg.instanceType == "cc1.4xlarge"
-   || cfg.instanceType == "cc2.8xlarge"
-   || cfg.instanceType == "hs1.8xlarge"
-   || cfg.instanceType == "cr1.8xlarge"
-   || builtins.substring 0 2 cfg.instanceType == "i2"
-   || builtins.substring 0 2 cfg.instanceType == "i3"
-   || builtins.substring 0 2 cfg.instanceType == "c3"
-   || builtins.substring 0 2 cfg.instanceType == "c4"
-   || builtins.substring 0 2 cfg.instanceType == "c5"
-   || builtins.substring 0 2 cfg.instanceType == "r3"
-   || builtins.substring 0 2 cfg.instanceType == "r4"
-   || builtins.substring 0 2 cfg.instanceType == "f1"
-   || builtins.substring 0 2 cfg.instanceType == "m3"
-   || builtins.substring 0 2 cfg.instanceType == "m4"
-   || builtins.substring 0 2 cfg.instanceType == "g2"
-   || builtins.substring 0 2 cfg.instanceType == "p2"
-   || builtins.substring 0 2 cfg.instanceType == "x1"
-   || builtins.substring 0 2 cfg.instanceType == "t2";
+    let
+      instanceTypeGroup = builtins.elemAt (splitString "." cfg.instanceType) 0;
+      pvGrubGroups = [ "c1" "hi1" "m1" "m2" "t1" ];
+    in
+      ! (builtins.elem instanceTypeGroup pvGrubGroups);
 
   # Map "/dev/mapper/xvdX" to "/dev/xvdX".
   dmToDevice = dev:
