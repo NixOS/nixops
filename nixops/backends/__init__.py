@@ -3,6 +3,7 @@
 import os
 import re
 import sys
+import time
 import subprocess
 
 import nixops.util
@@ -259,12 +260,26 @@ class MachineState(nixops.resources.ResourceState):
         """Wait until the SSH port is open on this machine."""
         if self.ssh_pinged and (not check or self._ssh_pinged_this_time): return
         self.log_start("waiting for SSH...")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue("."))
-        self.log_end("")
-        if self.state != self.RESCUE:
-            self.state = self.UP
-        self.ssh_pinged = True
-        self._ssh_pinged_this_time = True
+
+        n = 0
+        timeout = 60
+
+        while True:
+            try:
+                self.ssh.run_command("exit", self.get_ssh_flags(),
+                    logged=False, timeout=timeout)
+                self.log_end("")
+                if self.state != self.RESCUE:
+                    self.state = self.UP
+                self.ssh_pinged = True
+                self._ssh_pinged_this_time = True
+                return True
+            except nixops.ssh_util.SSHConnectionFailed as error:
+                time.sleep(1)
+                n = n + 1
+                self.log_continue('.')
+                if timeout != -1 and n >= timeout:
+                    raise Exception("timed out waiting for ssh: {}".format(error))
 
     def write_ssh_private_key(self, private_key):
         key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
