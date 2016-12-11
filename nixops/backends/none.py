@@ -18,6 +18,8 @@ class NoneDefinition(MachineDefinition):
         MachineDefinition.__init__(self, xml, config)
         self._target_host = xml.find("attrs/attr[@name='targetHost']/string").get("value")
 
+        public_ipv4 = xml.find("attrs/attr[@name='publicIPv4']/string")
+        self._public_ipv4 = None if public_ipv4 is None else public_ipv4.get("value")
 
 class NoneState(MachineState):
     """State of a trivial machine."""
@@ -27,6 +29,7 @@ class NoneState(MachineState):
         return "none"
 
     target_host = nixops.util.attr_property("targetHost", None)
+    public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     _ssh_private_key = attr_property("none.sshPrivateKey", None)
     _ssh_public_key = attr_property("none.sshPublicKey", None)
     _ssh_public_key_deployed = attr_property("none.sshPublicKeyDeployed", False, bool)
@@ -48,6 +51,7 @@ class NoneState(MachineState):
         assert isinstance(defn, NoneDefinition)
         self.set_common_state(defn)
         self.target_host = defn._target_host
+        self.public_ipv4 = defn._public_ipv4
 
         if not self.vm_id:
             self.log_start("generating new SSH keypair... ")
