@@ -791,7 +791,7 @@ class Deployment(object):
 
         for backup_id in tbr:
             print 'Removing backup {0}'.format(backup_id)
-            #self.remove_backup(backup_id, keep_physical)
+            self.remove_backup(backup_id, keep_physical)
 
     def remove_backup(self, backup_id, keep_physical = False):
         with self._get_deployment_lock():
