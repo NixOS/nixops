@@ -15,7 +15,7 @@ for p in data['products'].keys():
            ebsOptimized = 'ebsOptimized' in product
            instanceType = product['instanceType']
            cores = product['vcpu']
-           memory = int(float(product['memory'].split(' ')[0]) * 1024)
+           memory = int(float(product['memory'].replace(',','').split(' ')[0]) * 1024)
            if instanceType in instanceTypes and not ebsOptimized:
                continue
            instanceTypes[product['instanceType']] = '  "'+instanceType+'" = { cores = '+cores+'; memory = '+str(memory)+'; allowsEbsOptimized = '+('true' if ebsOptimized else 'false')+'; };'
