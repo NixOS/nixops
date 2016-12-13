@@ -18,7 +18,7 @@ import nixops.logger
 import nixops.parallel
 from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 import getpass
 import traceback
 import glob
@@ -775,14 +775,23 @@ class Deployment(object):
 
         return backups
 
-    def clean_backups(self, keep=10, keep_physical = False):
+    def clean_backups(self, keep, keep_days, keep_physical = False):
         _backups = self.get_backups()
         backup_ids = [b for b in _backups.keys()]
         backup_ids.sort()
-        index = len(backup_ids)-keep
-        for backup_id in backup_ids[:index]:
+
+        if keep:
+            index = len(backup_ids)-keep
+            tbr = backup_ids[:index]
+
+        if keep_days:
+            cutoff = (datetime.now()- timedelta(days=keep_days)).strftime("%Y%m%d%H%M%S")
+            print cutoff
+            tbr = [bid for bid in backup_ids if bid < cutoff]
+
+        for backup_id in tbr:
             print 'Removing backup {0}'.format(backup_id)
-            self.remove_backup(backup_id, keep_physical)
+            #self.remove_backup(backup_id, keep_physical)
 
     def remove_backup(self, backup_id, keep_physical = False):
         with self._get_deployment_lock():
@@ -794,7 +803,7 @@ class Deployment(object):
 
     def backup(self, include=[], exclude=[]):
         self.evaluate_active(include, exclude) # unnecessary?
-        backup_id = datetime.now().strftime("%Y%m%d%H%M%S");
+        backup_id = datetime.now().strftime("%Y%m%d%H%M%S")
 
         def worker(m):
             if not should_do(m, include, exclude): return
