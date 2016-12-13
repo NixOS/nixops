@@ -91,15 +91,20 @@ in
       apply = mapAttrs convertOldKeyType;
 
       description = ''
-        The set of keys to be deployed to the machine.  Each attribute
+        <para>The set of keys to be deployed to the machine.  Each attribute
         maps a key name to a file that can be accessed as
         <filename>/run/keys/<replaceable>name</replaceable></filename>.
         Thus, <literal>{ password.text = "foobar"; }</literal> causes a
         file <filename>/run/keys/password</filename> to be created
         with contents <literal>foobar</literal>.  The directory
         <filename>/run/keys</filename> is only accessible to root and
-        the <literal>keys</literal> group.  So keep in mind to add any
-        users that need to have access to a particular key to this group.
+        the <literal>keys</literal> group, so keep in mind to add any
+        users that need to have access to a particular key to this group.</para>
+
+        <para>Each key also gets a systemd service <literal><replaceable>name</replaceable>-key.service</literal>
+        which is active while the key is present and inactive while the key
+        is absent.  Thus, <literal>{ password.text = "foobar"; }</literal> gets
+        a <literal>password-key.service</literal>.</para>
       '';
     };
 
@@ -118,7 +123,7 @@ in
       "things to break."
     )];
 
-    system.activationScripts.nixops-keys =
+    system.activationScripts.nixops-keys = stringAfter [ "users" "groups" ]
       ''
         mkdir -p /run/keys -m 0750
         chown root:keys /run/keys
@@ -136,23 +141,64 @@ in
               touch /run/keys/done
             '')
         }
+
+        ${concatStringsSep "\n" (flip mapAttrsToList config.deployment.keys (name: value:
+          # Make sure each key has correct ownership, since the configured owning
+          # user or group may not have existed when first uploaded.
+          ''
+            [[ -f "/run/keys/${name}" ]] && chown '${value.user}:${value.group}' "/run/keys/${name}"
+          ''
+        ))}
       '';
 
-    systemd.services.nixops-keys =
-      { enable = config.deployment.keys != {};
-        description = "Waiting for NixOps Keys";
-        wantedBy = [ "keys.target" ];
-        before = [ "keys.target" ];
-        unitConfig.DefaultDependencies = false; # needed to prevent a cycle
-        serviceConfig.Type = "oneshot";
-        serviceConfig.RemainAfterExit = true;
-        script =
-          ''
-            while ! [ -e /run/keys/done ]; do
-              sleep 0.1
-            done
+    systemd.services = (
+      { nixops-keys =
+        { enable = config.deployment.keys != {};
+          description = "Waiting for NixOps Keys";
+          wantedBy = [ "keys.target" ];
+          before = [ "keys.target" ];
+          unitConfig.DefaultDependencies = false; # needed to prevent a cycle
+          serviceConfig.Type = "oneshot";
+          serviceConfig.RemainAfterExit = true;
+          script =
+            ''
+              while ! [ -e /run/keys/done ]; do
+                sleep 0.1
+              done
+            '';
+        };
+      }
+      //
+      (flip mapAttrs' config.deployment.keys (name: keyCfg:
+        nameValuePair "${name}-key" {
+          enable = true;
+          serviceConfig.TimeoutStartSec = "infinity";
+          serviceConfig.Restart = "always";
+          serviceConfig.RestartSec = "100ms";
+          path = [ pkgs.inotifyTools ];
+          preStart = ''
+            (while read f; do if [ "$f" = "${name}" ]; then break; fi; done \
+              < <(inotifywait -qm --format '%f' -e create /run/keys) ) &
+
+            if [[ -e "/run/keys/${name}" ]]; then
+              echo 'flapped down'
+              kill %1
+              exit 0
+            fi
+            wait %1
           '';
-      };
+          script = ''
+            inotifywait -qq -e delete_self "/run/keys/${name}" &
+
+            if [[ ! -e "/run/keys/${name}" ]]; then
+              echo 'flapped up'
+              exit 0
+            fi
+            wait %1
+          '';
+        }
+      ))
+    );
 
   };
 

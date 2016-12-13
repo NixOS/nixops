@@ -217,12 +217,25 @@ class MachineState(nixops.resources.ResourceState):
             outfile_esc = "'" + outfile.replace("'", r"'\''") + "'"
             self.run_command("rm -f " + outfile_esc)
             self.upload_file(tmp, outfile)
-            chmod = "chmod '{0}' " + outfile_esc
-            chown = "chown '{0}:{1}' " + outfile_esc
-            self.run_command(' && '.join([
-                chown.format(opts['user'], opts['group']),
-                chmod.format(opts['permissions'])
-            ]))
+            self.run_command(
+              ' '.join([
+                # chown only if user and group exist,
+                # else leave root:root owned
+                "(",
+                " getent passwd '{1}' >/dev/null &&",
+                " getent group '{2}' >/dev/null &&",
+                " chown '{1}:{2}' {0}",
+                ");",
+                # chmod either way
+                "chmod '{3}' {0}",
+              ])
+              .format(
+                outfile_esc,
+                opts['user'],
+                opts['group'],
+                opts['permissions']
+              )
+            )
             os.remove(tmp)
         self.run_command("touch /run/keys/done")
 
