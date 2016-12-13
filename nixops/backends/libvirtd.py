@@ -106,9 +106,6 @@ class LibvirtdState(MachineState):
         self.start()
         return True
 
-    def has_really_fast_connection(self):
-        return True
-
     def _disk_path(self, defn):
         return "{0}/{1}.img".format(defn.image_dir, self._vm_id())
 

@@ -2,7 +2,6 @@
 
 import os
 import re
-import sys
 import subprocess
 
 import nixops.util
@@ -19,6 +18,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.ssh_port = int(xml.find("attrs/attr[@name='targetPort']/int").get("value"))
         self.always_activate = xml.find("attrs/attr[@name='alwaysActivate']/bool").get("value") == "true"
         self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
+        self.has_fast_connection = xml.find("attrs/attr[@name='hasFastConnection']/bool").get("value") == "true"
 
         def _extract_key_options(x):
             opts = {}
@@ -36,6 +36,7 @@ class MachineState(nixops.resources.ResourceState):
     """Base class for NixOps machine state objects."""
 
     vm_id = nixops.util.attr_property("vmId", None)
+    has_fast_connection = nixops.util.attr_property("hasFastConnection", False, bool)
     ssh_pinged = nixops.util.attr_property("sshPinged", False, bool)
     ssh_port = nixops.util.attr_property("targetPort", 22, int)
     public_vpn_key = nixops.util.attr_property("publicVpnKey", None)
@@ -80,6 +81,7 @@ class MachineState(nixops.resources.ResourceState):
         self.store_keys_on_machine = defn.store_keys_on_machine
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
+        self.has_fast_connection = defn.has_fast_connection
 
     def stop(self):
         """Stop this machine, if possible."""
@@ -316,7 +318,7 @@ class MachineState(nixops.resources.ResourceState):
 
         # It's usually faster to let the target machine download
         # substitutes from nixos.org, so try that first.
-        if not self.has_really_fast_connection():
+        if not self.has_fast_connection:
             closure = subprocess.check_output(["nix-store", "-qR", path]).splitlines()
             ssh.run_command("nix-store -j 4 -r --ignore-unknown " + ' '.join(closure), check=False)
 
@@ -325,11 +327,8 @@ class MachineState(nixops.resources.ResourceState):
         env['NIX_SSHOPTS'] = ' '.join(ssh._get_flags() + ssh.get_master().opts)
         self._logged_exec(
             ["nix-copy-closure", "--to", ssh._get_target(), path]
-            + ([] if self.has_really_fast_connection() else ["--gzip"]),
+            + ([] if self.has_fast_connection else ["--gzip"]),
             env=env)
-
-    def has_really_fast_connection(self):
-        return False
 
     def generate_vpn_key(self, check=False):
         key_missing = False
