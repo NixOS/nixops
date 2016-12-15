@@ -1394,6 +1394,45 @@ and destruction.</para>
 
 </section>
 
+
+<section xml:id="sec-deploying-to-digital-ocean"><title>Deploying to Digital Ocean</title>
+
+<para><xref linkend="ex-trivial-digital-ocean.nix" /> shows how to run
+a <literal>512m</literal> digital ocean instance in the
+<literal>ams2</literal> region. We only support droplet creation and
+destruction at the moment.
+</para>
+
+<para>Note that we rely on a ssh key resource with the hard-coded name
+<literal>ssh-key</literal>. Providing your own key is not supported yet.
+</para>
+
+<example xml:id="ex-trivial-digital-ocean.nix">
+  <title><filename>trivial-digital-ocean.nix</filename>: A trivial digital ocean setup</title>
+<programlisting>
+{
+  resources.sshKeyPairs.ssh-key = {};
+
+  machine = { config, pkgs, ... }: {
+    services.nginx.enable = true;
+    services.openssh.enable = true;
+
+    deployment.targetEnv = "digitalOcean";
+    deployment.digitalOcean.region = "ams2";
+    deployment.digitalOcean.size = "512mb";
+  };
+}
+</programlisting>
+</example>
+
+<para>To install we first start a Ubuntu instance, and then overwrite
+it with NixOS via a modified version of <link
+xlink:href="https://github.com/elitak/nixos-infect">nixos-infect</link>
+. <literal>nixos-infect</literal> itself uses the undocumented
+<literal>NIXOS_LUSTRATE</literal> under the hood.
+</para>
+</section>
+
 <section><title>Deploying to Libvirtd (Qemu)</title>
 
 

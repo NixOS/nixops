@@ -91,6 +91,7 @@ rec {
           # Go back to sqlite once Python 2.7.13 is released
           pysqlite
           datadog
+          digital-ocean
         ];
 
       # For "nix-build --run-env".
