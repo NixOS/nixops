@@ -412,7 +412,7 @@ in
       options = {
         ec2 = mkOption {
           default = null;
-          type = with types; uniq (nullOr (submodule ec2DiskOptions));
+          type = with types; (nullOr (submodule ec2DiskOptions));
           description = ''
             EC2 disk to be attached to this mount point.  This is
             shorthand for defining a separate
