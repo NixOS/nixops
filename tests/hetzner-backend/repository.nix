@@ -47,12 +47,10 @@ let
 
       ${pkgs.gnupg}/bin/gpg2 --batch --gen-key template
 
-      ${pkgs.gnupg}/bin/gpg2 --list-secret-keys | \
-        sed -n -re 's,^sec +[^/]*/([^ ]+).*,\1,p' \
-        > "$secretKeyId"
-      ${pkgs.gnupg}/bin/gpg2 --list-public-keys | \
-        sed -n -re 's,^pub +[^/]*/([^ ]+).*,\1,p' \
-        > "$publicKeyId"
+      ${pkgs.gnupg}/bin/gpg2 --list-secret-keys --with-colons | \
+        grep '^sec:' | cut -d: -f5 > "$secretKeyId"
+      ${pkgs.gnupg}/bin/gpg2 --list-public-keys --with-colons | \
+        grep '^pub:' | cut -d: -f5 > "$publicKeyId"
       ${pkgs.gnupg}/bin/gpg2 --export \
         "$(< "$publicKeyId")" \
         > "$publicKey"
