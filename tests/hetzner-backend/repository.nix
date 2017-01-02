@@ -3,6 +3,9 @@
 }:
 
 let
+  # Has to match with the version used in the Debian repository.
+  gnupg = pkgs.gnupg20;
+
   reprepro = pkgs.stdenv.mkDerivation rec {
     name = "reprepro-${version}";
     version = "4.16.0";
@@ -13,10 +16,12 @@ let
       sha256 = "14gmk16k9n04xda4446ydfj8cr5pmzsmm4il8ysf69ivybiwmlpx";
     };
 
-    buildInputs = with pkgs; [ makeWrapper db gpgme libarchive bzip2 xz zlib ];
+    nativeBuildInputs = [ pkgs.makeWrapper ];
+    buildInputs = pkgs.lib.singleton (pkgs.gpgme.override { inherit gnupg; })
+               ++ (with pkgs; [ db libarchive bzip2 xz zlib ]);
 
     postInstall = ''
-      wrapProgram "$out/bin/reprepro" --prefix PATH : "${pkgs.gnupg}/bin"
+      wrapProgram "$out/bin/reprepro" --prefix PATH : "${gnupg}/bin"
     '';
   };
 
@@ -45,13 +50,13 @@ let
       %echo Repository key created
       EOF
 
-      ${pkgs.gnupg}/bin/gpg2 --batch --gen-key template
+      ${gnupg}/bin/gpg2 --batch --gen-key template
 
-      ${pkgs.gnupg}/bin/gpg2 --list-secret-keys --with-colons | \
+      ${gnupg}/bin/gpg2 --list-secret-keys --with-colons | \
         grep '^sec:' | cut -d: -f5 > "$secretKeyId"
-      ${pkgs.gnupg}/bin/gpg2 --list-public-keys --with-colons | \
+      ${gnupg}/bin/gpg2 --list-public-keys --with-colons | \
         grep '^pub:' | cut -d: -f5 > "$publicKeyId"
-      ${pkgs.gnupg}/bin/gpg2 --export \
+      ${gnupg}/bin/gpg2 --export \
         "$(< "$publicKeyId")" \
         > "$publicKey"
     '';
