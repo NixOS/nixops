@@ -1,5 +1,4 @@
 #! /bin/sh -e
-
 export NIXOS_CONFIG=$(readlink -f $(dirname $0)/..)/nix/virtualbox-image-nixops.nix
 version=$(nix-instantiate --eval-only '<nixpkgs/nixos>' -A config.system.nixosVersion | sed s/'"'//g)
 echo "version = $version"
