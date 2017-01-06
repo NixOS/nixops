@@ -10,6 +10,7 @@ import time
 
 from nixops.backends import MachineDefinition, MachineState
 import nixops.util
+import nixops.ssh_util
 
 
 class LibvirtdDefinition(MachineDefinition):
@@ -30,6 +31,8 @@ class LibvirtdDefinition(MachineDefinition):
         self.extra_domain = x.find("attr[@name='extraDomainXML']/string").get("value")
         self.headless = x.find("attr[@name='headless']/bool").get("value") == 'true'
         self.image_dir = x.find("attr[@name='imageDir']/string").get("value")
+        self.host = x.find("attr[@name='host']/string").get("value")
+        self.remote_user = x.find("attr[@name='remote_user']/string").get("value")
         assert self.image_dir is not None
 
         self.networks = [
@@ -47,6 +50,8 @@ class LibvirtdState(MachineState):
     domain_xml = nixops.util.attr_property("libvirtd.domainXML", None)
     disk_path = nixops.util.attr_property("libvirtd.diskPath", None)
     vcpu = nixops.util.attr_property("libvirtd.vcpu", None)
+    host = nixops.util.attr_property("libvirtd.host", None)
+    remote_user = nixops.util.attr_property("libvirtd.remote_user", None)
 
     @classmethod
     def get_type(cls):
@@ -54,14 +59,59 @@ class LibvirtdState(MachineState):
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
+        self.host_ssh = nixops.ssh_util.SSH(self.logger)
+        self.host_ssh.register_host_fun(self.get_host_ssh)
+        self.host_ssh.register_flag_fun(self.get_host_ssh_flags)
 
     def get_ssh_private_key_file(self):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
 
     def get_ssh_flags(self, *args, **kwargs):
-        super_flags = super(LibvirtdState, self).get_ssh_flags(*args, **kwargs)
-        return super_flags + ["-o", "StrictHostKeyChecking=no",
-                              "-i", self.get_ssh_private_key_file()]
+        flags = super(LibvirtdState, self).get_ssh_flags(*args, **kwargs)
+        if self.host != "localhost":
+            proxy_cmd = "ssh -x -a {4}@{0} {1} nc -q 0 {2} {3}".format(
+                self.get_host_ssh(),
+                " ".join(self.get_host_ssh_flags()),
+                self.private_ipv4,
+                self.ssh_port,
+                self.get_host_user()
+            )
+            flags.extend(["-o", "ProxyCommand=" + proxy_cmd])
+        return flags + ["-o", "StrictHostKeyChecking=no",
+                        "-i", self.get_ssh_private_key_file()]
+
+    def wait_for_ssh(self, check=False):
+        return True
+
+    def get_host_ssh(self):
+        if self.host.startswith("__machine-"):
+            m = self.depl.get_machine(self.host[10:])
+            if not m.started:
+                raise Exception("host machine ‘{0}’ of container ‘{1}’ is not up".format(m.name, self.name))
+            return m.get_ssh_name()
+        else:
+            return self.host
+
+    def get_host_user(self):
+        return self.remote_user
+
+    def get_host_ssh_flags(self):
+        if self.host.startswith("__machine-"):
+            m = self.depl.get_machine(self.host[10:])
+            if not m.started:
+                raise Exception("host machine ‘{0}’ of container ‘{1}’ is not up".format(m.name, self.name))
+            return m.get_ssh_flags()
+        else:
+            return []
+
+    def get_virsh_host(self):
+        if self.get_host_ssh() == "localhost":
+            return "qemu:///system"
+        else:
+            return "qemu+ssh://{1}@{0}/system".format(
+                self.get_host_ssh(),
+                self.get_host_user()
+            )
 
     def _vm_id(self):
         return "nixops-{0}-{1}".format(self.depl.uuid, self.name)
@@ -72,6 +122,13 @@ class LibvirtdState(MachineState):
                random.randint(0x00, 0xff),
                random.randint(0x00, 0xff)]
         self.primary_mac = ':'.join(map(lambda x: "%02x" % x, mac))
+
+    def create_after(self, resources, defn):
+        host = defn.host if defn else self.host
+        if host and host.startswith("__machine-"):
+            return {self.depl.get_machine(host[10:])}
+        else:
+            return {}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, LibvirtdDefinition)
@@ -94,14 +151,20 @@ class LibvirtdState(MachineState):
                  "-o", "{0}/libvirtd-image-{1}".format(self.depl.tempdir, self.name)],
                 capture_stdout=True, env=newEnv).rstrip()
 
-            if not os.access(defn.image_dir, os.W_OK):
-                raise Exception('{} is not writable by this user or it does not exist'.format(defn.image_dir))
+            self.host = defn.host
+            self.remote_user = defn.remote_user
+
+            # self.copy_closure_to(base_image)
+            self._logged_exec(["nix-copy-closure", "--to", "{1}@{0}".format(self.get_host_ssh(), self.get_host_user()), base_image])
+
+            # if not os.access(defn.image_dir, os.W_OK):
+            #     raise Exception('{} is not writable by this user or it does not exist'.format(defn.image_dir))
 
             self.disk_path = self._disk_path(defn)
-            self._logged_exec(["qemu-img", "create", "-f", "qcow2", "-b",
-                               base_image + "/disk.qcow2", self.disk_path])
+            self.host_ssh.run_command(["qemu-img", "create", "-f", "qcow2", "-b",
+                                       base_image + "/disk.qcow2", self.disk_path], user=self.get_host_user())
             # TODO: use libvirtd.extraConfig to make the image accessible for your user
-            os.chmod(self.disk_path, 0666)
+            # os.chmod(self.disk_path, 0666)
             self.vm_id = self._vm_id()
         self.start()
         return True
@@ -165,7 +228,7 @@ class LibvirtdState(MachineState):
         cmd = [
             "virsh",
             "-c",
-            "qemu:///system",
+            self.get_virsh_host(),
             "net-dhcp-leases",
             "--network",
             self.primary_net,
@@ -191,7 +254,7 @@ class LibvirtdState(MachineState):
         self.log_end(" " + self.private_ipv4)
 
     def _is_running(self):
-        ls = subprocess.check_output(["virsh", "-c", "qemu:///system", "list"])
+        ls = subprocess.check_output(["virsh", "-c", self.get_virsh_host(), "list"])
         return (string.find(ls, self.vm_id) != -1)
 
     def start(self):
@@ -205,7 +268,7 @@ class LibvirtdState(MachineState):
             self.log("starting...")
             dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
             nixops.util.write_file(dom_file, self.domain_xml)
-            self._logged_exec(["virsh", "-c", "qemu:///system", "create", dom_file])
+            self._logged_exec(["virsh", "-c", self.get_virsh_host(), "create", dom_file])
             self._wait_for_ip(0)
 
     def get_ssh_name(self):
@@ -216,7 +279,7 @@ class LibvirtdState(MachineState):
         assert self.vm_id
         if self._is_running():
             self.log_start("shutting down... ")
-            self._logged_exec(["virsh", "-c", "qemu:///system", "destroy", self.vm_id])
+            self._logged_exec(["virsh", "-c", self.get_virsh_host(), "destroy", self.vm_id])
         else:
             self.log("not running")
 
