@@ -113,6 +113,13 @@ class LibvirtdState(MachineState):
                 self.get_host_user()
             )
 
+    def create_after(self, resources, defn):
+        host = defn.host if defn else self.host
+        if host and host.startswith("__machine-"):
+            return {self.depl.get_machine(host[10:])}
+        else:
+            return {}
+
     def _vm_id(self):
         return "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
