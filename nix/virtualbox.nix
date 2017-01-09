@@ -18,6 +18,22 @@ in
 
   options = {
 
+    deployment.virtualbox.vmFlags = mkOption {
+      default = [];
+      type = types.listOf types.string;
+      description = ''
+        Arbitrary string arguments to append to the modifyvm command.
+      '';
+    };
+
+    deployment.virtualbox.vcpu = mkOption {
+      default = null;
+      type = types.nullOr types.int;
+      description = ''
+        Number of Virtual CPUs.  Left unspecified if not provided.
+      '';
+    };
+
     deployment.virtualbox.memorySize = mkOption {
       default = 512;
       type = types.int;

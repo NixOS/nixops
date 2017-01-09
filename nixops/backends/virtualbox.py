@@ -348,13 +348,23 @@ class VirtualBoxState(MachineState):
             (self._client_private_key, self._client_public_key) = nixops.util.create_key_pair()
 
         if not self.started:
-            self._logged_exec(
-                ["VBoxManage", "modifyvm", self.vm_id,
-                 "--memory", str(defn.config["virtualbox"]["memorySize"]), "--vram", "10",
-                 "--nictype1", "virtio", "--nictype2", "virtio",
-                 "--nic2", "hostonly", "--hostonlyadapter2", "vboxnet0",
+            modifyvm_args = [
+                 "--memory", str(defn.config["virtualbox"]["memorySize"]),
+                 "--vram", "10",
+                 "--nictype1", "virtio",
+                 "--nictype2", "virtio",
+                 "--nic2", "hostonly",
+                 "--hostonlyadapter2", "vboxnet0",
                  "--nestedpaging", "off",
-                 "--paravirtprovider", "kvm"])
+                 "--paravirtprovider", "kvm"
+            ]
+            vcpus = defn.config["virtualbox"]["vcpu"]  # None or integer
+            if vcpus is not None:
+                modifyvm_args.extend(["--cpus", str(vcpus)])
+            # Include arbitrary additional arguments
+            modifyvm_args.extend(defn.config["virtualbox"]["vmFlags"])
+            self._logged_exec(
+                ["VBoxManage", "modifyvm", self.vm_id] + modifyvm_args)
 
             self._headless = defn.config["virtualbox"]["headless"]
             self._start()
