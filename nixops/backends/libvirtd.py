@@ -7,6 +7,7 @@ import random
 import string
 import subprocess
 import time
+from xml.etree import ElementTree
 
 from nixops.backends import MachineDefinition, MachineState
 import nixops.util
@@ -42,8 +43,6 @@ class LibvirtdState(MachineState):
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
     client_public_key = nixops.util.attr_property("libvirtd.clientPublicKey", None)
     client_private_key = nixops.util.attr_property("libvirtd.clientPrivateKey", None)
-    primary_net = nixops.util.attr_property("libvirtd.primaryNet", None)
-    primary_mac = nixops.util.attr_property("libvirtd.primaryMAC", None)
     domain_xml = nixops.util.attr_property("libvirtd.domainXML", None)
     disk_path = nixops.util.attr_property("libvirtd.diskPath", None)
     vcpu = nixops.util.attr_property("libvirtd.vcpu", None)
@@ -66,19 +65,9 @@ class LibvirtdState(MachineState):
     def _vm_id(self):
         return "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
-    def _generate_primary_mac(self):
-        mac = [0x52, 0x54, 0x00,
-               random.randint(0x00, 0x7f),
-               random.randint(0x00, 0xff),
-               random.randint(0x00, 0xff)]
-        self.primary_mac = ':'.join(map(lambda x: "%02x" % x, mac))
-
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, LibvirtdDefinition)
         self.set_common_state(defn)
-        self.primary_net = defn.networks[0]
-        if not self.primary_mac:
-            self._generate_primary_mac()
         self.domain_xml = self._make_domain_xml(defn)
 
         if not self.client_public_key:
@@ -114,16 +103,9 @@ class LibvirtdState(MachineState):
         qemu = spawn.find_executable(qemu_executable)
         assert qemu is not None, "{} executable not found. Please install QEMU first.".format(qemu_executable)
 
-        def maybe_mac(n):
-            if n == self.primary_net:
-                return '<mac address="' + self.primary_mac + '" />'
-            else:
-                return ""
-
         def iface(n):
             return "\n".join([
                 '    <interface type="network">',
-                maybe_mac(n),
                 '      <source network="{0}"/>',
                 '    </interface>',
             ]).format(n)
@@ -161,28 +143,28 @@ class LibvirtdState(MachineState):
             defn.vcpu
         )
 
-    def _parse_ip(self):
-        cmd = [
-            "virsh",
-            "-c",
-            "qemu:///system",
-            "net-dhcp-leases",
-            "--network",
-            self.primary_net,
-        ]
-        lines = subprocess.check_output(cmd)
+    def _get_ip(self):
+        xml = subprocess.check_output(["virsh", "-c", "qemu:///system", "dumpxml", self.vm_id])
+        tree = ElementTree.fromstring(xml)
+        interface = tree.find("devices/interface[@type=network][1]")
+        mac = interface.find("mac").get("address")
+        net = interface.find("source").get("network")
+
+
+        cmd = [ "virsh", "-c", "qemu:///system", "net-dhcp-leases", "--network", net ]
+        lines = subprocess.check_output(cmd).split()
         try:
-            i = lines.split().index(self.primary_mac)
+            i = lines.index(mac)
         except ValueError:
             pass
         else:
-            ip_with_subnet = lines.split()[i + 2]
+            ip_with_subnet = lines[i + 2]
             return ip_with_subnet.split('/')[0]
 
-    def _wait_for_ip(self, prev_time):
+    def _wait_for_ip(self):
         self.log_start("waiting for IP address to appear in DHCP leases...")
         while True:
-            ip = self._parse_ip()
+            ip = self._get_ip()
             if ip:
                 self.private_ipv4 = ip
                 break
@@ -197,16 +179,15 @@ class LibvirtdState(MachineState):
     def start(self):
         assert self.vm_id
         assert self.domain_xml
-        assert self.primary_net
         if self._is_running():
             self.log("connecting...")
-            self.private_ipv4 = self._parse_ip()
+            self.private_ipv4 = self._get_ip()
         else:
             self.log("starting...")
             dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
             nixops.util.write_file(dom_file, self.domain_xml)
             self._logged_exec(["virsh", "-c", "qemu:///system", "create", dom_file])
-            self._wait_for_ip(0)
+            self._wait_for_ip()
 
     def get_ssh_name(self):
         assert self.private_ipv4
