@@ -95,6 +95,12 @@ in
       description = "Names of libvirt networks to attach the VM to.";
     };
 
+    deployment.libvirtd.privateIPv4 = mkOption {
+      default = "dhcp";
+      type = types.str;
+      description = "IP to use to ssh into the machine. Put 'dhcp' to let nixops get the IP from libvirt's dhcp (works with default libvirt network); put 'arp' to let nixops detect IP in the host's ARP table (works with most setups)";
+    };
+
     deployment.libvirtd.extraDevicesXML = mkOption {
       default = "";
       type = types.str;
