@@ -35,10 +35,10 @@ class LibvirtdDefinition(MachineDefinition):
         self.private_ipv4_setting = x.find("attr[@name='privateIPv4']/string").get("value")
         assert self.image_dir is not None
 
-        self.networks = [
+        self.interfaces = [
             k.get("value")
-            for k in x.findall("attr[@name='networks']/list/string")]
-        assert len(self.networks) > 0
+            for k in x.findall("attr[@name='interfaces']/list/string")]
+        assert(len(self.interfaces) > 0)
 
 
 class LibvirtdState(MachineState):
@@ -107,13 +107,6 @@ class LibvirtdState(MachineState):
         qemu = spawn.find_executable(qemu_executable)
         assert qemu is not None, "{} executable not found. Please install QEMU first.".format(qemu_executable)
 
-        def iface(n):
-            return "\n".join([
-                '    <interface type="network">',
-                '      <source network="{0}"/>',
-                '    </interface>',
-            ]).format(n)
-
         domain_fmt = "\n".join([
             '<domain type="kvm">',
             '  <name>{0}</name>',
@@ -129,7 +122,7 @@ class LibvirtdState(MachineState):
             '      <source file="{3}"/>',
             '      <target dev="hda"/>',
             '    </disk>',
-            '\n'.join([iface(n) for n in defn.networks]),
+            '\n'.join(defn.interfaces),
             '    <graphics type="sdl" display=":0.0"/>' if not defn.headless else "",
             '    <input type="keyboard" bus="usb"/>',
             '    <input type="mouse" bus="usb"/>',

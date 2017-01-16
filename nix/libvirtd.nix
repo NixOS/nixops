@@ -32,6 +32,45 @@ let
         umount /mnt
       ''
   );
+
+  interfaceOpts = {
+    options = {
+      type = mkOption {
+        type = types.str;
+        default = "network";
+        example = "bridge";
+        description = ''
+          Type of the interface.
+        '';
+      };
+
+      name = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = ''
+          Name of the libvirt network or of the bridge interface.
+          Ignored if type is not 'network' or 'bridge'.
+        '';
+      };
+
+      mac = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = ''
+          MAC address of the interface. Leave empty to let libvirt choose it.
+        '';
+      };
+
+      extraXML = mkOption {
+        type = types.str;
+        default = "";
+        example = "<model type='rtl8139'/>";
+        description = ''
+          Additional XML configuration of the interface. See https://libvirt.org/formatdomain.html
+        '';
+      };
+    };
+  };
 in
 
 {
@@ -92,13 +131,41 @@ in
     deployment.libvirtd.networks = mkOption {
       default = [ "default" ];
       type = types.listOf types.str;
-      description = "Names of libvirt networks to attach the VM to.";
+      description = ''
+        Names of libvirt networks to attach the VM to.
+        Shortcut for adding network interfaces to deployment.libvirtd.interfaces
+      '';
     };
 
     deployment.libvirtd.privateIPv4 = mkOption {
       default = "dhcp";
+      example = "10.1.2.3";
       type = types.str;
-      description = "IP to use to ssh into the machine. Put 'dhcp' to let nixops get the IP from libvirt's dhcp (works with default libvirt network); put 'arp' to let nixops detect IP in the host's ARP table (works with most setups)";
+      description = ''
+        IP to use to ssh into the machine.
+        Put 'dhcp' to let nixops get the IP from libvirt's dhcp (works with default libvirt network);
+        put 'arp' to let nixops detect IP in the host's ARP table (works with most setups)
+      '';
+    };
+
+    deployment.libvirtd.interfaces = mkOption {
+      default = [];
+      example = [
+        { type = "network"; name = "default"; mac = "00:11:22:33:44:55"; }
+        { type = "bridge"; name = "br0"; extraXML = ''<model type='rtl8139'/>''; }
+      ];
+      type = types.listOf (types.submodule interfaceOpts);
+      apply = interfaces:
+        let ifacexml = i: ''
+              <interface type="${i.type}">
+                ${optionalString (i.type == "network" && i.name != null) ''<source network="${i.name}"/>''}
+                ${optionalString (i.type == "bridge" && i.name != null) ''<source bridge="${i.name}"/>''}
+                ${optionalString (i.mac != null) ''<mac address="${i.mac}"/>''}
+                ${i.extraXML}
+              </interface>
+            '';
+        in map ifacexml interfaces;
+      description = "Configuration for each network interface to attach the VM to.";
     };
 
     deployment.libvirtd.extraDevicesXML = mkOption {
@@ -117,6 +184,7 @@ in
   ###### implementation
 
   config = mkIf (config.deployment.targetEnv == "libvirtd") {
+    deployment.libvirtd.interfaces = map (name: { type = "network"; inherit name; }) config.deployment.libvirtd.networks;
     deployment.libvirtd.baseImage = mkDefault ssh_image;
 
     nixpkgs.system = mkOverride 900 "x86_64-linux";
@@ -132,6 +200,6 @@ in
     services.openssh.extraConfig = "UseDNS no";
 
     deployment.hasFastConnection = true;
-};
+  };
 
 }
