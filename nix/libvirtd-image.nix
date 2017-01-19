@@ -1,4 +1,11 @@
-rec {
+let
+  makeconfig = { system, config }:
+    (import <nixpkgs/nixos/lib/eval-config.nix> {
+      inherit system;
+      modules = [ config ];
+    }).config;
+
+in rec {
   base_image_config = {
     fileSystems."/".device = "/dev/disk/by-label/nixos";
 
@@ -15,10 +22,7 @@ rec {
     config ? base_image_config
   }:
   let
-    cfg = (import <nixpkgs/nixos/lib/eval-config.nix> {
-      inherit system;
-      modules = [ config ];
-    }).config;
+    cfg = makeconfig { inherit system config; };
 
   in pkgs.vmTools.runInLinuxVM (
     # TODO: Use <nixpkgs/nixos/lib/make-disk-image.nix> when
@@ -129,4 +133,82 @@ rec {
     );
 
 
+  deploy_in_nixos_image = {
+    system ? builtins.currentSystem,
+    pkgs ? import <nixpkgs> {},
+    base_image,
+    config
+  }:
+    let
+      cfg = makeconfig { inherit system config; };
+
+    in pkgs.vmTools.runInLinuxVM (
+      pkgs.runCommand "libvirtd-deploy-in-nixos-image"
+        { memSize = 768;
+          preVM =
+            ''
+              mkdir $out
+              diskImage=$out/image
+              ${pkgs.vmTools.qemu}/bin/qemu-img create -f qcow2 -b ${base_image}/disk.qcow2 $diskImage
+              mv closure xchg/
+            '';
+          postVM =
+            ''
+              mv $diskImage $out/disk.qcow2
+            '';
+          buildInputs = [ pkgs.utillinux pkgs.perl ];
+          exportReferencesGraph =
+            [ "closure" cfg.system.build.toplevel ];
+        }
+        ''
+          . /sys/class/block/vda1/uevent
+          mknod /dev/vda1 b $MAJOR $MINOR
+          mkdir /mnt
+          mount /dev/vda1 /mnt
+
+          # The initrd expects these directories to exist.
+          mount --bind /proc /mnt/proc
+          mount --bind /dev /mnt/dev
+          mount --bind /sys /mnt/sys
+
+          # Avoid "groups does not exist" warnings
+          mkdir -p /etc/nix
+          echo 'build-users-group = ' > /etc/nix/nix.conf
+          mkdir -p /mnt/etc/nix
+          echo 'build-users-group = ' > /mnt/etc/nix/nix.conf
+
+          sourceStore='${pkgs.nix}/bin/nix-store'
+          targetStore='chroot /mnt ${cfg.nix.package.out}/bin/nix-store'
+
+          echo "filling Nix store..."
+          set -f
+
+          # Copy missing paths in the closure to the target nix store.
+          storePaths=$(perl ${pkgs.pathsFromGraph} /tmp/xchg/closure)
+          missing=$(NIX_DB_DIR=/mnt/nix/var/nix/db $sourceStore --check-validity --print-invalid $storePaths)
+          for path in $missing; do
+              ${pkgs.rsync}/bin/rsync -a $path /mnt/nix/store/
+          done
+
+          # Register the paths in the Nix database.
+          $targetStore --register-validity < /tmp/xchg/closure
+
+          # TODO: Replace with the following
+          # when https://github.com/NixOS/nix/issues/1134 is fixed
+          #printRegistration=1 perl ${pkgs.pathsFromGraph} /tmp/xchg/closure | $sourceStore --load-db
+          #$sourceStore --export $missing | $targetStore --import
+
+
+          # Create the system profile to allow nixos-rebuild to work.
+          chroot /mnt ${cfg.nix.package.out}/bin/nix-env \
+              -p /nix/var/nix/profiles/system --set ${cfg.system.build.toplevel}
+
+          # Generate the GRUB menu.
+          ln -s vda /dev/sda
+          chroot /mnt ${cfg.system.build.toplevel}/bin/switch-to-configuration boot
+
+          umount /mnt/proc /mnt/dev /mnt/sys
+          umount /mnt
+        ''
+    );
 }

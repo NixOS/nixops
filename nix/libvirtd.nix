@@ -13,13 +13,13 @@ let
     services.openssh.extraConfig = "UseDNS no";
   };
 
-  ssh_image = if config.deployment.libvirtd.boot_config == null then
-    let base_image = libvirt_image_helpers.create_nixos_image {
-          size = sz;
-          config = base_config;
-        };
+  base_image = libvirt_image_helpers.create_nixos_image {
+    size = sz;
+    config = base_config;
+  };
 
-    in libvirt_image_helpers.edit_image {
+  ssh_image = if config.deployment.libvirtd.boot_config == null then
+    libvirt_image_helpers.edit_image {
       inherit pkgs base_image;
       cmd = ''
         mkdir -p /mnt/etc/ssh/authorized_keys.d
@@ -28,9 +28,8 @@ let
     }
 
   else
-    libvirt_image_helpers.create_nixos_image {
-      inherit pkgs;
-      size = sz;
+    libvirt_image_helpers.deploy_in_nixos_image {
+      inherit pkgs base_image;
       config.imports = [
         base_config
         { users.users.root.openssh.authorizedKeys.keys = [ ssh_pubkey ]; }
