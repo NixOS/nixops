@@ -3,56 +3,33 @@
 with lib;
 
 let
+  libvirt_image_helpers = import ./libvirtd-image.nix;
   sz = toString config.deployment.libvirtd.baseImageSize;
   ssh_pubkey = builtins.getEnv "NIXOPS_LIBVIRTD_PUBKEY";
 
-  base_config = {
-    fileSystems."/".device = "/dev/disk/by-label/nixos";
-
-    boot.loader.grub.version = 2;
-    boot.loader.grub.device = "/dev/sda";
-    boot.loader.timeout = 0;
-
+  base_config = libvirt_image_helpers.base_image_config // {
     services.openssh.enable = true;
     services.openssh.startWhenNeeded = false;
     services.openssh.extraConfig = "UseDNS no";
   };
 
   ssh_image = if config.deployment.libvirtd.boot_config == null then
-    let base_image = import ./libvirtd-image.nix {
+    let base_image = libvirt_image_helpers.create_nixos_image {
           size = sz;
           config = base_config;
         };
 
-    in pkgs.vmTools.runInLinuxVM (
-      pkgs.runCommand "libvirtd-ssh-image"
-        { memSize = 768;
-          preVM =
-            ''
-              mkdir $out
-              diskImage=$out/image
-              ${pkgs.vmTools.qemu}/bin/qemu-img create -f qcow2 -b ${base_image}/disk.qcow2 $diskImage
-            '';
-          buildInputs = [ pkgs.utillinux ];
-          postVM =
-            ''
-              mv $diskImage $out/disk.qcow2
-            '';
-        }
-        ''
-          . /sys/class/block/vda1/uevent
-          mknod /dev/vda1 b $MAJOR $MINOR
-          mkdir /mnt
-          mount /dev/vda1 /mnt
-
-          mkdir -p /mnt/etc/ssh/authorized_keys.d
-          echo '${ssh_pubkey}' > /mnt/etc/ssh/authorized_keys.d/root
-          umount /mnt
-        ''
-    )
+    in libvirt_image_helpers.edit_image {
+      inherit pkgs base_image;
+      cmd = ''
+        mkdir -p /mnt/etc/ssh/authorized_keys.d
+        echo '${ssh_pubkey}' > /mnt/etc/ssh/authorized_keys.d/root
+      '';
+    }
 
   else
-    import ./libvirtd-image.nix {
+    libvirt_image_helpers.create_nixos_image {
+      inherit pkgs;
       size = sz;
       config.imports = [
         base_config
@@ -157,22 +134,10 @@ in
 
   ###### implementation
 
-  config = mkIf (config.deployment.targetEnv == "libvirtd") {
+  config = mkIf (config.deployment.targetEnv == "libvirtd") (base_config // {
     deployment.libvirtd.baseImage = mkDefault ssh_image;
-
     nixpkgs.system = mkOverride 900 "x86_64-linux";
-
-    fileSystems."/".device = "/dev/disk/by-label/nixos";
-
-    boot.loader.grub.version = 2;
-    boot.loader.grub.device = "/dev/sda";
-    boot.loader.timeout = 0;
-
-    services.openssh.enable = true;
-    services.openssh.startWhenNeeded = false;
-    services.openssh.extraConfig = "UseDNS no";
-
     deployment.hasFastConnection = true;
-};
+  });
 
 }
