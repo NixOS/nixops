@@ -1,22 +1,14 @@
-{ system ? builtins.currentSystem, size ? "10" }:
+{ system ? builtins.currentSystem, size ? "10", config }:
 let
   pkgs = import <nixpkgs> {};
-  config = (import <nixpkgs/nixos/lib/eval-config.nix> {
+  cfg = (import <nixpkgs/nixos/lib/eval-config.nix> {
     inherit system;
-    modules = [ {
-      fileSystems."/".device = "/dev/disk/by-label/nixos";
-
-      boot.loader.grub.version = 2;
-      boot.loader.grub.device = "/dev/sda";
-      boot.loader.timeout = 0;
-
-      services.openssh.enable = true;
-      services.openssh.startWhenNeeded = false;
-      services.openssh.extraConfig = "UseDNS no";
-    } ];
+    modules = [ config ];
   }).config;
 
 in pkgs.vmTools.runInLinuxVM (
+  # TODO: Use <nixpkgs/nixos/lib/make-disk-image.nix> when
+  # https://github.com/NixOS/nixpkgs/issues/20471 is fixed
   pkgs.runCommand "libvirtd-image"
     { memSize = 768;
       preVM =
@@ -32,7 +24,7 @@ in pkgs.vmTools.runInLinuxVM (
         '';
       buildInputs = [ pkgs.utillinux pkgs.perl ];
       exportReferencesGraph =
-        [ "closure" config.system.build.toplevel ];
+        [ "closure" cfg.system.build.toplevel ];
     }
     ''
       # Create a single / partition.
@@ -66,11 +58,11 @@ in pkgs.vmTools.runInLinuxVM (
 
       # Register the paths in the Nix database.
       printRegistration=1 perl ${pkgs.pathsFromGraph} /tmp/xchg/closure | \
-          chroot /mnt ${config.nix.package.out}/bin/nix-store --load-db
+          chroot /mnt ${cfg.nix.package.out}/bin/nix-store --load-db
 
       # Create the system profile to allow nixos-rebuild to work.
-      chroot /mnt ${config.nix.package.out}/bin/nix-env \
-          -p /nix/var/nix/profiles/system --set ${config.system.build.toplevel}
+      chroot /mnt ${cfg.nix.package.out}/bin/nix-env \
+          -p /nix/var/nix/profiles/system --set ${cfg.system.build.toplevel}
 
       # `nixos-rebuild' requires an /etc/NIXOS.
       mkdir -p /mnt/etc/nixos
@@ -78,14 +70,13 @@ in pkgs.vmTools.runInLinuxVM (
 
       # `switch-to-configuration' requires a /bin/sh
       mkdir -p /mnt/bin
-      ln -s ${config.system.build.binsh}/bin/sh /mnt/bin/sh
+      ln -s ${cfg.system.build.binsh}/bin/sh /mnt/bin/sh
 
       # Generate the GRUB menu.
       ln -s vda /dev/sda
-      chroot /mnt ${config.system.build.toplevel}/bin/switch-to-configuration boot
+      chroot /mnt ${cfg.system.build.toplevel}/bin/switch-to-configuration boot
 
       umount /mnt/proc /mnt/dev /mnt/sys
       umount /mnt
     ''
 )
-

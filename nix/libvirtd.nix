@@ -4,34 +4,65 @@ with lib;
 
 let
   sz = toString config.deployment.libvirtd.baseImageSize;
-  base_image = import ./libvirtd-image.nix { size = sz; };
-  the_key = builtins.getEnv "NIXOPS_LIBVIRTD_PUBKEY";
-  ssh_image = pkgs.vmTools.runInLinuxVM (
-    pkgs.runCommand "libvirtd-ssh-image"
-      { memSize = 768;
-        preVM =
-          ''
-            mkdir $out
-            diskImage=$out/image
-            ${pkgs.vmTools.qemu}/bin/qemu-img create -f qcow2 -b ${base_image}/disk.qcow2 $diskImage
-          '';
-        buildInputs = [ pkgs.utillinux ];
-        postVM =
-          ''
-            mv $diskImage $out/disk.qcow2
-          '';
-      }
-      ''
-        . /sys/class/block/vda1/uevent
-        mknod /dev/vda1 b $MAJOR $MINOR
-        mkdir /mnt
-        mount /dev/vda1 /mnt
+  ssh_pubkey = builtins.getEnv "NIXOPS_LIBVIRTD_PUBKEY";
 
-        mkdir -p /mnt/etc/ssh/authorized_keys.d
-        echo '${the_key}' > /mnt/etc/ssh/authorized_keys.d/root
-        umount /mnt
-      ''
-  );
+  base_config = {
+    fileSystems."/".device = "/dev/disk/by-label/nixos";
+
+    boot.loader.grub.version = 2;
+    boot.loader.grub.device = "/dev/sda";
+    boot.loader.timeout = 0;
+
+    services.openssh.enable = true;
+    services.openssh.startWhenNeeded = false;
+    services.openssh.extraConfig = "UseDNS no";
+  };
+
+  ssh_image = if config.deployment.libvirtd.boot_config == null then
+    let base_image = import ./libvirtd-image.nix {
+          size = sz;
+          config = base_config;
+        };
+
+    in pkgs.vmTools.runInLinuxVM (
+      pkgs.runCommand "libvirtd-ssh-image"
+        { memSize = 768;
+          preVM =
+            ''
+              mkdir $out
+              diskImage=$out/image
+              ${pkgs.vmTools.qemu}/bin/qemu-img create -f qcow2 -b ${base_image}/disk.qcow2 $diskImage
+            '';
+          buildInputs = [ pkgs.utillinux ];
+          postVM =
+            ''
+              mv $diskImage $out/disk.qcow2
+            '';
+        }
+        ''
+          . /sys/class/block/vda1/uevent
+          mknod /dev/vda1 b $MAJOR $MINOR
+          mkdir /mnt
+          mount /dev/vda1 /mnt
+
+          mkdir -p /mnt/etc/ssh/authorized_keys.d
+          echo '${ssh_pubkey}' > /mnt/etc/ssh/authorized_keys.d/root
+          umount /mnt
+        ''
+    )
+
+  else
+    import ./libvirtd-image.nix {
+      size = sz;
+      config.imports = [
+        base_config
+        { users.users.root.openssh.authorizedKeys.keys = [ ssh_pubkey ]; }
+        config.deployment.libvirtd.boot_config
+      ];
+    }
+
+  ;
+
 in
 
 {
@@ -86,6 +117,22 @@ in
       description = ''
         The disk is created using the specified
         disk image as a base.
+      '';
+    };
+
+    deployment.libvirtd.boot_config = mkOption {
+      default = null;
+      example = {
+        networking = {
+          interfaces.enp0s2.ip4 = [ { address = "10.0.0.2"; prefixLength = 24; } ];
+          defaultGateway = "10.0.0.1";
+        };
+      };
+      type = types.nullOr types.attrs;
+      description = ''
+        NixOS configuration needed for the first image to boot and be reachable via ssh.
+        This will be used only during image bootstrapping.
+        Leave null to use default configuration, which uses DHCP.
       '';
     };
 
