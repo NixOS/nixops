@@ -63,6 +63,9 @@ class LibvirtdState(MachineState):
         return super_flags + ["-o", "StrictHostKeyChecking=no",
                               "-i", self.get_ssh_private_key_file()]
 
+    def get_physical_spec(self):
+        return {('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [self.client_public_key]}
+
     def _vm_id(self):
         return "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
