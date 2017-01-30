@@ -221,6 +221,11 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
             self.logger.log("deleting EC2 security group `{0}' ID `{1}'...".format(
                 self.security_group_name, self.security_group_id))
             self._connect()
-            self._conn.delete_security_group(group_id=self.security_group_id)
+            try:
+                self._conn.delete_security_group(group_id=self.security_group_id)
+            except boto.exception.EC2ResponseError as e:
+                if e.error_code != u'InvalidGroup.NotFound':
+                    raise
+
             self.state = self.MISSING
         return True
