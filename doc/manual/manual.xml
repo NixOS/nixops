@@ -132,6 +132,24 @@
         <xi:include href="ssh-keypair-options.xml" />
       </section>
 
+      <section>
+        <title>CloudWatch Log Groups</title>
+        <para>A CloudWatch Log Group is defined by setting
+        <literal>resources.cloudwatchLogGroups.<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="cloudwatch-log-group-options.xml" />
+      </section>
+
+      <section>
+        <title>CloudWatch Log Streams</title>
+        <para>A CloudWatch Log Stream is defined by setting
+        <literal>resources.cloudwatchLogStreams.<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="cloudwatch-log-stream-options.xml" />
+      </section>
+
     </section>
 
     <section>
