@@ -98,6 +98,8 @@ rec {
   resources.rdsDbInstances = evalResources ./ec2-rds-dbinstance.nix (zipAttrs resourcesByType.rdsDbInstances or []);
   resources.elasticFileSystems = evalResources ./elastic-file-system.nix (zipAttrs resourcesByType.elasticFileSystems or []);
   resources.elasticFileSystemMountTargets = evalResources ./elastic-file-system-mount-target.nix (zipAttrs resourcesByType.elasticFileSystemMountTargets or []);
+  resources.cloudwatchLogGroups = evalResources ./cloudwatch-log-group.nix (zipAttrs resourcesByType.cloudwatchLogGroups or []);
+  resources.cloudwatchLogStreams = evalResources ./cloudwatch-log-stream.nix (zipAttrs resourcesByType.cloudwatchLogStreams or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Datadog resources
