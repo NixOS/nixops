@@ -802,15 +802,15 @@ class Deployment(object):
 
 
     def backup(self, include=[], exclude=[]):
-        self.evaluate_active(include, exclude) # unnecessary?
         backup_id = datetime.now().strftime("%Y%m%d%H%M%S")
 
         def worker(m):
             if not should_do(m, include, exclude): return
-            ssh_name = m.get_ssh_name()
-            res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + ["sync"])
-            if res != 0:
-                m.logger.log("running sync failed on {0}.".format(m.name))
+            if m.state != m.STOPPED:
+                ssh_name = m.get_ssh_name()
+                res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + ["sync"])
+                if res != 0:
+                    m.logger.log("running sync failed on {0}.".format(m.name))
             m.backup(self.definitions[m.name], backup_id)
 
         nixops.parallel.run_tasks(nr_workers=5, tasks=self.active.itervalues(), worker_fun=worker)
