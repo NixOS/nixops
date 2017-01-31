@@ -109,8 +109,8 @@ class LibvirtdState(MachineState):
             self.disk_path = self._disk_path(defn)
             self._logged_exec(["qemu-img", "create", "-f", "qcow2", "-b",
                                base_image + "/disk.qcow2", self.disk_path])
-            # TODO: use libvirtd.extraConfig to make the image accessible for your user
-            os.chmod(self.disk_path, 0666)
+            os.chmod(self.disk_path, 0660)
+
             self.vm_id = self._vm_id()
             dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
             nixops.util.write_file(dom_file, self.domain_xml)
