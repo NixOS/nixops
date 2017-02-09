@@ -95,6 +95,7 @@ in
       example =
         { home = {
             hostPath = "/home";
+            targetPath = "/home/user";
             readOnly = false;
           };
         };
@@ -112,6 +113,14 @@ in
             type = types.str;
             description = ''
               The path of the host directory that should be shared to the guest
+            '';
+          };
+
+          targetPath = mkOption {
+            example = "/home/user";
+            type = types.str;
+            description = ''
+              The mount path to the host directory that should be shared to the guest
             '';
           };
 
@@ -148,6 +157,19 @@ in
           $out/bin/
       '';
     };
+
+    fileSystems = mkIf (cfg.sharedFolders != {}) (
+      builtins.listToAttrs (map (x: {
+        name = "${cfg.sharedFolders.${x}.targetPath}";
+        value = {
+          fsType = "vboxsf";
+          device = "${x}";
+          # FIXME: using this expression makes a dependency job for local-fs.target fail
+          # -> [ (if (cfg.sharedFolders.${x}.readOnly) then "r" else "rw") ];
+          options = [ "rw" ];
+        };
+      }) (builtins.attrNames cfg.sharedFolders))
+    );
 
     deployment.virtualbox.disks.disk1 =
       { port = 0;
