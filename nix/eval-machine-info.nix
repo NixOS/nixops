@@ -221,7 +221,7 @@ rec {
         blobType = "PageBlob";
         copyFromBlob = if args ? azure-image-url
                        then args.azure-image-url
-                       else "https://nixos.blob.core.windows.net/images/nixos-image-16.03.847.8688c17-x86_64-linux.vhd";
+                       else "https://nixos.blob.core.windows.net/images/nixos-image-16.09.1694.019dcc3-x86_64-linux.vhd";
       })]
     )
   ) azure_deployments;
