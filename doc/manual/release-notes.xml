@@ -17,7 +17,7 @@
       <listitem><para>#508: Implementation of SSH tunnels has been rewritten to use iproute in stead of netttools</para></listitem>
       <listitem><para>#400: The ownership of keys is now implemented after user/group creation</para></listitem>
       <listitem><para>#216: Added <emphasis>--keep-days</emphasis> option for cleaning up backups</para></listitem>
-      <listitem><para>NixOps statefile is now created with stricter permissions</para></listitem>
+      <listitem><para>#594: NixOps statefile is now created with stricter permissions</para></listitem>
       <listitem><para>Use types.submodule instead of deprecated types.optionSet</para></listitem>
       <listitem><para>#566: Support setting deployment.hasFastConnection</para></listitem>
       <listitem><para>Support for "nixops deploy --evaluate-only"</para></listitem>
