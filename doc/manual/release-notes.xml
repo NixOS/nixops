@@ -14,10 +14,13 @@
 
     <itemizedlist>
       <listitem><para>Various minor documentation and bug fixes</para></listitem>
-      <listitem><para>Implementation of SSH tunnels has been rewritten to use iproute in stead of netttools</para></listitem>
-      <listitem><para>The ownership of keys is now implemented after user/group creation</para></listitem>
-      <listitem><para>Added <emphasis>--keep-days</emphasis> option for cleaning up backups</para></listitem>
+      <listitem><para>#508: Implementation of SSH tunnels has been rewritten to use iproute in stead of netttools</para></listitem>
+      <listitem><para>#400: The ownership of keys is now implemented after user/group creation</para></listitem>
+      <listitem><para>#216: Added <emphasis>--keep-days</emphasis> option for cleaning up backups</para></listitem>
       <listitem><para>NixOps statefile is now created with stricter permissions</para></listitem>
+      <listitem><para>Use types.submodule instead of deprecated types.optionSet</para></listitem>
+      <listitem><para>#566: Support setting deployment.hasFastConnection</para></listitem>
+      <listitem><para>Support for "nixops deploy --evaluate-only"</para></listitem>
     </itemizedlist>
   </listitem>
 
@@ -37,6 +40,7 @@
       <listitem><para>Support for Cloudwatch Logs resources</para></listitem>
       <listitem><para>Support loading credentials from ~/.aws/credentials (AWS default)</para></listitem>
       <listitem><para>Use HVM as default virtualization type (all new instance types are HVM)</para></listitem>
+      <listitem><para>#550: Fix sporadic error "Error binding parameter 0 - probably unsupported type"</para></listitem>
   </itemizedlist>
   </listitem>
 
@@ -48,12 +52,26 @@
     </itemizedlist>
   </listitem>
 
+  <listitem><para>Backend: Hetzner</para>
+
+    <itemizedlist>
+        <listitem><para>#564: Binary cache substitutions didn't work because of certificate errors</para></listitem>
+    </itemizedlist>
+  </listitem>
+
   <listitem><para>Backend: VirtualBox</para>
 
     <itemizedlist>
       <listitem><para>Support dots in machine names</para></listitem>
       <listitem><para>Added vcpu option</para></listitem>
 
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Libvirtd</para>
+
+    <itemizedlist>
+      <listitem><para>Documentation typo fixes</para></listitem>
     </itemizedlist>
   </listitem>
 
