@@ -6,6 +6,76 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.5"><title>Release 1.5 (Feb 14, 2017)</title>
+
+<itemizedlist>
+
+  <listitem><para>General</para>
+
+    <itemizedlist>
+      <listitem><para>Various minor documentation and bug fixes</para></listitem>
+      <listitem><para>Implementation of SSH tunnels has been rewritten to use iproute in stead of netttools</para></listitem>
+      <listitem><para>The ownership of keys is now implemented after user/group creation</para></listitem>
+      <listitem><para>Added <emphasis>--keep-days</emphasis> option for cleaning up backups</para></listitem>
+      <listitem><para>NixOps statefile is now created with stricter permissions</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: None</para>
+
+    <itemizedlist>
+        <listitem><para>Create /etc/hosts</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Amazon Web Services</para>
+
+    <itemizedlist>
+      <listitem><para>Support for Elastic File Systems</para></listitem>
+      <listitem><para>Support latest EBS volume types</para></listitem>
+      <listitem><para>Support for Simple Notification Service</para></listitem>
+      <listitem><para>Support for Cloudwatch Logs resources</para></listitem>
+      <listitem><para>Support loading credentials from ~/.aws/credentials (AWS default)</para></listitem>
+      <listitem><para>Use HVM as default virtualization type (all new instance types are HVM)</para></listitem>
+  </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Datadog</para>
+
+    <itemizedlist>
+        <listitem><para>Support provisioning Datadog Monitors</para></listitem>
+        <listitem><para>Support provisioning Datadog Dashboards</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: VirtualBox</para>
+
+    <itemizedlist>
+      <listitem><para>Support dots in machine names</para></listitem>
+      <listitem><para>Added vcpu option</para></listitem>
+
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Digital Ocean</para>
+
+    <itemizedlist>
+      <listitem><para>Initial support for Digital Ocean to deploy machines</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+</itemizedlist>
+
+<para>
+    This release has contributions from Amine Chikhaoui, Anders Papitto, aszlig, Aycan iRiCAN,
+    Christian Kauhaus, Corbin Simpson, Domen Kožar, Eelco Dolstra, Evgeny Egorochkin, Igor Pashev,
+    Maarten Hoogendoorn, Nathan Zadoks, Pascal Wittmann, Renzo Carbonaram, Rob Vermaas,
+    Ruslan Babayev, Susan Potter and Danylo Hlynskyi.
+</para>
+
+</section>
+
+
 <section xml:id="ssec-relnotes-1.4"><title>Release 1.4 (Jul 11, 2016)</title>
 
 <itemizedlist>
@@ -70,10 +140,10 @@
 </itemizedlist>
 
 <para>
-    This release has contributions from Amine Chikhaoui, Anders Papitto, aszlig, Aycan iRiCAN,
-    Christian Kauhaus, Corbin Simpson, Domen Kožar, Eelco Dolstra, Evgeny Egorochkin, Igor Pashev,
-    Maarten Hoogendoorn, Nathan Zadoks, Pascal Wittmann, Renzo Carbonaram, Rob Vermaas,
-    Ruslan Babayev, Susan Potter and Danylo Hlynskyi.
+    This release has contributions from Amine Chikhaoui, aszlig, Cireo, Domen Kožar, Eelco Dolstra,
+    Eric Sagnes, Falco Peijnenburg, Graham Christensen, Kevin Cox, Kirill Boltaev, Mathias Schreck,
+    Michael Weiss, Brian Zach Abe, Pablo Costa, Peter Hoeg, Renzo Carbonara, Rob Vermaas,
+    Ryan Artecona, Tobias Pflug, Tom Hunger, Vesa Kaihlavirta, Danylo Hlynskyi.
 </para>
 
 </section>
