@@ -11,10 +11,10 @@ import threading
 class Connection(sqlite3.Connection):
 
     def __init__(self, db_file, **kwargs):
-        new_db = not os.path.exists(db_file)
+        db_exists = os.path.exists(db_file)
+        if not db_exists:
+            os.fdopen(os.open(db_file, os.O_WRONLY | os.O_CREAT, 0o600), 'w').close()
         sqlite3.Connection.__init__(self, db_file, **kwargs)
-        if os.path.exists(db_file) and new_db:
-            os.chmod(db_file, 0o600)
         self.db_file = db_file
         self.nesting = 0
         self.lock = threading.RLock()
