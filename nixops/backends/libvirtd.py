@@ -58,6 +58,8 @@ class LibvirtdState(MachineState):
         MachineState.__init__(self, depl, name, id)
 
     def get_ssh_private_key_file(self):
+        self.log("get_ssh_private_key_file")
+        self.log(self.client_private_key)
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
 
     def get_ssh_flags(self, *args, **kwargs):
@@ -113,6 +115,7 @@ class LibvirtdState(MachineState):
                 '      <source network="{0}"/>',
                 '    </interface>',
             ]).format(n)
+# '<mac address="' + self.primary_mac + '" />'
 
         domain_fmt = "\n".join([
             '<domain type="kvm">',
@@ -155,10 +158,15 @@ class LibvirtdState(MachineState):
             # Inspired from https://rwmj.wordpress.com/2010/10/26/tip-find-the-ip-address-of-a-virtual-machine/
             xml = subprocess.check_output(["virsh", "-c", "qemu:///system", "dumpxml", self.vm_id])
             tree = ElementTree.fromstring(xml)
-            macs = [x.get("address") for x in tree.findall("devices/interface/mac")]
-            if len(macs) == 0:
-                raise Exception('VM has no interface configured; aborting')
-            self.log("Found MAC addresses " + repr(macs))
+            interfaces = tree.findall("devices/interface[@type='network']")
+            # macs = [x.get("address") for x in tree.findall("devices/interface/mac")]
+            # if len(macs) == 0:
+            #     raise Exception('VM has no interface configured; aborting')
+            nets = [(x.find("source").get("network"), x.find("mac").get("address")) for x in interfaces]
+            if len(nets) == 0:
+                raise Exception('VM has no networks configured; aborting')
+            # self.log("Found MAC addresses " + repr(macs))
+            self.log("Found MAC addresses " + repr(nets))
 
             self.log_start("Waiting for IP address to appear in the ARP table...")
             while True:
@@ -166,11 +174,35 @@ class LibvirtdState(MachineState):
                 for line in lines:
                     r = re.match('[^()]+ \(([0-9.]+)\) at ([0-9a-f:]+) ', line)
                     if not r: continue
-                    for mac in macs:
-                        if r.group(2) == mac:
-                            ip = r.group(1)
-                            self.log_end(" " + ip)
-                            return ip
+                    for net in nets:
+                        if r.group(2) == net[1]:
+                           ip = r.group(1)
+                           self.log_end(" " + ip)
+                           self._logged_exec(
+                               ["virsh", "-c", "qemu:///system",
+                                "net-update", net[0], "add",
+                                "ip-dhcp-host",
+                                "<host mac='{0}' name='{1}' ip='{2}' />".format(
+                                  net[1], self.name, ip),
+                                "--live", "--config"
+                                ]),
+                           return ip
+                    # for mac in macs:
+                    #     if r.group(2) == mac:
+                    #        ip = r.group(1)
+                    #        self.log_end(" " + ip)
+                    #        map(lambda network:
+                    #            self.logged_exec(
+                    #                ["virsh", "-c", "qemu:///system",
+                    #                 "net-update", network, "add",
+                    #                 "ip-dhcp-host",
+                    #                 "<host mac='{0}' name='{1}' ip='{2}' />".format(
+                    #                   mac, self.name, ip),
+                    #                 "--live", "--config"
+                    #                 ]),
+                    #            nets
+                    #            )
+                    #        return ip
 
                 self.log_continue(".")
                 time.sleep(1)
@@ -197,6 +229,14 @@ class LibvirtdState(MachineState):
                     else:
                         ip_with_subnet = lines[i + 2]
                         ip = ip_with_subnet.split('/')[0]
+                        self._logged_exec(
+                            ["virsh", "-c", "qemu:///system",
+                             "net-update", net, "add",
+                             "ip-dhcp-host",
+                             "<host mac='{0}' name='{1}' ip='{2}' />".format(
+                                 mac, self.name, ip),
+                             "--live", "--config"
+                             ])
                         self.log_end(" " + ip)
                         return ip
 
@@ -230,6 +270,21 @@ class LibvirtdState(MachineState):
         assert self.vm_id
         if self._is_running():
             self.log_start("shutting down... ")
+            xml = subprocess.check_output(["virsh", "-c", "qemu:///system", "dumpxml", self.vm_id])
+            tree = ElementTree.fromstring(xml)
+            interfaces = tree.findall("devices/interface[@type='network']")
+            nets = [(x.find("source").get("network"), x.find("mac").get("address")) for x in interfaces]
+            map(lambda (net, mac):
+                self._logged_exec(
+                    ["virsh", "-c", "qemu:///system",
+                     "net-update", net, "delete",
+                     "ip-dhcp-host",
+                     "<host mac='{0}' name='{1}' ip='{2}' />".format(
+                         mac, self.name, self.private_ipv4),
+                     "--live", "--config"
+                     ]),
+                nets
+                )
             self._logged_exec(["virsh", "-c", "qemu:///system", "destroy", self.vm_id])
         else:
             self.log("not running")
