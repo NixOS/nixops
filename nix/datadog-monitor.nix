@@ -18,7 +18,7 @@ with lib;
         name = mkOption {
           default = "datadog-monitor-${uuid}-${name}";
           type = types.str;
-          description = "Name of the datadog resource.";
+          description = "Name of the alert which will show up in the subject line of the email.";
         };
         type = mkOption {
           type = types.str;

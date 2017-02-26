@@ -52,9 +52,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
 
     @property
     def resource_id(self):
-        r = self.monitor_name
-        if self.monitor_id: r = "{0} [ {1} ]".format(r, self.monitor_id)
-        return r
+        return "https://app.datadoghq.com/monitors#{0}".format(self.monitor_id) if self.monitor_id else None 
 
     def get_definition_prefix(self):
         return "resources.datadogMonitors."
