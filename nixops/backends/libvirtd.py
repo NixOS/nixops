@@ -57,8 +57,6 @@ class LibvirtdState(MachineState):
         MachineState.__init__(self, depl, name, id)
 
     def get_ssh_private_key_file(self):
-        self.log("get_ssh_private_key_file")
-        self.log(self.client_private_key)
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
 
     def get_ssh_flags(self, *args, **kwargs):
