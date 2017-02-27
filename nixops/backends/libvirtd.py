@@ -16,8 +16,7 @@ import nixops.util
 
 class LibvirtdDefinition(MachineDefinition):
     """Definition of a trivial machine."""
-
-    @classmethod
+@classmethod
     def get_type(cls):
         return "libvirtd"
 
@@ -174,6 +173,7 @@ class LibvirtdState(MachineState):
                         if r.group(2) == net[1]:
                            ip = r.group(1)
                            self.log_end(" " + ip)
+                           self.log("update dhcp leases to assign assigned ip address to hostname")
                            self._logged_exec(
                                ["virsh", "-c", "qemu:///system",
                                 "net-update", net[0], "add",
@@ -208,6 +208,7 @@ class LibvirtdState(MachineState):
                     else:
                         ip_with_subnet = lines[i + 2]
                         ip = ip_with_subnet.split('/')[0]
+                        self.log("update dhcp leases to assign assigned ip address to hostname")
                         self._logged_exec(
                             ["virsh", "-c", "qemu:///system",
                              "net-update", net, "add",
@@ -246,6 +247,7 @@ class LibvirtdState(MachineState):
         return self.private_ipv4
 
     def restartLibvirtNetworksHelper(self, net):
+        self.log("restarting libvirt network(s) to cancel static ip assignments")
         self._logged_exec(
             ["virsh", "-c", "qemu:///system",
              "net-destroy", net
