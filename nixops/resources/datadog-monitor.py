@@ -42,6 +42,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._dd_api = None
         self._key_options = None
+        self._monitor_url = nixops.datadog_utils.get_base_url()+"monitors#"
 
     def _exists(self):
         return self.state != self.MISSING
@@ -52,10 +53,16 @@ class DatadogMonitorState(nixops.resources.ResourceState):
 
     @property
     def resource_id(self):
-        return "https://app.datadoghq.com/monitors#{0}".format(self.monitor_id) if self.monitor_id else None 
-
+        return self._monitor_url + self.monitor_id if self.monitor_id else None
+    
     def get_definition_prefix(self):
         return "resources.datadogMonitors."
+
+    def get_physical_spec(self):
+        return {'url': self._monitor_url + self.monitor_id } if self.monitor_id else {} 
+
+    def prefix_definition(self, attr):
+        return {('resources', 'datadogMonitors'): attr}
 
     def connect(self, app_key, api_key):
         if self._dd_api: return

@@ -42,6 +42,7 @@ class DatadogTimeboardState(nixops.resources.ResourceState):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._dd_api = None
         self._key_options = None
+        self._dash_url = nixops.datadog_utils.get_base_url()+"dash/"
 
     def show_type(self):
         s = super(DatadogTimeboardState, self).show_type()
@@ -49,15 +50,13 @@ class DatadogTimeboardState(nixops.resources.ResourceState):
 
     @property
     def resource_id(self):
-        t = self.title
-        if self.url: t = "{0} [ {1} ]".format(t, self.url)
-        return t
+        return self._dash_url + self.timeboard_id if self.timeboard_id else None
 
     def prefix_definition(self, attr):
         return {('resources', 'datadogTimeboards'): attr}
 
     def get_physical_spec(self):
-        return {'url': self.url}
+        return {'url': self._dash_url + self.timeboard_id } if self.timeboard_id else {} 
 
     def get_definition_prefix(self):
         return "resources.datadogTimeboards."
