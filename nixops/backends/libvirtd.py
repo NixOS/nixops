@@ -159,14 +159,10 @@ class LibvirtdState(MachineState):
             xml = subprocess.check_output(["virsh", "-c", "qemu:///system", "dumpxml", self.vm_id])
             tree = ElementTree.fromstring(xml)
             interfaces = tree.findall("devices/interface[@type='network']")
-            # macs = [x.get("address") for x in tree.findall("devices/interface/mac")]
-            # if len(macs) == 0:
-            #     raise Exception('VM has no interface configured; aborting')
             nets = [(x.find("source").get("network"), x.find("mac").get("address")) for x in interfaces]
             if len(nets) == 0:
                 raise Exception('VM has no networks configured; aborting')
-            # self.log("Found MAC addresses " + repr(macs))
-            self.log("Found MAC addresses " + repr(nets))
+            self.log("Found MAC addresses (and networks) " + repr(nets))
 
             self.log_start("Waiting for IP address to appear in the ARP table...")
             while True:
@@ -184,26 +180,9 @@ class LibvirtdState(MachineState):
                                 "ip-dhcp-host",
                                 "<host mac='{0}' name='{1}' ip='{2}' />".format(
                                   net[1], self.name, ip),
-                                "--live", "--config"
+                                "--live"
                                 ]),
                            return ip
-                    # for mac in macs:
-                    #     if r.group(2) == mac:
-                    #        ip = r.group(1)
-                    #        self.log_end(" " + ip)
-                    #        map(lambda network:
-                    #            self.logged_exec(
-                    #                ["virsh", "-c", "qemu:///system",
-                    #                 "net-update", network, "add",
-                    #                 "ip-dhcp-host",
-                    #                 "<host mac='{0}' name='{1}' ip='{2}' />".format(
-                    #                   mac, self.name, ip),
-                    #                 "--live", "--config"
-                    #                 ]),
-                    #            nets
-                    #            )
-                    #        return ip
-
                 self.log_continue(".")
                 time.sleep(1)
 
@@ -235,7 +214,7 @@ class LibvirtdState(MachineState):
                              "ip-dhcp-host",
                              "<host mac='{0}' name='{1}' ip='{2}' />".format(
                                  mac, self.name, ip),
-                             "--live", "--config"
+                             "--live"
                              ])
                         self.log_end(" " + ip)
                         return ip
@@ -266,6 +245,16 @@ class LibvirtdState(MachineState):
         assert self.private_ipv4
         return self.private_ipv4
 
+    def restartLibvirtNetworksHelper(self, net):
+        self._logged_exec(
+            ["virsh", "-c", "qemu:///system",
+             "net-destroy", net
+             ])
+        self._logged_exec(
+            ["virsh", "-c", "qemu:///system",
+             "net-start", net
+             ])
+
     def stop(self):
         assert self.vm_id
         if self._is_running():
@@ -273,18 +262,8 @@ class LibvirtdState(MachineState):
             xml = subprocess.check_output(["virsh", "-c", "qemu:///system", "dumpxml", self.vm_id])
             tree = ElementTree.fromstring(xml)
             interfaces = tree.findall("devices/interface[@type='network']")
-            nets = [(x.find("source").get("network"), x.find("mac").get("address")) for x in interfaces]
-            map(lambda (net, mac):
-                self._logged_exec(
-                    ["virsh", "-c", "qemu:///system",
-                     "net-update", net, "delete",
-                     "ip-dhcp-host",
-                     "<host mac='{0}' name='{1}' ip='{2}' />".format(
-                         mac, self.name, self.private_ipv4),
-                     "--live", "--config"
-                     ]),
-                nets
-                )
+            nets = [x.find("source").get("network") for x in interfaces]
+            map(self.restartLibvirtNetworksHelper, nets)
             self._logged_exec(["virsh", "-c", "qemu:///system", "destroy", self.vm_id])
         else:
             self.log("not running")
