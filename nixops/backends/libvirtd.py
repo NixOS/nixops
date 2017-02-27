@@ -16,7 +16,7 @@ import nixops.util
 
 class LibvirtdDefinition(MachineDefinition):
     """Definition of a trivial machine."""
-@classmethod
+    @classmethod
     def get_type(cls):
         return "libvirtd"
 
@@ -229,6 +229,10 @@ class LibvirtdState(MachineState):
         ls = subprocess.check_output(["virsh", "-c", "qemu:///system", "list"])
         return (string.find(ls, self.vm_id) != -1)
 
+    def _is_network_running(self,net):
+        ls = subprocess.check_output(["virsh", "-c", "qemu:///system", "net-list"])
+        return (string.find(ls, net) != -1)
+
     def start(self):
         assert self.vm_id
         assert self.domain_xml
@@ -244,30 +248,28 @@ class LibvirtdState(MachineState):
     def get_ssh_name(self):
         assert self.private_ipv4
         return self.private_ipv4
-
-    def restartLibvirtNetworksHelper(self, net):
-        self.log("restarting libvirt network(s) to cancel static ip assignments")
-        self._logged_exec(
-            ["virsh", "-c", "qemu:///system",
-             "net-destroy", net
-             ])
-        self._logged_exec(
-            ["virsh", "-c", "qemu:///system",
-             "net-start", net
-             ])
-
     def stop(self):
         assert self.vm_id
         if self._is_running():
             self.log_start("shutting down... ")
-            xml = subprocess.check_output(["virsh", "-c", "qemu:///system", "dumpxml", self.vm_id])
-            tree = ElementTree.fromstring(xml)
-            interfaces = tree.findall("devices/interface[@type='network']")
-            nets = [x.find("source").get("network") for x in interfaces]
-            map(self.restartLibvirtNetworksHelper, nets)
             self._logged_exec(["virsh", "-c", "qemu:///system", "destroy", self.vm_id])
         else:
             self.log("not running")
+
+    def _restartLibvirtNetworks(self, net):
+        if (self._is_network_running(net)):
+          self.log("restarting libvirt network(s) to cancel static ip assignments")
+          self.log(net)
+          self._logged_exec(["virsh", "-c", "qemu:///system", "net-destroy", net])
+          self._logged_exec(["virsh", "-c", "qemu:///system", "net-start", net])
+
+    def _globalPreDestroyHook(self):
+        self.log("running globalPreStopHook")
+        xml = subprocess.check_output(["virsh", "-c", "qemu:///system", "dumpxml", self.vm_id])
+        tree = ElementTree.fromstring(xml)
+        interfaces = tree.findall("devices/interface[@type='network']")
+        nets = [x.find("source").get("network") for x in interfaces]
+        map(self._restartLibvirtNetworks, nets)
 
     def destroy(self, wipe=False):
         if not self.vm_id:
