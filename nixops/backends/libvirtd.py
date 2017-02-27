@@ -114,7 +114,6 @@ class LibvirtdState(MachineState):
                 '      <source network="{0}"/>',
                 '    </interface>',
             ]).format(n)
-# '<mac address="' + self.primary_mac + '" />'
 
         domain_fmt = "\n".join([
             '<domain type="kvm">',
