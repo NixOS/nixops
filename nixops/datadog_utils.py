@@ -22,3 +22,6 @@ def get_template_variables(defn):
         tvariable['default'] = var['default']
         template_variables.append(tvariable)
     return template_variables
+
+def get_base_url():
+    return "https://app.datadoghq.com/"

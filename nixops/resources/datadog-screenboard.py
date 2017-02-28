@@ -43,6 +43,7 @@ class DatadogScreenboardState(nixops.resources.ResourceState):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._dd_api = None
         self._key_options = None
+        self._screen_url = nixops.datadog_utils.get_base_url()+"screen/"
 
     def show_type(self):
         s = super(DatadogScreenboardState, self).show_type()
@@ -50,9 +51,13 @@ class DatadogScreenboardState(nixops.resources.ResourceState):
 
     @property
     def resource_id(self):
-        r = self.board_title
-        if self.screenboard_id: r = "{0} [ {1} ]".format(r, self.screenboard_id)
-        return r
+        return self._screen_url + self.screenboard_id if self.screenboard_id else None
+
+    def get_physical_spec(self):
+        return {'url': self._screen_url + self.screenboard_id } if self.screenboard_id else {} 
+
+    def prefix_definition(self, attr):
+        return {('resources', 'datadogScreenboards'): attr}
 
     def get_definition_prefix(self):
         return "resources.datadogScreenboards."
