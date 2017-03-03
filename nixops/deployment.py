@@ -802,6 +802,7 @@ class Deployment(object):
 
 
     def backup(self, include=[], exclude=[]):
+        self.evaluate_active(include, exclude)
         backup_id = datetime.now().strftime("%Y%m%d%H%M%S")
 
         def worker(m):
