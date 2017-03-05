@@ -262,7 +262,7 @@ class LibvirtdState(MachineState):
           self._logged_exec(["virsh", "-c", "qemu:///system", "net-start", net])
 
     def _globalPreDestroyHook(self):
-        self.log("running globalPreStopHook")
+        self.log("running globalPreDestroyHook")
         xml = subprocess.check_output(["virsh", "-c", "qemu:///system", "dumpxml", self.vm_id])
         tree = ElementTree.fromstring(xml)
         interfaces = tree.findall("devices/interface[@type='network']")
