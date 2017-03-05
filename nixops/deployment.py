@@ -1038,9 +1038,12 @@ class Deployment(object):
         # multiple machines (that could otherwise experience multithreading problems)
         # e.g. restarting the vlan (to clear mutated state)
         # your vms were running on before destroying them
-        globalPreDestroyHook = getattr(next(self.active.itervalues(), None), "_globalPreDestroyHook", None)
-        if callable(globalPreDestroyHook):
-            globalPreDestroyHook()
+        try:
+            globalPreDestroyHook = getattr(next(self.active.itervalues(), None), "_globalPreDestroyHook", None)
+            if callable(globalPreDestroyHook):
+                globalPreDestroyHook()
+        except err:
+            self.logger.log("globalPreDestroyHook threw excpetion: {0}".format(err))
 
         for r in self.resources.itervalues():
             r._destroyed_event = threading.Event()
