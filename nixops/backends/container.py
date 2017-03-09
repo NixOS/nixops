@@ -65,7 +65,7 @@ class ContainerState(MachineState):
         if self.host == "localhost":
             flags.extend(MachineState.get_ssh_flags(self))
         else:
-            cmd = "ssh -x -a root@{0} {1} nc -c {2} {3}".format(self.get_host_ssh(), " ".join(self.get_host_ssh_flags()), self.private_ipv4, self.ssh_port)
+            cmd = "ssh -x -a root@{0} {1} nc {2} {3}".format(self.get_host_ssh(), " ".join(self.get_host_ssh_flags()), self.private_ipv4, self.ssh_port)
             flags.extend(["-o", "ProxyCommand=" + cmd])
         return flags
 
