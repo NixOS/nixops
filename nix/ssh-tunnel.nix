@@ -79,7 +79,6 @@ with lib;
 
       script = let
         mkAddrConf = tun: localIP: remoteIP: concatStringsSep " && " [
-          "ip link set tun${toString tun} addrgenmode none"
           "ip addr add ${localIP}/32 peer ${remoteIP} dev tun${toString tun}"
           "ip link set tun${toString tun} up"
         ];
