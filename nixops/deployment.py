@@ -122,8 +122,7 @@ class Deployment(object):
 
     def _del_attr(self, name):
         """Delete a deployment attribute from the state."""
-        with self._db:
-            self._db.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
+        self.state.del_deployment_attr(self.uuid, name)
 
 
     def _get_attr(self, name, default=nixops.util.undefined):

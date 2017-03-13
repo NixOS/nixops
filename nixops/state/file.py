@@ -188,6 +188,10 @@ class StateFile(object):
                     c.execute("insert or replace into DeploymentAttrs(deployment, name, value) values (?, ?, ?)",
                               (deployment_uuid, n, v))
 
+    def del_deployment_attr(self, deployment_uuid, attr_name):
+        with self._db:
+            self._db.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (deployment_uuid, attr_name))
+
     def get_deployment_lock(self, deployment):
         lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
         if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)
