@@ -310,7 +310,7 @@ class StateFile(object):
             return res
 
     ### STATE
-    def _create_state(depl, type, name, id):
+    def _create_state(self, depl, type, name, id):
         """Create a resource state object of the desired type."""
 
         for cls in _subclasses(nixops.resources.ResourceState):
