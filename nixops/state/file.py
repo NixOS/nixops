@@ -286,6 +286,10 @@ class StateFile(object):
                     c.execute("insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
                               (resource_id, n, v))
 
+    def del_resource_attr(self, resource_id, name):
+        with self.depl._db:
+            self.depl._db.execute("delete from ResourceAttrs where machine = ? and name = ?", (resource_id, name))
+
 
     ### STATE
     def _create_state(depl, type, name, id):

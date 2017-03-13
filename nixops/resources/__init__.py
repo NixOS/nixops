@@ -73,8 +73,7 @@ class ResourceState(object):
 
     def _del_attr(self, name):
         """Delete a machine attribute from the state file."""
-        with self.depl._db:
-            self.depl._db.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, name))
+        self.depl._state.del_resource_attr(name)
 
     def _get_attr(self, name, default=nixops.util.undefined):
         """Get a machine attribute from the state file."""
