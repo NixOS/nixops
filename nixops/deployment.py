@@ -142,7 +142,7 @@ class Deployment(object):
 
 
     def import_(self, attrs):
-        with self._db:
+        with self.state.atomic:
             for k, v in attrs.iteritems():
                 if k == 'resources': continue
                 self._set_attr(k, v)

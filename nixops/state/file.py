@@ -103,6 +103,9 @@ class StateFile(object):
 
         self.__db = db
 
+        # TODO; implement some other special wrapper that ONLY does the transaction stuff.
+        self.atomic = db
+
     def close(self):
         self.__db.close()
 
