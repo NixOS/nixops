@@ -202,6 +202,14 @@ class StateFile(object):
             if row != None: return row[0]
             return nixops.util.undefined
 
+    def get_all_deployment_attrs(self, deployment_uuid):
+        with self._db:
+            c = self._db.cursor()
+            c.execute("select name, value from DeploymentAttrs where deployment = ?", (deployment_uuid))
+            rows = c.fetchall()
+            res = {row[0]: row[1] for row in rows}
+            return res
+
     def get_deployment_lock(self, deployment):
         lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
         if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)

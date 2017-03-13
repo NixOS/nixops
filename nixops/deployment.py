@@ -136,13 +136,9 @@ class Deployment(object):
 
 
     def export(self):
-        with self._db:
-            c = self._db.cursor()
-            c.execute("select name, value from DeploymentAttrs where deployment = ?", (self.uuid,))
-            rows = c.fetchall()
-            res = {row[0]: row[1] for row in rows}
-            res['resources'] = {r.name: r.export() for r in self.resources.itervalues()}
-            return res
+        res = self.state.get_all_deployment_attrs(self.uuid)
+        res['resources'] = {r.name: r.export() for r in self.resources.itervalues()}
+        return res
 
 
     def import_(self, attrs):
