@@ -16,7 +16,8 @@ def open(url):
         raise ex
 
     switcher = {
-            "file": lambda(url): file.StateFile(url.path),
+        "file": lambda(url): file.StateFile(url.path),
+        "etcd": lambda(url): raise_(WrongStateSchemeException("coming soon!")),
     }
 
     function = switcher.get(scheme, lambda(url): raise_(WrongStateSchemeException("Unknown state scheme!")))
