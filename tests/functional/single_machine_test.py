@@ -15,6 +15,12 @@ class SingleMachineTest(generic_deployment_test.GenericDeploymentTest):
         super(SingleMachineTest,self).setup()
         self.depl.nix_exprs = [ logical_spec ]
 
+    def test_vbox(self):
+        self.depl.nix_exprs = self.depl.nix_exprs + [
+            ('%s/single_machine_vbox_base.nix' % (parent_dir))
+        ]
+        self.run_check()
+
     def test_ec2(self):
         self.depl.nix_exprs = self.depl.nix_exprs + [
             ('%s/single_machine_ec2_base.nix' % (parent_dir))
