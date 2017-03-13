@@ -71,7 +71,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
     def create_monitor(self, defn, options):
         response = self._dd_api.Monitor.create(
             type=defn.config['type'], query=defn.config['query'], name=defn.config['name'],
-            message=defn.config['name'], options=options)
+            message=defn.config['message'], options=options)
         if 'errors' in response:
             raise Exception(str(response['errors']))
         else:
