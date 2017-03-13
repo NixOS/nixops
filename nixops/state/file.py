@@ -168,6 +168,16 @@ class StateFile(object):
             self.__db.execute("insert into Deployments(uuid) values (?)", (uuid,))
         return nixops.deployment.Deployment(self, uuid, sys.stderr)
 
+    def clone_deployment(self, deployment_uuid):
+        with self._db:
+            new = self.create_deployment()
+            self._db.execute("insert into DeploymentAttrs (deployment, name, value) " +
+                             "select ?, name, value from DeploymentAttrs where deployment = ?",
+                             (new.uuid, deployment_uuid))
+            new.configs_path = None
+            return new
+
+
 
     def get_resources_for(self, deployment_uuid):
         """Get all the resources for a certain deployment"""
