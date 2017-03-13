@@ -69,7 +69,7 @@ class Deployment(object):
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
-        self.resources = self._state.get_resources_for(self.uuid)
+        self.resources = self._state.get_resources_for(self)
         self.logger.update_log_prefixes()
         self.definitions = None
 

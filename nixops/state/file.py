@@ -183,14 +183,14 @@ class StateFile(object):
 
 
 
-    def get_resources_for(self, deployment_uuid):
+    def get_resources_for(self, deployment):
         """Get all the resources for a certain deployment"""
         resources = {}
         with self.__db:
             c = self.__db.cursor()
-            c.execute("select id, name, type from Resources where deployment = ?", (self.uuid,))
+            c.execute("select id, name, type from Resources where deployment = ?", (deployment.uuid,))
             for (id, name, type) in c.fetchall():
-                r = _create_state(self, type, name, id)
+                r = self._create_state(deployment, type, name, id)
                 resources[name] = r
         return resources
 
