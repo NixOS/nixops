@@ -289,21 +289,21 @@ class StateFile(object):
                               (resource_id, n, v))
 
     def del_resource_attr(self, resource_id, name):
-        with self.depl.__db:
-            self.depl.__db.execute("delete from ResourceAttrs where machine = ? and name = ?", (resource_id, name))
+        with self.__db:
+            self.__db.execute("delete from ResourceAttrs where machine = ? and name = ?", (resource_id, name))
 
     def get_resource_attr(self, resource_id, name):
         """Get a machine attribute from the state file."""
-        with self.depl.__db:
-            c = self.depl.__db.cursor()
+        with self.__db:
+            c = self.__db.cursor()
             c.execute("select value from ResourceAttrs where machine = ? and name = ?", (resource_id, name))
             row = c.fetchone()
             if row != None: return row[0]
             return nixops.util.undefined
 
     def get_all_resource_attrs(self, resource_id):
-        with self.depl.__db:
-            c = self.depl.__db.cursor()
+        with self.__db:
+            c = self.__db.cursor()
             c.execute("select name, value from ResourceAttrs where machine = ?", (resource_id,))
             rows = c.fetchall()
             res = {row[0]: row[1] for row in rows}
