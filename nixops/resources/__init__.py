@@ -73,7 +73,7 @@ class ResourceState(object):
 
     def _del_attr(self, name):
         """Delete a machine attribute from the state file."""
-        self.depl._state.del_resource_attr(name)
+        self.depl._state.del_resource_attr(self.id, name)
 
     #TODO(moretea): again, the default option appears to be defunct.
     # Have removed it in state/file.py.
