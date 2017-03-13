@@ -192,6 +192,16 @@ class StateFile(object):
         with self._db:
             self._db.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (deployment_uuid, attr_name))
 
+
+    def get_deployment_attr(self, deployment_uuid, name):
+        """Get a deployment attribute from the state."""
+        with self._db:
+            c = self._db.cursor()
+            c.execute("select value from DeploymentAttrs where deployment = ? and name = ?", (deployment_uuid, name))
+            row = c.fetchone()
+            if row != None: return row[0]
+            return nixops.util.undefined
+
     def get_deployment_lock(self, deployment):
         lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
         if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)

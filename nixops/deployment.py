@@ -125,15 +125,11 @@ class Deployment(object):
         self.state.del_deployment_attr(self.uuid, name)
 
 
+    #TODO(moretea): The default param does not appear to be used at all?
+    # Removed it when moving the body to nixops/state/file.py.
     def _get_attr(self, name, default=nixops.util.undefined):
         """Get a deployment attribute from the state."""
-        with self._db:
-            c = self._db.cursor()
-            c.execute("select value from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
-            row = c.fetchone()
-            if row != None: return row[0]
-            return nixops.util.undefined
-
+        return self.state.get_deployment_attr(self.uuid, name)
 
     def _create_resource(self, name, type):
         c = self._db.cursor()
