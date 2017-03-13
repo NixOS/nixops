@@ -110,17 +110,9 @@ class Deployment(object):
             raise Exception("resource ‘{0}’ is not a machine".format(name))
         return res
 
-
     def _set_attrs(self, attrs):
         """Update deployment attributes in the state."""
-        with self._db:
-            c = self._db.cursor()
-            for n, v in attrs.iteritems():
-                if v == None:
-                    c.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, n))
-                else:
-                    c.execute("insert or replace into DeploymentAttrs(deployment, name, value) values (?, ?, ?)",
-                              (self.uuid, n, v))
+        self.state.set_deployment_attrs(self.uuid, attrs)
 
 
     def _set_attr(self, name, value):

@@ -177,6 +177,17 @@ class StateFile(object):
                 resources[name] = r
         return resources
 
+    def set_deployment_attrs(self, deployment_uuid, attrs):
+        """Update deployment attributes in the state."""
+        with self._db:
+            c = self._db.cursor()
+            for n, v in attrs.iteritems():
+                if v == None:
+                    c.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (deployment_uuid, n))
+                else:
+                    c.execute("insert or replace into DeploymentAttrs(deployment, name, value) values (?, ?, ?)",
+                              (deployment_uuid, n, v))
+
     def get_deployment_lock(self, deployment):
         lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
         if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)
