@@ -112,7 +112,7 @@ class Deployment(object):
 
     def _set_attrs(self, attrs):
         """Update deployment attributes in the state."""
-        self.state.set_deployment_attrs(self.uuid, attrs)
+        self._state.set_deployment_attrs(self.uuid, attrs)
 
 
     def _set_attr(self, name, value):
@@ -122,27 +122,27 @@ class Deployment(object):
 
     def _del_attr(self, name):
         """Delete a deployment attribute from the state."""
-        self.state.del_deployment_attr(self.uuid, name)
+        self._state.del_deployment_attr(self.uuid, name)
 
 
     #TODO(moretea): The default param does not appear to be used at all?
     # Removed it when moving the body to nixops/state/file.py.
     def _get_attr(self, name, default=nixops.util.undefined):
         """Get a deployment attribute from the state."""
-        return self.state.get_deployment_attr(self.uuid, name)
+        return self._state.get_deployment_attr(self.uuid, name)
 
     def _create_resource(self, name, type):
-        return self.state.create_resource(self.uuid, name, type)
+        return self._state.create_resource(self.uuid, name, type)
 
 
     def export(self):
-        res = self.state.get_all_deployment_attrs(self.uuid)
+        res = self._state.get_all_deployment_attrs(self.uuid)
         res['resources'] = {r.name: r.export() for r in self.resources.itervalues()}
         return res
 
 
     def import_(self, attrs):
-        with self.state.atomic:
+        with self._state.atomic:
             for k, v in attrs.iteritems():
                 if k == 'resources': continue
                 self._set_attr(k, v)
@@ -153,7 +153,7 @@ class Deployment(object):
 
 
     def clone(self):
-        return self.state.clone_deployment(self.uuid)
+        return self._state.clone_deployment(self.uuid)
 
 
     def _get_deployment_lock(self):
