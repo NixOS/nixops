@@ -6,6 +6,7 @@ import os.path
 from pysqlite2 import dbapi2 as sqlite3
 import sys
 import threading
+import fcntl
 
 
 class Connection(sqlite3.Connection):
@@ -160,6 +161,30 @@ class StateFile(object):
         with self._db:
             self._db.execute("insert into Deployments(uuid) values (?)", (uuid,))
         return nixops.deployment.Deployment(self, uuid, sys.stderr)
+
+    def get_deployment_lock(self, deployment):
+        lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
+        if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)
+        lock_file_path = lock_dir + "/" + deployment.uuid
+        class DeploymentLock(object):
+            def __init__(self, logger, path):
+                self._lock_file_path = path
+                self._logger = logger
+                self._lock_file = None
+            def __enter__(self):
+                self._lock_file = open(self._lock_file_path, "w")
+                fcntl.fcntl(self._lock_file, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+                try:
+                    fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except IOError:
+                    self._logger.log(
+                        "waiting for exclusive deployment lock..."
+                    )
+                    fcntl.flock(self._lock_file, fcntl.LOCK_EX)
+            def __exit__(self, exception_type, exception_value, exception_traceback):
+                if self._lock_file:
+                    self._lock_file.close()
+        return DeploymentLock(deployment.logger, lock_file_path)
 
     def _table_exists(self, c, table):
         c.execute("select 1 from sqlite_master where name = ? and type='table'", (table,));

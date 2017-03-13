@@ -21,7 +21,6 @@ from datetime import datetime, timedelta
 import getpass
 import traceback
 import glob
-import fcntl
 import itertools
 import platform
 from nixops.util import ansi_success
@@ -198,28 +197,7 @@ class Deployment(object):
 
 
     def _get_deployment_lock(self):
-        if self._lock_file_path is None:
-            lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
-            if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)
-            self._lock_file_path = lock_dir + "/" + self.uuid
-        class DeploymentLock(object):
-            def __init__(self, depl):
-                self._lock_file_path = depl._lock_file_path
-                self._logger = depl.logger
-                self._lock_file = None
-            def __enter__(self):
-                self._lock_file = open(self._lock_file_path, "w")
-                fcntl.fcntl(self._lock_file, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-                try:
-                    fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except IOError:
-                    self._logger.log(
-                        "waiting for exclusive deployment lock..."
-                    )
-                    fcntl.flock(self._lock_file, fcntl.LOCK_EX)
-            def __exit__(self, exception_type, exception_value, exception_traceback):
-                self._lock_file.close()
-        return DeploymentLock(self)
+        return self._state.get_deployment_lock(self)
 
 
     def delete_resource(self, m):
