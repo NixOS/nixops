@@ -195,7 +195,7 @@ class VirtualBoxState(MachineState):
         # Generate a public/private host key.
         if not self.public_host_key:
             (private, public) = nixops.util.create_key_pair()
-            with self.depl._db:
+            with self.depl.atomic:
                 self.public_host_key = public
                 self.private_host_key = private
 
@@ -204,7 +204,7 @@ class VirtualBoxState(MachineState):
 
         # Backwards compatibility.
         if self.disk:
-            with self.depl._db:
+            with self.depl.atomic:
                 self._update_disk("disk1", {"created": True, "path": self.disk,
                                             "attached": self.disk_attached,
                                             "port": 0})
