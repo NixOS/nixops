@@ -226,6 +226,33 @@ class StateFile(object):
                     self._lock_file.close()
         return DeploymentLock(deployment.logger, lock_file_path)
 
+    ###############################################################################################
+    ## Resources
+
+    def create_resource(self, deployment_uuid, name, type):
+        c = self._db.cursor()
+        c.execute("select 1 from Resources where deployment = ? and name = ?", (deployment_uuid, name))
+        if len(c.fetchall()) != 0:
+            raise Exception("resource already exists in database!")
+        c.execute("insert into Resources(deployment, name, type) values (?, ?, ?)",
+                  (deployment_uuid, name, type))
+        id = c.lastrowid
+        r = _create_state(self, type, name, id)
+        self.resources[name] = r
+        return r
+
+
+    ### STATE
+    def _create_state(depl, type, name, id):
+        """Create a resource state object of the desired type."""
+
+        for cls in _subclasses(nixops.resources.ResourceState):
+            if type == cls.get_type():
+                return cls(depl, name, id)
+
+        raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))
+
+
     def _table_exists(self, c, table):
         c.execute("select 1 from sqlite_master where name = ? and type='table'", (table,));
         return c.fetchone() != None

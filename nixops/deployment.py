@@ -132,16 +132,7 @@ class Deployment(object):
         return self.state.get_deployment_attr(self.uuid, name)
 
     def _create_resource(self, name, type):
-        c = self._db.cursor()
-        c.execute("select 1 from Resources where deployment = ? and name = ?", (self.uuid, name))
-        if len(c.fetchall()) != 0:
-            raise Exception("resource already exists in database!")
-        c.execute("insert into Resources(deployment, name, type) values (?, ?, ?)",
-                  (self.uuid, name, type))
-        id = c.lastrowid
-        r = _create_state(self, type, name, id)
-        self.resources[name] = r
-        return r
+        return self.state.create_resource(self.uuid, name, type)
 
 
     def export(self):
@@ -1143,15 +1134,6 @@ def _create_definition(xml, config, type_name):
                 return cls(xml, config)
 
     raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type_name))
-
-def _create_state(depl, type, name, id):
-    """Create a resource state object of the desired type."""
-
-    for cls in _subclasses(nixops.resources.ResourceState):
-        if type == cls.get_type():
-            return cls(depl, name, id)
-
-    raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))
 
 
 # Automatically load all resource types.
