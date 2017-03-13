@@ -69,15 +69,8 @@ class Deployment(object):
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
-        self.resources = {}
-        with self._db:
-            c = self._db.cursor()
-            c.execute("select id, name, type from Resources where deployment = ?", (self.uuid,))
-            for (id, name, type) in c.fetchall():
-                r = _create_state(self, type, name, id)
-                self.resources[name] = r
+        self.resources = self._state.get_resources_for(self.uuid)
         self.logger.update_log_prefixes()
-
         self.definitions = None
 
 

@@ -106,6 +106,8 @@ class StateFile(object):
     def close(self):
         self.__db.close()
 
+    ###############################################################################################
+    ## Deployment
 
     def query_deployments(self):
         """Return the UUIDs of all deployments in the database."""
@@ -162,6 +164,18 @@ class StateFile(object):
         with self.__db:
             self.__db.execute("insert into Deployments(uuid) values (?)", (uuid,))
         return nixops.deployment.Deployment(self, uuid, sys.stderr)
+
+
+    def get_resources_for(self, deployment_uuid):
+        """Get all the resources for a certain deployment"""
+        resources = {}
+        with self._db:
+            c = self._db.cursor()
+            c.execute("select id, name, type from Resources where deployment = ?", (self.uuid,))
+            for (id, name, type) in c.fetchall():
+                r = _create_state(self, type, name, id)
+                resources[name] = r
+        return resources
 
     def get_deployment_lock(self, deployment):
         lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
