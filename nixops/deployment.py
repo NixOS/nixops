@@ -49,9 +49,9 @@ class Deployment(object):
     configs_path = nixops.util.attr_property("configsPath", None)
     rollback_enabled = nixops.util.attr_property("rollbackEnabled", False)
 
-    def __init__(self, statefile, uuid, log_file=sys.stderr):
-        self._statefile = statefile
-        self._db = statefile._db
+    def __init__(self, state, uuid, log_file=sys.stderr):
+        self._state = state
+        self._db = state._db
         self.uuid = uuid
 
         self._last_log_prefix = None
@@ -121,7 +121,7 @@ class Deployment(object):
 
 
     def _set_attrs(self, attrs):
-        """Update deployment attributes in the state file."""
+        """Update deployment attributes in the state."""
         with self._db:
             c = self._db.cursor()
             for n, v in attrs.iteritems():
@@ -133,18 +133,18 @@ class Deployment(object):
 
 
     def _set_attr(self, name, value):
-        """Update one deployment attribute in the state file."""
+        """Update one deployment attribute in the state."""
         self._set_attrs({name: value})
 
 
     def _del_attr(self, name):
-        """Delete a deployment attribute from the state file."""
+        """Delete a deployment attribute from the state."""
         with self._db:
             self._db.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
 
 
     def _get_attr(self, name, default=nixops.util.undefined):
-        """Get a deployment attribute from the state file."""
+        """Get a deployment attribute from the state."""
         with self._db:
             c = self._db.cursor()
             c.execute("select value from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
@@ -189,7 +189,7 @@ class Deployment(object):
 
     def clone(self):
         with self._db:
-            new = self._statefile.create_deployment()
+            new = self._state.create_deployment()
             self._db.execute("insert into DeploymentAttrs (deployment, name, value) " +
                              "select ?, name, value from DeploymentAttrs where deployment = ?",
                              (new.uuid, self.uuid))
