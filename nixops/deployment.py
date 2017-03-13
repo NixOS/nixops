@@ -1077,9 +1077,7 @@ class Deployment(object):
 
         m = self.resources.pop(name)
         self.resources[new_name] = m
-
-        with self._db:
-            self._db.execute("update Resources set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
+        self._state._rename_resource(self.uuid, name, new_name)
 
 
     def send_keys(self, include=[], exclude=[]):
