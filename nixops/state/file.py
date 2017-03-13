@@ -277,8 +277,8 @@ class StateFile(object):
 
 
     def set_resource_attrs(self, resource_id, attrs):
-        with self.depl.__db:
-            c = self.depl.__db.cursor()
+        with self.__db:
+            c = self.__db.cursor()
             for n, v in attrs.iteritems():
                 if v == None:
                     c.execute("delete from ResourceAttrs where machine = ? and name = ?", (resource_id, n))
