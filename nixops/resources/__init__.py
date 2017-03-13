@@ -64,14 +64,8 @@ class ResourceState(object):
 
     def _set_attrs(self, attrs):
         """Update machine attributes in the state file."""
-        with self.depl._db:
-            c = self.depl._db.cursor()
-            for n, v in attrs.iteritems():
-                if v == None:
-                    c.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, n))
-                else:
-                    c.execute("insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
-                              (self.id, n, v))
+        self.depl._state.set_resource_attrs(self.id, attrs)
+
 
     def _set_attr(self, name, value):
         """Update one machine attribute in the state file."""

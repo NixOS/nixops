@@ -276,6 +276,17 @@ class StateFile(object):
             self.__db.execute("update Resources set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
 
 
+    def set_resource_attrs(self, resource_id, attrs):
+        with self.depl._db:
+            c = self.depl._db.cursor()
+            for n, v in attrs.iteritems():
+                if v == None:
+                    c.execute("delete from ResourceAttrs where machine = ? and name = ?", (resource_id, n))
+                else:
+                    c.execute("insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
+                              (resource_id, n, v))
+
+
     ### STATE
     def _create_state(depl, type, name, id):
         """Create a resource state object of the desired type."""
