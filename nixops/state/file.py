@@ -173,7 +173,7 @@ class StateFile(object):
 
     def _delete_deployment(self, deployment_uuid):
         """NOTE: This is UNSAFE, it's guarded in nixops/deployment.py. Do not call this function except from there!"""
-        self.__db.execute("delete from Deployments where uuid = ?", (self.uuid,))
+        self.__db.execute("delete from Deployments where uuid = ?", (deployment_uuid,))
 
     def clone_deployment(self, deployment_uuid):
         with self.__db:
