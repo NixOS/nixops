@@ -162,8 +162,7 @@ class Deployment(object):
 
     def delete_resource(self, m):
         del self.resources[m.name]
-        with self._db:
-            self._db.execute("delete from Resources where deployment = ? and id = ?", (self.uuid, m.id))
+        self._state.delete_resource(self.uuid, m.id)
 
 
     def delete(self, force=False):

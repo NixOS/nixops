@@ -262,6 +262,10 @@ class StateFile(object):
         self.resources[name] = r
         return r
 
+    def delete_resource(self, deployment_uuid, res_id):
+        with self._db:
+            self._db.execute("delete from Resources where deployment = ? and id = ?", (deployment_uuid, res_id))
+
 
     ### STATE
     def _create_state(depl, type, name, id):
