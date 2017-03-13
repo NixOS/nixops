@@ -772,7 +772,7 @@ class Deployment(object):
         self.evaluate()
 
         # Create state objects for all defined resources.
-        with self._db:
+        with self.atomic:
             for m in self.definitions.itervalues():
                 if m.name not in self.resources:
                     self._create_resource(m.name, m.get_type())
