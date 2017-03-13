@@ -89,7 +89,7 @@ class ResourceState(object):
 
     def import_(self, attrs):
         """Import the resource from another database"""
-        with self.depl._db:
+        with self.depl.atomic:
             for k, v in attrs.iteritems():
                 if k == 'type': continue
                 self._set_attr(k, v)
