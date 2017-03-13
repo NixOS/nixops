@@ -83,13 +83,9 @@ class ResourceState(object):
 
     def export(self):
         """Export the resource to move between databases"""
-        with self.depl._db:
-            c = self.depl._db.cursor()
-            c.execute("select name, value from ResourceAttrs where machine = ?", (self.id,))
-            rows = c.fetchall()
-            res = {row[0]: row[1] for row in rows}
-            res['type'] = self.get_type()
-            return res
+        res = self.depl._state.get_all_resource_attrs(self.id)
+        res['type'] = self.get_type()
+        return res
 
     def import_(self, attrs):
         """Import the resource from another database"""

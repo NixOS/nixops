@@ -299,6 +299,14 @@ class StateFile(object):
             if row != None: return row[0]
             return nixops.util.undefined
 
+    def get_all_resource_attrs(self, resource_id):
+        with self.depl._db:
+            c = self.depl._db.cursor()
+            c.execute("select name, value from ResourceAttrs where machine = ?", (resource_id,))
+            rows = c.fetchall()
+            res = {row[0]: row[1] for row in rows}
+            return res
+
     ### STATE
     def _create_state(depl, type, name, id):
         """Create a resource state object of the desired type."""
