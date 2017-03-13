@@ -8,6 +8,9 @@ import sys
 import threading
 import fcntl
 
+def _subclasses(cls):
+    sub = cls.__subclasses__()
+    return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
 
 class Connection(sqlite3.Connection):
 
