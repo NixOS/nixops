@@ -132,7 +132,9 @@ class Deployment(object):
         return self._state.get_deployment_attr(self.uuid, name)
 
     def _create_resource(self, name, type):
-        return self._state.create_resource(self.uuid, name, type)
+        r = self._state.create_resource(self, name, type)
+        self.resources[name] = r
+        return r
 
 
     def export(self):

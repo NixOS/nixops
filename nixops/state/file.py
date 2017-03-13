@@ -254,16 +254,15 @@ class StateFile(object):
     ###############################################################################################
     ## Resources
 
-    def create_resource(self, deployment_uuid, name, type):
+    def create_resource(self, deployment, name, type):
         c = self.__db.cursor()
-        c.execute("select 1 from Resources where deployment = ? and name = ?", (deployment_uuid, name))
+        c.execute("select 1 from Resources where deployment = ? and name = ?", (deployment.uuid, name))
         if len(c.fetchall()) != 0:
             raise Exception("resource already exists in database!")
         c.execute("insert into Resources(deployment, name, type) values (?, ?, ?)",
-                  (deployment_uuid, name, type))
+                  (deployment.uuid, name, type))
         id = c.lastrowid
-        r = _create_state(self, type, name, id)
-        self.resources[name] = r
+        r = self._create_state(deployment, type, name, id)
         return r
 
     def delete_resource(self, deployment_uuid, res_id):
