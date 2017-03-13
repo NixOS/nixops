@@ -50,7 +50,6 @@ class Deployment(object):
 
     def __init__(self, state, uuid, log_file=sys.stderr):
         self._state = state
-        self._db = state._db
         self.uuid = uuid
 
         self._last_log_prefix = None

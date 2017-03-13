@@ -101,14 +101,15 @@ class StateFile(object):
             else:
                 raise Exception("this NixOps version is too old to deal with schema version {0}".format(version))
 
-        self._db = db
+        self.__db = db
 
     def close(self):
-        self._db.close()
+        self.__db.close()
+
 
     def query_deployments(self):
         """Return the UUIDs of all deployments in the database."""
-        c = self._db.cursor()
+        c = self.__db.cursor()
         c.execute("select uuid from Deployments")
         res = c.fetchall()
         return [x[0] for x in res]
@@ -125,7 +126,7 @@ class StateFile(object):
         return res
 
     def _find_deployment(self, uuid=None):
-        c = self._db.cursor()
+        c = self.__db.cursor()
         if not uuid:
             c.execute("select uuid from Deployments")
         else:
@@ -158,8 +159,8 @@ class StateFile(object):
         if not uuid:
             import uuid
             uuid = str(uuid.uuid1())
-        with self._db:
-            self._db.execute("insert into Deployments(uuid) values (?)", (uuid,))
+        with self.__db:
+            self.__db.execute("insert into Deployments(uuid) values (?)", (uuid,))
         return nixops.deployment.Deployment(self, uuid, sys.stderr)
 
     def get_deployment_lock(self, deployment):
