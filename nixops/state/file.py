@@ -290,6 +290,14 @@ class StateFile(object):
         with self.depl._db:
             self.depl._db.execute("delete from ResourceAttrs where machine = ? and name = ?", (resource_id, name))
 
+    def get_resource_attr(self, resource_id, name):
+        """Get a machine attribute from the state file."""
+        with self.depl._db:
+            c = self.depl._db.cursor()
+            c.execute("select value from ResourceAttrs where machine = ? and name = ?", (resource_id, name))
+            row = c.fetchone()
+            if row != None: return row[0]
+            return nixops.util.undefined
 
     ### STATE
     def _create_state(depl, type, name, id):

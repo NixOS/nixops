@@ -75,14 +75,11 @@ class ResourceState(object):
         """Delete a machine attribute from the state file."""
         self.depl._state.del_resource_attr(name)
 
+    #TODO(moretea): again, the default option appears to be defunct.
+    # Have removed it in state/file.py.
     def _get_attr(self, name, default=nixops.util.undefined):
         """Get a machine attribute from the state file."""
-        with self.depl._db:
-            c = self.depl._db.cursor()
-            c.execute("select value from ResourceAttrs where machine = ? and name = ?", (self.id, name))
-            row = c.fetchone()
-            if row != None: return row[0]
-            return nixops.util.undefined
+        return self.depl._state.get_resource_attr(self.id, name)
 
     def export(self):
         """Export the resource to move between databases"""
