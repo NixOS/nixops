@@ -168,6 +168,10 @@ class StateFile(object):
             self.__db.execute("insert into Deployments(uuid) values (?)", (uuid,))
         return nixops.deployment.Deployment(self, uuid, sys.stderr)
 
+    def _delete_deployment(self, deployment_uuid):
+        """NOTE: This is UNSAFE, it's guarded in nixops/deployment.py. Do not call this function except from there!"""
+        self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
+
     def clone_deployment(self, deployment_uuid):
         with self._db:
             new = self.create_deployment()

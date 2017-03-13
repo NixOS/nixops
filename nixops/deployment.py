@@ -167,7 +167,7 @@ class Deployment(object):
 
     def delete(self, force=False):
         """Delete this deployment from the state file."""
-        with self._db:
+        with self._state.atomic:
             if not force and len(self.resources) > 0:
                 raise Exception("cannot delete this deployment because it still has resources")
 
@@ -178,7 +178,7 @@ class Deployment(object):
                 if os.path.islink(p): os.remove(p)
 
             # Delete the deployment from the database.
-            self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
+            self._state._delete_deployment(self.uuid)
 
 
     def _nix_path_flags(self):
