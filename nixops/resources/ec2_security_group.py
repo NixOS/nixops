@@ -96,11 +96,11 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         # Name or region change means a completely new security group
         if self.security_group_name and (defn.security_group_name != self.security_group_name or defn.region != self.region):
-            with self.depl._db:
+            with self.depl._state.atomic:
                 self.state = self.UNKNOWN
                 self.old_security_groups = self.old_security_groups + [{'name': self.security_group_name, 'region': self.region}]
 
-        with self.depl._db:
+        with self.depl._state.atomic:
             self.region = defn.region
             self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
             self.security_group_name = defn.security_group_name
@@ -109,7 +109,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
 
         grp = None
         if check:
-            with self.depl._db:
+            with self.depl._state.atomic:
                 self._connect()
 
                 try:

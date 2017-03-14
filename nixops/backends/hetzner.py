@@ -584,7 +584,7 @@ class HetznerState(MachineState):
                            "‘{0}’... ".format(self.name))
             # Create a new Admin account exclusively for this machine.
             server = self._get_server_from_main_robot(self.main_ipv4, defn)
-            with self.depl._db:
+            with self.depl._state.atomic:
                 (self.robot_admin_user,
                  self.robot_admin_pass) = server.admin.create()
             self.log_end("done. ({0})".format(self.robot_admin_user))
