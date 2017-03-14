@@ -228,7 +228,7 @@ class JsonFile(object):
             state_resources = state["deployments"][deployment.uuid]["resources"]
             for res_id, res in state_resources.items():
                 r = self._create_state(deployment, res["type"], res["name"], res_id)
-                resources[name] = r
+                resources[res["name"]] = r
             self.db.set(state)
         return resources
 
@@ -296,7 +296,7 @@ class JsonFile(object):
             state = self.db.read()
             if name in state["deployments"][deployment.uuid]["resources"]:
                 raise Exception("resource already exists in database!")
-            id = gen_uuid()
+            id = str(gen_uuid())
             state["deployments"][deployment.uuid]["resources"][id] = {
                     "name": name,
                     "type" : type,
