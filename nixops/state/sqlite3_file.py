@@ -278,7 +278,7 @@ class StateFile(object):
             self.__db.execute("update Resources set name = ? where deployment = ? and id = ?", (new_name, deployment_uuid, resource_id))
 
 
-    def set_resource_attrs(self, resource_id, attrs):
+    def set_resource_attrs(self, _deployment_uuid, resource_id, attrs):
         with self.__db:
             c = self.__db.cursor()
             for n, v in attrs.iteritems():
@@ -288,11 +288,11 @@ class StateFile(object):
                     c.execute("insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
                               (resource_id, n, v))
 
-    def del_resource_attr(self, resource_id, name):
+    def del_resource_attr(self, _deployment_uuid, resource_id, name):
         with self.__db:
             self.__db.execute("delete from ResourceAttrs where machine = ? and name = ?", (resource_id, name))
 
-    def get_resource_attr(self, resource_id, name):
+    def get_resource_attr(self, _deployment_uuid, resource_id, name):
         """Get a machine attribute from the state file."""
         with self.__db:
             c = self.__db.cursor()
@@ -301,7 +301,7 @@ class StateFile(object):
             if row != None: return row[0]
             return nixops.util.undefined
 
-    def get_all_resource_attrs(self, resource_id):
+    def get_all_resource_attrs(self, deployment_uuid, resource_id):
         with self.__db:
             c = self.__db.cursor()
             c.execute("select name, value from ResourceAttrs where machine = ?", (resource_id,))

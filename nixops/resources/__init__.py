@@ -64,7 +64,7 @@ class ResourceState(object):
 
     def _set_attrs(self, attrs):
         """Update machine attributes in the state file."""
-        self.depl._state.set_resource_attrs(self.id, attrs)
+        self.depl._state.set_resource_attrs(self.depl.uuid, self.id, attrs)
 
 
     def _set_attr(self, name, value):
@@ -73,17 +73,17 @@ class ResourceState(object):
 
     def _del_attr(self, name):
         """Delete a machine attribute from the state file."""
-        self.depl._state.del_resource_attr(self.id, name)
+        self.depl._state.del_resource_attr(self.depl.uuid, self.id, name)
 
     #TODO(moretea): again, the default option appears to be defunct.
     # Have removed it in state/file.py.
     def _get_attr(self, name, default=nixops.util.undefined):
         """Get a machine attribute from the state file."""
-        return self.depl._state.get_resource_attr(self.id, name)
+        return self.depl._state.get_resource_attr(self.depl.uuid, self.id, name)
 
     def export(self):
         """Export the resource to move between databases"""
-        res = self.depl._state.get_all_resource_attrs(self.id)
+        res = self.depl._state.get_all_resource_attrs(self.depl.uuid, self.id)
         res['type'] = self.get_type()
         return res
 
