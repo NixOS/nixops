@@ -272,10 +272,10 @@ class StateFile(object):
         with self.__db:
             self.__db.execute("delete from Resources where deployment = ? and id = ?", (deployment_uuid, res_id))
 
-    def _rename_resource(self, deployment_uuid, current_name, new_name):
+    def _rename_resource(self, deployment_uuid, resource_id, new_name):
         """NOTE: Invariants are checked in nixops/deployment.py#rename"""
         with self.__db:
-            self.__db.execute("update Resources set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
+            self.__db.execute("update Resources set name = ? where deployment = ? and id = ?", (new_name, deployment_uuid, resource_id))
 
 
     def set_resource_attrs(self, resource_id, attrs):

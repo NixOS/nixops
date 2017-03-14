@@ -1079,7 +1079,7 @@ class Deployment(object):
 
         m = self.resources.pop(name)
         self.resources[new_name] = m
-        self._state._rename_resource(self.uuid, name, new_name)
+        self._state._rename_resource(self.uuid, m.id, new_name)
 
 
     def send_keys(self, include=[], exclude=[]):
