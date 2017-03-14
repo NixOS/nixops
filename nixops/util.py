@@ -218,7 +218,7 @@ def attr_property(name, default, type=str):
         if s == None: return None
         elif type is str: return s
         elif type is int: return int(s)
-        elif type is bool: return True if s == "1" else False
+        elif type is bool: return True if s == True or  s == "1" else False
         elif type is 'json': return json.loads(s)
         else: assert False
     def set(self, x):
