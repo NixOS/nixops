@@ -309,49 +309,49 @@ class JsonFile(object):
     def delete_resource(self, deployment_uuid, res_id):
         with self.db:
             state = self.db.read()
-            state["deployments"][deployment.uuid]["resources"].pop(res_id)
+            state["deployments"][deployment_uuid]["resources"].pop(res_id)
             self.db.set(state)
 
     def _rename_resource(self, deployment_uuid, resource_id, new_name):
         """NOTE: Invariants are checked in nixops/deployment.py#rename"""
         with self.db:
             state = self.db.read()
-            state["deployments"][deployment.uuid]["resources"][resource_id]["name"] = new_name
+            state["deployments"][deployment_uuid]["resources"][resource_id]["name"] = new_name
             self.db.set(state)
 
-    def set_resource_attrs(self, resource_id, attrs):
+    def set_resource_attrs(self, deployment_uuid, resource_id, attrs):
         with self.db:
             state = self.db.read()
-            resource_attrs = state["deployments"][deployment.uuid]["resources"][resource_id]["attributes"]
+            resource_attrs = state["deployments"][deployment_uuid]["resources"][resource_id]["attributes"]
             for n, v in attrs.iteritems():
                 if v == None:
                     resource_attrs.pop(n, None)
                 else:
                     resource_attrs[n] = v
-            state["deployments"][deployment.uuid]["resources"][resource_id]["attributes"] = resource_attrs
+            state["deployments"][deployment_uuid]["resources"][resource_id]["attributes"] = resource_attrs
             self.db.set(state)
 
-    def del_resource_attr(self, resource_id, name):
+    def del_resource_attr(self, deployment_uuid, resource_id, name):
         with self.db:
             state = self.db.read()
-            resource_attrs = state["deployments"][deployment.uuid]["resources"][resource_id]["attributes"]
+            resource_attrs = state["deployments"][deployment_uuid]["resources"][resource_id]["attributes"]
             resource_attrs.pop(name, None)
-            state["deployments"][deployment.uuid]["resources"][resource_id]["attributes"] = resource_attrs
+            state["deployments"][deployment_uuid]["resources"][resource_id]["attributes"] = resource_attrs
             self.db.set(state)
 
-    def get_resource_attr(self, resource_id, name):
+    def get_resource_attr(self, deployment_uuid, resource_id, name):
         """Get a machine attribute from the state file."""
         with self.db:
             state = self.db.read()
-            resource_attrs = state["deployments"][deployment.uuid]["resources"][resource_id]["attributes"]
+            resource_attrs = state["deployments"][deployment_uuid]["resources"][resource_id]["attributes"]
             res = resource_attrs.get(name)
             if res != None: return res
             return nixops.util.undefined
 
-    def get_all_resource_attrs(self, resource_id):
+    def get_all_resource_attrs(self, deployment_uuid, resource_id):
         with self.db:
             state = self.db.read()
-            resource_attrs = state["deployments"][deployment.uuid]["resources"][resource_id]["attributes"]
+            resource_attrs = state["deployments"][deployment_uuid]["resources"][resource_id]["attributes"]
             return copy.deepcopy(resource_attrs)
 
     ### STATE
