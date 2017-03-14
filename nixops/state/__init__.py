@@ -1,6 +1,6 @@
 import urlparse
 import sys
-import file
+import sqlite3_file
 
 class WrongStateSchemeException(Exception):
     pass
@@ -10,14 +10,13 @@ def open(url):
     scheme = url.scheme
 
     if scheme == "":
-        scheme = "file"
+        scheme = "sqlite3"
 
     def raise_(ex):
         raise ex
 
     switcher = {
-        "file": lambda(url): file.StateFile(url.path),
-        "etcd": lambda(url): raise_(WrongStateSchemeException("coming soon!")),
+        "sqlite3": lambda(url): sqlite3_file.StateFile(url.path),
     }
 
     function = switcher.get(scheme, lambda(url): raise_(WrongStateSchemeException("Unknown state scheme!")))
