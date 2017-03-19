@@ -17,7 +17,7 @@ in
       type = types.str;
       description = ''
         The API auth token. We're checking the environment for
-        <envar>DIGITAL_OCEAN_API_TOKEN</envar> first and if that is
+        <envar>DIGITAL_OCEAN_AUTH_TOKEN</envar> first and if that is
         not set we try this auth token.
       '';
     };
