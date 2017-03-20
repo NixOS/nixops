@@ -1727,8 +1727,9 @@ deploy the new configuration.
     Files in <filename>/nix/store/</filename> are readable by every
     user on that host, so storing secret keys embedded in nix derivations
     is insecure. To address this, nixops provides the configuration
-    option <varname>deployment.keys</varname>, which nixops manages
-    separately from the main configuration derivation for each machine.
+    options <varname>deployment.keys</varname> and 
+    <varname>deployment.keyDirs</varname>, which nixops manages separately
+    from the main configuration derivation for each machine.
   </para>
 
   <para>
@@ -1759,8 +1760,39 @@ deploy the new configuration.
   </para>
 
   <para>
-    Keys from <varname>deployment.keys</varname> are stored under <filename>/run/</filename>
-    on a temporary filesystem and will not persist across a reboot.
+    Add a key directory to a machine (recursively) like so.
+
+    <screen>
+{
+  machine =
+    { config, pkgs, ... }:
+    {
+      deployment.keyDirs.my-secret-folder.path = "./foo/bar";
+      deployment.keyDirs.my-secret-folder.user = "myuser";
+      deployment.keyDirs.my-secret-folder.group = "wheel";
+      deployment.keyDirs.my-secret-folder.dirPermissions = "0750";
+      deployment.keyDirs.my-secret-folder.filePermissions = "0640";
+    };
+}
+    </screen>
+
+    This will create a directory <filename>/run/keys/my-secret-folder</filename>
+    with the contents of <filename>./foo/bar</filename>, and set ownership and
+    permissions.
+  </para>
+
+  <para>
+    Among the keyDir options, only <varname>path</varname> is required. The
+    <varname>user</varname> and <varname>group</varname> options both default
+    to <literal>"root"</literal>. <varname>dirPermissions</varname> defaults
+    to <literal>"0700"</literal> and <varname>filePermissions</varname> defaults
+    to <literal>"0600"</literal>.
+  </para>
+
+  <para>
+    Keys from <varname>deployment.keys</varname> and <varname>deployment.keyDirs</varname>
+    are stored under <filename>/run/</filename> on a temporary filesystem and will not
+    persist across a reboot.
     To send a rebooted machine its keys, use <command>nixops send-keys</command>. Note that all
     <command>nixops</command> commands implicitly upload keys when appropriate,
     so manually sending keys should only be necessary after an unattended reboot.
