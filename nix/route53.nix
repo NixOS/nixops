@@ -62,6 +62,18 @@ with lib;
       '';
     };
 
+    deployment.route53.private = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        Whether to create an A record with the instance's private address.
+
+        Make sure to use this on a Private Hosted DNS zones only, because it will
+        appear as if the host is down at best, but may cause erroneous requests to
+        be routed to hosts on your clients' local networks.
+      '';
+    };
+
   };
 
 
