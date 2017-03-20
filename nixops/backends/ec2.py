@@ -76,6 +76,7 @@ class EC2Definition(MachineDefinition):
         self.dns_ttl = config["route53"]["ttl"]
         self.route53_access_key_id = config["route53"]["accessKeyId"]
         self.route53_use_public_dns_name = config["route53"]["usePublicDNSName"]
+        self.route53_private = config["route53"]["private"]
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region or self.zone or "???")
@@ -1283,8 +1284,21 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self.dns_ttl = defn.dns_ttl
         self.route53_access_key_id = defn.route53_access_key_id or nixops.ec2_utils.get_access_key_id()
         self.route53_use_public_dns_name = defn.route53_use_public_dns_name
-        record_type = 'CNAME' if self.route53_use_public_dns_name else 'A'
-        dns_value = self.public_dns_name if self.route53_use_public_dns_name else self.public_ipv4
+        self.route53_private = defn.route53_private
+
+        if self.route53_private:
+            if self.route53_use_public_dns_name:
+                raise Exception("Can not add record for ‘{0}’, because private CNAME records are not implemented in NixOps. You may choose to use an ‘A’ record instead by setting ‘usePublicDNSName = false’.".format(self.dns_hostname))
+
+            record_type = 'A'
+            dns_value = self.private_ipv4
+
+        else:
+            if not self.public_ipv4:
+                raise Exception("No public ipv4 address has been associated with ‘{0}’. If this record is intended for a public cloud host, make sure it is defined and its public IP address is known to NixOps. If this is record is intended for a private cloud, use ‘private = true’ to use the private IP adress instead.".format(self.dns_hostname))
+
+            record_type = 'CNAME' if self.route53_use_public_dns_name else 'A'
+            dns_value = self.public_dns_name if self.route53_use_public_dns_name else self.public_ipv4
 
         self.log('sending Route53 DNS: {0} {1} {2}'.format(self.dns_hostname, record_type, dns_value))
 
