@@ -31,6 +31,17 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.keys = {k.get("name"): _extract_key_options(k) for k in
                      xml.findall("attrs/attr[@name='keys']/attrs/attr")}
 
+        def _extract_keyDir_options(x):
+            opts = {}
+            for keyDir in ('path', 'user', 'group', 'dirPermissions', 'filePermissions'):
+                elem = x.find("attrs/attr[@name='{0}']/string".format(keyDir))
+                if elem is not None:
+                    opts[keyDir] = elem.get("value")
+            return opts
+
+        self.keyDirs = {d.get("name"): _extract_keyDir_options(d) for d in
+                     xml.findall("attrs/attr[@name='keyDirs']/attrs/attr")}      
+
 
 class MachineState(nixops.resources.ResourceState):
     """Base class for NixOps machine state objects."""
@@ -42,6 +53,7 @@ class MachineState(nixops.resources.ResourceState):
     public_vpn_key = nixops.util.attr_property("publicVpnKey", None)
     store_keys_on_machine = nixops.util.attr_property("storeKeysOnMachine", True, bool)
     keys = nixops.util.attr_property("keys", {}, 'json')
+    keyDirs = nixops.util.attr_property("keyDirs", {}, 'json')
     owners = nixops.util.attr_property("owners", [], 'json')
 
     # Nix store path of the last global configuration deployed to this
@@ -80,6 +92,7 @@ class MachineState(nixops.resources.ResourceState):
     def set_common_state(self, defn):
         self.store_keys_on_machine = defn.store_keys_on_machine
         self.keys = defn.keys
+        self.keyDirs = defn.keyDirs
         self.ssh_port = defn.ssh_port
         self.has_fast_connection = defn.has_fast_connection
 
@@ -239,8 +252,41 @@ class MachineState(nixops.resources.ResourceState):
             os.remove(tmp)
         self.run_command("touch /run/keys/done")
 
+        for d, opts in self.get_keyDirs().items():
+            self.log("uploading keyDir ‘{0}’...".format(d))
+            destdir = "/run/keys/" + d
+            #force scp to copy the contents of the directory if it already exists
+            scppath = opts['path'].rstrip("/")+"/."
+            self.upload_file(scppath, destdir, recursive=True)
+            self.run_command(
+              ' '.join([
+                # chown only if user and group exist,
+                # else leave root:root owned
+                "(",
+                " getent passwd '{1}' >/dev/null &&",
+                " getent group '{2}' >/dev/null &&",
+                " chown -R '{1}:{2}' {0}",
+                ");",
+                # chmod either way
+                "chmod -R '{3}' {0};",
+                # set file permissions
+                "find '{0}' -type f -exec chmod {4} {{}} \;"
+              ])
+              .format(
+                destdir,
+                opts['user'],
+                opts['group'],
+                opts['dirPermissions'],
+                opts['filePermissions']
+              )
+            )
+        self.run_command("touch /run/keys/done_dirs")
+
     def get_keys(self):
         return self.keys
+
+    def get_keyDirs(self):
+        return self.keyDirs
 
     def get_ssh_name(self):
         assert False

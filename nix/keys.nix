@@ -44,6 +44,59 @@ let
     };
   };
 
+    keyDirOptionsType = types.submodule {
+    options.path = mkOption {
+      example = "./my-secret-directory/";
+      type = types.str;
+      description = ''
+        The path to the directory that contains keys. May have a trailing slash
+        or not. Sub-directories of the path will also be copied. So if the
+        keyDir name is <replaceable>dir</replaceable> and
+        <literal>/path/to/dir</literal> is set here, the contents of the
+        directory <filename>/run/keys/<replaceable>dir</replaceable></filename>
+        will be the contents of <literal>/path/to/dir</literal>.
+      '';
+    };
+
+    options.user = mkOption {
+      default = "root";
+      type = types.str;
+      description = ''
+        The user which will be the owner of the key directory.
+      '';
+    };
+
+    options.group = mkOption {
+      default = "root";
+      type = types.str;
+      description = ''
+        The group that will be set for the key directory.
+      '';
+    };
+
+    options.dirPermissions = mkOption {
+      default = "0700";
+      example = "0750";
+      type = types.str;
+      description = ''
+        The default permissions to set for the key directory and sub-directories,
+        needs to be in the format accepted by <citerefentry><refentrytitle>chmod
+        </refentrytitle><manvolnum>1</manvolnum></citerefentry>. Permissions set
+        here will not be set for files inside the directory.
+      '';
+    };
+    options.filePermissions = mkOption {
+      default = "0600";
+      example = "0640";
+      type = types.str;
+      description = ''
+        The default permissions to set for the key files inside the key directory,
+        needs to be in the format accepted by <citerefentry><refentrytitle>chmod
+        </refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+      '';
+    };
+  };
+
   convertOldKeyType = key: val: let
     warning = "Using plain strings for `deployment.keys' is"
             + " deprecated, please use `deployment.keys.${key}.text ="
@@ -60,6 +113,12 @@ let
       };
     in keyOptionsType.merge loc (map convert defs);
     inherit (keyOptionsType) getSubOptions;
+  };
+
+  keyDirType = mkOptionType {
+    name = "keyDir options";
+    check = v: keyDirOptionsType.check v;
+    inherit (keyDirOptionsType) merge getSubOptions;
   };
 
 in
@@ -108,6 +167,22 @@ in
       '';
     };
 
+    deployment.keyDirs = mkOption {
+      default = {};
+      example = { dir.path = "/foo/bar"; };
+      type = types.attrsOf keyDirType;
+      description = ''
+        The set of key directories to be deployed to the machine. Each attribute maps
+        a keyDir name to a directory that can be accessed as
+        <filename>/run/keys/<replaceable>name</replaceable></filename>.
+        Thus, <literal>{ dir.path = "/foo/bar"; }</literal> causes a directory
+        <filename>/run/keys/dir</filename> to be created with contents of
+        <literal>/foo/bar</literal>. The directory <filename>/run/keys</filename> is
+        only accessible to root and the <literal>keys</literal> group, so keep in mind
+        to add any users that need to have access to a particular key to this group.
+      '';
+    };
+
   };
 
 
@@ -151,9 +226,11 @@ in
         ))}
       '';
 
+    #Deploying keyDirs is not supported while storeKeysOnMachine is set to true. nixops-keys will listen for 
+    #/run/keys/dirs_done only if storeKeysOnMachine is set to false
     systemd.services = (
       { nixops-keys =
-        { enable = config.deployment.keys != {};
+        { enable = (config.deployment.keys != {} || (! config.deployment.storeKeysOnMachine && config.deployment.keyDirs != {}));
           description = "Waiting for NixOps Keys";
           wantedBy = [ "keys.target" ];
           before = [ "keys.target" ];
@@ -162,9 +239,18 @@ in
           serviceConfig.RemainAfterExit = true;
           script =
             ''
-              while ! [ -e /run/keys/done ]; do
-                sleep 0.1
-              done
+              ${optionalString (config.deployment.keys != {})
+                ''
+                  while ! [ -e /run/keys/done ]; do
+                    sleep 0.1
+                  done
+                ''}
+              ${optionalString (! config.deployment.storeKeysOnMachine && config.deployment.keyDirs != {})
+                ''
+                  while ! [ -e /run/keys/dirs_done ]; do
+                    sleep 0.1
+                  done
+                ''}
             '';
         };
       }
