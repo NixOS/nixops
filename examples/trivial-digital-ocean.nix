@@ -6,6 +6,7 @@
     services.openssh.enable = true;
 
     deployment.targetEnv = "digitalOcean";
+    deployment.digitalOcean.enableIpv6 = true;
     deployment.digitalOcean.region = "ams2";
     deployment.digitalOcean.size = "512mb";
   };

@@ -1400,8 +1400,8 @@ and destruction.</para>
 
 <para><xref linkend="ex-trivial-digital-ocean.nix" /> shows how to run
 a <literal>512m</literal> digital ocean instance in the
-<literal>ams2</literal> region. We only support droplet creation and
-destruction at the moment.
+<literal>ams2</literal> region, with IPv6 support enabled. We only
+support droplet creation and destruction at the moment.
 </para>
 
 <para>Note that we rely on a ssh key resource with the hard-coded name
@@ -1419,6 +1419,7 @@ destruction at the moment.
     services.openssh.enable = true;
 
     deployment.targetEnv = "digitalOcean";
+    deployment.digitalOcean.enableIpv6 = true;
     deployment.digitalOcean.region = "ams2";
     deployment.digitalOcean.size = "512mb";
   };
