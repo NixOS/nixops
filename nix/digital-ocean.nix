@@ -41,6 +41,14 @@ in
         https://developers.digitalocean.com/documentation/v2/#list-all-sizes
       '';
     };
+
+    deployment.digitalOcean.enableIpv6 = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        Whether to enable IPv6 support on the droplet.
+      '';
+    };
   };
 
   config = mkIf (config.deployment.targetEnv == "digitalOcean") {

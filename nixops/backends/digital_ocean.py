@@ -42,6 +42,7 @@ class DigitalOceanDefinition(MachineDefinition):
         self.auth_token = config["digitalOcean"]["authToken"]
         self.region = config["digitalOcean"]["region"]
         self.size = config["digitalOcean"]["size"]
+        self.enable_ipv6 = config["digitalOcean"]["enableIpv6"]
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -56,6 +57,9 @@ class DigitalOceanState(MachineState):
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     default_gateway = nixops.util.attr_property("defaultGateway", None)
     netmask = nixops.util.attr_property("netmask", None)
+    enable_ipv6 = nixops.util.attr_property("digitalOcean.enableIpv6", False, bool)
+    public_ipv6 = nixops.util.attr_property("publicIpv6", {}, 'json')
+    default_gateway6 = nixops.util.attr_property("defaultGateway6", None)
     region = nixops.util.attr_property("digitalOcean.region", None)
     size = nixops.util.attr_property("digitalOcean.size", None)
     auth_token = nixops.util.attr_property("digitalOcean.authToken", None)
@@ -78,17 +82,21 @@ class DigitalOceanState(MachineState):
         ]
 
     def get_physical_spec(self):
-        prefixLength = bin(int(socket.inet_aton(self.netmask).encode('hex'), 16)).count('1')
+        def prefix_len(netmask):
+            return bin(int(socket.inet_aton(netmask).encode('hex'), 16)).count('1')
+        networking = {
+            'defaultGateway': self.default_gateway,
+            'nameservers': ['8.8.8.8'], # default provided by DO
+            ('interfaces', 'enp0s3', 'ip4'): [{"address": self.public_ipv4, 'prefixLength': prefix_len(self.netmask)}],
+        }
+        if self.public_ipv6:
+            networking[('interfaces', 'enp0s3', 'ip6')] = [{'address': self.public_ipv6['address'], 'prefixLength': self.public_ipv6['prefixLength']}]
+        if self.default_gateway6:
+            networking['defaultGateway6'] = self.default_gateway6
 
         return Function("{ ... }", {
             'imports': [ RawValue('<nixpkgs/nixos/modules/profiles/qemu-guest.nix>') ],
-            'networking': {
-                'defaultGateway': self.default_gateway,
-                'nameservers': ['8.8.8.8'], # default provided by DO
-                ('interfaces', 'enp0s3'): {
-                    'ip4': [{"address": self.public_ipv4, 'prefixLength': prefixLength}],
-                },
-            },
+            'networking': networking,
             ('boot', 'loader', 'grub', 'device'): 'nodev', # keep ubuntu bootloader?
             ('fileSystems', '/'): { 'device': '/dev/vda1', 'fsType': 'ext4'},
             ('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [self.depl.active_resources.get('ssh-key').public_key],
@@ -138,6 +146,7 @@ class DigitalOceanState(MachineState):
             token=self.auth_token,
             name=self.name,
             region=defn.region,
+            ipv6=defn.enable_ipv6,
             ssh_keys=[ssh_key.public_key],
             image='ubuntu-16-04-x64', # only for lustration
             size_slug=defn.size,
@@ -168,6 +177,19 @@ class DigitalOceanState(MachineState):
         # API but networks is an array nevertheless.
         self.default_gateway = droplet.networks['v4'][0]['gateway']
         self.netmask = droplet.networks['v4'][0]['netmask']
+
+        first_ipv6 = {}
+        first_gw6 = None
+        if 'v6' in droplet.networks:
+            public_ipv6_networks = [n for n in droplet.networks['v6'] if n['type'] == 'public']
+            if len(public_ipv6_networks) > 0:
+                # The DigitalOcean API does not expose an explicit
+                # default interface or gateway, so assume this is it.
+                first_ipv6['address'] = public_ipv6_networks[0]['ip_address']
+                first_ipv6['prefixLength'] = public_ipv6_networks[0]['netmask']
+                first_gw6 = public_ipv6_networks[0]['gateway']
+        self.public_ipv6 = first_ipv6
+        self.default_gateway6 = first_gw6
 
         # run modified nixos-infect
         # - no reboot
