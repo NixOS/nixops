@@ -289,6 +289,7 @@ rec {
           hetzner = optionalAttrs (v.config.deployment.targetEnv == "hetzner") v.config.deployment.hetzner;
           container = optionalAttrs (v.config.deployment.targetEnv == "container") v.config.deployment.container;
           route53 = v.config.deployment.route53;
+          vultr = optionalAttrs (v.config.deployment.targetEnv == "vultr") v.config.deployment.vultr;
           virtualbox =
             let cfg = v.config.deployment.virtualbox; in
             optionalAttrs (v.config.deployment.targetEnv == "virtualbox") (cfg

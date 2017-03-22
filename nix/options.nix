@@ -24,6 +24,7 @@ in
       ./hetzner.nix
       ./container.nix
       ./libvirtd.nix
+      ./vultr.nix
     ];
 
 
