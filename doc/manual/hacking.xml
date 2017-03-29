@@ -59,7 +59,7 @@ filter on one or more tags.
 To run e.g. only the virtualbox tests, run:
 
 <screen>
-$ python 2 tests.py tests.functional -A vbox
+$ python2 tests.py tests.functional -A vbox
 </screen>
 
 
