@@ -870,7 +870,7 @@ $ nixops destroy</screen>
 <para>To destroy the machine named <literal>foo</literal>:
 
 <screen>
-$ nixops destroy foo</screen>
+$ nixops destroy --include foo</screen>
 
 </para>
 
