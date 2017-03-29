@@ -695,7 +695,7 @@ subparsers = parser.add_subparsers(help='sub-command help')
 def add_subparser(name, help):
     subparser = subparsers.add_parser(name, help=help)
     subparser.add_argument('--state', '-s', dest='state_url', metavar='FILE',
-                           default=os.environ.get("NIXOPS_STATE_URL", nixops.state.file.get_default_state_file()), help='URL that points to the state provider.')
+                           default=os.environ.get("NIXOPS_STATE_URL", nixops.state.sqlite3_file.get_default_state_file()), help='URL that points to the state provider.')
     subparser.add_argument('--deployment', '-d', dest='deployment', metavar='UUID_OR_NAME',
                            default=os.environ.get("NIXOPS_DEPLOYMENT", os.environ.get("CHARON_DEPLOYMENT", None)), help='UUID or symbolic name of the deployment')
     subparser.add_argument('--debug', action='store_true', help='enable debug output')
