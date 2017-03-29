@@ -133,9 +133,6 @@ class JsonFile(object):
             if version  > 0:
                raise Exception("this NixOps version is too old to deal with JSON schema version {0}".format(version))
 
-        # The "db" will provide atomicity as well.
-        self.atomic = self.db
-
     ###############################################################################################
     ## Deployment
 

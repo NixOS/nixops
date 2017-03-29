@@ -499,7 +499,7 @@ def op_import():
     for uuid, attrs in dump.iteritems():
         if uuid in existing:
             raise Exception("state file already contains a deployment with UUID ‘{0}’".format(uuid))
-        with state.atomic:
+        with state.db:
             depl = state.create_deployment(uuid=uuid)
             depl.import_(attrs)
         sys.stderr.write("added deployment ‘{0}’\n".format(uuid))

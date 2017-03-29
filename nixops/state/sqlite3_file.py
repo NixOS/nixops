@@ -104,20 +104,18 @@ class StateFile(object):
             else:
                 raise Exception("this NixOps version is too old to deal with schema version {0}".format(version))
 
-        self.__db = db
+        self.db = db
 
-        # TODO; implement some other special wrapper that ONLY does the transaction stuff.
-        self.atomic = db
 
     def close(self):
-        self.__db.close()
+        self.db.close()
 
     ###############################################################################################
     ## Deployment
 
     def query_deployments(self):
         """Return the UUIDs of all deployments in the database."""
-        c = self.__db.cursor()
+        c = self.db.cursor()
         c.execute("select uuid from Deployments")
         res = c.fetchall()
         return [x[0] for x in res]
@@ -134,7 +132,7 @@ class StateFile(object):
         return res
 
     def _find_deployment(self, uuid=None):
-        c = self.__db.cursor()
+        c = self.db.cursor()
         if not uuid:
             c.execute("select uuid from Deployments")
         else:
@@ -167,18 +165,18 @@ class StateFile(object):
         if not uuid:
             import uuid
             uuid = str(uuid.uuid1())
-        with self.__db:
-            self.__db.execute("insert into Deployments(uuid) values (?)", (uuid,))
+        with self.db:
+            self.db.execute("insert into Deployments(uuid) values (?)", (uuid,))
         return nixops.deployment.Deployment(self, uuid, sys.stderr)
 
     def _delete_deployment(self, deployment_uuid):
         """NOTE: This is UNSAFE, it's guarded in nixops/deployment.py. Do not call this function except from there!"""
-        self.__db.execute("delete from Deployments where uuid = ?", (deployment_uuid,))
+        self.db.execute("delete from Deployments where uuid = ?", (deployment_uuid,))
 
     def clone_deployment(self, deployment_uuid):
-        with self.__db:
+        with self.db:
             new = self.create_deployment()
-            self.__db.execute("insert into DeploymentAttrs (deployment, name, value) " +
+            self.db.execute("insert into DeploymentAttrs (deployment, name, value) " +
                              "select ?, name, value from DeploymentAttrs where deployment = ?",
                              (new.uuid, deployment_uuid))
             new.configs_path = None
@@ -189,8 +187,8 @@ class StateFile(object):
     def get_resources_for(self, deployment):
         """Get all the resources for a certain deployment"""
         resources = {}
-        with self.__db:
-            c = self.__db.cursor()
+        with self.db:
+            c = self.db.cursor()
             c.execute("select id, name, type from Resources where deployment = ?", (deployment.uuid,))
             for (id, name, type) in c.fetchall():
                 r = self._create_state(deployment, type, name, id)
@@ -199,8 +197,8 @@ class StateFile(object):
 
     def set_deployment_attrs(self, deployment_uuid, attrs):
         """Update deployment attributes in the state."""
-        with self.__db:
-            c = self.__db.cursor()
+        with self.db:
+            c = self.db.cursor()
             for n, v in attrs.iteritems():
                 if v == None:
                     c.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (deployment_uuid, n))
@@ -209,22 +207,22 @@ class StateFile(object):
                               (deployment_uuid, n, v))
 
     def del_deployment_attr(self, deployment_uuid, attr_name):
-        with self.__db:
-            self.__db.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (deployment_uuid, attr_name))
+        with self.db:
+            self.db.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (deployment_uuid, attr_name))
 
 
     def get_deployment_attr(self, deployment_uuid, name):
         """Get a deployment attribute from the state."""
-        with self.__db:
-            c = self.__db.cursor()
+        with self.db:
+            c = self.db.cursor()
             c.execute("select value from DeploymentAttrs where deployment = ? and name = ?", (deployment_uuid, name))
             row = c.fetchone()
             if row != None: return row[0]
             return nixops.util.undefined
 
     def get_all_deployment_attrs(self, deployment_uuid):
-        with self.__db:
-            c = self.__db.cursor()
+        with self.db:
+            c = self.db.cursor()
             c.execute("select name, value from DeploymentAttrs where deployment = ?", (deployment_uuid))
             rows = c.fetchall()
             res = {row[0]: row[1] for row in rows}
@@ -258,7 +256,7 @@ class StateFile(object):
     ## Resources
 
     def create_resource(self, deployment, name, type):
-        c = self.__db.cursor()
+        c = self.db.cursor()
         c.execute("select 1 from Resources where deployment = ? and name = ?", (deployment.uuid, name))
         if len(c.fetchall()) != 0:
             raise Exception("resource already exists in database!")
@@ -269,18 +267,18 @@ class StateFile(object):
         return r
 
     def delete_resource(self, deployment_uuid, res_id):
-        with self.__db:
-            self.__db.execute("delete from Resources where deployment = ? and id = ?", (deployment_uuid, res_id))
+        with self.db:
+            self.db.execute("delete from Resources where deployment = ? and id = ?", (deployment_uuid, res_id))
 
     def _rename_resource(self, deployment_uuid, resource_id, new_name):
         """NOTE: Invariants are checked in nixops/deployment.py#rename"""
-        with self.__db:
-            self.__db.execute("update Resources set name = ? where deployment = ? and id = ?", (new_name, deployment_uuid, resource_id))
+        with self.db:
+            self.db.execute("update Resources set name = ? where deployment = ? and id = ?", (new_name, deployment_uuid, resource_id))
 
 
     def set_resource_attrs(self, _deployment_uuid, resource_id, attrs):
-        with self.__db:
-            c = self.__db.cursor()
+        with self.db:
+            c = self.db.cursor()
             for n, v in attrs.iteritems():
                 if v == None:
                     c.execute("delete from ResourceAttrs where machine = ? and name = ?", (resource_id, n))
@@ -289,21 +287,21 @@ class StateFile(object):
                               (resource_id, n, v))
 
     def del_resource_attr(self, _deployment_uuid, resource_id, name):
-        with self.__db:
-            self.__db.execute("delete from ResourceAttrs where machine = ? and name = ?", (resource_id, name))
+        with self.db:
+            self.db.execute("delete from ResourceAttrs where machine = ? and name = ?", (resource_id, name))
 
     def get_resource_attr(self, _deployment_uuid, resource_id, name):
         """Get a machine attribute from the state file."""
-        with self.__db:
-            c = self.__db.cursor()
+        with self.db:
+            c = self.db.cursor()
             c.execute("select value from ResourceAttrs where machine = ? and name = ?", (resource_id, name))
             row = c.fetchone()
             if row != None: return row[0]
             return nixops.util.undefined
 
     def get_all_resource_attrs(self, deployment_uuid, resource_id):
-        with self.__db:
-            c = self.__db.cursor()
+        with self.db:
+            c = self.db.cursor()
             c.execute("select name, value from ResourceAttrs where machine = ?", (resource_id,))
             rows = c.fetchall()
             res = {row[0]: row[1] for row in rows}

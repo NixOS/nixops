@@ -106,7 +106,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
                 if 'errors' in response:
                     raise Exception(str(response['errors']))
 
-        with self.depl._state.atomic:
+        with self.depl._state.db:
             self.state = self.UP
             self.api_key = defn.config['apiKey']
             self.app_key = defn.config['appKey']

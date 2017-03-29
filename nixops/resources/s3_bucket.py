@@ -101,7 +101,7 @@ class S3BucketState(nixops.resources.ResourceState):
                     # [http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETEpolicy.html]
                     if e.status != 204: raise # (204 : Bucket didn't have any policy to delete)
 
-            with self.depl._state.atomic:
+            with self.depl._state.db:
                 self.state = self.UP
                 self.bucket_name = defn.bucket_name
                 self.region = defn.region

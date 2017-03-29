@@ -144,7 +144,7 @@ class Deployment(object):
 
 
     def import_(self, attrs):
-        with self._state.atomic:
+        with self._state.db:
             for k, v in attrs.iteritems():
                 if k == 'resources': continue
                 self._set_attr(k, v)
@@ -169,7 +169,7 @@ class Deployment(object):
 
     def delete(self, force=False):
         """Delete this deployment from the state file."""
-        with self._state.atomic:
+        with self._state.db:
             if not force and len(self.resources) > 0:
                 raise Exception("cannot delete this deployment because it still has resources")
 
@@ -774,7 +774,7 @@ class Deployment(object):
         self.evaluate()
 
         # Create state objects for all defined resources.
-        with self._state.atomic:
+        with self._state.db:
             for m in self.definitions.itervalues():
                 if m.name not in self.resources:
                     self._create_resource(m.name, m.get_type())
