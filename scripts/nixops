@@ -5,7 +5,7 @@ from nixops import deployment
 from nixops.nix_expr import py2nix
 from nixops.parallel import MultipleExceptions, run_tasks
 
-import nixops.state.file
+import nixops.state.sqlite3_file
 import prettytable
 import argparse
 import os
