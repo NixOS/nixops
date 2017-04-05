@@ -50,6 +50,7 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
 
         scheduling = x.find("attr[@name='scheduling']")
         self.copy_option(scheduling, 'automaticRestart', bool)
+        self.copy_option(scheduling, 'preemptible', bool)
         self.copy_option(scheduling, 'onHostMaintenance', str)
 
         self.ipAddress = self.get_option_value(x, 'ipAddress', 'resource', optional = True)
@@ -116,6 +117,7 @@ class GCEState(MachineState, ResourceState):
     tags = attr_property("gce.tags", None, 'json')
     metadata = attr_property("gce.metadata", {}, 'json')
     automatic_restart = attr_property("gce.scheduling.automaticRestart", None, bool)
+    preemptible = attr_property("gce.scheduling.preemptible", None, bool)
     on_host_maintenance = attr_property("gce.scheduling.onHostMaintenance", None)
     ipAddress = attr_property("gce.ipAddress", None)
     network = attr_property("gce.network", None)
@@ -240,6 +242,7 @@ class GCEState(MachineState, ResourceState):
                         self.state = self.STOPPED
 
                     self.handle_changed_property('region', node.extra['zone'].name, can_fix = False)
+                    self.handle_changed_property('preemptible', node.extra['scheduling']['preemptible'], can_fix = False)
 
                     # a bit hacky but should work
                     network_name = node.extra['networkInterfaces'][0]['network'].split('/')[-1]
@@ -387,6 +390,7 @@ class GCEState(MachineState, ResourceState):
                 raise Exception("no boot disk found for {0}".format(self.full_name))
             try:
                 node = self.connect().create_node(self.machine_name, defn.instance_type, "",
+                                 ex_preemptible = (defn.preemptible if defn.preemptible else None),
                                  location = self.connect().ex_get_zone(defn.region),
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk.get('region', None)),
                                  ex_metadata = self.full_metadata(defn.metadata), ex_tags = defn.tags,
