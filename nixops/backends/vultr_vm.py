@@ -75,11 +75,13 @@ class VultrState(MachineState):
         return super_state_flags
 
     def get_physical_spec(self):
-        return {
+        return Function("{ ... }", {
+            'imports': [ RawValue('<nixpkgs/nixos/modules/profiles/qemu-guest.nix>') ],
+            ('config', 'boot', 'initrd', 'availableKernelModules'): [ "ata_piix", "uhci_hcd", "virtio_pci", "sr_mod", "virtio_blk" ],
             ('config', 'boot', 'loader', 'grub', 'device'): '/dev/vda',
             ('config', 'fileSystems', '/'): { 'device': '/dev/vda1', 'fsType': 'btrfs'},
             ('config', 'users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [self._ssh_public_key]
-        }
+        })
 
     def get_ssh_private_key_file(self):
         if self._ssh_private_key_file:

@@ -1494,6 +1494,45 @@ xlink:href="https://github.com/elitak/nixos-infect">nixos-infect</link>
 <literal>NIXOS_LUSTRATE</literal> under the hood.
 </para>
 </section>
+<section xml:id="sec-deploying-to-vultr"><title>Deploying to Vultr</title>
+
+<para><xref linkend="ex-trivial-vultr.nix" /> shows how to run
+a vultr instance. We only support instance creation and
+destruction at the moment.
+</para>
+
+<para>Note that an image needs created in vultr using an iso with your default ssh
+  key for deployment. Follow these
+<link xlink:href="https://www.vultr.com/docs/install-nixos-on-vultr">directions</link>
+to setup an image using nixos. Make sure to assign a public <literal>ssh-key</literal>
+to root in configuration.nix and allow root login with key. This key is only used
+for initial connection and a new key stored in the nixops state will be used for future connections. After booting the instance, create a snapshot in the vultr UI.
+</para>
+
+<example xml:id="ex-trivial-vultr.nix">
+  <title><filename>trivial-vultr.nix</filename>: A trivial vultr setup</title>
+<programlisting>
+{
+  machine = { config, pkgs, ... }: {
+    services.nginx.enable = true;
+    services.openssh.enable = true;
+
+    deployment.targetEnv = "vultr";
+    deployment.vultr.snapshotid = "xxxxxxxxxxxxx";
+    deployment.vultr.dcid = "1";
+    deployment.vultr.vpsplanid = "201";
+    deployment.vultr.label = "dev01.mydomain.com";
+  };
+}
+</programlisting>
+</example>
+
+<para>The snapshotid can be retrieved from the UI or API for the snapshot
+created in the first step. A list of vps plan id's can be retrieved from the
+API call <literal>/v1/plans/list</literal> and the list of dc id's can be
+retrieved from the API call <literal>/v1/regions/list</literal>.</para>
+
+</section>
 
 <section><title>Deploying to Libvirtd (Qemu)</title>
 
