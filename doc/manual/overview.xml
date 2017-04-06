@@ -1481,7 +1481,24 @@ and libvirtd specification <literal>example-libvirtd.nix</literal>:
 </programlisting>
 </para>
 
+<para>Finally, let's deploy it with NixOps:
+
+<programlisting>
+  $ nixops create -d example-libvirtd ./example.nix ./example-libvirtd.nix
+  $ nixops deploy -d example-libvirtd
+</programlisting>
+</para>
+
+<warning>
+<para>Note that headless mode has to be turned ON for the moment in order to
+  avoid X permissions error currently
+  <link xlink:href="https://github.com/NixOS/nixops/issues/422">
+  known to be broken upstream</link>
+</para>
+</warning>
+
 <note>
+
 <title>Serial console:</title>
 <para>If you want to access the serial console of the guest (<literal>virsh
 console</literal>) we also need the following:
@@ -1503,22 +1520,6 @@ deployment.libvirtd.extraDevicesXML = ''
 <tip>In order to log in you have to set a (root) password.</tip>
 </para>
 </note>
-
-<para>Finally, let's deploy it with NixOps:
-
-<programlisting>
-  $ nixops create -d example-libvirtd ./example.nix ./example-libvirtd.nix
-  $ nixops deploy -d example-libvirtd
-</programlisting>
-</para>
-
-<warning>
-<para>Note that headless mode has to be turned ON for the moment in order to
-  avoid X permissions error currently
-  <link xlink:href="https://github.com/NixOS/nixops/issues/422">
-  known to be broken upstream</link>
-</para>
-</warning>
 
 </section>
 
