@@ -35,7 +35,6 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
         MachineDefinition.__init__(self, xml, config)
         x = xml.find("attrs/attr[@name='gce']/attrs")
         assert x is not None
-
         self.copy_option(x, 'machineName', str)
 
         self.copy_option(x, 'region', str)
@@ -51,6 +50,10 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
         scheduling = x.find("attr[@name='scheduling']")
         self.copy_option(scheduling, 'automaticRestart', bool)
         self.copy_option(scheduling, 'onHostMaintenance', str)
+
+        instance_service_account = x.find("attr[@name='instanceServiceAccount']")
+        self.copy_option(instance_service_account, "email", str)
+        self.copy_option(instance_service_account, "scopes", 'strlist')
 
         self.ipAddress = self.get_option_value(x, 'ipAddress', 'resource', optional = True)
         self.copy_option(x, 'network', 'resource', optional = True)
@@ -115,6 +118,8 @@ class GCEState(MachineState, ResourceState):
 
     tags = attr_property("gce.tags", None, 'json')
     metadata = attr_property("gce.metadata", {}, 'json')
+    email = attr_property("gce.serviceAccountEmail", 'default')
+    scopes = attr_property("gce.serviceAccountScopes", [], 'json')
     automatic_restart = attr_property("gce.scheduling.automaticRestart", None, bool)
     on_host_maintenance = attr_property("gce.scheduling.onHostMaintenance", None)
     ipAddress = attr_property("gce.ipAddress", None)
@@ -198,6 +203,7 @@ class GCEState(MachineState, ResourceState):
             self.update_block_device_mapping(k, v)
 
     defn_properties = ['tags', 'region', 'instance_type',
+                       'email', 'scopes',
                        'metadata', 'ipAddress', 'network']
 
     def is_deployed(self):
@@ -363,6 +369,10 @@ class GCEState(MachineState, ResourceState):
                 recreate = True
                 self.warn("change of the network requires a reboot")
 
+            if self.email != defn.email or self.scopes != defn.scopes:
+                recreate = True
+                self.warn('change of service account requires a reboot')
+
             for k, v in self.block_device_mapping.iteritems():
                 defn_v = defn.block_device_mapping.get(k, None)
                 if defn_v and not v.get('needsAttach', False):
@@ -377,19 +387,32 @@ class GCEState(MachineState, ResourceState):
             if not allow_reboot:
                 raise Exception("reboot is required for the requested changes; please run with --allow-reboot")
             self.stop()
+
         self.create_node(defn)
+        if self.node().state == NodeState.STOPPED:
+            self.start()
 
     def create_node(self, defn):
+
         if not self.vm_id:
             self.log("creating {0}...".format(self.full_name))
             boot_disk = next((v for k,v in defn.block_device_mapping.iteritems() if v.get('bootDisk', False)), None)
             if not boot_disk:
                 raise Exception("no boot disk found for {0}".format(self.full_name))
             try:
+                service_accounts = []
+                account = { 'email': defn.email }
+                if defn.scopes != []:
+                    account['scopes'] = defn.scopes
+                service_accounts.append(account)
+                # keeping a gcloud like behavior, if nothing was specified
+                # i.e service account is default get the default scopes as well
+                if defn.email == 'default' and defn.scopes == []: service_accounts=None
+
                 node = self.connect().create_node(self.machine_name, defn.instance_type, "",
                                  location = self.connect().ex_get_zone(defn.region),
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk.get('region', None)),
-                                 ex_metadata = self.full_metadata(defn.metadata), ex_tags = defn.tags,
+                                 ex_metadata = self.full_metadata(defn.metadata), ex_tags = defn.tags, ex_service_accounts = service_accounts,
                                  external_ip = (self.connect().ex_get_address(defn.ipAddress) if defn.ipAddress else 'ephemeral'),
                                  ex_network = (defn.network if defn.network else 'default') )
             except libcloud.common.google.ResourceExistsError:
@@ -413,6 +436,18 @@ class GCEState(MachineState, ResourceState):
                                                   on_host_maintenance = defn.on_host_maintenance)
             self.automatic_restart = defn.automatic_restart
             self.on_host_maintenance = defn.on_host_maintenance
+
+        # Update service account
+        if self.email != defn.email or self.scopes != defn.scopes:
+            self.log('updating the service account')
+            node = self.node()
+            request = '/zones/%s/instances/%s/setServiceAccount' % (node.extra['zone'].name, node.name)
+            service_account = {}
+            service_account["email"] = defn.email
+            if defn.scopes != []: service_account["scopes"] = defn.scopes
+            self.connect().connection.async_request(request, method='POST', data=service_account)
+            self.email = defn.email
+            self.scopes = defn.scopes
 
         # Attach missing volumes
         for k, v in self.block_device_mapping.items():
