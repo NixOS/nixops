@@ -66,7 +66,6 @@ class VPCState(nixops.resources.ResourceState):
 
     def _destroy(self):
         self.state = self.MISSING
-        print "TODO destroy"
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
@@ -76,7 +75,6 @@ class VPCState(nixops.resources.ResourceState):
         self.region = defn.config['region']
         instance_tenancy = True if defn.config['instanceTenancy'] == 'true' else False
         enable_dns_support = True if defn.config['enableDnsSupport'] == 'true' else False
-        enable_dns_hostnames
 
         if self.state != self.UP:
             self.connect()

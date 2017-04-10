@@ -100,6 +100,7 @@ rec {
   resources.elasticFileSystemMountTargets = evalResources ./elastic-file-system-mount-target.nix (zipAttrs resourcesByType.elasticFileSystemMountTargets or []);
   resources.cloudwatchLogGroups = evalResources ./cloudwatch-log-group.nix (zipAttrs resourcesByType.cloudwatchLogGroups or []);
   resources.cloudwatchLogStreams = evalResources ./cloudwatch-log-stream.nix (zipAttrs resourcesByType.cloudwatchLogStreams or []);
+  resources.vpc = evalResources ./vpc.nix (zipAttrs resourcesByType.vpc or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Datadog resources
