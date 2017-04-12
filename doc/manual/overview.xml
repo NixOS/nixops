@@ -336,6 +336,28 @@ in
 
 </section>
 
+<section xml:id="sec-deploying-to-ec2"><title>Deploying to a NixOS machine</title>
+
+<para>To deploy to a machine that is already running NixOS, simply set
+<varname>deployment.targetHost</varname> to the IP address or host name of the machine,
+and leave <varname>deployment.targetEnv</varname> undefined.
+See <xref linkend="ex-physical-nixos.nix" />.
+</para>
+
+<example xml:id="ex-physical-nixos.nix">
+  <title><filename>trivial-nixos.nix</filename>: NixOS target physical network specification</title>
+<programlisting>
+{
+  webserver =
+    { config, pkgs, ... }:
+    { deployment.targetHost = "1.2.3.4";
+    };
+}
+</programlisting>
+</example>
+
+</section>
+
 <section xml:id="sec-deploying-to-ec2"><title>Deploying to Amazon EC2</title>
 
 <para><xref linkend="ex-physical-multi-ec2.nix" /> shows a physical
