@@ -28,6 +28,7 @@ with lib;
     };
 
     instanceTenancy = mkOption {
+      default = "default";
       type = types.str;
       description = ''
         The supported tenancy options for instances launched
@@ -36,16 +37,16 @@ with lib;
     };
     
     enableDnsSupport = mkOption {
-      default = null;
-      type = types.nullOr types.bool;
+      default = false;
+      type = types.bool;
       description = ''
         Specifies whether the DNS server provided by Amazon is enabled for the VPC.
       ''; 
     };
     
     enableDnsHostnames = mkOption {
-      default = null;
-      type = types.nullOr types.bool;
+      default = false;
+      type = types.bool;
       description = ''
         Specifies whether DNS hostnames are provided for the instances launched in this VPC.
         You can only set this attribute to true if EnableDnsSupport is also true.
@@ -53,8 +54,8 @@ with lib;
     };
 
     enableClassicLink = mkOption {
-      default = null;
-      type = types.nullOr types.bool;
+      default = false;
+      type = types.bool;
       description = ''
         Enables a VPC for ClassicLink. You can then link EC2-Classic instances to your
         ClassicLink-enabled VPC to allow communication over private IP addresses.
@@ -64,6 +65,6 @@ with lib;
       '';
     };
 
-  };
+  } // import ./common-ec2-options.nix { inherit lib; } ;
 
 }
