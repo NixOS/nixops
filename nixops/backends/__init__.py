@@ -199,6 +199,10 @@ class MachineState(nixops.resources.ResourceState):
         self.warn("machine ‘{0}’ doesn't have a rescue"
                   " system.".format(self.name))
 
+    @property
+    def key_dir(self):
+        return "/var/keys" if self.store_keys_on_machine else "/run/keys"
+
     def send_keys(self):
         if self.state == self.RESCUE:
             # Don't send keys when in RESCUE state, because we're most likely
@@ -206,14 +210,13 @@ class MachineState(nixops.resources.ResourceState):
             # so keys will probably end up being written to DISK instead of
             # into memory.
             return
-        if self.store_keys_on_machine: return
-        self.run_command("mkdir -m 0750 -p /run/keys"
-                         " && chown root:keys /run/keys")
+        key_dir = self.key_dir
+        self.run_command("mkdir -pm 0750 {0} && chown root:keys {0}".format(key_dir))
         for k, opts in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
             f = open(tmp, "w+"); f.write(opts['text']); f.close()
-            outfile = "/run/keys/" + k
+            outfile = os.path.join(key_dir, k)
             outfile_esc = "'" + outfile.replace("'", r"'\''") + "'"
             self.run_command("rm -f " + outfile_esc)
             self.upload_file(tmp, outfile)
@@ -237,7 +240,7 @@ class MachineState(nixops.resources.ResourceState):
               )
             )
             os.remove(tmp)
-        self.run_command("touch /run/keys/done")
+        self.run_command("touch {}/done".format(key_dir))
 
     def get_keys(self):
         return self.keys

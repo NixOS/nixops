@@ -115,41 +115,21 @@ in
 
   config = {
 
-    warnings = mkIf config.deployment.storeKeysOnMachine [(
-      "The use of `deployment.storeKeysOnMachine' imposes a security risk " +
-      "because all keys will be put in the Nix store and thus are world-" +
-      "readable. Also, this will have an impact on services like OpenSSH, " +
-      "which require strict permissions to be set on key files, so expect " +
-      "things to break."
-    )];
-
-    system.activationScripts.nixops-keys = stringAfter [ "users" "groups" ]
+    system.activationScripts.nixops-keys = stringAfter [ "users" "groups" ] (
       ''
         mkdir -p /run/keys -m 0750
         chown root:keys /run/keys
 
-        ${optionalString config.deployment.storeKeysOnMachine
-            (concatStrings (mapAttrsToList (name: value:
-              let
-                # FIXME: The key file should be marked as private once
-                # https://github.com/NixOS/nix/issues/8 is fixed.
-                keyFile = pkgs.writeText name value.text;
-              in "ln -sfn ${keyFile} /run/keys/${name}\n")
-              config.deployment.keys)
-            + ''
-              # FIXME: delete obsolete keys?
-              touch /run/keys/done
-            '')
-        }
-
-        ${concatStringsSep "\n" (flip mapAttrsToList config.deployment.keys (name: value:
-          # Make sure each key has correct ownership, since the configured owning
-          # user or group may not have existed when first uploaded.
-          ''
+        ${concatStrings (flip mapAttrsToList config.deployment.keys (name: value:
+          optionalString config.deployment.storeKeysOnMachine ''
+            ln -snf "/var/keys/${name}" "/run/keys/${name}"
+          '' + ''
             [[ -f "/run/keys/${name}" ]] && chown '${value.user}:${value.group}' "/run/keys/${name}"
           ''
         ))}
-      '';
+      '' + lib.optionalString config.deployment.storeKeysOnMachine ''
+        ln -snf /var/keys/done /run/keys/done
+      '');
 
     systemd.services = (
       { nixops-keys =
