@@ -5,6 +5,7 @@
 import boto3
 import nixops.util
 import nixops.resources
+import nixops.resources.ec2_common
 import nixops.ec2_utils
 
 class VPCDefinition(nixops.resources.ResourceDefinition):
@@ -22,7 +23,7 @@ class VPCDefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class VPCState(nixops.resources.ResourceState):
+class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2CommonState):
     """State of a VPC."""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
@@ -80,7 +81,7 @@ class VPCState(nixops.resources.ResourceState):
         if not self.access_key_id:
             raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
-        if self.state == self.UP and (self.cidr_block != defn.config['cidr_block'] or self.region != defn.config['region']):
+        if self.state == self.UP and (self.cidr_block != defn.config['cidrBlock'] or self.region != defn.config['region']):
             self.warn("vpc definition changed, recreating...")
             self._destroy()
             self._client = None
@@ -94,15 +95,15 @@ class VPCState(nixops.resources.ResourceState):
         if self.state != self.UP:
             self.log("creating vpc under region {0}".format(defn.config['region']))
             vpc = self._client.create_vpc(CidrBlock=defn.config['cidrBlock'], InstanceTenancy=defn.config['instanceTenancy'])
-            print vpc
-            vpc_id = vpc.VpcId
+            print vpc.get('Vpc').get('VpcId')
+            vpc_id = vpc.get('Vpc').get('VpcId')
 
         if defn.config['enableClassicLink']:
             self.log("enabling vpc classic link")
             self._client.enable_vpc_classic_link(VpcId=vpc_id)
 
-        self._client.modify_vpc_attribute(VpcId=vpc_id, EnableDnsSupport=defn.config['enableDnsSupport'],
-                    enableDnsHostnames=defn.config['enableDnsHostnames'])
+        self._client.modify_vpc_attribute(VpcId=vpc_id, EnableDnsSupport={ 'Value': defn.config['enableDnsSupport'] })
+        self._client.modify_vpc_attribute(VpcId=vpc_id, EnableDnsHostnames={ 'Value': defn.config['enableDnsHostnames'] })
 
         if defn.config['enableClassicLink']:
             self._client.enable_vpc_classic_link(VpcId=vpc_id)
@@ -110,7 +111,7 @@ class VPCState(nixops.resources.ResourceState):
             self._client.disable_vpc_classic_link(VpcId=vpc_id)
 
         def tag_updater(tags):
-            self._client.create_tags(VpcId=vpc_id, Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+            self._client.create_tags(Resources=[ vpc_id ], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
         self.update_tags_using(tag_updater, user_tags=defn.config["tags"], check=check)
 
