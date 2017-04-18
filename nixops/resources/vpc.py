@@ -3,6 +3,7 @@
 # Automatic provisioning of AWS VPCs.
 
 import boto3
+import botocore
 import nixops.util
 import nixops.resources
 import nixops.resources.ec2_common
@@ -31,6 +32,10 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
     region = nixops.util.attr_property("region", None)
     cidr_block = nixops.util.attr_property("ec2.vpcCidrBlock", None)
+    instance_tenancy = nixops.util.attr_property("ec2.vpcInstanceTenancy", None)
+    enable_dns_support = nixops.util.attr_property("ec2.vpcEnableDnsSupport", None)
+    enable_dns_hostnames = nixops.util.attr_property("ec2.vpcEnableDnsHostnames", None)
+    enable_vpc_classic_link = nixops.util.attr_property("ec2.vpcEnableInstanceTenancy", None)
 
     @classmethod
     def get_type(cls):
@@ -67,7 +72,7 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
     def _destroy(self):
         if self.state != self.UP: return
         self.connect()
-        self.log("destroying VPC {0}...".format(self.vpc_id))
+        self.log("destroying vpc {0}...".format(self.vpc_id))
         self._client.delete_vpc(VpcId=self.vpc_id)
         with self.depl._db:
             self.state = self.MISSING
@@ -75,6 +80,10 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
             self.region = None
             self.cidr_block = None
             self.instance_tenancy = None
+            self.enable_dns_support = None
+            self.enable_dns_hostnames = None
+            self.enable_vpc_classic_link = None
+
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
@@ -92,10 +101,21 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
 
         vpc_id = self.vpc_id
 
-        if self.state != self.UP:
+        # handle vpcs that are deleted from outside nixops e.g console
+        existant=True
+        if self.vpc_id:
+            try:
+                self._client.describe_vpcs(VpcIds=[ self.vpc_id ])
+            except botocore.exceptions.ClientError as e:
+                if e.response ['Error']['Code'] == 'InvalidVpcID.NotFound':
+                    existant=False
+                else:
+                    raise e
+
+
+        if self.state != self.UP or not existant:
             self.log("creating vpc under region {0}".format(defn.config['region']))
             vpc = self._client.create_vpc(CidrBlock=defn.config['cidrBlock'], InstanceTenancy=defn.config['instanceTenancy'])
-            print vpc.get('Vpc').get('VpcId')
             vpc_id = vpc.get('Vpc').get('VpcId')
 
         if defn.config['enableClassicLink']:
@@ -121,6 +141,9 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
            self.region = defn.config['region']
            self.cidr_block = defn.config['cidrBlock']
            self.instance_tenancy = defn.config['instanceTenancy']
+           self.enable_dns_support = defn.config['enableDnsSupport']
+           self.enable_dns_hostnames = defn.config['enableDnsHostnames']
+           self.enable_vpc_classic_link = defn.config['enableClassicLink']
 
     def destroy(self, wipe=False):
         self._destroy()
