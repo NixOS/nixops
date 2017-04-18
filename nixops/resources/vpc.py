@@ -84,7 +84,6 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
             self.enable_dns_hostnames = None
             self.enable_vpc_classic_link = None
 
-
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
@@ -108,10 +107,10 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
                 self._client.describe_vpcs(VpcIds=[ self.vpc_id ])
             except botocore.exceptions.ClientError as e:
                 if e.response ['Error']['Code'] == 'InvalidVpcID.NotFound':
+                    self.warn("vpc {0} was deleted from outside nixops, it will be recreated...".format(self.vpc_id))
                     existant=False
                 else:
                     raise e
-
 
         if self.state != self.UP or not existant:
             self.log("creating vpc under region {0}".format(defn.config['region']))
