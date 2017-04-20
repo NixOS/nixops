@@ -65,6 +65,13 @@ with lib;
       '';
     };
 
+    vpcId = mkOption {
+      default = "";
+      type = types.str;
+      description = "The VPC id generated from AWS. This is set by NixOps";
+    };
+
   } // import ./common-ec2-options.nix { inherit lib; } ;
 
+  config._type = "vpc";
 }

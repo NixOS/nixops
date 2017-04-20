@@ -58,7 +58,7 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
         return {('resources', 'vpc'): attr}
 
     def get_physical_spec(self):
-        return {}
+        return { 'vpcId': self.vpc_id}
 
     def get_definition_prefix(self):
         return "resources.vpc."
@@ -73,6 +73,7 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
         if self.state != self.UP: return
         self.connect()
         self.log("destroying vpc {0}...".format(self.vpc_id))
+        # FIXME handle already deleted vpcs
         self._client.delete_vpc(VpcId=self.vpc_id)
         with self.depl._db:
             self.state = self.MISSING
