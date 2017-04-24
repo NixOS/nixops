@@ -102,6 +102,7 @@ rec {
   resources.cloudwatchLogStreams = evalResources ./cloudwatch-log-stream.nix (zipAttrs resourcesByType.cloudwatchLogStreams or []);
   resources.vpc = evalResources ./vpc.nix (zipAttrs resourcesByType.vpc or []);
   resources.vpcSubnets = evalResources ./vpc-subnet.nix (zipAttrs resourcesByType.vpcSubnets or []);
+  resources.vpcInternetGateways = evalResources ./vpc-internet-gateway.nix (zipAttrs resourcesByType.vpcInternetGateways or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Datadog resources
