@@ -2,6 +2,8 @@
 
 # Automatic provisioning of AWS VPC DHCP options.
 
+import json
+
 import boto3
 import botocore
 
@@ -37,7 +39,7 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
     domain_name_servers = nixops.util.attr_property("domainNameServers", [], 'json')
     ntp_servers = nixops.util.attr_property("ntpServers", [], 'json')
     netbios_name_servers = nixops.util.attr_property("netbiosNameServers", [], 'json')
-    netbios_node_type = nixops.util.attr_property("netbiosNodeType", None)
+    netbios_node_type = nixops.util.attr_property("netbiosNodeType", None, int)
 
     @classmethod
     def get_type(cls):
@@ -103,6 +105,7 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
         self.connect()
 
         vpc_id = defn.config['vpcId']
+        dhcp_options_id = self.dhcp_options_id
 
         if vpc_id.startswith("res-"):
             res = self.depl.get_typed_resource(vpc_id[4:], "vpc")
@@ -125,9 +128,9 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
 
         if self.state == self.UP:
             if (defn.config['domainName'] != self.domain_name or
-                defn.config['domainNameServers'] != self.domain_name_servers or
-                defn.config['ntpServers'] != self.ntp_servers or
-                defn.config['netbiosNameServers'] != self.netbios_name_servers or
+                json.dumps(defn.config['domainNameServers']) != json.dumps(self.domain_name_servers) or
+                json.dumps(defn.config['ntpServers']) != json.dumps(self.ntp_servers) or
+                json.dumps(defn.config['netbiosNameServers']) != json.dumps(self.netbios_name_servers) or
                 defn.config['netbiosNodeType'] != self.netbios_node_type):
                 if allow_recreate:
                     dhcp_options_id = create_dhcp_options(dhcp_config)
