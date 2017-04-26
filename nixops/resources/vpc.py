@@ -4,6 +4,7 @@
 
 import boto3
 import botocore
+
 import nixops.util
 import nixops.resources
 import nixops.resources.ec2_common

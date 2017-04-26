@@ -114,14 +114,11 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
         dhcp_config = self.generate_dhcp_configuration(defn.config)
 
         def create_dhcp_options(dhcp_config):
-            try:
-              response = self._client.create_dhcp_options(DhcpConfigurations=dhcp_config)
-            except Exception as e:
-                raise e
+            self.log("creating dhcp options...")
+            response = self._client.create_dhcp_options(DhcpConfigurations=dhcp_config)
             return response.get('DhcpOptions').get('DhcpOptionsId')
 
         if self.state != self.UP:
-            self.log("creating dhcp options...")
             dhcp_options_id = create_dhcp_options(dhcp_config)
             self.log("associating dhcp options {0} with vpc {1}".format(dhcp_options_id, vpc_id))
             self._client.associate_dhcp_options(DhcpOptionsId=dhcp_options_id, VpcId=vpc_id)
@@ -156,9 +153,11 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
         try:
             self._client.associate_dhcp_options(DhcpOptionsId='default', VpcId=self.vpc_id)
             self._client.delete_dhcp_options(DhcpOptionsId=self.dhcp_options_id)
-        except Exception as e:
-            # FIXME better exception handling
-            raise e
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == 'InvalidDhcpOptionsID.NotFound':
+                self.warn("dhcp options {0} was already deleted".format(self.dhcp_options_id))
+            else:
+                raise e
 
         with self.depl._db:
             self.state = self.MISSING
