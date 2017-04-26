@@ -124,6 +124,8 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
             self._client.associate_dhcp_options(DhcpOptionsId=dhcp_options_id, VpcId=vpc_id)
 
         if self.state == self.UP:
+            # FIXME better handling of comparison between the state and
+            # the definition.
             if (defn.config['domainName'] != self.domain_name or
                 json.dumps(defn.config['domainNameServers']) != json.dumps(self.domain_name_servers) or
                 json.dumps(defn.config['ntpServers']) != json.dumps(self.ntp_servers) or
