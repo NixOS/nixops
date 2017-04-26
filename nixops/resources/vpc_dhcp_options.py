@@ -76,7 +76,8 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
                 isinstance(r, nixops.resources.vpc.VPCState)}
 
     def get_dhcp_config_option(self, key, values):
-        return {'Key': key, 'Values': values}
+        val = values if isinstance(values, list) else [ str(values) ]
+        return {'Key': key, 'Values': val}
 
     def generate_dhcp_configuration(self, config):
         configuration = []
@@ -110,7 +111,10 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
         dhcp_config = self.generate_dhcp_configuration(defn.config)
 
         def create_dhcp_options(dhcp_config):
-            response = self._client.create_dhcp_options(DhcpConfiguration=dhcp_config)
+            try:
+              response = self._client.create_dhcp_options(DhcpConfigurations=dhcp_config)
+            except Exception as e:
+                raise e
             return response.get('DhcpOptions').get('DhcpOptionsId')
 
         if self.state != self.UP:
@@ -152,6 +156,16 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
         except Exception as e:
             # FIXME better exception handling
             raise e
+
+        with self.depl._db:
+            self.state = self.MISSING
+            self.vpc_id = None
+            self.dhcp_options_id = None
+            self.domain_name = None
+            self.domain_name_servers = None
+            self.ntp_servers = None
+            self.netbios_name_servers = None
+            self.netbios_node_type = None
 
 
     def destroy(self, wipe=False):
