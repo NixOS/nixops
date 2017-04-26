@@ -103,6 +103,7 @@ rec {
   resources.vpc = evalResources ./vpc.nix (zipAttrs resourcesByType.vpc or []);
   resources.vpcSubnets = evalResources ./vpc-subnet.nix (zipAttrs resourcesByType.vpcSubnets or []);
   resources.vpcInternetGateways = evalResources ./vpc-internet-gateway.nix (zipAttrs resourcesByType.vpcInternetGateways or []);
+  resources.vpcDhcpOptions = evalResources ./vpc-dhcp-options.nix (zipAttrs resourcesByType.vpcDhcpOptions or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Datadog resources

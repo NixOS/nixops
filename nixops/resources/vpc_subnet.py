@@ -87,7 +87,6 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
         vpc_id = defn.config['vpcId']
 
         if vpc_id.startswith("res-"):
-            print vpc_id
             res = self.depl.get_typed_resource(vpc_id[4:], "vpc")
             vpc_id = res.vpc_id
 

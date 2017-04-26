@@ -84,9 +84,6 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, nixops.resources.e
 
         self._state['region'] = defn.config['region']
 
-        for k in defn.config.keys():
-            if k in self._state.keys():
-                self.warn("{0}: {1} ===> {2}".format(k, self._state[k], defn.config[k]))
         self.connect()
 
         vpc_id = defn.config['vpcId']
