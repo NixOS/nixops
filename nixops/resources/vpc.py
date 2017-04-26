@@ -74,8 +74,14 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
         if self.state != self.UP: return
         self.connect()
         self.log("destroying vpc {0}...".format(self.vpc_id))
-        # FIXME handle already deleted vpcs
-        self._client.delete_vpc(VpcId=self.vpc_id)
+        try:
+            self._client.delete_vpc(VpcId=self.vpc_id)
+        except botocore.exceptions.ClientError as e:
+            if e.response ['Error']['Code'] == 'InvalidVpcID.NotFound':
+                self.warn("vpc {0} was already deleted".format(self.vpc_id))
+            else:
+                raise e
+
         with self.depl._db:
             self.state = self.MISSING
             self.vpc_id = None
