@@ -147,7 +147,8 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
         self.log("deleting dhcp options {0}".format(self.dhcp_options_id))
         self.connect()
         try:
-            self.delete_dhcp_options(DhcpOptionsId=self.dhcp_options_id)
+            self._client.associate_dhcp_options(DhcpOptionsId='default', VpcId=self.vpc_id)
+            self._client.delete_dhcp_options(DhcpOptionsId=self.dhcp_options_id)
         except Exception as e:
             # FIXME better exception handling
             raise e
