@@ -726,7 +726,7 @@ class Deployment(object):
                 # This thread shouldn't throw an exception because
                 # that will cause NixOps to exit and interrupt
                 # activation on the other machines.
-                m.logger.error(traceback.format_exc() if debug else str(e))
+                m.logger.error(traceback.format_exc())
                 return m.name
             return None
 
