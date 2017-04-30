@@ -9,6 +9,7 @@ import subprocess
 import time
 
 from nixops.backends import MachineDefinition, MachineState
+import nixops.known_hosts
 import nixops.util
 
 
@@ -65,6 +66,11 @@ class LibvirtdState(MachineState):
 
     def get_physical_spec(self):
         return {('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [self.client_public_key]}
+
+    def address_to(self, m):
+        if isinstance(m, LibvirtdState):
+            return m.private_ipv4
+        return MachineState.address_to(self, m)
 
     def _vm_id(self):
         return "nixops-{0}-{1}".format(self.depl.uuid, self.name)
