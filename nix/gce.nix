@@ -264,6 +264,32 @@ in
         '';
       };
 
+      instanceServiceAccount = mkOption {
+        default  = {};
+        type = (types.submodule {
+          options = {
+            email = mkOption {
+              default = "default";
+              type = types.str;
+              description = ''
+                Email address of the service account.
+                If not given, Google Compute Engine default service account is used.
+              '';
+            };
+            scopes = mkOption {
+              default = [];
+              type = types.listOf types.str;
+              description = ''
+                The list of scopes to be made available for this service account.
+              '';
+            };
+          };
+        });
+        description = ''
+          A service account with its specified scopes, authorized for this instance.
+        '';
+      };
+
       blockDeviceMapping = mkOption {
         default = { };
         example = { "/dev/sda".image = "bootstrap-img"; "/dev/sdb".disk = "vol-d04895b8"; };
