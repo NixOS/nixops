@@ -10,8 +10,11 @@ let
                    name = "<name>"; uuid = "<uuid>";
                  };
 
+  options = pkgs.lib.filter (opt: opt.visible && !opt.internal)
+    (pkgs.lib.optionAttrSetToDocList systemModule.options);
+
   optionsXML = builtins.toFile "options.xml" (builtins.unsafeDiscardStringContext
-    (builtins.toXML (pkgs.lib.optionAttrSetToDocList systemModule.options)));
+    (builtins.toXML options));
 
   optionsDocBook = pkgs.runCommand "options-db.xml" {} ''
     ${pkgs.libxslt.bin or pkgs.libxslt}/bin/xsltproc \
