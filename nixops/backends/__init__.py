@@ -333,8 +333,8 @@ class MachineState(nixops.resources.ResourceState):
         env = dict(os.environ)
         env['NIX_SSHOPTS'] = ' '.join(ssh._get_flags() + ssh.get_master().opts)
         self._logged_exec(
-            ["nix-copy-closure", "--to", ssh._get_target(), "--use-substitutes", path]
-            + ([] if self.has_fast_connection else ["--gzip"]),
+            ["nix-copy-closure", "--to", ssh._get_target(), path]
+            + ([] if self.has_fast_connection else ["--gzip", "--use-substitutes"]),
             env=env)
 
     def generate_vpn_key(self, check=False):
