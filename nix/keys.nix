@@ -53,6 +53,7 @@ let
 
   keyType = mkOptionType {
     name = "string or key options";
+    typerep = "(keyType)";
     check = v: isString v || keyOptionsType.check v;
     merge = loc: defs: let
       convert = def: def // {
