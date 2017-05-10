@@ -6,13 +6,37 @@ let
   keyOptionsType = types.submodule {
     options.text = mkOption {
       example = "super secret stuff";
-      type = types.str;
+      default = null;
+      type = types.nullOr types.str;
       description = ''
-        The text the key should contain. So if the key name is
-        <replaceable>password</replaceable> and <literal>foobar</literal>
-        is set here, the contents of the file
+        When non-null, this designates the text that the key should
+        contain. So if the key name is <replaceable>password</replaceable>
+        and <literal>foobar</literal> is set here, the contents of the file
         <filename>/run/keys/<replaceable>password</replaceable></filename>
         will be <literal>foobar</literal>.
+
+        NOTE: Either <literal>text</literal> or <literal>keyFile</literal> have
+        to be set.
+      '';
+    };
+
+    options.keyFile = mkOption {
+      default = null;
+      type = types.nullOr types.path;
+      description = ''
+        When non-null, contents of the specified file will be deployed to
+        the specified key on the target machine.  If the key name is
+        <replaceable>password</replaceable> and <literal>/foo/bar</literal> is set
+        here, the contents of the file
+        <filename>/run/keys/<replaceable>password</replaceable></filename>
+        deployed will be the same as local file <literal>/foo/bar</literal>.
+
+        Since no serialization/deserialization of key contents is involved, there
+        are no limits on that content: null bytes, invalid Unicode,
+        <literal>/dev/random</literal> output -- anything goes.
+
+        NOTE: Either <literal>text</literal> or <literal>keyFile</literal> have
+        to be set.
       '';
     };
 
@@ -123,32 +147,41 @@ in
       "things to break."
     )];
 
+    assertions = flip mapAttrsToList config.deployment.keys (key: opts: {
+      assertion = (opts.text == null && opts.keyFile != null) ||
+                  (opts.text != null && opts.keyFile == null);
+      message = "Deployment key '${key}' must have either a 'text' or a 'keyFile' specified.";
+    });
+
     system.activationScripts.nixops-keys = stringAfter [ "users" "groups" ]
       ''
         mkdir -p /run/keys -m 0750
         chown root:keys /run/keys
 
         ${optionalString config.deployment.storeKeysOnMachine
-            (concatStrings (mapAttrsToList (name: value:
-              let
-                # FIXME: The key file should be marked as private once
-                # https://github.com/NixOS/nix/issues/8 is fixed.
-                keyFile = pkgs.writeText name value.text;
-              in "ln -sfn ${keyFile} /run/keys/${name}\n")
-              config.deployment.keys)
+            (concatStrings (mapAttrsToList
+                            (name: value: let
+                                            # FIXME: The key file should be marked as private once
+                                            # https://github.com/NixOS/nix/issues/8 is fixed.
+                                            keyFile = if !isNull value.keyFile
+                                                      then value.keyFile
+                                                      else pkgs.writeText name value.text;
+                                          in "ln -sfn ${keyFile} /run/keys/${name}\n")
+                           config.deployment.keys)
             + ''
               # FIXME: delete obsolete keys?
               touch /run/keys/done
             '')
         }
 
-        ${concatStringsSep "\n" (flip mapAttrsToList config.deployment.keys (name: value:
-          # Make sure each key has correct ownership, since the configured owning
-          # user or group may not have existed when first uploaded.
-          ''
-            [[ -f "/run/keys/${name}" ]] && chown '${value.user}:${value.group}' "/run/keys/${name}"
-          ''
-        ))}
+        ${optionalString (!config.deployment.storeKeysOnMachine)
+          (concatStringsSep "\n" (flip mapAttrsToList config.deployment.keys (name: value:
+            # Make sure each key has correct ownership, since the configured owning
+            # user or group may not have existed when first uploaded.
+            ''
+              [[ -f "/run/keys/${name}" ]] && chown '${value.user}:${value.group}' "/run/keys/${name}"
+            ''
+        )))}
       '';
 
     systemd.services = (

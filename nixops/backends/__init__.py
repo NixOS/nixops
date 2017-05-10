@@ -22,8 +22,12 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
 
         def _extract_key_options(x):
             opts = {}
-            for key in ('text', 'user', 'group', 'permissions'):
-                elem = x.find("attrs/attr[@name='{0}']/string".format(key))
+            for (key, xmlType) in (('text',        'string'),
+                                   ('keyFile',     'path'),
+                                   ('user',        'string'),
+                                   ('group',       'string'),
+                                   ('permissions', 'string')):
+                elem = x.find("attrs/attr[@name='{0}']/{1}".format(key, xmlType))
                 if elem is not None:
                     opts[key] = elem.get("value")
             return opts
@@ -212,7 +216,15 @@ class MachineState(nixops.resources.ResourceState):
         for k, opts in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
-            f = open(tmp, "w+"); f.write(opts['text']); f.close()
+
+            if 'text' in opts: 
+                with open(tmp, "w+") as f:
+                    f.write(opts['text'])
+            elif 'keyFile' in opts:
+                self._logged_exec(["cp", opts['keyFile'], tmp])
+            else:
+                raise Exception("Neither 'text' or 'keyFile' options were set for key '{0}'.".format(k))
+
             outfile = "/run/keys/" + k
             outfile_esc = "'" + outfile.replace("'", r"'\''") + "'"
             self.run_command("rm -f " + outfile_esc)
