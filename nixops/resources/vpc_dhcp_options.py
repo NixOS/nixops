@@ -171,7 +171,6 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
             self.netbios_name_servers = None
             self.netbios_node_type = None
 
-
     def destroy(self, wipe=False):
         self._destroy()
         return True
