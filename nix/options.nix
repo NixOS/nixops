@@ -103,6 +103,13 @@ in
       '';
     };
 
+    deployment.nix_path = mkOption {
+      default = {};
+      type = types.attrsOf types.str;
+      description = ''
+      '';
+    };
+
     deployment.hasFastConnection = mkOption {
       default = false;
       type = types.bool;

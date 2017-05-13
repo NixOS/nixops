@@ -39,13 +39,42 @@ rec {
         # Get the configuration of this machine from each network
         # expression, attaching _file attributes so the NixOS module
         # system can give sensible error messages.
+
         modules =
           concatMap (n: optional (hasAttr machineName n)
             { imports = [(getAttr machineName n)]; inherit (n) _file; })
           networks;
-      in
-      { name = machineName;
-        value = import <nixpkgs/nixos/lib/eval-config.nix> {
+
+        machineConfs =
+          concatMap (n: optional (hasAttr machineName n)
+            (getAttr machineName n))
+          networks;
+
+        nameToPath = attrs: name: {
+          prefix = name;
+          path = attrs."${name}";
+        };
+
+        attrsetToPaths = attrset: map (nameToPath attrset)
+          (builtins.attrNames attrset);
+
+        importSources =
+          (concatMap (module:
+              if (!builtins.isFunction module
+                  && builtins.hasAttr "deployment" module)
+                  && (builtins.hasAttr "nix_path" module.deployment)
+              then attrsetToPaths module.deployment.nix_path
+              else [])
+            machineConfs) ++ builtins.nixPath;
+
+        __nixPath = importSources;
+
+        machineImport = builtins.scopedImport {
+          inherit __nixPath;
+        };
+      in {
+        name = machineName;
+        value = machineImport <nixpkgs/nixos/lib/eval-config.nix> {
           modules =
             modules ++
             defaults ++
