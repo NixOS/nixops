@@ -6,7 +6,7 @@ from tests.functional import generic_deployment_test
 
 parent_dir = path.dirname(__file__)
 
-logical_spec = '%s/single_machine_logical_base.nix' % (parent_dir)
+logical_spec = '{0}/single_machine_logical_base.nix'.format(parent_dir)
 
 class SingleMachineTest(generic_deployment_test.GenericDeploymentTest):
     _multiprocess_can_split_ = True
@@ -17,25 +17,25 @@ class SingleMachineTest(generic_deployment_test.GenericDeploymentTest):
 
     def test_ec2(self):
         self.depl.nix_exprs = self.depl.nix_exprs + [
-            ('%s/single_machine_ec2_base.nix' % (parent_dir))
+            ('{0}/single_machine_ec2_base.nix'.format(parent_dir))
         ]
         self.run_check()
 
     def test_gce(self):
         self.depl.nix_exprs = self.depl.nix_exprs + [
-            ('%s/single_machine_gce_base.nix' % (parent_dir))
+            ('{0}/single_machine_gce_base.nix'.format(parent_dir))
         ]
         self.run_check()
 
     def test_azure(self):
         self.depl.nix_exprs = self.depl.nix_exprs + [
-            ('%s/single_machine_azure_base.nix' % (parent_dir))
+            ('{0}/single_machine_azure_base.nix'.format(parent_dir))
         ]
         self.run_check()
 
     def test_libvirtd(self):
         self.depl.nix_exprs = self.depl.nix_exprs + [
-            ('%s/single_machine_libvirtd_base.nix' % (parent_dir))
+            ('{0}/single_machine_libvirtd_base.nix'.format(parent_dir))
         ]
         self.run_check()
 
