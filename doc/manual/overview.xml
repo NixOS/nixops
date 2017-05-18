@@ -1836,4 +1836,106 @@ deploy the new configuration.
 
 -->
 
+<section><title>Custom NixOS modules</title>
+
+<para>In NixOps you can use NixOS imports to add custom modules (with packages
+  and services) using:
+
+<screen>
+{
+  machine =
+    { config, pkgs, ... }:
+    { 
+      imports = [ ./my-module.nix ];
+      services.my-service.enable = true;
+      ...
+    };
+}
+</screen>
+</para>
+
+<para>If you want to add custom packages you need to do:
+<screen>
+{
+  machine =
+    { config, pkgs, ... }:
+    {
+      nixpkgs.config.overridePackages = pkgs: {
+        my-new-package = pkgs.stdenv.mkDerivation {
+          ...
+        };
+        htop = pkgs.htop.overrideDerivation (old: {
+          name = "updated-htop";
+        });
+      };
+      ...
+    };
+}
+</screen>
+</para>
+
+<para>With that configured you can use your custom packages across modules
+  which means you can build custom services built on custom packages.
+
+network.nix:
+<screen>
+{
+  machine =
+    { config, pkgs, ... }:
+    {
+      imports = import ./my-module.nix;
+      services.my-service.enable = true;
+      ...
+    };
+}
+</screen>
+
+my-module.nix:
+<screen>
+[
+  ./my-packages.nix
+  ./my-services.nix
+];
+</screen>
+
+my-packages.nix:
+<screen>
+{ config, pkgs, ... }:
+{
+  nixpkgs.config.overridePackages = pkgs: {
+    my-new-package = pkgs.stdenv.mkDerivation {
+      ...
+    };
+    htop = pkgs.htop.overrideDerivation (old: {
+      name = "updated-htop";
+    });
+  };
+  ...
+};
+</screen>
+
+my-services.nix:
+<screen>
+{config, pkgs, lib
+{
+  let
+    cfg = config.services.my-service;
+  in with lib;
+  {
+    options = {
+      ...
+    };
+    config = mkIf cfg.enable {
+      ...
+      exec = "${pkgs.my-new-package}/bin/my-new-package";
+      ...
+    };
+  }
+}
+</screen>
+</para>
+
+
+</section>
+
 </chapter>
