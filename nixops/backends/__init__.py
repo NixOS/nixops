@@ -203,6 +203,13 @@ class MachineState(nixops.resources.ResourceState):
         self.warn("machine ‘{0}’ doesn't have a rescue"
                   " system.".format(self.name))
 
+    def delete_old_keys(self):
+        key_names = self.get_keys().keys()
+        self.run_command("find /run/keys -type f "
+                         + "-not -name done "
+                         + "".join(["-not -name '{0}' ".format(k) for k in key_names])
+                         + "-printf 'deleting %p\n' -delete"
+                        )
     def send_keys(self):
         if self.state == self.RESCUE:
             # Don't send keys when in RESCUE state, because we're most likely
@@ -249,6 +256,7 @@ class MachineState(nixops.resources.ResourceState):
               )
             )
             os.remove(tmp)
+        self.delete_old_keys()
         self.run_command("touch /run/keys/done")
 
     def get_keys(self):
