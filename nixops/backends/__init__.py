@@ -24,7 +24,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
             opts = {}
             for (key, xmlType) in (('text',        'string'),
                                    ('keyFile',     'path'),
-                                   ('destDir',     'path'),
+                                   ('destDir',     'string'),
                                    ('user',        'string'),
                                    ('group',       'string'),
                                    ('permissions', 'string')):
@@ -217,7 +217,7 @@ class MachineState(nixops.resources.ResourceState):
             tmp = self.depl.tempdir + "/key-" + self.name
 
             if 'destDir' not in opts:
-                raise Exception("Key '%s' has no 'destDir' specified.".format(k))
+                raise Exception("Key '{}' has no 'destDir' specified.".format(k))
 
             destDir = opts['destDir'].rstrip("/")
             print ("opts: %s, destDir: '%s'" % (opts, destDir))

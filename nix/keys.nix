@@ -3,7 +3,7 @@
 with lib;
 
 let
-  keyOptionsType = types.submodule {
+  keyOptionsType = types.submodule ({ config, name, ... }: {
     options.text = mkOption {
       example = "super secret stuff";
       default = null;
@@ -41,7 +41,7 @@ let
     };
 
     options.destDir = mkOption {
-      default = /run/keys;
+      default = "/run/keys";
       type = types.path;
       description = ''
         When specified, this allows changing the destDir directory of the key
@@ -49,7 +49,21 @@ let
 
         This directory will be created, its permissions changed to
         <literal>0750</literal> and ownership to <literal>root:keys</literal>.
-        ''; };
+      '';
+    };
+
+    options.path = mkOption {
+      type = types.path;
+      default = "${config.destDir}/${name}";
+      internal = true;
+      description = ''
+        Path to the destination of the file, a shortcut to
+        <literal>destDir</literal> + / + <literal>name</literal>
+
+        Example: For key named <literal>foo</literal>,
+        this option would have the value <literal>/run/keys/foo</literal>.
+      '';
+    };
 
     options.user = mkOption {
       default = "root";
@@ -77,7 +91,7 @@ let
         <manvolnum>1</manvolnum></citerefentry>.
       '';
     };
-  };
+  });
 
   convertOldKeyType = key: val: let
     warning = "Using plain strings for `deployment.keys' is"
@@ -201,12 +215,10 @@ in
 
         ${optionalString (!config.deployment.storeKeysOnMachine)
           (concatStringsSep "\n" (flip mapAttrsToList config.deployment.keys (name: value:
-            let destDir = toString value.destDir;
-            in
             # Make sure each key has correct ownership, since the configured owning
             # user or group may not have existed when first uploaded.
             ''
-              [[ -f "${destDir}/${name}" ]] && chown '${value.user}:${value.group}' "${destDir}/${name}"
+              [[ -f "${value.path}" ]] && chown '${value.user}:${value.group}' "${value.path}"
             ''
         )))}
       '';
@@ -238,9 +250,9 @@ in
           path = [ pkgs.inotifyTools ];
           preStart = ''
             (while read f; do if [ "$f" = "${name}" ]; then break; fi; done \
-              < <(inotifywait -qm --format '%f' -e create /run/keys) ) &
+              < <(inotifywait -qm --format '%f' -e create ${keyCfg.destDir}) ) &
 
-            if [[ -e "/run/keys/${name}" ]]; then
+            if [[ -e "${keyCfg.path}" ]]; then
               echo 'flapped down'
               kill %1
               exit 0
@@ -248,9 +260,9 @@ in
             wait %1
           '';
           script = ''
-            inotifywait -qq -e delete_self "/run/keys/${name}" &
+            inotifywait -qq -e delete_self "${keyCfg.path}" &
 
-            if [[ ! -e "/run/keys/${name}" ]]; then
+            if [[ ! -e "${keyCfg.path}" ]]; then
               echo 'flapped up'
               exit 0
             fi
