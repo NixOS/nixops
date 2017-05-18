@@ -12,7 +12,7 @@ let
         When non-null, this designates the text that the key should contain. So if
         the key name is <replaceable>password</replaceable> and
         <literal>foobar</literal> is set here, the contents of the file
-        <filename><replaceable>destinationFolder</replaceable>/<replaceable>password</replaceable></filename>
+        <filename><replaceable>destDir</replaceable>/<replaceable>password</replaceable></filename>
         will be <literal>foobar</literal>.
 
         NOTE: Either <literal>text</literal> or <literal>keyFile</literal> have
@@ -28,7 +28,7 @@ let
         specified key on the target machine.  If the key name is
         <replaceable>password</replaceable> and <literal>/foo/bar</literal> is set
         here, the contents of the file
-        <filename><replaceable>destinationFolder</replaceable>/<replaceable>password</replaceable></filename>
+        <filename><replaceable>destDir</replaceable>/<replaceable>password</replaceable></filename>
         deployed will be the same as local file <literal>/foo/bar</literal>.
 
         Since no serialization/deserialization of key contents is involved, there
@@ -40,11 +40,11 @@ let
       '';
     };
 
-    options.destinationFolder = mkOption {
+    options.destDir = mkOption {
       default = /run/keys;
       type = types.nullOr types.path;
       description = ''
-        When specified, this allows changing the destinationFolder directory of the key
+        When specified, this allows changing the destDir directory of the key
         file from its default value of <filename>/run/keys</filename>.
 
         This directory will be created, its permissions changed to
@@ -129,13 +129,13 @@ in
 
         <para>The set of keys to be deployed to the machine.  Each attribute maps
         a key name to a file that can be accessed as
-        <filename><replaceable>destinationFolder</replaceable>/<replaceable>name</replaceable></filename>,
-        where <literal>destinationFolder</literal> defaults to
+        <filename><replaceable>destDir</replaceable>/<replaceable>name</replaceable></filename>,
+        where <literal>destDir</literal> defaults to
         <filename>/run/keys</filename>.  Thus, <literal>{ password.text =
         "foobar"; }</literal> causes a file
-        <filename><replaceable>destinationFolder</replaceable>/password</filename> to be
+        <filename><replaceable>destDir</replaceable>/password</filename> to be
         created with contents <literal>foobar</literal>.  The directory
-        <filename><replaceable>destinationFolder</replaceable></filename> is only
+        <filename><replaceable>destDir</replaceable></filename> is only
         accessible to root and the <literal>keys</literal> group, so keep in mind
         to add any users that need to have access to a particular key to this
         group.</para>
@@ -182,7 +182,7 @@ in
                                                       (if !isNull value.keyFile
                                                        then builtins.readFile value.keyFile
                                                        else value.text);
-                                            destDir = toString value.destinationFolder;
+                                            destDir = toString value.destDir;
                                           in
                                           ''
                                                if test ! -d ${destDir}
@@ -201,7 +201,7 @@ in
 
         ${optionalString (!config.deployment.storeKeysOnMachine)
           (concatStringsSep "\n" (flip mapAttrsToList config.deployment.keys (name: value:
-            let destDir = toString value.destinationFolder;
+            let destDir = toString value.destDir;
             in
             # Make sure each key has correct ownership, since the configured owning
             # user or group may not have existed when first uploaded.
