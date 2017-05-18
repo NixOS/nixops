@@ -42,7 +42,7 @@ let
 
     options.destDir = mkOption {
       default = /run/keys;
-      type = types.nullOr types.path;
+      type = types.path;
       description = ''
         When specified, this allows changing the destDir directory of the key
         file from its default value of <filename>/run/keys</filename>.
