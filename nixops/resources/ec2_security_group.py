@@ -113,7 +113,10 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                 self._connect()
 
                 try:
-                    grp = self._conn.get_all_security_groups([ defn.security_group_name ])[0]
+                    if self.vpc_id:
+                        grp = self._conn.get_all_security_groups([ defn.security_group_id ])[0]
+                    else:
+                        grp = self._conn.get_all_security_groups([ defn.security_group_name ])[0] 
                     self.state = self.UP
                     self.security_group_id = grp.id
                     self.security_group_description = grp.description
