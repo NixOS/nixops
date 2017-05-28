@@ -88,7 +88,7 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
 
         if vpc_id.startswith("res-"):
             res = self.depl.get_typed_resource(vpc_id[4:], "vpc")
-            vpc_id = res.vpc_id
+            vpc_id = res._state['vpcId']
 
         if self.state != self.UP:
             zone = defn.config['zone'] if defn.config['zone'] else ''

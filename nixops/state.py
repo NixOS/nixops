@@ -1,4 +1,6 @@
+import json
 import collections
+
 import nixops.util
 
 class StateDict(collections.MutableMapping):
@@ -18,8 +20,11 @@ class StateDict(collections.MutableMapping):
             if value == None:
                 c.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, key))
             else:
+                v = value
+                if isinstance(value, list):
+                    v = json.dumps(value)
                 c.execute("insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
-                          (self.id, key, value))
+                          (self.id, key, v))
 
     def __getitem__(self, key):
         with self._db:

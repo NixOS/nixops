@@ -2,6 +2,7 @@
 
 # Automatic provisioning of AWS VPC DHCP options.
 
+import os
 import json
 
 import boto3
@@ -11,6 +12,8 @@ import nixops.util
 import nixops.resources
 import nixops.resources.ec2_common
 import nixops.ec2_utils
+from nixops.state import StateDict
+from nixops.diff import Diff, Handler
 
 class VPCDhcpOptionsDefinition(nixops.resources.ResourceDefinition):
     """Definition of a VPC DHCP options."""
@@ -32,14 +35,6 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
-    region = nixops.util.attr_property("region", None)
-    vpc_id = nixops.util.attr_property("vpcId", None)
-    dhcp_options_id = nixops.util.attr_property("dhcpOptions", None)
-    domain_name = nixops.util.attr_property("domainName", None)
-    domain_name_servers = nixops.util.attr_property("domainNameServers", [], 'json')
-    ntp_servers = nixops.util.attr_property("ntpServers", [], 'json')
-    netbios_name_servers = nixops.util.attr_property("netbiosNameServers", [], 'json')
-    netbios_node_type = nixops.util.attr_property("netbiosNodeType", None, int)
 
     @classmethod
     def get_type(cls):
@@ -48,15 +43,23 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._client = None
+        self._state = StateDict(depl, id)
+        self._handler_calls = 0
+        self.handle_config_change = Handler('domainNameServers', 'domainName', 'ntpServers'
+                , 'netbiosNameServers', 'netbiosNodeType')
+
+    def get_handlers(self):
+        return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
 
     def show_type(self):
         s = super(VPCDhcpOptionsState, self).show_type()
-        if self.region: s = "{0} [{1}]".format(s, self.region)
+        region = self._state.get('region', None)
+        if region: s = "{0} [{1}]".format(s, region)
         return s
 
     @property
     def resource_id(self):
-        return self.dhcp_options_id
+        return self._state.get('dhcpOptions', None)
 
     def prefix_definition(self, attr):
         return {('resources', 'vpcDhcpOptions'): attr}
@@ -69,9 +72,9 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
 
     def connect(self):
         if self._client: return
-        assert self.region
+        assert self._state['region']
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._client = boto3.client('ec2', region_name=self.region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+        self._client = boto3.client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
@@ -96,20 +99,30 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
         return configuration
 
     def create(self, defn, check, allow_reboot, allow_recreate):
+        # declare handlers
+        self.handle_config_change.handle = self.handle_change(config=defn.config)
+        if os.environ.get('NIXOPS_PLAN'):
+            diff = Diff(depl=self.depl, logger=self.logger, enable_handler=True,
+                    config=defn.config, state=self._state, res_type=self.get_type())
+            diff.set_handlers(self.get_handlers())
+            diff.get_handlers_sequence()
+            diff.set_reserved_keys(['dhcpOptions', 'accessKeyId'])
+            diff.plan()
+
         self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
-        self.region = defn.config['region']
+        self._state['region'] = defn.config['region']
 
         self.connect()
 
         vpc_id = defn.config['vpcId']
-        dhcp_options_id = self.dhcp_options_id
+        dhcp_options_id = self._state.get('dhcpOptions', None)
 
         if vpc_id.startswith("res-"):
-            res = self.depl.get_typed_resource(vpc_id[4:], "vpc")
-            vpc_id = res.vpc_id
+            res = self.depl.get_typed_resource(vpc_id[4:].split(".")[0], "vpc")
+            vpc_id = res._state['vpcId']
 
         dhcp_config = self.generate_dhcp_configuration(defn.config)
 
@@ -124,13 +137,7 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
             self._client.associate_dhcp_options(DhcpOptionsId=dhcp_options_id, VpcId=vpc_id)
 
         if self.state == self.UP:
-            # FIXME better handling of comparison between the state and
-            # the definition.
-            if (defn.config['domainName'] != self.domain_name or
-                json.dumps(defn.config['domainNameServers']) != json.dumps(self.domain_name_servers) or
-                json.dumps(defn.config['ntpServers']) != json.dumps(self.ntp_servers) or
-                json.dumps(defn.config['netbiosNameServers']) != json.dumps(self.netbios_name_servers) or
-                defn.config['netbiosNodeType'] != self.netbios_node_type):
+            if self._handler_calls > 0:
                 if allow_recreate:
                     dhcp_options_id = create_dhcp_options(dhcp_config)
                     self._client.associate_dhcp_options(DhcpOptionsId=dhcp_options_id, VpcId=vpc_id)
@@ -140,36 +147,41 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_c
 
         with self.depl._db:
             self.state = self.UP
-            self.vpc_id = vpc_id
-            self.dhcp_options_id = dhcp_options_id
-            self.domain_name = defn.config["domainName"]
-            self.domain_name_servers = defn.config["domainNameServers"]
-            self.ntp_servers = defn.config["ntpServers"]
-            self.netbios_name_servers = defn.config["netbiosNameServers"]
-            self.netbios_node_type = defn.config["netbiosNodeType"]
+            self._state['vpcId'] = vpc_id
+            self._state['dhcpOptions'] = dhcp_options_id
+            self._state['domainName'] = defn.config["domainName"]
+            self._state['domainNameServers'] = defn.config["domainNameServers"]
+            self._state['ntpServers'] = defn.config["ntpServers"]
+            self._state['netbiosNameServers'] = defn.config["netbiosNameServers"]
+            self._state['netbiosNodeType'] = defn.config["netbiosNodeType"]
+
+    def handle_config_change(self, config):
+        self.increment_handle_calls()
 
     def _destroy(self):
         if self.state != self.UP: return
-        self.log("deleting dhcp options {0}".format(self.dhcp_options_id))
-        self.connect()
-        try:
-            self._client.associate_dhcp_options(DhcpOptionsId='default', VpcId=self.vpc_id)
-            self._client.delete_dhcp_options(DhcpOptionsId=self.dhcp_options_id)
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == 'InvalidDhcpOptionsID.NotFound':
-                self.warn("dhcp options {0} was already deleted".format(self.dhcp_options_id))
-            else:
-                raise e
+        dhcp_options_id = self._state.get('dhcpOptions', None)
+        if dhcp_options_id:
+            self.log("deleting dhcp options {0}".format(dhcp_options_id))
+            self.connect()
+            try:
+                self._client.associate_dhcp_options(DhcpOptionsId='default', VpcId=self._state['vpcId'])
+                self._client.delete_dhcp_options(DhcpOptionsId=dhcp_options_id)
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == 'InvalidDhcpOptionsID.NotFound':
+                    self.warn("dhcp options {0} was already deleted".format(dhcp_options_id))
+                else:
+                    raise e
 
-        with self.depl._db:
-            self.state = self.MISSING
-            self.vpc_id = None
-            self.dhcp_options_id = None
-            self.domain_name = None
-            self.domain_name_servers = None
-            self.ntp_servers = None
-            self.netbios_name_servers = None
-            self.netbios_node_type = None
+            with self.depl._db:
+                self.state = self.MISSING
+                self._state['vpcId'] = None
+                self._state['dhcpOptions'] = None
+                self._state['domainName'] = None
+                self._state['domainNameServers'] = None
+                self._state['ntpServers'] = None
+                self._state['netbiosNameServers'] = None
+                self._state['netbiosNodeType'] = None
 
     def destroy(self, wipe=False):
         self._destroy()
