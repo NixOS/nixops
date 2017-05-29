@@ -25,22 +25,21 @@ class Diff(object):
         self._reserved.extend(keys)
 
     def get_keys(self):
-        diff =  [k for k in self._diff.keys() if k not in self._reserved]
+        diff =  [k for k in self._diff.keys() if k not in self._reserved ]
         return diff
 
     def plan(self):
         keys = self._state.keys() + self._definition.keys()
         for k in keys:
             self.eval_resource_attr_diff(k)
-        for k in self._diff.keys() :
-            if k not in self._reserved:
-                if self._diff[k] == self.CREATE:
-                    self.logger.log("setting attribute {0} to {1}".format(k, self._definition[k]))
-                elif self._diff[k] == self.UPDATE:
-                    self.logger.log("{0} will be updated from {1} to {2}".format(k, self._state[k],
-                        self._definition[k]))
-                else:
-                    self.logger.log("removing attribute {0} with previous value {1} ".format(k, self._state[k]))
+        for k in self.get_keys() :
+            if self._diff[k] == self.CREATE:
+                self.logger.log("setting attribute {0} to {1}".format(k, self._definition[k]))
+            elif self._diff[k] == self.UPDATE:
+                self.logger.log("{0} will be updated from {1} to {2}".format(k, self._state[k],
+                    self._definition[k]))
+            else:
+                self.logger.log("removing attribute {0} with previous value {1} ".format(k, self._state[k]))
         return self.get_handlers_sequence()
 
     def set_handlers(self, handlers):
@@ -101,7 +100,7 @@ class Diff(object):
             self._diff[key] = self.CREATE
         elif s!=None and d == None:
             self._diff[key] = self.DESTROY
-        else:
+        elif s!=None and d!=None:
             if self.check_diff(s,d):
               self._diff[key] = self.UPDATE
 

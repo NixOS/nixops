@@ -24,7 +24,7 @@ with lib;
 
     vpcId = mkOption {
       type = types.either types.str (resource "vpc");
-      apply = x: if builtins.isString x then x else "res-" + x._name;
+      apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;
       description = ''
         The ID of the VPC where the subnet will be created
       '';
@@ -36,8 +36,8 @@ with lib;
     };
 
     zone = mkOption {
-      default = null;
-      type = types.nullOr types.str;
+      default  = null;
+      type = types.str;
       description = ''
         The availability zone for the VPC subnet.
         By default AWS selects one for you.

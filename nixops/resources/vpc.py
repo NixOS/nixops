@@ -156,7 +156,7 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
         """Handle both create and recreate of the vpc resource """
         if self.state == self.UP:
             if not self.allow_recreate:
-               raise Exception("VPC {} definition changed and it needs to be recreated "
+               raise Exception("vpc {} definition changed and it needs to be recreated "
                                "use --allow-recreate if you want to create a new one".format(self.vpc_id))
             self.warn("vpc definition changed, recreating...")
             self._destroy()
