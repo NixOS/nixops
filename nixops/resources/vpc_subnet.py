@@ -54,8 +54,6 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
         return s
 
     def get_handlers(self):
-        for h in [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]:
-            print h.get_keys()
         return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
 
     @property

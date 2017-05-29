@@ -36,7 +36,6 @@ with lib;
     };
 
     zone = mkOption {
-      default  = null;
       type = types.str;
       description = ''
         The availability zone for the VPC subnet.
