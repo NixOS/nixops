@@ -77,15 +77,13 @@ class Diff(object):
             keys = []
             for item in h_tuple:
                 keys.extend(item.get_keys())
+            if combinations == len(self.handlers):
+                keys_not_found = set(self.get_keys()) - set(keys)
+                if len(keys_not_found) > 0:
+                    raise Exception("Couldn't find any combination of handlers that realize the change of {}".format(str(keys_not_found)))
             if set(self.get_keys()) <= set(keys):
-                if combinations == len(self.handlers):
-                    keys_not_found = set(self.get_keys()) - set(keys)
-                    if len(keys_not_found) > 0:
-                        raise Exception("Couldn't find any combination of handlers that realize the change of {}".format(str(keys_not_found)))
-
                 handlers_seq = self.topological_sort(list(h_tuple))
                 return handlers_seq
-
         return self.get_handlers_sequence(combinations+1)
 
     def eval_resource_attr_diff(self, key):
