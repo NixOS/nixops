@@ -104,6 +104,7 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
     def create(self, defn, check, allow_reboot, allow_recreate):
         # diff engine setup
         self._config = defn.config
+        self.allow_recreate = allow_recreate
         diff_engine = Diff(depl=self.depl, logger=self.logger, config=defn.config,
                 state=self._state, res_type=self.get_type())
         diff_engine.set_reserved_keys(['vpcId', 'accessKeyId', 'tags', 'ec2.tags'])
@@ -130,6 +131,7 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
                     raise e
 
         if not existant:
+            self.allow_recreate = True
             self.handle_create_vpc()
 
         for handler in change_sequence:
@@ -153,6 +155,9 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
     def handle_create_vpc(self):
         """Handle both create and recreate of the vpc resource """
         if self.state == self.UP:
+            if not self.allow_recreate:
+               raise Exception("VPC {} definition changed and it needs to be recreated "
+                               "use --allow-recreate if you want to create a new one".format(self.vpc_id))
             self.warn("vpc definition changed, recreating...")
             self._destroy()
             self._client = None
