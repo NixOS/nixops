@@ -90,12 +90,12 @@ in
       description = ''
         The Id of the associated VPC.
       '';
+    };
 
     entries = mkOption {
       description = "The network ACL entries";
       default = {};
       type = with types; listOf (submodule networkAclEntry);
-    }
     };
-
-
+  };
+}
