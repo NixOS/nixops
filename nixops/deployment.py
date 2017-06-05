@@ -62,6 +62,7 @@ class Deployment(object):
         self.nixos_version_suffix = None
         self._tempdir = None
 
+
         self.logger = nixops.logger.Logger(log_file)
 
         self._lock_file_path = None
@@ -82,7 +83,6 @@ class Deployment(object):
         self.logger.update_log_prefixes()
 
         self.definitions = None
-
 
     @property
     def tempdir(self):
@@ -1035,6 +1035,16 @@ class Deployment(object):
 
 
     def _destroy_resources(self, include=[], exclude=[], wipe=False):
+        # allows to mutate global state of deployment once before stopping
+        # multiple machines (that could otherwise experience multithreading problems)
+        # e.g. restarting the vlan (to clear mutated state)
+        # your vms were running on before destroying them
+        try:
+            globalPreDestroyHook = getattr(next(self.active.itervalues(), None), "_globalPreDestroyHook", None)
+            if callable(globalPreDestroyHook):
+                globalPreDestroyHook()
+        except err:
+            self.logger.log("globalPreDestroyHook threw excpetion: {0}".format(err))
 
         for r in self.resources.itervalues():
             r._destroyed_event = threading.Event()
