@@ -30,6 +30,7 @@ import digitalocean
 
 infect_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data', 'nixos-infect'))
 
+AUTH_TOKEN_ENV_VAR='DIGITAL_OCEAN_AUTH_TOKEN'
 
 class DigitalOceanDefinition(MachineDefinition):
     @classmethod
@@ -112,12 +113,12 @@ class DigitalOceanState(MachineState):
         }
 
     def get_auth_token(self):
-        return os.environ.get('DIGITAL_OCEAN_AUTH_TOKEN', self.auth_token)
+        return os.environ.get(AUTH_TOKEN_ENV_VAR)
 
     def destroy(self, wipe=False):
         self.log("destroying droplet {}".format(self.droplet_id))
         try:
-            droplet = digitalocean.Droplet(id=self.droplet_id, token=self.get_auth_token())
+            droplet = digitalocean.Droplet(id=self.droplet_id, token=self.auth_token)
             droplet.destroy()
         except digitalocean.baseapi.NotFoundError:
             self.log("droplet not found - assuming it's been destroyed already")
@@ -125,18 +126,24 @@ class DigitalOceanState(MachineState):
         self.droplet_id = None
 
     def create(self, defn, check, allow_reboot, allow_recreate):
+        assert isinstance(defn, DigitalOceanDefinition)
+
         ssh_key = self.depl.active_resources.get('ssh-key')
         if ssh_key is None:
             raise Exception('Please specify a ssh-key resource (resources.sshKeyPairs.ssh-key = {}).')
 
         self.set_common_state(defn)
 
+        self.auth_token = defn.auth_token or self.get_auth_token()
+        if not self.auth_token:
+            raise Exception("please set ‘deployment.digitalOcean.authToken’ or ${}".format(AUTH_TOKEN_ENV_VAR))
+
         if self.droplet_id is not None:
             return
 
-        self.manager = digitalocean.Manager(token=self.get_auth_token())
+        self.manager = digitalocean.Manager(token=self.auth_token)
         droplet = digitalocean.Droplet(
-            token=self.get_auth_token(),
+            token=self.auth_token,
             name=self.name,
             region=defn.region,
             ipv6=defn.enable_ipv6,
