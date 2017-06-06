@@ -13,7 +13,7 @@ let
         '';
       };
       protocol = mkOption {
-        type = types.int;
+        type = types.str;
         description = ''
           The protocol to match. If using the -1 'all' protocol, you must specify a from and
           to port of 0.
@@ -43,6 +43,7 @@ let
         description = ''
           The ICMP type code to be used. 
         '';
+      };
       icmpType = mkOption {
         default = null;
         type = types.nullOr types.int;
@@ -92,10 +93,25 @@ in
       '';
     };
 
+    subnetIds = mkOption {
+      default = [];
+      type = types.listOf (types.either types.str (resource "vpc-subnet"));
+      apply = map (x: if builtins.isString x then x else "res-" + x.name + "." + x._type);
+      description  = ''
+        A list of subnet IDs to apply to the ACL to.
+      '';
+    };
+
     entries = mkOption {
       description = "The network ACL entries";
       default = {};
       type = with types; listOf (submodule networkAclEntry);
+    };
+
+    networkAclId = mkOption {
+      default = "";
+      type = types.str;
+      description = "The network ACL id generated from AWS. This is set by NixOps";
     };
   };
 }

@@ -10,8 +10,7 @@ class Diff(object):
     CREATE = 0
     UPDATE = 1
     DESTROY = 2
-    _reserved = [ 'index', 'state', '_type', 'deployment', '_name',
-            'name', 'creationTime' ]
+
 
     def __init__(self, depl, logger, config, state, res_type):
         self._definition = config
@@ -20,6 +19,8 @@ class Diff(object):
         self._type = res_type
         self.logger = logger
         self._diff = {}
+        self._reserved = [ 'index', 'state', '_type', 'deployment', '_name',
+            'name', 'creationTime' ]
 
     def set_reserved_keys(self, keys):
         self._reserved.extend(keys)
