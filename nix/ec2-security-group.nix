@@ -48,7 +48,7 @@ with lib;
         options = {
           protocol = mkOption {
             default = "tcp";
-            description = "The protocol (tcp, udp, or icmp) that this rule describes. Use \"-1\" to specify All.;
+            description = "The protocol (tcp, udp, or icmp) that this rule describes. Use \"-1\" to specify All.";
             type = types.str;
           };
 
