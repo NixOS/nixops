@@ -3,16 +3,16 @@
 with lib;
 
 let
-  keyOptionsType = types.submodule {
+  keyOptionsType = types.submodule ({ config, name, ... }: {
     options.text = mkOption {
       example = "super secret stuff";
       default = null;
       type = types.nullOr types.str;
       description = ''
-        When non-null, this designates the text that the key should
-        contain. So if the key name is <replaceable>password</replaceable>
-        and <literal>foobar</literal> is set here, the contents of the file
-        <filename>/run/keys/<replaceable>password</replaceable></filename>
+        When non-null, this designates the text that the key should contain. So if
+        the key name is <replaceable>password</replaceable> and
+        <literal>foobar</literal> is set here, the contents of the file
+        <filename><replaceable>destDir</replaceable>/<replaceable>password</replaceable></filename>
         will be <literal>foobar</literal>.
 
         NOTE: Either <literal>text</literal> or <literal>keyFile</literal> have
@@ -24,11 +24,11 @@ let
       default = null;
       type = types.nullOr types.path;
       description = ''
-        When non-null, contents of the specified file will be deployed to
-        the specified key on the target machine.  If the key name is
+        When non-null, contents of the specified file will be deployed to the
+        specified key on the target machine.  If the key name is
         <replaceable>password</replaceable> and <literal>/foo/bar</literal> is set
         here, the contents of the file
-        <filename>/run/keys/<replaceable>password</replaceable></filename>
+        <filename><replaceable>destDir</replaceable>/<replaceable>password</replaceable></filename>
         deployed will be the same as local file <literal>/foo/bar</literal>.
 
         Since no serialization/deserialization of key contents is involved, there
@@ -37,6 +37,31 @@ let
 
         NOTE: Either <literal>text</literal> or <literal>keyFile</literal> have
         to be set.
+      '';
+    };
+
+    options.destDir = mkOption {
+      default = "/run/keys";
+      type = types.path;
+      description = ''
+        When specified, this allows changing the destDir directory of the key
+        file from its default value of <filename>/run/keys</filename>.
+
+        This directory will be created, its permissions changed to
+        <literal>0750</literal> and ownership to <literal>root:keys</literal>.
+      '';
+    };
+
+    options.path = mkOption {
+      type = types.path;
+      default = "${config.destDir}/${name}";
+      internal = true;
+      description = ''
+        Path to the destination of the file, a shortcut to
+        <literal>destDir</literal> + / + <literal>name</literal>
+
+        Example: For key named <literal>foo</literal>,
+        this option would have the value <literal>/run/keys/foo</literal>.
       '';
     };
 
@@ -66,7 +91,7 @@ let
         <manvolnum>1</manvolnum></citerefentry>.
       '';
     };
-  };
+  });
 
   convertOldKeyType = key: val: let
     warning = "Using plain strings for `deployment.keys' is"
@@ -115,15 +140,19 @@ in
       apply = mapAttrs convertOldKeyType;
 
       description = ''
-        <para>The set of keys to be deployed to the machine.  Each attribute
-        maps a key name to a file that can be accessed as
-        <filename>/run/keys/<replaceable>name</replaceable></filename>.
-        Thus, <literal>{ password.text = "foobar"; }</literal> causes a
-        file <filename>/run/keys/password</filename> to be created
-        with contents <literal>foobar</literal>.  The directory
-        <filename>/run/keys</filename> is only accessible to root and
-        the <literal>keys</literal> group, so keep in mind to add any
-        users that need to have access to a particular key to this group.</para>
+
+        <para>The set of keys to be deployed to the machine.  Each attribute maps
+        a key name to a file that can be accessed as
+        <filename><replaceable>destDir</replaceable>/<replaceable>name</replaceable></filename>,
+        where <literal>destDir</literal> defaults to
+        <filename>/run/keys</filename>.  Thus, <literal>{ password.text =
+        "foobar"; }</literal> causes a file
+        <filename><replaceable>destDir</replaceable>/password</filename> to be
+        created with contents <literal>foobar</literal>.  The directory
+        <filename><replaceable>destDir</replaceable></filename> is only
+        accessible to root and the <literal>keys</literal> group, so keep in mind
+        to add any users that need to have access to a particular key to this
+        group.</para>
 
         <para>Each key also gets a systemd service <literal><replaceable>name</replaceable>-key.service</literal>
         which is active while the key is present and inactive while the key
@@ -163,10 +192,20 @@ in
                             (name: value: let
                                             # FIXME: The key file should be marked as private once
                                             # https://github.com/NixOS/nix/issues/8 is fixed.
-                                            keyFile = if !isNull value.keyFile
-                                                      then value.keyFile
-                                                      else pkgs.writeText name value.text;
-                                          in "ln -sfn ${keyFile} /run/keys/${name}\n")
+                                            keyFile = pkgs.writeText name
+                                                      (if !isNull value.keyFile
+                                                       then builtins.readFile value.keyFile
+                                                       else value.text);
+                                            destDir = toString value.destDir;
+                                          in
+                                          ''
+                                               if test ! -d ${destDir}
+                                               then
+                                                   mkdir -p ${destDir} -m 0750
+                                                   chown root:keys ${destDir}
+                                               fi
+                                               ln -sfn ${keyFile} ${destDir}/${name}
+                                          '')
                            config.deployment.keys)
             + ''
               # FIXME: delete obsolete keys?
@@ -179,7 +218,7 @@ in
             # Make sure each key has correct ownership, since the configured owning
             # user or group may not have existed when first uploaded.
             ''
-              [[ -f "/run/keys/${name}" ]] && chown '${value.user}:${value.group}' "/run/keys/${name}"
+              [[ -f "${value.path}" ]] && chown '${value.user}:${value.group}' "${value.path}"
             ''
         )))}
       '';
@@ -211,9 +250,9 @@ in
           path = [ pkgs.inotifyTools ];
           preStart = ''
             (while read f; do if [ "$f" = "${name}" ]; then break; fi; done \
-              < <(inotifywait -qm --format '%f' -e create /run/keys) ) &
+              < <(inotifywait -qm --format '%f' -e create ${keyCfg.destDir}) ) &
 
-            if [[ -e "/run/keys/${name}" ]]; then
+            if [[ -e "${keyCfg.path}" ]]; then
               echo 'flapped down'
               kill %1
               exit 0
@@ -221,9 +260,9 @@ in
             wait %1
           '';
           script = ''
-            inotifywait -qq -e delete_self "/run/keys/${name}" &
+            inotifywait -qq -e delete_self "${keyCfg.path}" &
 
-            if [[ ! -e "/run/keys/${name}" ]]; then
+            if [[ ! -e "${keyCfg.path}" ]]; then
               echo 'flapped up'
               exit 0
             fi

@@ -24,6 +24,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
             opts = {}
             for (key, xmlType) in (('text',        'string'),
                                    ('keyFile',     'path'),
+                                   ('destDir',     'string'),
                                    ('user',        'string'),
                                    ('group',       'string'),
                                    ('permissions', 'string')):
@@ -211,13 +212,20 @@ class MachineState(nixops.resources.ResourceState):
             # into memory.
             return
         if self.store_keys_on_machine: return
-        self.run_command("mkdir -m 0750 -p /run/keys"
-                         " && chown root:keys /run/keys")
         for k, opts in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
 
-            if 'text' in opts: 
+            if 'destDir' not in opts:
+                raise Exception("Key '{}' has no 'destDir' specified.".format(k))
+
+            destDir = opts['destDir'].rstrip("/")
+            print ("opts: %s, destDir: '%s'" % (opts, destDir))
+            self.run_command(("test -d '{0}' || ("
+                              " mkdir -m 0750 -p '{0}' &&"
+                              " chown root:keys  '{0}';)").format(destDir))
+
+            if 'text' in opts:
                 with open(tmp, "w+") as f:
                     f.write(opts['text'])
             elif 'keyFile' in opts:
@@ -225,7 +233,7 @@ class MachineState(nixops.resources.ResourceState):
             else:
                 raise Exception("Neither 'text' or 'keyFile' options were set for key '{0}'.".format(k))
 
-            outfile = "/run/keys/" + k
+            outfile = destDir + "/" + k
             outfile_esc = "'" + outfile.replace("'", r"'\''") + "'"
             self.run_command("rm -f " + outfile_esc)
             self.upload_file(tmp, outfile)
@@ -249,7 +257,9 @@ class MachineState(nixops.resources.ResourceState):
               )
             )
             os.remove(tmp)
-        self.run_command("touch /run/keys/done")
+        self.run_command("mkdir -m 0750 -p /run/keys && "
+                         "chown root:keys  /run/keys && "
+                         "touch /run/keys/done")
 
     def get_keys(self):
         return self.keys

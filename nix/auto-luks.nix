@@ -97,7 +97,7 @@ with utils;
             mapperDevice' = escapeSystemdPath mapperDevice;
             mapperDevice'' = mapperDevice' + ".device";
 
-            keyFile = "/run/keys/luks-${name}";
+            keyFile = config.deployments.keys."luks-${name}".path;
 
           in assert attrs.passphrase != ""; nameValuePair "cryptsetup-${name}"
 
