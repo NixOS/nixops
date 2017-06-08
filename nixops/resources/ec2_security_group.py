@@ -114,7 +114,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
 
                 try:
                     if self.vpc_id:
-                        grp = self._conn.get_all_security_groups([ self.security_group_id ])[0]
+                        grp = self._conn.get_all_security_groups(group_ids=[ self.security_group_id ])[0]
                     else:
                         grp = self._conn.get_all_security_groups([ defn.security_group_name ])[0]
                     self.state = self.UP
@@ -133,7 +133,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                     self.security_group_rules = rules
                 except boto.exception.EC2ResponseError as e:
                     if e.error_code == u'InvalidGroup.NotFound':
-                        self.state = self.Missing
+                        self.state = self.MISSING
                     else:
                         raise
 
