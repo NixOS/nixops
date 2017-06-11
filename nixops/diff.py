@@ -102,16 +102,8 @@ class Diff(object):
         elif s!=None and d == None:
             self._diff[key] = self.DESTROY
         elif s!=None and d!=None:
-            if self.check_diff(s,d):
+            if s != d:
               self._diff[key] = self.UPDATE
-
-    def check_diff(self, state, defn):
-        try:
-            s = json.loads(state)
-            if s != defn: return True
-        except ValueError:
-            if state != defn: return True
-        return False
 
 class Handler(object):
 

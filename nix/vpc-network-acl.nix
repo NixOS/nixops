@@ -52,13 +52,15 @@ let
         '';
       };
       fromPort = mkOption {
-        type = types.int;
+        default = null;
+        type = types.nullOr types.int;
         description = ''
           The first port in the range.
         '';
       };
       toPort = mkOption {
-        type = types.int;
+        default = null;
+        type = types.nullOr types.int;
         description = ''
           The last port in the range.
         '';
@@ -104,7 +106,7 @@ in
 
     entries = mkOption {
       description = "The network ACL entries";
-      default = {};
+      default = [];
       type = with types; listOf (submodule networkAclEntry);
     };
 

@@ -33,6 +33,7 @@ class vpcNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     handle_create_network_acl = Handler(['region', 'vpcId'])
     handle_entries = Handler(['entries'], after=[handle_create_network_acl])
+    handle_subnet_association = Handler(['subnetIds'], after=[handle_create_network_acl])
 
     @classmethod
     def get_type(cls):
@@ -46,6 +47,7 @@ class vpcNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
         self.network_acl_id = self._state.get('networkAclId', None)
         self.handle_create_network_acl.handle = self.realize_create_network_acl
         self.handle_entries.handle = self.realize_entries_change
+        self.handle_subnet_association.handle = self.realize_subnets_change
 
     def get_handlers(self):
         return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
@@ -92,6 +94,14 @@ class vpcNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
             h.handle()
 
     def realize_create_network_acl(self):
+        if self.state == self.UP:
+            if not self.allow_recreate:
+                raise Exception("network ACL {} definition changed and it needs to be recreated"
+                                " use --allow-recreate if you want to create a new one".format(self.network_acl_id))
+            self.warn("network ACL definition changed, recreating ...")
+            self._destroy()
+            self._client = None
+
         self._state['region'] = self._config['region']
         self.connect()
 
@@ -101,10 +111,72 @@ class vpcNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
             res = self.depl.get_typed_resource(vpc_id[4:].split(".")[0], "vpc")
             vpc_id = res._state['vpcId']
 
+        self.log("creating network ACL in vpc {}".format(vpc_id))
         response = self._client.create_network_acl(VpcId=vpc_id)
+        self.network_acl_id = response['NetworkAcl']['NetworkAclId']
+
+        with self.depl._db:
+            self.state = self.UP
+            self._state['vpcId'] = vpc_id
+            self._state['networkAclId'] = self.network_acl_id
 
     def realize_entries_change(self):
+        self.connect()
+        old_entries = self._state.get('entries', [])
+        new_entries = self._config['entries']
+        to_remove = [e for e in old_entries if e not in new_entries]
+        to_create = [e for e in new_entries if e not in old_entries]
+        for entry in to_remove:
+            try:
+                self._client.delete_network_acl_entry(NetworkAclId=self.network_acl_id, RuleNumber=entry['ruleNumber'], Egress=entry['egress'])
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == "InvalidNetworkAclEntry.NotFound":
+                    self.warn("rule {0} was already deleted from network ACL {1}".format(entry['ruleNumber'], self.network_acl_id))
+                else:
+                    raise e
+
+        for entry in to_create:
+            rule = self.process_rule_entry(entry)
+            self._client.create_network_acl_entry(**rule)
+        with self.depl._db:
+            self._state['entries'] = self._config['entries']
+
+    def realize_subnets_change(self):
         return True
 
+    def process_rule_entry(self, entry):
+        rule = dict()
+        rule['NetworkAclId'] = self.network_acl_id
+        rule['Protocol'] = entry['protocol']
+        rule['RuleNumber'] = entry['ruleNumber']
+        rule['RuleAction'] = entry['ruleAction']
+        rule['Egress'] = entry['egress']
+        rule['CidrBlock'] = entry['cidrBlock']
+        if entry['icmpCode'] and entry['icmpType']:
+            rule['IcmpTypeCode'] = {"Type": entry['icmpType'], "Code": entry['icmpCode']}
+        if entry['fromPort'] and entry['toPort']:
+            rule['PortRange'] = { "From": entry['fromPort'], "To": entry['toPort'] }
+        return rule
+
+    def _destroy(self):
+        if self.state != self.UP: return
+        self.log("deleting network acl {}".format(self.network_acl_id))
+        self.connect()
+        try:
+            self._client.delete_network_acl(NetworkAclId=self.network_acl_id)
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == 'InvalidNetworkAclID.NotFound':
+                self.warn("network ACL {} was already deleted".format(self.network_acl_id))
+            else:
+                raise e
+
+        with self.depl._db:
+            self.state = self.MISSING
+            self._state['networkAclId'] = None
+            self._state['region'] = None
+            self._state['vpcId'] = None
+            self._state['entries'] = None
+
     def destroy(self, wipe=False):
+        self._destroy()
         return True

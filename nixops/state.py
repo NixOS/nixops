@@ -31,7 +31,11 @@ class StateDict(collections.MutableMapping):
             c = self._db.cursor()
             c.execute("select value from ResourceAttrs where machine = ? and name = ?", (self.id, key))
             row = c.fetchone()
-            if row != None: return row[0]
+            if row != None:
+                try:
+                    return json.loads(row[0])
+                except ValueError:
+                    return row[0]
             raise KeyError
 
     def __delitem__(self, key):
