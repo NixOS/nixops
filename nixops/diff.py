@@ -106,7 +106,6 @@ class Diff(object):
               self._diff[key] = self.UPDATE
 
 class Handler(object):
-
     def __init__(self, keys, after=[]):
         self._keys = keys
         self._dependencies = after
