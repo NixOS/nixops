@@ -98,7 +98,7 @@ in
     subnetIds = mkOption {
       default = [];
       type = types.listOf (types.either types.str (resource "vpc-subnet"));
-      apply = map (x: if builtins.isString x then x else "res-" + x.name + "." + x._type);
+      apply = map (x: if builtins.isString x then x else "res-" + x._name + "." + x._type + "." + "subnetId");
       description  = ''
         A list of subnet IDs to apply to the ACL to.
       '';

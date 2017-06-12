@@ -34,11 +34,12 @@ class Diff(object):
         for k in keys:
             self.eval_resource_attr_diff(k)
         for k in self.get_keys() :
+            definition = self.get_resource_definition(k)
             if self._diff[k] == self.CREATE:
-                self.logger.log("setting attribute {0} to {1}".format(k, self._definition[k]))
+                self.logger.log("setting attribute {0} to {1}".format(k, definition))
             elif self._diff[k] == self.UPDATE:
                 self.logger.log("{0} will be updated from {1} to {2}".format(k, self._state[k],
-                    self._definition[k]))
+                    definition))
             else:
                 self.logger.log("removing attribute {0} with previous value {1} ".format(k, self._state[k]))
         return self.get_handlers_sequence()
@@ -88,15 +89,7 @@ class Diff(object):
 
     def eval_resource_attr_diff(self, key):
         s = self._state.get(key, None)
-        d = self._definition.get(key, None)
-        if isinstance(d, str) and d.startswith("res-"):
-            name = d[4:].split(".")[0]
-            res_type = d.split(".")[1]
-            res = self._depl.get_typed_resource(name, res_type)
-            try:
-                d = getattr(res, key)
-            except AttributeError:
-                d = res._state[key]
+        d = self.get_resource_definition(key) 
         if s==None and d != None:
             self._diff[key] = self.CREATE
         elif s!=None and d == None:
@@ -104,6 +97,30 @@ class Diff(object):
         elif s!=None and d!=None:
             if s != d:
               self._diff[key] = self.UPDATE
+
+    def get_resource_definition(self, key):
+        def retrieve_def(d):
+            if isinstance(d, str) and d.startswith("res-"):
+                name = d[4:].split(".")[0]
+                res_type = d.split(".")[1]
+                k = d.split(".")[2] if len(d.split("."))>2 else key
+                res = self._depl.get_typed_resource(name, res_type)
+                try:
+                    d = getattr(res, k)
+                except AttributeError:
+                    d = res._state[k]
+            return d
+
+        d = self._definition.get(key, None)
+        if isinstance(d, list):
+            options = []
+            for option in d:
+                item = retrieve_def(option)
+                options.append(item)
+            return options
+        else:
+            d = retrieve_def(d)
+            return d
 
 class Handler(object):
     def __init__(self, keys, after=[]):

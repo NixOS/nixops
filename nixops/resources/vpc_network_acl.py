@@ -142,7 +142,40 @@ class vpcNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
             self._state['entries'] = self._config['entries']
 
     def realize_subnets_change(self):
-        return True
+        self.connect()
+        old_subnets = self._state.get('subnetIds', [])
+        new_subnets = []
+        for s in self._config['subnetIds']:
+            if s.startswith("res-"):
+                res = self.depl.get_typed_resource(s[4:].split(".")[0], "vpc-subnet")
+                new_subnets.append(res._state['subnetId'])
+            else:
+                new_subnets.append(s)
+
+        subnets_to_remove = [s for s in old_subnets if s not in new_subnets]
+        subnets_to_add = [s for s in new_subnets if s not in old_subnets]
+        default_network_acl = self.get_default_network_acl(self._config['vpcId'])
+        for subnet in subnets_to_remove:
+            association_id = self.get_network_acl_association(subnet)
+            self._client.replace_network_acl_association(AssociationId=association_id, NetworkAclId=default_network_acl)
+        for subnet in subnets_to_add:
+            association_id = self.get_network_acl_association(subnet)
+            self._client.replace_network_acl_association(AssociationId=association_id, NetworkAclId=self.network_acl_id)
+
+        with self.depl._db:
+            self._state['subnetIds'] = new_subnets
+
+
+    def get_default_network_acl(self, vpc_id):
+        response = self._client.describe_network_acls(Filters=[{ "Name": "default", "Values": [ "true" ] },
+             { "Name": "vpc-id", "Values": [ vpc_id ]}])
+        return response['NetworkAcls'][0]['NetworkAclId']
+
+    def get_network_acl_association(self, subnet_id):
+        response = self._client.describe_network_acls(Filters=[{"Name": "association.subnet-id", "Values":[ subnet_id ]}])
+        for association in  response['NetworkAcls'][0]['Associations']:
+            if association['SubnetId'] == subnet_id:
+                return association['NetworkAclAssociationId']
 
     def process_rule_entry(self, entry):
         rule = dict()
