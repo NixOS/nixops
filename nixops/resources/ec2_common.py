@@ -12,6 +12,7 @@ class EC2CommonState():
 
     def get_common_tags(self):
         return {'CharonNetworkUUID': self.depl.uuid,
+                'CharonNetworkName': self.depl.name,
                 'CharonMachineName': self.name,
                 'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file)}
 
