@@ -51,6 +51,12 @@ with lib;
         a public IP in launch. Default is false.
       '';
     };
+    
+    subnetId = mkOption {
+      default = "";
+      type = types.str;
+      description = "The VPC subnet id generated from AWS. This is set by NixOps";
+    };
 
   } // import ./common-ec2-options.nix { inherit lib; } ;
 

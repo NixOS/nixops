@@ -64,7 +64,7 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
         return {('resources', 'vpcSubnets'): attr}
 
     def get_physical_spec(self):
-        return {}
+        return { 'subnetId': self.subnet_id }
 
     def get_definition_prefix(self):
         return "resources.vpcSubnets."
