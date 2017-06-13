@@ -830,7 +830,8 @@ class GCEState(MachineState, ResourceState):
         # the final nix-build).
         for k, v in self.block_device_mapping.items():
             if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "":
-                keys["luks-" + (v['disk_name'] or v['disk'])] = { 'text': v['generatedKey'], 'group': 'root', 'permissions': '0600', 'user': 'root'}
+                key_name = "luks-" + (v['disk_name'] or v['disk'])
+                keys[key_name] = { 'text': v['generatedKey'], 'keyFile': '/run/keys' + key_name, 'destDir': '/run/keys', 'group': 'root', 'permissions': '0600', 'user': 'root'}
         return keys
 
     def get_ssh_name(self):

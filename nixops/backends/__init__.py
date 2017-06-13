@@ -215,7 +215,6 @@ class MachineState(nixops.resources.ResourceState):
         for k, opts in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
-
             if 'destDir' not in opts:
                 raise Exception("Key '{}' has no 'destDir' specified.".format(k))
 
@@ -359,11 +358,10 @@ class MachineState(nixops.resources.ResourceState):
             + ([] if self.has_fast_connection else ["--gzip", "--use-substitutes"]),
             env=env)
 
-    def generate_vpn_key(self, check=False):
+    def generate_vpn_key(self):
         key_missing = False
         try:
-            if check:
-                self.run_command("test -f /root/.ssh/id_charon_vpn")
+            self.run_command("test -f /root/.ssh/id_charon_vpn")
         except nixops.ssh_util.SSHCommandFailed:
             key_missing = True
 
