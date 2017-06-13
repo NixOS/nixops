@@ -220,7 +220,6 @@ class MachineState(nixops.resources.ResourceState):
                 raise Exception("Key '{}' has no 'destDir' specified.".format(k))
 
             destDir = opts['destDir'].rstrip("/")
-            print ("opts: %s, destDir: '%s'" % (opts, destDir))
             self.run_command(("test -d '{0}' || ("
                               " mkdir -m 0750 -p '{0}' &&"
                               " chown root:keys  '{0}';)").format(destDir))
