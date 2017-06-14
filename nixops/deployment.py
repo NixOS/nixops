@@ -936,7 +936,7 @@ class Deployment(object):
                                 r.warn("cannot determine NixOS version")
 
                         r.wait_for_ssh(check=check)
-                        r.generate_vpn_key(check=check)
+                        r.generate_vpn_key()
 
                 except:
                     r._errored = True
