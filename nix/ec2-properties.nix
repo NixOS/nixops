@@ -18,6 +18,8 @@
   "d2.4xlarge" = { cores = 16; memory = 124928; allowsEbsOptimized = true; };
   "d2.8xlarge" = { cores = 36; memory = 249856; allowsEbsOptimized = true; };
   "d2.xlarge" = { cores = 4; memory = 31232; allowsEbsOptimized = true; };
+  "f1.16xlarge" = { cores = 64; memory = 999424; allowsEbsOptimized = true; };
+  "f1.2xlarge" = { cores = 8; memory = 124928; allowsEbsOptimized = false; };
   "g2.2xlarge" = { cores = 8; memory = 15360; allowsEbsOptimized = true; };
   "g2.8xlarge" = { cores = 32; memory = 61440; allowsEbsOptimized = false; };
   "hi1.4xlarge" = { cores = 16; memory = 61952; allowsEbsOptimized = false; };
@@ -26,6 +28,12 @@
   "i2.4xlarge" = { cores = 16; memory = 124928; allowsEbsOptimized = true; };
   "i2.8xlarge" = { cores = 32; memory = 249856; allowsEbsOptimized = false; };
   "i2.xlarge" = { cores = 4; memory = 31232; allowsEbsOptimized = true; };
+  "i3.16xlarge" = { cores = 64; memory = 499712; allowsEbsOptimized = false; };
+  "i3.2xlarge" = { cores = 8; memory = 62464; allowsEbsOptimized = false; };
+  "i3.4xlarge" = { cores = 16; memory = 124928; allowsEbsOptimized = false; };
+  "i3.8xlarge" = { cores = 32; memory = 249856; allowsEbsOptimized = false; };
+  "i3.large" = { cores = 2; memory = 15616; allowsEbsOptimized = false; };
+  "i3.xlarge" = { cores = 4; memory = 31232; allowsEbsOptimized = false; };
   "m1.large" = { cores = 2; memory = 7680; allowsEbsOptimized = true; };
   "m1.medium" = { cores = 1; memory = 3840; allowsEbsOptimized = false; };
   "m1.small" = { cores = 1; memory = 1740; allowsEbsOptimized = false; };
