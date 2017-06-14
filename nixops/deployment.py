@@ -983,7 +983,7 @@ class Deployment(object):
             r.after_activation(self.definitions[r.name])
 
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=cleanup_worker)
-        self.logger.log(ansi_success("{0}> deployment finished successfully".format(self.name), outfile=self.logger._log_file))
+        self.logger.log(ansi_success("{0}> deployment finished successfully".format(self.name or "unnamed"), outfile=self.logger._log_file))
 
     def deploy(self, **kwargs):
         with self._get_deployment_lock():
