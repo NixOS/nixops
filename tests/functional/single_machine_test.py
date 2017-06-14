@@ -1,6 +1,7 @@
 from os import path
 
 from nose import tools
+from nose.plugins.attrib import attr
 
 from tests.functional import generic_deployment_test
 
@@ -15,18 +16,28 @@ class SingleMachineTest(generic_deployment_test.GenericDeploymentTest):
         super(SingleMachineTest,self).setup()
         self.depl.nix_exprs = [ logical_spec ]
 
+    @attr("vbox")
+    def test_vbox(self):
+        self.depl.nix_exprs = self.depl.nix_exprs + [
+            ('%s/single_machine_vbox_base.nix' % (parent_dir))
+        ]
+        self.run_check()
+
+    @attr("ec2")
     def test_ec2(self):
         self.depl.nix_exprs = self.depl.nix_exprs + [
             ('{0}/single_machine_ec2_base.nix'.format(parent_dir))
         ]
         self.run_check()
 
+    @attr("gce")
     def test_gce(self):
         self.depl.nix_exprs = self.depl.nix_exprs + [
             ('{0}/single_machine_gce_base.nix'.format(parent_dir))
         ]
         self.run_check()
 
+    @attr("azure")
     def test_azure(self):
         self.depl.nix_exprs = self.depl.nix_exprs + [
             ('{0}/single_machine_azure_base.nix'.format(parent_dir))
