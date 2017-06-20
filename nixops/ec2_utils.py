@@ -165,3 +165,4 @@ def id_to_security_group_name(conn, sg_id, vpc_id):
         if sg.id == sg_id:
             name = sg.name
             return name
+    raise Exception("could not resolve security group id '{0}' in VPC '{1}'".format(sg_id, vpc_id))
