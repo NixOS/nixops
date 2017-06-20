@@ -349,6 +349,16 @@ in
         '';
       };
 
+      scheduling.preemptible = mkOption {
+        default = false;
+        type = types.bool;
+        description = ''
+          Whether the instance is preemptible.
+          For more information, see <link
+          xlink:href='https://developers.google.com/compute/docs/instances#onhostmaintenance'/>.
+        '';
+      };
+
     };
 
     fileSystems = mkOption {
