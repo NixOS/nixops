@@ -159,3 +159,9 @@ def name_to_security_group(conn, name, vpc_id):
 
     raise Exception("could not resolve security group name '{0}' in VPC '{1}'".format(name, vpc_id))
 
+def id_to_security_group_name(conn, sg_id, vpc_id):
+    name = None
+    for sg in conn.get_all_security_groups(filters={'group-id':sg_id, 'vpc-id': vpc_id}):
+        if sg.id == sg_id:
+            name = sg.name
+            return name

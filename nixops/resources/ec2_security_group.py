@@ -127,8 +127,10 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                             if grant.cidr_ip:
                                 new_rule.append(grant.cidr_ip)
                             else:
-                                new_rule.append(grant.groupName)
+                                group  = nixops.ec2_utils.id_to_security_group_name(self._conn, grant.groupId, self.vpc_id) if self.vpc_id else grant.groupName
+                                new_rule.append(group)
                                 new_rule.append(grant.owner_id)
+
                             rules.append(new_rule)
                     self.security_group_rules = rules
                 except boto.exception.EC2ResponseError as e:
