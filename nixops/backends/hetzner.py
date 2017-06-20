@@ -11,7 +11,7 @@ from hetzner.robot import Robot
 
 from nixops import known_hosts
 from nixops.util import wait_for_tcp_port, ping_tcp_port
-from nixops.util import attr_property, create_key_pair
+from nixops.util import attr_property, create_key_pair, xml_expr_to_python
 from nixops.ssh_util import SSHCommandFailed
 from nixops.backends import MachineDefinition, MachineState
 from nixops.nix_expr import nix2py
@@ -55,8 +55,8 @@ class HetznerDefinition(MachineDefinition):
                                    ("robot_user", "robotUser", "string"),
                                    ("robot_pass", "robotPass", "string"),
                                    ("partitions", "partitions", "string")]:
-            attr = x.find("attr[@name='" + name + "']/" + valtype)
-            setattr(self, var, attr.get("value"))
+            node = x.find("attr[@name='" + name + "']/" + valtype)
+            setattr(self, var, xml_expr_to_python(node))
 
 
 class HetznerState(MachineState):
