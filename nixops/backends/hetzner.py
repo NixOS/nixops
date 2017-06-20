@@ -52,6 +52,7 @@ class HetznerDefinition(MachineDefinition):
         x = xml.find("attrs/attr[@name='hetzner']/attrs")
         assert x is not None
         for var, name, valtype in [("main_ipv4", "mainIPv4", "string"),
+                                   ("create_sub_account", "createSubAccount", "bool"),
                                    ("robot_user", "robotUser", "string"),
                                    ("robot_pass", "robotPass", "string"),
                                    ("partitions", "partitions", "string")]:
@@ -106,22 +107,25 @@ class HetznerState(MachineState):
         self._robot = Robot(self.robot_admin_user, self.robot_admin_pass)
         return self._robot
 
-    def _get_server_from_main_robot(self, ip, defn=None):
+    def _get_robot_user_and_pass(self, defn=None, default_user=None, default_pass=None):
         """
         Fetch the server instance using the main robot user and passwords
         from the MachineDefinition passed by 'defn'. If the definition does not
         contain these credentials or is None, it is tried to fetch it from
         environment variables.
         """
+        robot_user = None
+        robot_pass = None
+
         if defn is not None and len(defn.robot_user) > 0:
             robot_user = defn.robot_user
         else:
-            robot_user = os.environ.get('HETZNER_ROBOT_USER', None)
+            robot_user = os.environ.get('HETZNER_ROBOT_USER', default_user)
 
         if defn is not None and len(defn.robot_pass) > 0:
             robot_pass = defn.robot_pass
         else:
-            robot_pass = os.environ.get('HETZNER_ROBOT_PASS', None)
+            robot_pass = os.environ.get('HETZNER_ROBOT_PASS', default_pass)
 
         if robot_user is None:
             raise Exception("please either set ‘deployment.hetzner.robotUser’"
@@ -131,6 +135,11 @@ class HetznerState(MachineState):
             raise Exception("please either set ‘deployment.hetzner.robotPass’"
                             " or $HETZNER_ROBOT_PASS for machine"
                             " ‘{0}’".format(self.name))
+
+        return (robot_user, robot_pass)
+
+    def _get_server_from_main_robot(self, ip, defn=None):
+        (robot_user, robot_pass) = self._get_robot_user_and_pass(defn=defn)
 
         if TEST_MODE:
             return TestModeServer()
@@ -579,15 +588,29 @@ class HetznerState(MachineState):
         self.set_common_state(defn)
         self.main_ipv4 = defn.main_ipv4
 
-        if not self.robot_admin_user or not self.robot_admin_pass:
-            self.log_start("creating an exclusive robot admin account for "
-                           "‘{0}’... ".format(self.name))
-            # Create a new Admin account exclusively for this machine.
-            server = self._get_server_from_main_robot(self.main_ipv4, defn)
-            with self.depl._db:
-                (self.robot_admin_user,
-                 self.robot_admin_pass) = server.admin.create()
-            self.log_end("done. ({0})".format(self.robot_admin_user))
+        if defn.create_sub_account:
+            if not self.robot_admin_user or not self.robot_admin_pass:
+                self.log_start("creating an exclusive robot admin sub-account for "
+                               "‘{0}’... ".format(self.name))
+                # Create a new Admin account exclusively for this machine.
+                server = self._get_server_from_main_robot(self.main_ipv4, defn)
+                with self.depl._db:
+                    (self.robot_admin_user,
+                     self.robot_admin_pass) = server.admin.create()
+                self.log_end("done. ({0})".format(self.robot_admin_user))
+        else:
+            # If available, assign user and password even if they are already
+            # in the DB, so that changes to them are immediately reflected.
+            # If not available, we use the ones from the DB.
+            (robot_user, robot_pass) = self._get_robot_user_and_pass(
+                defn=defn,
+                default_user=self.robot_admin_user,
+                default_pass=self.robot_admin_pass,
+            )
+            if robot_user != self.robot_admin_user or robot_pass != self.robot_admin_pass:
+                with self.depl._db:
+                    (self.robot_admin_user,
+                     self.robot_admin_pass) = (robot_user, robot_pass)
 
         if not self.vm_id:
             self.log("installing machine...")
