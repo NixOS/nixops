@@ -654,7 +654,7 @@ class Deployment(object):
         nixops.parallel.run_tasks(
             nr_workers=max_concurrent_copy,
             tasks=self.active.itervalues(), worker_fun=worker)
-        self.logger.log(ansi_success("{0}> closures copied successfully".format(self.name), outfile=self.logger._log_file))
+        self.logger.log(ansi_success("{0}> closures copied successfully".format(self.name or "unnamed"), outfile=self.logger._log_file))
 
 
     def activate_configs(self, configs_path, include, exclude, allow_reboot,
@@ -936,7 +936,7 @@ class Deployment(object):
                                 r.warn("cannot determine NixOS version")
 
                         r.wait_for_ssh(check=check)
-                        r.generate_vpn_key(check=check)
+                        r.generate_vpn_key()
 
                 except:
                     r._errored = True
@@ -983,7 +983,7 @@ class Deployment(object):
             r.after_activation(self.definitions[r.name])
 
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=cleanup_worker)
-        self.logger.log(ansi_success("{0}> deployment finished successfully".format(self.name), outfile=self.logger._log_file))
+        self.logger.log(ansi_success("{0}> deployment finished successfully".format(self.name or "unnamed"), outfile=self.logger._log_file))
 
     def deploy(self, **kwargs):
         with self._get_deployment_lock():
