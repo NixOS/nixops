@@ -107,15 +107,13 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
             self.security_group_description = defn.security_group_description
             self.vpc_id = defn.vpc_id
 
-        from pprint import pprint
-
         grp = None
         if check:
             with self.depl._db:
                 self._connect()
 
                 try:
-                    grp = self.get_security_group()
+                    grp = self._conn.get_all_security_groups([ defn.security_group_name ])[0]
                     self.state = self.UP
                     self.security_group_id = grp.id
                     self.security_group_description = grp.description
@@ -125,17 +123,14 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                             new_rule = [ rule.ip_protocol, int(rule.from_port), int(rule.to_port) ]
                             if grant.cidr_ip:
                                 new_rule.append(grant.cidr_ip)
-                            elif 'groupName' in vars(grant):
-                                new_rule.append(grant.groupName)
-                                new_rule.append(grant.owner_id)
                             else:
-                                new_rule.append(grant.groupId)
+                                new_rule.append(grant.groupName)
                                 new_rule.append(grant.owner_id)
                             rules.append(new_rule)
                     self.security_group_rules = rules
                 except boto.exception.EC2ResponseError as e:
                     if e.error_code == u'InvalidGroup.NotFound':
-                        self.state = self.MISSING
+                        self.state = self.Missing
                     else:
                         raise
 
@@ -150,9 +145,6 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
             else:
                 old_rules.remove(tupled_rule)
 
-        pprint(old_rules)
-        pprint(new_rules)
-
         if self.state == self.MISSING or self.state == self.UNKNOWN:
             self._connect()
             try:
@@ -166,7 +158,6 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
 
         if new_rules:
             self.logger.log("adding new rules to EC2 security group ‘{0}’...".format(self.security_group_name))
-            pprint(new_rules)
             if grp is None:
                 self._connect()
                 grp = self.get_security_group()
