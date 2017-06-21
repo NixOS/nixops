@@ -11,7 +11,7 @@ import nixops.ec2_utils
 from nixops.diff import Diff, Handler
 from nixops.state import StateDict
 
-class vpcNetworkAcldefinition(nixops.resources.ResourceDefinition):
+class VPCNetworkAcldefinition(nixops.resources.ResourceDefinition):
     """definition of a vpc network ACL."""
 
     @classmethod
@@ -26,7 +26,7 @@ class vpcNetworkAcldefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class vpcNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2CommonState):
+class VPCNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2CommonState):
     """state of a vpc Network ACL."""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
@@ -53,7 +53,7 @@ class vpcNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
         return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
 
     def show_type(self):
-        s = super(vpcNetworkAclstate, self).show_type()
+        s = super(VPCNetworkAclstate, self).show_type()
         if self._state.get('region', None): s = "{0} [{1}]".format(s, self._state['region'])
         return s
 
@@ -154,17 +154,21 @@ class vpcNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
 
         subnets_to_remove = [s for s in old_subnets if s not in new_subnets]
         subnets_to_add = [s for s in new_subnets if s not in old_subnets]
+
         default_network_acl = self.get_default_network_acl(self._config['vpcId'])
+
         for subnet in subnets_to_remove:
             association_id = self.get_network_acl_association(subnet)
+            self.log("associating subnet {0} to default network acl {1}".format(subnet, default_network_acl))
             self._client.replace_network_acl_association(AssociationId=association_id, NetworkAclId=default_network_acl)
+
         for subnet in subnets_to_add:
             association_id = self.get_network_acl_association(subnet)
+            self.log("associating subnet {0} to default network acl {1}".format(subnet, self.network_acl_id))
             self._client.replace_network_acl_association(AssociationId=association_id, NetworkAclId=self.network_acl_id)
 
         with self.depl._db:
             self._state['subnetIds'] = new_subnets
-
 
     def get_default_network_acl(self, vpc_id):
         response = self._client.describe_network_acls(Filters=[{ "Name": "default", "Values": [ "true" ] },
