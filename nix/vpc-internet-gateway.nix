@@ -8,7 +8,7 @@ with lib;
     name = mkOption {
       default = "charon-${uuid}-${name}";
       type = types.str;
-      description = "Name of the subnet VPC.";
+      description = "Name of the VPC internet gateway.";
     };
     
     accessKeyId = mkOption {
@@ -25,7 +25,7 @@ with lib;
       type = types.either types.str (resource "vpc");
       apply = x: if builtins.isString x then x else "res-" + x._name;
       description = ''
-        The ID of the VPC where the subnet will be created
+        The ID of the VPC where the internet gateway will be created
       '';
     };
   } // import ./common-ec2-options.nix { inherit lib; };
