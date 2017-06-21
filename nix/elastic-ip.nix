@@ -23,6 +23,14 @@ with lib;
       description = "The elastic IP address, set by NixOps.";
     };
 
+    vpc = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        Whether to allocate the address for use with instances in a VPC
+      '';
+    };
+
   };
 
   config._type = "elastic-ip";
