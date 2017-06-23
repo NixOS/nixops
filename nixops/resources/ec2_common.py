@@ -1,7 +1,9 @@
 import socket
 import getpass
+
 import nixops.util
 import nixops.resources
+from nixops.diff import Diff, Handler
 
 class EC2CommonState():
 
@@ -37,3 +39,14 @@ class EC2CommonState():
             self._retry(lambda: self._conn.create_tags([id], tags))
 
         self.update_tags_using(updater, user_tags=user_tags, check=check)
+
+    def setup_diff_engine(self):
+        self.diff_engine = Diff(depl=self.depl, logger=self.logger,
+                                config=self._config, state=self._state,
+                                res_type=self.get_type())
+        self.diff_engine.set_reserved_keys(self._reserved_keys)
+        self.diff_engine.set_handlers(self.get_handlers())
+
+    def get_handlers(self):
+        return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
+

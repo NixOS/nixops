@@ -1,5 +1,6 @@
 { config, lib, uuid, name, ... }:
 
+with import ./lib.nix lib;
 with lib;
 
 {
@@ -23,7 +24,7 @@ with lib;
 
     allocationId = mkOption {
       type = types.either types.str (resource "elastic-ip");
-      apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type + "allocation_id"";
+      apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type + "allocation_id";
       description = ''
         The allocation ID of the elastic IP address.
       '';

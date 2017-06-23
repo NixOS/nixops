@@ -138,6 +138,7 @@ class VPCState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2Co
             handler.handle()
 
         def tag_updater(tags):
+            print tags
             self._client.create_tags(Resources=[ self.vpc_id ], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
         self.update_tags_using(tag_updater, user_tags=defn.config["tags"], check=check)

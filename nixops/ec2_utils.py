@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 
 import os
-import boto.ec2
-import boto.vpc
 import time
 import random
+
 import nixops.util
 
+import boto3
+import boto.ec2
+import boto.vpc
 from boto.exception import EC2ResponseError
 from boto.exception import SQSError
 from boto.exception import BotoServerError
-
 from boto.pyami.config import Config
 
 def fetch_aws_secret_key(access_key_id):
@@ -68,6 +69,12 @@ def connect(region, access_key_id):
     if not conn:
         raise Exception("invalid EC2 region ‘{0}’".format(region))
     return conn
+
+def connect_ec2_boto3(region, access_key_id):
+        assert region
+        (access_key_id, secret_access_key) = fetch_aws_secret_key(access_key_id)
+        client = boto3.client('ec2', region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+        return client
 
 def connect_vpc(region, access_key_id):
     """Connect to the specified VPC region using the given access key."""
