@@ -6,6 +6,72 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.5.1"><title>Release 1.5.1 (Jun 23, 2017)</title>
+
+<itemizedlist>
+
+  <listitem><para>General</para>
+
+    <itemizedlist>
+      <listitem><para></para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: None</para>
+
+    <itemizedlist>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Amazon Web Services</para>
+
+    <itemizedlist>
+      <listitem><para></para></listitem>
+  </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Datadog</para>
+
+    <itemizedlist>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Hetzner</para>
+
+    <itemizedlist>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: VirtualBox</para>
+
+    <itemizedlist>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Libvirtd</para>
+
+    <itemizedlist>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Digital Ocean</para>
+
+    <itemizedlist>
+    </itemizedlist>
+  </listitem>
+
+</itemizedlist>
+
+<para>
+    This release has contributions from Albert Peschar, Amine Chikhaoui, aszlig,
+    Clemens Fruhwirth, Domen Kožar, Drew Hess, Eelco Dolstra, Igor Pashev,
+    Johannes Bornhold, Kosyrev Serge, Leon Isenberg, Maarten Hoogendoorn,
+    Nadrieril Feneanar, Niklas Hambüchen, Philip Patsch, Rob Vermaas, Sven Slootweg.
+</para>
+
+</section>
+
+
 <section xml:id="ssec-relnotes-1.5"><title>Release 1.5 (Feb 16, 2017)</title>
 
 <itemizedlist>

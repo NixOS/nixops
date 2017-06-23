@@ -165,7 +165,6 @@ class VirtualBoxState(MachineState):
 
     def _wait_for_ip(self):
         self.log_start("waiting for IP address...")
-        old_address = self.private_ipv4
         while True:
             self._update_ip()
             if self.private_ipv4 != None: break
@@ -433,6 +432,9 @@ class VirtualBoxState(MachineState):
 
         self._start()
         self._wait_for_ip()
+
+        self.ssh_pinged = False
+        self._ssh_pinged_this_time = False
 
         if prev_ipv4 != self.private_ipv4:
             self.warn("IP address has changed, you may need to run ‘nixops deploy’")
