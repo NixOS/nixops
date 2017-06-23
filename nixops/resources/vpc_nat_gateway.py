@@ -2,6 +2,8 @@
 
 # Automatic provisioning of AWS VPC NAT gateways.
 
+import uuid
+
 import boto3
 import botocore
 
@@ -67,7 +69,7 @@ class VPCNatGatewayState(nixops.resources.ResourceState, nixops.resources.ec2_co
 
     def connect(self):
         if self._client: return
-        self._client = nixops.ec2_utils.connect_ec2_boto3(self.region, self.access_key_id)
+        self._client = nixops.ec2_utils.connect_ec2_boto3(self._state['region'], self.access_key_id)
 
     def create_after(self, resources, defn):
         return {r for r in resources if

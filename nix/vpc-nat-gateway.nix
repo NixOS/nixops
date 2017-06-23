@@ -32,7 +32,7 @@ with lib;
 
     subnetId = mkOption {
       type = types.either types.str (resource "vpc-subnet");
-      apply = x: if builtins.isString x then x else "res-" + x._name;
+      apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;
       description = ''
         The ID of the VPC subnet where the NAT gateway will be created
       '';
