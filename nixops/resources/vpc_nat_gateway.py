@@ -51,7 +51,7 @@ class VPCNatGatewayState(nixops.resources.ResourceState, nixops.resources.ec2_co
 
     def show_type(self):
         s = super(VPCNatGatewayState, self).show_type()
-        if self.region: s = "{0} [${1}]".format(s, self.region)
+        if self.region: s = "{0} [{1}]".format(s, self.region)
         return s
 
     @property

@@ -71,10 +71,10 @@ def connect(region, access_key_id):
     return conn
 
 def connect_ec2_boto3(region, access_key_id):
-        assert region
-        (access_key_id, secret_access_key) = fetch_aws_secret_key(access_key_id)
-        client = boto3.client('ec2', region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
-        return client
+    assert region
+    (access_key_id, secret_access_key) = fetch_aws_secret_key(access_key_id)
+    client = boto3.client('ec2', region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+    return client
 
 def connect_vpc(region, access_key_id):
     """Connect to the specified VPC region using the given access key."""
