@@ -1423,7 +1423,11 @@ and destruction.</para>
 <para><xref linkend="ex-trivial-digital-ocean.nix" /> shows how to run
 a <literal>512m</literal> digital ocean instance in the
 <literal>ams2</literal> region, with IPv6 support enabled. We only
-support droplet creation and destruction at the moment.
+support droplet creation and destruction at the moment. This example assumes
+you have the <varname>DIGITAL_OCEAN_AUTH_TOKEN</varname> set with an
+authentication token, obtained from the Digital Ocean console. The token
+can also be provided via the <varname>deployment.digitalOcean.authToken</varname>
+option.
 </para>
 
 <para>Note that we rely on a ssh key resource with the hard-coded name
