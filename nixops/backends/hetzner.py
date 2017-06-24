@@ -2,7 +2,6 @@
 from __future__ import absolute_import
 
 import os
-import sys
 import socket
 import struct
 import subprocess
@@ -27,8 +26,11 @@ class TestModeServer(object):
     Server object from the Hetzner API but mocked up to return only dummy
     values.
     """
-    reboot = lambda s, method: None
-    set_name = lambda s, name: None
+    def reboot(self, method):
+        return None
+
+    def set_name(self, method):
+        return None
 
     class admin(object):
         create = classmethod(lambda cls: ('test_user', 'test_pass'))
@@ -51,11 +53,12 @@ class HetznerDefinition(MachineDefinition):
         MachineDefinition.__init__(self, xml, config)
         x = xml.find("attrs/attr[@name='hetzner']/attrs")
         assert x is not None
-        for var, name, valtype in [("main_ipv4", "mainIPv4", "string"),
-                                   ("create_sub_account", "createSubAccount", "bool"),
-                                   ("robot_user", "robotUser", "string"),
-                                   ("robot_pass", "robotPass", "string"),
-                                   ("partitions", "partitions", "string")]:
+        attrs = [("main_ipv4", "mainIPv4", "string"),
+                 ("create_sub_account", "createSubAccount", "bool"),
+                 ("robot_user", "robotUser", "string"),
+                 ("robot_pass", "robotPass", "string"),
+                 ("partitions", "partitions", "string")]
+        for var, name, valtype in attrs:
             node = x.find("attr[@name='" + name + "']/" + valtype)
             setattr(self, var, xml_expr_to_python(node))
 
@@ -107,16 +110,14 @@ class HetznerState(MachineState):
         self._robot = Robot(self.robot_admin_user, self.robot_admin_pass)
         return self._robot
 
-    def _get_robot_user_and_pass(self, defn=None, default_user=None, default_pass=None):
+    def _get_robot_user_and_pass(self, defn=None, default_user=None,
+                                 default_pass=None):
         """
         Fetch the server instance using the main robot user and passwords
         from the MachineDefinition passed by 'defn'. If the definition does not
         contain these credentials or is None, it is tried to fetch it from
         environment variables.
         """
-        robot_user = None
-        robot_pass = None
-
         if defn is not None and len(defn.robot_user) > 0:
             robot_user = defn.robot_user
         else:
@@ -186,7 +187,7 @@ class HetznerState(MachineState):
             # so only wait for the reboot to finish when deploying real
             # systems.
             self.log_start("waiting for rescue system...")
-            dotlog = lambda: self.log_continue(".")
+            dotlog = lambda: self.log_continue(".")  # NOQA
             wait_for_tcp_port(ip, 22, open=False, callback=dotlog)
             self.log_continue("[down]")
             wait_for_tcp_port(ip, 22, callback=dotlog)
@@ -545,8 +546,8 @@ class HetznerState(MachineState):
 
         # Extra routes
         route4_cmd = "ip -4 route change '{0}' via '{1}' dev '{2}' || true"
-        route_commands = [route4_cmd.format(net, gw, iface)
-                          for net, gw, iface in extra_routes]
+        route_commands = [route4_cmd.format(network, gw, iface)
+                          for network, gw, iface in extra_routes]
 
         # IPv6 configuration
         route6_cmd = "ip -6 route add default via '{0}' dev eth0 || true"
@@ -590,9 +591,8 @@ class HetznerState(MachineState):
 
         if defn.create_sub_account:
             if not self.robot_admin_user or not self.robot_admin_pass:
-                self.log_start("creating an exclusive robot admin sub-account for "
-                               "‘{0}’... ".format(self.name))
-                # Create a new Admin account exclusively for this machine.
+                self.log_start("creating an exclusive robot admin sub-account "
+                               "for ‘{0}’... ".format(self.name))
                 server = self._get_server_from_main_robot(self.main_ipv4, defn)
                 with self.depl._db:
                     (self.robot_admin_user,
@@ -607,7 +607,8 @@ class HetznerState(MachineState):
                 default_user=self.robot_admin_user,
                 default_pass=self.robot_admin_pass,
             )
-            if robot_user != self.robot_admin_user or robot_pass != self.robot_admin_pass:
+            if robot_user != self.robot_admin_user or \
+               robot_pass != self.robot_admin_pass:
                 with self.depl._db:
                     (self.robot_admin_user,
                      self.robot_admin_pass) = (robot_user, robot_pass)
@@ -648,7 +649,7 @@ class HetznerState(MachineState):
         Wait for the system to shutdown and set state STOPPED afterwards.
         """
         self.log_start("waiting for system to shutdown... ")
-        dotlog = lambda: self.log_continue(".")
+        dotlog = lambda: self.log_continue(".")  # NOQA
         wait_for_tcp_port(self.main_ipv4, 22, open=False, callback=dotlog)
         self.log_continue("[down]")
 
