@@ -17,6 +17,39 @@ with lib;
       '';
     };
 
+    createSubAccount = mkOption {
+      default = true;
+      type = types.bool;
+      description = ''
+        Whether NixOps should create a Hetzner "Admin account"
+        (a sub-account that allows to manage this single machine).
+
+        You must disable this when your Hetzner main account
+        is protected with 2-factor authentication, as the
+        Hetzner webservice API does not support 2-factor auth.
+
+        When this is disabled, you must manually create the
+        sub-account for each machine in the Hetzner
+        Robot UI before running NixOps.
+
+        When this is disabled, NixOps assumes that the credentials
+        for the sub-account are those given with the `robotUser`
+        and `robotPass` options.
+        If those are left empty, the values of the environment
+        variables <envar>HETZNER_ROBOT_USER</envar> and
+        <envar>HETZNER_ROBOT_PASS</envar> are used instead.
+
+        Note that if you have more than one Hetzner
+        and `createSubAccount = false`, it does not make sense
+        to use <envar>HETZNER_ROBOT_USER</envar> because Hetzner
+        (as of writing) enforces a different sub-account user name
+        for each server, so you should use `robotUser` per machine
+        instead of using the environment variable.
+        But you may use the environment variable for the password
+        if you set the sub-account passwords to be identical.
+      '';
+    };
+
     robotUser = mkOption {
       default = "";
       type = types.nullOr types.str;
