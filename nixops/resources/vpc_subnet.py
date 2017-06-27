@@ -32,8 +32,6 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
-    handle_create_subnet = Handler(['region', 'zone', 'cidrBlock', 'vpcId'])
-    handle_map_public_ip_on_launch = Handler(['mapPublicIpOnLaunch'], after=[handle_create_subnet])
 
     @classmethod
     def get_type(cls):
@@ -46,6 +44,9 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
         self._config = None
         self.subnet_id = self._state.get('subnetId', None)
         self.zone = self._state.get('zone', None)
+        self.handle_create_subnet = Handler(['region', 'zone', 'cidrBlock', 'vpcId'])
+        self.handle_map_public_ip_on_launch = Handler(['mapPublicIpOnLaunch'],
+                                                      after=[self.handle_create_subnet])
         self.handle_create_subnet.handle = self.realize_create_subnet
         self.handle_map_public_ip_on_launch.handle = self.realize_map_public_ip_on_launch
 
@@ -55,7 +56,7 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
         return s
 
     def get_handlers(self):
-        return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
+        return [getattr(self, h) for h in dir(self) if isinstance(getattr(self, h), Handler)]
 
     @property
     def resource_id(self):
@@ -65,16 +66,19 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
         return {('resources', 'vpcSubnets'): attr}
 
     def get_physical_spec(self):
-        return { 'subnetId': self.subnet_id }
+        return {'subnetId': self.subnet_id}
 
     def get_definition_prefix(self):
         return "resources.vpcSubnets."
 
     def connect(self):
-        if self._client: return
+        if self._client:
+            return
         assert self._state['region']
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._client = boto3.client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+        self._client = boto3.client('ec2', region_name=self._state['region'],
+                                    aws_access_key_id=access_key_id,
+                                    aws_secret_access_key=secret_access_key)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
@@ -85,7 +89,7 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
         self.allow_recreate = allow_recreate
 
         diff_engine = Diff(depl=self.depl, logger=self.logger, config=defn.config,
-                state=self._state, res_type=self.get_type())
+                           state=self._state, res_type=self.get_type())
         diff_engine.set_reserved_keys(['subnetId', 'accessKeyId', 'tags', 'ec2.tags'])
         diff_engine.set_handlers(self.get_handlers())
         change_sequence = diff_engine.plan()
@@ -101,7 +105,8 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
             h.handle()
 
         def tag_updater(tags):
-            self._client.create_tags(Resources=[ self.subnet_id ], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+            self._client.create_tags(Resources=[self.subnet_id],
+                                     Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
         self.update_tags_using(tag_updater, user_tags=defn.config["tags"], check=check)
 
@@ -109,7 +114,8 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
         if self.state == self.UP:
             if not self.allow_recreate:
                 raise Exception("subnet {} definition changed and it needs to be recreated"
-                                " use --allow-recreate if you want to create a new one".format(self.subnet_id))
+                                " use --allow-recreate if you want to create a new one".format(
+                                    self.subnet_id))
             self.warn("subnet definition changed, recreating...")
             self._destroy()
             self._client = None
@@ -125,8 +131,8 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
 
         zone = self._config['zone'] if self._config['zone'] else ''
         self.log("creating subnet in vpc {0}".format(vpc_id))
-        response = self._client.create_subnet(VpcId=vpc_id, CidrBlock=self._config['cidrBlock']
-                , AvailabilityZone=zone)
+        response = self._client.create_subnet(VpcId=vpc_id, CidrBlock=self._config['cidrBlock'],
+                                              AvailabilityZone=zone)
         subnet = response.get('Subnet')
         self.subnet_id = subnet.get('SubnetId')
         self.zone = subnet.get('AvailabilityZone')
@@ -141,14 +147,16 @@ class VPCSubnetState(nixops.resources.ResourceState, nixops.resources.ec2_common
 
     def realize_map_public_ip_on_launch(self):
         self.connect()
-        self._client.modify_subnet_attribute(MapPublicIpOnLaunch={ 'Value': self._config['mapPublicIpOnLaunch'] },
-                SubnetId=self.subnet_id)
+        self._client.modify_subnet_attribute(
+            MapPublicIpOnLaunch={'Value':self._config['mapPublicIpOnLaunch']},
+            SubnetId=self.subnet_id)
 
         with self.depl._db:
             self._state['mapPublicIpOnLaunch'] = self._config['mapPublicIpOnLaunch']
 
     def _destroy(self):
-        if self.state != self.UP: return
+        if self.state != self.UP:
+            return
         self.log("deleting subnet {0}".format(self.subnet_id))
         self.connect()
         self._client.delete_subnet(SubnetId=self.subnet_id)

@@ -40,13 +40,16 @@ class EC2CommonState():
 
         self.update_tags_using(updater, user_tags=user_tags, check=check)
 
-    def setup_diff_engine(self):
-        self.diff_engine = Diff(depl=self.depl, logger=self.logger,
-                                config=self._config, state=self._state,
-                                res_type=self.get_type())
-        self.diff_engine.set_reserved_keys(self._reserved_keys)
-        self.diff_engine.set_handlers(self.get_handlers())
+    def setup_diff_engine(self, config):
+        diff_engine = Diff(depl=self.depl, logger=self.logger,
+                           config=config, state=self._state,
+                           res_type=self.get_type())
+        diff_engine.set_reserved_keys(self._reserved_keys)
+        diff_engine.set_handlers(self.get_handlers())
+        return diff_engine
 
     def get_handlers(self):
         return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
 
+    def get_defn(self):
+        return self.depl.definitions[self.name].config

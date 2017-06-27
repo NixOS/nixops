@@ -33,7 +33,6 @@ class VPCNatGatewayState(nixops.resources.ResourceState, nixops.resources.ec2_co
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
-    handle_create_gtw = Handler(['region', 'subnetId', 'allocationId'])
     _reserved_keys = ['natGatewayId', 'accessKeyId', 'tags', 'ec2.tags', 'creationToken']
 
     @classmethod
@@ -44,8 +43,8 @@ class VPCNatGatewayState(nixops.resources.ResourceState, nixops.resources.ec2_co
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._client = None
         self._state = StateDict(depl, id)
-        self._config = None
         self.region = self._state.get('region', None)
+        self.handle_create_gtw = Handler(['region', 'subnetId', 'allocationId'])
         self.nat_gtw_id = self._state.get('natGatewayId', None)
         self.handle_create_gtw.handle = self.realize_create_gtw
 
@@ -73,26 +72,32 @@ class VPCNatGatewayState(nixops.resources.ResourceState, nixops.resources.ec2_co
 
     def create_after(self, resources, defn):
         return {r for r in resources if
-                isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState)}
+                isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState) or
+                isinstance(r, nixops.resources.elastic_ip.ElasticIPState)}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        self._config = defn.config
-        self.setup_diff_engine()
-        change_sequence = self.diff_engine.plan()
+        diff_engine = self.setup_diff_engine(config=defn.config)
+        change_sequence = diff_engine.plan()
 
         self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
-        self._state['region'] = self._config['region']
+        self._state['region'] = defn.config['region']
         self.connect()
 
-        for h in change_sequence:
-            h.handle()
+        for handler in change_sequence:
+            handler.handle()
 
     def realize_create_gtw(self):
-        subnet_id = self._config['subnetId']
-        allocation_id = self._config['allocationId']
+        config = self.get_defn()
+        subnet_id = config['subnetId']
+        allocation_id = config['allocationId']
+
+        if allocation_id.startswith("res-"):
+            res = self.depl.get_typed_resource(allocation_id[4:].split(".")[0], "elastic-ip")
+            allocation_id = res._state['allocationId']
+
         if subnet_id.startswith("res-"):
             res = self.depl.get_typed_resource(subnet_id[4:].split(".")[0], "vpc-subnet")
             subnet_id = res._state['subnetId']
@@ -118,7 +123,7 @@ class VPCNatGatewayState(nixops.resources.ResourceState, nixops.resources.ec2_co
         try:
             self._client.delete_nat_gateway(NatGatewayId=self._state['natGatewayId'])
         except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == "InvalidNatGatewayID.NotFound":
+            if e.response['Error']['Code'] == "InvalidNatGatewayID.NotFound" or e.response['Error']['Code'] == "NatGatewayNotFound":
                 self.warn("nat gateway {} was already deleted".format(self._state['natGatewayId']))
             else:
                 raise e

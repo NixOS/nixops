@@ -18,7 +18,8 @@ class StateDict(collections.MutableMapping):
         with self._db:
             c = self._db.cursor()
             if value == None:
-                c.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, key))
+                c.execute("delete from ResourceAttrs where machine = ? and name = ?",
+                          (self.id, key))
             else:
                 v = value
                 if isinstance(value, list):
@@ -29,7 +30,8 @@ class StateDict(collections.MutableMapping):
     def __getitem__(self, key):
         with self._db:
             c = self._db.cursor()
-            c.execute("select value from ResourceAttrs where machine = ? and name = ?", (self.id, key))
+            c.execute("select value from ResourceAttrs where machine = ? and name = ?",
+                      (self.id, key))
             row = c.fetchone()
             if row != None:
                 try:

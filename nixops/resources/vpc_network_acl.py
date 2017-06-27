@@ -31,9 +31,6 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
-    handle_create_network_acl = Handler(['region', 'vpcId'])
-    handle_entries = Handler(['entries'], after=[handle_create_network_acl])
-    handle_subnet_association = Handler(['subnetIds'], after=[handle_create_network_acl])
 
     @classmethod
     def get_type(cls):
@@ -45,6 +42,9 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
         self._state = StateDict(depl, id)
         self._config = None
         self.network_acl_id = self._state.get('networkAclId', None)
+        self.handle_create_network_acl = Handler(['region', 'vpcId'])
+        self.handle_entries = Handler(['entries'], after=[self.handle_create_network_acl])
+        self.handle_subnet_association = Handler(['subnetIds'], after=[self.handle_create_network_acl])
         self.handle_create_network_acl.handle = self.realize_create_network_acl
         self.handle_entries.handle = self.realize_entries_change
         self.handle_subnet_association.handle = self.realize_subnets_change

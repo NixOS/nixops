@@ -29,7 +29,6 @@ class VPCDhcpOptionsDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-
 class VPCDhcpOptionsState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2CommonState):
     """State of a VPC DHCP options."""
 
