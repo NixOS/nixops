@@ -1361,12 +1361,21 @@ machine3.deployment.azure = {
 to their server management interface, called the <link
 xlink:href="https://robot.your-server.de/">Robot</link>. This account is
 <emphasis>only</emphasis> used for the initial deployment and the destruction of
-a machine. In particular the initial deployment creates a separate Robot account
+a machine. In particular the initial deployment creates a separate Robot sub-account
+(Hetzner calls this the "Admin login" because you'd give it to your server's sysadmin)
 just for the machine that's going to be created, so a person who has access to
 your deployment will only have access to the machines within the deployment and
 not <emphasis>all</emphasis> machines that are associated with your main Robot
 account. When destroying a machine, the separate admin account is removed as
 well.</para>
+
+<para>When you have 2-factor authentication enabled for your main Robot account,
+NixOps cannot create sub-accounts for you because the Hetzner API doesn't
+support 2-factor auth (as of writing).
+In that case you have to create the sub-accounts manually in the Robot UI,
+set <varname>deployment.hetzner.createSubAccount</varname> to <code>false</code>,
+and tell NixOps about each machine's sub-account credentials as described below.
+</para>
 
 <para>Of course you need machines where you can deploy to, which can only be
 ordered by the Robot's web interface. In the expression of the NixOps network,
@@ -1410,10 +1419,16 @@ use everything else for a single btrfs volume.</para>
 <para>In the previous example, there is no occurrence of
 <varname>deployment.hetzner.robotUser</varname> and
 <varname>deployment.hetzner.robotPass</varname>, you can set the credentials to
-your main Robot account there, however it is recommended to use the environment
+your main Robot account (or each machine's sub-account account,
+if <varname>deployment.hetzner.createSubAccount</varname> is <code>false</code>) there.
+However it is recommended to use the environment
 variables <envar>HETZNER_ROBOT_USER</envar> and
 <envar>HETZNER_ROBOT_PASS</envar>, as you only need them for initial deployment
-and destruction.</para>
+and destruction.
+If <varname>deployment.hetzner.createSubAccount</varname> is <code>false</code>,
+you can't use <envar>HETZNER_ROBOT_USER</envar> because each machine will have
+a different user name, but you can still use <envar>HETZNER_ROBOT_PASS</envar>.
+</para>
 
 </section>
 
