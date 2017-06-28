@@ -116,8 +116,8 @@ class ElasticIPState(nixops.resources.ResourceState, nixops.resources.ec2_common
             self.connect()
             eip = self.describe_eip()
             if 'AssociationId' in eip.keys():
-                self.log("disassociating elastic ip {0} from instance {1}".format(
-                    eip['PublicIp'], eip['InstanceId']))
+                self.log("disassociating elastic ip {0} with assocation ID {1}".format(
+                    eip['PublicIp'], eip['AssociationId']))
                 if vpc:
                     self._client.disassociate_address(AssociationId=eip['AssociationId'])
             self.log("releasing elastic IP {}".format(eip['PublicIp']))

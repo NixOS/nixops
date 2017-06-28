@@ -75,7 +75,8 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
 
     def create_after(self, resources, defn):
         return {r for r in resources if
-                isinstance(r, nixops.resources.vpc.VPCState)}
+                isinstance(r, nixops.resources.vpc.VPCState) or
+                isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState)}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self._config = defn.config
@@ -152,10 +153,16 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
             else:
                 new_subnets.append(s)
 
+        vpc_id = self._config['vpcId']
+
+        if vpc_id.startswith("res-"):
+            res = self.depl.get_typed_resource(vpc_id[4:].split(".")[0], "vpc")
+            vpc_id = res._state['vpcId']
+
         subnets_to_remove = [s for s in old_subnets if s not in new_subnets]
         subnets_to_add = [s for s in new_subnets if s not in old_subnets]
 
-        default_network_acl = self.get_default_network_acl(self._config['vpcId'])
+        default_network_acl = self.get_default_network_acl(vpc_id)
 
         for subnet in subnets_to_remove:
             association_id = self.get_network_acl_association(subnet)

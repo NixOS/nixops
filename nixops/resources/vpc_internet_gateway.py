@@ -8,10 +8,10 @@ import boto3
 import botocore
 
 from nixops.state import StateDict
-from nixops.diff import Diff
+from nixops.diff import Diff, Handler
 import nixops.util
 import nixops.resources
-import nixops.resources.ec2_common
+from nixops.resources.ec2_common import EC2CommonState
 import nixops.ec2_utils
 
 class VPCInternetGatewayDefinition(nixops.resources.ResourceDefinition):
@@ -29,17 +29,18 @@ class VPCInternetGatewayDefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class VPCInternetGatewayState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2CommonState):
+class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
     """State of a VPC internet gateway."""
-    # keeping the old state attribute so that we don't break nixops
-    # behavior e.g nixops info
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
-    access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
+    access_key_id = nixops.util.attr_property("accessKeyId", None)
+    _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ["internetGatewayId"]
 
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
         self._client = None
+        self.handle_create_igw = Handler(['region', 'vpcId'])
+        self.handle_create_igw.handle = self.realize_create_gtw
 
     @classmethod
     def get_type(cls):
@@ -71,35 +72,35 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, nixops.resources.e
                 isinstance(r, nixops.resources.vpc.VPCState)}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        if os.environ.get('NIXOPS_PLAN'):
-            diff = Diff(depl=self.depl, enable_handler=True, logger=self.logger,
-                    config=defn.config, state=self._state, res_type=self.get_type())
-            diff.set_reserved_keys(['internetGatewayId', 'ec2.accessKeyId'])
-            diff.plan()
-            return
+        diff_engine = self.setup_diff_engine(config=defn.config)
 
         self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
-        self._state['region'] = defn.config['region']
+        for handler in diff_engine.plan():
+            handler.handle(check, allow_reboot, allow_recreate)
+
+    def realize_create_gtw(self, check, allow_reboot, allow_recreate):
+        config = self.get_defn()
+        self._state['region'] = config['region']
 
         self.connect()
 
-        vpc_id = defn.config['vpcId']
-        igw_id = self._state.get('internetGatewayId', None)
+        vpc_id = config['vpcId']
+        if vpc_id.startswith("res-"):
+            res = self.depl.get_typed_resource(vpc_id[4:].split(".")[0], "vpc")
+            vpc_id = res._state['vpcId']
 
-        if self.state != self.UP:
-            self.log("creating internet gateway")
-            response = self._client.create_internet_gateway()
-            igw_id = response['InternetGateway']['InternetGatewayId']
-            self.log("attaching internet gateway {0} to vpc {1}".format(igw_id, vpc_id))
-            self._client.attach_internet_gateway(InternetGatewayId=igw_id,
-                    VpcId=vpc_id)
-
+        self.log("creating internet gatewayin region {}".format(self._state['region']))
+        response = self._client.create_internet_gateway()
+        igw_id = response['InternetGateway']['InternetGatewayId']
+        self.log("attaching internet gateway {0} to vpc {1}".format(igw_id, vpc_id))
+        self._client.attach_internet_gateway(InternetGatewayId=igw_id,
+                                             VpcId=vpc_id)
         with self.depl._db:
             self.state = self.UP
-            self._state['region'] = defn.config['region']
+            self._state['region'] = config['region']
             self._state['vpcId'] = vpc_id
             self._state['internetGatewayId'] = igw_id
 

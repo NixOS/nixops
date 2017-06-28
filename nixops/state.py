@@ -38,7 +38,7 @@ class StateDict(collections.MutableMapping):
                     return json.loads(row[0])
                 except ValueError:
                     return row[0]
-            raise KeyError
+            raise KeyError("couldn't find key {} in the state file".format(key))
 
     def __delitem__(self, key):
         with self._db:

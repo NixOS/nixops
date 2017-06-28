@@ -7,9 +7,10 @@ class Diff(object):
        Primitive implementation of a diff structure for experimentation
     """
 
-    CREATE = 0
+    SET = 0
     UPDATE = 1
-    DESTROY = 2
+    UNSET = 2
+    ENSURE_UP = 3
 
 
     def __init__(self, depl, logger, config, state, res_type):
@@ -35,7 +36,7 @@ class Diff(object):
             self.eval_resource_attr_diff(k)
         for k in self.get_keys():
             definition = self.get_resource_definition(k)
-            if self._diff[k] == self.CREATE:
+            if self._diff[k] == self.SET:
                 self.logger.log("setting attribute {0} to {1}".format(k, definition))
             elif self._diff[k] == self.UPDATE:
                 self.logger.log("{0} will be updated from {1} to {2}".format(k, self._state[k],
@@ -92,11 +93,11 @@ class Diff(object):
 
     def eval_resource_attr_diff(self, key):
         s = self._state.get(key, None)
-        d = self.get_resource_definition(key) 
+        d = self.get_resource_definition(key)
         if s == None and d != None:
-            self._diff[key] = self.CREATE
+            self._diff[key] = self.SET
         elif s!=None and d == None:
-            self._diff[key] = self.DESTROY
+            self._diff[key] = self.UNSET
         elif s!=None and d!=None:
             if s != d:
                 self._diff[key] = self.UPDATE

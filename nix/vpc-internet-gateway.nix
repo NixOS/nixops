@@ -1,5 +1,6 @@
 { config, lib, uuid, name, ... }:
 
+with import ./lib.nix lib;
 with lib;
 
 {
@@ -23,7 +24,7 @@ with lib;
 
     vpcId = mkOption {
       type = types.either types.str (resource "vpc");
-      apply = x: if builtins.isString x then x else "res-" + x._name;
+      apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;
       description = ''
         The ID of the VPC where the internet gateway will be created
       '';
