@@ -10,7 +10,6 @@ class Diff(object):
     SET = 0
     UPDATE = 1
     UNSET = 2
-    ENSURE_UP = 3
 
 
     def __init__(self, depl, logger, config, state, res_type):
@@ -127,16 +126,20 @@ class Diff(object):
             return d
 
 class Handler(object):
-    def __init__(self, keys, after=None):
+    def __init__(self, keys, after=None, handle=None):
         if after is None:
             after = []
+        if handle is not None:
+            self.handle = handle
         self._keys = keys
         self._dependencies = after
 
-    def handle(self, defn, check, allow_reboot, allow_recreate):
+    def handle(self):
         """
         Method that should be implemented to handle the changes
         of keys returned by get_keys()
+        This should be done currently by monkey-patching this method
+        by passing a resource state method that realizes the change.
         """
         raise NotImplementedError
 

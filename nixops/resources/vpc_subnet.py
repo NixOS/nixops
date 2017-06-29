@@ -89,7 +89,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
             raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         for handler in diff_engine.plan():
-            handler.handle(check, allow_reboot, allow_recreate)
+            handler.handle(allow_recreate)
 
         def tag_updater(tags):
             self._client.create_tags(Resources=[self.subnet_id],
@@ -97,7 +97,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
 
         self.update_tags_using(tag_updater, user_tags=defn.config["tags"], check=check)
 
-    def realize_create_subnet(self, check, allow_reboot, allow_recreate):
+    def realize_create_subnet(self, allow_recreate):
         config = self.get_defn()
         if self.state == self.UP:
             if not allow_recreate:
@@ -133,7 +133,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
             self._state['vpcId'] = vpc_id
             self._state['region'] = config['region']
 
-    def realize_map_public_ip_on_launch(self, check, allow_reboot, allow_recreate):
+    def realize_map_public_ip_on_launch(self, allow_recreate):
         config = self.get_defn()
         self.connect()
         self._client.modify_subnet_attribute(
