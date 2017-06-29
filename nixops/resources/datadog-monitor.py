@@ -54,12 +54,12 @@ class DatadogMonitorState(nixops.resources.ResourceState):
     @property
     def resource_id(self):
         return self._monitor_url + self.monitor_id if self.monitor_id else None
-    
+
     def get_definition_prefix(self):
         return "resources.datadogMonitors."
 
     def get_physical_spec(self):
-        return {'url': self._monitor_url + self.monitor_id } if self.monitor_id else {} 
+        return {'url': self._monitor_url + self.monitor_id } if self.monitor_id else {}
 
     def prefix_definition(self, attr):
         return {('resources', 'datadogMonitors'): attr}
@@ -124,5 +124,8 @@ class DatadogMonitorState(nixops.resources.ResourceState):
                 self.warn("datadog monitor with id {0} already deleted".format(self.monitor_id))
             else:
                 self.log("deleting datadog monitor ‘{0}’...".format(self.monitor_name))
-                self._dd_api.Monitor.delete(self.monitor_id)
+                response = self._dd_api.Monitor.delete(self.monitor_id)
+                if 'errors' in response.keys():
+                    raise Exception("there was errors while deleting the monitor: {}".format(
+                        str(response['errors'])))
         return True

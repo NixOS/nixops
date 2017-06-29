@@ -130,7 +130,10 @@ class DatadogTimeboardState(nixops.resources.ResourceState):
                 self.warn("datadog timeboard with id {0} already deleted".format(self.timeboard_id))
             else:
                 self.log("deleting datadog timeboard ‘{0}’...".format(self.title))
-                self._dd_api.Timeboard.delete(self.timeboard_id)
+                response = self._dd_api.Timeboard.delete(self.timeboard_id)
+                if 'errors' in response.keys():
+                    raise Exception("there was errors while deleting the timeboard: {}".format(
+                        str(response['errors'])))
 
     def destroy(self, wipe=False):
         self._destroy()
