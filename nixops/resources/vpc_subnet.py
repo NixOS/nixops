@@ -44,11 +44,10 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
         self._state = StateDict(depl, id)
         self.subnet_id = self._state.get('subnetId', None)
         self.zone = self._state.get('zone', None)
-        self.handle_create_subnet = Handler(['region', 'zone', 'cidrBlock', 'vpcId'])
+        self.handle_create_subnet = Handler(['region', 'zone', 'cidrBlock', 'vpcId'], handle=self.realize_create_subnet)
         self.handle_map_public_ip_on_launch = Handler(['mapPublicIpOnLaunch'],
-                                                      after=[self.handle_create_subnet])
-        self.handle_create_subnet.handle = self.realize_create_subnet
-        self.handle_map_public_ip_on_launch.handle = self.realize_map_public_ip_on_launch
+                                                      after=[self.handle_create_subnet],
+                                                      handle=self.realize_map_public_ip_on_launch)
 
     def show_type(self):
         s = super(VPCSubnetState, self).show_type()
