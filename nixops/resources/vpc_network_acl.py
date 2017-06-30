@@ -6,7 +6,7 @@ import boto3
 import botocore
 import nixops.util
 import nixops.resources
-import nixops.resources.ec2_common
+from nixops.resources.ec2_common import EC2CommonState
 import nixops.ec2_utils
 from nixops.diff import Diff, Handler
 from nixops.state import StateDict
@@ -26,11 +26,12 @@ class VPCNetworkAcldefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class VPCNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2CommonState):
+class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
     """state of a vpc Network ACL."""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
+    _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ['networkAclId']
 
     @classmethod
     def get_type(cls):
@@ -40,17 +41,12 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._client = None
         self._state = StateDict(depl, id)
-        self._config = None
         self.network_acl_id = self._state.get('networkAclId', None)
-        self.handle_create_network_acl = Handler(['region', 'vpcId'])
-        self.handle_entries = Handler(['entries'], after=[self.handle_create_network_acl])
-        self.handle_subnet_association = Handler(['subnetIds'], after=[self.handle_create_network_acl])
-        self.handle_create_network_acl.handle = self.realize_create_network_acl
-        self.handle_entries.handle = self.realize_entries_change
-        self.handle_subnet_association.handle = self.realize_subnets_change
-
-    def get_handlers(self):
-        return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
+        self.handle_create_network_acl = Handler(['region', 'vpcId'], handle=self.realize_create_network_acl)
+        self.handle_entries = Handler(['entries'], after=[self.handle_create_network_acl]
+                                      , handle=self.realize_entries_change)
+        self.handle_subnet_association = Handler(['subnetIds'], after=[self.handle_create_network_acl]
+                                                 , handle=self.realize_subnets_change)
 
     def show_type(self):
         s = super(VPCNetworkAclstate, self).show_type()
@@ -79,22 +75,17 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
                 isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState)}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        self._config = defn.config
-        self.allow_recreate = allow_recreate
-        diff_engine = Diff(depl=self.depl, logger=self.logger, config=defn.config,
-                state=self._state, res_type=self.get_type())
-        diff_engine.set_reserved_keys(['networkAclId', 'accessKeyId', 'tags', 'ec2.tags'])
-        diff_engine.set_handlers(self.get_handlers())
-        change_sequence = diff_engine.plan()
+        diff_engine = self.setup_diff_engine(config=defn.config)
 
         self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
         if not self.access_key_id:
             raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
-        for h in change_sequence:
-            h.handle()
+        for handler in diff_engine.plan():
+            handler.handle()
 
     def realize_create_network_acl(self):
+        config = self.get_defn()
         if self.state == self.UP:
             if not self.allow_recreate:
                 raise Exception("network ACL {} definition changed and it needs to be recreated"
@@ -103,10 +94,10 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
             self._destroy()
             self._client = None
 
-        self._state['region'] = self._config['region']
+        self._state['region'] = config['region']
         self.connect()
 
-        vpc_id = self._config['vpcId']
+        vpc_id = config['vpcId']
 
         if vpc_id.startswith("res-"):
             res = self.depl.get_typed_resource(vpc_id[4:].split(".")[0], "vpc")
@@ -122,9 +113,10 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
             self._state['networkAclId'] = self.network_acl_id
 
     def realize_entries_change(self):
+        config = self.get_defn()
         self.connect()
         old_entries = self._state.get('entries', [])
-        new_entries = self._config['entries']
+        new_entries = config['entries']
         to_remove = [e for e in old_entries if e not in new_entries]
         to_create = [e for e in new_entries if e not in old_entries]
         for entry in to_remove:
@@ -140,20 +132,21 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, nixops.resources.ec2_co
             rule = self.process_rule_entry(entry)
             self._client.create_network_acl_entry(**rule)
         with self.depl._db:
-            self._state['entries'] = self._config['entries']
+            self._state['entries'] = config['entries']
 
     def realize_subnets_change(self):
+        config = self.get_defn()
         self.connect()
         old_subnets = self._state.get('subnetIds', [])
         new_subnets = []
-        for s in self._config['subnetIds']:
+        for s in config['subnetIds']:
             if s.startswith("res-"):
                 res = self.depl.get_typed_resource(s[4:].split(".")[0], "vpc-subnet")
                 new_subnets.append(res._state['subnetId'])
             else:
                 new_subnets.append(s)
 
-        vpc_id = self._config['vpcId']
+        vpc_id = config['vpcId']
 
         if vpc_id.startswith("res-"):
             res = self.depl.get_typed_resource(vpc_id[4:].split(".")[0], "vpc")

@@ -43,12 +43,11 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
         self._client = None
         self._state = StateDict(depl, id)
         self.vpc_id = self._state.get('vpcId', None)
-        self.handle_create = Handler(['cidrBlock', 'region', 'instanceTenancy'])
-        self.handle_create.handle = self.realize_create_vpc
-        self.handle_dns = Handler(['enableDnsHostnames', 'enableDnsSupport'], after=[self.handle_create])
-        self.handle_dns.handle = self.realize_dns_config
-        self.handle_classic_link = Handler(['enableClassicLink'], after=[self.handle_create])
-        self.handle_classic_link.handle = self.realize_classic_link_change
+        self.handle_create = Handler(['cidrBlock', 'region', 'instanceTenancy'], handle=self.realize_create_vpc)
+        self.handle_dns = Handler(['enableDnsHostnames', 'enableDnsSupport'], after=[self.handle_create]
+                                  , handle=self.realize_dns_config)
+        self.handle_classic_link = Handler(['enableClassicLink'], after=[self.handle_create]
+                                           , handle=self.realize_classic_link_change)
 
     def show_type(self):
         s = super(VPCState, self).show_type()
