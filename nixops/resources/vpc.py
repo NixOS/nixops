@@ -107,10 +107,10 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
         if not self.access_key_id:
             raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
-        self.ensure_state_up(check)
-
         for handler in diff_engine.plan():
             handler.handle(allow_recreate)
+
+        self.ensure_state_up(check)
 
         def tag_updater(tags):
             self._client.create_tags(Resources=[self.vpc_id], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
@@ -130,11 +130,14 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
                     if e.response['Error']['Code'] == 'InvalidVpcID.NotFound':
                         self.warn("vpc {0} was deleted from outside nixops,"
                                   " it will be recreated...".format(self._state["vpcId"]))
-                        self.realize_create_vpc(allow_recreate=True)
+                        allow_recreate = True
+                        self.realize_create_vpc(allow_recreate)
+                        self.realize_classic_link_change(allow_recreate)
+                        self.realize_dns_config(allow_recreate)
                     else:
                         raise e
             if self.state != self.UP:
-                self.wait_for_vpc_available(self.state['vpcId'])
+                self.wait_for_vpc_available(self._state['vpcId'])
 
     def wait_for_vpc_available(self, vpc_id):
         while True:

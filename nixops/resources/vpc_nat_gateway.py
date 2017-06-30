@@ -9,7 +9,7 @@ import botocore
 
 import nixops.util
 import nixops.resources
-import nixops.resources.ec2_common
+from nixops.resources.ec2_common import EC2CommonState
 import nixops.ec2_utils
 from nixops.diff import Diff, Handler
 from nixops.state import StateDict
@@ -28,12 +28,12 @@ class VPCNatGatewayDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-class VPCNatGatewayState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2CommonState):
+class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
     """State of a VPC NAT gateway"""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
-    _reserved_keys = ['natGatewayId', 'accessKeyId', 'tags', 'ec2.tags', 'creationToken']
+    _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ['natGatewayId', 'creationToken']
 
     @classmethod
     def get_type(cls):
@@ -44,9 +44,8 @@ class VPCNatGatewayState(nixops.resources.ResourceState, nixops.resources.ec2_co
         self._client = None
         self._state = StateDict(depl, id)
         self.region = self._state.get('region', None)
-        self.handle_create_gtw = Handler(['region', 'subnetId', 'allocationId'])
+        self.handle_create_gtw = Handler(['region', 'subnetId', 'allocationId'], handle=self.realize_create_gtw)
         self.nat_gtw_id = self._state.get('natGatewayId', None)
-        self.handle_create_gtw.handle = self.realize_create_gtw
 
     def show_type(self):
         s = super(VPCNatGatewayState, self).show_type()

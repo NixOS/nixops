@@ -90,11 +90,53 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
         for handler in diff_engine.plan():
             handler.handle(allow_recreate)
 
+        self.ensure_subnet_up(check)
+
         def tag_updater(tags):
             self._client.create_tags(Resources=[self.subnet_id],
                                      Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
         self.update_tags_using(tag_updater, user_tags=defn.config["tags"], check=check)
+
+    def ensure_subnet_up(self, check):
+        config = self.get_defn()
+        self._state['region'] = config['region']
+        self.connect()
+
+        if self._state.get('subnetId', None):
+            if check:
+                try:
+                    self._client.describe_subnets(SubnetIds=[self._state['subnetId']])
+                except botocore.exceptions.ClientError as error:
+                    if error.response['Error']['Code'] == 'InvalidSubnetID.NotFound':
+                        self.warn("subnet {} was deleted from outside nixops,"
+                                  " recreating ...".format(self._state['subnetId']))
+                        allow_recreate = True
+                        self.realize_create_subnet(allow_recreate)
+                        self.realize_map_public_ip_on_launch(allow_recreate)
+                    else:
+                        raise error
+            if self.state != self.UP:
+                self.wait_for_subnet_available(self._state['subnetId'])
+
+    def wait_for_subnet_available(self, subnet_id):
+        while True:
+            response = self._client.describe_subnets(SubnetIds=[subnet_id])
+            if len(response['Subnets']) ==1:
+                subnet = response['Subnets'][0]
+                if subnet['State'] == "available":
+                    break
+                elif subnet['State'] != "pending":
+                    raise Exception("subnet {0} is in an unexpected state {1}".format(
+                        subnet_id, subnet['State']))
+                self.log_continue(".")
+                time.sleep(1)
+            else:
+                raise Exception("couldn't find subnet {}, please run deploy with --check".format(subnet_id))
+        self.log_end(" done")
+
+        with self.depl._db:
+            self.state = self.UP
 
     def realize_create_subnet(self, allow_recreate):
         config = self.get_defn()
@@ -125,12 +167,14 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
         self.zone = subnet.get('AvailabilityZone')
 
         with self.depl._db:
-            self.state = self.UP
+            self.state = self.STARTING
             self._state['subnetId'] = self.subnet_id
             self._state['cidrBlock'] = config['cidrBlock']
             self._state['zone'] = self.zone
             self._state['vpcId'] = vpc_id
             self._state['region'] = config['region']
+
+        self.wait_for_subnet_available(self.subnet_id)
 
     def realize_map_public_ip_on_launch(self, allow_recreate):
         config = self.get_defn()
@@ -143,11 +187,16 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
             self._state['mapPublicIpOnLaunch'] = config['mapPublicIpOnLaunch']
 
     def _destroy(self):
-        if self.state != self.UP:
-            return
         self.log("deleting subnet {0}".format(self.subnet_id))
         self.connect()
-        self._client.delete_subnet(SubnetId=self.subnet_id)
+        try:
+            self._client.delete_subnet(SubnetId=self.subnet_id)
+        except botocore.exceptions.ClientError as error:
+            if error.response['Error']['Code'] == 'InvalidSubnetID.NotFound':
+                self.warn("subnet {} was already deleted".format(self.subnet_id))
+            else:
+                raise error
+
         with self.depl._db:
             self.state = self.MISSING
             self._state['subnetID'] = None
