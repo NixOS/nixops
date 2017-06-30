@@ -39,8 +39,7 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
         self._client = None
-        self.handle_create_igw = Handler(['region', 'vpcId'])
-        self.handle_create_igw.handle = self.realize_create_gtw
+        self.handle_create_igw = Handler(['region', 'vpcId'], handle=self.realize_create_gtw)
 
     @classmethod
     def get_type(cls):

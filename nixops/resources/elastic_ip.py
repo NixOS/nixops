@@ -7,6 +7,7 @@ import time
 import nixops.util
 import nixops.resources
 import nixops.ec2_utils
+from nixops.resources.ec2_common import EC2CommonState
 from nixops.diff import Diff, Handler
 from nixops.state import StateDict
 
@@ -26,12 +27,12 @@ class ElasticIPDefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class ElasticIPState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2CommonState):
+class ElasticIPState(nixops.resources.ResourceState, EC2CommonState):
     """State of an EC2 elastic IP address."""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
-    _reserved_keys = ['address', 'publicIPv4', 'allocationId', 'tags', 'ec2.tags', 'accessKeyId']
+    _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ['address', 'publicIPv4', 'allocationId']
 
     @classmethod
     def get_type(cls):
@@ -41,10 +42,8 @@ class ElasticIPState(nixops.resources.ResourceState, nixops.resources.ec2_common
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._client = None
         self._state = StateDict(depl, id)
-        self._config = None
         self.region = self._state.get('region', None)
-        self.handle_create_eip = Handler(['vpc', 'region'])
-        self.handle_create_eip.handle = self.realize_create_eip
+        self.handle_create_eip = Handler(['vpc', 'region'], handle=self.realize_create_eip)
 
     def show_type(self):
         s = super(ElasticIPState, self).show_type()
@@ -68,9 +67,9 @@ class ElasticIPState(nixops.resources.ResourceState, nixops.resources.ec2_common
         diff_engine = self.setup_diff_engine(config=defn.config)
 
         for handler in diff_engine.plan():
-            handler.handle(defn, check, allow_reboot, allow_recreate)
+            handler.handle(defn, allow_recreate)
 
-    def realize_create_eip(self, defn, check, allow_reboot, allow_recreate):
+    def realize_create_eip(self, allow_recreate):
         if self.state == self.UP:
             if not allow_recreate:
                 raise Exception("elastic IP {} definition changed"
@@ -79,7 +78,7 @@ class ElasticIPState(nixops.resources.ResourceState, nixops.resources.ec2_common
             self._destroy()
             self._client = None
 
-        config = defn.config
+        config = self.get_defn()
         is_vpc = config['vpc']
         domain = 'vpc' if is_vpc else 'standard'
         self._state['region'] = config['region']
