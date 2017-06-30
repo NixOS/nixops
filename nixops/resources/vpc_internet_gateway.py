@@ -78,9 +78,9 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
             raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         for handler in diff_engine.plan():
-            handler.handle(check, allow_reboot, allow_recreate)
+            handler.handle(allow_recreate)
 
-    def realize_create_gtw(self, check, allow_reboot, allow_recreate):
+    def realize_create_gtw(self, allow_recreate):
         config = self.get_defn()
         self._state['region'] = config['region']
 
