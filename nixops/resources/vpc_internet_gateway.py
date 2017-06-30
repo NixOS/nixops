@@ -109,8 +109,8 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
         self.log("detaching internet gateway {0} from vpc {1}".format(self._state['internetGatewayId'],
             self._state['vpcId']))
         self.connect()
-        self._client.detach_internet_gateway(InternetGatewayId=self._state['internetGatewayId'],
-                VpcId=self._state['vpcId'])
+        self._retry(lambda: self._client.detach_internet_gateway(InternetGatewayId=self._state['internetGatewayId'],
+                VpcId=self._state['vpcId']))
         self.log("deleting internet gateway {0}".format(self._state['internetGatewayId']))
         self._client.delete_internet_gateway(InternetGatewayId=self._state['internetGatewayId'])
 
