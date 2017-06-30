@@ -12,6 +12,7 @@ import boto.vpc
 from boto.exception import EC2ResponseError
 from boto.exception import SQSError
 from boto.exception import BotoServerError
+from botocore.exceptions import ClientError
 from boto.pyami.config import Config
 
 def fetch_aws_secret_key(access_key_id):
@@ -98,10 +99,13 @@ def retry(f, error_codes=[], logger=None):
     """
 
     def handle_exception(e):
-        if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
+        if i == num_retries or (error_codes != [] and not e.error_code in error_codes or not 'Error' in e.response.keys() ):
             raise e
         if logger is not None:
-            logger.log("got (possibly transient) EC2 error code '{0}': {1}. retrying...".format(e.error_code, e.error_message))
+            if hasattr(e, 'response'):
+                logger.log("got (possibly transient) EC2 error '{}'. retrying...".format(str(e.response['Error'])))
+            else:
+                logger.log("got (possibly transient) EC2 error code '{0}': {1}. retrying...".format(e.error_code, e.error_message))
 
     i = 0
     num_retries = 7
@@ -114,6 +118,8 @@ def retry(f, error_codes=[], logger=None):
         except EC2ResponseError as e:
             handle_exception(e)
         except SQSError as e:
+            handle_exception(e)
+        except ClientError as e:
             handle_exception(e)
         except BotoServerError as e:
             if e.error_code == "RequestLimitExceeded":

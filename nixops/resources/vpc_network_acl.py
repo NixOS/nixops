@@ -197,9 +197,15 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
 
     def _destroy(self):
         if self.state != self.UP: return
-        self.log("deleting network acl {}".format(self.network_acl_id))
         self.connect()
         try:
+            subnets = self._state.get('subnetIds', [])
+            default_network_acl = self.get_default_network_acl(self._state['vpcId'])
+            for subnet in subnets:
+                association_id = self.get_network_acl_association(subnet)
+                self.log("associating subnet {0} to default network acl {1}".format(subnet, default_network_acl))
+                self._client.replace_network_acl_association(AssociationId=association_id, NetworkAclId=default_network_acl)
+            self.log("deleting network acl {}".format(self.network_acl_id))
             self._client.delete_network_acl(NetworkAclId=self.network_acl_id)
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == 'InvalidNetworkAclID.NotFound':

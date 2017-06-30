@@ -191,7 +191,9 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
         self.log("deleting subnet {0}".format(self.subnet_id))
         self.connect()
         try:
-            self._client.delete_subnet(SubnetId=self.subnet_id)
+            #FIXME setting automatic retries for what it looks like AWS
+            #eventual consistency issues but need to check further.
+            self._retry(lambda: self._client.delete_subnet(SubnetId=self.subnet_id))
         except botocore.exceptions.ClientError as error:
             if error.response['Error']['Code'] == 'InvalidSubnetID.NotFound':
                 self.warn("subnet {} was already deleted".format(self.subnet_id))
