@@ -1,5 +1,7 @@
+import os
 import json
 import itertools
+
 import nixops.util
 
 class Diff(object):
@@ -35,14 +37,15 @@ class Diff(object):
             self.eval_resource_attr_diff(k)
         for k in self.get_keys():
             definition = self.get_resource_definition(k)
-            if self._diff[k] == self.SET:
-                self.logger.log("setting attribute {0} to {1}".format(k, definition))
-            elif self._diff[k] == self.UPDATE:
-                self.logger.log("{0} will be updated from {1} to {2}".format(k, self._state[k],
+            if os.environ.get('NIXOPS_SHOW_PLAN'):
+                if self._diff[k] == self.SET:
+                    self.logger.log("will set attribute {0} to {1}".format(k, definition))
+                elif self._diff[k] == self.UPDATE:
+                    self.logger.log("{0} will be updated from {1} to {2}".format(k, self._state[k],
                                                                              definition))
-            else:
-                self.logger.log("removing attribute {0} with previous value {1} "
-                                .format(k, self._state[k]))
+                else:
+                    self.logger.log("will unset attribute {0} with previous value {1} "
+                                    .format(k, self._state[k]))
         return self.get_handlers_sequence()
 
     def set_handlers(self, handlers):

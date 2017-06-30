@@ -112,11 +112,6 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
 
         self.ensure_state_up(check)
 
-        def tag_updater(tags):
-            self._client.create_tags(Resources=[self.vpc_id], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
-
-        self.update_tags_using(tag_updater, user_tags=defn.config["tags"], check=check)
-
     def ensure_state_up(self, check):
         config = self.get_defn()
         self._state["region"] = config['region']
@@ -163,7 +158,7 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
         """Handle both create and recreate of the vpc resource """
         config = self.get_defn()
         if self.state == self.UP:
-            if not self.allow_recreate:
+            if not allow_recreate:
                 raise Exception("vpc {} definition changed and it needs to be recreated "
                                 "use --allow-recreate if you want to create a new one".format(self.vpc_id))
             self.warn("vpc definition changed, recreating...")
@@ -184,6 +179,11 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
             self._state["region"] = config['region']
             self._state["cidrBlock"] = config['cidrBlock']
             self._state["instanceTenancy"] = config['instanceTenancy']
+
+        def tag_updater(tags):
+            self._client.create_tags(Resources=[self.vpc_id], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+
+        self.update_tags_using(tag_updater, user_tags=config["tags"], check=True)
 
         self.wait_for_vpc_available(self.vpc_id)
 

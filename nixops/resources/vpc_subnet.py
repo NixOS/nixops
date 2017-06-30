@@ -92,12 +92,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
 
         self.ensure_subnet_up(check)
 
-        def tag_updater(tags):
-            self._client.create_tags(Resources=[self.subnet_id],
-                                     Tags=[{"Key": k, "Value": tags[k]} for k in tags])
-
-        self.update_tags_using(tag_updater, user_tags=defn.config["tags"], check=check)
-
+        
     def ensure_subnet_up(self, check):
         config = self.get_defn()
         self._state['region'] = config['region']
@@ -173,6 +168,12 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
             self._state['zone'] = self.zone
             self._state['vpcId'] = vpc_id
             self._state['region'] = config['region']
+
+        def tag_updater(tags):
+            self._client.create_tags(Resources=[self.subnet_id],
+                                     Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+
+        self.update_tags_using(tag_updater, user_tags=config["tags"], check=True)
 
         self.wait_for_subnet_available(self.subnet_id)
 
