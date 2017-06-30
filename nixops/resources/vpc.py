@@ -169,7 +169,8 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
             self.warn("vpc definition changed, recreating...")
             self._destroy()
             self._client = None
-            self._state["region"] = config['region']
+
+        self._state["region"] = config['region']
 
         self.connect()
         self.log("creating vpc under region {0}".format(config['region']))

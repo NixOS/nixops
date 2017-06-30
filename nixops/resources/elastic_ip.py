@@ -67,7 +67,7 @@ class ElasticIPState(nixops.resources.ResourceState, EC2CommonState):
         diff_engine = self.setup_diff_engine(config=defn.config)
 
         for handler in diff_engine.plan():
-            handler.handle(defn, allow_recreate)
+            handler.handle(allow_recreate)
 
     def realize_create_eip(self, allow_recreate):
         if self.state == self.UP:

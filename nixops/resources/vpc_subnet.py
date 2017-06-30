@@ -187,6 +187,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
             self._state['mapPublicIpOnLaunch'] = config['mapPublicIpOnLaunch']
 
     def _destroy(self):
+        if self.state != (self.UP or self.STARTING): return
         self.log("deleting subnet {0}".format(self.subnet_id))
         self.connect()
         try:
