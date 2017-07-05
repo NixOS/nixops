@@ -20,8 +20,8 @@
   <listitem><para>Backend: None</para>
 
     <itemizedlist>
-        <listitem><para>#661: Added <emphasis>deployment.keys.*.keyFile</emphasis> option to provide keys from local files, rather than from text literals.</para<</listitem>
-        <listitem><para>#664: Added <emphasis>deployment.keys.*.destDir</emphasis> and <emphasis>deployment.keys.*.path</emphasis> options to give more control over where the deployment keys are stored on the deployed machine.</para<</listitem>
+        <listitem><para>#661: Added <emphasis>deployment.keys.*.keyFile</emphasis> option to provide keys from local files, rather than from text literals.</para></listitem>
+        <listitem><para>#664: Added <emphasis>deployment.keys.*.destDir</emphasis> and <emphasis>deployment.keys.*.path</emphasis> options to give more control over where the deployment keys are stored on the deployed machine.</para></listitem>
     </itemizedlist>
   </listitem>
 
@@ -34,7 +34,7 @@
   <listitem><para>Backend: Hetzner</para>
 
     <itemizedlist>
-      <listitem<<para>Added option to disable creation of sub-accounts.</para></listitem>
+      <listitem><para>Added option to disable creation of sub-accounts.</para></listitem>
     </itemizedlist>
   </listitem>
 
