@@ -6,57 +6,50 @@
 
 <!--==================================================================-->
 
-<section xml:id="ssec-relnotes-1.5.1"><title>Release 1.5.1 (Jun 23, 2017)</title>
+<section xml:id="ssec-relnotes-1.5.1"><title>Release 1.5.1 (Jul 5, 2017)</title>
 
 <itemizedlist>
 
   <listitem><para>General</para>
 
     <itemizedlist>
-      <listitem><para></para></listitem>
+      <listitem><para>This release has various minor bug and documentation fixes.</para></listitem>
     </itemizedlist>
   </listitem>
 
   <listitem><para>Backend: None</para>
 
     <itemizedlist>
+        <listitem><para>#661: Added <emphasis>deployment.keys.*.keyFile</emphasis> option to provide keys from local files, rather than from text literals.</para<</listitem>
+        <listitem><para>#664: Added <emphasis>deployment.keys.*.destDir</emphasis> and <emphasis>deployment.keys.*.path</emphasis> options to give more control over where the deployment keys are stored on the deployed machine.</para<</listitem>
     </itemizedlist>
   </listitem>
 
-  <listitem><para>Backend: Amazon Web Services</para>
-
-    <itemizedlist>
-      <listitem><para></para></listitem>
-  </itemizedlist>
-  </listitem>
-
   <listitem><para>Backend: Datadog</para>
-
     <itemizedlist>
+      <listitem><para>Show URL for dashboards and timeboards in info output.</para></listitem>
     </itemizedlist>
   </listitem>
 
   <listitem><para>Backend: Hetzner</para>
 
     <itemizedlist>
+      <listitem<<para>Added option to disable creation of sub-accounts.</para></listitem>
     </itemizedlist>
   </listitem>
 
-  <listitem><para>Backend: VirtualBox</para>
+  <listitem><para>Backend: Google Compute</para>
 
     <itemizedlist>
-    </itemizedlist>
-  </listitem>
-
-  <listitem><para>Backend: Libvirtd</para>
-
-    <itemizedlist>
+        <listitem><para>Added option to set service account for an instance.</para></listitem>
+        <listitem><para>Added option to use preemptible option when creating an instance.</para></listitem>
     </itemizedlist>
   </listitem>
 
   <listitem><para>Backend: Digital Ocean</para>
 
     <itemizedlist>
+      <listitem><para>Added option to support IPv6 on Digital Ocean.</para></listitem>
     </itemizedlist>
   </listitem>
 
