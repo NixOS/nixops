@@ -1,14 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import os
-import sys
-import socket
-import struct
-
 from nixops import known_hosts
-from nixops.util import wait_for_tcp_port, ping_tcp_port
 from nixops.util import attr_property, create_key_pair, generate_random_string
-from nixops.nix_expr import Function, RawValue, Call
+from nixops.nix_expr import RawValue, Call
 
 from nixops.backends import MachineDefinition, MachineState
 
@@ -19,8 +13,7 @@ import nixops.resources.gce_image
 import nixops.resources.gce_network
 
 import libcloud.common.google
-from libcloud.compute.types import Provider, NodeState
-from libcloud.compute.providers import get_driver
+from libcloud.compute.types import NodeState
 
 
 class GCEDefinition(MachineDefinition, ResourceDefinition):
@@ -608,7 +601,7 @@ class GCEState(MachineState, ResourceState):
 
     def destroy(self, wipe=False):
         if wipe:
-            log.warn("wipe is not supported")
+            self.depl.logger.warn("wipe is not supported")
         try:
             node = self.node()
             question = "are you sure you want to destroy {0}?"
@@ -687,8 +680,10 @@ class GCEState(MachineState, ResourceState):
                     if all(d.get("deviceName", None) != disk_name for d in node.extra['disks']):
                         res.disks_ok = False
                         res.messages.append("disk {0} is detached".format(disk_name))
+                        # Try to get a disk; if we can't get it, then it's
+                        # been destroyed.
                         try:
-                            disk = self.connect().ex_get_volume(disk_name, v.get('region', None))
+                            self.connect().ex_get_volume(disk_name, v.get('region', None))
                         except libcloud.common.google.ResourceNotFoundError:
                             res.messages.append("disk {0} is destroyed".format(disk_name))
                 self.handle_changed_property('public_ipv4',
