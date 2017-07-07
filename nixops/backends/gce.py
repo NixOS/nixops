@@ -357,6 +357,11 @@ class GCEState(MachineState, ResourceState):
                                                   snapshot = v['snapshot'], image = v['image'],
                                                   ex_disk_type = "pd-" + v.get('type', 'standard'),
                                                   use_existing= False)
+                except AttributeError:
+                    # libcloud bug: The region we're trying to create the disk
+                    # in doesn't exist.
+                    raise Exception("tried creating a disk in nonexistent "
+                                    "region %r" % v['region'])
                 except libcloud.common.google.ResourceExistsError:
                     raise Exception("tried creating a disk that already exists; "
                                     "please run 'deploy --check' to fix this")
