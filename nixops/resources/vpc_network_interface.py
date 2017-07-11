@@ -62,7 +62,7 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
         return {('resources', 'vpcNetworkInterfaces'): attr}
 
     def get_physical_spec(self):
-        return { 'natGatewayId': self._state.get('networkInterfaceId', None) }
+        return { 'networkInterfaceId': self._state.get('networkInterfaceId', None) }
 
     def get_definition_prefix(self):
         return "resources.vpcNetworkInterfaces."
