@@ -82,12 +82,12 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
             raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
         for handler in diff_engine.plan():
-            handler.handle()
+            handler.handle(allow_recreate)
 
-    def realize_create_network_acl(self):
+    def realize_create_network_acl(self, allow_recreate):
         config = self.get_defn()
         if self.state == self.UP:
-            if not self.allow_recreate:
+            if not allow_recreate:
                 raise Exception("network ACL {} definition changed and it needs to be recreated"
                                 " use --allow-recreate if you want to create a new one".format(self.network_acl_id))
             self.warn("network ACL definition changed, recreating ...")
@@ -112,7 +112,7 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
             self._state['vpcId'] = vpc_id
             self._state['networkAclId'] = self.network_acl_id
 
-    def realize_entries_change(self):
+    def realize_entries_change(self, allow_recreate):
         config = self.get_defn()
         self.connect()
         old_entries = self._state.get('entries', [])

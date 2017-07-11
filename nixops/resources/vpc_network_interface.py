@@ -87,6 +87,14 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_create_eni(self, allow_recreate):
         config = self.get_defn()
+        if self.state == self.UP:
+            if not allow_recreate:
+                raise Exception("network interface {} definition changed and it needs to be recreated"
+                                " use --allow-recreate if you want to create a new one".format(self._state['networkInterfaceId']))
+            self.warn("network interface definition changed, recreating ...")
+            self._destroy()
+            self._client = None
+
         self._state['region'] = config['region']
         self.connect()
 
@@ -169,7 +177,7 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
                 raise e
 
         with self.depl._db:
-            self.state = self.UP
+            self.state = self.MISSING
             self._state['networkInterfaceId'] = None
             self._state['primaryPrivateIpAddress'] = None
             self._state['privateIpAddresses'] = None
