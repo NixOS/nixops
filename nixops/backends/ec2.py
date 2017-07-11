@@ -654,7 +654,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
                 if defn.spot_instance_timeout:
                     common_args['valid_until'] = \
-                        (datetime.datetime.now() +
+                        (datetime.datetime.utcnow() +
                          datetime.timedelta(0, defn.spot_instance_timeout)).isoformat()
 
                 # FIXME: Should use a client token here, but
