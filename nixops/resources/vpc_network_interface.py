@@ -212,3 +212,4 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
 
     def destroy(self, wipe=False):
         self._destroy()
+        return True
