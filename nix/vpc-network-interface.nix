@@ -74,30 +74,15 @@ with lib;
       '';
     };
 
-    attachements = mkOption {
-      default = [];
-      type = types.listOf (types.submodule {
-        options = {
-          instanceId = mkOption {
-            type = types.either types.str (resource "ec2");
-            apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;
-            description = ''
-              ID of the instance to attach to.
-            '';
-          };
-
-          deviceIndex = mkOption {
-            type = types.int;
-            description = ''
-              The index of the device for the network interface attachment.
-            '';
-          };
-        };
-      }); 
+    sourceDestCheck = mkOption {
+      default = true;
+      type = types.bool;
       description = ''
-        Blocks to define the attachments of the ENI.
+        Indicates whether source/destination checking is enabled.
+        Default value is true. 
       '';
     };
+
   };
 
   config = {

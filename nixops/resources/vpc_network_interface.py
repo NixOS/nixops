@@ -45,7 +45,7 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
         self.handle_create_eni = Handler(['region', 'subnetId', 'primaryPrivateIpAddress',
                                           'privateIpAddresses', 'secondaryPrivateIpAddressCount'],
                                           handle=self.realize_create_eni)
-        self.handle_modify_eni_attrs = Handler(['description', 'securityGroups', 'attachements'],
+        self.handle_modify_eni_attrs = Handler(['description', 'securityGroups', 'sourceDestCheck'],
                                                handle=self.realize_modify_eni_attrs,
                                                after=[self.handle_create_eni])
 
@@ -117,6 +117,7 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
 
         with self.depl._db:
             self.state = self.UP
+            self._state['subnetId'] = eni_input['SubnetId']
             self._state['networkInterfaceId'] = eni['NetworkInterfaceId']
             self._state['primaryPrivateIpAddress'] = primary
             self._state['privateIpAddresses'] = secondary
@@ -162,7 +163,25 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
         return cfg
 
     def realize_modify_eni_attrs(self, allow_recreate):
-        return True
+        config = self.get_defn()
+        self.connect()
+        self.log("applying network interface attribute changes")
+        self._client.modify_network_interface_attribute(NetworkInterfaceId=self._state['networkInterfaceId'],
+                                                        Description={'Value':config['description']})
+
+        if len(config['securityGroups']) > 1:
+            self._client.modify_network_interface_attribute(
+                NetworkInterfaceId=self._state['networkInterfaceId'],
+                Groups=config['securityGroups'])
+
+        self._client.modify_network_interface_attribute(NetworkInterfaceId=self._state['networkInterfaceId'],
+                                                        SourceDestCheck={
+                                                            'Value':config['sourceDestCheck']
+                                                            })
+        with self.depl._db:
+            self._state['description'] = config['description']
+            self._state['securityGroups'] = config['securityGroups']
+            self._state['sourceDestCheck'] = config['sourceDestCheck']
 
     def _destroy(self):
         if self.state != self.UP: return
