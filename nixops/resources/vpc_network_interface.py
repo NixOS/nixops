@@ -168,11 +168,19 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
         self.log("applying network interface attribute changes")
         self._client.modify_network_interface_attribute(NetworkInterfaceId=self._state['networkInterfaceId'],
                                                         Description={'Value':config['description']})
+        groups = []
+        for grp in config['securityGroups']:
+            if grp.startswith("res-"):
+                res = self.depl.get_typed_resource(grp[4:].split(".")[0], "ec2-security-group")
+                assert res.vpc_id
+                groups.append(res.security_group_id)
+            else:
+                groups.append(grp)
 
-        if len(config['securityGroups']) > 1:
+        if len(groups) >= 1:
             self._client.modify_network_interface_attribute(
                 NetworkInterfaceId=self._state['networkInterfaceId'],
-                Groups=config['securityGroups'])
+                Groups=groups)
 
         self._client.modify_network_interface_attribute(NetworkInterfaceId=self._state['networkInterfaceId'],
                                                         SourceDestCheck={
@@ -180,7 +188,7 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
                                                             })
         with self.depl._db:
             self._state['description'] = config['description']
-            self._state['securityGroups'] = config['securityGroups']
+            self._state['securityGroups'] = groups
             self._state['sourceDestCheck'] = config['sourceDestCheck']
 
     def _destroy(self):

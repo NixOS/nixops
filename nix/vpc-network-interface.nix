@@ -40,6 +40,7 @@ with lib;
     securityGroups = mkOption {
       default = null;
       type = types.listOf (types.either types.str (resource "ec2-security-group"));
+      apply = map (x: if builtins.isString x then x else "res-" + x._name + "." + x._type + "." + "security_group_id"); 
       description = ''
         The IDs of one or more security groups.
       '';

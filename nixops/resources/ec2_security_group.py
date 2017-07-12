@@ -87,7 +87,8 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
 
     def create_after(self, resources, defn):
         #!!! TODO: Handle dependencies between security groups
-        return {}
+        return {r for r in resources if
+                isinstance(r, nixops.resources.vpc.VPCState)}
 
     def _connect(self):
         if self._conn: return
@@ -99,6 +100,10 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
             with self.depl._db:
                 self.state = self.UNKNOWN
                 self.old_security_groups = self.old_security_groups + [{'name': self.security_group_name, 'region': self.region}]
+
+        if defn.vpc_id.startswith("res-"):
+            res = self.depl.get_typed_resource(defn.vpc_id[4:].split(".")[0], "vpc")
+            defn.vpc_id = res._state['vpcId']
 
         with self.depl._db:
             self.region = defn.region
