@@ -1497,7 +1497,9 @@ add your user to libvirtd group and change firewall not to filter DHCP packets.
   executing:
   <programlisting>
   $ sudo mkdir /var/lib/libvirt/images
-  $ sudo chown myuser:libvirtd /var/lib/libvirt/images</programlisting>
+  $ sudo chgrp libvirtd /var/lib/libvirt/images
+  $ sudo chmod g+w /var/lib/libvirt/images
+  </programlisting>
 </para>
 
 <para>We're ready to create the deployment, start by creating
