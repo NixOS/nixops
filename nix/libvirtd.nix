@@ -32,6 +32,12 @@ let
         umount /mnt
       ''
   );
+  machine = mkOptionType {
+    name = "a machine";
+    check = x: x._type or "" == "machine";
+    merge = mergeOneOption;
+  };
+
 in
 
 {
@@ -105,6 +111,26 @@ in
       default = "";
       type = types.str;
       description = "Additional XML appended at the end of domain xml. See https://libvirt.org/formatdomain.html";
+    };
+
+    deployment.libvirtd.host = mkOption {
+      default = "localhost";
+      example = "example.com";
+      type = types.either types.str machine;
+      apply = x: if builtins.isString x then x else "__machine-" + x._name;
+      description = "Host on which instanciate the VM";
+    };
+
+    deployment.libvirtd.remote_user = mkOption {
+      default = "root";
+      type = types.nullOr types.str;
+      example = "myUsername";
+      description = ''
+        The user which will manage machines on the remote host.
+        This user must be on the libvirtd group and be a nix trusted user.
+
+        This option has no effect if deployment.libvirtd.host is "localhost"
+      '';
     };
   };
 
