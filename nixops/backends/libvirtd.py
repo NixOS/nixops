@@ -106,6 +106,11 @@ class LibvirtdState(MachineState):
             # TODO: use libvirtd.extraConfig to make the image accessible for your user
             os.chmod(self.disk_path, 0666)
             self.vm_id = self._vm_id()
+            dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
+            nixops.util.write_file(dom_file, self.domain_xml)
+            # By using "virsh define" we ensure that the domain is
+            # "persistent", as opposed to "transient" (removed on reboot).
+            self._logged_exec(["virsh", "-c", "qemu:///system", "define", dom_file])
         self.start()
         return True
 
@@ -206,9 +211,7 @@ class LibvirtdState(MachineState):
             self.private_ipv4 = self._parse_ip()
         else:
             self.log("starting...")
-            dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
-            nixops.util.write_file(dom_file, self.domain_xml)
-            self._logged_exec(["virsh", "-c", "qemu:///system", "create", dom_file])
+            self._logged_exec(["virsh", "-c", "qemu:///system", "start", self.vm_id])
             self._wait_for_ip(0)
 
     def get_ssh_name(self):
