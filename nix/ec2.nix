@@ -314,7 +314,8 @@ in
     deployment.ec2.subnetId = mkOption {
       default = "";
       example = "subnet-9d4a7b6c";
-      type = types.str;
+      type = types.either types.str (resource "vpc-subnet");
+      apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;
       description = ''
         The subnet inside a VPC to launch the instance in.
       '';

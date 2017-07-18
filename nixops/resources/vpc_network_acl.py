@@ -134,7 +134,7 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
         with self.depl._db:
             self._state['entries'] = config['entries']
 
-    def realize_subnets_change(self):
+    def realize_subnets_change(self, allow_recreate):
         config = self.get_defn()
         self.connect()
         old_subnets = self._state.get('subnetIds', [])
@@ -164,7 +164,7 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
 
         for subnet in subnets_to_add:
             association_id = self.get_network_acl_association(subnet)
-            self.log("associating subnet {0} to default network acl {1}".format(subnet, self.network_acl_id))
+            self.log("associating subnet {0} to network acl {1}".format(subnet, self.network_acl_id))
             self._client.replace_network_acl_association(AssociationId=association_id, NetworkAclId=self.network_acl_id)
 
         with self.depl._db:

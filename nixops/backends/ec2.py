@@ -492,6 +492,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 isinstance(r, nixops.resources.ec2_placement_group.EC2PlacementGroupState) or
                 isinstance(r, nixops.resources.ebs_volume.EBSVolumeState) or
                 isinstance(r, nixops.resources.elastic_ip.ElasticIPState) or
+                isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState) or
                 isinstance(r, nixops.resources.elastic_file_system.ElasticFileSystemState) or
                 isinstance(r, nixops.resources.elastic_file_system_mount_target.ElasticFileSystemMountTargetState)}
 
@@ -773,6 +774,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             check = True
 
         self.set_common_state(defn)
+
+        if defn.subnet_id.startswith("res-"):
+            res = self.depl.get_typed_resource(defn.subnet_id[4:].split(".")[0], "vpc-subnet")
+            defn.subnet_id = res._state['subnetId']
 
         # Figure out the access key.
         self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
