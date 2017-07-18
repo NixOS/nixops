@@ -171,25 +171,27 @@ class VPCNetworkInterfaceAttachementState(nixops.resources.ResourceState, EC2Com
         self.log_end(" done")
 
     def _destroy(self):
-        if self.state != (self.UP or self.STOPPING): return
-        self.log("detaching vpc network interface attachement {}".format(self._state['attachementId']))
-        self.connect()
-        try:
-            self._client.detach_network_interface(AttachmentId=self._state['attachementId'],
-                                                  Force=True)
-            with self.depl._db:
-                self.state = self.STOPPING
+        if self.state == self.UP:
+            self.log("detaching vpc network interface attachement {}".format(self._state['attachementId']))
+            self.connect()
+            try:
+                self._client.detach_network_interface(AttachmentId=self._state['attachementId'],
+                                                      Force=True)
+                with self.depl._db:
+                    self.state = self.STOPPING
 
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == "InvalidAttachmentID.NotFound":
-                self.warn("network interface attachement {} was already detached".format(self._state['attachementId']))
-            else:
-                raise e
-
-        self.wait_for_eni_detachment()
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == "InvalidAttachmentID.NotFound":
+                    self.warn("network interface attachement {} was already detached".format(self._state['attachementId']))
+                else:
+                    raise e
+        if self.state == self.STOPPING:
+            self.connect()
+            self.wait_for_eni_detachment()
 
         with self.depl._db:
             self.state = self.MISSING
+            self._state['region'] = None
             self._state['attachementId'] = None
             self._state['instanceId'] = None
             self._state['deviceIndex'] = None
