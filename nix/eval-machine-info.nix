@@ -109,6 +109,7 @@ rec {
   resources.vpcNetworkInterfaces = evalResources ./vpc-network-interface.nix (zipAttrs resourcesByType.vpcNetworkInterfaces or []);
   resources.vpcNetworkInterfaceAttachements = evalResources ./vpc-network-interface-attachement.nix (zipAttrs resourcesByType.vpcNetworkInterfaceAttachements or []);
   resources.vpcRouteTables = evalResources ./vpc-route-table.nix (zipAttrs resourcesByType.vpcRouteTables or []);
+  resources.vpcRouteTableAssociations = evalResources ./vpc-route-table-association.nix (zipAttrs resourcesByType.vpcRouteTableAssociations or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Datadog resources
