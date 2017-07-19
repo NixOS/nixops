@@ -28,6 +28,13 @@ with lib;
       '';
     };
 
+    routeTableId = mkOption {
+      type = types.either types.str (resource "vpc-route-table");
+      apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;
+      description = ''
+        The ID of the VPC route table
+      '';
+    };
   };
 
   config._type = "vpc-route-table-association";
