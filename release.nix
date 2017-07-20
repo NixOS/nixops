@@ -95,6 +95,7 @@ rec {
           pysqlite
           datadog
           digital-ocean
+          linode-api
         ];
 
       # For "nix-build --run-env".

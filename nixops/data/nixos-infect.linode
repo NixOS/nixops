@@ -1,0 +1,168 @@
+#! /usr/bin/env bash
+
+# More info at: https://github.com/elitak/nixos-infect
+
+set -e -o pipefail
+
+makeConf() {
+  # Skip everything if main config already present
+  [[ -e /etc/nixos/configuration.nix ]] && return 0
+  # NB <<"EOF" quotes / $ ` in heredocs, <<EOF does not
+  mkdir -p /etc/nixos
+  local IFS=$'\n'; keys=($(grep -vE '^[[:space:]]*(#|$)' /root/.ssh/authorized_keys))
+  cat > /etc/nixos/configuration.nix << EOF
+{ ... }: {
+  imports = [
+    ./hardware-configuration.nix
+    $NIXOS_IMPORT
+  ];
+
+  boot.cleanTmpDir = true;
+  networking.hostName = "$(hostname)";
+  services.openssh.enable = true;
+  users.users.root.openssh.authorizedKeys.keys = [$(for key in "${keys[@]}"; do echo -n "
+    \"$key\""; done)
+  ];
+
+}
+EOF
+  # If you rerun this later, be sure to prune the filesSystems attr
+  cat > /etc/nixos/hardware-configuration.nix << EOF
+{ ... }:
+{
+  imports = [ <nixpkgs/nixos/modules/profiles/qemu-guest.nix> ];
+  boot.loader = {
+    grub = {
+      device = "/dev/sda";
+      forceInstall = true;
+    };
+  };
+  fileSystems."/" = { device = "/dev/sda"; fsType = "ext4"; };
+  swapDevices = [ { device = "/dev/sdb"; } ];
+}
+EOF
+
+  #! /usr/bin/env bash
+  # NB put your semi-sensitive (not posted to github) configuration in a separate
+  # file and include it via this customConfig() function. e.g.:
+  #  customConfig() {
+  #    cat > /etc/nixos/custom.nix << EOF
+  #    { config, lib, pkgs, ... }: {
+  #    }
+  #    EOF
+  #  }
+  #
+  # then you can add the files in configuration.nix's imports above and run something like:
+  #   cat customConfig nixos-infect | root@targethost bash
+  if [[ "$(type -t customConfig)" == "function" ]]; then customConfig; fi
+}
+
+prepareEnv() {
+  # $disk is used in makeConf()
+  for disk in vda sda; do [[ -e /dev/$disk ]] && break; done
+
+  # DigitalOcean doesn't seem to set USER while running user data
+  export USER="root"
+  export HOME="/root"
+
+  # Use adapted wget if curl is missing
+  which curl || { \
+    curl() {
+      eval "wget $(
+        (local isStdout=1
+        for arg in "$@"; do
+          case "$arg" in
+            "-o")
+              echo "-O";
+              isStdout=0
+              ;;
+            "-O")
+              isStdout=0
+              ;;
+            "-L")
+              ;;
+            *)
+              echo "$arg"
+              ;;
+          esac
+        done;
+        [[ $isStdout -eq 1 ]] && echo "-O-"
+        )| tr '\n' ' '
+      )"
+    }; export -f curl; }
+
+  # Nix installer tries to use sudo regardless of whether we're already uid 0
+  #which sudo || { sudo() { eval "$@"; }; export -f sudo; }
+  # shellcheck disable=SC2174
+  mkdir -p -m 0755 /nix
+}
+
+req() {
+  type "$1" > /dev/null 2>&1 || which "$1" > /dev/null 2>&1
+}
+
+checkEnv() {
+  # Perform some easy fixups before checking
+  which dnf && dnf install -y perl-Digest-SHA # Fedora 24
+  which bzcat || (which yum && yum install -y bzip2) \
+              || (which apt-get && apt-get install bzip2) \
+              || true
+
+  [[ "$(whoami)" == "root" ]] || { echo "ERROR: Must run as root"; return 1; }
+
+  req curl || req wget || { echo "ERROR: Missing both curl and wget"; return 1; }
+  req bzcat            || { echo "ERROR: Missing bzcat";              return 1; }
+  req groupadd         || { echo "ERROR: Missing groupadd";           return 1; }
+  req useradd          || { echo "ERROR: Missing useradd";            return 1; }
+  req ip               || { echo "ERROR: Missing ip";                 return 1; }
+  req awk              || { echo "ERROR: Missing awk";                return 1; }
+  req cut              || { echo "ERROR: Missing cut";                return 1; }
+}
+
+infect() {
+  # Add nix build users
+  # FIXME run only if necessary, rather than defaulting true
+  groupadd nixbld -g 30000 || true
+  for i in {1..10}; do useradd -c "Nix build user $i" -d /var/empty -g nixbld -G nixbld -M -N -r -s "$(which nologin)" nixbld$i || true; done
+  # TODO use addgroup and adduser as fallbacks
+  #addgroup nixbld -g 30000 || true
+  #for i in {1..10}; do adduser -DH -G nixbld nixbld$i || true; done
+
+  curl https://nixos.org/nix/install | $SHELL
+
+  # shellcheck disable=SC1090
+  source ~/.nix-profile/etc/profile.d/nix.sh
+
+  [[ -z "$NIX_CHANNEL" ]] && NIX_CHANNEL="nixos-17.03"
+  nix-channel --remove nixpkgs
+  nix-channel --add "https://nixos.org/channels/$NIX_CHANNEL" nixos
+  nix-channel --update
+
+  export NIXOS_CONFIG=/etc/nixos/configuration.nix
+
+  nix-env --set \
+    -I nixpkgs=$HOME/.nix-defexpr/channels/nixos \
+    -f '<nixpkgs/nixos>' \
+    -p /nix/var/nix/profiles/system \
+    -A system
+
+  # Remove nix installed with curl | bash
+  rm -fv /nix/var/nix/profiles/default*
+  /nix/var/nix/profiles/system/sw/bin/nix-collect-garbage
+
+  # Reify resolv.conf
+  [[ -L /etc/resolv.conf ]] && mv -v /etc/resolv.conf /etc/resolv.conf.lnk && cat /etc/resolv.conf.lnk > /etc/resolv.conf
+
+  # Stage the Nix coup d'état
+  touch /etc/NIXOS
+  echo etc/nixos                   > /etc/NIXOS_LUSTRATE
+  echo etc/resolv.conf            >> /etc/NIXOS_LUSTRATE
+  echo root/.nix-defexpr/channels >> /etc/NIXOS_LUSTRATE
+
+  /nix/var/nix/profiles/system/bin/switch-to-configuration boot
+}
+
+prepareEnv
+checkEnv
+makeConf
+infect

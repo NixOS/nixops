@@ -1495,8 +1495,62 @@ xlink:href="https://github.com/elitak/nixos-infect">nixos-infect</link>
 </para>
 </section>
 
-<section><title>Deploying to Libvirtd (Qemu)</title>
+<section><title>Deploying to Linode</title>
 
+<para>First you will need to create an account with <link
+xlink:href="https://www.linode.com/">Linode</link>.</para>
+
+<para>Next, you need to visit <link
+xlink:href="https://cloud.linode.com/">Linode's new manager
+interface</link>, then navigate to profile and then <link
+xlink_href="https://cloud.linode.com/profile/tokens">API
+tokens</link>. From here click 'Create a Personal Access Token'. You
+should now be asked which permissions you want the API token to
+have. NixOps requires Delete access in the 'Linodes' category. Make
+sure to keep a note down the long code which appears when you confirm
+- there is no way to see it again.</para>
+
+<para>NixOps needs to know your personal API key. You can tell it by
+setting the <literal>deployment.linode.personalAPIKey</literal>
+property, or the <envvar>LINODE_PERSONAL_API_KEY</envvar> environment
+variable.</para>
+
+<para>The personal API key will be stored in the NixOps state file (an
+SQLite database), so you should make sure that this file is
+secure.</para>
+
+<para><xref linkend="ex-trivial-linode.nix" /> shows how to run +a
+<literal>Linode 2048</literal> instance in the <literal>Frankfurt,
+Germany</literal> region.</para>
+
+<example xml:id="ex-trivial-linode.nix">
+  <title><filename>trivial-linode.nix</filename>: A trivial Linode setup</title>
+  <programlisting>
+    {
+      machine = { config, pkgs, ... }: {
+        deployment.targetEnv = "linode";
+        deployment.linode = {
+          ## This is not a real API key, but it is in the correct format.
+          personalAPIKey = "2f99e7484232eh7dg8780ak41d371a945d4092150be5d36aee19d352df31a45f";
+          ## Default region is London, but we are using Frankfurt in this example.
+          region = "eu-central-1a";
+          ## Default type is a Linode 1024, but we are using a Linode 2048 in this example.
+          type = "g5-standard-1";
+        };
+      }
+    }
+  </programlisting>
+</example>
+
+<para>Installation works in a similar fashion to the Digital Ocean
+install. We create a Debian 8 (Jessie) instance, then use <link
+xlink:href="https://github.com/elitak/nixos-infect">nixos-infect</link>
+(modified to fit Linode's settings) to replace it with Nixos.
+</para>
+
+</section>
+
+<section><title>Deploying to Libvirtd (Qemu)</title>
 
 <para>In order to use libvirtd backend, a couple of manual steps need to be
 taken. Libvirtd backend is currently supported only on NixOS.

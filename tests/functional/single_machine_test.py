@@ -51,6 +51,13 @@ class SingleMachineTest(generic_deployment_test.GenericDeploymentTest):
         ]
         self.run_check()
 
+    @attr("linode")
+    def test_linode(self):
+        self.depl.nix_exprs = self.depl.nix_exprs + [
+            ('{0}/single_machine_linode_base.nix'.format(parent_dir))
+        ]
+        self.run_check()
+
     def check_command(self, command):
         self.depl.evaluate()
         machine = self.depl.machines.values()[0]
