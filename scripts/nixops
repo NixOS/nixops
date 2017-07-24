@@ -78,6 +78,7 @@ def open_deployment():
     if args.keep_failed: depl.extra_nix_flags.append("--keep-failed")
     if args.show_trace: depl.extra_nix_flags.append("--show-trace")
     if args.fallback: depl.extra_nix_flags.append("--fallback")
+    if args.no_build_output: depl.extra_nix_flags.append("--no-build-output")
     if not args.read_only_mode: depl.extra_nix_eval_flags.append("--read-write-mode")
 
     return depl
@@ -709,6 +710,7 @@ def add_subparser(name, help):
     subparser.add_argument("--keep-failed", '-K', action='store_true', help='keep temporary directories of failed builds')
     subparser.add_argument('--show-trace', action='store_true', help='print a Nix stack trace if evaluation fails')
     subparser.add_argument('--fallback', action='store_true', help='fall back on installation from source')
+    subparser.add_argument('--no-build-output', action='store_true', help='suppress output written by builders')
     subparser.add_argument('--option', nargs=2, action="append", dest="nix_options", metavar=('NAME', 'VALUE'), help='set a Nix option')
     subparser.add_argument('--read-only-mode', action='store_true', help='run Nix evaluations in read-only mode')
 

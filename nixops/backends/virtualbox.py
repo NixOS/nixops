@@ -165,7 +165,6 @@ class VirtualBoxState(MachineState):
 
     def _wait_for_ip(self):
         self.log_start("waiting for IP address...")
-        old_address = self.private_ipv4
         while True:
             self._update_ip()
             if self.private_ipv4 != None: break
@@ -284,7 +283,7 @@ class VirtualBoxState(MachineState):
                              "-A", 'nodes."{0}".config.deployment.virtualbox.disks.{1}.baseImage'.format(self.name, disk_name),
                              "-o", "{0}/vbox-image-{1}".format(self.depl.tempdir, self.name)],
                             capture_stdout=True).rstrip()
-                    self._logged_exec(["VBoxManage", "clonehd", base_image, disk_path])
+                    self._logged_exec(["VBoxManage", "clonehd", base_image, disk_path, "--format", "VDI"])
                     if disk_def['size'] != 0:
                         self._logged_exec(["VBoxManage", "modifyhd", disk_path, "--resize", str(disk_def['size'])])
                 else:
@@ -433,6 +432,9 @@ class VirtualBoxState(MachineState):
 
         self._start()
         self._wait_for_ip()
+
+        self.ssh_pinged = False
+        self._ssh_pinged_this_time = False
 
         if prev_ipv4 != self.private_ipv4:
             self.warn("IP address has changed, you may need to run ‘nixops deploy’")

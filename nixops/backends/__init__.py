@@ -22,8 +22,13 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
 
         def _extract_key_options(x):
             opts = {}
-            for key in ('text', 'user', 'group', 'permissions'):
-                elem = x.find("attrs/attr[@name='{0}']/string".format(key))
+            for (key, xmlType) in (('text',        'string'),
+                                   ('keyFile',     'path'),
+                                   ('destDir',     'string'),
+                                   ('user',        'string'),
+                                   ('group',       'string'),
+                                   ('permissions', 'string')):
+                elem = x.find("attrs/attr[@name='{0}']/{1}".format(key, xmlType))
                 if elem is not None:
                     opts[key] = elem.get("value")
             return opts
@@ -207,13 +212,26 @@ class MachineState(nixops.resources.ResourceState):
             # into memory.
             return
         if self.store_keys_on_machine: return
-        self.run_command("mkdir -m 0750 -p /run/keys"
-                         " && chown root:keys /run/keys")
         for k, opts in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
-            f = open(tmp, "w+"); f.write(opts['text']); f.close()
-            outfile = "/run/keys/" + k
+            if 'destDir' not in opts:
+                raise Exception("Key '{}' has no 'destDir' specified.".format(k))
+
+            destDir = opts['destDir'].rstrip("/")
+            self.run_command(("test -d '{0}' || ("
+                              " mkdir -m 0750 -p '{0}' &&"
+                              " chown root:keys  '{0}';)").format(destDir))
+
+            if 'text' in opts:
+                with open(tmp, "w+") as f:
+                    f.write(opts['text'])
+            elif 'keyFile' in opts:
+                self._logged_exec(["cp", opts['keyFile'], tmp])
+            else:
+                raise Exception("Neither 'text' or 'keyFile' options were set for key '{0}'.".format(k))
+
+            outfile = destDir + "/" + k
             outfile_esc = "'" + outfile.replace("'", r"'\''") + "'"
             self.run_command("rm -f " + outfile_esc)
             self.upload_file(tmp, outfile)
@@ -237,7 +255,9 @@ class MachineState(nixops.resources.ResourceState):
               )
             )
             os.remove(tmp)
-        self.run_command("touch /run/keys/done")
+        self.run_command("mkdir -m 0750 -p /run/keys && "
+                         "chown root:keys  /run/keys && "
+                         "touch /run/keys/done")
 
     def get_keys(self):
         return self.keys
@@ -329,25 +349,18 @@ class MachineState(nixops.resources.ResourceState):
 
         ssh = self.get_ssh_for_copy_closure()
 
-        # It's usually faster to let the target machine download
-        # substitutes from nixos.org, so try that first.
-        if not self.has_fast_connection:
-            closure = subprocess.check_output(["nix-store", "-qR", path]).splitlines()
-            ssh.run_command("nix-store -j 4 -r --ignore-unknown " + ' '.join(closure), check=False)
-
         # Any remaining paths are copied from the local machine.
         env = dict(os.environ)
         env['NIX_SSHOPTS'] = ' '.join(ssh._get_flags() + ssh.get_master().opts)
         self._logged_exec(
             ["nix-copy-closure", "--to", ssh._get_target(), path]
-            + ([] if self.has_fast_connection else ["--gzip"]),
+            + ([] if self.has_fast_connection else ["--gzip", "--use-substitutes"]),
             env=env)
 
-    def generate_vpn_key(self, check=False):
+    def generate_vpn_key(self):
         key_missing = False
         try:
-            if check:
-                self.run_command("test -f /root/.ssh/id_charon_vpn")
+            self.run_command("test -f /root/.ssh/id_charon_vpn")
         except nixops.ssh_util.SSHCommandFailed:
             key_missing = True
 

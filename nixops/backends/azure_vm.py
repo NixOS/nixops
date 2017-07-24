@@ -1240,6 +1240,8 @@ class AzureState(MachineState, ResourceState):
                 key_name = disk['name']
                 keys["luks-" + key_name] = {
                     'text': self.generated_encryption_keys[d_id],
+                    'keyFile': '/run/keys/'+ "luks-" + key_name,
+                    'destDir': '/run/keys/',
                     'group': 'root',
                     'permissions': '0600',
                     'user': 'root'

@@ -106,6 +106,24 @@
       </section>
 
       <section>
+        <title>EC2 Security Groups</title>
+        <para>An Amazon Security Group is defined by setting
+        <literal>resources.ec2SecurityGroups.<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="ec2-security-group-options.xml" />
+      </section>
+
+      <section>
+        <title>Elastic IPs</title>
+        <para>An Amazon Elastic IP is defined by setting
+        <literal>resources.elasticIPs.<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="elastic-ip-options.xml" />
+      </section>
+
+      <section>
         <title>S3 Buckets</title>
         <para>An Amazon S3 bucket is defined by setting
         <literal>resources.s3Buckets.<replaceable>name</replaceable></literal>

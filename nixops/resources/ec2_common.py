@@ -11,9 +11,12 @@ class EC2CommonState():
     tags = nixops.util.attr_property("ec2.tags", {}, 'json')
 
     def get_common_tags(self):
-        return {'CharonNetworkUUID': self.depl.uuid,
+        tags = {'CharonNetworkUUID': self.depl.uuid,
                 'CharonMachineName': self.name,
                 'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file)}
+        if self.depl.name:
+            tags['CharonNetworkName'] = self.depl.name
+        return tags
 
     def get_default_name_tag(self):
         return "{0} [{1}]".format(self.depl.description, self.name)

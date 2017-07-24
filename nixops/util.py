@@ -195,7 +195,7 @@ def ansi_success(s, outfile=sys.stderr):
 
 
 def _maybe_abspath(s):
-    if s.startswith("http://") or s.startswith("https://") or s.startswith("file://"):
+    if s.startswith("http://") or s.startswith("https://") or s.startswith("file://") or s.startswith("channel:"):
         return s
     return os.path.abspath(s)
 

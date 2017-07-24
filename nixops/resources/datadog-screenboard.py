@@ -122,8 +122,10 @@ class DatadogScreenboardState(nixops.resources.ResourceState):
                 self.warn("datadog screenboard with id {0} already deleted".format(self.screenboard_id))
             else:
                 self.log("deleting datadog screenboard ‘{0}’...".format(self.board_title))
-                self._dd_api.Screenboard.delete(self.screenboard_id)
-
+                response = self._dd_api.Screenboard.delete(self.screenboard_id)
+                if 'errors' in response.keys():
+                    raise Exception("there was errors while deleting the screenboard: {}".format(
+                        str(response['errors'])))
     def destroy(self, wipe=False):
         self._destroy()
         return True

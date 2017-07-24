@@ -6,7 +6,7 @@ let
 
   pkgs = import <nixpkgs> { };
 
-  version = "1.5.1" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
+  version = "1.6" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
 
 in
 
@@ -34,6 +34,8 @@ rec {
       ''
         # Generate the manual and the man page.
         cp ${import ./doc/manual { revision = nixopsSrc.rev; }} doc/manual/machine-options.xml
+
+        # IMPORTANT: when adding a file here, also populate doc/manual/manual.xml
         ${pkgs.lib.concatMapStrings (fn: ''
           cp ${import ./doc/manual/resource.nix { revision = nixopsSrc.rev; module = ./nix + ("/" + fn + ".nix"); }} doc/manual/${fn}-options.xml
         '') [ "ebs-volume" "sns-topic" "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" "ssh-keypair" "ec2-security-group" "elastic-ip"

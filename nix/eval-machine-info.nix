@@ -246,11 +246,12 @@ rec {
         "14.12" = "gs://nixos-cloud-images/nixos-14.12.471.1f09b77-x86_64-linux.raw.tar.gz";
         "15.09" = "gs://nixos-cloud-images/nixos-15.09.425.7870f20-x86_64-linux.raw.tar.gz";
         "16.03" = "gs://nixos-cloud-images/nixos-image-16.03.847.8688c17-x86_64-linux.raw.tar.gz";
+        "17.03" = "gs://nixos-cloud-images/nixos-image-17.03.1082.4aab5c5798-x86_64-linux.raw.tar.gz";
       };
     in (
       nameValuePair ("bootstrap") [({ pkgs, ...}: {
         inherit (gce) project serviceAccount accessKey;
-        sourceUri = images."${pkgs.lib.substring 0 5 pkgs.lib.nixpkgsVersion}" or images."16.03";
+        sourceUri = images."${pkgs.lib.substring 0 5 pkgs.lib.nixpkgsVersion}" or images."17.03";
       })]
     )
   );
@@ -278,7 +279,7 @@ rec {
             optionalAttrs (v.config.deployment.targetEnv == "virtualbox") (cfg
               // { disks = mapAttrs (n: v: v //
                 { baseImage = if isDerivation v.baseImage then "drv" else toString v.baseImage; }) cfg.disks; });
-          libvirtd = v.config.deployment.libvirtd;
+          libvirtd = optionalAttrs (v.config.deployment.targetEnv == "libvirtd") v.config.deployment.libvirtd;
           publicIPv4 = v.config.networking.publicIPv4;
         }
       );

@@ -418,7 +418,7 @@ class Deployment(object):
             # Set system.stateVersion if the Nixpkgs version supports it.
             if nixops.util.parse_nixos_version(defn.config["nixosRelease"]) >= ["15", "09"]:
                 attrs_list.append({
-                    ('system', 'stateVersion'): Call(RawValue("lib.mkDefault"), m.state_version or '14.12')
+                    ('system', 'stateVersion'): Call(RawValue("lib.mkDefault"), m.state_version or defn.config["nixosRelease"])
                 })
 
             if self.nixos_version_suffix:
@@ -592,7 +592,7 @@ class Deployment(object):
         nixops.parallel.run_tasks(
             nr_workers=max_concurrent_copy,
             tasks=self.active.itervalues(), worker_fun=worker)
-        self.logger.log(ansi_success("{0}> closures copied successfully".format(self.name), outfile=self.logger._log_file))
+        self.logger.log(ansi_success("{0}> closures copied successfully".format(self.name or "unnamed"), outfile=self.logger._log_file))
 
 
     def activate_configs(self, configs_path, include, exclude, allow_reboot,
@@ -664,7 +664,7 @@ class Deployment(object):
                 # This thread shouldn't throw an exception because
                 # that will cause NixOps to exit and interrupt
                 # activation on the other machines.
-                m.logger.error(traceback.format_exc() if debug else str(e))
+                m.logger.error(traceback.format_exc())
                 return m.name
             return None
 
@@ -874,7 +874,7 @@ class Deployment(object):
                                 r.warn("cannot determine NixOS version")
 
                         r.wait_for_ssh(check=check)
-                        r.generate_vpn_key(check=check)
+                        r.generate_vpn_key()
 
                 except:
                     r._errored = True
@@ -921,7 +921,7 @@ class Deployment(object):
             r.after_activation(self.definitions[r.name])
 
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=cleanup_worker)
-        self.logger.log(ansi_success("{0}> deployment finished successfully".format(self.name), outfile=self.logger._log_file))
+        self.logger.log(ansi_success("{0}> deployment finished successfully".format(self.name or "unnamed"), outfile=self.logger._log_file))
 
     def deploy(self, **kwargs):
         with self._get_deployment_lock():
