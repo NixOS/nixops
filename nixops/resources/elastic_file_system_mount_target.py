@@ -69,8 +69,8 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
     def create(self, defn, check, allow_reboot, allow_recreate):
 
         access_key_id = defn.config["accessKeyId"] or nixops.ec2_utils.get_access_key_id()
-
-        client = self._get_client(access_key_id, defn.config["region"])
+        region = defn.config["region"]
+        client = self._get_client(access_key_id, region)
 
         if self.state == self.MISSING:
 
@@ -92,7 +92,10 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
             args = {}
             if defn.config["ipAddress"]:
                 args["IpAddress"] = defn.config["ipAddress"]
-            res = client.create_mount_target(FileSystemId=fs_id, SubnetId=defn.config["subnet"], **args)
+
+            subnetId = defn.config["subnet"]
+            securityGroups = self.security_groups_to_ids(region, access_key_id, subnetId, defn.config["securityGroups"] )
+            res = client.create_mount_target(FileSystemId=fs_id, SubnetId=subnetId, SecurityGroups=securityGroups, **args)
 
             with self.depl._db:
                 self.state = self.STARTING
@@ -162,3 +165,14 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
             self.log_end(" done")
 
         return True
+
+    def security_groups_to_ids(self, region, access_key_id, subnetId, groups):
+        conn = nixops.ec2_utils.connect(region, access_key_id)
+        conn_vpc = nixops.ec2_utils.connect_vpc(region, access_key_id)
+
+        sg_names = filter(lambda g: not g.startswith('sg-'), groups)
+        if sg_names != [ ] and subnetId != "":
+            vpc_id = conn_vpc.get_all_subnets([subnetId])[0].vpc_id
+            groups = map(lambda g: nixops.ec2_utils.name_to_security_group(conn, g, vpc_id), groups)
+
+        return groups
