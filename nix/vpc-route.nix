@@ -37,7 +37,7 @@ in
 
     destinationCidrBlock = mkOption {
       default = null;
-      type = types.str;
+      type = types.nullOr types.str;
       description = ''
         The IPv4 CIDR address block used for the destination match.
       '';
@@ -45,7 +45,7 @@ in
 
     destinationIpv6CidrBlock = mkOption {
       default = null;
-      type = types.str;
+      type = types.nullOr types.str;
       description = ''
         The IPv6 CIDR block used for the destination match.
       '';
@@ -54,7 +54,7 @@ in
     gatewayId = mkOption {
       default = null;
       type = types.nullOr (types.either types.str (resource "vpc-internet-gateway"));
-      apply = x: if (builtins.isString x || builtins.isNull x) then x else "res-" + x._name + "." + x._type;
+      apply = x: if (builtins.isString x || builtins.isNull x) then x else "res-" + x._name + "." + x._type + ".internetGatewayId";
       description = ''
         The ID of an Internet gateway or virtual private gateway attached to your VPC.
       '';
@@ -87,6 +87,8 @@ in
         The ID of a network interface.
       '';
     };
+
+    #TODO add egress only igw and VPC peering connection
 
   };
 
