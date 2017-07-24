@@ -98,9 +98,9 @@ rec {
         ];
 
       # For "nix-build --run-env".
-      shellHook = ''
-        export PYTHONPATH=$(pwd):$PYTHONPATH
-        export PATH=$(pwd)/scripts:${openssh}/bin:$PATH
+      shellHook = let pwd = ./nonexistent/..; in ''
+        export PYTHONPATH=${pwd}:$PYTHONPATH
+        export PATH=${pwd}/scripts:${openssh}/bin:$PATH
       '';
 
       doCheck = true;
