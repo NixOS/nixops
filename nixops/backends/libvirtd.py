@@ -231,6 +231,7 @@ class LibvirtdState(MachineState):
             return True
         self.log_start("destroying... ")
         self.stop()
+        self._logged_exec(["virsh", "-c", "qemu:///system", "undefine", self.vm_id])
         if (self.disk_path and os.path.exists(self.disk_path)):
             os.unlink(self.disk_path)
         return True
