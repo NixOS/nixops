@@ -9,6 +9,7 @@ import subprocess
 import time
 
 from nixops.backends import MachineDefinition, MachineState
+import nixops.known_hosts
 import nixops.util
 
 
@@ -66,6 +67,11 @@ class LibvirtdState(MachineState):
     def get_physical_spec(self):
         return {('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [self.client_public_key]}
 
+    def address_to(self, m):
+        if isinstance(m, LibvirtdState):
+            return m.private_ipv4
+        return MachineState.address_to(self, m)
+
     def _vm_id(self):
         return "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
@@ -103,8 +109,8 @@ class LibvirtdState(MachineState):
             self.disk_path = self._disk_path(defn)
             self._logged_exec(["qemu-img", "create", "-f", "qcow2", "-b",
                                base_image + "/disk.qcow2", self.disk_path])
-            # TODO: use libvirtd.extraConfig to make the image accessible for your user
-            os.chmod(self.disk_path, 0666)
+            os.chmod(self.disk_path, 0660)
+
             self.vm_id = self._vm_id()
             dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
             nixops.util.write_file(dom_file, self.domain_xml)
@@ -225,12 +231,14 @@ class LibvirtdState(MachineState):
             self._logged_exec(["virsh", "-c", "qemu:///system", "destroy", self.vm_id])
         else:
             self.log("not running")
+        self.state = self.STOPPED
 
     def destroy(self, wipe=False):
         if not self.vm_id:
             return True
         self.log_start("destroying... ")
         self.stop()
+        self._logged_exec(["virsh", "-c", "qemu:///system", "undefine", self.vm_id])
         if (self.disk_path and os.path.exists(self.disk_path)):
             os.unlink(self.disk_path)
         return True
