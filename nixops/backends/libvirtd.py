@@ -231,6 +231,7 @@ class LibvirtdState(MachineState):
             self._logged_exec(["virsh", "-c", "qemu:///system", "destroy", self.vm_id])
         else:
             self.log("not running")
+        self.state = self.STOPPED
 
     def destroy(self, wipe=False):
         if not self.vm_id:
