@@ -86,7 +86,7 @@ class VPCRouteState(nixops.resources.ResourceState, EC2CommonState):
         if self.state == self.UP:
             if not allow_recreate:
                 raise Exception("route {} definition changed and it needs to be recreated"
-                                " use --allow-recreate if you want to create a new one".format(self._state['associationId']))
+                                " use --allow-recreate if you want to create a new one".format(self.name))
             self.warn("route definition changed, recreating ...")
             self._destroy()
             self._client = None
