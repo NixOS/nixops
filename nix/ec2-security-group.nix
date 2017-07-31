@@ -1,6 +1,7 @@
 { config, lib, uuid, name, ... }:
 
 with lib;
+with import ./lib.nix lib;
 
 {
 
@@ -92,8 +93,16 @@ with lib;
 
           sourceIp = mkOption {
             default = null;
-            description = "The source IP range (CIDR notation).";
-            type = types.uniq (types.nullOr types.str);
+            description = ''
+              The source IP range (CIDR notation).
+
+              Can also be a reference to ElasticIP resource, which will be
+              suffixed with /32 CIDR notation.
+            '';
+            type = types.uniq (types.nullOr (types.either types.str (resource "elastic-ip")));
+            apply = x: if builtins.isString x
+                       then x
+                       else (if (x == null) then null else "res-" + x._name);
           };
         };
       });
