@@ -224,7 +224,16 @@ rec {
   ) azure_deployments;
 
   azure_default_blobs = mapAttrs' (name: depl:
-    let azure = (scrubOptionValue depl).config.deployment.azure; in (
+    let azure = (scrubOptionValue depl).config.deployment.azure;
+      images =
+        let
+          p = pkgs.path + "/nixos/modules/virtualisation/azure-images.nix";
+          self = {
+            "16.09" = "https://nixos.blob.core.windows.net/images/nixos-image-16.09.1694.019dcc3-x86_64-linux.vhd";
+            latest = self."16.09";
+          };
+        in if pathExists p then import p else self;
+    in (
       nameValuePair ("${azure.ephemeralDiskContainer._name}-image") [({ resources, ...}: {
         storage = azure.storage;
         container = azure.ephemeralDiskContainer;
@@ -232,7 +241,7 @@ rec {
         blobType = "PageBlob";
         copyFromBlob = if args ? azure-image-url
                        then args.azure-image-url
-                       else "https://nixos.blob.core.windows.net/images/nixos-image-16.09.1694.019dcc3-x86_64-linux.vhd";
+                       else (images."${pkgs.lib.substring 0 5 pkgs.lib.nixpkgsVersion}" or images.latest);
       })]
     )
   ) azure_deployments;
@@ -253,16 +262,22 @@ rec {
   gce_default_bootstrap_images = flip mapAttrs' gce_deployments (name: depl:
     let
       gce = (scrubOptionValue depl).config.deployment.gce;
-      images = {
-        "14.12" = "gs://nixos-cloud-images/nixos-14.12.471.1f09b77-x86_64-linux.raw.tar.gz";
-        "15.09" = "gs://nixos-cloud-images/nixos-15.09.425.7870f20-x86_64-linux.raw.tar.gz";
-        "16.03" = "gs://nixos-cloud-images/nixos-image-16.03.847.8688c17-x86_64-linux.raw.tar.gz";
-        "17.03" = "gs://nixos-cloud-images/nixos-image-17.03.1082.4aab5c5798-x86_64-linux.raw.tar.gz";
-      };
+
+      images =
+        let
+          p = pkgs.path + "/nixos/modules/virtualisation/gce-images.nix";
+          self = {
+            "14.12" = "gs://nixos-cloud-images/nixos-14.12.471.1f09b77-x86_64-linux.raw.tar.gz";
+            "15.09" = "gs://nixos-cloud-images/nixos-15.09.425.7870f20-x86_64-linux.raw.tar.gz";
+            "16.03" = "gs://nixos-cloud-images/nixos-image-16.03.847.8688c17-x86_64-linux.raw.tar.gz";
+            "17.03" = "gs://nixos-cloud-images/nixos-image-17.03.1082.4aab5c5798-x86_64-linux.raw.tar.gz";
+            latest = self."17.03";
+          };
+        in if pathExists p then import p else self;
     in (
       nameValuePair ("bootstrap") [({ pkgs, ...}: {
         inherit (gce) project serviceAccount accessKey;
-        sourceUri = images."${pkgs.lib.substring 0 5 pkgs.lib.nixpkgsVersion}" or images."17.03";
+        sourceUri = images."${pkgs.lib.substring 0 5 pkgs.lib.nixpkgsVersion}" or images.latest;
       })]
     )
   );
