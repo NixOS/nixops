@@ -95,7 +95,7 @@ class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
 
         if allocation_id.startswith("res-"):
             res = self.depl.get_typed_resource(allocation_id[4:].split(".")[0], "elastic-ip")
-            allocation_id = res._state['allocationId']
+            allocation_id = res.allocation_id
 
         if subnet_id.startswith("res-"):
             res = self.depl.get_typed_resource(subnet_id[4:].split(".")[0], "vpc-subnet")
