@@ -4,6 +4,7 @@ from distutils import spawn
 import os
 import copy
 import random
+import shutil
 import string
 import subprocess
 import time
@@ -107,10 +108,12 @@ class LibvirtdState(MachineState):
                 raise Exception('{} is not writable by this user or it does not exist'.format(defn.image_dir))
 
             self.disk_path = self._disk_path(defn)
-            self._logged_exec(["qemu-img", "create", "-f", "qcow2", "-b",
-                               base_image + "/disk.qcow2", self.disk_path])
+            shutil.copyfile(base_image + "/disk.qcow2", self.disk_path)
+            # Rebase onto empty backing file to prevent breaking the disk image
+            # when the backing file gets garbage collected.
+            self._logged_exec(["qemu-img", "rebase", "-f", "qcow2", "-b",
+                               "", self.disk_path])
             os.chmod(self.disk_path, 0660)
-
             self.vm_id = self._vm_id()
             dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
             nixops.util.write_file(dom_file, self.domain_xml)
