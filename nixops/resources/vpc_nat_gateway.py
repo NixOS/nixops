@@ -3,6 +3,7 @@
 # Automatic provisioning of AWS VPC NAT gateways.
 
 import uuid
+import time
 
 import boto3
 import botocore
@@ -82,14 +83,23 @@ class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
         if not self.access_key_id:
             raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
 
-        self._state['region'] = defn.config['region']
+        for handler in change_sequence:
+            handler.handle(allow_recreate)
+
+    def realize_create_gtw(self, allow_recreate):
+        config = self.get_defn()
+        if self.state == self.UP:
+            if not allow_recreate:
+                raise Exception("nat gateway {} defintion changed"
+                                " use --allow-recreate if you want to create a new one".format(
+                                    self._state['natGatewayId']))
+            self.warn("nat gateway changed, recreating...")
+            self._destroy()
+            self._client = None
+
+        self._state['region'] = config['region']
         self.connect()
 
-        for handler in change_sequence:
-            handler.handle()
-
-    def realize_create_gtw(self):
-        config = self.get_defn()
         subnet_id = config['subnetId']
         allocation_id = config['allocationId']
 
@@ -115,17 +125,40 @@ class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
             self._state['allocationId'] = allocation_id
             self._state['natGatewayId'] = gtw_id
 
-    def _destroy(self):
-        if self.state != self.UP: return
-        self.log("deleting vpc NAT gateway {}".format(self._state['natGatewayId']))
-        self.connect()
-        try:
-            self._client.delete_nat_gateway(NatGatewayId=self._state['natGatewayId'])
-        except botocore.exceptions.ClientError as e:
-            if e.response['Error']['Code'] == "InvalidNatGatewayID.NotFound" or e.response['Error']['Code'] == "NatGatewayNotFound":
-                self.warn("nat gateway {} was already deleted".format(self._state['natGatewayId']))
+    def wait_for_nat_gtw_deletion(self):
+        self.log("waiting for nat gateway {0} to be deleted".format(self._state['natGatewayId']))
+        while True:
+            response = self._client.describe_nat_gateways(
+                NatGatewayIds=[self._state['natGatewayId']]
+                )
+            if len(response['NatGateways'])==1:
+                if response['NatGateways'][0]['State'] == "deleted":
+                    break
+                elif response['NatGateways'][0]['State'] != "deleting":
+                    raise Exception("nat gateway {0} in an unexpected state {1}".format(
+                        self._state['natGatewayId'], response['NatGateways'][0]['State']))
+                self.log_continue(".")
+                time.sleep(1)
             else:
-                raise e
+                break
+        self.log_end(" done")
+
+    def _destroy(self):
+        if self.state == self.UP:
+            self.log("deleting vpc NAT gateway {}".format(self._state['natGatewayId']))
+            self.connect()
+            try:
+                self._client.delete_nat_gateway(NatGatewayId=self._state['natGatewayId'])
+                with self.depl._db: self.state = self.STOPPING
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == "InvalidNatGatewayID.NotFound" or e.response['Error']['Code'] == "NatGatewayNotFound":
+                    self.warn("nat gateway {} was already deleted".format(self._state['natGatewayId']))
+                else:
+                    raise e
+
+        if self.state == self.STOPPING:
+            self.connect()
+            self.wait_for_nat_gtw_deletion()
 
         with self.depl._db:
             self.state = self.MISSING
