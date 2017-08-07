@@ -115,7 +115,13 @@ class VPCCustomerGatewayState(nixops.resources.ResourceState, EC2CommonState):
         if self.state != self.UP: return
         self.log("deleting customer gateway {}".format(self._state['customerGatewayId']))
         self.connect()
-        self._client.delete_customer_gateway(CustomerGatewayId=self._state['customerGatewayId'])
+        try:
+            self._client.delete_customer_gateway(CustomerGatewayId=self._state['customerGatewayId'])
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == "InvalidCustomerGatewayID.NotFound":
+                self.warn("customer gateway {} was already deleted".format(self._state['customerGatewayId']))
+            else:
+                raise e
 
         #TODO wait for customer gtw to be deleted
         with self.depl._db:
