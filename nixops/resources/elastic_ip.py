@@ -31,7 +31,7 @@ class ElasticIPState(nixops.resources.ResourceState):
     region = nixops.util.attr_property("ec2.region", None)
     public_ipv4 = nixops.util.attr_property("ec2.ipv4", None)
     allocation_id = nixops.util.attr_property("allocationId", None)
-    vpc = nixops.util.attr_property("vpc", None)
+    vpc = nixops.util.attr_property("vpc", False, bool)
 
 
     @classmethod
