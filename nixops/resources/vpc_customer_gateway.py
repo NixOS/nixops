@@ -78,6 +78,14 @@ class VPCCustomerGatewayState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_create_customer_gtw(self, allow_recreate):
         config = self.get_defn()
+        if self.state == self.UP:
+            if not allow_recreate:
+                raise Exception("customer gateway {} defintion changed"
+                                " use --allow-recreate if you want to create a new one".format(
+                                    self._state['customerGatewayId']))
+            self.warn("customer gateway changed, recreating...")
+            self._destroy()
+            self._client = None
 
         self._state['region'] = config['region']
 

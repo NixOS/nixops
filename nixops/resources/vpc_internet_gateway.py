@@ -83,6 +83,16 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_create_gtw(self, allow_recreate):
         config = self.get_defn()
+
+        if self.state == self.UP:
+            if not allow_recreate:
+                raise Exception("internet gateway {} defintion changed"
+                                " use --allow-recreate if you want to create a new one".format(
+                                    self._state['internetGatewayId']))
+            self.warn("internet gateway changed, recreating...")
+            self._destroy()
+            self._client = None
+
         self._state['region'] = config['region']
 
         self.connect()

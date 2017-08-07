@@ -92,7 +92,6 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
 
         self.ensure_subnet_up(check)
 
-        
     def ensure_subnet_up(self, check):
         config = self.get_defn()
         self._state['region'] = config['region']
