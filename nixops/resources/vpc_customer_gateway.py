@@ -90,7 +90,10 @@ class VPCCustomerGatewayState(nixops.resources.ResourceState, EC2CommonState):
             Type=config['type'])
 
         customer_gtw_id = response['CustomerGateway']['CustomerGatewayId']
-        #TODO wait for the gtw to be available
+        with self.depl._db: self.state = self.STARTING
+
+        waiter = self._client.get_waiter('customer_gateway_available')
+        waiter.wait(CustomerGatewayIds=[customer_gtw_id])
 
         with self.depl._db:
             self.state = self.UP
