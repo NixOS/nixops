@@ -111,6 +111,7 @@ rec {
   resources.vpcRouteTables = evalResources ./vpc-route-table.nix (zipAttrs resourcesByType.vpcRouteTables or []);
   resources.vpcRouteTableAssociations = evalResources ./vpc-route-table-association.nix (zipAttrs resourcesByType.vpcRouteTableAssociations or []);
   resources.vpcRoutes = evalResources ./vpc-route.nix (zipAttrs resourcesByType.vpcRoutes or []);
+  resources.vpcCustomerGateways = evalResources ./vpc-customer-gateway.nix (zipAttrs resourcesByType.vpcCustomerGateways or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Datadog resources
