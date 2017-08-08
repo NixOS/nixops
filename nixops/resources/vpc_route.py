@@ -68,7 +68,9 @@ class VPCRouteState(nixops.resources.ResourceState, EC2CommonState):
 
     def create_after(self, resources, defn):
         return {r for r in resources if
-                isinstance(r, nixops.resources.vpc_route_table.VPCRouteTableState)}
+                isinstance(r, nixops.resources.vpc_route_table.VPCRouteTableState) or
+                isinstance(r, nixops.resources.vpc_internet_gateway.VPCInternetGatewayState) or
+                isinstance(r, nixops.resources.vpc_nat_gateway.VPCNatGatewayState)}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         diff_engine = self.setup_diff_engine(config=defn.config)

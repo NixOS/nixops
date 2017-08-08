@@ -128,9 +128,16 @@ class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
     def wait_for_nat_gtw_deletion(self):
         self.log("waiting for nat gateway {0} to be deleted".format(self._state['natGatewayId']))
         while True:
-            response = self._client.describe_nat_gateways(
-                NatGatewayIds=[self._state['natGatewayId']]
-                )
+            try:
+                response = self._client.describe_nat_gateways(
+                    NatGatewayIds=[self._state['natGatewayId']]
+                    )
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] == "InvalidNatGatewayID.NotFound" or e.response['Error']['Code'] == "NatGatewayNotFound":
+                    self.warn("nat gateway {} was already deleted".format(self._state['natGatewayId']))
+                    break
+                else:
+                    raise
             if len(response['NatGateways'])==1:
                 if response['NatGateways'][0]['State'] == "deleted":
                     break

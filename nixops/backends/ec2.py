@@ -493,6 +493,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 isinstance(r, nixops.resources.ebs_volume.EBSVolumeState) or
                 isinstance(r, nixops.resources.elastic_ip.ElasticIPState) or
                 isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState) or
+                isinstance(r, nixops.resources.vpc_route.VPCRouteState) or
                 isinstance(r, nixops.resources.elastic_file_system.ElasticFileSystemState) or
                 isinstance(r, nixops.resources.elastic_file_system_mount_target.ElasticFileSystemMountTargetState)}
 
