@@ -68,6 +68,7 @@ class VPCRouteTableState(nixops.resources.ResourceState, EC2CommonState):
 
     def create_after(self, resources, defn):
         return {r for r in resources if
+                isinstance(r, nixops.resources.vpc.VPCState) or
                 isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState)}
 
     def create(self, defn, check, allow_reboot, allow_recreate):

@@ -111,6 +111,7 @@ class Diff(object):
                 res_type = d.split(".")[1]
                 k = d.split(".")[2] if len(d.split(".")) > 2 else key
                 res = self._depl.get_typed_resource(name, res_type)
+                if res.state != res.UP: return "computed"
                 try:
                     d = getattr(res, k)
                 except AttributeError:
