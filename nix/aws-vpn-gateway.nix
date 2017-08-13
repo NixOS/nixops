@@ -22,6 +22,14 @@ with lib;
       description = "AWS region.";
     };
 
+    zone = mkOption {
+      # NOTE: We're making this required in NixOps but the api can handle
+      # choosing the zone. Making this required will prevent having
+      # the diff engine trigger the zone handler in each deploy.
+      type = types.str;
+      description = "AWS availability zone.";
+    };
+
     vpcId = mkOption {
       type = types.either types.str (resource "vpc");
       apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;
