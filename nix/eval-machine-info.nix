@@ -113,6 +113,7 @@ rec {
   resources.vpcRoutes = evalResources ./vpc-route.nix (zipAttrs resourcesByType.vpcRoutes or []);
   resources.vpcCustomerGateways = evalResources ./vpc-customer-gateway.nix (zipAttrs resourcesByType.vpcCustomerGateways or []);
   resources.vpcEndpoints = evalResources ./vpc-endpoint.nix (zipAttrs resourcesByType.vpcEndpoints or []);
+  resources.awsVPNGateways = evalResources ./aws-vpn-gateway.nix (zipAttrs resourcesByType.awsVPNGateways or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Datadog resources
