@@ -101,6 +101,7 @@ class AWSVPNGatewayState(nixops.resources.ResourceState, EC2CommonState):
         self._client.attach_vpn_gateway(
             VpcId=vpc_id,
             VpnGatewayId=vpn_gtw_id)
+        #TODO wait for the attchement state
 
         with self.depl._db:
             self.state = self.UP
