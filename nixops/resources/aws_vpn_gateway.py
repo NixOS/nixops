@@ -1,12 +1,5 @@
 # -*- coding: utf-8 -*-
 
-# Automatic provisioning of AWS VPC internet gateways.
-
-import os
-
-import boto3
-import botocore
-
 from nixops.state import StateDict
 from nixops.diff import Diff, Handler
 import nixops.util
@@ -14,51 +7,50 @@ import nixops.resources
 from nixops.resources.ec2_common import EC2CommonState
 import nixops.ec2_utils
 
-class VPCInternetGatewayDefinition(nixops.resources.ResourceDefinition):
-    """Definition of a VPC internet gateway."""
+class AWSVPNGatewayDefinition(nixops.resources.ResourceDefinition):
+    """Definition of an AWS VPN gateway."""
 
     @classmethod
     def get_type(cls):
-        return "vpc-internet-gateway"
+        return "aws-vpn-gateway"
 
     @classmethod
     def get_resource_type(cls):
-        return "vpcInternetGateways"
+        return "awsVPNGateways"
 
     def show_type(self):
         return "{0}".format(self.get_type())
 
-
-class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
-    """State of a VPC internet gateway."""
+class AWSVPNGatewayState(nixops.resources.ResourceState, EC2CommonState):
+    """State of a AWS VPN gateway."""
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
-    _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ["internetGatewayId"]
+    _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ["vpnGatewayId"]
 
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
         self._client = None
-        self.handle_create_igw = Handler(['region', 'vpcId'], handle=self.realize_create_gtw)
+        self.handle_create_vpn_gtw = Handler(['region', 'zone', 'vpcId'], handle=self.realize_create_vpn_gtw)
 
     @classmethod
     def get_type(cls):
-        return "vpc-internet-gateway"
+        return "aws-vpn-gateway"
 
     def show_type(self):
-        s = super(VPCInternetGatewayState, self).show_type()
+        s = super(AWSVPNGatewayState, self).show_type()
         if self._state.get('region', None): s = "{0} [{1}]".format(s, self._state['region'])
         return s
 
     @property
     def resource_id(self):
-        return self._state.get('internetGatewayId', None)
+        return self._state.get('vpnGatewayId', None)
 
     def prefix_definition(self, attr):
-        return {('resources', 'vpcInternetGateways'): attr}
+        return {('resources', 'awsVPNGateways'): attr}
 
     def get_defintion_prefix(self):
-        return "resources.vpcInternetGateways."
+        return "resources.awsVPNGateways."
 
     def connect(self):
         if self._client: return
@@ -68,8 +60,7 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
 
     def create_after(self, resources, defn):
         return {r for r in resources if
-                isinstance(r, nixops.resources.vpc.VPCState) or
-                isinstance(r, nixops.resources.elastic_ip.ElasticIPState)}
+                isinstance(r, nixops.resources.vpc.VPCState)}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         diff_engine = self.setup_diff_engine(config=defn.config)
@@ -81,15 +72,15 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
         for handler in diff_engine.plan():
             handler.handle(allow_recreate)
 
-    def realize_create_gtw(self, allow_recreate):
+    def realize_create_vpn_gtw(self, allow_recreate):
         config = self.get_defn()
 
         if self.state == self.UP:
             if not allow_recreate:
-                raise Exception("internet gateway {} defintion changed"
+                raise Exception("VPN gateway {} defintion changed"
                                 " use --allow-recreate if you want to create a new one".format(
-                                    self._state['internetGatewayId']))
-            self.warn("internet gateway changed, recreating...")
+                                    self._state['vpnGatewayId']))
+            self.warn("VPN gateway changed, recreating...")
             self._destroy()
             self._client = None
 
@@ -102,33 +93,48 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
             res = self.depl.get_typed_resource(vpc_id[4:].split(".")[0], "vpc")
             vpc_id = res._state['vpcId']
 
-        self.log("creating internet gateway in region {}".format(self._state['region']))
-        response = self._client.create_internet_gateway()
-        igw_id = response['InternetGateway']['InternetGatewayId']
-        self.log("attaching internet gateway {0} to vpc {1}".format(igw_id, vpc_id))
-        self._client.attach_internet_gateway(InternetGatewayId=igw_id,
-                                             VpcId=vpc_id)
+        self.log("creating VPN gateway in zone {}".format(config['zone']))
+        response = self._client.create_vpn_gateway(
+            AvailabilityZone=config['zone'],
+            Type="ipsec.1")
+
+        vpn_gtw_id = response['VpnGateway']['VpnGatewayId']
+        self.log("attaching vpn gateway {0} to vpc {1}".format(vpn_gtw_id, vpc_id))
+        self._client.attach_vpn_gateway(
+            VpcId=vpc_id,
+            VpnGatewayId=vpn_gtw_id)
+
         with self.depl._db:
             self.state = self.UP
-            self._state['region'] = config['region']
+            self._state['vpnGatewayId'] = vpn_gtw_id
             self._state['vpcId'] = vpc_id
-            self._state['internetGatewayId'] = igw_id
+            self._state['zone'] = config['zone']
 
     def _destroy(self):
         if self.state != self.UP: return
-        self.log("detaching internet gateway {0} from vpc {1}".format(self._state['internetGatewayId'],
-            self._state['vpcId']))
         self.connect()
-        self._retry(lambda: self._client.detach_internet_gateway(InternetGatewayId=self._state['internetGatewayId'],
-                VpcId=self._state['vpcId']))
-        self.log("deleting internet gateway {0}".format(self._state['internetGatewayId']))
-        self._client.delete_internet_gateway(InternetGatewayId=self._state['internetGatewayId'])
+        self.log("detaching vpn gateway {0} from vpc {1}".format(self._state['vpnGatewayId'], self._state['vpcId']))
+        #FIXME check for invalid attachements ?
+        self._client.detach_vpn_gateway(
+            VpcId=self._state['vpcId'],
+            VpnGatewayId=self._state['vpnGatewayId'])
+        # TODO delete VPN connections associated with this VPN gtw
+        self.log("deleting vpn gateway {}".format(self._state['vpnGatewayId']))
+        try:
+            self._client.delete_vpn_gateway(
+                VpnGatewayId=self._state['vpnGatewayId'])
+        except botocore.exceptions.ClientError as e:
+            if  e.response['Error']['Code'] == "InvalidVpnGatewayID.NotFound":
+                self.warn("VPN gateway {} was already deleted".format(self._state['vpnGatewayId']))
+            else:
+                raise e
 
         with self.depl._db:
             self.state = self.MISSING
             self._state['region'] = None
+            self._state['vpnGatewayId'] = None
             self._state['vpcId'] = None
-            self._state['internetGatewayId'] = None
+            self._state['zone'] = None
 
     def destroy(self, wipe=False):
         self._destroy()
