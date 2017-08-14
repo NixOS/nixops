@@ -112,10 +112,17 @@ class AWSVPNGatewayState(nixops.resources.ResourceState, EC2CommonState):
         if self.state != self.UP: return
         self.connect()
         self.log("detaching vpn gateway {0} from vpc {1}".format(self._state['vpnGatewayId'], self._state['vpcId']))
-        #FIXME check for invalid attachements ?
-        self._client.detach_vpn_gateway(
-            VpcId=self._state['vpcId'],
-            VpnGatewayId=self._state['vpnGatewayId'])
+        try:
+            self._client.detach_vpn_gateway(
+                VpcId=self._state['vpcId'],
+                VpnGatewayId=self._state['vpnGatewayId'])
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == "InvalidVpnGatewayAttachment.NotFound":
+                self.warn("VPN gateway {0} attachement with vpc {1} is invalid".format(
+                    self._state['vpnGatewayId'], self._state['vpcId'])
+            else:
+                raise e
+
         # TODO delete VPN connections associated with this VPN gtw
         self.log("deleting vpn gateway {}".format(self._state['vpnGatewayId']))
         try:
