@@ -120,7 +120,7 @@ class AWSVPNGatewayState(nixops.resources.ResourceState, EC2CommonState):
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == "InvalidVpnGatewayAttachment.NotFound":
                 self.warn("VPN gateway {0} attachement with vpc {1} is invalid".format(
-                    self._state['vpnGatewayId'], self._state['vpcId'])
+                    self._state['vpnGatewayId'], self._state['vpcId']))
             else:
                 raise e
 
@@ -130,7 +130,7 @@ class AWSVPNGatewayState(nixops.resources.ResourceState, EC2CommonState):
             self._client.delete_vpn_gateway(
                 VpnGatewayId=self._state['vpnGatewayId'])
         except botocore.exceptions.ClientError as e:
-            if  e.response['Error']['Code'] == "InvalidVpnGatewayID.NotFound":
+            if e.response['Error']['Code'] == "InvalidVpnGatewayID.NotFound":
                 self.warn("VPN gateway {} was already deleted".format(self._state['vpnGatewayId']))
             else:
                 raise e
