@@ -909,7 +909,8 @@ class Deployment(object):
                     r.warn("resource type {} doesn't implement a plan operation".format(r.get_type()))
 
             if plan_only:
-                nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=plan_worker)
+                for r in self.active_resources.itervalues():
+                    plan_worker(r)
                 return
 
             def worker(r):
