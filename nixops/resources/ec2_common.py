@@ -42,6 +42,13 @@ class EC2CommonState():
 
         self.update_tags_using(updater, user_tags=user_tags, check=check)
 
+    def plan(self, defn):
+        if hasattr(self, '_state'):
+            diff_engine = self.setup_diff_engine(defn.config)
+            diff_engine.plan(show=True)
+        else:
+            self.warn("resource type {} doesn't implement a plan operation".format(self.get_type()))
+
     def setup_diff_engine(self, config):
         diff_engine = Diff(depl=self.depl, logger=self.logger,
                            config=config, state=self._state,

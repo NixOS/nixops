@@ -31,13 +31,13 @@ class Diff(object):
         diff = [k for k in self._diff.keys() if k not in self._reserved]
         return diff
 
-    def plan(self):
+    def plan(self,show=False):
         keys = self._state.keys() + self._definition.keys()
         for k in keys:
             self.eval_resource_attr_diff(k)
         for k in self.get_keys():
             definition = self.get_resource_definition(k)
-            if os.environ.get('NIXOPS_SHOW_PLAN'):
+            if show:
                 if self._diff[k] == self.SET:
                     self.logger.log("will set attribute {0} to {1}".format(k, definition))
                 elif self._diff[k] == self.UPDATE:
