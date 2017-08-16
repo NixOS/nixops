@@ -2,13 +2,6 @@
 
 with import ./lib.nix lib;
 with lib;
-let
-  machine= mkOptionType {
-    name = "EC2 machine";
-    check = x: x ? ec2;
-    merge = mergeOneOption;
-  };
-in
 {
   options = {
     name = mkOption {
