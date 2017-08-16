@@ -49,5 +49,5 @@ with lib;
 
   } // import ./common-ec2-options.nix { inherit lib; };
 
-  config._type = "aws-vpn-gateway";
+  config._type = "aws-vpn-connection";
 }
