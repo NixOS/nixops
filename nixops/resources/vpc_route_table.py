@@ -43,6 +43,10 @@ class VPCRouteTableState(nixops.resources.ResourceState, EC2CommonState):
         self._state = StateDict(depl, id)
         self.region = self._state.get('region', None)
         self.handle_create_route_table = Handler(['region', 'vpcId'], handle=self.realize_create_route_table)
+        self.handle_propagate_vpn_gtws = Handler(
+            ['propagatingVgws'],
+            handle=self.realize_propagate_vpn_gtws,
+            after=[self.handle_create_route_table])
 
     def show_type(self):
         s = super(VPCRouteTableState, self).show_type()
@@ -107,6 +111,38 @@ class VPCRouteTableState(nixops.resources.ResourceState, EC2CommonState):
             self.state = self.UP
             self._state['vpcId'] = vpc_id
             self._state['routeTableId'] = route_table['RouteTable']['RouteTableId']
+
+    def realize_propagate_vpn_gtws(self, allow_recreate):
+        config = self.get_defn()
+
+        self.connect()
+
+        old_vgws = self._state.get('propagatingVgws', [])
+        new_vgws = []
+
+        for vgw in config['propagatingVgws']:
+            if vgw.startswith("res-"):
+                res = self.depl.get_typed_resource(vgw[4:].split(".")[0], "aws-vpn-gateway")
+                new_vgws.append(res._state['vpnGatewayId'])
+            else:
+                new_vgws.append(vgw)
+
+        to_disable = [r for r in old_vgws if r not in new_vgws]
+        to_enable = [r for r in new_vgws if r not in old_vgws]
+
+        for vgw in to_disable:
+            self.log("disabling virtual gateway route propagation for {}".format(vgw))
+            self._client.disable_vgw_route_propagation(
+                GatewayId=vgw,
+                RouteTableId=self._state['routeTableId'])
+        for vgw in to_enable:
+            self.log("enabling virtual gateway route propagation for {}".format(vgw))
+            self._client.enable_vgw_route_propagation(
+                GatewayId=vgw,
+                RouteTableId=self._state['routeTableId'])
+
+        with self.depl._db:
+            self._state['propagatingVgws'] = new_vgws
 
     def _destroy(self):
         if self.state != self.UP: return

@@ -4,6 +4,7 @@ with import ./lib.nix lib;
 with lib;
 {
   options = {
+
     name = mkOption {
       default = "charon-${uuid}-${name}";
       type = types.str;
@@ -28,7 +29,15 @@ with lib;
       '';
     };
 
-    #TODO add propagatingVgws once virtual gtw resource is implemented.
+    propagatingVgws = mkOption {
+      default = [];
+      type =  types.listOf (types.either types.str (resource "aws-vpn-gateway"));
+      apply = map (x: if builtins.isString x then x else "res-" + x._name + "." + x._type + ".vpnGatewayId");
+      description = ''
+        A list of VPN gateways for propagation.
+      '';
+    };
+
   };
 
   config._type = "vpc-route-table";
