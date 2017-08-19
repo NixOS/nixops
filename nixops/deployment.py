@@ -885,79 +885,77 @@ class Deployment(object):
 
         self.logger.update_log_prefixes()
 
+        # Build the machine configurations.
+        bc = self.build_configs(dry_run=dry_run, repair=repair, include=include, exclude=exclude)
+
+        if build_only or dry_run:
+            return
+
+        # Record configs_path in the state so that the ‘info’ command
+        # can show whether machines have an outdated configuration.
+        self.configs_path = bc
+
         # Start or update the active resources.  Non-machine resources
         # are created first, because machines may depend on them
         # (e.g. EC2 machines depend on EC2 key pairs or EBS volumes).
         # FIXME: would be nice to have a more fine-grained topological
         # sort.
-        if not dry_run and not build_only:
+        for r in self.active_resources.itervalues():
+            defn = self.definitions[r.name]
+            if r.get_type() != defn.get_type():
+                raise Exception("the type of resource ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported"
+                                .format(r.name, r.get_type(), defn.get_type()))
+            r._created_event = threading.Event()
+            r._errored = False
 
-            for r in self.active_resources.itervalues():
-                defn = self.definitions[r.name]
-                if r.get_type() != defn.get_type():
-                    raise Exception("the type of resource ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported"
-                                    .format(r.name, r.get_type(), defn.get_type()))
-                r._created_event = threading.Event()
-                r._errored = False
+        def worker(r):
+            try:
+                if not should_do(r, include, exclude): return
 
-            def worker(r):
-                try:
-                    if not should_do(r, include, exclude): return
+                # Sleep until all dependencies of this resource have
+                # been created.
+                deps = r.create_after(self.active_resources.itervalues(), self.definitions[r.name])
+                for dep in deps:
+                    dep._created_event.wait()
+                    # !!! Should we print a message here?
+                    if dep._errored:
+                        r._errored = True
+                        return
 
-                    # Sleep until all dependencies of this resource have
-                    # been created.
-                    deps = r.create_after(self.active_resources.itervalues(), self.definitions[r.name])
-                    for dep in deps:
-                        dep._created_event.wait()
-                        # !!! Should we print a message here?
-                        if dep._errored:
-                            r._errored = True
-                            return
+                # Now create the resource itself.
+                if not r.creation_time:
+                    r.creation_time = int(time.time())
+                r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot, allow_recreate=allow_recreate)
 
-                    # Now create the resource itself.
-                    if not r.creation_time:
-                        r.creation_time = int(time.time())
-                    r.create(self.definitions[r.name], check=check, allow_reboot=allow_reboot, allow_recreate=allow_recreate)
+                if is_machine(r):
+                    # The first time the machine is created,
+                    # record the state version. We get it from
+                    # /etc/os-release, rather than from the
+                    # configuration's state.systemVersion
+                    # attribute, because the machine may have been
+                    # booted from an older NixOS image.
+                    if not r.state_version:
+                        os_release = r.run_command("cat /etc/os-release", capture_stdout=True)
+                        match = re.search('VERSION_ID="([0-9]+\.[0-9]+).*"', os_release)
+                        if match:
+                            r.state_version = match.group(1)
+                            r.log("setting state version to {0}".format(r.state_version))
+                        else:
+                            r.warn("cannot determine NixOS version")
 
-                    if is_machine(r):
-                        # The first time the machine is created,
-                        # record the state version. We get it from
-                        # /etc/os-release, rather than from the
-                        # configuration's state.systemVersion
-                        # attribute, because the machine may have been
-                        # booted from an older NixOS image.
-                        if not r.state_version:
-                            os_release = r.run_command("cat /etc/os-release", capture_stdout=True)
-                            match = re.search('VERSION_ID="([0-9]+\.[0-9]+).*"', os_release)
-                            if match:
-                                r.state_version = match.group(1)
-                                r.log("setting state version to {0}".format(r.state_version))
-                            else:
-                                r.warn("cannot determine NixOS version")
+                    r.wait_for_ssh(check=check)
+                    r.generate_vpn_key()
 
-                        r.wait_for_ssh(check=check)
-                        r.generate_vpn_key()
+            except:
+                r._errored = True
+                raise
+            finally:
+                r._created_event.set()
 
-                except:
-                    r._errored = True
-                    raise
-                finally:
-                    r._created_event.set()
-
-            nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=worker)
+        nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=worker)
 
         if create_only: return
 
-        # Build the machine configurations.
-        if dry_run:
-            self.build_configs(dry_run=dry_run, repair=repair, include=include, exclude=exclude)
-            return
-
-        # Record configs_path in the state so that the ‘info’ command
-        # can show whether machines have an outdated configuration.
-        self.configs_path = self.build_configs(repair=repair, include=include, exclude=exclude)
-
-        if build_only: return
 
         # Copy the closures of the machine configurations to the
         # target machines.
