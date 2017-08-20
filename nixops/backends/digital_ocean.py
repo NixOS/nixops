@@ -124,6 +124,8 @@ class DigitalOceanState(MachineState):
         self.public_ipv4 = None
         self.droplet_id = None
 
+        return True
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         ssh_key = self.depl.active_resources.get('ssh-key')
         if ssh_key is None:
