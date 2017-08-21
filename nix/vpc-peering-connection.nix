@@ -43,6 +43,13 @@ with lib;
         The ID of the requester VPC.
       '';
     };
+
+    autoAccept = mkOption {
+      type = types.bool;
+      description = ''
+        Accept the peering (both VPCs need to be in the same AWS account).
+      '';
+    };
   };
 
   config._type = "vpc-peering-connection";
