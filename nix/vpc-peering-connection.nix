@@ -23,14 +23,16 @@ with lib;
     };
 
     peerOwnerId = mkOption {
-      type = types.str;
+      default = null;
+      type = types.nullOr types.str;
       description = ''
         The AWS account ID of the owner of the peer VPC.
       '';
     };
 
     peerVpcId = mkOption {
-      type = types.str;
+      type = types.either types.str (resource "vpc");
+      apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type; 
       description = ''
         The ID of the VPC with which you are creating the VPC peering connection.
       '';

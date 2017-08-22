@@ -116,7 +116,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
     def wait_for_subnet_available(self, subnet_id):
         while True:
             response = self._client.describe_subnets(SubnetIds=[subnet_id])
-            if len(response['Subnets']) ==1:
+            if len(response['Subnets']) == 1:
                 subnet = response['Subnets'][0]
                 if subnet['State'] == "available":
                     break
