@@ -65,6 +65,15 @@ with lib;
       '';
     };
 
+    amazonProvidedIpv6CidrBlock = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        Requests an Amazon-provided IPv6 CIDR block with a /56 prefix length for the VPC.
+        You cannot specify the range of IP addresses, or the size of the CIDR block.
+      '';
+    };
+
     vpcId = mkOption {
       default = "";
       type = types.str;

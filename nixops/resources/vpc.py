@@ -48,6 +48,10 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
                                   , handle=self.realize_dns_config)
         self.handle_classic_link = Handler(['enableClassicLink'], after=[self.handle_create]
                                            , handle=self.realize_classic_link_change)
+        self.handle_associate_ipv6_cidr_block = Handler(
+            ['amazonProvidedIpv6CidrBlock'],
+            after=[self.handle_create],
+            handle=self.realize_associate_ipv6_cidr_block)
 
     def show_type(self):
         s = super(VPCState, self).show_type()
@@ -211,6 +215,16 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
         with self.depl._db:
             self._state["enableDnsSupport"] = config['enableDnsSupport']
             self._state["enableDnsHostnames"] = config['enableDnsHostnames']
+
+    def realize_associate_ipv6_cidr_block(self, allow_recreate):
+        config = self.get_defn()
+        self.connect()
+        self._client.associate_vpc_cidr_block(
+            AmazonProvidedIpv6CidrBlock=config['amazonProvidedIpv6CidrBlock'],
+            VpcId=self._state["vpcId"])
+
+        with self.depl._db:
+            self._state["amazonProvidedIpv6CidrBlock"] = config['amazonProvidedIpv6CidrBlock']
 
     def destroy(self, wipe=False):
         self._destroy()
