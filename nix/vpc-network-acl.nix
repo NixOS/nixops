@@ -32,9 +32,17 @@ let
         ''; 
       };
       cidrBlock = mkOption {
-        type = types.str;
+        default = null;
+        type = types.nullOr types.str;
         description = ''
           The IPv4 network range to allow or deny, in CIDR notation.
+        '';
+      };
+      ipv6CidrBlock = mkOption {
+        default = null;
+        type = types.nullOr types.str;
+        description = ''
+          The IPv6 network range to allow or deny, in CIDR notation.
         '';
       };
       icmpCode = mkOption {

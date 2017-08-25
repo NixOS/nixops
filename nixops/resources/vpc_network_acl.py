@@ -188,7 +188,8 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
         rule['RuleNumber'] = entry['ruleNumber']
         rule['RuleAction'] = entry['ruleAction']
         rule['Egress'] = entry['egress']
-        rule['CidrBlock'] = entry['cidrBlock']
+        if entry['cidrBlock'] is not None: rule['CidrBlock'] = entry['cidrBlock']
+        if entry['ipv6CidrBlock'] is not None: rule['Ipv6CidrBlock'] = entry['ipv6CidrBlock']
         if entry['icmpCode'] and entry['icmpType']:
             rule['IcmpTypeCode'] = {"Type": entry['icmpType'], "Code": entry['icmpCode']}
         if entry['fromPort'] and entry['toPort']:
