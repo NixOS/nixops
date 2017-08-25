@@ -32,7 +32,7 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
-    _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ["vpcId"]
+    _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ["vpcId", "associationId"]
 
     @classmethod
     def get_type(cls):
@@ -152,7 +152,7 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
                 self.log_continue(".")
                 time.sleep(1)
             else:
-                raise Exception("couldn't find vpc {}, please run a deploy with --check")
+                raise Exception("couldn't find vpc {}, please run a deploy with --check".format(self._state["vpcId"]))
         self.log_end(" done")
 
         with self.depl._db:
@@ -216,15 +216,50 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
             self._state["enableDnsSupport"] = config['enableDnsSupport']
             self._state["enableDnsHostnames"] = config['enableDnsHostnames']
 
+    def wait_for_ipv6_cidr_association(self, association_id):
+        def lookup_association(association_set):
+            for assoc in association_set:
+                if association_id == assoc['AssociationId']:
+                    return assoc
+        while True:
+            response = self._client.describe_vpcs(VpcIds=[self._state["vpcId"]])
+            if len(response['Vpcs']) == 1:
+                vpc = response['Vpcs'][0]
+                association = lookup_association(vpc['Ipv6CidrBlockAssociationSet'])
+                cidr_block_state = association['Ipv6CidrBlockState']['State']
+                if cidr_block_state == "associated":
+                    break
+                elif cidr_block_state != "associating":
+                    raise Exception("ipv6 cidr block association {0} is in an unexpected state {1}".format(
+                        association_id, cidr_block_state))
+
+                self.log_continue(".")
+                time.sleep(1)
+            else:
+                raise Exception("couldn't find vpc {}, please run a deploy with --check".format(self._state["vpcId"]))
+        self.log_end(" done")
+        return association['Ipv6CidrBlock']
+
     def realize_associate_ipv6_cidr_block(self, allow_recreate):
         config = self.get_defn()
         self.connect()
-        self._client.associate_vpc_cidr_block(
-            AmazonProvidedIpv6CidrBlock=config['amazonProvidedIpv6CidrBlock'],
-            VpcId=self._state["vpcId"])
+        assign_cidr = config['amazonProvidedIpv6CidrBlock']
+        if assign_cidr:
+            self.log("associating an amazon provided Ipv6 address to vpc {}".format(self._state["vpcId"]))
+            response = self._client.associate_vpc_cidr_block(
+                AmazonProvidedIpv6CidrBlock=config['amazonProvidedIpv6CidrBlock'],
+                VpcId=self._state["vpcId"])
+            association_id = response['Ipv6CidrBlockAssociation']['AssociationId']
+            cidr_block = self.wait_for_ipv6_cidr_association(association_id)
+            self.log("generated Ipv6 cidr block: {}".format(cidr_block))
+        else:
+            self.log("disassociating Ipv6 cidr block from vpc {}".format(self._state["vpcId"]))
+            self._client.disassociate_vpc_cidr_block(
+                AssociationId=self._state['associationId'])
 
         with self.depl._db:
             self._state["amazonProvidedIpv6CidrBlock"] = config['amazonProvidedIpv6CidrBlock']
+            if assign_cidr: self._state['associationId'] = association_id
 
     def destroy(self, wipe=False):
         self._destroy()

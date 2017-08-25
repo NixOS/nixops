@@ -32,7 +32,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
-    _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ['subnetId']
+    _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ['subnetId', 'associationId']
 
     @classmethod
     def get_type(cls):
@@ -48,6 +48,10 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
         self.handle_map_public_ip_on_launch = Handler(['mapPublicIpOnLaunch'],
                                                       after=[self.handle_create_subnet],
                                                       handle=self.realize_map_public_ip_on_launch)
+        self.handle_associate_ipv6_cidr_block = Handler(
+            ['ipv6CidrBlock'],
+            after=[self.handle_create_subnet],
+            handle=self.realize_associate_ipv6_cidr_block)
 
     def show_type(self):
         s = super(VPCSubnetState, self).show_type()
@@ -185,6 +189,25 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
 
         with self.depl._db:
             self._state['mapPublicIpOnLaunch'] = config['mapPublicIpOnLaunch']
+
+    def realize_associate_ipv6_cidr_block(self, allow_recreate):
+        config = self.get_defn()
+        self.connect()
+
+        if config['ipv6CidrBlock'] is not None:
+            self.log("associating ipv6 cidr block {}".format(config['ipv6CidrBlock']))
+            response = self._client.associate_subnet_cidr_block(
+                Ipv6CidrBlock=config['ipv6CidrBlock'],
+                SubnetId=self._state['subnetId'])
+        else:
+            self.log("disassociating ipv6 cidr block")
+            self._client.disassociate_subnet_cidr_block(
+                AssociationId=self._state['associationId'])
+
+        with self.depl._db:
+            self._state["ipv6CidrBlock"] = config['ipv6CidrBlock']
+            if config['ipv6CidrBlock'] is not None:
+                self._state['associationId'] = response['Ipv6CidrBlockAssociation']['AssociationId']
 
     def _destroy(self):
         if self.state != (self.UP or self.STARTING): return

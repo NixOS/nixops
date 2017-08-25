@@ -35,6 +35,15 @@ with lib;
       description = "The CIDR block for the VPC subnet";
     };
 
+    ipv6CidrBlock = mkOption {
+      default = null;
+      type = types.nullOr types.str;
+      description = ''
+        The IPv6 network range for the subnet, in CIDR notation.
+        The subnet size must use a /64 prefix length.
+      '';
+    };
+
     zone = mkOption {
       type = types.str;
       description = ''
