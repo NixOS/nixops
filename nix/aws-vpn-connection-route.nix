@@ -7,7 +7,7 @@ with lib;
     name = mkOption {
       default = "charon-${uuid}-${name}";
       type = types.str;
-      description = "Name of the VPN route.";
+      description = "Name of the VPN connection route.";
     };
     
     accessKeyId = mkOption {

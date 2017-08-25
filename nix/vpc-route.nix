@@ -60,6 +60,15 @@ in
       '';
     };
 
+    egressOnlyInternetGatewayId = mkOption {
+      default = null;
+      type = types.nullOr (types.either types.str (resource "vpc-egress-only-internet-gateway"));
+      apply = x: if (builtins.isString x || builtins.isNull x) then x else "res-" + x._name + "." + x._type + ".egressOnlyInternetGatewayId";
+      description = ''
+        [IPv6 traffic only] The ID of an egress-only Internet gateway.
+      '';
+    };
+
     instanceId = mkOption {
       default = null;
       type = types.nullOr (types.either types.str machine);
@@ -88,7 +97,7 @@ in
       '';
     };
 
-    #TODO add egress only igw and VPC peering connection
+    #TODO add VPC peering connection
 
   };
 

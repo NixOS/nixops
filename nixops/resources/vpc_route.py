@@ -32,7 +32,7 @@ class VPCRouteState(nixops.resources.ResourceState, EC2CommonState):
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED
-    TARGETS = ['gatewayId', 'instanceId', 'natGatewayId', 'networkInterfaceId']
+    TARGETS = ['egressOnlyInternetGatewayId', 'gatewayId', 'instanceId', 'natGatewayId', 'networkInterfaceId']
 
     @classmethod
     def get_type(cls):
@@ -44,7 +44,8 @@ class VPCRouteState(nixops.resources.ResourceState, EC2CommonState):
         self._state = StateDict(depl, id)
         self.region = self._state.get('region', None)
         keys = ['region', 'routeTableId', 'destinationCidrBlock', 'destinationIpv6CidrBlock',
-                'gatewayId', 'instanceId', 'natGatewayId', 'networkInterfaceId']
+                'egressOnlyInternetGatewayId', 'gatewayId', 'instanceId', 'natGatewayId',
+                'networkInterfaceId']
         self.handle_create_route = Handler(keys, handle=self.realize_create_route)
 
     def show_type(self):
