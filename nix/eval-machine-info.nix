@@ -103,6 +103,7 @@ rec {
   resources.vpc = evalResources ./vpc.nix (zipAttrs resourcesByType.vpc or []);
   resources.vpcSubnets = evalResources ./vpc-subnet.nix (zipAttrs resourcesByType.vpcSubnets or []);
   resources.vpcInternetGateways = evalResources ./vpc-internet-gateway.nix (zipAttrs resourcesByType.vpcInternetGateways or []);
+  resources.vpcEgressOnlyInternetGateways = evalResources ./vpc-egress-only-internet-gateway.nix (zipAttrs resourcesByType.vpcEgressOnlyInternetGateways or []);
   resources.vpcDhcpOptions = evalResources ./vpc-dhcp-options.nix (zipAttrs resourcesByType.vpcDhcpOptions or []);
   resources.vpcNetworkAcls = evalResources ./vpc-network-acl.nix (zipAttrs resourcesByType.vpcNetworkAcls or []);
   resources.vpcNatGateways = evalResources ./vpc-nat-gateway.nix (zipAttrs resourcesByType.vpcNatGateways or []);
