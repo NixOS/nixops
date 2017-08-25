@@ -9,7 +9,7 @@ with lib;
     name = mkOption {
       default = "charon-${uuid}-${name}";
       type = types.str;
-      description = "Name of the VPC internet gateway.";
+      description = "Name of the VPC egress only internet gateway.";
     };
 
     accessKeyId = mkOption {
@@ -31,5 +31,5 @@ with lib;
     };
   } // import ./common-ec2-options.nix { inherit lib; };
 
-  config._type = "vpc-internet-gateway";
+  config._type = "vpc-egress-only-internet-gateway";
 }
