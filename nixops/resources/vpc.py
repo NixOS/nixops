@@ -253,9 +253,10 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
             cidr_block = self.wait_for_ipv6_cidr_association(association_id)
             self.log("generated Ipv6 cidr block: {}".format(cidr_block))
         else:
-            self.log("disassociating Ipv6 cidr block from vpc {}".format(self._state["vpcId"]))
-            self._client.disassociate_vpc_cidr_block(
-                AssociationId=self._state['associationId'])
+            if self._state.get('associationId', None):
+                self.log("disassociating Ipv6 cidr block from vpc {}".format(self._state["vpcId"]))
+                self._client.disassociate_vpc_cidr_block(
+                    AssociationId=self._state['associationId'])
 
         with self.depl._db:
             self._state["amazonProvidedIpv6CidrBlock"] = config['amazonProvidedIpv6CidrBlock']
