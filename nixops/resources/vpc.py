@@ -197,7 +197,6 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
         if config['enableClassicLink']:
             self._client.enable_vpc_classic_link(VpcId=self.vpc_id)
         elif config['enableClassicLink'] == False and self._state.get('enableClassicLink', None):
-            print "disabling crap"
             self._client.disable_vpc_classic_link(VpcId=self.vpc_id)
         with self.depl._db:
             self._state["enableClassicLink"] = config['enableClassicLink']
