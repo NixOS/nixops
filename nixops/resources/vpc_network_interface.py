@@ -48,6 +48,7 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
         self.handle_modify_eni_attrs = Handler(['description', 'securityGroups', 'sourceDestCheck'],
                                                handle=self.realize_modify_eni_attrs,
                                                after=[self.handle_create_eni])
+        self.handle_tag_update = Handler(['tags'], after=[self.handle_create_eni], handle=self.realize_update_tag)
 
     def show_type(self):
         s = super(VPCNetworkInterfaceState, self).show_type()
@@ -190,6 +191,13 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
             self._state['description'] = config['description']
             self._state['securityGroups'] = groups
             self._state['sourceDestCheck'] = config['sourceDestCheck']
+
+    def realize_update_tag(self, allow_recreate):
+        config = self.get_defn()
+        self.connect()
+        tags = config['tags']
+        tags.update(self.get_common_tags())
+        self._client.create_tags(Resources=[self._state['networkInterfaceId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != self.UP: return

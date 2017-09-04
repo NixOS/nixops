@@ -29,7 +29,7 @@ with lib;
         The ID of the VPC where the internet gateway will be created
       '';
     };
-  } // import ./common-ec2-options.nix { inherit lib; };
+  };
 
   config._type = "vpc-egress-only-internet-gateway";
 }

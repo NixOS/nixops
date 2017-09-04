@@ -80,7 +80,7 @@ with lib;
       description = "The VPC id generated from AWS. This is set by NixOps";
     };
 
-  } // import ./common-ec2-options.nix { inherit lib; } ;
+  } // import ./common-ec2-options.nix { inherit lib; };
 
   config._type = "vpc";
 }

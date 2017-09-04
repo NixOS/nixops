@@ -46,6 +46,7 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, EC2CommonState):
         self._state = StateDict(depl, id)
         handled_keys=['region', 'vpcId', 'domainNameServers', 'domainName', 'ntpServers', 'netbiosNameServers', 'netbiosNodeType']
         self.handle_create_dhcp_options = Handler(handled_keys, handle=self.realize_create_dhcp_options)
+        self.handle_tag_update = Handler(['tags'], after=[self.handle_create_dhcp_options], handle=self.realize_update_tag)
 
     def show_type(self):
         s = super(VPCDhcpOptionsState, self).show_type()
@@ -143,6 +144,13 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, EC2CommonState):
         self._client.associate_dhcp_options(DhcpOptionsId=dhcp_options_id, VpcId=vpc_id)
         with self.depl._db:
             self.state = self.UP
+
+    def realize_update_tag(self, allow_recreate):
+        config = self.get_defn()
+        self.connect()
+        tags = config['tags']
+        tags.update(self.get_common_tags())
+        self._client.create_tags(Resources=[self._state['dhcpOptionsId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != self.UP: return

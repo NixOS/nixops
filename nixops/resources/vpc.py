@@ -52,6 +52,7 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
             ['amazonProvidedIpv6CidrBlock'],
             after=[self.handle_create],
             handle=self.realize_associate_ipv6_cidr_block)
+        self.handle_tag_update = Handler(['tags'], after=[self.handle_create], handle=self.realize_update_tag)
 
     def show_type(self):
         s = super(VPCState, self).show_type()
@@ -261,6 +262,13 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
         with self.depl._db:
             self._state["amazonProvidedIpv6CidrBlock"] = config['amazonProvidedIpv6CidrBlock']
             if assign_cidr: self._state['associationId'] = association_id
+
+    def realize_update_tag(self, allow_recreate):
+        config = self.get_defn()
+        self.connect()
+        tags = config['tags']
+        tags.update(self.get_common_tags())
+        self._client.create_tags(Resources=[self.vpc_id], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def destroy(self, wipe=False):
         self._destroy()

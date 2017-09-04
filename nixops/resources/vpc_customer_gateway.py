@@ -40,6 +40,7 @@ class VPCCustomerGatewayState(nixops.resources.ResourceState, EC2CommonState):
         self._state = StateDict(depl, id)
         self._client = None
         self.handle_create_customer_gtw = Handler(['region', 'publicIp', 'bgpAsn', 'type'], handle=self.realize_create_customer_gtw)
+        self.handle_tag_update = Handler(['tags'], after=[self.handle_create_customer_gtw], handle=self.realize_update_tag)
 
     @classmethod
     def get_type(cls):
@@ -110,6 +111,13 @@ class VPCCustomerGatewayState(nixops.resources.ResourceState, EC2CommonState):
             self._state['bgpAsn'] = config['bgpAsn']
             self._state['publicIp'] = config['publicIp']
             self._state['type'] = config['type']
+
+    def realize_update_tag(self, allow_recreate):
+        config = self.get_defn()
+        self.connect()
+        tags = config['tags']
+        tags.update(self.get_common_tags())
+        self._client.create_tags(Resources=[self._state['customerGatewayId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != self.UP: return

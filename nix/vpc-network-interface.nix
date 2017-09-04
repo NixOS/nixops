@@ -84,7 +84,7 @@ with lib;
       '';
     };
 
-  };
+  } // import ./common-ec2-options.nix { inherit lib; };
 
   config = {
     _type = "vpc-network-interface";

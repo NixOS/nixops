@@ -52,6 +52,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
             ['ipv6CidrBlock'],
             after=[self.handle_create_subnet],
             handle=self.realize_associate_ipv6_cidr_block)
+        self.handle_tag_update = Handler(['tags'], after=[self.handle_create_subnet], handle=self.realize_update_tag)
 
     def show_type(self):
         s = super(VPCSubnetState, self).show_type()
@@ -208,6 +209,13 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
             self._state["ipv6CidrBlock"] = config['ipv6CidrBlock']
             if config['ipv6CidrBlock'] is not None:
                 self._state['associationId'] = response['Ipv6CidrBlockAssociation']['AssociationId']
+
+    def realize_update_tag(self, allow_recreate):
+        config = self.get_defn()
+        self.connect()
+        tags = config['tags']
+        tags.update(self.get_common_tags())
+        self._client.create_tags(Resources=[self._state['subnetId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != (self.UP or self.STARTING): return

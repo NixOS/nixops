@@ -123,5 +123,7 @@ in
       type = types.str;
       description = "The network ACL id generated from AWS. This is set by NixOps";
     };
-  };
+  } // import ./common-ec2-options.nix { inherit lib; };
+
+  config._type = "vpc-network-acl";
 }

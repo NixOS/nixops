@@ -7,7 +7,7 @@ from nixops.diff import Diff, Handler
 
 class EC2CommonState():
 
-    COMMON_EC2_RESERVED = ['accessKeyId', 'tags', 'ec2.tags']
+    COMMON_EC2_RESERVED = ['accessKeyId', 'ec2.tags']
 
     def _retry(self, fun, **kwargs):
         return nixops.ec2_utils.retry(fun, logger=self, **kwargs)

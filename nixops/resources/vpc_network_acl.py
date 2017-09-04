@@ -47,6 +47,7 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
                                       , handle=self.realize_entries_change)
         self.handle_subnet_association = Handler(['subnetIds'], after=[self.handle_create_network_acl]
                                                  , handle=self.realize_subnets_change)
+        self.handle_tag_update = Handler(['tags'], after=[self.handle_create_network_acl], handle=self.realize_update_tag)
 
     def show_type(self):
         s = super(VPCNetworkAclstate, self).show_type()
@@ -220,6 +221,13 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
             self._state['region'] = None
             self._state['vpcId'] = None
             self._state['entries'] = None
+
+    def realize_update_tag(self, allow_recreate):
+        config = self.get_defn()
+        self.connect()
+        tags = config['tags']
+        tags.update(self.get_common_tags())
+        self._client.create_tags(Resources=[self._state['networkAclId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def destroy(self, wipe=False):
         self._destroy()

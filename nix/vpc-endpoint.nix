@@ -54,5 +54,5 @@ with lib;
       '';
     };
 
-  } // import ./common-ec2-options.nix { inherit lib; };
+  };
 }

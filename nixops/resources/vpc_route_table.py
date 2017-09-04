@@ -47,6 +47,7 @@ class VPCRouteTableState(nixops.resources.ResourceState, EC2CommonState):
             ['propagatingVgws'],
             handle=self.realize_propagate_vpn_gtws,
             after=[self.handle_create_route_table])
+        self.handle_tag_update = Handler(['tags'], after=[self.handle_create_route_table], handle=self.realize_update_tag)
 
     def show_type(self):
         s = super(VPCRouteTableState, self).show_type()
@@ -143,6 +144,13 @@ class VPCRouteTableState(nixops.resources.ResourceState, EC2CommonState):
 
         with self.depl._db:
             self._state['propagatingVgws'] = new_vgws
+
+    def realize_update_tag(self, allow_recreate):
+        config = self.get_defn()
+        self.connect()
+        tags = config['tags']
+        tags.update(self.get_common_tags())
+        self._client.create_tags(Resources=[self._state['routeTableId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != self.UP: return

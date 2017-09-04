@@ -37,7 +37,7 @@ with lib;
         The ID of the VPC subnet where the NAT gateway will be created
       '';
     };
-  } // import ./common-ec2-options.nix { inherit lib; };
+  };
 
   config._type = "vpc-nat-gateway";
 }

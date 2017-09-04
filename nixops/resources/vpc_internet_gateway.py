@@ -40,6 +40,7 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
         self._state = StateDict(depl, id)
         self._client = None
         self.handle_create_igw = Handler(['region', 'vpcId'], handle=self.realize_create_gtw)
+        self.handle_tag_update = Handler(['tags'], after=[self.handle_create_igw], handle=self.realize_update_tag)
 
     @classmethod
     def get_type(cls):
@@ -113,6 +114,13 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
             self._state['region'] = config['region']
             self._state['vpcId'] = vpc_id
             self._state['internetGatewayId'] = igw_id
+
+    def realize_update_tag(self, allow_recreate):
+        config = self.get_defn()
+        self.connect()
+        tags = config['tags']
+        tags.update(self.get_common_tags())
+        self._client.create_tags(Resources=[self._state['internetGatewayId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != self.UP: return

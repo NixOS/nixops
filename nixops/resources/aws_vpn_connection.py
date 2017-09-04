@@ -32,6 +32,7 @@ class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
         self._state = StateDict(depl, id)
         self._client = None
         self.handle_create_vpn_conn = Handler(['region', 'vpnGatewayId', 'customerGatewayId', 'staticRoutesOnly'], handle=self.realize_create_vpn_conn)
+        self.handle_tag_update = Handler(['tags'], after=[self.handle_create_vpn_conn], handle=self.realize_update_tag)
 
     @classmethod
     def get_type(cls):
@@ -112,6 +113,13 @@ class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
            self._state['vpnGatewayId'] = vpn_gateway_id
            self._state['customerGatewayId'] = customer_gtw_id
            self._state['staticRoutesOnly'] = config['staticRoutesOnly']
+
+    def realize_update_tag(self, allow_recreate):
+        config = self.get_defn()
+        self.connect()
+        tags = config['tags']
+        tags.update(self.get_common_tags())
+        self._client.create_tags(Resources=[self._state['vpnConnectionId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state == self.UP:

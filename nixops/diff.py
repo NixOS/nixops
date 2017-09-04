@@ -87,7 +87,7 @@ class Diff(object):
                 keys_not_found = set(self.get_keys()) - set(keys)
                 if len(keys_not_found) > 0:
                     raise Exception("Couldn't find any combination of handlers"
-                                    " that realize the change of {}".format(str(keys_not_found)))
+                                    " that realize the change of {0} for resource type {1}".format(str(keys_not_found), self._type))
             if set(self.get_keys()) <= set(keys):
                 handlers_seq = self.topological_sort(list(h_tuple))
                 return handlers_seq
