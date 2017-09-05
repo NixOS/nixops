@@ -13,6 +13,7 @@ with lib;
     };
     
     accessKeyId = mkOption {
+      default = "";
       type = types.str;
       description = "The AWS Access Key ID.";
     };
