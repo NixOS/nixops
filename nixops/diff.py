@@ -25,6 +25,11 @@ class Diff(object):
                           'name', 'creationTime']
 
     def set_reserved_keys(self, keys):
+        """
+        Reserved keys are nix options or internal state keys that we don't
+        want them to trigger the diff engine so we simply ignore the diff
+        of the reserved keys.
+        """
         self._reserved.extend(keys)
 
     def get_keys(self):
