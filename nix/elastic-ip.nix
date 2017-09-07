@@ -28,7 +28,7 @@ with lib;
       default = false;
       type = types.bool;
       description = ''
-        Whether to allocate the address for use with instances in a VPC
+        Whether to allocate the address for use with instances in a VPC.
       '';
     };
 
