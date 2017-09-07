@@ -32,6 +32,11 @@ class Diff(object):
         return diff
 
     def plan(self,show=False):
+        """
+        This will go through the attributes of the resource and evaluate
+        the diff between definition and state then return a sorted list
+        of the handlers to be called to realize the diff.
+        """
         keys = self._state.keys() + self._definition.keys()
         for k in keys:
             self.eval_resource_attr_diff(k)
