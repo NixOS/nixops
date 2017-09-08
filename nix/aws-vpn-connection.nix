@@ -4,6 +4,8 @@ with import ./lib.nix lib;
 with lib;
 
 {
+  imports = [ ./common-ec2-auth-options.nix ];
+
   options = {
 
     name = mkOption {
@@ -12,17 +14,6 @@ with lib;
       description = "Name of the AWS VPN connection.";
     };
     
-    accessKeyId = mkOption {
-      default = "";
-      type = types.str;
-      description = "The AWS Access Key ID.";
-    };
-
-    region = mkOption {
-      type = types.str;
-      description = "AWS region.";
-    };
-
     vpnGatewayId = mkOption {
       type = types.either types.str (resource "aws-vpn-gateway");
       apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;

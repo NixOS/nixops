@@ -4,6 +4,8 @@ with import ./lib.nix lib;
 with lib;
 
 {
+  imports = [ ./common-ec2-auth-options.nix ];
+
   options = {
 
     name = mkOption {
@@ -12,17 +14,6 @@ with lib;
       description = "Name of the AWS VPN gateway.";
     };
     
-    accessKeyId = mkOption {
-      default = "";
-      type = types.str;
-      description = "The AWS Access Key ID.";
-    };
-
-    region = mkOption {
-      type = types.str;
-      description = "AWS region.";
-    };
-
     zone = mkOption {
       # NOTE: We're making this required in NixOps but the api can handle
       # choosing the zone. Making this required will prevent having
