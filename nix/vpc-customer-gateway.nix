@@ -2,6 +2,8 @@
 
 with lib;
 {
+  imports = [ ./common-ec2-auth-options.nix ];
+
   options = {
 
     name = mkOption {
@@ -10,17 +12,6 @@ with lib;
       description = "Name of the VPC customer gateway.";
     };
     
-    accessKeyId = mkOption {
-      default = "";
-      type = types.str;
-      description = "The AWS Access Key ID.";
-    };
-
-    region = mkOption {
-      type = types.str;
-      description = "AWS region.";
-    };
-
     bgpAsn = mkOption {
       type = types.int;
       description = ''

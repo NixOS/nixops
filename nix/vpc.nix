@@ -3,6 +3,7 @@
 with lib;
 
 {
+  imports = [ ./common-ec2-auth-options.nix ];
 
   options = {
 
@@ -10,17 +11,6 @@ with lib;
       default = "charon-${uuid}-${name}";
       type = types.str;
       description = "Name of the VPC.";
-    };
-
-    accessKeyId = mkOption {
-      default = "";
-      type = types.str;
-      description = "The AWS Access Key ID.";
-    };
-
-    region = mkOption {
-      type = types.str;
-      description = "AWS region.";
     };
 
     cidrBlock = mkOption {
