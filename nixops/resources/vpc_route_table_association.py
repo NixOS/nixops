@@ -65,16 +65,6 @@ class VPCRouteTableAssociationState(nixops.resources.DiffEngineResourceState, EC
         return {r for r in resources if
                 isinstance(r, nixops.resources.vpc_route_table.VPCRouteTableState)}
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
-        diff_engine = self.setup_diff_engine(config=defn.config)
-
-        self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
-        if not self.access_key_id:
-            raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
-
-        for handler in diff_engine.plan():
-            handler.handle(allow_recreate)
-
     def realize_associate_route_table(self, allow_recreate):
         config = self.get_defn()
 

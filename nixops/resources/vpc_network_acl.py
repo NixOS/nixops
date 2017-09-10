@@ -68,16 +68,6 @@ class VPCNetworkAclstate(nixops.resources.DiffEngineResourceState, EC2CommonStat
                 isinstance(r, nixops.resources.vpc.VPCState) or
                 isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState)}
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
-        diff_engine = self.setup_diff_engine(config=defn.config)
-
-        self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
-        if not self.access_key_id:
-            raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
-
-        for handler in diff_engine.plan():
-            handler.handle(allow_recreate)
-
     def realize_create_network_acl(self, allow_recreate):
         config = self.get_defn()
         if self.state == self.UP:

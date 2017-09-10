@@ -40,7 +40,6 @@ class VPCRouteState(nixops.resources.DiffEngineResourceState, EC2CommonState):
 
     def __init__(self, depl, name, id):
         nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
-        
         self._state = StateDict(depl, id)
         self.region = self._state.get('region', None)
         keys = ['region', 'routeTableId', 'destinationCidrBlock', 'destinationIpv6CidrBlock',
@@ -69,16 +68,6 @@ class VPCRouteState(nixops.resources.DiffEngineResourceState, EC2CommonState):
                 isinstance(r, nixops.resources.vpc_internet_gateway.VPCInternetGatewayState) or
                 isinstance(r, nixops.resources.vpc_nat_gateway.VPCNatGatewayState)}
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
-        diff_engine = self.setup_diff_engine(config=defn.config)
-
-        self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
-        if not self.access_key_id:
-            raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
-
-        for handler in diff_engine.plan():
-            handler.handle(allow_recreate)
-
     def realize_create_route(self, allow_recreate):
         config = self.get_defn()
 
@@ -88,10 +77,8 @@ class VPCRouteState(nixops.resources.DiffEngineResourceState, EC2CommonState):
                                 " use --allow-recreate if you want to create a new one".format(self.name))
             self.warn("route definition changed, recreating ...")
             self._destroy()
-            
 
         self._state['region'] = config['region']
-        
 
         rtb_id = config['routeTableId']
         if rtb_id.startswith("res-"):
@@ -146,7 +133,6 @@ class VPCRouteState(nixops.resources.DiffEngineResourceState, EC2CommonState):
         if self.state != self.UP: return
         destination = 'destinationCidrBlock' if ('destinationCidrBlock' in self._state.keys()) else 'destinationIpv6CidrBlock'
         self.log("deleting route to {0} from route table {1}".format(self._state[destination], self._state['routeTableId']))
-        
         try:
             args = dict()
             args[self.upper(destination)] = self._state[destination]

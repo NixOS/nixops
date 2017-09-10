@@ -69,17 +69,6 @@ class VPCNetworkInterfaceAttachementState(nixops.resources.DiffEngineResourceSta
                 isinstance(r, nixops.resources.vpc_network_interface.VPCNetworkInterfaceState) or
                 isinstance(r, nixops.backends.ec2.EC2State)}
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
-        diff_engine = self.setup_diff_engine(config=defn.config)
-        self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
-        if not self.access_key_id:
-            raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
-
-        for handler in diff_engine.plan():
-            handler.handle(allow_recreate)
-
-        self.ensure_state_up()
-
     def ensure_state_up(self):
         config = self.get_defn()
         self._state["region"] = config["region"]
