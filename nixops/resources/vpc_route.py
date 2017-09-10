@@ -26,10 +26,10 @@ class VPCRouteDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-class VPCRouteState(nixops.resources.ResourceState, EC2CommonState):
+class VPCRouteState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPC route"""
 
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED
     TARGETS = ['egressOnlyInternetGatewayId', 'gatewayId', 'instanceId', 'natGatewayId', 'networkInterfaceId']
@@ -39,8 +39,8 @@ class VPCRouteState(nixops.resources.ResourceState, EC2CommonState):
         return "vpc-route"
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._client = None
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
+        
         self._state = StateDict(depl, id)
         self.region = self._state.get('region', None)
         keys = ['region', 'routeTableId', 'destinationCidrBlock', 'destinationIpv6CidrBlock',
@@ -62,10 +62,6 @@ class VPCRouteState(nixops.resources.ResourceState, EC2CommonState):
 
     def get_definition_prefix(self):
         return "resources.vpcRoutes."
-
-    def connect(self):
-        if self._client: return
-        self._client = nixops.ec2_utils.connect_ec2_boto3(self._state['region'], self.access_key_id)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
@@ -92,10 +88,10 @@ class VPCRouteState(nixops.resources.ResourceState, EC2CommonState):
                                 " use --allow-recreate if you want to create a new one".format(self.name))
             self.warn("route definition changed, recreating ...")
             self._destroy()
-            self._client = None
+            
 
         self._state['region'] = config['region']
-        self.connect()
+        
 
         rtb_id = config['routeTableId']
         if rtb_id.startswith("res-"):
@@ -135,7 +131,7 @@ class VPCRouteState(nixops.resources.ResourceState, EC2CommonState):
         route[self.upper(destination)] = config[destination]
 
         self.log("creating route {0} => {1} in route table {2}".format(retrieve_defn(target), config[destination], rtb_id))
-        self._client.create_route(**route)
+        self.get_client().create_route(**route)
 
         with self.depl._db:
             self.state = self.UP
@@ -150,12 +146,12 @@ class VPCRouteState(nixops.resources.ResourceState, EC2CommonState):
         if self.state != self.UP: return
         destination = 'destinationCidrBlock' if ('destinationCidrBlock' in self._state.keys()) else 'destinationIpv6CidrBlock'
         self.log("deleting route to {0} from route table {1}".format(self._state[destination], self._state['routeTableId']))
-        self.connect()
+        
         try:
             args = dict()
             args[self.upper(destination)] = self._state[destination]
             args['RouteTableId'] = self._state['routeTableId']
-            self._client.delete_route(**args)
+            self.get_client().delete_route(**args)
         except botocore.exceptions.ClientError as error:
             if error.response['Error']['Code'] == "InvalidRoute.NotFound":
                 self.warn("route was already deleted")

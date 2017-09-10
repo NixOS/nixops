@@ -27,7 +27,7 @@ class VPCDefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class VPCState(nixops.resources.ResourceState, EC2CommonState):
+class VPCState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPC."""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
@@ -39,9 +39,7 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
         return "vpc"
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._client = None
-        self._state = StateDict(depl, id)
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self.vpc_id = self._state.get('vpcId', None)
         self.handle_create = Handler(['cidrBlock', 'region', 'instanceTenancy'], handle=self.realize_create_vpc)
         self.handle_dns = Handler(['enableDnsHostnames', 'enableDnsSupport'], after=[self.handle_create]
@@ -73,18 +71,11 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
     def get_definition_prefix(self):
         return "resources.vpc."
 
-    def connect(self):
-        if self._client: return
-        assert self._state['region']
-        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._client = boto3.session.Session().client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
-
     def _destroy(self):
         if self.state != self.UP: return
-        self.connect()
         self.log("destroying vpc {0}...".format(self._state['vpcId']))
         try:
-            self._client.delete_vpc(VpcId=self._state['vpcId'])
+            self.get_client().delete_vpc(VpcId=self._state['vpcId'])
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == 'InvalidVpcID.NotFound':
                 self.warn("vpc {0} was already deleted".format(self._state['vpcId']))
@@ -106,26 +97,17 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
                 isinstance(r, nixops.resources.elastic_ip.ElasticIPState)}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        diff_engine = self.setup_diff_engine(config=defn.config)
-
-        self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
-        if not self.access_key_id:
-            raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
-
-        for handler in diff_engine.plan():
-            handler.handle(allow_recreate)
-
+        nixops.resources.DiffEngineResourceState.create(self, defn, check, allow_reboot, allow_recreate)
         self.ensure_state_up(check)
 
     def ensure_state_up(self, check):
         config = self.get_defn()
         self._state["region"] = config['region']
-        self.connect()
         # handle vpcs that are deleted from outside nixops e.g console
         if self._state.get('vpcId', None):
             if check:
                 try:
-                    self._client.describe_vpcs(VpcIds=[self._state["vpcId"]])
+                    self.get_client().describe_vpcs(VpcIds=[self._state["vpcId"]])
                 except botocore.exceptions.ClientError as e:
                     if e.response['Error']['Code'] == 'InvalidVpcID.NotFound':
                         self.warn("vpc {0} was deleted from outside nixops,"
@@ -141,7 +123,7 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
 
     def wait_for_vpc_available(self, vpc_id):
         while True:
-            response = self._client.describe_vpcs(VpcIds=[vpc_id])
+            response = self.get_client().describe_vpcs(VpcIds=[vpc_id])
             if len(response['Vpcs']) == 1:
                 vpc = response['Vpcs'][0]
                 if vpc['State'] == "available":
@@ -172,9 +154,8 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
 
         self._state["region"] = config['region']
 
-        self.connect()
         self.log("creating vpc under region {0}".format(config['region']))
-        vpc = self._client.create_vpc(CidrBlock=config['cidrBlock'],
+        vpc = self.get_client().create_vpc(CidrBlock=config['cidrBlock'],
                                       InstanceTenancy=config['instanceTenancy'])
         self.vpc_id = vpc.get('Vpc').get('VpcId')
 
@@ -186,7 +167,7 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
             self._state["instanceTenancy"] = config['instanceTenancy']
 
         def tag_updater(tags):
-            self._client.create_tags(Resources=[self.vpc_id], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+            self.get_client().create_tags(Resources=[self.vpc_id], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
         self.update_tags_using(tag_updater, user_tags=config["tags"], check=True)
 
@@ -194,22 +175,20 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_classic_link_change(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         if config['enableClassicLink']:
-            self._client.enable_vpc_classic_link(VpcId=self.vpc_id)
+            self.get_client().enable_vpc_classic_link(VpcId=self.vpc_id)
         elif config['enableClassicLink'] == False and self._state.get('enableClassicLink', None):
-            self._client.disable_vpc_classic_link(VpcId=self.vpc_id)
+            self.get_client().disable_vpc_classic_link(VpcId=self.vpc_id)
         with self.depl._db:
             self._state["enableClassicLink"] = config['enableClassicLink']
 
     def realize_dns_config(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
-        self._client.modify_vpc_attribute(VpcId=self.vpc_id,
+        self.get_client().modify_vpc_attribute(VpcId=self.vpc_id,
                                           EnableDnsSupport={
                                               'Value': config['enableDnsSupport']
                                               })
-        self._client.modify_vpc_attribute(VpcId=self.vpc_id,
+        self.get_client().modify_vpc_attribute(VpcId=self.vpc_id,
                                           EnableDnsHostnames={
                                               'Value': config['enableDnsHostnames']
                                               })
@@ -223,7 +202,7 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
                 if association_id == assoc['AssociationId']:
                     return assoc
         while True:
-            response = self._client.describe_vpcs(VpcIds=[self._state["vpcId"]])
+            response = self.get_client().describe_vpcs(VpcIds=[self._state["vpcId"]])
             if len(response['Vpcs']) == 1:
                 vpc = response['Vpcs'][0]
                 association = lookup_association(vpc['Ipv6CidrBlockAssociationSet'])
@@ -243,11 +222,10 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_associate_ipv6_cidr_block(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         assign_cidr = config['amazonProvidedIpv6CidrBlock']
         if assign_cidr:
             self.log("associating an amazon provided Ipv6 address to vpc {}".format(self._state["vpcId"]))
-            response = self._client.associate_vpc_cidr_block(
+            response = self.get_client().associate_vpc_cidr_block(
                 AmazonProvidedIpv6CidrBlock=config['amazonProvidedIpv6CidrBlock'],
                 VpcId=self._state["vpcId"])
             association_id = response['Ipv6CidrBlockAssociation']['AssociationId']
@@ -256,7 +234,7 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
         else:
             if self._state.get('associationId', None):
                 self.log("disassociating Ipv6 cidr block from vpc {}".format(self._state["vpcId"]))
-                self._client.disassociate_vpc_cidr_block(
+                self.get_client().disassociate_vpc_cidr_block(
                     AssociationId=self._state['associationId'])
 
         with self.depl._db:
@@ -265,10 +243,9 @@ class VPCState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_update_tag(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         tags = config['tags']
         tags.update(self.get_common_tags())
-        self._client.create_tags(Resources=[self.vpc_id], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+        self.get_client().create_tags(Resources=[self.vpc_id], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def destroy(self, wipe=False):
         self._destroy()

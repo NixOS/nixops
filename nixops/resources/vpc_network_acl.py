@@ -26,10 +26,10 @@ class VPCNetworkAcldefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
+class VPCNetworkAclstate(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """state of a vpc Network ACL."""
 
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ['networkAclId']
 
@@ -38,8 +38,7 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
         return "vpc-network-acl"
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._client = None
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
         self.network_acl_id = self._state.get('networkAclId', None)
         self.handle_create_network_acl = Handler(['region', 'vpcId'], handle=self.realize_create_network_acl)
@@ -64,12 +63,6 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
     def get_definition_prefix(self):
         return "resources.vpcNetworkAcls."
 
-    def connect(self):
-        if self._client: return
-        assert self._state['region']
-        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._client = boto3.session.Session().client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
-
     def create_after(self, resources, defn):
         return {r for r in resources if
                 isinstance(r, nixops.resources.vpc.VPCState) or
@@ -93,10 +86,8 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
                                 " use --allow-recreate if you want to create a new one".format(self.network_acl_id))
             self.warn("network ACL definition changed, recreating ...")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
-        self.connect()
 
         vpc_id = config['vpcId']
 
@@ -105,7 +96,7 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
             vpc_id = res._state['vpcId']
 
         self.log("creating network ACL in vpc {}".format(vpc_id))
-        response = self._client.create_network_acl(VpcId=vpc_id)
+        response = self.get_client().create_network_acl(VpcId=vpc_id)
         self.network_acl_id = response['NetworkAcl']['NetworkAclId']
 
         with self.depl._db:
@@ -115,14 +106,13 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_entries_change(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         old_entries = self._state.get('entries', [])
         new_entries = config['entries']
         to_remove = [e for e in old_entries if e not in new_entries]
         to_create = [e for e in new_entries if e not in old_entries]
         for entry in to_remove:
             try:
-                self._client.delete_network_acl_entry(NetworkAclId=self.network_acl_id, RuleNumber=entry['ruleNumber'], Egress=entry['egress'])
+                self.get_client().delete_network_acl_entry(NetworkAclId=self.network_acl_id, RuleNumber=entry['ruleNumber'], Egress=entry['egress'])
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == "InvalidNetworkAclEntry.NotFound":
                     self.warn("rule {0} was already deleted from network ACL {1}".format(entry['ruleNumber'], self.network_acl_id))
@@ -131,13 +121,12 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
 
         for entry in to_create:
             rule = self.process_rule_entry(entry)
-            self._client.create_network_acl_entry(**rule)
+            self.get_client().create_network_acl_entry(**rule)
         with self.depl._db:
             self._state['entries'] = config['entries']
 
     def realize_subnets_change(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         old_subnets = self._state.get('subnetIds', [])
         new_subnets = []
         for s in config['subnetIds']:
@@ -161,23 +150,23 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
         for subnet in subnets_to_remove:
             association_id = self.get_network_acl_association(subnet)
             self.log("associating subnet {0} to default network acl {1}".format(subnet, default_network_acl))
-            self._client.replace_network_acl_association(AssociationId=association_id, NetworkAclId=default_network_acl)
+            self.get_client().replace_network_acl_association(AssociationId=association_id, NetworkAclId=default_network_acl)
 
         for subnet in subnets_to_add:
             association_id = self.get_network_acl_association(subnet)
             self.log("associating subnet {0} to network acl {1}".format(subnet, self.network_acl_id))
-            self._client.replace_network_acl_association(AssociationId=association_id, NetworkAclId=self.network_acl_id)
+            self.get_client().replace_network_acl_association(AssociationId=association_id, NetworkAclId=self.network_acl_id)
 
         with self.depl._db:
             self._state['subnetIds'] = new_subnets
 
     def get_default_network_acl(self, vpc_id):
-        response = self._client.describe_network_acls(Filters=[{ "Name": "default", "Values": [ "true" ] },
+        response = self.get_client().describe_network_acls(Filters=[{ "Name": "default", "Values": [ "true" ] },
              { "Name": "vpc-id", "Values": [ vpc_id ]}])
         return response['NetworkAcls'][0]['NetworkAclId']
 
     def get_network_acl_association(self, subnet_id):
-        response = self._client.describe_network_acls(Filters=[{"Name": "association.subnet-id", "Values":[ subnet_id ]}])
+        response = self.get_client().describe_network_acls(Filters=[{"Name": "association.subnet-id", "Values":[ subnet_id ]}])
         for association in  response['NetworkAcls'][0]['Associations']:
             if association['SubnetId'] == subnet_id:
                 return association['NetworkAclAssociationId']
@@ -199,16 +188,15 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
 
     def _destroy(self):
         if self.state != self.UP: return
-        self.connect()
         try:
             subnets = self._state.get('subnetIds', [])
             default_network_acl = self.get_default_network_acl(self._state['vpcId'])
             for subnet in subnets:
                 association_id = self.get_network_acl_association(subnet)
                 self.log("associating subnet {0} to default network acl {1}".format(subnet, default_network_acl))
-                self._client.replace_network_acl_association(AssociationId=association_id, NetworkAclId=default_network_acl)
+                self.get_client().replace_network_acl_association(AssociationId=association_id, NetworkAclId=default_network_acl)
             self.log("deleting network acl {}".format(self.network_acl_id))
-            self._client.delete_network_acl(NetworkAclId=self.network_acl_id)
+            self.get_client().delete_network_acl(NetworkAclId=self.network_acl_id)
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == 'InvalidNetworkAclID.NotFound':
                 self.warn("network ACL {} was already deleted".format(self.network_acl_id))
@@ -224,10 +212,9 @@ class VPCNetworkAclstate(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_update_tag(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         tags = config['tags']
         tags.update(self.get_common_tags())
-        self._client.create_tags(Resources=[self._state['networkAclId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+        self.get_client().create_tags(Resources=[self._state['networkAclId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def destroy(self, wipe=False):
         self._destroy()

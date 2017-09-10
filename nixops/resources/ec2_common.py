@@ -1,6 +1,8 @@
 import socket
 import getpass
 
+import boto3
+
 import nixops.util
 import nixops.resources
 from nixops.diff import Diff, Handler
@@ -42,23 +44,17 @@ class EC2CommonState():
 
         self.update_tags_using(updater, user_tags=user_tags, check=check)
 
-    def plan(self, defn):
-        if hasattr(self, '_state'):
-            diff_engine = self.setup_diff_engine(defn.config)
-            diff_engine.plan(show=True)
-        else:
-            self.warn("resource type {} doesn't implement a plan operation".format(self.get_type()))
-
-    def setup_diff_engine(self, config):
-        diff_engine = Diff(depl=self.depl, logger=self.logger,
-                           config=config, state=self._state,
-                           res_type=self.get_type())
-        diff_engine.set_reserved_keys(self._reserved_keys)
-        diff_engine.set_handlers(self.get_handlers())
-        return diff_engine
-
-    def get_handlers(self):
-        return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
-
-    def get_defn(self):
-        return self.depl.definitions[self.name].config
+    def get_client(self):
+        '''
+        Generic method to get a cached AWS client or create it.
+        '''
+        if self._state.get('accessKeyId', None) is None:
+            self.access_key_id = self.get_defn()['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
+            if not self.access_key_id:
+                raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
+        if hasattr(self, '_client'):
+            if self._client: return self._client
+        assert self._state['region']
+        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
+        self._client = boto3.session.Session().client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+        return self._client

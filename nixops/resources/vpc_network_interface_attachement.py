@@ -28,10 +28,10 @@ class VPCNetworkInterfaceAttachementDefinition(nixops.resources.ResourceDefiniti
     def show_type(self):
         return "{0}".format(self.get_type())
 
-class VPCNetworkInterfaceAttachementState(nixops.resources.ResourceState, EC2CommonState):
+class VPCNetworkInterfaceAttachementState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPC network interface attachement"""
 
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ['attachementId']
 
@@ -40,8 +40,7 @@ class VPCNetworkInterfaceAttachementState(nixops.resources.ResourceState, EC2Com
         return "vpc-network-interface-attachement"
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._client = None
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
         self.region = self._state.get('region', None)
         self.handle_create_eni_attachement = Handler(['region', 'networkInterfaceId', 'instanceId', 'deviceIndex' ],
@@ -65,10 +64,6 @@ class VPCNetworkInterfaceAttachementState(nixops.resources.ResourceState, EC2Com
     def get_definition_prefix(self):
         return "resources.vpcNetworkInterfaceAttachements."
 
-    def connect(self):
-        if self._client: return
-        self._client = nixops.ec2_utils.connect_ec2_boto3(self._state['region'], self.access_key_id)
-
     def create_after(self, resources, defn):
         return {r for r in resources if
                 isinstance(r, nixops.resources.vpc_network_interface.VPCNetworkInterfaceState) or
@@ -88,14 +83,13 @@ class VPCNetworkInterfaceAttachementState(nixops.resources.ResourceState, EC2Com
     def ensure_state_up(self):
         config = self.get_defn()
         self._state["region"] = config["region"]
-        self.connect()
         if self._state.get('attachementId', None):
             if self.state != self.UP:
                 self.wait_for_eni_attachement(self._state['networkInterfaceId'])
 
     def wait_for_eni_attachement(self, eni_id):
         while True:
-            response = self._client.describe_network_interface_attribute(
+            response = self.get_client().describe_network_interface_attribute(
                 Attribute='attachment',
                 NetworkInterfaceId=eni_id)
             if response.get('Attachment', None):
@@ -122,10 +116,8 @@ class VPCNetworkInterfaceAttachementState(nixops.resources.ResourceState, EC2Com
                                 " use --allow-recreate if you want to create a new one".format(self._state['attachementId']))
             self.warn("network interface attachement definition changed, recreating ...")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
-        self.connect()
         vm_id = config['instanceId']
         if vm_id.startswith("res-"):
             res = self.depl.get_typed_resource(vm_id[4:].split(".")[0], "ec2")
@@ -137,7 +129,7 @@ class VPCNetworkInterfaceAttachementState(nixops.resources.ResourceState, EC2Com
             eni_id = res._state['networkInterfaceId']
 
         self.log("attaching network interface {0} to instance {1}".format(eni_id, vm_id))
-        eni_attachement = self._client.attach_network_interface(
+        eni_attachement = self.get_client().attach_network_interface(
             DeviceIndex=config['deviceIndex'],
             InstanceId=vm_id,
             NetworkInterfaceId=eni_id)
@@ -154,7 +146,7 @@ class VPCNetworkInterfaceAttachementState(nixops.resources.ResourceState, EC2Com
     def wait_for_eni_detachment(self):
         self.log("waiting for eni attachement {0} to be detached from {1}".format(self._state['attachementId'], self._state["instanceId"]))
         while True:
-            response = self._client.describe_network_interface_attribute(
+            response = self.get_client().describe_network_interface_attribute(
                 Attribute='attachment',
                 NetworkInterfaceId=self._state['networkInterfaceId'])
             if response.get('Attachment', None):
@@ -173,9 +165,8 @@ class VPCNetworkInterfaceAttachementState(nixops.resources.ResourceState, EC2Com
     def _destroy(self):
         if self.state == self.UP:
             self.log("detaching vpc network interface attachement {}".format(self._state['attachementId']))
-            self.connect()
             try:
-                self._client.detach_network_interface(AttachmentId=self._state['attachementId'],
+                self.get_client().detach_network_interface(AttachmentId=self._state['attachementId'],
                                                       Force=True)
                 with self.depl._db:
                     self.state = self.STOPPING
@@ -186,7 +177,6 @@ class VPCNetworkInterfaceAttachementState(nixops.resources.ResourceState, EC2Com
                 else:
                     raise e
         if self.state == self.STOPPING:
-            self.connect()
             self.wait_for_eni_detachment()
 
         with self.depl._db:

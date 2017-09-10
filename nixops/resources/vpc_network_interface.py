@@ -26,10 +26,10 @@ class VPCNetworkInterfaceDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
+class VPCNetworkInterfaceState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPC network interface"""
 
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ['networkInterfaceId']
 
@@ -38,8 +38,7 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
         return "vpc-network-interface"
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._client = None
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
         self.region = self._state.get('region', None)
         self.handle_create_eni = Handler(['region', 'subnetId', 'primaryPrivateIpAddress',
@@ -68,10 +67,6 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
     def get_definition_prefix(self):
         return "resources.vpcNetworkInterfaces."
 
-    def connect(self):
-        if self._client: return
-        self._client = nixops.ec2_utils.connect_ec2_boto3(self._state['region'], self.access_key_id)
-
     def create_after(self, resources, defn):
         return {r for r in resources if
                 isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState)}
@@ -94,14 +89,12 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
                                 " use --allow-recreate if you want to create a new one".format(self._state['networkInterfaceId']))
             self.warn("network interface definition changed, recreating ...")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
-        self.connect()
 
         eni_input = self.network_interface_input(config)
         self.log("creating vpc network interface under {}".format(eni_input['SubnetId']))
-        response = self._client.create_network_interface(**eni_input)
+        response = self.get_client().create_network_interface(**eni_input)
 
         eni = response['NetworkInterface']
 
@@ -165,9 +158,8 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_modify_eni_attrs(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         self.log("applying network interface attribute changes")
-        self._client.modify_network_interface_attribute(NetworkInterfaceId=self._state['networkInterfaceId'],
+        self.get_client().modify_network_interface_attribute(NetworkInterfaceId=self._state['networkInterfaceId'],
                                                         Description={'Value':config['description']})
         groups = []
         for grp in config['securityGroups']:
@@ -179,11 +171,11 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
                 groups.append(grp)
 
         if len(groups) >= 1:
-            self._client.modify_network_interface_attribute(
+            self.get_client().modify_network_interface_attribute(
                 NetworkInterfaceId=self._state['networkInterfaceId'],
                 Groups=groups)
 
-        self._client.modify_network_interface_attribute(NetworkInterfaceId=self._state['networkInterfaceId'],
+        self.get_client().modify_network_interface_attribute(NetworkInterfaceId=self._state['networkInterfaceId'],
                                                         SourceDestCheck={
                                                             'Value':config['sourceDestCheck']
                                                             })
@@ -194,17 +186,15 @@ class VPCNetworkInterfaceState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_update_tag(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         tags = config['tags']
         tags.update(self.get_common_tags())
-        self._client.create_tags(Resources=[self._state['networkInterfaceId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+        self.get_client().create_tags(Resources=[self._state['networkInterfaceId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != self.UP: return
         self.log("deleting vpc network interface {}".format(self._state['networkInterfaceId']))
-        self.connect()
         try:
-            self._client.delete_network_interface(NetworkInterfaceId=self._state['networkInterfaceId'])
+            self.get_client().delete_network_interface(NetworkInterfaceId=self._state['networkInterfaceId'])
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == "InvalidNetworkInterfaceID.NotFound":
                 self.warn("network interface {} was already deleted".format(self._state['networkInterfaceId']))

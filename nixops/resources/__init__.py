@@ -3,6 +3,8 @@
 import re
 import nixops.util
 
+from nixops.state import StateDict
+from nixops.diff import Diff, Handler
 
 class ResourceDefinition(object):
     """Base class for NixOps resource definitions."""
@@ -181,3 +183,35 @@ class ResourceState(object):
         """Return the time (in Unix epoch) when this resource will next incur
         a financial charge (or None if unknown)."""
         return None
+
+class DiffEngineResourceState(ResourceState):
+    def __init__(self, depl, name, id):
+        nixops.resources.ResourceState.__init__(self, depl, name, id)
+        self._state = StateDict(depl, id)
+
+    def create(self, defn, check, allow_reboot, allow_recreate):
+        diff_engine = self.setup_diff_engine(config=defn.config)
+
+        for handler in diff_engine.plan():
+            handler.handle(allow_recreate)
+
+    def plan(self, defn):
+        if hasattr(self, '_state'):
+            diff_engine = self.setup_diff_engine(defn.config)
+            diff_engine.plan(show=True)
+        else:
+            self.warn("resource type {} doesn't implement a plan operation".format(self.get_type()))
+
+    def setup_diff_engine(self, config):
+        diff_engine = Diff(depl=self.depl, logger=self.logger,
+                           config=config, state=self._state,
+                           res_type=self.get_type())
+        diff_engine.set_reserved_keys(self._reserved_keys)
+        diff_engine.set_handlers(self.get_handlers())
+        return diff_engine
+
+    def get_handlers(self):
+        return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
+
+    def get_defn(self):
+        return self.depl.definitions[self.name].config

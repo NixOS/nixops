@@ -21,16 +21,15 @@ class AWSVPNConnectionDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
+class AWSVPNConnectionState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a AWS VPN gateway."""
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ["vpnConnectionId"]
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
-        self._client = None
         self.handle_create_vpn_conn = Handler(['region', 'vpnGatewayId', 'customerGatewayId', 'staticRoutesOnly'], handle=self.realize_create_vpn_conn)
         self.handle_tag_update = Handler(['tags'], after=[self.handle_create_vpn_conn], handle=self.realize_update_tag)
 
@@ -52,10 +51,6 @@ class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
 
     def get_defintion_prefix(self):
         return "resources.awsVPNConnections."
-
-    def connect(self):
-        if self._client: return
-        self._client = nixops.ec2_utils.connect_ec2_boto3(self._state['region'], self.access_key_id)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
@@ -81,11 +76,8 @@ class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
                                 " use --allow-recreate if you want to create a new one".format(self._state['vpnConnectionId']))
             self.warn("vpn connection definition changed, recreating ...")
             self._destroy()
-            self._client = None
 
        self._state['region'] = config['region']
-       self.connect()
-
        customer_gtw_id = config['customerGatewayId']
        if customer_gtw_id.startswith("res-"):
            res = self.depl.get_typed_resource(customer_gtw_id[4:].split(".")[0], "vpc-customer-gateway")
@@ -97,7 +89,7 @@ class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
            vpn_gateway_id = res._state['vpnGatewayId']
 
        self.log("creating vpn connection between customer gateway {0} and vpn gateway {1}".format(customer_gtw_id, vpn_gateway_id))
-       vpn_connection = self._client.create_vpn_connection(
+       vpn_connection = self.get_client().create_vpn_connection(
             CustomerGatewayId=customer_gtw_id,
             VpnGatewayId=vpn_gateway_id,
             Type="ipsec.1",
@@ -116,17 +108,15 @@ class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_update_tag(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         tags = config['tags']
         tags.update(self.get_common_tags())
-        self._client.create_tags(Resources=[self._state['vpnConnectionId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+        self.get_client().create_tags(Resources=[self._state['vpnConnectionId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state == self.UP:
             self.log("deleting vpn connection {}".format(self._state['vpnConnectionId']))
-            self.connect()
             try:
-                self._client.delete_vpn_connection(
+                self.get_client().delete_vpn_connection(
                     VpnConnectionId=self._state['vpnConnectionId'])
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == "InvalidVpnConnectionID.NotFound":

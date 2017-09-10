@@ -29,10 +29,10 @@ class VPCDhcpOptionsDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-class VPCDhcpOptionsState(nixops.resources.ResourceState, EC2CommonState):
+class VPCDhcpOptionsState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPC DHCP options."""
 
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ['dhcpOptionsId']
 
@@ -41,8 +41,7 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, EC2CommonState):
         return "vpc-dhcp-options"
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._client = None
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
         handled_keys=['region', 'vpcId', 'domainNameServers', 'domainName', 'ntpServers', 'netbiosNameServers', 'netbiosNodeType']
         self.handle_create_dhcp_options = Handler(handled_keys, handle=self.realize_create_dhcp_options)
@@ -66,12 +65,6 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, EC2CommonState):
 
     def get_definition_prefix(self):
         return "resources.vpcDhcpOptions."
-
-    def connect(self):
-        if self._client: return
-        assert self._state['region']
-        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._client = boto3.session.Session().client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
@@ -113,11 +106,8 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, EC2CommonState):
                                 " to the deploy command")
             self.warn("the dhcp options {} will be destroyed and re-created")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
-        self.connect()
-
         vpc_id = config['vpcId']
         if vpc_id.startswith("res-"):
             res = self.depl.get_typed_resource(vpc_id[4:].split(".")[0], "vpc")
@@ -127,7 +117,7 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, EC2CommonState):
 
         def create_dhcp_options(dhcp_config):
             self.log("creating dhcp options...")
-            response = self._client.create_dhcp_options(DhcpConfigurations=dhcp_config)
+            response = self.get_client().create_dhcp_options(DhcpConfigurations=dhcp_config)
             return response.get('DhcpOptions').get('DhcpOptionsId')
 
         dhcp_options_id = create_dhcp_options(dhcp_config)
@@ -141,26 +131,24 @@ class VPCDhcpOptionsState(nixops.resources.ResourceState, EC2CommonState):
             self._state['netbiosNameServers'] = config["netbiosNameServers"]
             self._state['netbiosNodeType'] = config["netbiosNodeType"]
 
-        self._client.associate_dhcp_options(DhcpOptionsId=dhcp_options_id, VpcId=vpc_id)
+        self.get_client().associate_dhcp_options(DhcpOptionsId=dhcp_options_id, VpcId=vpc_id)
         with self.depl._db:
             self.state = self.UP
 
     def realize_update_tag(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         tags = config['tags']
         tags.update(self.get_common_tags())
-        self._client.create_tags(Resources=[self._state['dhcpOptionsId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+        self.get_client().create_tags(Resources=[self._state['dhcpOptionsId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != self.UP: return
         dhcp_options_id = self._state.get('dhcpOptionsId', None)
         if dhcp_options_id:
             self.log("deleting dhcp options {0}".format(dhcp_options_id))
-            self.connect()
             try:
-                self._client.associate_dhcp_options(DhcpOptionsId='default', VpcId=self._state['vpcId'])
-                self._client.delete_dhcp_options(DhcpOptionsId=dhcp_options_id)
+                self.get_client().associate_dhcp_options(DhcpOptionsId='default', VpcId=self._state['vpcId'])
+                self.get_client().delete_dhcp_options(DhcpOptionsId=dhcp_options_id)
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == 'InvalidDhcpOptionsID.NotFound':
                     self.warn("dhcp options {0} was already deleted".format(dhcp_options_id))

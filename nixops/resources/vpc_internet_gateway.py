@@ -29,16 +29,15 @@ class VPCInternetGatewayDefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
+class VPCInternetGatewayState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPC internet gateway."""
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ["internetGatewayId"]
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
-        self._client = None
         self.handle_create_igw = Handler(['region', 'vpcId'], handle=self.realize_create_gtw)
         self.handle_tag_update = Handler(['tags'], after=[self.handle_create_igw], handle=self.realize_update_tag)
 
@@ -60,12 +59,6 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
 
     def get_defintion_prefix(self):
         return "resources.vpcInternetGateways."
-
-    def connect(self):
-        if self._client: return
-        assert self._state['region']
-        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._client = boto3.session.Session().client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
@@ -92,11 +85,8 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
                                     self._state['internetGatewayId']))
             self.warn("internet gateway changed, recreating...")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
-
-        self.connect()
 
         vpc_id = config['vpcId']
         if vpc_id.startswith("res-"):
@@ -104,10 +94,10 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
             vpc_id = res._state['vpcId']
 
         self.log("creating internet gateway in region {}".format(self._state['region']))
-        response = self._client.create_internet_gateway()
+        response = self.get_client().create_internet_gateway()
         igw_id = response['InternetGateway']['InternetGatewayId']
         self.log("attaching internet gateway {0} to vpc {1}".format(igw_id, vpc_id))
-        self._client.attach_internet_gateway(InternetGatewayId=igw_id,
+        self.get_client().attach_internet_gateway(InternetGatewayId=igw_id,
                                              VpcId=vpc_id)
         with self.depl._db:
             self.state = self.UP
@@ -117,20 +107,18 @@ class VPCInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_update_tag(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         tags = config['tags']
         tags.update(self.get_common_tags())
-        self._client.create_tags(Resources=[self._state['internetGatewayId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+        self.get_client().create_tags(Resources=[self._state['internetGatewayId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != self.UP: return
         self.log("detaching internet gateway {0} from vpc {1}".format(self._state['internetGatewayId'],
             self._state['vpcId']))
-        self.connect()
-        self._retry(lambda: self._client.detach_internet_gateway(InternetGatewayId=self._state['internetGatewayId'],
+        self._retry(lambda: self.get_client().detach_internet_gateway(InternetGatewayId=self._state['internetGatewayId'],
                 VpcId=self._state['vpcId']))
         self.log("deleting internet gateway {0}".format(self._state['internetGatewayId']))
-        self._client.delete_internet_gateway(InternetGatewayId=self._state['internetGatewayId'])
+        self.get_client().delete_internet_gateway(InternetGatewayId=self._state['internetGatewayId'])
 
         with self.depl._db:
             self.state = self.MISSING

@@ -26,10 +26,10 @@ class VPCRouteTableAssociationDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-class VPCRouteTableAssociationState(nixops.resources.ResourceState, EC2CommonState):
+class VPCRouteTableAssociationState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPC route table association"""
 
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ['associationId']
 
@@ -38,8 +38,7 @@ class VPCRouteTableAssociationState(nixops.resources.ResourceState, EC2CommonSta
         return "vpc-route-table-association"
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._client = None
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
         self.region = self._state.get('region', None)
         self.handle_associate_route_table = Handler(['region', 'routeTableId', 'subnetId'], handle=self.realize_associate_route_table)
@@ -61,10 +60,6 @@ class VPCRouteTableAssociationState(nixops.resources.ResourceState, EC2CommonSta
 
     def get_definition_prefix(self):
         return "resources.vpcRouteTableAssociations."
-
-    def connect(self):
-        if self._client: return
-        self._client = nixops.ec2_utils.connect_ec2_boto3(self._state['region'], self.access_key_id)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
@@ -89,10 +84,8 @@ class VPCRouteTableAssociationState(nixops.resources.ResourceState, EC2CommonSta
                                 " use --allow-recreate if you want to create a new one".format(self._state['associationId']))
             self.warn("route table association definition changed, recreating ...")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
-        self.connect()
 
         route_table_id = config['routeTableId']
         if route_table_id.startswith("res-"):
@@ -105,7 +98,7 @@ class VPCRouteTableAssociationState(nixops.resources.ResourceState, EC2CommonSta
             subnet_id = res._state['subnetId']
 
         self.log("associating route table {0} to subnet {1}".format(route_table_id, subnet_id))
-        association = self._client.associate_route_table(RouteTableId=route_table_id,
+        association = self.get_client().associate_route_table(RouteTableId=route_table_id,
                                                          SubnetId=subnet_id)
 
         with self.depl._db:
@@ -117,9 +110,8 @@ class VPCRouteTableAssociationState(nixops.resources.ResourceState, EC2CommonSta
     def _destroy(self):
         if self.state != self.UP: return
         self.log("disassociating route table {0} from subnet {1}".format(self._state['routeTableId'], self._state['subnetId']))
-        self.connect()
         try:
-            self._client.disassociate_route_table(AssociationId=self._state['associationId'])
+            self.get_client().disassociate_route_table(AssociationId=self._state['associationId'])
         except botocore.exceptions.ClientError as error:
             if error.response['Error']['Code'] == "InvalidAssociationID.NotFound":
                 self.warn("route table {} was already deleted".format(self._state['associationId']))

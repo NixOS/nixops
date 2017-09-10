@@ -25,16 +25,15 @@ class VPCEgressOnlyInternetGatewayDefinition(nixops.resources.ResourceDefinition
         return "{0}".format(self.get_type())
 
 
-class VPCEgressOnlyInternetGatewayState(nixops.resources.ResourceState, EC2CommonState):
+class VPCEgressOnlyInternetGatewayState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPC egress only internet gateway."""
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ["egressOnlyInternetGatewayId"]
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
-        self._client = None
         self.handle_create_igw = Handler(['region', 'vpcId'], handle=self.realize_create_gtw)
 
     @classmethod
@@ -55,12 +54,6 @@ class VPCEgressOnlyInternetGatewayState(nixops.resources.ResourceState, EC2Commo
 
     def get_defintion_prefix(self):
         return "resources.vpcEgressOnlyInternetGateways."
-
-    def connect(self):
-        if self._client: return
-        assert self._state['region']
-        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._client = boto3.session.Session().client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
@@ -87,11 +80,8 @@ class VPCEgressOnlyInternetGatewayState(nixops.resources.ResourceState, EC2Commo
                                     self._state['egressOnlyInternetGatewayId']))
             self.warn("egress only internet gateway changed, recreating...")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
-
-        self.connect()
 
         vpc_id = config['vpcId']
         if vpc_id.startswith("res-"):
@@ -99,7 +89,7 @@ class VPCEgressOnlyInternetGatewayState(nixops.resources.ResourceState, EC2Commo
             vpc_id = res._state['vpcId']
 
         self.log("creating egress only internet gateway in region {0}, vpc {1}".format(self._state['region'], vpc_id))
-        response = self._client.create_egress_only_internet_gateway(VpcId=vpc_id)
+        response = self.get_client().create_egress_only_internet_gateway(VpcId=vpc_id)
         igw_id = response['EgressOnlyInternetGateway']['EgressOnlyInternetGatewayId']
 
         with self.depl._db:
@@ -110,9 +100,8 @@ class VPCEgressOnlyInternetGatewayState(nixops.resources.ResourceState, EC2Commo
 
     def _destroy(self):
         if self.state != self.UP: return
-        self.connect()
         self.log("deleting egress only internet gateway {0}".format(self._state['egressOnlyInternetGatewayId']))
-        self._client.delete_egress_only_internet_gateway(EgressOnlyInternetGatewayId=self._state['egressOnlyInternetGatewayId'])
+        self.get_client().delete_egress_only_internet_gateway(EgressOnlyInternetGatewayId=self._state['egressOnlyInternetGatewayId'])
 
         with self.depl._db:
             self.state = self.MISSING

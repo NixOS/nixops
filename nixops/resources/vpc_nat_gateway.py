@@ -29,10 +29,10 @@ class VPCNatGatewayDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
+class VPCNatGatewayState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPC NAT gateway"""
 
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ['natGatewayId', 'creationToken']
 
@@ -41,8 +41,7 @@ class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
         return "vpc-nat-gateway"
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._client = None
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
         self.region = self._state.get('region', None)
         self.handle_create_gtw = Handler(['region', 'subnetId', 'allocationId'], handle=self.realize_create_gtw)
@@ -65,10 +64,6 @@ class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
 
     def get_definition_prefix(self):
         return "resources.vpcNatGateways."
-
-    def connect(self):
-        if self._client: return
-        self._client = nixops.ec2_utils.connect_ec2_boto3(self._state['region'], self.access_key_id)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
@@ -95,10 +90,8 @@ class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
                                     self._state['natGatewayId']))
             self.warn("nat gateway changed, recreating...")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
-        self.connect()
 
         subnet_id = config['subnetId']
         allocation_id = config['allocationId']
@@ -115,7 +108,7 @@ class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
             self._state['creationToken'] = str(uuid.uuid4())
             self.state = self.STARTING
 
-        response = self._client.create_nat_gateway(ClientToken=self._state['creationToken'], AllocationId=allocation_id,
+        response = self.get_client().create_nat_gateway(ClientToken=self._state['creationToken'], AllocationId=allocation_id,
                                                    SubnetId=subnet_id)
 
         gtw_id = response['NatGateway']['NatGatewayId']
@@ -129,7 +122,7 @@ class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
         self.log("waiting for nat gateway {0} to be deleted".format(self._state['natGatewayId']))
         while True:
             try:
-                response = self._client.describe_nat_gateways(
+                response = self.get_client().describe_nat_gateways(
                     NatGatewayIds=[self._state['natGatewayId']]
                     )
             except botocore.exceptions.ClientError as e:
@@ -153,9 +146,8 @@ class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
     def _destroy(self):
         if self.state == self.UP:
             self.log("deleting vpc NAT gateway {}".format(self._state['natGatewayId']))
-            self.connect()
             try:
-                self._client.delete_nat_gateway(NatGatewayId=self._state['natGatewayId'])
+                self.get_client().delete_nat_gateway(NatGatewayId=self._state['natGatewayId'])
                 with self.depl._db: self.state = self.STOPPING
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == "InvalidNatGatewayID.NotFound" or e.response['Error']['Code'] == "NatGatewayNotFound":
@@ -164,7 +156,6 @@ class VPCNatGatewayState(nixops.resources.ResourceState, EC2CommonState):
                     raise e
 
         if self.state == self.STOPPING:
-            self.connect()
             self.wait_for_nat_gtw_deletion()
 
         with self.depl._db:

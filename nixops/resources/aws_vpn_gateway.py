@@ -21,16 +21,15 @@ class AWSVPNGatewayDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-class AWSVPNGatewayState(nixops.resources.ResourceState, EC2CommonState):
+class AWSVPNGatewayState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a AWS VPN gateway."""
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ["vpnGatewayId"]
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
-        self._client = None
         self.handle_create_vpn_gtw = Handler(['region', 'zone', 'vpcId'], handle=self.realize_create_vpn_gtw)
         self.handle_tag_update = Handler(['tags'], after=[self.handle_create_vpn_gtw], handle=self.realize_update_tag)
 
@@ -52,10 +51,6 @@ class AWSVPNGatewayState(nixops.resources.ResourceState, EC2CommonState):
 
     def get_defintion_prefix(self):
         return "resources.awsVPNGateways."
-
-    def connect(self):
-        if self._client: return
-        self._client = nixops.ec2_utils.connect_ec2_boto3(self._state['region'], self.access_key_id)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
@@ -81,25 +76,21 @@ class AWSVPNGatewayState(nixops.resources.ResourceState, EC2CommonState):
                                     self._state['vpnGatewayId']))
             self.warn("VPN gateway changed, recreating...")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
-
-        self.connect()
-
         vpc_id = config['vpcId']
         if vpc_id.startswith("res-"):
             res = self.depl.get_typed_resource(vpc_id[4:].split(".")[0], "vpc")
             vpc_id = res._state['vpcId']
 
         self.log("creating VPN gateway in zone {}".format(config['zone']))
-        response = self._client.create_vpn_gateway(
+        response = self.get_client().create_vpn_gateway(
             AvailabilityZone=config['zone'],
             Type="ipsec.1")
 
         vpn_gtw_id = response['VpnGateway']['VpnGatewayId']
         self.log("attaching vpn gateway {0} to vpc {1}".format(vpn_gtw_id, vpc_id))
-        self._client.attach_vpn_gateway(
+        self.get_client().attach_vpn_gateway(
             VpcId=vpc_id,
             VpnGatewayId=vpn_gtw_id)
         #TODO wait for the attchement state
@@ -112,17 +103,15 @@ class AWSVPNGatewayState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_update_tag(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         tags = config['tags']
         tags.update(self.get_common_tags())
-        self._client.create_tags(Resources=[self._state['vpnGatewayId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+        self.get_client().create_tags(Resources=[self._state['vpnGatewayId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != self.UP: return
-        self.connect()
         self.log("detaching vpn gateway {0} from vpc {1}".format(self._state['vpnGatewayId'], self._state['vpcId']))
         try:
-            self._client.detach_vpn_gateway(
+            self.get_client().detach_vpn_gateway(
                 VpcId=self._state['vpcId'],
                 VpnGatewayId=self._state['vpnGatewayId'])
         except botocore.exceptions.ClientError as e:
@@ -135,7 +124,7 @@ class AWSVPNGatewayState(nixops.resources.ResourceState, EC2CommonState):
         # TODO delete VPN connections associated with this VPN gtw
         self.log("deleting vpn gateway {}".format(self._state['vpnGatewayId']))
         try:
-            self._client.delete_vpn_gateway(
+            self.get_client().delete_vpn_gateway(
                 VpnGatewayId=self._state['vpnGatewayId'])
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == "InvalidVpnGatewayID.NotFound":

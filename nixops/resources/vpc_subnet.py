@@ -27,7 +27,7 @@ class VPCSubnetDefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
+class VPCSubnetState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPC subnet."""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
@@ -39,9 +39,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
         return "vpc-subnet"
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._client = None
-        self._state = StateDict(depl, id)
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self.subnet_id = self._state.get('subnetId', None)
         self.zone = self._state.get('zone', None)
         self.handle_create_subnet = Handler(['region', 'zone', 'cidrBlock', 'vpcId'], handle=self.realize_create_subnet)
@@ -72,40 +70,22 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
     def get_definition_prefix(self):
         return "resources.vpcSubnets."
 
-    def connect(self):
-        if self._client:
-            return
-        assert self._state['region']
-        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._client = boto3.session.Session().client('ec2', region_name=self._state['region'],
-                                    aws_access_key_id=access_key_id,
-                                    aws_secret_access_key=secret_access_key)
-
     def create_after(self, resources, defn):
         return {r for r in resources if
                 isinstance(r, nixops.resources.vpc.VPCState)}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        diff_engine = self.setup_diff_engine(config=defn.config)
-
-        self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
-        if not self.access_key_id:
-            raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
-
-        for handler in diff_engine.plan():
-            handler.handle(allow_recreate)
-
+        nixops.resources.DiffEngineResourceState.create(self, defn, check, allow_reboot, allow_recreate)
         self.ensure_subnet_up(check)
 
     def ensure_subnet_up(self, check):
         config = self.get_defn()
         self._state['region'] = config['region']
-        self.connect()
 
         if self._state.get('subnetId', None):
             if check:
                 try:
-                    self._client.describe_subnets(SubnetIds=[self._state['subnetId']])
+                    self.get_client().describe_subnets(SubnetIds=[self._state['subnetId']])
                 except botocore.exceptions.ClientError as error:
                     if error.response['Error']['Code'] == 'InvalidSubnetID.NotFound':
                         self.warn("subnet {} was deleted from outside nixops,"
@@ -120,7 +100,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
 
     def wait_for_subnet_available(self, subnet_id):
         while True:
-            response = self._client.describe_subnets(SubnetIds=[subnet_id])
+            response = self.get_client().describe_subnets(SubnetIds=[subnet_id])
             if len(response['Subnets']) == 1:
                 subnet = response['Subnets'][0]
                 if subnet['State'] == "available":
@@ -146,10 +126,8 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
                                     self.subnet_id))
             self.warn("subnet definition changed, recreating...")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
-        self.connect()
 
         vpc_id = config['vpcId']
 
@@ -159,7 +137,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
 
         zone = config['zone'] if config['zone'] else ''
         self.log("creating subnet in vpc {0}".format(vpc_id))
-        response = self._client.create_subnet(VpcId=vpc_id, CidrBlock=config['cidrBlock'],
+        response = self.get_client().create_subnet(VpcId=vpc_id, CidrBlock=config['cidrBlock'],
                                               AvailabilityZone=zone)
         subnet = response.get('Subnet')
         self.subnet_id = subnet.get('SubnetId')
@@ -174,7 +152,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
             self._state['region'] = config['region']
 
         def tag_updater(tags):
-            self._client.create_tags(Resources=[self.subnet_id],
+            self.get_client().create_tags(Resources=[self.subnet_id],
                                      Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
         self.update_tags_using(tag_updater, user_tags=config["tags"], check=True)
@@ -183,8 +161,7 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_map_public_ip_on_launch(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
-        self._client.modify_subnet_attribute(
+        self.get_client().modify_subnet_attribute(
             MapPublicIpOnLaunch={'Value':config['mapPublicIpOnLaunch']},
             SubnetId=self.subnet_id)
 
@@ -193,16 +170,15 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_associate_ipv6_cidr_block(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
 
         if config['ipv6CidrBlock'] is not None:
             self.log("associating ipv6 cidr block {}".format(config['ipv6CidrBlock']))
-            response = self._client.associate_subnet_cidr_block(
+            response = self.get_client().associate_subnet_cidr_block(
                 Ipv6CidrBlock=config['ipv6CidrBlock'],
                 SubnetId=self._state['subnetId'])
         else:
             self.log("disassociating ipv6 cidr block")
-            self._client.disassociate_subnet_cidr_block(
+            self.get_client().disassociate_subnet_cidr_block(
                 AssociationId=self._state['associationId'])
 
         with self.depl._db:
@@ -212,19 +188,17 @@ class VPCSubnetState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_update_tag(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         tags = config['tags']
         tags.update(self.get_common_tags())
-        self._client.create_tags(Resources=[self._state['subnetId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+        self.get_client().create_tags(Resources=[self._state['subnetId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != (self.UP or self.STARTING): return
         self.log("deleting subnet {0}".format(self.subnet_id))
-        self.connect()
         try:
             #FIXME setting automatic retries for what it looks like AWS
             #eventual consistency issues but need to check further.
-            self._retry(lambda: self._client.delete_subnet(SubnetId=self.subnet_id))
+            self._retry(lambda: self.get_client().delete_subnet(SubnetId=self.subnet_id))
         except botocore.exceptions.ClientError as error:
             if error.response['Error']['Code'] == 'InvalidSubnetID.NotFound':
                 self.warn("subnet {} was already deleted".format(self.subnet_id))

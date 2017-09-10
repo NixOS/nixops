@@ -29,16 +29,15 @@ class VPCCustomerGatewayDefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class VPCCustomerGatewayState(nixops.resources.ResourceState, EC2CommonState):
+class VPCCustomerGatewayState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPC customer gateway."""
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED + ["customerGatewayId"]
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
-        self._client = None
         self.handle_create_customer_gtw = Handler(['region', 'publicIp', 'bgpAsn', 'type'], handle=self.realize_create_customer_gtw)
         self.handle_tag_update = Handler(['tags'], after=[self.handle_create_customer_gtw], handle=self.realize_update_tag)
 
@@ -61,12 +60,6 @@ class VPCCustomerGatewayState(nixops.resources.ResourceState, EC2CommonState):
     def get_defintion_prefix(self):
         return "resources.vpcCustomerGateways."
 
-    def connect(self):
-        if self._client: return
-        assert self._state['region']
-        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._client = boto3.session.Session().client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
-
     def create(self, defn, check, allow_reboot, allow_recreate):
         diff_engine = self.setup_diff_engine(config=defn.config)
 
@@ -86,14 +79,11 @@ class VPCCustomerGatewayState(nixops.resources.ResourceState, EC2CommonState):
                                     self._state['customerGatewayId']))
             self.warn("customer gateway changed, recreating...")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
 
-        self.connect()
-
         self.log("creating customer gateway")
-        response = self._client.create_customer_gateway(
+        response = self.get_client().create_customer_gateway(
             BgpAsn=config['bgpAsn'],
             PublicIp=config['publicIp'],
             Type=config['type'])
@@ -101,7 +91,7 @@ class VPCCustomerGatewayState(nixops.resources.ResourceState, EC2CommonState):
         customer_gtw_id = response['CustomerGateway']['CustomerGatewayId']
         with self.depl._db: self.state = self.STARTING
 
-        waiter = self._client.get_waiter('customer_gateway_available')
+        waiter = self.get_client().get_waiter('customer_gateway_available')
         waiter.wait(CustomerGatewayIds=[customer_gtw_id])
 
         with self.depl._db:
@@ -114,17 +104,15 @@ class VPCCustomerGatewayState(nixops.resources.ResourceState, EC2CommonState):
 
     def realize_update_tag(self, allow_recreate):
         config = self.get_defn()
-        self.connect()
         tags = config['tags']
         tags.update(self.get_common_tags())
-        self._client.create_tags(Resources=[self._state['customerGatewayId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+        self.get_client().create_tags(Resources=[self._state['customerGatewayId']], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
 
     def _destroy(self):
         if self.state != self.UP: return
         self.log("deleting customer gateway {}".format(self._state['customerGatewayId']))
-        self.connect()
         try:
-            self._client.delete_customer_gateway(CustomerGatewayId=self._state['customerGatewayId'])
+            self.get_client().delete_customer_gateway(CustomerGatewayId=self._state['customerGatewayId'])
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == "InvalidCustomerGatewayID.NotFound":
                 self.warn("customer gateway {} was already deleted".format(self._state['customerGatewayId']))

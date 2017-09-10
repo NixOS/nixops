@@ -23,10 +23,10 @@ class AWSVPNConnectionRouteDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
+class AWSVPNConnectionState(nixops.resources.DiffEngineResourceState, EC2CommonState):
     """State of a VPN connection route"""
 
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property("state", nixops.resources.DiffEngineResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     _reserved_keys = EC2CommonState.COMMON_EC2_RESERVED
 
@@ -35,8 +35,7 @@ class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
         return "aws-vpn-connection-route"
 
     def __init__(self, depl, name, id):
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
-        self._client = None
+        nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
         self.region = self._state.get('region', None)
         self.handle_create_vpn_route = Handler(['region', 'vpnConnectionId', 'destinationCidrBlock'], handle=self.realize_create_vpn_route)
@@ -55,10 +54,6 @@ class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
 
     def get_definition_prefix(self):
         return "resources.awsVPNConnectionRoutes."
-
-    def connect(self):
-        if self._client: return
-        self._client = nixops.ec2_utils.connect_ec2_boto3(self._state['region'], self.access_key_id)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
@@ -83,17 +78,15 @@ class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
                                 " use --allow-recreate if you want to create a new one".format(self.name))
             self.warn("route definition changed, recreating ...")
             self._destroy()
-            self._client = None
 
         self._state['region'] = config['region']
-        self.connect()
         vpn_conn_id = config['vpnConnectionId']
         if vpn_conn_id.startswith("res-"):
             res = self.depl.get_typed_resource(vpn_conn_id[4:].split(".")[0], "aws-vpn-connection")
             vpn_conn_id = res._state['vpnConnectionId']
 
         self.log("creating route to {0} using vpn connection {1}".format(config['destinationCidrBlock'], vpn_conn_id))
-        self._client.create_vpn_connection_route(
+        self.get_client().create_vpn_connection_route(
             DestinationCidrBlock=config['destinationCidrBlock'],
             VpnConnectionId=vpn_conn_id)
 
@@ -105,9 +98,8 @@ class AWSVPNConnectionState(nixops.resources.ResourceState, EC2CommonState):
     def _destroy(self):
         if self.state != self.UP: return
         self.log("deleting route to {}".format(self._state['destinationCidrBlock']))
-        self.connect()
         try:
-            self._client.delete_vpn_connection_route(
+            self.get_client().delete_vpn_connection_route(
                 DestinationCidrBlock=self._state['destinationCidrBlock'],
                 VpnConnectionId=self._state['vpnConnectionId'])
         except botocore.exceptions.ClientError as e:
