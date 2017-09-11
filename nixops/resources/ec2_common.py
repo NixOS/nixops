@@ -58,3 +58,6 @@ class EC2CommonState():
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
         self._client = boto3.session.Session().client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
         return self._client
+
+    def reset_client(self):
+        self._client = None
