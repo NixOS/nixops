@@ -6,7 +6,8 @@ import nixops.util
 
 class Diff(object):
     """
-       Primitive implementation of a diff structure for experimentation
+    Diff engine main class which implements methods for doing diffs between
+    the state/config and generating a plan: sequence of handlers to be executed.
     """
 
     SET = 0
