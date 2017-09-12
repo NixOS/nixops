@@ -784,7 +784,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if self.region is None:
             self.region = defn.region
         elif self.region != defn.region:
-            self.warn("cannot change region of a running instance")
+            self.warn("cannot change region of a running instance (from ‘{}‘ to ‘{}‘)".format(self.region, defn.region))
         self.connect()
 
         # Stop the instance (if allowed) to change instance attributes
@@ -932,11 +932,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         # Warn about some EC2 options that we cannot update for an existing instance.
         if self.instance_type != defn.instance_type:
-            self.warn("cannot change type of a running instance (use ‘--allow-reboot’)")
+            self.warn("cannot change type of a running instance (from ‘{0}‘ to ‘{1}‘): use ‘--allow-reboot’".format(self.instance_type, defn.instance_type))
         if self.ebs_optimized and self.ebs_optimized != defn.ebs_optimized:
-            self.warn("cannot change ebs optimized attribute of a running instance (use ‘--allow-reboot’)")
+            self.warn("cannot change ebs optimized attribute of a running instance: use ‘--allow-reboot’")
         if defn.zone and self.zone != defn.zone:
-            self.warn("cannot change availability zone of a running instance")
+            self.warn("cannot change availability zone of a running (from ‘{0}‘ to ‘{1}‘)".format(self.zone, defn.zone))
         if set(defn.security_groups) != set(self.security_groups):
             self.warn(
                 'cannot change security groups of an existing instance (from [{0}] to [{1}])'.format(
