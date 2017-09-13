@@ -1703,6 +1703,62 @@ deployment.</para>
 
 </section>
 
+<section><title>Network special attributes</title>
+
+<para>
+It is possible to define special options for the whole network. For example:
+
+<screen>
+{
+  network = {
+    description = "staging environment";
+    enableRollback = true;
+  };
+
+  defaults = {
+    imports = [ ./common.nix ];
+  };
+
+  machine = { ... }: {};
+}
+</screen>
+
+Each attribute is explained below:
+
+</para>
+
+
+<variablelist>
+
+  <varlistentry><term><option>defaults</option></term>
+
+    <listitem><para>Applies given NixOS module to all machines defined in the network.
+    </para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>network.description</option></term>
+
+    <listitem><para>A sentence describing the purpose of the network
+    for easier comparison when running <command>nixops list</command>
+    </para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>network.enableRollback</option></term>
+
+  <listitem><para>If <literal>true</literal>, each deployment creates
+  a new profile generation to able to run <command>nixops rollback</command>.
+  Defaults to <literal>false</literal>.
+  </para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+
+</section>
+
 <section><title>Network arguments</title>
 
 <para>In NixOps you can pass in arguments from outside the nix
