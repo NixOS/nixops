@@ -365,7 +365,9 @@ def op_deploy():
     depl = open_deployment()
     if args.confirm:
         depl.logger.set_autoresponse("y")
-    depl.deploy(dry_run=args.dry_run, evaluate_only=args.evaluate_only,
+    if args.evaluate_only:
+        raise Exception("--evaluate-only was removed as it's the same as --dry-run")
+    depl.deploy(dry_run=args.dry_run, 
                 build_only=args.build_only,
                 create_only=args.create_only, copy_only=args.copy_only,
                 include=args.include or [], exclude=args.exclude or [],
@@ -772,10 +774,10 @@ def add_common_deployment_options(subparser):
 subparser = add_subparser('deploy', help='deploy the network configuration')
 subparser.set_defaults(op=op_deploy)
 subparser.add_argument('--kill-obsolete', '-k', action='store_true', help='kill obsolete virtual machines')
-subparser.add_argument('--dry-run', action='store_true', help='show what will be built')
+subparser.add_argument('--dry-run', action='store_true', help='evaluate and print what would be built')
 subparser.add_argument('--dry-activate', action='store_true', help='show what will be activated on the machines in the network')
 subparser.add_argument('--repair', action='store_true', help='use --repair when calling nix-build (slow)')
-subparser.add_argument('--evaluate-only', action='store_true', help='only call nix-instantiate and exit')
+subparser.add_argument('--evaluate-only', action='store_true', help=argparse.SUPPRESS)
 subparser.add_argument('--build-only', action='store_true', help='build only; do not perform deployment actions')
 subparser.add_argument('--create-only', action='store_true', help='exit after creating missing machines')
 subparser.add_argument('--copy-only', action='store_true', help='exit after copying closures')
