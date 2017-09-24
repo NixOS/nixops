@@ -336,7 +336,7 @@ in
 
 </section>
 
-<section xml:id="sec-deploying-to-ec2"><title>Deploying to a NixOS machine</title>
+<section xml:id="sec-deploying-to-physical-nixos"><title>Deploying to a NixOS machine</title>
 
 <para>To deploy to a machine that is already running NixOS, simply set
 <varname>deployment.targetHost</varname> to the IP address or host name of the machine,
