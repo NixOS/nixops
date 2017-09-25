@@ -8,6 +8,7 @@ import shutil
 import string
 import subprocess
 import time
+import libvirt
 
 from nixops.backends import MachineDefinition, MachineState
 import nixops.known_hosts
@@ -57,6 +58,12 @@ class LibvirtdState(MachineState):
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
+
+        self.conn = libvirt.open(None)
+        if self.conn == None:
+            self.log('Failed to open connection to the hypervisor')
+            sys.exit(1)
+        self.dom = self.conn.lookupByName(self.vm_id)
 
     def get_ssh_private_key_file(self):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
@@ -117,10 +124,14 @@ class LibvirtdState(MachineState):
             os.chmod(self.disk_path, 0660)
             self.vm_id = self._vm_id()
             dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
-            nixops.util.write_file(dom_file, self.domain_xml)
+            # nixops.util.write_file(dom_file, self.domain_xml)
             # By using "virsh define" we ensure that the domain is
             # "persistent", as opposed to "transient" (removed on reboot).
-            self._logged_exec(["virsh", "-c", "qemu:///system", "define", dom_file])
+
+            # TODO use define
+            self.dom = self.conn.defineXML(self.domain_xml)
+
+            # self._logged_exec(["virsh", "-c", "qemu:///system", "define", dom_file])
         self.start()
         return True
 
@@ -210,8 +221,11 @@ class LibvirtdState(MachineState):
         self.log_end(" " + self.private_ipv4)
 
     def _is_running(self):
-        ls = subprocess.check_output(["virsh", "-c", "qemu:///system", "list"])
-        return (string.find(ls, self.vm_id) != -1)
+        try:
+            return self.dom.info()[1] == libvirt.VIR_DOMAIN_RUNNING
+        except libvirt.libvirtError:
+            self.log( "Domain %s is not runing" % self.vm_id)
+        return False
 
     def start(self):
         assert self.vm_id
@@ -222,7 +236,7 @@ class LibvirtdState(MachineState):
             self.private_ipv4 = self._parse_ip()
         else:
             self.log("starting...")
-            self._logged_exec(["virsh", "-c", "qemu:///system", "start", self.vm_id])
+            self.dom.create()
             self._wait_for_ip(0)
 
     def get_ssh_name(self):
@@ -233,7 +247,7 @@ class LibvirtdState(MachineState):
         assert self.vm_id
         if self._is_running():
             self.log_start("shutting down... ")
-            self._logged_exec(["virsh", "-c", "qemu:///system", "destroy", self.vm_id])
+            self.dom.destroy()
         else:
             self.log("not running")
         self.state = self.STOPPED
@@ -243,7 +257,7 @@ class LibvirtdState(MachineState):
             return True
         self.log_start("destroying... ")
         self.stop()
-        self._logged_exec(["virsh", "-c", "qemu:///system", "undefine", self.vm_id])
+        self.dom.undefine()
         if (self.disk_path and os.path.exists(self.disk_path)):
             os.unlink(self.disk_path)
         return True
