@@ -33,6 +33,7 @@ class LibvirtdDefinition(MachineDefinition):
         self.headless = x.find("attr[@name='headless']/bool").get("value") == 'true'
         self.image_dir = x.find("attr[@name='imageDir']/string").get("value")
         assert self.image_dir is not None
+        self.domain_type = x.find("attr[@name='domainType']/string").get("value")
 
         self.networks = [
             k.get("value")
@@ -146,7 +147,7 @@ class LibvirtdState(MachineState):
             ]).format(n)
 
         domain_fmt = "\n".join([
-            '<domain type="kvm">',
+            '<domain type="{5}">',
             '  <name>{0}</name>',
             '  <memory unit="MiB">{1}</memory>',
             '  <vcpu>{4}</vcpu>',
@@ -175,7 +176,8 @@ class LibvirtdState(MachineState):
             defn.memory_size,
             qemu,
             self._disk_path(defn),
-            defn.vcpu
+            defn.vcpu,
+            defn.domain_type
         )
 
     def _parse_ip(self):

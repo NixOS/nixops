@@ -106,6 +106,12 @@ in
       type = types.str;
       description = "Additional XML appended at the end of domain xml. See https://libvirt.org/formatdomain.html";
     };
+
+    deployment.libvirtd.domainType = mkOption {
+      default = "kvm";
+      type = types.str;
+      description = "Specify the type of libvirt domain to create (see '$ virsh capabilities | grep domain' for valid domain types";
+    };
   };
 
   ###### implementation
