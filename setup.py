@@ -20,6 +20,7 @@ class TestCommand(Command):
 
 setup(name='nixops',
       version='@version@',
+      # version='1.5.2',
       description='NixOS cloud deployment tool',
       url='https://github.com/NixOS/nixops',
       author='Eelco Dolstra',
