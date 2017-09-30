@@ -148,22 +148,32 @@ def make_non_blocking(fd):
     fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)
 
 
-def ping_tcp_port(ip, port, timeout=1, ensure_timeout=False):
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(timeout)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
-    try:
-        s.connect((ip, port))
-    except socket.timeout:
-        return False
-    except:
-        # FIXME: check that we got a transient error (like connection
-        # refused or no route to host). For any other error, throw an
-        # exception.
-        if ensure_timeout: time.sleep(timeout)
-        return False
-    s.shutdown(socket.SHUT_RDWR)
-    return True
+def ping_tcp_port(host, port, timeout=1, ensure_timeout=False):
+    """"
+    Return to True or False depending on being able to connect the specified host and port.
+    Raises exceptions which are not related to opening a socket to the target host.
+    """
+    infos = socket.getaddrinfo(host, port, 0, 0, socket.IPPROTO_TCP)
+    for info in infos:
+        s = socket.socket(info[0], info[1])
+        s.settimeout(timeout)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('ii', 1, 0))
+        try:
+            s.connect(info[4])
+        except socket.timeout:
+            # try next address
+            continue
+        except (ConnectionError, OSError):
+            # Reset, Refused, Aborted, No route to host
+            if ensure_timeout: time.sleep(timeout)
+            # continue with the next address
+            continue
+        except:
+            raise
+        else:
+            s.shutdown(socket.SHUT_RDWR)
+            return True
+    return False
 
 
 def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
