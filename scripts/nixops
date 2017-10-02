@@ -801,12 +801,8 @@ subparser.add_argument('--kill-obsolete', '-k', action='store_true', help='kill 
 subparser.add_argument('--dry-run', action='store_true', help='evaluate and print what would be built')
 subparser.add_argument('--dry-activate', action='store_true', help='show what will be activated on the machines in the network')
 subparser.add_argument('--repair', action='store_true', help='use --repair when calling nix-build (slow)')
-<<<<<<< HEAD
 subparser.add_argument('--evaluate-only', action='store_true', help='only call nix-instantiate and exit')
 subparser.add_argument('--plan-only', action='store_true', help='show the diff between the configuration and the state and exit')
-=======
-subparser.add_argument('--evaluate-only', action='store_true', help=argparse.SUPPRESS)
->>>>>>> e85f830d563814431daee21d762f6c3a20f1b1c8
 subparser.add_argument('--build-only', action='store_true', help='build only; do not perform deployment actions')
 subparser.add_argument('--create-only', action='store_true', help='exit after creating missing machines')
 subparser.add_argument('--copy-only', action='store_true', help='exit after copying closures')
