@@ -864,16 +864,13 @@ class Deployment(object):
             self._destroy_resources(include=to_destroy)
 
 
-    def _deploy(self, dry_run=False, plan_only=False, build_only=False, create_only=False, copy_only=False, evaluate_only=False,
+    def _deploy(self, dry_run=False, plan_only=False, build_only=False, create_only=False, copy_only=False,
                 include=[], exclude=[], check=False, kill_obsolete=False,
                 allow_reboot=False, allow_recreate=False, force_reboot=False,
                 max_concurrent_copy=5, sync=True, always_activate=False, repair=False, dry_activate=False):
         """Perform the deployment defined by the deployment specification."""
 
         self.evaluate_active(include, exclude, kill_obsolete)
-
-        if evaluate_only:
-            return
 
         # Assign each resource an index if it doesn't have one.
         for r in self.active_resources.itervalues():
@@ -962,15 +959,11 @@ class Deployment(object):
         if create_only: return
 
         # Build the machine configurations.
-        if dry_run:
-            self.build_configs(dry_run=dry_run, repair=repair, include=include, exclude=exclude)
-            return
-
         # Record configs_path in the state so that the ‘info’ command
         # can show whether machines have an outdated configuration.
-        self.configs_path = self.build_configs(repair=repair, include=include, exclude=exclude)
+        self.configs_path = self.build_configs(dry_run=dry_run, repair=repair, include=include, exclude=exclude)
 
-        if build_only: return
+        if build_only or dry_run: return
 
         # Copy the closures of the machine configurations to the
         # target machines.

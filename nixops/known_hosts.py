@@ -11,7 +11,12 @@ lock = threading.Lock()
 def _rewrite(ip_address, add, public_host_key):
     with lock:
         path = os.path.expanduser("~/.ssh/known_hosts")
-        if not os.path.isfile(path): return
+
+        # If hosts file doesn't exist, create an empty file
+        if not os.path.isfile(path):
+            basedir = os.path.dirname(path)
+            os.makedirs(basedir)
+            open(path, 'a').close()
 
         with open(os.path.expanduser("~/.ssh/.known_hosts.lock"), 'w') as lockfile:
             fcntl.flock(lockfile, fcntl.LOCK_EX) #unlock is implicit at the end of the with
