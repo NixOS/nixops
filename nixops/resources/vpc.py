@@ -82,6 +82,9 @@ class VPCState(nixops.resources.DiffEngineResourceState, EC2CommonState):
             else:
                 raise e
 
+        self.cleanup_state()
+
+    def cleanup_state(self):
         with self.depl._db:
             self.state = self.MISSING
             self._state['vpcId'] = None
@@ -91,6 +94,17 @@ class VPCState(nixops.resources.DiffEngineResourceState, EC2CommonState):
             self._state['enableDnsSupport'] = None
             self._state['enableDnsHostname'] = None
             self._state['enableVpcClassicLink'] = None
+
+    def _check(self):
+        if self._state.get('vpcId', None) is None:
+            return
+        try:
+            self.get_client().describe_vpcs(VpcIds=[self._state["vpcId"]])
+        except botocore.exceptions.ClientError as e:
+            if e.response['Error']['Code'] == 'InvalidVpcID.NotFound':
+                self.warn("vpc {0} was deleted from outside nixops,"
+                          " it needs to be recreated...".format(self._state["vpcId"]))
+                self.cleanup_state()
 
     def create_after(self, resources, defn):
         return {r for r in resources if

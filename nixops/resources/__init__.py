@@ -168,6 +168,16 @@ class ResourceState(object):
         """Create or update the resource defined by ‘defn’."""
         raise NotImplementedError("create")
 
+    def check(self):
+        """
+        Reconcile the state file with the real world infrastructure state.
+        This should not do any provisionning but just sync the state.
+        """
+        self._check()
+
+    def _check(self):
+        return True
+
     def after_activation(self, defn):
         """Actions to be performed after the network is activated"""
         return
@@ -190,6 +200,8 @@ class DiffEngineResourceState(ResourceState):
         self._state = StateDict(depl, id)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
+        if check:
+            self._check()
         diff_engine = self.setup_diff_engine(config=defn.config)
 
         for handler in diff_engine.plan():
