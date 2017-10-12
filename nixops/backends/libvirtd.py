@@ -56,6 +56,7 @@ class LibvirtdState(MachineState):
     domain_xml = nixops.util.attr_property("libvirtd.domainXML", None)
     disk_path = nixops.util.attr_property("libvirtd.diskPath", None)
     vcpu = nixops.util.attr_property("libvirtd.vcpu", None)
+    kernel = nixops.util.attr_property("libvirtd.kernel", None)
 
     @classmethod
     def get_type(cls):
@@ -144,12 +145,8 @@ class LibvirtdState(MachineState):
                                "", self.disk_path])
             os.chmod(self.disk_path, 0660)
             self.vm_id = self._vm_id()
-            # dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
-            # nixops.util.write_file(dom_file, self.domain_xml)
-            # By using "virsh define" we ensure that the domain is
-            # "persistent", as opposed to "transient" (removed on reboot).
-
-            # TODO use define
+            # By using "define" we ensure that the domain is
+            # "persistent", as opposed to "transient" (i.e. removed on reboot).
             self.dom = self.conn.defineXML(self.domain_xml)
 
         self.start()
@@ -170,7 +167,6 @@ class LibvirtdState(MachineState):
                 return ""
 
         def iface(n):
-            print("adding network %s"%n)
             return "\n".join([
                 '    <interface type="network">',
                 maybe_mac(n),
@@ -178,14 +174,30 @@ class LibvirtdState(MachineState):
                 '    </interface>',
             ]).format(n)
 
+        def _make_os(defn):
+            return '<os>',
+               ' <type arch="x86_64">hvm</type>',
+                '<boot dev="hd"/>',
+                '<kernel>{kernel}</kernel>',
+                '<initrd>{initrd}</initrd>',
+                '<cmdline>{cmdline}</cmdline>',
+            '</os>'.format(
+                    kernel='',
+                    initrd='',
+                    cmdline='',
+                    )
+
+            # '  <os>',
+            # '    <type arch="x86_64">hvm</type>',
+            # '  </os>',
+
+
         domain_fmt = "\n".join([
             '<domain type="{5}">',
             '  <name>{0}</name>',
             '  <memory unit="MiB">{1}</memory>',
             '  <vcpu>{4}</vcpu>',
-            '  <os>',
-            '    <type arch="x86_64">hvm</type>',
-            '  </os>',
+            '\n'.join(_make_os(dfn),
             '  <devices>',
             '    <emulator>{2}</emulator>',
             '    <disk type="file" device="disk">',
@@ -213,22 +225,40 @@ class LibvirtdState(MachineState):
         )
 
     def _parse_ip(self):
-        cmd = [
-            "virsh",
-            "-c",
-            "qemu:///system",
-            "net-dhcp-leases",
-            "--network",
-            self.primary_net,
-        ]
-        lines = subprocess.check_output(cmd)
-        try:
-            i = lines.split().index(self.primary_mac)
-        except ValueError:
-            pass
-        else:
-            ip_with_subnet = lines.split()[i + 2]
-            return ip_with_subnet.split('/')[0]
+        ifaces = self.dom.interfaceAddresses(0)
+        if (ifaces == None):
+            self.log("Failed to get domain interfaces")
+            # TODO return false
+            sys.exit(0)
+
+        # print " {0:10} {1:20} {2:12} {3}".format("Interface", "MAC address", "Protocol", "Address")
+
+        for (name, val) in ifaces.iteritems():
+            if val['ip_addrs']:
+                for addr in val['ip_addrs']:
+                # print " {0:10} {1:19}".format(name, val['hwaddr']),
+                    print(" {0:12} {1}/{2} ".format(addr['type'], addr['addr'], addr['prefix']))
+                    # return 
+                # print
+            # else:
+            #     print " {0:10} {1:19}".format(name, val['hwaddr']),
+            #     print
+# cmd = [
+        #     "virsh",
+        #     "-c",
+        #     "qemu:///system",
+        #     "net-dhcp-leases",
+        #     "--network",
+        #     self.primary_net,
+        # ]
+        # lines = subprocess.check_output(cmd)
+        # try:
+        #     i = lines.split().index(self.primary_mac)
+        # except ValueError:
+        #     pass
+        # else:
+        #     ip_with_subnet = lines.split()[i + 2]
+        #     return ip_with_subnet.split('/')[0]
 
     def _wait_for_ip(self, prev_time):
         self.log_start("waiting for IP address to appear in DHCP leases...")
@@ -261,7 +291,9 @@ class LibvirtdState(MachineState):
             self._wait_for_ip(0)
 
     def get_ssh_name(self):
-        assert self.private_ipv4
+        # assert self.private_ipv4
+        self.private_ipv4 = self._parse_ip()
+ 
         return self.private_ipv4
 
     def stop(self):
