@@ -58,7 +58,10 @@ in
             size = 1048576;
           };
         };
-      description = "Definition of the virtual disks attached to this instance.";
+      description = ''
+        Definition of the virtual disks attached to this instance.
+        The root disk is called <option>deployment.virtualbox.disks.disk1</option>.
+      '';
       type = with types; attrsOf (submodule {
         options = {
 
@@ -79,8 +82,7 @@ in
             type = types.nullOr types.path;
             description = ''
               If set, this disk is created as a clone of the specified
-              disk image (and the <literal>size</literal> attribute is
-              ignored).
+              disk image.
             '';
           };
 
