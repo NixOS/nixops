@@ -112,6 +112,24 @@ in
       type = types.str;
       description = "Specify the type of libvirt domain to create (see '$ virsh capabilities | grep domain' for valid domain types";
     };
+
+    deployment.libvirtd.cmdline = mkOption {
+      default = "";
+      type = types.str;
+      description = "Specify the kernel cmdline";
+    };
+
+    deployment.libvirtd.initrd = mkOption {
+      default = "";
+      type = types.str;
+      description = "Specify the kernel initrd";
+    };
+
+    deployment.libvirtd.kernel = mkOption {
+      default = "";
+      type = types.str;
+      description = "Specify the kernel we want to launch (valid for kvm)";
+    };
   };
 
   ###### implementation

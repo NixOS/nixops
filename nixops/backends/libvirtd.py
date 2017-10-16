@@ -40,6 +40,7 @@ class LibvirtdDefinition(MachineDefinition):
         self.image_dir = x.find("attr[@name='imageDir']/string").get("value")
         assert self.image_dir is not None
         self.domain_type = x.find("attr[@name='domainType']/string").get("value")
+        self.kernel = x.find("attr[@name='kernel']/string").get("value")
 
         self.networks = [
             k.get("value")
@@ -175,17 +176,18 @@ class LibvirtdState(MachineState):
             ]).format(n)
 
         def _make_os(defn):
-            return '<os>',
-               ' <type arch="x86_64">hvm</type>',
-                '<boot dev="hd"/>',
-                '<kernel>{kernel}</kernel>',
-                '<initrd>{initrd}</initrd>',
-                '<cmdline>{cmdline}</cmdline>',
-            '</os>'.format(
-                    kernel='',
-                    initrd='',
-                    cmdline='',
-                    )
+            return [
+                '<os>',
+                '    <type arch="x86_64">hvm</type>',
+                '    <boot dev="hd"/>',
+                "    <kernel>%s</kernel>" % defn.kernel or '',
+                '    <initrd>{initrd}</initrd>',
+                '    <cmdline>{cmdline}</cmdline>',
+                '</os>']
+            #         kernel=defn.kernel if defn.kernel else '',
+            #         initrd=defn.initrd if defn.initrd else '',
+            #         cmdline=defn.cmdline if defn.cmdline else '',
+            #         )
 
             # '  <os>',
             # '    <type arch="x86_64">hvm</type>',
@@ -197,7 +199,7 @@ class LibvirtdState(MachineState):
             '  <name>{0}</name>',
             '  <memory unit="MiB">{1}</memory>',
             '  <vcpu>{4}</vcpu>',
-            '\n'.join(_make_os(dfn),
+            '\n'.join(_make_os(dfn)),
             '  <devices>',
             '    <emulator>{2}</emulator>',
             '    <disk type="file" device="disk">',
