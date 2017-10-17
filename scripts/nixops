@@ -522,6 +522,7 @@ def parse_machine(name):
 
 def op_ssh():
     depl = open_deployment()
+
     (username, machine) = parse_machine(args.machine)
     m = depl.machines.get(machine)
     if not m: raise Exception("unknown machine ‘{0}’".format(machine))

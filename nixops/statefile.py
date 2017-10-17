@@ -148,6 +148,7 @@ class StateFile(object):
 
     def open_deployment(self, uuid=None):
         """Open an existing deployment."""
+        print("open deployement for uuid %r" % uuid)
         deployment = self._find_deployment(uuid=uuid)
         if deployment: return deployment
         raise Exception("could not find specified deployment in state file ‘{0}’".format(self.db_file))

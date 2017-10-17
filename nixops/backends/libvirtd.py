@@ -41,6 +41,8 @@ class LibvirtdDefinition(MachineDefinition):
         assert self.image_dir is not None
         self.domain_type = x.find("attr[@name='domainType']/string").get("value")
         self.kernel = x.find("attr[@name='kernel']/string").get("value")
+        self.initrd = x.find("attr[@name='initrd']/string").get("value")
+        self.cmdline = x.find("attr[@name='cmdline']/string").get("value")
 
         self.networks = [
             k.get("value")
@@ -148,7 +150,7 @@ class LibvirtdState(MachineState):
             self.vm_id = self._vm_id()
             # By using "define" we ensure that the domain is
             # "persistent", as opposed to "transient" (i.e. removed on reboot).
-            self.dom = self.conn.defineXML(self.domain_xml)
+            self._dom = self.conn.defineXML(self.domain_xml)
 
         self.start()
         return True
@@ -179,10 +181,11 @@ class LibvirtdState(MachineState):
             return [
                 '<os>',
                 '    <type arch="x86_64">hvm</type>',
-                '    <boot dev="hd"/>',
+                # '    <cpu mode="host-model">',
+                # '    <boot dev="hd"/>',
                 "    <kernel>%s</kernel>" % defn.kernel or '',
-                '    <initrd>{initrd}</initrd>',
-                '    <cmdline>{cmdline}</cmdline>',
+                "    <initrd>%s</initrd>" % defn.initrd or '',
+                "    <cmdline>%s</cmdline>"% defn.cmdline or '' ,
                 '</os>']
             #         kernel=defn.kernel if defn.kernel else '',
             #         initrd=defn.initrd if defn.initrd else '',
@@ -199,7 +202,7 @@ class LibvirtdState(MachineState):
             '  <name>{0}</name>',
             '  <memory unit="MiB">{1}</memory>',
             '  <vcpu>{4}</vcpu>',
-            '\n'.join(_make_os(dfn)),
+            '\n'.join(_make_os(defn)),
             '  <devices>',
             '    <emulator>{2}</emulator>',
             '    <disk type="file" device="disk">',
@@ -227,40 +230,21 @@ class LibvirtdState(MachineState):
         )
 
     def _parse_ip(self):
+        """
+        return ip
+        """
         ifaces = self.dom.interfaceAddresses(0)
         if (ifaces == None):
             self.log("Failed to get domain interfaces")
             # TODO return false
             sys.exit(0)
 
-        # print " {0:10} {1:20} {2:12} {3}".format("Interface", "MAC address", "Protocol", "Address")
-
         for (name, val) in ifaces.iteritems():
-            if val['ip_addrs']:
-                for addr in val['ip_addrs']:
-                # print " {0:10} {1:19}".format(name, val['hwaddr']),
-                    print(" {0:12} {1}/{2} ".format(addr['type'], addr['addr'], addr['prefix']))
-                    # return 
-                # print
-            # else:
-            #     print " {0:10} {1:19}".format(name, val['hwaddr']),
-            #     print
-# cmd = [
-        #     "virsh",
-        #     "-c",
-        #     "qemu:///system",
-        #     "net-dhcp-leases",
-        #     "--network",
-        #     self.primary_net,
-        # ]
-        # lines = subprocess.check_output(cmd)
-        # try:
-        #     i = lines.split().index(self.primary_mac)
-        # except ValueError:
-        #     pass
-        # else:
-        #     ip_with_subnet = lines.split()[i + 2]
-        #     return ip_with_subnet.split('/')[0]
+            self.log ('val= %s'% val)
+            if val['addrs']:
+                for addr in val['addrs']:
+                    # print(" {0:12} {1}/{2} ".format(addr['type'], addr['addr'], addr['prefix']))
+                    return addr['addr']
 
     def _wait_for_ip(self, prev_time):
         self.log_start("waiting for IP address to appear in DHCP leases...")
