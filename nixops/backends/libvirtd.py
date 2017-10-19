@@ -72,13 +72,7 @@ class LibvirtdState(MachineState):
         if self.conn is None:
             self.log('Failed to open connection to the hypervisor')
             sys.exit(1)
-        # print("VM id=", self._vm_id())
-        # self.dom = self.conn.lookupByName(self._vm_id())
         self._dom = None
-        # try:
-        #     self.dom = self.conn.lookupByName(self._vm_id())
-        # except Exception as e:
-        #     self.log("Warning: %s" % e)
 
     @property
     def dom(self):
@@ -181,20 +175,11 @@ class LibvirtdState(MachineState):
             return [
                 '<os>',
                 '    <type arch="x86_64">hvm</type>',
-                # '    <cpu mode="host-model">',
                 # '    <boot dev="hd"/>',
                 "    <kernel>%s</kernel>" % defn.kernel or '',
                 "    <initrd>%s</initrd>" % defn.initrd or '',
                 "    <cmdline>%s</cmdline>"% defn.cmdline or '' ,
                 '</os>']
-            #         kernel=defn.kernel if defn.kernel else '',
-            #         initrd=defn.initrd if defn.initrd else '',
-            #         cmdline=defn.cmdline if defn.cmdline else '',
-            #         )
-
-            # '  <os>',
-            # '    <type arch="x86_64">hvm</type>',
-            # '  </os>',
 
 
         domain_fmt = "\n".join([
@@ -232,8 +217,10 @@ class LibvirtdState(MachineState):
     def _parse_ip(self):
         """
         return ip
+        Maybe it should return more (like ipv4/ipv6
         """
-        ifaces = self.dom.interfaceAddresses(0)
+        ifaces = self.dom.interfaceAddresses(libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT, 0)
+        # ifaces = self.dom.interfaceAddresses(0)
         if (ifaces == None):
             self.log("Failed to get domain interfaces")
             # TODO return false
@@ -242,9 +229,13 @@ class LibvirtdState(MachineState):
         for (name, val) in ifaces.iteritems():
             self.log ('val= %s'% val)
             if val['addrs']:
-                for addr in val['addrs']:
+                for ipaddr in val['addrs']:
                     # print(" {0:12} {1}/{2} ".format(addr['type'], addr['addr'], addr['prefix']))
                     return addr['addr']
+            # if ipaddr['type'] == libvirt.VIR_IP_ADDR_TYPE_IPV4:
+            #     print(ipaddr['addr'] + " VIR_IP_ADDR_TYPE_IPV4")
+            # elif ipaddr['type'] == libvirt.VIR_IP_ADDR_TYPE_IPV6:
+            #     print(ipaddr['addr'] + " VIR_IP_ADDR_TYPE_IPV6")
 
     def _wait_for_ip(self, prev_time):
         self.log_start("waiting for IP address to appear in DHCP leases...")
