@@ -219,7 +219,9 @@ class LibvirtdState(MachineState):
         return ip
         Maybe it should return more (like ipv4/ipv6
         """
-        ifaces = self.dom.interfaceAddresses(libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT, 0)
+        # alternative is VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE
+        # VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT = qemu agent must be available
+        ifaces = self.dom.interfaceAddresses(libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE, 0)
         # ifaces = self.dom.interfaceAddresses(0)
         if (ifaces == None):
             self.log("Failed to get domain interfaces")
@@ -231,7 +233,7 @@ class LibvirtdState(MachineState):
             if val['addrs']:
                 for ipaddr in val['addrs']:
                     # print(" {0:12} {1}/{2} ".format(addr['type'], addr['addr'], addr['prefix']))
-                    return addr['addr']
+                    return ipaddr['addr']
             # if ipaddr['type'] == libvirt.VIR_IP_ADDR_TYPE_IPV4:
             #     print(ipaddr['addr'] + " VIR_IP_ADDR_TYPE_IPV4")
             # elif ipaddr['type'] == libvirt.VIR_IP_ADDR_TYPE_IPV6:
@@ -250,7 +252,8 @@ class LibvirtdState(MachineState):
 
     def _is_running(self):
         try:
-            return self.dom.info()[1] == libvirt.VIR_DOMAIN_RUNNING
+            # return self.dom.info()[1] == libvirt.VIR_DOMAIN_RUNNING
+            return dom.isActive()
         except libvirt.libvirtError:
             self.log("Domain %s is not runing" % self.vm_id)
         return False
@@ -270,7 +273,6 @@ class LibvirtdState(MachineState):
     def get_ssh_name(self):
         # assert self.private_ipv4
         self.private_ipv4 = self._parse_ip()
- 
         return self.private_ipv4
 
     def stop(self):

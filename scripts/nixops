@@ -517,6 +517,7 @@ def op_import():
 
 
 def parse_machine(name):
+    print("Parsing machine %s" % name)
     return ("root", name) if name.find("@") == -1 else name.split("@", 1)
 
 
@@ -525,6 +526,8 @@ def op_ssh():
 
     (username, machine) = parse_machine(args.machine)
     m = depl.machines.get(machine)
+    print("machine %r" % m)
+    print("machine %s" % m)
     if not m: raise Exception("unknown machine ‘{0}’".format(machine))
     flags, command = m.ssh.split_openssh_args(args.args)
     user = None if username == "root" else username

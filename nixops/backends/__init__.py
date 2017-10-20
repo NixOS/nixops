@@ -36,7 +36,6 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.keys = {k.get("name"): _extract_key_options(k) for k in
                      xml.findall("attrs/attr[@name='keys']/attrs/attr")}
 
-
 class MachineState(nixops.resources.ResourceState):
     """Base class for NixOps machine state objects."""
 
@@ -74,6 +73,9 @@ class MachineState(nixops.resources.ResourceState):
         self.ssh.register_passwd_fun(self.get_ssh_password)
         self._ssh_private_key_file = None
 
+    def __str__(self):
+        return "type"
+
     def prefix_definition(self, attr):
         return attr
 
@@ -106,6 +108,9 @@ class MachineState(nixops.resources.ResourceState):
             return None
         except nixops.ssh_util.SSHCommandFailed:
             return None
+        # except Exception as e:
+        #     self.warn("Unexpected Exception %r" % e)
+        #     return None
 
     # FIXME: Move this to ResourceState so that other kinds of
     # resources can be checked.

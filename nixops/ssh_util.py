@@ -6,11 +6,13 @@ import subprocess
 import sys
 import time
 import weakref
+import logging
 from tempfile import mkdtemp
 import nixops.util
 
 __all__ = ['SSHConnectionFailed', 'SSHCommandFailed', 'SSH']
 
+log = logging.getLogger('root')
 
 class SSHConnectionFailed(Exception):
     pass
@@ -49,6 +51,8 @@ class SSHMaster(object):
                '-oServerAliveInterval=60',
                '-oControlPersist=600']
 
+
+        log.debug("Running command : %s", cmd)
         res = subprocess.call(cmd + ssh_flags, **kwargs)
         if res != 0:
             raise SSHConnectionFailed(
@@ -122,6 +126,8 @@ class SSH(object):
         self._passwd_fun = lambda: None
         self._logger = logger
         self._ssh_master = None
+
+    # def __str__(self):
 
     def register_host_fun(self, host_fun):
         """
