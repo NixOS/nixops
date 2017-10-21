@@ -4,6 +4,7 @@ from nixops.backends import MachineDefinition, MachineState
 import nixops.util
 import nixops.ssh_util
 import subprocess
+import re
 
 class ContainerDefinition(MachineDefinition):
     """Definition of a NixOS container."""
@@ -28,6 +29,7 @@ class ContainerState(MachineState):
     state = nixops.util.attr_property("state", MachineState.MISSING, int)  # override
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
     host = nixops.util.attr_property("container.host", None)
+    forward_ports = nixops.util.attr_property( "container.forwardPorts", [], 'json' )
     client_private_key = nixops.util.attr_property("container.clientPrivateKey", None)
     client_public_key = nixops.util.attr_property("container.clientPublicKey", None)
     public_host_key = nixops.util.attr_property("container.publicHostKey", None)
@@ -98,7 +100,21 @@ class ContainerState(MachineState):
 
     def wait_for_ssh(self, check=False):
         return True
-
+    
+    def port_str(self, port):
+        p_str = port['protocol'] + ":" + str(port['hostPort']) + ":"
+        if 'containerPort' in port:
+            p_str += str(port['containerPort'])
+        else:
+            p_str += str(port['hostPort'])
+        return p_str
+      
+    def port_flag(self, ports):
+        if not ports:
+            return ''
+        port_strs = map(self.port_str, ports)
+        return "--port " + ",".join(port_strs)
+      
     # Run a command in the container via ‘nixos-container run’. Since
     # this uses ‘nsenter’, we don't need SSH in the container.
     def run_command(self, command, **kwargs):
@@ -143,12 +159,33 @@ class ContainerState(MachineState):
 
             self.log("creating container...")
             self.host = defn.host
+            self.forward_ports = defn.config["container"]["forwardPorts"]
             self.copy_closure_to(path)
+            
             self.vm_id = self.host_ssh.run_command(
-                "nixos-container create {0} --ensure-unique-name --system-path '{1}'"
-                .format(self.name[:7], path), capture_stdout=True).rstrip()
+                "nixos-container create {0} --ensure-unique-name --system-path '{1}' {2}"
+                .format(self.name[:7], path, self.port_flag(self.forward_ports)), capture_stdout=True).rstrip()
             self.state = self.STOPPED
-
+ 
+        if defn.config["container"]["forwardPorts"] or self.forward_ports:
+            
+            if defn.config["container"]["forwardPorts"]:
+                defn_port_str = self.port_flag(defn.config["container"]["forwardPorts"]).split('--port ')[1]
+            else:
+                defn_port_str = ''
+                
+            if self.forward_ports:
+                port_str = self.port_flag(self.forward_ports).split('--port ')[1]
+            else:
+                port_str = ''
+          
+            if defn_port_str != port_str:
+                container_conf = self.host_ssh.run_command("cat /etc/containers/{0}.conf".format(self.vm_id), capture_stdout=True).rstrip()
+                container_conf = re.sub(r'HOST_PORT=.*', 'HOST_PORT=' + defn_port_str, container_conf, re.M)
+                self.host_ssh.run_command("echo '{0}' > /etc/containers/{1}.conf".format(container_conf, self.vm_id))
+                self.forward_ports = defn.config["container"]["forwardPorts"]
+                self.stop()
+                
         if self.state == self.STOPPED:
             self.host_ssh.run_command("nixos-container start {0}".format(self.vm_id))
             self.state = self.UP
@@ -160,7 +197,7 @@ class ContainerState(MachineState):
         if self.public_host_key is None:
             self.public_host_key = self.host_ssh.run_command("nixos-container show-host-key {0}".format(self.vm_id), capture_stdout=True).rstrip()
             nixops.known_hosts.add(self.get_ssh_name(), self.public_host_key)
-
+          
     def destroy(self, wipe=False):
         if not self.vm_id: return True
 
