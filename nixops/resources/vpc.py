@@ -105,35 +105,13 @@ class VPCState(nixops.resources.DiffEngineResourceState, EC2CommonState):
                 self.warn("vpc {0} was deleted from outside nixops,"
                           " it needs to be recreated...".format(self._state["vpcId"]))
                 self.cleanup_state()
+                return
+        if self.state == self.STARTING:
+            self.wait_for_vpc_available(self._state['vpcId'])
 
     def create_after(self, resources, defn):
         return {r for r in resources if
                 isinstance(r, nixops.resources.elastic_ip.ElasticIPState)}
-
-    def create(self, defn, check, allow_reboot, allow_recreate):
-        nixops.resources.DiffEngineResourceState.create(self, defn, check, allow_reboot, allow_recreate)
-        self.ensure_state_up(check)
-
-    def ensure_state_up(self, check):
-        config = self.get_defn()
-        self._state["region"] = config['region']
-        # handle vpcs that are deleted from outside nixops e.g console
-        if self._state.get('vpcId', None):
-            if check:
-                try:
-                    self.get_client().describe_vpcs(VpcIds=[self._state["vpcId"]])
-                except botocore.exceptions.ClientError as e:
-                    if e.response['Error']['Code'] == 'InvalidVpcID.NotFound':
-                        self.warn("vpc {0} was deleted from outside nixops,"
-                                  " it will be recreated...".format(self._state["vpcId"]))
-                        allow_recreate = True
-                        self.realize_create_vpc(allow_recreate)
-                        self.realize_classic_link_change(allow_recreate)
-                        self.realize_dns_config(allow_recreate)
-                    else:
-                        raise e
-            if self.state != self.UP:
-                self.wait_for_vpc_available(self._state['vpcId'])
 
     def wait_for_vpc_available(self, vpc_id):
         while True:

@@ -200,6 +200,9 @@ class DiffEngineResourceState(ResourceState):
         self._state = StateDict(depl, id)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
+        # if --check is true check against the api and update the state
+        # before firing up the diff engine in order to get the needed
+        # handlers calls
         if check:
             self._check()
         diff_engine = self.setup_diff_engine(config=defn.config)

@@ -14,7 +14,6 @@ class Diff(object):
     UPDATE = 1
     UNSET = 2
 
-
     def __init__(self, depl, logger, config, state, res_type):
         self._definition = config
         self._state = state
