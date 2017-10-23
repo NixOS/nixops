@@ -253,7 +253,7 @@ class LibvirtdState(MachineState):
     def _is_running(self):
         try:
             # return self.dom.info()[1] == libvirt.VIR_DOMAIN_RUNNING
-            return dom.isActive()
+            return self.dom.isActive()
         except libvirt.libvirtError:
             self.log("Domain %s is not runing" % self.vm_id)
         return False
