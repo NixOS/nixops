@@ -3,7 +3,8 @@
 # Automatic provisioning of AWS S3 buckets.
 
 import time
-import boto.s3.connection
+import botocore
+import boto3
 import nixops.util
 import nixops.resources
 import nixops.ec2_utils
@@ -67,8 +68,9 @@ class S3BucketState(nixops.resources.ResourceState):
     def connect(self):
         if self._conn: return
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._conn = boto.s3.connection.S3Connection(aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
-
+        self._conn = boto3.session.Session(region_name=self.region,
+                                           aws_access_key_id=access_key_id,
+                                           aws_secret_access_key=secret_access_key)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
 
@@ -85,21 +87,27 @@ class S3BucketState(nixops.resources.ResourceState):
 
             self.log("creating S3 bucket ‘{0}’...".format(defn.bucket_name))
             try:
-                self._conn.create_bucket(defn.bucket_name, location=region_to_s3_location(defn.region))
-            except boto.exception.S3CreateError as e:
-                if e.error_code != "BucketAlreadyOwnedByYou": raise
-
-            bucket = self._conn.get_bucket(defn.bucket_name)
+                s3client = self._conn.client('s3')
+                ACL = 'private' # ..or: public-read, public-read-write, authenticated-read
+                s3client.create_bucket(ACL = ACL,
+                                       Bucket = defn.bucket_name,
+                                       CreateBucketConfiguration = {
+                                           'LocationConstraint': region_to_s3_location(defn.region)
+                                       })
+                # self._conn.create_bucket(defn.bucket_name, location=region_to_s3_location(defn.region))
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] != "BucketAlreadyOwnedByYou": raise
             if defn.policy:
                 self.log("setting S3 bucket policy on ‘{0}’...".format(bucket))
-                bucket.set_policy(defn.policy.strip())
+                s3client.put_bucket_policy(Bucket = defn.bucket_name,
+                                           Policy = defn.policy.strip())
             else:
                 try:
-                    bucket.delete_policy()
-                except boto.exception.S3ResponseError as e:
+                    s3client.delete_bucket_policy(Bucket = defn.bucket_name)
+                except botocore.exceptions.ClientError as e:
                     # This seems not to happen - despite docs indicating it should:
                     # [http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETEpolicy.html]
-                    if e.status != 204: raise # (204 : Bucket didn't have any policy to delete)
+                    if e.response['ResponseMetadata']['HTTPStatusCode'] != 204: raise # (204 : Bucket didn't have any policy to delete)
 
             with self.depl._db:
                 self.state = self.UP
@@ -113,17 +121,16 @@ class S3BucketState(nixops.resources.ResourceState):
             self.connect()
             try:
                 self.log("destroying S3 bucket ‘{0}’...".format(self.bucket_name))
-                bucket = self._conn.get_bucket(self.bucket_name)
+                bucket = self._conn.resource('s3').Bucket(self.bucket_name)
                 try:
                     bucket.delete()
-                except boto.exception.S3ResponseError as e:
-                    if e.error_code != "BucketNotEmpty": raise
+                except botocore.exceptions.ClientError as e:
+                    if e.response['Error']['Code'] != "BucketNotEmpty": raise
                     if not self.depl.logger.confirm("are you sure you want to destroy S3 bucket ‘{0}’?".format(self.bucket_name)): return False
-                    keys = bucket.list()
-                    bucket.delete_keys(keys)
+                    bucket.objects.all().delete()
                     bucket.delete()
-            except boto.exception.S3ResponseError as e:
-                if e.error_code != "NoSuchBucket": raise
+            except botocore.exceptions.ClientError as e:
+                if e.response['Error']['Code'] != "NoSuchBucket": raise
         return True
 
 
