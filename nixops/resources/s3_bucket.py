@@ -94,7 +94,6 @@ class S3BucketState(nixops.resources.ResourceState):
                                        CreateBucketConfiguration = {
                                            'LocationConstraint': region_to_s3_location(defn.region)
                                        })
-                # self._conn.create_bucket(defn.bucket_name, location=region_to_s3_location(defn.region))
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] != "BucketAlreadyOwnedByYou": raise
             if defn.policy:
