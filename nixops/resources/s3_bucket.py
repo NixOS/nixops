@@ -68,7 +68,7 @@ class S3BucketState(nixops.resources.ResourceState):
     def connect(self):
         if self._conn: return
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._conn = boto3.session.Session(region_name=self.region,
+        self._conn = boto3.session.Session(region_name=self.region if self.region != "US" else "us-east-1",
                                            aws_access_key_id=access_key_id,
                                            aws_secret_access_key=secret_access_key)
 
@@ -89,11 +89,16 @@ class S3BucketState(nixops.resources.ResourceState):
             try:
                 s3client = self._conn.client('s3')
                 ACL = 'private' # ..or: public-read, public-read-write, authenticated-read
-                s3client.create_bucket(ACL = ACL,
-                                       Bucket = defn.bucket_name,
-                                       CreateBucketConfiguration = {
-                                           'LocationConstraint': region_to_s3_location(defn.region)
-                                       })
+                s3loc = region_to_s3_location(defn.region)
+                if s3loc == "US":
+                    s3client.create_bucket(ACL = ACL,
+                                           Bucket = defn.bucket_name)
+                else:
+                    s3client.create_bucket(ACL = ACL,
+                                           Bucket = defn.bucket_name,
+                                           CreateBucketConfiguration = {
+                                               'LocationConstraint': s3loc
+                                           })
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] != "BucketAlreadyOwnedByYou": raise
             if defn.policy:
@@ -137,5 +142,5 @@ def region_to_s3_location(region):
     # S3 location names are identical to EC2 regions, except for
     # us-east-1 and eu-west-1.
     if region == "eu-west-1": return "EU"
-    elif region == "us-east-1": return ""
+    elif region == "us-east-1": return "US"
     else: return region
