@@ -6,6 +6,60 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.5.2"><title>Release 1.5.2 (Oct 29, 2017)</title>
+
+<itemizedlist>
+
+  <listitem><para>General</para>
+
+    <itemizedlist>
+      <listitem><para>This release has various minor bug and documentation fixes.</para></listitem>
+      <listitem><para>#703: don't ask for known host if file doesn't exist.</para></listitem>
+      <listitem><para>Deprecated --evaluate-only for --dry-run.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: libvirtd</para>
+    <itemizedlist>
+      <listitem><para>Added domainType option.</para></listitem>
+      <listitem><para>Make the libvirt images readable only by their owner/group.</para></listitem>
+      <listitem><para>Create "persistent" instead of "transient" domains, this ensures that nixops deployments/VMs survive a reboot.</para></listitem>
+      <listitem><para>Stop using disk backing file and use self contained images.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: EC2</para>
+
+    <itemizedlist>
+      <listitem><para>#652, allow securityGroups of Elastic File System mount target to be set.</para></listitem>
+      <listitem><para>#709: allow Elastic IP resource for security group sourceIP attribute.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Azure</para>
+
+    <itemizedlist>
+        <listitem><para>Use Azure images from nixpkgs, if they are available.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Google Compute</para>
+
+    <itemizedlist>
+        <listitem><para>Use Google Compute images from nixpkgs, if they are available.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+</itemizedlist>
+
+<para>
+    This release has contributions from  Andreas Rammhold, Bjørn Forsman, Chris Van Vranken,
+    Corbin, Daniel Ehlers, Domen Kožar, Johannes Bornhold, John M. Harris, Jr, Kevin Quick,
+    Kosyrev Serge, Marius Bergmann, Nadrieril, Rob Vermaas, Vlad Ki.
+</para>
+
+</section>
+
 <section xml:id="ssec-relnotes-1.5.1"><title>Release 1.5.1 (Jul 5, 2017)</title>
 
 <itemizedlist>
