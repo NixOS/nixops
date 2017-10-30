@@ -265,13 +265,15 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     def _get_spot_instance_request_by_id(self, request_id, allow_missing=False):
         """Get spot instance request object by id."""
         self.connect()
-        result = self._conn.get_all_spot_instance_requests([request_id])
+
+        request_id_filter = {'Name': 'spot-instance-request-id', 'Values': [request_id]}
+        # TODO: error handling
+        result = self._conn.meta.client.describe_spot_instance_requests(Filters=[request_id_filter])['SpotInstanceRequests']
         if len(result) == 0:
             if allow_missing:
                 return None
             raise EC2InstanceDisappeared("Spot instance request ‘{0}’ disappeared!".format(request_id))
         return result[0]
-
 
     def _get_instance(self, instance_id=None, allow_missing=False, update=False):
         """Get instance object for this machine, with caching"""
@@ -305,12 +307,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     def _get_snapshot_by_id(self, snapshot_id):
         """Get snapshot object by instance id."""
         self.connect()
-        snapshots = self._conn.get_all_snapshots([snapshot_id])
+        snapshots = [snapshot for snapshot in self._conn.snapshots.filter(Filters=[{'Name': 'snapshot-id',
+                                                                                    'Values': [snapshot_id]}])]
         if len(snapshots) != 1:
             raise Exception("unable to find snapshot ‘{0}’".format(snapshot_id))
         return snapshots[0]
-
-
 
     def _wait_for_ip(self):
         self.log_start("waiting for IP address... ".format(self.name))
@@ -556,7 +557,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     instance = self._get_instance(update=True)
                 self.log_end("")
 
-                addresses = self._conn.get_all_addresses(addresses=[elastic_ipv4])
+                elastic_ip_filter = {'Name': 'public-ip', 'Values': [elastic_ipv4]}
+                # TODO: errors
+                addresses = self._conn.meta.client.describe_addresses(Filters=[elastic_ip_filter])['Addresses']
                 if addresses[0].instance_id != "" \
                     and addresses[0].instance_id is not None \
                     and addresses[0].instance_id != self.vm_id \
@@ -566,7 +569,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     raise Exception("elastic IP ‘{0}’ already in use...".format(elastic_ipv4))
                 else:
                     self.log("associating IP address ‘{0}’...".format(elastic_ipv4))
-                    addresses[0].associate(self.vm_id)
+                    self._conn.meta.client.associate_address(AllocationId=addresses[0].allocation_id,
+                                                             InstanceId=self.vm_id)
                     self.log_start("waiting for address to be associated with this machine... ")
                     instance = self._get_instance(update=True)
                     while True:
@@ -585,9 +589,12 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     self.ssh_pinged = False
 
             elif self.elastic_ipv4 != None:
-                addresses = self._conn.get_all_addresses(addresses=[self.elastic_ipv4])
+                elastic_ip_filter = {'Name': 'public-ip', 'Values': [elastic_ipv4]}
+                # TODO: errors
+                addresses = self._conn.meta.client.describe_addresses(Filters=[elastic_ip_filter])['Addresses']
                 if len(addresses) == 1 and addresses[0].instance_id == self.vm_id:
                     self.log("disassociating IP address ‘{0}’...".format(self.elastic_ipv4))
+                    # TODO
                     self._conn.disassociate_address(public_ip=self.elastic_ipv4)
                 else:
                     self.log("address ‘{0}’ was not associated with instance ‘{1}’".format(self.elastic_ipv4, self.vm_id))
@@ -663,9 +670,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.log_start("waiting for spot instance request ‘{0}’ to be fulfilled... ".format(self.spot_instance_request_id))
             while True:
                 request = self._get_spot_instance_request_by_id(self.spot_instance_request_id)
-                self.log_continue("[{0}] ".format(request.status.code))
-                if request.status.code == "fulfilled": break
-                if request.status.code in {"schedule-expired", "canceled-before-fulfillment", "bad-parameters", "system-error"}:
+                self.log_continue("[{0}] ".format(request.status_code))
+                if request.status_code == "fulfilled": break
+                if request.status_code in {"schedule-expired", "canceled-before-fulfillment", "bad-parameters", "system-error"}:
                     self.spot_instance_request_id = None
                     self.log_end("")
                     raise Exception("spot instance request failed with result ‘{0}’".format(request.status.code))
@@ -707,7 +714,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         while True:
             request = self._get_spot_instance_request_by_id(self.spot_instance_request_id, allow_missing=True)
             if request is None: break
-            self.log_continue("[{0}] ".format(request.status.code))
+            self.log_continue("[{0}] ".format(request.status_code))
             if request.instance_id is not None and request.instance_id != self.vm_id:
                 if self.vm_id is not None:
                     raise Exception("spot instance request got fulfilled unexpectedly as instance ‘{0}’".format(request.instance_id))
