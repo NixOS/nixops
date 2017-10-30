@@ -117,7 +117,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
         self._conn = None
-        self._conn_vpc = None
         self._conn_route53 = None
         self._cached_instance = None
 
@@ -252,12 +251,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self._conn = nixops.ec2_utils.connect(self.region, self.access_key_id)
         return self._conn
 
-
-    def connect_vpc(self):
-        if self._conn_vpc:
-            return self._conn_vpc
-        self._conn_vpc = nixops.ec2_utils.connect_vpc(self.region, self.access_key_id)
-        return self._conn_vpc
 
     def connect_route53(self):
         if self._conn_route53:
