@@ -57,26 +57,25 @@ def fetch_aws_secret_key(access_key_id):
 
     return credentials
 
+def _get_available_regions(service_name):
+    """Get available regions for given service form offline botocore lib data."""
+    return boto3.session.Session().get_available_regions(service_name)
+
 def connect(region, access_key_id):
     """Connect to the specified EC2 region using the given access key."""
     assert region
-    (access_key_id, secret_access_key) = fetch_aws_secret_key(access_key_id)
-    conn = boto.ec2.connect_to_region(
-        region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
-    if not conn:
+
+    # https://stackoverflow.com/a/38464150
+    # boto3.session.Session().get_available_regions('ec2') -- doesn't make any API calls,
+    # grabs data from botocore lib data, should we use this or a data from the endpoint?
+    if region not in _get_available_regions('ec2'):
         raise Exception("invalid EC2 region ‘{0}’".format(region))
-    return conn
 
-def connect_vpc(region, access_key_id):
-    """Connect to the specified VPC region using the given access key."""
-    assert region
     (access_key_id, secret_access_key) = fetch_aws_secret_key(access_key_id)
-    conn = boto.vpc.connect_to_region(
-        region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
-    if not conn:
-        raise Exception("invalid VPC region ‘{0}’".format(region))
-    return conn
 
+    conn = boto3.resource('ec2', region_name=region,
+                          aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+    return conn
 
 def get_access_key_id():
     return os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
