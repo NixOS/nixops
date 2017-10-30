@@ -598,14 +598,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     self.ssh_pinged = False
 
     def security_groups_to_ids(self, subnetId, groups):
-        sg_names = filter(lambda g: not g.startswith('sg-'), groups)
-        if sg_names != [ ] and subnetId != "":
-            self.connect()
-            subnet_id_filter = {'Name': 'subnet-id', 'Values': [vpc_id]}
-            vpc_id = [vpc.vpc_id for vpc in self._conn.subnets.filter(Filters=[subnet_id_filter]).limit(1)][0]
-            groups = map(lambda g: nixops.ec2_utils.name_to_security_group(self._conn, g, vpc_id), groups)
-
-        return groups
+        return nixops.ec2_utils.security_groups_to_ids(self._conn, subnetId, groups)
 
     def _get_network_interfaces(self, defn):
         groups = self.security_groups_to_ids(defn.subnet_id, defn.security_group_ids)

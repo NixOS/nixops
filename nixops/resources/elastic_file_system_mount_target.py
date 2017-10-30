@@ -168,11 +168,4 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
 
     def security_groups_to_ids(self, region, access_key_id, subnetId, groups):
         conn = nixops.ec2_utils.connect(region, access_key_id)
-        conn_vpc = nixops.ec2_utils.connect_vpc(region, access_key_id)
-
-        sg_names = filter(lambda g: not g.startswith('sg-'), groups)
-        if sg_names != [ ] and subnetId != "":
-            vpc_id = conn_vpc.get_all_subnets([subnetId])[0].vpc_id
-            groups = map(lambda g: nixops.ec2_utils.name_to_security_group(conn, g, vpc_id), groups)
-
-        return groups
+        return nixops.ec2_utils.security_groups_to_ids(set)
