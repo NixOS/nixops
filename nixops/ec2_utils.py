@@ -138,23 +138,23 @@ def wait_for_volume_available(conn, volume_id, logger, states=['available']):
 
     logger.log_end('')
 
-
 def name_to_security_group(conn, name, vpc_id):
     if not vpc_id or name.startswith('sg-'):
         return name
 
     id = None
-    for sg in conn.get_all_security_groups(filters={'group-name':name, 'vpc-id': vpc_id}):
-        if sg.name == name:
+    for sg in conn.security_groups.filter(Filters=[{'Name': 'group-name', 'Values': [name]},
+                                                   {'Name': 'vpc-id', 'Values': [vpc_id]}]):
+        if sg.group_name == name:
             id = sg.id
             return id
-
     raise Exception("could not resolve security group name '{0}' in VPC '{1}'".format(name, vpc_id))
 
 def id_to_security_group_name(conn, sg_id, vpc_id):
     name = None
-    for sg in conn.get_all_security_groups(filters={'group-id':sg_id, 'vpc-id': vpc_id}):
-        if sg.id == sg_id:
-            name = sg.name
+    for sg in conn.security_groups.filter(Filters=[{'Name': 'group-id', 'Values': [sg_id]},
+                                                   {'Name': 'vpc-id', 'Values': [vpc_id]}]):
+        if sg.group_id == sg_id:
+            name = sg.group_name
             return name
     raise Exception("could not resolve security group id '{0}' in VPC '{1}'".format(sg_id, vpc_id))
