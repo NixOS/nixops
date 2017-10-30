@@ -7,10 +7,8 @@ import time
 import random
 import nixops.util
 
-from boto.exception import EC2ResponseError
-from boto.exception import SQSError
-from boto.exception import BotoServerError
-
+import botocore
+import boto3
 from boto.pyami.config import Config
 
 def fetch_aws_secret_key(access_key_id):
@@ -91,7 +89,7 @@ def retry(f, error_codes=[], logger=None):
     """
 
     def handle_exception(e):
-        if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
+        if i == num_retries or (error_codes != [] and not e.response['Error']['Code'] in error_codes):
             raise e
         if logger is not None:
             logger.log("got (possibly transient) EC2 error code '{0}': {1}. retrying...".format(e.error_code, e.error_message))
@@ -104,12 +102,9 @@ def retry(f, error_codes=[], logger=None):
 
         try:
             return f()
-        except EC2ResponseError as e:
-            handle_exception(e)
-        except SQSError as e:
-            handle_exception(e)
-        except BotoServerError as e:
-            if e.error_code == "RequestLimitExceeded":
+        except ClientError as e:
+            # TODO: research boto3 means of retrying requests
+            if e.response['Error']['Code'] == "RequestLimitExceeded":
                 num_retries += 1
             else:
                 handle_exception(e)
@@ -118,7 +113,6 @@ def retry(f, error_codes=[], logger=None):
 
         time.sleep(next_sleep)
 
-
 def get_volume_by_id(conn, volume_id, allow_missing=False):
     """Get volume object by volume id."""
     try:
@@ -126,10 +120,9 @@ def get_volume_by_id(conn, volume_id, allow_missing=False):
         if len(volumes) != 1:
             raise Exception("unable to find volume ‘{0}’".format(volume_id))
         return volumes[0]
-    except boto.exception.EC2ResponseError as e:
-        if e.error_code != "InvalidVolume.NotFound": raise
+    except boto3.exceptions.ClientError as e:
+        if e.response['Error']['Code'] != "InvalidVolume.NotFound": raise
     return None
-
 
 def wait_for_volume_available(conn, volume_id, logger, states=['available']):
     """Wait for an EBS volume to become available."""
