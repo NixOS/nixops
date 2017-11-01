@@ -104,7 +104,7 @@ class ContainerState(MachineState):
     def run_command(self, command, **kwargs):
         command = command.replace("'", r"'\''")
         return self.host_ssh.run_command(
-            "nixos-container run {0} -- bash --login -c 'HOME=/root {1}'".format(self.vm_id, command),
+            "nixos-container run {0} -- bash --login -c 'HOME=/root; {1}'".format(self.vm_id, command),
             **kwargs)
 
     def get_physical_spec(self):
