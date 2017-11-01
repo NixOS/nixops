@@ -120,6 +120,8 @@ class ContainerState(MachineState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, ContainerDefinition)
 
+        self.set_common_state(defn)
+
         if not self.client_private_key:
             (self.client_private_key, self.client_public_key) = nixops.util.create_key_pair()
 
