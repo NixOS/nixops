@@ -1,6 +1,6 @@
 { nixopsSrc ? { outPath = ./.; revCount = 0; shortRev = "abcdef"; rev = "HEAD"; }
 , officialRelease ? false
-, nipkgs ? <nixpkgs>
+, nixpkgs ? <nixpkgs>
 }:
 
 let
