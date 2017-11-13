@@ -115,7 +115,6 @@ class VPCEndpointState(nixops.resources.DiffEngineResourceState, EC2CommonState)
         if config['policy'] is not None: edp_input['PolicyDocument']
         edp_input['VpcEndpointId'] = self._state['endpointId']
 
-        print edp_input
         self.get_client().modify_vpc_endpoint(**edp_input)
 
         with self.depl._db:
