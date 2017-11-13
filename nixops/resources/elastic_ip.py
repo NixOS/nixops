@@ -98,8 +98,12 @@ class ElasticIPState(nixops.resources.ResourceState):
         except botocore.exceptions.ClientError as error:
             if error.response['Error']['Code'] == "InvalidAddress.NotFound":
                 self.warn("public IP {} was deleted".format(self.public_ipv4))
+                return None
             else:
                 raise error
+        if len(response['Addresses']) == 0:
+            self.warn("public IP {} was deleted".format(self.public_ipv4))
+            return None
         return response['Addresses'][0]
 
     def destroy(self, wipe=False):
@@ -107,16 +111,17 @@ class ElasticIPState(nixops.resources.ResourceState):
             vpc = self.vpc
             self.connect(self.region)
             eip = self.describe_eip()
-            if 'AssociationId' in eip.keys():
-                self.log("disassociating elastic ip {0} with assocation ID {1}".format(
-                    eip['PublicIp'], eip['AssociationId']))
-                if vpc:
-                    self._client.disassociate_address(AssociationId=eip['AssociationId'])
-            self.log("releasing elastic IP {}".format(eip['PublicIp']))
-            if vpc == True:
-                self._client.release_address(AllocationId=eip['AllocationId'])
-            else:
-                self._client.release_address(PublicIp=eip['PublicIp'])
+            if eip is not None:
+                if 'AssociationId' in eip.keys():
+                    self.log("disassociating elastic ip {0} with assocation ID {1}".format(
+                        eip['PublicIp'], eip['AssociationId']))
+                    if vpc:
+                        self._client.disassociate_address(AssociationId=eip['AssociationId'])
+                self.log("releasing elastic IP {}".format(eip['PublicIp']))
+                if vpc == True:
+                    self._client.release_address(AllocationId=eip['AllocationId'])
+                else:
+                    self._client.release_address(PublicIp=eip['PublicIp'])
 
             with self.depl._db:
                 self.state = self.MISSING
