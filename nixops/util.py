@@ -163,7 +163,7 @@ def ping_tcp_port(host, port, timeout=1, ensure_timeout=False):
         except socket.timeout:
             # try next address
             continue
-        except (ConnectionError, OSError):
+        except EnvironmentError:
             # Reset, Refused, Aborted, No route to host
             if ensure_timeout: time.sleep(timeout)
             # continue with the next address

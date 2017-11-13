@@ -14,8 +14,8 @@ with lib;
 
   accessKey = mkOption {
     default = "";
-    example = "/path/to/secret/key.pem";
-    type = types.str;
+    example = ./key.pem;
+    type = types.either types.str types.path;
     description = ''
       The path to GCE Service Account key. If left empty, it defaults to the
       contents of the environment variable <envar>ACCESS_KEY_PATH</envar>.

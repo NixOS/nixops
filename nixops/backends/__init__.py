@@ -232,9 +232,15 @@ class MachineState(nixops.resources.ResourceState):
                 raise Exception("Neither 'text' or 'keyFile' options were set for key '{0}'.".format(k))
 
             outfile = destDir + "/" + k
+            # We scp to a temporary file and then mv because scp is not atomic.
+            # See https://github.com/NixOS/nixops/issues/762
+            tmp_outfile = destDir + "/." + k + ".tmp"
             outfile_esc = "'" + outfile.replace("'", r"'\''") + "'"
-            self.run_command("rm -f " + outfile_esc)
-            self.upload_file(tmp, outfile)
+            tmp_outfile_esc = "'" + tmp_outfile.replace("'", r"'\''") + "'"
+            self.run_command("rm -f " + outfile_esc + " " + tmp_outfile_esc)
+            self.upload_file(tmp, tmp_outfile)
+            # For permissions we use the temporary file as well, so that
+            # the final outfile will appear atomically with the right permissions.
             self.run_command(
               ' '.join([
                 # chown only if user and group exist,
@@ -248,12 +254,13 @@ class MachineState(nixops.resources.ResourceState):
                 "chmod '{3}' {0}",
               ])
               .format(
-                outfile_esc,
+                tmp_outfile_esc,
                 opts['user'],
                 opts['group'],
                 opts['permissions']
               )
             )
+            self.run_command("mv " + tmp_outfile_esc + " " + outfile_esc)
             os.remove(tmp)
         self.run_command("mkdir -m 0750 -p /run/keys && "
                          "chown root:keys  /run/keys && "

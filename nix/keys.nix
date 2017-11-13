@@ -250,7 +250,7 @@ in
           path = [ pkgs.inotifyTools ];
           preStart = ''
             (while read f; do if [ "$f" = "${name}" ]; then break; fi; done \
-              < <(inotifywait -qm --format '%f' -e create ${keyCfg.destDir}) ) &
+              < <(inotifywait -qm --format '%f' -e create,move ${keyCfg.destDir}) ) &
 
             if [[ -e "${keyCfg.path}" ]]; then
               echo 'flapped down'

@@ -1,11 +1,10 @@
 { nixopsSrc ? { outPath = ./.; revCount = 0; shortRev = "abcdef"; rev = "HEAD"; }
 , officialRelease ? false
+, nixpkgs ? <nixpkgs>
 }:
 
 let
-
-  pkgs = import <nixpkgs> { };
-
+  pkgs = import nixpkgs { };
   version = "1.6" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
 
 in
@@ -69,7 +68,7 @@ rec {
   };
 
   build = pkgs.lib.genAttrs [ "x86_64-linux" "i686-linux" "x86_64-darwin" ] (system:
-    with import <nixpkgs> { inherit system; };
+    with import nixpkgs { inherit system; };
 
     python2Packages.buildPythonPackage rec {
       name = "nixops-${version}";
