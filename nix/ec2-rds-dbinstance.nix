@@ -17,6 +17,14 @@ with lib;
       description = "Amazon RDS region.";
     };
 
+    multiAZ = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        If True, specifies the DB Instance will be deployed in multiple availability zones.
+      '';
+    };
+
     accessKeyId = mkOption {
       default = "";
       type = types.str;
