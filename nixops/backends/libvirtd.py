@@ -37,6 +37,9 @@ class LibvirtdDefinition(MachineDefinition):
         self.image_dir = x.find("attr[@name='imageDir']/string").get("value")
         assert self.image_dir is not None
         self.domain_type = x.find("attr[@name='domainType']/string").get("value")
+        self.kernel = x.find("attr[@name='kernel']/string").get("value")
+        self.initrd = x.find("attr[@name='initrd']/string").get("value")
+        self.cmdline = x.find("attr[@name='cmdline']/string").get("value")
 
         self.networks = [
             k.get("value")
@@ -163,14 +166,22 @@ class LibvirtdState(MachineState):
                 '    </interface>',
             ]).format(n)
 
+        def _make_os(defn):
+            return [
+                '<os>',
+                '    <type arch="x86_64">hvm</type>',
+                "    <kernel>%s</kernel>" % defn.kernel or '',
+                "    <initrd>%s</initrd>" % defn.initrd if len(defn.kernel) > 0 else "",
+                "    <cmdline>%s</cmdline>"% defn.cmdline if len(defn.kernel) > 0 else "",
+                '</os>']
+
+
         domain_fmt = "\n".join([
             '<domain type="{5}">',
             '  <name>{0}</name>',
             '  <memory unit="MiB">{1}</memory>',
             '  <vcpu>{4}</vcpu>',
-            '  <os>',
-            '    <type arch="x86_64">hvm</type>',
-            '  </os>',
+            '\n'.join(_make_os(defn)),
             '  <devices>',
             '    <emulator>{2}</emulator>',
             '    <disk type="file" device="disk">',
