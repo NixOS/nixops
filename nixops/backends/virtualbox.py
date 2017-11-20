@@ -286,6 +286,9 @@ class VirtualBoxState(MachineState):
                     self._logged_exec(["VBoxManage", "clonehd", base_image, disk_path, "--format", "VDI"])
                     if disk_def['size'] != 0:
                         self._logged_exec(["VBoxManage", "modifyhd", disk_path, "--resize", str(disk_def['size'])])
+                    else:
+                        # FIXME(br): check (cloned) disk size and reset disk_def['size']
+                        pass
                 else:
                     # Create an empty disk.
                     if disk_def['size'] <= 0:
@@ -316,8 +319,20 @@ class VirtualBoxState(MachineState):
                 disk_state['port'] = disk_def['port']
                 self._update_disk(disk_name, disk_state)
 
-        # FIXME: warn about changed disk attributes (like size).  Or
-        # even better, handle them (e.g. resize existing disks).
+            # Check and modify disk attributes
+            # FIXME: warn about other changed disk attributes (like port).  Or
+            # even better, handle them.
+            if 'size' not in disk_state:
+                # FIXME(br): Backward compat: force check and set disk_state['size']
+                # to checked size.
+                pass
+            if disk_state['size'] != disk_def['size']:
+                # FIXME(br): Resize if def > state (and force check to avoid
+                # accidental shrinkage)
+                self.warn("Declared size of disk {0} does not match current status"
+                    .format(disk_name))
+                self.warn("Declared: {0}. Recorded status: {1}"
+                    .format(disk_def['size'], disk_state['size']))
 
         # Destroy obsolete disks.
         for disk_name, disk_state in self.disks.items():
