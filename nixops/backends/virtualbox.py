@@ -291,10 +291,10 @@ class VirtualBoxState(MachineState):
                     if disk_def['size'] <= 0:
                         raise Exception("size of VirtualBox disk ‘{0}’ must be positive".format(disk_name))
                     self._logged_exec(["VBoxManage", "createhd", "--filename", disk_path, "--size", str(disk_def['size'])])
-                    disk_state['size'] = disk_def['size']
 
                 disk_state['created'] = True
                 disk_state['path'] = disk_path
+                disk_state['size'] = disk_def['size']
                 self._update_disk(disk_name, disk_state)
 
             if not disk_state.get('attached', False):
