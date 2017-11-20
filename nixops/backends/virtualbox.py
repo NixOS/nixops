@@ -108,7 +108,7 @@ class VirtualBoxState(MachineState):
         vminfo = {}
         for l in lines:
             (k, v) = l.split("=", 1)
-            vminfo[k] = v if v[0]!='"' else v[1:-1]
+            vminfo[k] = v if not len(v) or v[0]!='"' else v[1:-1]
         return vminfo
 
 
