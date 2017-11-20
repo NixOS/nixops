@@ -1,4 +1,4 @@
-{ module, revision ? "local" }:
+{ module, revision ? "local", nixpkgs ? <nixpkgs> }:
 
 let
 
