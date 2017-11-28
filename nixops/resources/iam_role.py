@@ -10,6 +10,13 @@ import nixops.resources
 import nixops.ec2_utils
 from xml.etree import ElementTree
 from pprint import pprint
+from boto.exception import BotoServerError
+
+class IamPermissionException(BotoServerError):
+    pass
+
+class IamNotFound(BotoServerError):
+    pass
 
 class IAMRoleDefinition(nixops.resources.ResourceDefinition):
     """Definition of an IAM Role."""
@@ -78,31 +85,59 @@ class IAMRoleState(nixops.resources.ResourceState):
         self.connect()
 
         try:
-            ip = self._conn.get_instance_profile(self.role_name)
             try:
+                # check for the existance
+                self._get_instance_profile(self.role_name)
+                self._get_role(self.role_name)
+                # sever the link
                 self._conn.remove_role_from_instance_profile(self.role_name, self.role_name)
-            except:
-                self.log("could not remove role from instance profile, perhaps it was already gone.")
+            except IamPermissionException as e:
+                self.log(str(e))
+                raise
+            except IamNotFound:
+                self.warn("instance profile already destroyed")
+            except BotoServerError as e:
+                if e.status == 404:
+                    self.warn("instance profile probably already removed from role")
+            except Exception as e:
+                self.log("error removing instance profile: " + str(e))
+                raise
 
             try:
                 self._conn.get_role_policy(self.role_name, self.role_name)
                 self.log("removing role policy")
                 self._conn.delete_role_policy(self.role_name, self.role_name)
-            except:
-                self.log("could not find role policy")
+            except IamPermissionException as e:
+                self.error(str(e))
+                raise
+            except IamNotFound:
+                self.warn("role policy already destroyed")
+            except Exception as e:
+                self.log("error removing role policy: " + str(e))
+                raise
 
             try:
-                self._conn.get_role(self.role_name)
+                self._get_role(self.role_name)
                 self.log("removing role")
                 self._conn.delete_role(self.role_name)
-            except:
-                self.log("could not find role")
+            except IamPermissionException:
+                raise
+            except IamNotFound:
+                self.warn("could not find role")
+            except Exception as e:
+                self.log("error removing role: " + str(e))
+                raise
 
             self.log("removing instance profile")
             self._conn.delete_instance_profile(self.role_name)
 
-        except:
-            self.log("could not find instance profile")
+        except IamPermissionException:
+            raise
+        except IamNotFound:
+            self.warn("instance profile already destroyed");
+        except Exception as e:
+            self.log(str(e))
+            raise
 
 
         with self.depl._db:
@@ -119,25 +154,49 @@ class IAMRoleState(nixops.resources.ResourceState):
                 isinstance(r, nixops.resources.s3_bucket.S3BucketState)}
 
 
-    def _get_instance_profile(self, name):
+    def _get_instance_profile(self, name, allow404 = True):
         try:
             return self._conn.get_instance_profile(name)
+        except BotoServerError as e:
+            if e.status == 403:
+                raise IamPermissionException(e.status, e.reason, body = e.body)
+            if e.status == 404:
+                if allow404:
+                    return False
+                else:
+                    raise IamNotFound(e.status, e.reason, body = e.body)
         except:
-            return
+            raise
 
 
-    def _get_role_policy(self, name):
+    def _get_role_policy(self, name, allow404 = True):
         try:
             return self._conn.get_role_policy(name, name)
+        except BotoServerError as e:
+            if e.status == 403:
+                raise IamPermissionException(e.status, e.reason, body = e.body)
+            if e.status == 404:
+                if allow404:
+                    return False
+                else:
+                    raise IamNotFound(e.status, e.reason, body = e.body)
         except:
-            return
+            raise
 
 
-    def _get_role(self, name):
+    def _get_role(self, name, allow404 = True):
         try:
             return self._conn.get_role(name)
+        except BotoServerError as e:
+            if e.status == 403:
+                raise IamPermissionException(e.status, e.reason, body = e.body)
+            if e.status == 404:
+                if allow404:
+                    return False
+                else:
+                    raise IamNotFound(e.status, e.reason, body = e.body)
         except:
-            return
+            raise
 
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -148,9 +207,9 @@ class IAMRoleState(nixops.resources.ResourceState):
 
         self.connect()
 
-        ip = self._get_instance_profile(defn.role_name)
-        rp = self._get_role_policy(defn.role_name)
-        r = self._get_role(defn.role_name)
+        ip = self._get_instance_profile(defn.role_name, True)
+        rp = self._get_role_policy(defn.role_name, True)
+        r = self._get_role(defn.role_name, True)
 
         if not r:
             self.log("creating IAM role ‘{0}’...".format(defn.role_name))
