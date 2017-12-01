@@ -162,7 +162,7 @@ class LibvirtdState(MachineState):
             '      <target dev="hda"/>',
             '    </disk>',
             '\n'.join([iface(n) for n in defn.networks]),
-            '    <graphics type="sdl" display=":0.0"/>' if not defn.headless else "",
+            '    <graphics type="vnc" port="-1" autoport="yes"/>' if not defn.headless else "",
             '    <input type="keyboard" bus="usb"/>',
             '    <input type="mouse" bus="usb"/>',
             defn.extra_devices,

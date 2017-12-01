@@ -1518,7 +1518,6 @@ and libvirtd specification <literal>example-libvirtd.nix</literal>:
 {
   example = {
     deployment.targetEnv = "libvirtd";
-    deployment.libvirtd.headless = true;
   };
 }
 </programlisting>
@@ -1532,13 +1531,20 @@ and libvirtd specification <literal>example-libvirtd.nix</literal>:
 </programlisting>
 </para>
 
-<warning>
-<para>Note that headless mode has to be turned ON for the moment in order to
-  avoid X permissions error currently
-  <link xlink:href="https://github.com/NixOS/nixops/issues/422">
-  known to be broken upstream</link>
-</para>
-</warning>
+
+<note>
+
+<title>Graphics Display and Console</title>
+<para>It's possible to connect a VNC viewer to the guest to see the
+graphics display (X11) or the framebuffer console.</para>
+
+<para>To do this, ensure the
+<literal>deployment.libvirtd.headless</literal> option is set to
+<literal>false</literal> (the default).  Then use the <literal>virsh
+vncdisplay</literal> command to get a VNC connection string to pass to
+your VNC viewer.</para>
+
+</note>
 
 <note>
 
