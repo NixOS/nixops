@@ -919,6 +919,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             # instance has been provisioned.
             self._cancel_spot_request()
         else: # not self.vm_id
+            pass
             #if defn.instance_profile.startswith("arn:") :
             #common_args['instance_profile_arn'] = defn.instance_profile
             #else:
