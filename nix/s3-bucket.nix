@@ -23,7 +23,7 @@ with lib;
     };
 
     arn = mkOption {
-      default = "arn:aws:s3:::${config.name}"; # FIXME: don't set a default
+      default = "arn:aws:s3:::${config.name}";
       type = types.str;
       description = "Amazon Resource Name (ARN) of the S3 bucket. This is set by NixOps.";
     };
@@ -33,6 +33,25 @@ with lib;
       default = "";
       description = "The JSON Policy string to apply to the bucket.";
     };
+
+    website.enabled = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Whether to serve the S3 bucket as public website.";
+    };
+
+    website.suffix = mkOption {
+      type = types.str;
+      default = "index.html";
+      description = "A suffix that is appended to a request that is for a directory on the website endpoint.";
+    };
+
+    website.errorDocument = mkOption {
+      type = types.str;
+      default = "";
+      description = "The S3 key to serve when response is an error.";
+    };
+
 
   };
 
