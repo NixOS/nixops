@@ -937,7 +937,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.warn("cannot change ebs optimized attribute of a running instance: use ‘--allow-reboot’")
         if defn.zone and self.zone != defn.zone:
             self.warn("cannot change availability zone of a running (from ‘{0}‘ to ‘{1}‘)".format(self.zone, defn.zone))
-        if set(defn.security_groups) != set(self.security_groups):
+        if not defn.subnet_id and not instance.subnet_id and set(defn.security_groups) != set(self.security_groups):
             self.warn(
                 'cannot change security groups of an existing instance (from [{0}] to [{1}])'.format(
                     ", ".join(set(self.security_groups)),
@@ -946,8 +946,12 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         instance = self._get_instance()
 
         instance_groups = [g.id for g in instance.groups]
-        new_instance_groups = self.security_groups_to_ids(defn.subnet_id, defn.security_group_ids)
-        if defn.subnet_id and instance.vpc_id and set(instance_groups) != set(new_instance_groups):
+        if defn.subnet_id:
+            new_instance_groups = self.security_groups_to_ids(defn.subnet_id, defn.security_group_ids)
+        else:
+            new_instance_groups = self.security_groups_to_ids(instance.subnet_id, defn.security_groups)
+
+        if instance.vpc_id and set(instance_groups) != set(new_instance_groups):
             self.log("updating security groups from {0} to {1}...".format(instance_groups, new_instance_groups))
             instance.modify_attribute("groupSet", new_instance_groups)
 
