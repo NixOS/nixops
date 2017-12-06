@@ -97,6 +97,9 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
         self._conn = nixops.ec2_utils.connect(self.region, self.access_key_id)
 
     def create(self, defn, check, allow_reboot, allow_recreate):
+        def retry_notfound(f):
+            nixops.ec2_utils.retry(f, error_codes=['InvalidGroup.NotFound'])
+
         # Name or region change means a completely new security group
         if self.security_group_name and (defn.security_group_name != self.security_group_name or defn.region != self.region):
             with self.depl._db:
@@ -178,7 +181,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                 grp = self.get_security_group()
             for rule in new_rules:
                 if len(rule) == 4:
-                    grp.authorize(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], cidr_ip=rule[3])
+                    retry_notfound(lambda: grp.authorize(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], cidr_ip=rule[3]))
                 else:
                     args = {}
                     args['owner_id']=rule[4]
@@ -187,7 +190,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                     else:
                         args['name']=rule[3]
                     src_group = boto.ec2.securitygroup.SecurityGroup(**args)
-                    grp.authorize(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], src_group=src_group)
+                    retry_notfound(lambda: grp.authorize(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], src_group=src_group))
 
         if old_rules:
             self.logger.log("removing old rules from EC2 security group ‘{0}’...".format(self.security_group_name))
