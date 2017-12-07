@@ -43,6 +43,34 @@ class CommandFailed(Exception):
         return "{0} (exit code {1})".format(self.message, self.exitcode)
 
 
+def poll_file_like_objects(objs, timeout=None, eventmask=None):
+    """
+    Like `select.select()`, but implemented using `poll()`.
+    Given `objs` must be a list of file-like objects that with
+    a `fileno()` method.
+
+    Like `select.select()` and unlike `select.poll()` it returns a
+    subset of the passed-in `objs`, instead of plain integer FDs,
+    and the `timeout` given is in seconds, not milliseconds.
+
+    Be aware that if `timeout` is smaller than a millisecond,
+    float-to-int conversion may round it down to 0.
+    """
+    fileno_obj_map = { f.fileno(): f for f in objs }
+    poller = select.poll()
+    for fileno in fileno_obj_map.keys():
+        # `register()` doesn't accept `eventmask` as a keyword arg
+        if eventmask is not None:
+            poller.register(fileno, eventmask)
+        else:
+            poller.register(fileno)
+    filenos_with_events = poller.poll(timeout * 1000)
+    return [ fileno_obj_map[fileno] for (fileno, event) in filenos_with_events ]
+
+
+READ_ONLY_POLL_MASK = select.POLLIN | select.POLLPRI | select.POLLHUP | select.POLLERR
+
+
 def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
                 stdin_string=None, env=None):
     """
@@ -95,7 +123,10 @@ def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
         # background but keep the parent's stdout/stderr open,
         # preventing an EOF.  FIXME: Would be better to catch
         # SIGCHLD.
-        (r, w, x) = select.select(fds, [], [], 1)
+
+        r = poll_file_like_objects(fds, timeout=1, # 1 second
+            eventmask=READ_ONLY_POLL_MASK)
+
         if len(r) == 0 and process.poll() is not None:
             break
         if capture_stdout and process.stdout in r:
