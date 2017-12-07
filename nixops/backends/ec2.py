@@ -930,6 +930,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if not self.virtualization_type:
             self.virtualization_type = self._get_instance().virtualization_type
 
+        instance = self._get_instance()
+
         # Warn about some EC2 options that we cannot update for an existing instance.
         if self.instance_type != defn.instance_type:
             self.warn("cannot change type of a running instance (from ‘{0}‘ to ‘{1}‘): use ‘--allow-reboot’".format(self.instance_type, defn.instance_type))
@@ -943,7 +945,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     ", ".join(set(self.security_groups)),
                     ", ".join(set(defn.security_groups)))
             )
-        instance = self._get_instance()
 
         instance_groups = [g.id for g in instance.groups]
         if defn.subnet_id:
