@@ -40,7 +40,7 @@ with import ./lib.nix lib;
     vpcId = mkOption {
       default = null;
       type = types.uniq (types.nullOr (types.either types.str (resource "vpc")));
-      apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type; 
+      apply = x: if (builtins.isString x || builtins.isNull x) then x else "res-" + x._name + "." + x._type;
       description = "The VPC ID to create security group in (default is not set, uses default VPC in EC2-VPC account, in EC2-Classic accounts no VPC is set).";
     };
 

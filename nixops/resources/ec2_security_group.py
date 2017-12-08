@@ -103,9 +103,10 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                 self.state = self.UNKNOWN
                 self.old_security_groups = self.old_security_groups + [{'name': self.security_group_name, 'region': self.region}]
 
-        if defn.vpc_id.startswith("res-"):
-            res = self.depl.get_typed_resource(defn.vpc_id[4:].split(".")[0], "vpc")
-            defn.vpc_id = res._state['vpcId']
+        if defn.vpc_id is not None:
+            if defn.vpc_id.startswith("res-"):
+                res = self.depl.get_typed_resource(defn.vpc_id[4:].split(".")[0], "vpc")
+                defn.vpc_id = res._state['vpcId']
 
         with self.depl._db:
             self.region = defn.region
