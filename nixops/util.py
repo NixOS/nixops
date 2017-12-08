@@ -216,7 +216,11 @@ def abs_nix_path(x):
     return xs[0] + '=' + _maybe_abspath(xs[1])
 
 
-undefined = object()
+class Undefined:
+    pass
+
+undefined = Undefined()
+
 
 def attr_property(name, default, type=str):
     """Define a property that corresponds to a value in the NixOps state file."""
