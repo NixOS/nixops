@@ -84,6 +84,7 @@ rec {
           boto3
           hetzner
           libcloud
+          libvirt
           azure-storage
           azure-mgmt-compute
           azure-mgmt-network
