@@ -104,7 +104,7 @@ class ContainerState(MachineState):
     def run_command(self, command, **kwargs):
         command = command.replace("'", r"'\''")
         return self.host_ssh.run_command(
-            "nixos-container run {0} -- bash --login -c 'HOME=/root {1}'".format(self.vm_id, command),
+            "nixos-container run {0} -- bash --login -c 'HOME=/root; {1}'".format(self.vm_id, command),
             **kwargs)
 
     def get_physical_spec(self):
@@ -119,6 +119,8 @@ class ContainerState(MachineState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, ContainerDefinition)
+
+        self.set_common_state(defn)
 
         if not self.client_private_key:
             (self.client_private_key, self.client_public_key) = nixops.util.create_key_pair()
@@ -184,6 +186,8 @@ class ContainerState(MachineState):
         self.log("starting container...")
         self.host_ssh.run_command("nixos-container start {0}".format(self.vm_id))
         self.state = self.STARTING
+        self.wait_for_ssh()
+        self.send_keys()
 
     def _check(self, res):
         if not self.vm_id:
