@@ -987,6 +987,7 @@ This terminates the Azure instances and deletes the alternative native load bala
 credentials = {
   subscriptionId = "00000000-0000-0000-0000-000000000000";
   authority = "https://login.windows.net/YOURDIRECTORYNAME.onmicrosoft.com";
+  # important: it's Microsoft email, like in this example, not your user email used to login/register azure account
   user = "user@YOURDIRECTORYNAME.onmicrosoft.com";
   password = "**********";
 };
@@ -1002,6 +1003,24 @@ credentials = {
   password = "**********";
 };
 </programlisting>
+
+To get Service Principal credentials:
+1. Go to "Azure Active Directory" (from left panel)
+2. (Manage section) "App registrations"
+3. "New application registration"
+4. Type application name (needed later), and random SignOnURL or RedirectURL
+5. Application ID is your Service Principal ID (nixops servicePrincipal)
+6. Click on your application
+7. "Keys"
+8. Add key name, expiration period and click "save", copy the generate key as "nixops password"
+9. Go to "Subscriptions" (from left panel)
+10. Select your subscription
+11. Select "Access control (IAM)"
+12. "Add"
+13. Select "role" (permissions that nixops needs)
+14. Next type application name you just created
+15. "Save"
+16. Profit?
   </para>
 
   <para>Authority URL can also be specified as
