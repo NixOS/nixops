@@ -45,7 +45,7 @@ class MachineState(nixops.resources.ResourceState):
     ssh_pinged = nixops.util.attr_property("sshPinged", False, bool)
     ssh_port = nixops.util.attr_property("targetPort", 22, int)
     public_vpn_key = nixops.util.attr_property("publicVpnKey", None)
-    store_keys_on_machine = nixops.util.attr_property("storeKeysOnMachine", True, bool)
+    store_keys_on_machine = nixops.util.attr_property("storeKeysOnMachine", False, bool)
     keys = nixops.util.attr_property("keys", {}, 'json')
     owners = nixops.util.attr_property("owners", [], 'json')
 
