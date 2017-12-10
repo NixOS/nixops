@@ -12,7 +12,7 @@ with lib;
 
     deployment.route53.accessKeyId = mkOption {
       default = "";
-      example = "AKIAIEMEJZVMPOHZWKZQ";
+      example = "AKIABOGUSACCESSKEY";
       type = types.str;
       description = ''
         The AWS Access Key ID.  If left empty, it defaults to the

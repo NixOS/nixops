@@ -304,8 +304,8 @@ cloud.</para>
     <literal>#</literal> are stripped.  An example:
 
 <programlisting>
-AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ dev # AWS development account
-AKIAEODJSLXMDLLJKDLW DLeodsk32kldlDLSKdflexfpgiklf130r4dl23qp prod # AWS production account
+AKIABOGUSACCESSKEY BOGUSSECRETACCESSKEY dev # AWS development account
+AKIABOGUSPRODACCESSKEY BOGUSPRODSECRETACCESSKEY prod # AWS production account
 </programlisting>
 
     The identifier can be used instead of actual Access Key IDs in
@@ -334,12 +334,12 @@ deployment.ec2.accessKeyId = "prod";
 
 <programlisting>
 [dev]
-aws_access_key_id = AKIAIUTDLWJKS.....DQ
-aws_secret_access_key = Grsjf37cDKKWndklek3jdxnSK............Dl/
+aws_access_key_id = AKIABOGUSACCESSKEY
+aws_secret_access_key = BOGUSSECRETACCESSKEY
 
 [prod]
-aws_access_key_id = AKIAEODJSLXMD.....LW
-aws_secret_access_key = DLeodsk32kldlDLSKdflexfpg............3qp
+aws_access_key_id = AKIABOGUSPRODACCESSKEY
+aws_secret_access_key = BOGUSPRODSECRETACCESSKEY
 </programlisting>
 
     Symbolic profile names are specified in
