@@ -4,6 +4,7 @@ from nixops.backends import MachineDefinition, MachineState
 import nixops.util
 import nixops.ssh_util
 import subprocess
+import time
 
 class ContainerDefinition(MachineDefinition):
     """Definition of a NixOS container."""
@@ -165,10 +166,34 @@ class ContainerState(MachineState):
         if not self.vm_id: return True
 
         if not self.depl.logger.confirm("are you sure you want to destroy NixOS container ‘{0}’?".format(self.name)): return False
+        self.log("destroying container...")
 
         nixops.known_hosts.remove(self.get_ssh_name(), self.public_host_key)
 
         self.host_ssh.run_command("nixos-container destroy {0}".format(self.vm_id))
+
+        # `nixos-container destroy` returns immediately and currently provides
+        # no way to block so we block ourselves until the container is gone.
+        self.log_start("waiting for container to be destroyed...")
+        while True:
+            # Relying on nixos-container internals here (it using `machinectl`)
+            # to check whether the container is gone; it would be nicer
+            # if nixos-container provided a blocking way to destroy.
+            # See https://github.com/NixOS/nixpkgs/issues/32545
+            # Also,this currently prints
+            #   Could not get path to machine: No machine '{vm_id}' known
+            # when the machine successfully disappears.
+            show_output_lines = self.host_ssh.run_command("machinectl show '{0}' --property State 2>&1".format(self.vm_id), check=False, capture_stdout=True).rstrip().splitlines()
+            # We expect 0 (machine doesn't exist) or 1 lines of output here.
+            if len(show_output_lines) > 1:
+                raise Exception("Unexpected machinectl output lines: {}".format(show_output_lines))
+            running = any([line for line in show_output_lines if line.startswith("State=")])
+            if not running:
+                # Machine has disappeared
+                break
+            self.log_continue(".")
+            time.sleep(1)
+        self.log_end(" done")
 
         return True
 
