@@ -455,7 +455,7 @@ This terminates the EC2 instances and deletes the EC2 key pair.</para>
   key to the file <filename>~/.ec2-keys</filename>, as follows:
 
 <programlisting>
-AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ dev # my AWS development account
+AKIABOGUSACCESSKEY BOGUSSECRETACCESSKEY dev # my AWS development account
 </programlisting>
 
   Here <literal>dev</literal> is a symbolic name for the AWS account,
@@ -467,8 +467,8 @@ AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ dev # my AWS devel
 
 <programlisting>
 [dev]
-aws_access_key_id = AKIAIUTDLWJKSLSJDLDQ
-aws_secret_access_key = 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
+aws_access_key_id = AKIABOGUSACCESSKEY
+aws_secret_access_key = BOGUSSECRETACCESSKEY
 </programlisting>
 
   Profile name <literal>dev</literal> is the same as a previously
