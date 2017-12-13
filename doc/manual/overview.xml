@@ -455,7 +455,7 @@ This terminates the EC2 instances and deletes the EC2 key pair.</para>
   key to the file <filename>~/.ec2-keys</filename>, as follows:
 
 <programlisting>
-AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ dev # my AWS development account
+AKIABOGUSACCESSKEY BOGUSSECRETACCESSKEY dev # my AWS development account
 </programlisting>
 
   Here <literal>dev</literal> is a symbolic name for the AWS account,
@@ -467,8 +467,8 @@ AKIAIUTDLWJKSLSJDLDQ Grsjf37cDKKWndklek3jdxnSKE3fkskDLqdldDl/ dev # my AWS devel
 
 <programlisting>
 [dev]
-aws_access_key_id = AKIAIUTDLWJKSLSJDLDQ
-aws_secret_access_key = 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
+aws_access_key_id = AKIABOGUSACCESSKEY
+aws_secret_access_key = BOGUSSECRETACCESSKEY
 </programlisting>
 
   Profile name <literal>dev</literal> is the same as a previously
@@ -987,6 +987,7 @@ This terminates the Azure instances and deletes the alternative native load bala
 credentials = {
   subscriptionId = "00000000-0000-0000-0000-000000000000";
   authority = "https://login.windows.net/YOURDIRECTORYNAME.onmicrosoft.com";
+  # important: it's Microsoft email, like in this example, not your user email used to login/register azure account
   user = "user@YOURDIRECTORYNAME.onmicrosoft.com";
   password = "**********";
 };
@@ -1002,6 +1003,24 @@ credentials = {
   password = "**********";
 };
 </programlisting>
+
+To get Service Principal credentials:
+1. Go to "Azure Active Directory" (from left panel)
+2. (Manage section) "App registrations"
+3. "New application registration"
+4. Type application name (needed later), and random SignOnURL or RedirectURL
+5. Application ID is your Service Principal ID (nixops servicePrincipal)
+6. Click on your application
+7. "Keys"
+8. Add key name, expiration period and click "save", copy the generate key as "nixops password"
+9. Go to "Subscriptions" (from left panel)
+10. Select your subscription
+11. Select "Access control (IAM)"
+12. "Add"
+13. Select "role" (permissions that nixops needs)
+14. Next type application name you just created
+15. "Save"
+16. Profit?
   </para>
 
   <para>Authority URL can also be specified as
@@ -1518,7 +1537,6 @@ and libvirtd specification <literal>example-libvirtd.nix</literal>:
 {
   example = {
     deployment.targetEnv = "libvirtd";
-    deployment.libvirtd.headless = true;
   };
 }
 </programlisting>
@@ -1532,13 +1550,20 @@ and libvirtd specification <literal>example-libvirtd.nix</literal>:
 </programlisting>
 </para>
 
-<warning>
-<para>Note that headless mode has to be turned ON for the moment in order to
-  avoid X permissions error currently
-  <link xlink:href="https://github.com/NixOS/nixops/issues/422">
-  known to be broken upstream</link>
-</para>
-</warning>
+
+<note>
+
+<title>Graphics Display and Console</title>
+<para>It's possible to connect a VNC viewer to the guest to see the
+graphics display (X11) or the framebuffer console.</para>
+
+<para>To do this, ensure the
+<literal>deployment.libvirtd.headless</literal> option is set to
+<literal>false</literal> (the default).  Then use the <literal>virsh
+vncdisplay</literal> command to get a VNC connection string to pass to
+your VNC viewer.</para>
+
+</note>
 
 <note>
 

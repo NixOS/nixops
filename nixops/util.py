@@ -80,6 +80,21 @@ def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
     # FIXME: this can deadlock if stdin_string doesn't fit in the
     # kernel pipe buffer.
     if stdin_string is not None:
+        # PIPE_BUF is not the size of the kernel pipe buffer (see
+        # https://unix.stackexchange.com/questions/11946/how-big-is-the-pipe-buffer)
+        # but if something fits in PIPE_BUF, it'll fit in the kernel pipe
+        # buffer.
+        # So we use PIPE_BUF as the threshold to emit a warning,
+        # so that if the deadlock described above does happen,
+        # the user at least knows what the cause is.
+        if len(stdin_string) > select.PIPE_BUF:
+            sys.stderr.write(
+                ("Warning: Feeding more than PIPE_BUF = {} bytes ({})" +
+                " via stdin to a subprocess. This may deadlock." +
+                " Please report it as a bug if you see it happen," +
+                " at https://github.com/NixOS/nixops/issues/800\n"
+                ).format(select.PIPE_BUF, len(stdin_string)))
+
         process.stdin.write(stdin_string)
         process.stdin.close()
 
@@ -216,7 +231,11 @@ def abs_nix_path(x):
     return xs[0] + '=' + _maybe_abspath(xs[1])
 
 
-undefined = object()
+class Undefined:
+    pass
+
+undefined = Undefined()
+
 
 def attr_property(name, default, type=str):
     """Define a property that corresponds to a value in the NixOps state file."""
