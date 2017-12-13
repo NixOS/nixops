@@ -132,7 +132,15 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
             'rds_dbinstance_instance_class', 'rds_dbinstance_db_name', 'rds_dbinstance_master_username',
             'rds_dbinstance_master_password', 'rds_dbinstance_allocated_storage')
 
-        return { attr : getattr(defn, attr) for attr in attrs if getattr(defn, attr) != getattr(self, attr) }
+        def get_state_attr(attr):
+            # handle boolean type in the state to avoid triggering false
+            # diffs
+            if attr == 'rds_dbinstance_multi_az':
+                return bool(getattr(self, attr))
+            else:
+                return getattr(self, attr)
+
+        return { attr : getattr(defn, attr) for attr in attrs if getattr(defn, attr) != get_state_attr(attr) }
 
     def _requires_reboot(self, defn):
         diff = self._diff_defn(defn)
