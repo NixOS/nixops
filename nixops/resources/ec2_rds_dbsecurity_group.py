@@ -63,20 +63,32 @@ class EC2RDSDbSecurityGroupState(nixops.resources.ResourceState):
             self.get_client().create_db_security_group(DBSecurityGroupName=defn.config['name'],
                     DBSecurityGroupDescription=defn.config['description'])
 
+        rules_to_remove = [r for r in self.rules if r not in defn.config['rules'] ]
+        rules_to_add = [r for r in defn.config['rules'] if r not in self.rules]
+
+        for rule in rules_to_remove:
+            kwargs = self.process_rule(rule)
+            self.get_client().revoke_db_security_group_ingress(**kwargs)
+
+        for rule in rules_to_add:
+            kwargs = self.process_rule(rule)
+            self.get_client().authorize_db_security_group_ingress(**kwargs)
+
         with self.depl._db:
             self.state = self.UP
             self.security_group_name = defn.config['name']
             self.security_group_description = defn.config['description']
+            self.rules = rules_to_add
 
     def process_rule(self, config):
         # FIXME do more checks before passing the args to the boto api call
         args = dict()
         args['DBSecurityGroupName'] = self.security_group_name
-        args['CIDRIP'] = config['cidrIp']
-        args['EC2SecurityGroupName'] = config['securityGroupName']
-        args['EC2SecurityGroupId'] = config['securityGroupId']
-        args['EC2SecurityGroupOwnerId'] = config['securityGroupOwnerId']
-        return args
+        args['CIDRIP'] = config.get('cidrIp', None)
+        args['EC2SecurityGroupName'] = config.get('securityGroupName', None)
+        args['EC2SecurityGroupId'] = config.get('securityGroupId', None)
+        args['EC2SecurityGroupOwnerId'] = config.get('securityGroupOwnerId', None)
+        return { attr : args[attr] for attr in args if args[attr] is not None }
 
     def destroy(self, wipe=True):
         if self.state != self.UP:
@@ -92,3 +104,4 @@ class EC2RDSDbSecurityGroupState(nixops.resources.ResourceState):
             self.state = self.MISSING
             self.security_group_name = None
             self.security_group_description = None
+            self.rules = None

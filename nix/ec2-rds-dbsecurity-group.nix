@@ -1,6 +1,7 @@
 { config, lib, uuid, name, ... }:
 
 with lib;
+with import ./lib.nix lib;
 
 {
 
@@ -34,7 +35,7 @@ with lib;
     rules = mkOption {
       default = [];
       type = with types; listOf (submodule {
-        options = mkOption {
+        options = {
           cidrIp = mkOption {
             type = types.nullOr types.str;
             default = null;
@@ -42,13 +43,13 @@ with lib;
 
           securityGroupName = mkOption {
             type = types.nullOr (types.either types.str (resource "ec2-security-group"));
-            apply = x: if (!x isString) then x.name else x;
+            apply = x: if (builtins.isString x || builtins.isNull x) then x else x.name;
             default = null;
           };
 
           securityGroupId = mkOption {
             type = types.nullOr (types.either types.str (resource "ec2-security-group"));
-            apply = x: if (!x isString) then x.groupId else x;
+            apply = x: if (builtins.isString x || builtins.isNull x) then x else x.groupId;
             default = null;
           };
 
