@@ -53,7 +53,7 @@ def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
     functionality as well.
 
     When calling with capture_stdout=True, a string is returned, which contains
-    everything the programm wrote to stdout.
+    everything the program wrote to stdout.
 
     When calling with check=False, the return code isn't checked and the
     function will return an integer which represents the return code of the
