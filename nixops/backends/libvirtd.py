@@ -170,7 +170,7 @@ class LibvirtdState(MachineState):
             return [
                 '<os>',
                 '    <type arch="x86_64">hvm</type>',
-                "    <kernel>%s</kernel>" % defn.kernel or '',
+                "    <kernel>%s</kernel>" % defn.kernel,
                 "    <initrd>%s</initrd>" % defn.initrd if len(defn.kernel) > 0 else "",
                 "    <cmdline>%s</cmdline>"% defn.cmdline if len(defn.kernel) > 0 else "",
                 '</os>']
