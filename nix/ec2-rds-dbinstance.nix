@@ -80,6 +80,15 @@ with lib;
       description = "The endpoint address of the database instance.  This is set by NixOps.";
     };
 
+    securityGroups = mkOption {
+      default = [];
+      type = types.listOf (types.either types.str (resource "ec2-rds-dbsecuritygroup"));
+      apply = map (x: if builtins.isString x then x else "res-" + x.name);
+      description = ''
+        List of names of DBSecurityGroup to authorize on this DBInstance.
+      '';
+    };
+
   };
 
   config._type = "ec2-rds-dbinstance";

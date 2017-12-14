@@ -43,13 +43,13 @@ with import ./lib.nix lib;
 
           securityGroupName = mkOption {
             type = types.nullOr (types.either types.str (resource "ec2-security-group"));
-            apply = x: if (builtins.isString x || builtins.isNull x) then x else x.name;
+            apply = x: if (builtins.isString x || builtins.isNull x) then x else "res-" + x.name;
             default = null;
           };
 
           securityGroupId = mkOption {
             type = types.nullOr (types.either types.str (resource "ec2-security-group"));
-            apply = x: if (builtins.isString x || builtins.isNull x) then x else x.groupId;
+            apply = x: if (builtins.isString x || builtins.isNull x) then x else "res-" + x.groupId;
             default = null;
           };
 

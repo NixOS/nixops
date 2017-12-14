@@ -93,7 +93,6 @@ class EC2RDSDbSecurityGroupState(nixops.resources.ResourceState):
     def destroy(self, wipe=True):
         if self.state != self.UP:
             return True
-
         self.log("destroying rds db security group {}".format(self.security_group_name))
         try:
             self.get_client().delete_db_security_group(DBSecurityGroupName=self.security_group_name)
