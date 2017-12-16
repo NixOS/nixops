@@ -24,7 +24,6 @@ class Route53RecordSetDefinition(nixops.resources.ResourceDefinition):
 
     def __init__(self, xml):
         nixops.resources.ResourceDefinition.__init__(self, xml)
-        self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
 
 
@@ -52,15 +51,14 @@ class Route53RecordSetState(nixops.resources.ResourceState):
     """State of a Route53 Recordset."""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
-    region = nixops.util.attr_property("ec2.region", None)
-    access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
+    access_key_id = nixops.util.attr_property("route53.accessKeyId", None)
 
-    zone_id = nixops.util.attr_property("ec2.zoneId", None)
-    zone_name = nixops.util.attr_property("ec2.zoneName", None)
-    domain_name = nixops.util.attr_property("ec2.domainName", None)
-    ttl = nixops.util.attr_property("ec2.ttl", None)
-    record_type = nixops.util.attr_property("ec2.recordType", None)
-    record_value = nixops.util.attr_property("ec2.recordValue", None)
+    zone_id = nixops.util.attr_property("route53.zoneId", None)
+    zone_name = nixops.util.attr_property("route53.zoneName", None)
+    domain_name = nixops.util.attr_property("route53.domainName", None)
+    ttl = nixops.util.attr_property("route53.ttl", None)
+    record_type = nixops.util.attr_property("route53.recordType", None)
+    record_value = nixops.util.attr_property("route53.recordValue", None)
 
     @classmethod
     def get_type(cls):
@@ -69,12 +67,6 @@ class Route53RecordSetState(nixops.resources.ResourceState):
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._boto_session = None
-
-
-    def show_type(self):
-        s = super(Route53RecordSetState, self).show_type()
-        if self.region: s = "{0} [{1}]".format(s, self.domain_name)
-        return s
 
 
     @property
@@ -87,7 +79,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
     def boto_session(self):
         if self._boto_session is None:
             (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-            self._boto_session = boto3.session.Session(region_name=self.region if self.region != "US" else "us-east-1",
+            self._boto_session = boto3.session.Session(
                                                aws_access_key_id=access_key_id,
                                                aws_secret_access_key=secret_access_key)
         return self._boto_session

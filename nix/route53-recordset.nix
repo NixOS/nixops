@@ -12,11 +12,6 @@ with lib;
       description = "Name of the recordset.";
     };
 
-    region = mkOption {
-      type = types.str;
-      description = "AWS region.";
-    };
-
     accessKeyId = mkOption {
       type = types.str;
       description = ''
