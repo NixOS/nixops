@@ -34,7 +34,7 @@
           echo '[]' > nixpkgs-commit-stats.json
           touch blogs.xml
           echo '[]' > blogs.json
-          cp ${../nix/ec2-amis.nix} nixos/amis.nix
+          cp ${<nixpkgs/nixos/modules/virtualisation/ec2-amis.nix>} nixos/amis.nix
           ln -s ${nix}/share/doc/nix/manual nix/manual-raw
           ln -s ${config.system.build.manual.manual}/share/doc/nixos nixos/manual-raw
           ln -s ${(import ../release.nix {}).build.x86_64-linux}/share/doc/nixops nixops/manual-raw
