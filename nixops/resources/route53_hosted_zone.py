@@ -42,7 +42,7 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
     zone_id = nixops.util.attr_property("route53.zoneId", None)
     zone_name = nixops.util.attr_property("route53.zoneName", None)
-    private_zone = nixops.util.attr_property("route53.privateZone", None)
+    private_zone = nixops.util.attr_property("route53.privateZone", False)
     comment = nixops.util.attr_property('route53.comment', None)
 
     @classmethod
