@@ -42,14 +42,12 @@ with import ./lib.nix lib;
           };
 
           securityGroupName = mkOption {
-            type = types.nullOr (types.either types.str (resource "ec2-security-group"));
-            apply = x: if (builtins.isString x || builtins.isNull x) then x else "res-" + x.name;
+            type = types.nullOr types.str;
             default = null;
           };
 
           securityGroupId = mkOption {
-            type = types.nullOr (types.either types.str (resource "ec2-security-group"));
-            apply = x: if (builtins.isString x || builtins.isNull x) then x else "res-" + x.groupId;
+            type = types.nullOr types.str;
             default = null;
           };
 
