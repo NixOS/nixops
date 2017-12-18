@@ -59,9 +59,14 @@ class EC2RDSDbSecurityGroupState(nixops.resources.ResourceState):
         self.region  = defn.config["region"]
 
         if self.state == self.MISSING:
-            self.log("creating rds db security group {}".format(self.security_group_name))
+            self.log("creating rds db security group {}".format(defn.config['name']))
             self.get_client().create_db_security_group(DBSecurityGroupName=defn.config['name'],
                     DBSecurityGroupDescription=defn.config['description'])
+
+            with self.depl._db:
+                self.state = self.UP
+                self.security_group_name = defn.config['name']
+                self.security_group_description = defn.config['description']
 
         rules_to_remove = [r for r in self.rules if r not in defn.config['rules'] ]
         rules_to_add = [r for r in defn.config['rules'] if r not in self.rules]
@@ -75,10 +80,7 @@ class EC2RDSDbSecurityGroupState(nixops.resources.ResourceState):
             self.get_client().authorize_db_security_group_ingress(**kwargs)
 
         with self.depl._db:
-            self.state = self.UP
-            self.security_group_name = defn.config['name']
-            self.security_group_description = defn.config['description']
-            self.rules = rules_to_add
+            self.rules = defn.config['rules']
 
     def process_rule(self, config):
         # FIXME do more checks before passing the args to the boto api call
@@ -104,3 +106,4 @@ class EC2RDSDbSecurityGroupState(nixops.resources.ResourceState):
             self.security_group_name = None
             self.security_group_description = None
             self.rules = None
+        return True

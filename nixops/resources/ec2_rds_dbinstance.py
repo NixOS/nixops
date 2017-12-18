@@ -32,6 +32,11 @@ class EC2RDSDbInstanceDefinition(nixops.resources.ResourceDefinition):
         self.rds_dbinstance_engine = xml.find("attrs/attr[@name='engine']/string").get("value")
         self.rds_dbinstance_db_name = xml.find("attrs/attr[@name='dbName']/string").get("value")
         self.rds_dbinstance_multi_az = xml.find("attrs/attr[@name='multiAZ']/bool").get("value") == "true"
+        self.rds_dbinstance_security_groups = []
+        for sg in xml.findall("attrs/attr[@name='securityGroups']/list"):
+            for sg_str in sg.findall("string"):
+               sg_name =  sg_str.get("value")
+               self.rds_dbinstance_security_groups.append(sg_name)
         # TODO: implement remainder of boto.rds.RDSConnection.create_dbinstance parameters
 
         # common params
@@ -56,6 +61,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
     rds_dbinstance_db_name = nixops.util.attr_property("ec2.rdsDbName", None)
     rds_dbinstance_endpoint = nixops.util.attr_property("ec2.rdsEndpoint", None)
     rds_dbinstance_multi_az = nixops.util.attr_property("ec2.multiAZ", False)
+    rds_dbinstance_security_groups = nixops.util.attr_property("ec2.securityGroups", [], "json")
 
     requires_reboot_attrs = ('rds_dbinstance_id', 'rds_dbinstance_allocated_storage',
         'rds_dbinstance_instance_class', 'rds_dbinstance_master_password')
@@ -130,7 +136,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
     def _diff_defn(self, defn):
         attrs = ('region', 'rds_dbinstance_port', 'rds_dbinstance_engine', 'rds_dbinstance_multi_az',
             'rds_dbinstance_instance_class', 'rds_dbinstance_db_name', 'rds_dbinstance_master_username',
-            'rds_dbinstance_master_password', 'rds_dbinstance_allocated_storage')
+            'rds_dbinstance_master_password', 'rds_dbinstance_allocated_storage', 'rds_dbinstance_security_groups')
 
         def get_state_attr(attr):
             # handle boolean type in the state to avoid triggering false
@@ -157,7 +163,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 break
             time.sleep(6)
 
-    def _copy_dbinstance_attrs(self, dbinstance):
+    def _copy_dbinstance_attrs(self, dbinstance, security_groups):
         with self.depl._db:
             self.rds_dbinstance_id = dbinstance.id
             self.rds_dbinstance_allocated_storage = int(dbinstance.allocated_storage)
@@ -167,13 +173,15 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
             self.rds_dbinstance_multi_az = dbinstance.multi_az
             self.rds_dbinstance_port = int(dbinstance.endpoint[1])
             self.rds_dbinstance_endpoint = "%s:%d"% dbinstance.endpoint
+            self.rds_dbinstance_security_groups = security_groups
 
     def _to_boto_kwargs(self, attrs):
         attr_to_kwarg = {
             'rds_dbinstance_allocated_storage': 'allocated_storage',
             'rds_dbinstance_master_password': 'master_password',
             'rds_dbinstance_instance_class': 'instance_class',
-            'rds_dbinstance_multi_az': 'multi_az'
+            'rds_dbinstance_multi_az': 'multi_az',
+            'rds_dbinstance_security_groups': 'security_groups'
         }
         return { attr_to_kwarg[attr] : attrs[attr] for attr in attrs.keys() }
 
@@ -233,7 +241,8 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                         defn.rds_dbinstance_allocated_storage, defn.rds_dbinstance_instance_class,
                         defn.rds_dbinstance_master_username, defn.rds_dbinstance_master_password,
                         port=defn.rds_dbinstance_port, engine=defn.rds_dbinstance_engine,
-                        db_name=defn.rds_dbinstance_db_name, multi_az=defn.rds_dbinstance_multi_az)
+                        db_name=defn.rds_dbinstance_db_name, multi_az=defn.rds_dbinstance_multi_az,
+                        security_groups=defn.rds_dbinstance_security_groups)
 
                     self.state = self.STARTING
                     self._wait_for_dbinstance(dbinstance)
@@ -242,7 +251,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
                 self.rds_dbinstance_db_name = defn.rds_dbinstance_db_name
                 self.rds_dbinstance_master_password = defn.rds_dbinstance_master_password
-                self._copy_dbinstance_attrs(dbinstance)
+                self._copy_dbinstance_attrs(dbinstance, defn.rds_dbinstance_security_groups)
                 self.state = self.UP
 
         with self.depl._db:
@@ -266,9 +275,13 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 # first check is for the unlikely event we attempt to modify the db during its maintenance window
                 self._wait_for_dbinstance(dbinstance)
                 dbinstance = dbinstance.modify(**boto_kwargs)
-                self._wait_for_dbinstance(dbinstance, state="modifying")
+                # Ugly hack to prevent from waiting on state
+                # 'modifying' on sg change as that looks like it's an
+                # immediate change in RDS.
+                if not (len(boto_kwargs) == 2 and 'security_groups' in boto_kwargs):
+                    self._wait_for_dbinstance(dbinstance, state="modifying")
                 self._wait_for_dbinstance(dbinstance)
-                self._copy_dbinstance_attrs(dbinstance)
+                self._copy_dbinstance_attrs(dbinstance, defn.rds_dbinstance_security_groups)
 
 
     def after_activation(self, defn):

@@ -81,7 +81,7 @@ with lib;
     };
 
     securityGroups = mkOption {
-      default = [];
+      default = [ "default" ];
       type = types.listOf (types.either types.str (resource "ec2-rds-dbsecuritygroup"));
       apply = map (x: if builtins.isString x then x else "res-" + x.name);
       description = ''
