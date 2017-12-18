@@ -65,4 +65,8 @@ with lib;
     };
 
   };
+
+  config = {
+    _type = "route53-hosted-zone";
+  };
 }

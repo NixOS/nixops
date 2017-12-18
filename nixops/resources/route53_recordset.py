@@ -24,8 +24,7 @@ class Route53RecordSetDefinition(nixops.resources.ResourceDefinition):
 
     def __init__(self, xml, config):
         nixops.resources.ResourceDefinition.__init__(self, xml)
-        self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
-
+        self.access_key_id = config["accessKeyId"]
 
         self.zone_id = config["zoneId"]
 
@@ -100,10 +99,15 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             if defn.zone_id is None:
                 raise Exception("Neither zoneName nor zoneId is set for Route 53 Recordset '{0}'".format(defn.domain_name))
             else:
+                if zone_id.startswith("res-"):
+                    hs = self.depl.get_typed_resource(zone_id[4:], "aws-route53-hosted-zone")
+                    if not hs.zone_id:
+                        raise Exception("cannot create record set in not-yet created hosted zone: ‘{0}’". format(defn.domain_name))
+                    zone_id = hs.zone_id
+
                 # We have a zoneId, look up the zoneName
-                hosted_zone = client.get_hosted_zone(Id = defn.zone_id)
-                zone_name = hosted_zone["HostedZone"]["Name"]
-                None
+                hosted_zone = client.get_hosted_zone(Id = zone_id)
+                zone_name = hosted_zone["HostedZone"]["Name"][:-1]
         else:
             if defn.zone_id is not None:
                 raise Exception("Both zoneName and zoneId are set for Route 53 Recordset '{0}'".format(defn.domain_name))
@@ -167,7 +171,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
                                 'Name': self.domain_name,
                                 'Type': self.record_type,
                                 'TTL': int(self.ttl),
-                                'ResourceRecords': map(lambda rv: { 'Value': self.record_values }, self.record_values)
+                                'ResourceRecords': map(lambda rv: { 'Value': rv }, self.record_values)
                             }
                         },
                     ]
@@ -175,4 +179,8 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             )
             with self.depl._db:
                 self.state = self.MISSING
+
+    def create_after(self, resources, defn):
+        return {r for r in resources if
+                isinstance(r, nixops.resources.route53_hosted_zone.Route53HostedZoneState)}
 
