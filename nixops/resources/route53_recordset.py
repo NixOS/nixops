@@ -117,16 +117,17 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             else:
                 # We have the zoneName, find the zoneId
                 response = client.list_hosted_zones_by_name(DNSName=defn.zone_name)
-                zone = filter((lambda zone: zone["Name"] == defn.zone_name), response["HostedZones"])[0]
-                if zone is None:
+                zones = filter((lambda zone: zone["Name"] == defn.zone_name), response["HostedZones"])
+                if len(zones) == 0:
                     raise Exception("Can't find zone id")
+                elif len(zones) > 1:
+                    raise Exception("Found more than one hosted zone for {}.".format(defn.zone_name))
                 else:
-                    zone_id = zone["Id"]
+                    zone_id = zones[0]["Id"]
 
         # zone name should be suffix of the dns name, if the zone name is set.
         if not defn.domain_name.endswith(zone_name):
             raise Exception("The domain name '{0}' does not end in the zone name '{1}'. You have to specify the FQDN for the zone name.".format(defn.domain_name, self.zone_name))
-
 
         # Don't care about the state for now. We'll just upsert!
         # TODO: Copy properties_changed function used in GCE/Azure's
