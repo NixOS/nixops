@@ -2,13 +2,13 @@
 
 # Automatic provisioning of AWS Route53 RecordSets.
 
+import os
 import time
 import botocore
 import boto3
 import nixops.util
 import nixops.resources
 import nixops.ec2_utils
-
 #boto3.set_stream_logger(name='botocore')
 
 class Route53RecordSetDefinition(nixops.resources.ResourceDefinition):
@@ -22,26 +22,19 @@ class Route53RecordSetDefinition(nixops.resources.ResourceDefinition):
     def get_resource_type(cls):
         return "route53RecordSets"
 
-    def __init__(self, xml):
+    def __init__(self, xml, config):
         nixops.resources.ResourceDefinition.__init__(self, xml)
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
 
 
-        def getOptionalXmlAttr(xml_doc, attrName):
-            node = xml_doc.find("attrs/attr[@name='{0}']/string".format(attrName))
-            if node is None:
-                return None
-            else:
-                return node.get("value")
+        self.zone_id = config["zoneId"]
 
-        self.zone_id = getOptionalXmlAttr(xml, "zoneId")
+        self.zone_name = config["zoneName"]
+        self.domain_name = config["domainName"]
 
-        self.zone_name = getOptionalXmlAttr(xml, "zoneName")
-        self.domain_name = getOptionalXmlAttr(xml, "domainName")
-
-        self.ttl = int(xml.find("attrs/attr[@name='ttl']/int").get("value"))
-        self.record_type = xml.find("attrs/attr[@name='recordType']/string").get("value")
-        self.record_value = xml.find("attrs/attr[@name='recordValue']/string").get("value")
+        self.ttl = config["ttl"]
+        self.record_type = config["recordType"]
+        self.record_values = config["recordValues"]
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.domain_name)
@@ -58,7 +51,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
     domain_name = nixops.util.attr_property("route53.domainName", None)
     ttl = nixops.util.attr_property("route53.ttl", None)
     record_type = nixops.util.attr_property("route53.recordType", None)
-    record_value = nixops.util.attr_property("route53.recordValue", None)
+    record_values = nixops.util.attr_property("route53.recordValues", None, 'json')
 
     @classmethod
     def get_type(cls):
@@ -86,8 +79,8 @@ class Route53RecordSetState(nixops.resources.ResourceState):
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
-        if not self.access_key_id:
-            raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
+        if not (self.access_key_id or os.environ['AWS_ACCESS_KEY_ID']):
+             raise Exception("please set ‘accessKeyId’ or $AWS_ACCESS_KEY_ID")
 
         # Sanity checks for configuration
         if defn.domain_name is None:
@@ -117,11 +110,11 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             else:
                 # We have the zoneName, find the zoneId
                 response = client.list_hosted_zones_by_name(DNSName=defn.zone_name)
-                zones = filter((lambda zone: zone["Name"] == defn.zone_name), response["HostedZones"])
+                zones = filter((lambda zone: zone["Name"] == defn.zone_name + "."), response["HostedZones"])
                 if len(zones) == 0:
                     raise Exception("Can't find zone id")
                 elif len(zones) > 1:
-                    raise Exception("Found more than one hosted zone for {}.".format(defn.zone_name))
+                    raise Exception("Found more than one hosted zone for {}, please remove one, or define the zone ID explicitly.".format(defn.zone_name))
                 else:
                     zone_id = zones[0]["Id"]
 
@@ -142,11 +135,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
                             'Name': defn.domain_name,
                             'Type': defn.record_type,
                             'TTL': defn.ttl,
-                            'ResourceRecords': [
-                                {
-                                    'Value': defn.record_value
-                                },
-                            ]
+                            'ResourceRecords': map(lambda rv: { 'Value': rv }, defn.record_values)
                         }
                     },
                 ]
@@ -159,7 +148,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             self.zone_id = zone_id
             self.domain_name = defn.domain_name
             self.record_type = defn.record_type
-            self.record_value = defn.record_value
+            self.record_values = defn.record_values
             self.ttl = defn.ttl
 
         return True
@@ -178,11 +167,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
                                 'Name': self.domain_name,
                                 'Type': self.record_type,
                                 'TTL': int(self.ttl),
-                                'ResourceRecords': [
-                                    {
-                                        'Value': self.record_value
-                                    },
-                                ]
+                                'ResourceRecords': map(lambda rv: { 'Value': self.record_values }, self.record_values)
                             }
                         },
                     ]

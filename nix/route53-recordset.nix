@@ -69,8 +69,8 @@ with lib;
       '';
     };
 
-    recordValue = mkOption {
-      type = types.str;
+    recordValues = mkOption {
+      type = types.listOf types.str;
 
       description = ''
         The value of the DNS record 
