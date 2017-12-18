@@ -90,7 +90,8 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         return self.rds_dbinstance_id
 
     def create_after(self, resources, defn):
-        return {}
+        return {r for r in resources if
+                isinstance(r, nixops.resources.ec2_rds_dbsecurity_group.EC2RDSDbSecurityGroupState)}
 
     def _connect(self):
         if self._conn: return
@@ -146,7 +147,13 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
             else:
                 return getattr(self, attr)
 
-        return { attr : getattr(defn, attr) for attr in attrs if getattr(defn, attr) != get_state_attr(attr) }
+        def get_defn_attr(attr):
+            if attr == 'rds_dbinstance_security_groups':
+                return self.fetch_security_group_resources(defn.rds_dbinstance_security_groups)
+            else:
+                return getattr(defn, attr)
+
+        return { attr : get_defn_attr(attr) for attr in attrs if get_defn_attr(attr) != get_state_attr(attr) }
 
     def _requires_reboot(self, defn):
         diff = self._diff_defn(defn)
@@ -188,6 +195,16 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
     def _compare_instance_id(self, instance_id):
         # take care when comparing instance ids, as aws lowercases and converts to unicode
         return unicode(self.rds_dbinstance_id).lower() == unicode(instance_id).lower()
+
+    def fetch_security_group_resources(self, config):
+        security_groups = []
+        for sg in config:
+            if sg.startswith("res-"):
+                res = self.depl.get_typed_resource(sg[4:].split(".")[0], "ec2-rds-dbsecurity-group")
+                security_groups.append(res.security_group_name)
+            else:
+                security_groups.append(sg)
+        return security_groups
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         with self.depl._db:
@@ -237,12 +254,13 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 if not dbinstance and (self.state == self.MISSING or self.state == self.UNKNOWN):
                     self.logger.log("creating RDS database instance ‘{0}’ (this may take a while)...".format(defn.rds_dbinstance_id))
                     # create a new dbinstance with desired config
+                    security_groups = self.fetch_security_group_resources(defn.rds_dbinstance_security_groups)
                     dbinstance = self._conn.create_dbinstance(defn.rds_dbinstance_id,
                         defn.rds_dbinstance_allocated_storage, defn.rds_dbinstance_instance_class,
                         defn.rds_dbinstance_master_username, defn.rds_dbinstance_master_password,
                         port=defn.rds_dbinstance_port, engine=defn.rds_dbinstance_engine,
                         db_name=defn.rds_dbinstance_db_name, multi_az=defn.rds_dbinstance_multi_az,
-                        security_groups=defn.rds_dbinstance_security_groups)
+                        security_groups=security_groups)
 
                     self.state = self.STARTING
                     self._wait_for_dbinstance(dbinstance)
