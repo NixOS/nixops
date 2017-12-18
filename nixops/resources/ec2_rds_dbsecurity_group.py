@@ -99,7 +99,10 @@ class EC2RDSDbSecurityGroupState(nixops.resources.ResourceState):
         try:
             self.get_client().delete_db_security_group(DBSecurityGroupName=self.security_group_name)
         except botocore.exceptions.ClientError as error:
-            raise error
+            if error.response['Error']['Code'] == 'DBSecurityGroupNotFound':
+                self.warn("rds security group {} already deleted".format(self.security_group_name))
+            else:
+                raise error
 
         with self.depl._db:
             self.state = self.MISSING
