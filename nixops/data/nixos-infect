@@ -1,53 +1,12 @@
 #! /usr/bin/env bash
 
-# Use Digital Ocean Droplet image:
-#
-#     Fedora 24 x64
-#     Ubuntu 16.04 x64
-#     Debian 8.5 x64
-#
-# YMMV with any other hoster + image combination.
+# More info at: https://github.com/elitak/nixos-infect
 
-# nixos-infect is so named because of the high likelihood of rendering a system
-# inoperable. Use with caution and preferably only on newly-provisioned
-# systems.
-#
-# WARNING NB This script wipes out the targeted host's root filesystem when it
-# runs to completion. Any errors halt execution. set -x is used to help debug,
-# as often a failed run leaves the system in an inconsistent state, requiring a
-# rebuild (in DigitalOcean panel: Droplet Settings -> "Destroy" -> "Rebuild
-# from original").
-#
-# TO USE:
-#  - Add any custom config you want (see notes below)
-#  - Deploy the droplet indicated at the top of the file, enable ipv6, add your ssh key
-#  - cat customConfig.optional nixos-infect | ssh root@targethost
-#
-# Alternatively, use the user data mechamism by supplying the following lines (without >)
-# in the Digital Ocean Web UI (or HTTP API):
-#
-# > #cloud-config
-# >
-# > runcmd:
-# >   - curl https://raw.githubusercontent.com/elitak/nixos-infect/master/nixos-infect | bash 2>&1 | tee /tmp/infect.log
-#
-# Potential tweaks:
-#  /etc/nixos/{,hardware-}configuration.nix : rudimentary mostly static config
-#  /etc/nixos/networking.nix, networking settings determined at runtime
-#    tweak if no ipv6, different number of adapters, etc.
-#
-# Motivation for this script: nixos-assimilate should supplant this script
-# entirely, if it's ever completed. nixos-in-place was quite broken when I
-# tried it, and also took a pretty janky approach that was substantially more
-# complex than this (although it supported more platforms): it didn't install
-# to root (/nixos instead), left dregs of the old filesystem (almost always
-# unnecessary since starting from a fresh deployment), and most importantly,
-# simply didn't work for me! (old system was being because grub wasnt properly
-# reinstalled)
-
-set -ex
+set -e -o pipefail
 
 makeConf() {
+  # Skip everything if main config already present
+  [[ -e /etc/nixos/configuration.nix ]] && return 0
   # NB <<"EOF" quotes / $ ` in heredocs, <<EOF does not
   mkdir -p /etc/nixos
   local IFS=$'\n'; keys=($(grep -vE '^[[:space:]]*(#|$)' /root/.ssh/authorized_keys))
@@ -56,36 +15,57 @@ makeConf() {
   imports = [
     ./hardware-configuration.nix
     ./networking.nix # generated at runtime by nixos-infect
+    $NIXOS_IMPORT
   ];
 
   boot.cleanTmpDir = true;
   networking.hostName = "$(hostname)";
   networking.firewall.allowPing = true;
   services.openssh.enable = true;
-  users.users.root.openssh.authorizedKeys.keys = [$(for key in ${keys[@]}; do echo -n "
+  users.users.root.openssh.authorizedKeys.keys = [$(for key in "${keys[@]}"; do echo -n "
     \"$key\""; done)
   ];
 }
 EOF
-  # (nixos-generate-config will add qemu-user and bind-mounts, so avoid)
+  # If you rerun this later, be sure to prune the filesSystems attr
   cat > /etc/nixos/hardware-configuration.nix << EOF
 { ... }:
 {
   imports = [ <nixpkgs/nixos/modules/profiles/qemu-guest.nix> ];
-  boot.loader.grub.device = "/dev/vda";
-  fileSystems."/" = { device = "/dev/vda1"; fsType = "ext4"; };
+  boot.loader.grub.device = "/dev/$disk";
+  fileSystems."/" = { device = "/dev/${disk}1"; fsType = "ext4"; };
 }
 EOF
-
+  
+  # XXX It'd be better if we used procfs for all this...
   local IFS=$'\n'
-  enp0s3_ip4s=($(ip address show dev eth0 | grep 'inet '          | sed -r 's|.*inet ([0-9.]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
-  enp0s3_ip6s=($(ip address show dev eth0 | grep 'inet6 .*global' | sed -r 's|.*inet6 ([0-9a-f:]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
-  enp0s4_ip4s=($(ip address show dev eth1 | grep 'inet '          | sed -r 's|.*inet ([0-9.]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
-  enp0s4_ip6s=($(ip address show dev eth1 | grep 'inet6 .*global' | sed -r 's|.*inet6 ([0-9a-f:]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
-  gateway=($(ip route show dev eth0 | grep default | sed -r 's|default via ([0-9.]+).*|\1|'))
-  gateway6=($(ip -6 route show dev eth0 | grep default | sed -r 's|default via ([0-9a-f:]+).*|\1|'))
-  ether0=($(ip address show dev eth0 | grep link/ether | sed -r 's|.*link/ether ([0-9a-f:]+) .*|\1|'))
-  ether1=($(ip address show dev eth1 | grep link/ether | sed -r 's|.*link/ether ([0-9a-f:]+) .*|\1|'))
+  eth0_name=$(ip address show | grep '^2:' | awk -F': ' '{print $2}')
+  eth0_ip4s=$(ip address show dev "$eth0_name" | grep 'inet ' | sed -r 's|.*inet ([0-9.]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|')
+  eth0_ip6s=$(ip address show dev "$eth0_name" | grep 'inet6 ' | sed -r 's|.*inet6 ([0-9a-f:]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|' || '')
+  gateway=$(ip route show dev "$eth0_name" | grep default | sed -r 's|default via ([0-9.]+).*|\1|')
+  ether0=$(ip address show dev "$eth0_name" | grep link/ether | sed -r 's|.*link/ether ([0-9a-f:]+) .*|\1|')
+
+  eth1_name=$(ip address show | grep '^3:' | awk -F': ' '{print $2}')||true
+  if [ -n "$eth1_name" ];then
+    eth1_ip4s=$(ip address show dev "$eth1_name" | grep 'inet ' | sed -r 's|.*inet ([0-9.]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|')
+    eth1_ip6s=$(ip address show dev "$eth1_name" | grep 'inet6 ' | sed -r 's|.*inet6 ([0-9a-f:]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|' || '')
+    ether1=$(ip address show dev "$eth1_name" | grep link/ether | sed -r 's|.*link/ether ([0-9a-f:]+) .*|\1|')
+    gateway6=$(ip -6 route show dev "$eth1_name" | grep default | sed -r 's|default via ([0-9a-f:]+).*|\1|' || true)
+    interfaces1=<< EOF
+      $eth1_name = {
+        ip4 = [$(for a in "${eth1_ip4s[@]}"; do echo -n "
+          $a"; done)
+        ];
+        ip6 = [$(for a in "${eth1_ip6s[@]}"; do echo -n "
+          $a"; done)
+        ];
+EOF
+    extraRules1="ATTR{address}==\"${ether1}\", NAME=\"eth0\""
+  else
+    interfaces1=""
+    extraRules1=""
+  fi
+
   nameservers=($(grep ^nameserver /etc/resolv.conf | cut -f2 -d' '))
 
   cat > /etc/nixos/networking.nix << EOF
@@ -93,30 +73,27 @@ EOF
   # This file was populated at runtime with the networking
   # details gathered from the active system.
   networking = {
-    nameservers = [$(for a in ${nameservers[@]}; do echo -n "
+    nameservers = [$(for a in "${nameservers[@]}"; do echo -n "
       \"$a\""; done)
     ];
     defaultGateway = "${gateway}";
     defaultGateway6 = "${gateway6}";
     interfaces = {
-      enp0s3 = {
-        ip4 = [$(for a in ${enp0s3_ip4s[@]}; do echo -n "
+      $eth0_name = {
+        ip4 = [$(for a in "${eth0_ip4s[@]}"; do echo -n "
           $a"; done)
         ];
-        ip6 = [$(for a in ${enp0s3_ip6s[@]}; do echo -n "
-          $a"; done)
-        ];
-      };
-      enp0s4 = {
-        ip4 = [$(for a in ${enp0s4_ip4s[@]}; do echo -n "
-          $a"; done)
-        ];
-        ip6 = [$(for a in ${enp0s4_ip6s[@]}; do echo -n "
+        ip6 = [$(for a in "${eth0_ip6s[@]}"; do echo -n "
           $a"; done)
         ];
       };
+      $interfaces1
     };
   };
+  services.udev.extraRules = ''
+    ATTR{address}=="${ether0}", NAME="eth0"
+    $extraRules1
+  '';
 }
 EOF
   #! /usr/bin/env bash
@@ -131,60 +108,137 @@ EOF
   #
   # then you can add the files in configuration.nix's imports above and run something like:
   #   cat customConfig nixos-infect | root@targethost bash
-  if [[ `type -t customConfig` == "function" ]]; then customConfig; fi
+  if [[ "$(type -t customConfig)" == "function" ]]; then customConfig; fi
 }
 
 makeSwap() {
-  swapFile=`mktemp`
-  dd if=/dev/zero of=$swapFile bs=1M count=$((1*1024))
-  chmod 0600 $swapFile
-  mkswap $swapFile
-  swapon $swapFile
+  # TODO check currently available swapspace first
+  swapFile=$(mktemp /tmp/nixos-infect.XXXXX.swp)
+  dd if=/dev/zero "of=$swapFile" bs=1M count=$((1*1024))
+  chmod 0600 "$swapFile"
+  mkswap "$swapFile"
+  swapon -v "$swapFile"
 }
 
+removeSwap() {
+    for swapFile in /tmp/nixos-infect.*.swp
+    do
+        swapoff -v "$swapFile"
+        rm -vf "$swapFile"
+    done
+}
+
+prepareEnv() {
+  # $disk is used in makeConf()
+  for disk in vda sda; do [[ -e /dev/$disk ]] && break; done
+
+  # DigitalOcean doesn't seem to set USER while running user data
+  export USER="root"
+  export HOME="/root"
+
+  # Use adapted wget if curl is missing
+  which curl || { \
+    curl() {
+      eval "wget $(
+        (local isStdout=1
+        for arg in "$@"; do
+          case "$arg" in
+            "-o")
+              echo "-O";
+              isStdout=0
+              ;;
+            "-O")
+              isStdout=0
+              ;;
+            "-L")
+              ;;
+            *)
+              echo "$arg"
+              ;;
+          esac
+        done;
+        [[ $isStdout -eq 1 ]] && echo "-O-"
+        )| tr '\n' ' '
+      )"
+    }; export -f curl; }
+
+  # Nix installer tries to use sudo regardless of whether we're already uid 0  
+  #which sudo || { sudo() { eval "$@"; }; export -f sudo; }
+  # shellcheck disable=SC2174
+  mkdir -p -m 0755 /nix
+}
+
+req() {
+  type "$1" > /dev/null 2>&1 || which "$1" > /dev/null 2>&1
+}
+
+checkEnv() {
+  # Perform some easy fixups before checking
+  which dnf && dnf install -y perl-Digest-SHA # Fedora 24
+  which bzcat || (which yum && yum install -y bzip2) \
+              || (which apt-get && apt-get install bzip2) \
+              || true 
+
+  [[ "$(whoami)" == "root" ]] || { echo "ERROR: Must run as root"; return 1; }
+
+  req curl || req wget || { echo "ERROR: Missing both curl and wget"; return 1; }
+  req bzcat            || { echo "ERROR: Missing bzcat";              return 1; }
+  req groupadd         || { echo "ERROR: Missing groupadd";           return 1; }
+  req useradd          || { echo "ERROR: Missing useradd";            return 1; }
+  req ip               || { echo "ERROR: Missing ip";                 return 1; }
+  req awk              || { echo "ERROR: Missing awk";                return 1; }
+  req cut              || { echo "ERROR: Missing cut";                return 1; }
+}
+
+infect() {
+  # Add nix build users
+  # FIXME run only if necessary, rather than defaulting true
+  groupadd nixbld -g 30000 || true
+  for i in {1..10}; do useradd -c "Nix build user $i" -d /var/empty -g nixbld -G nixbld -M -N -r -s "$(which nologin)" nixbld$i || true; done
+  # TODO use addgroup and adduser as fallbacks
+  #addgroup nixbld -g 30000 || true
+  #for i in {1..10}; do adduser -DH -G nixbld nixbld$i || true; done
+
+  curl https://nixos.org/nix/install | $SHELL
+
+  # shellcheck disable=SC1090
+  source ~/.nix-profile/etc/profile.d/nix.sh
+
+  [[ -z "$NIX_CHANNEL" ]] && NIX_CHANNEL="nixos-17.09"
+  nix-channel --remove nixpkgs
+  nix-channel --add "https://nixos.org/channels/$NIX_CHANNEL" nixos
+  nix-channel --update
+
+  export NIXOS_CONFIG=/etc/nixos/configuration.nix
+
+  nix-env --set \
+    -I nixpkgs=$HOME/.nix-defexpr/channels/nixos \
+    -f '<nixpkgs/nixos>' \
+    -p /nix/var/nix/profiles/system \
+    -A system
+
+  # Remove nix installed with curl | bash
+  rm -fv /nix/var/nix/profiles/default*
+  /nix/var/nix/profiles/system/sw/bin/nix-collect-garbage
+
+  # Reify resolv.conf
+  [[ -L /etc/resolv.conf ]] && mv -v /etc/resolv.conf /etc/resolv.conf.lnk && cat /etc/resolv.conf.lnk > /etc/resolv.conf
+
+  # Stage the Nix coup d'état
+  touch /etc/NIXOS
+  echo etc/nixos                   > /etc/NIXOS_LUSTRATE
+  echo etc/resolv.conf            >> /etc/NIXOS_LUSTRATE
+  echo root/.nix-defexpr/channels >> /etc/NIXOS_LUSTRATE
+
+  rm -rf /boot.bak
+  mv -v /boot /boot.bak
+  /nix/var/nix/profiles/system/bin/switch-to-configuration boot
+}
+
+prepareEnv
+checkEnv
 makeConf
 makeSwap # smallest (512MB) droplet needs extra memory!
-
-which dnf && dnf install -y perl-Digest-SHA # Fedora 24
-
-# DigitalOcean doesn't seem to set USER while running user data
-export USER="root"
-export HOME="/root"
-
-groupadd -r nixbld -g 30000
-seq 1 10 | xargs -I{} useradd -c "Nix build user {}" -d /var/empty -g nixbld -G nixbld -M -N -r -s `which nologin` nixbld{}
-
-curl https://nixos.org/nix/install | sh
-
-source ~/.nix-profile/etc/profile.d/nix.sh
-
-[ -z "$NIX_CHANNEL"] && NIX_CHANNEL="nixos-16.09"
-nix-channel --remove nixpkgs
-nix-channel --add "https://nixos.org/channels/$NIX_CHANNEL" nixos
-nix-channel --update
-
-export NIXOS_CONFIG=/etc/nixos/configuration.nix
-
-nix-env --set \
-  -I nixpkgs=$HOME/.nix-defexpr/channels/nixos \
-  -f '<nixpkgs/nixos>' \
-  -p /nix/var/nix/profiles/system \
-  -A system
-
-# Remove nix installed with curl | bash
-rm -fv /nix/var/nix/profiles/default*
-/nix/var/nix/profiles/system/sw/bin/nix-collect-garbage
-
-# Follow the symlinks
-[ -L /etc/resolv.conf ] && mv -v /etc/resolv.conf /etc/resolv.conf.lnk && cat /etc/resolv.conf.lnk > /etc/resolv.conf
-
-# Staging for the Nix coup d'état
-touch /etc/NIXOS
-cat > /etc/NIXOS_LUSTRATE << EOF
-etc/nixos
-etc/resolv.conf
-root/.nix-defexpr/channels
-EOF
-
-mv -v /boot /boot.bak &&
-  /nix/var/nix/profiles/system/bin/switch-to-configuration boot
+infect
+removeSwap
+reboot
