@@ -175,10 +175,12 @@ class ContainerState(MachineState):
         return True
 
     def stop(self):
-        if not self.vm_id: return True
+        if not self.vm_id:
+            return True
         self.log_continue("stopping container ...")
         self.state = self.STOPPING
-        self.host_ssh.run_command("nixos-container stop {0}".format(self.vm_id))
+        self.host_ssh.run_command(
+            "nixos-container stop {0}".format(self.vm_id))
 
         while self._get_container_status() == "up":
             time.sleep(1)
