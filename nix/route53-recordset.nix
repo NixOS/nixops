@@ -97,7 +97,8 @@ with (import ./lib.nix lib);
         Among resource record sets that have the same combination
         of DNS name and type, a value that determines what portion
         of traffic for the current resource record set is routed
-        to the associated location.
+        to the associated location. When value is 0, weighted
+        routing policy is not used.
       '';
     };
   };

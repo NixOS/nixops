@@ -49,7 +49,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
 
     zone_id = nixops.util.attr_property("route53.zoneId", None)
     set_identifier = nixops.util.attr_property("route53.setIdentifier", None)
-    weight = nixops.util.attr_property("route53.weight", None)
+    weight = nixops.util.attr_property("route53.weight", 0, int)
 
     zone_name = nixops.util.attr_property("route53.zoneName", None)
     domain_name = nixops.util.attr_property("route53.domainName", None)
@@ -173,7 +173,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             if obj.weight == 0:
                 rs_batch.update({ 'MultiValueAnswer': True })
 
-        if obj.weight and obj.weight != 0:
+        if obj.weight != 0:
             rs_batch.update({ 'Weight': int(obj.weight) })
 
         return batch
