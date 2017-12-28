@@ -190,7 +190,7 @@ class ContainerState(MachineState):
             res.exists = False
             return
 
-        status = self.host_ssh.run_command("nixos-container status {0}".format(self.vm_id), capture_stdout=True).rstrip()
+        status = self._get_container_status()
 
         if status == "gone":
             res.exists = False
@@ -206,3 +206,8 @@ class ContainerState(MachineState):
 
         res.is_up = True
         MachineState._check(self, res)
+
+    def _get_container_status(self):
+        return self.host_ssh.run_command(
+            "nixos-container status {0}".format(self.vm_id),
+            capture_stdout=True).rstrip()
