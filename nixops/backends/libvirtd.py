@@ -9,6 +9,8 @@ import shutil
 import string
 import subprocess
 import time
+from xml.etree import ElementTree
+
 import libvirt
 
 from nixops.backends import MachineDefinition, MachineState
@@ -145,6 +147,11 @@ class LibvirtdState(MachineState):
         self.storage_pool_name = defn.storage_pool_name
         self.uri = defn.uri
 
+        # required for virConnectGetDomainCapabilities()
+        # https://libvirt.org/formatdomaincaps.html
+        if self.conn.getLibVersion() < 1002007:
+            raise Exception('libvirt 1.2.7 or newer is required at the target host')
+
         if not self.primary_mac:
             self._generate_primary_mac()
         if not self.client_public_key:
@@ -226,10 +233,15 @@ class LibvirtdState(MachineState):
             stream.sendAll(read_file, f)
             stream.finish()
 
+    def _get_qemu_executable(self):
+        domaincaps_xml = self.conn.getDomainCapabilities(
+            emulatorbin=None, arch='x86_64', machine=None, virttype='kvm',
+        )
+        domaincaps = ElementTree.fromstring(domaincaps_xml)
+        return domaincaps.find('./path').text.strip()
+
     def _make_domain_xml(self, defn):
-        qemu_executable = "qemu-system-x86_64"
-        qemu = spawn.find_executable(qemu_executable)
-        assert qemu is not None, "{} executable not found. Please install QEMU first.".format(qemu_executable)
+        qemu = self._get_qemu_executable()
 
         def maybe_mac(n):
             if n == self.primary_net:
