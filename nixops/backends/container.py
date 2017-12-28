@@ -172,11 +172,7 @@ class ContainerState(MachineState):
 
         self.log_continue("destroying container ...")
         self.host_ssh.run_command("nixos-container destroy {0}".format(self.vm_id))
-
-        while self._get_container_status() == "up":
-            time.sleep(1)
-            self.log_continue(".")
-
+        self._wait_as_long_as_status("up")
         self.log_end(" destroyed.")
 
         return True
@@ -188,11 +184,7 @@ class ContainerState(MachineState):
         self.state = self.STOPPING
         self.host_ssh.run_command(
             "nixos-container stop {0}".format(self.vm_id))
-
-        while self._get_container_status() == "up":
-            time.sleep(1)
-            self.log_continue(".")
-
+        self._wait_as_long_as_status("up")
         self.log_end(" stopped.")
         self.state = self.STOPPED
 
@@ -224,7 +216,12 @@ class ContainerState(MachineState):
         res.is_up = True
         MachineState._check(self, res)
 
+    def _wait_as_long_as_status(self, status):
+        while self._get_container_status() == status:
+            time.sleep(1)
+            self.log_continue(".")
+
     def _get_container_status(self):
         return self.host_ssh.run_command(
-            "nixos-container status {0} 2>/dev/null".format(self.vm_id),
+            "nixos-container status {0}".format(self.vm_id),
             capture_stdout=True, check=False).rstrip()
