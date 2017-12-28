@@ -79,5 +79,26 @@ with (import ./lib.nix lib);
          or a DNS name in case of a CNAME record type)
       '';
     };
+
+    setIdentifier = mkOption {
+      type = types.str;
+      default = "";
+      description = ''
+        A unique identifier that differentiates among multiple
+        resource record sets that have the same combination of
+        DNS name and type.
+      '';
+    };
+
+    weight = mkOption {
+      type = types.int;
+      default = 0;
+      description = ''
+        Among resource record sets that have the same combination
+        of DNS name and type, a value that determines what portion
+        of traffic for the current resource record set is routed
+        to the associated location.
+      '';
+    };
   };
 }

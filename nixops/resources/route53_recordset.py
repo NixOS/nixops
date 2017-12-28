@@ -27,6 +27,8 @@ class Route53RecordSetDefinition(nixops.resources.ResourceDefinition):
         self.access_key_id = config["accessKeyId"]
 
         self.zone_id = config["zoneId"]
+        self.set_identifier = config["setIdentifier"]
+        self.weight = config["weight"]
 
         self.zone_name = config["zoneName"]
         self.domain_name = config["domainName"]
@@ -46,6 +48,9 @@ class Route53RecordSetState(nixops.resources.ResourceState):
     access_key_id = nixops.util.attr_property("route53.accessKeyId", None)
 
     zone_id = nixops.util.attr_property("route53.zoneId", None)
+    set_identifier = nixops.util.attr_property("route53.setIdentifier", None)
+    weight = nixops.util.attr_property("route53.weight", None)
+
     zone_name = nixops.util.attr_property("route53.zoneName", None)
     domain_name = nixops.util.attr_property("route53.domainName", None)
     ttl = nixops.util.attr_property("route53.ttl", None)
@@ -131,19 +136,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
         # check output of operation. It now just barfs an exception if something doesn't work properly
         change_result = client.change_resource_record_sets(
             HostedZoneId=zone_id,
-            ChangeBatch={
-                'Changes': [
-                    {
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': defn.domain_name,
-                            'Type': defn.record_type,
-                            'TTL': defn.ttl,
-                            'ResourceRecords': map(lambda rv: { 'Value': rv }, defn.record_values)
-                        }
-                    },
-                ]
-            }
+            ChangeBatch=self.make_batch('UPSERT', defn)
         )
 
         with self.depl._db:
@@ -154,29 +147,46 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             self.record_type = defn.record_type
             self.record_values = defn.record_values
             self.ttl = defn.ttl
+            self.set_identifier = defn.set_identifier
+            self.weight = defn.weight
 
         return True
+
+    def make_batch(self, action, obj):
+        batch = {
+            'Changes': [
+                {
+                    'Action': action,
+                    'ResourceRecordSet': {
+                        'Name': obj.domain_name,
+                        'Type': obj.record_type,
+                        'TTL': int(obj.ttl),
+                        'ResourceRecords': map(lambda rv: { 'Value': rv }, obj.record_values)
+                    }
+                },
+            ]
+        }
+
+        rs_batch = batch['Changes'][0]['ResourceRecordSet']
+        if obj.set_identifier and obj.set_identifier != "":
+            rs_batch.update({ 'SetIdentifier': obj.set_identifier })
+            if obj.weight == 0:
+                rs_batch.update({ 'MultiValueAnswer': True })
+
+        if obj.weight and obj.weight != 0:
+            rs_batch.update({ 'Weight': int(obj.weight) })
+
+        return batch
 
     def destroy(self, wipe=False):
         if self.state == self.UP:
             client = self.boto_session().client("route53")
+
             # TODO: catch exception
             change_result = client.change_resource_record_sets(
                 HostedZoneId=self.zone_id,
-                ChangeBatch={
-                    'Changes': [
-                        {
-                            'Action': 'DELETE',
-                            'ResourceRecordSet': {
-                                'Name': self.domain_name,
-                                'Type': self.record_type,
-                                'TTL': int(self.ttl),
-                                'ResourceRecords': map(lambda rv: { 'Value': rv }, self.record_values)
-                            }
-                        },
-                    ]
-                }
-            )
+                ChangeBatch=self.make_batch('DELETE', self))
+
             with self.depl._db:
                 self.state = self.MISSING
 
