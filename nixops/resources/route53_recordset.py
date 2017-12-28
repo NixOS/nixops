@@ -182,5 +182,6 @@ class Route53RecordSetState(nixops.resources.ResourceState):
 
     def create_after(self, resources, defn):
         return {r for r in resources if
-                isinstance(r, nixops.resources.route53_hosted_zone.Route53HostedZoneState)}
+                isinstance(r, nixops.resources.route53_hosted_zone.Route53HostedZoneState) or
+                isinstance(r, nixops.backends.MachineState)}
 
