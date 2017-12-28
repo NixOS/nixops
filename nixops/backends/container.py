@@ -164,14 +164,19 @@ class ContainerState(MachineState):
             nixops.known_hosts.add(self.get_ssh_name(), self.public_host_key)
 
     def destroy(self, wipe=False):
-        if not self.vm_id: return True
+        if not self.vm_id:
+            return True
 
-        if not self.depl.logger.confirm("are you sure you want to destroy NixOS container ‘{0}’?".format(self.name)): return False
+        if not self.depl.logger.confirm(
+                "are you sure you want to destroy NixOS container ‘{0}’?"
+                .format(self.name)):
+            return False
 
         nixops.known_hosts.remove(self.get_ssh_name(), self.public_host_key)
 
         self.log_continue("destroying container ...")
-        self.host_ssh.run_command("nixos-container destroy {0}".format(self.vm_id))
+        self.host_ssh.run_command(
+            "nixos-container destroy {0}".format(self.vm_id))
         self._wait_as_long_as_status("up")
         self.log_end(" destroyed.")
 
