@@ -40,6 +40,7 @@ class LibvirtdDefinition(MachineDefinition):
         self.initrd = x.find("attr[@name='initrd']/string").get("value")
         self.cmdline = x.find("attr[@name='cmdline']/string").get("value")
         self.storage_pool_name = x.find("attr[@name='storagePool']/string").get("value")
+        self.uri = x.find("attr[@name='URI']/string").get("value")
 
         self.networks = [
             k.get("value")
@@ -59,6 +60,10 @@ class LibvirtdState(MachineState):
     storage_pool_name = nixops.util.attr_property("libvirtd.storagePool", None)
     vcpu = nixops.util.attr_property("libvirtd.vcpu", None)
 
+    # older deployments may not have a libvirtd.URI attribute in the state file
+    # using qemu:///system in such case
+    uri = nixops.util.attr_property("libvirtd.URI", "qemu:///system")
+
     @classmethod
     def get_type(cls):
         return "libvirtd"
@@ -66,13 +71,20 @@ class LibvirtdState(MachineState):
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
 
-        self.conn = libvirt.open('qemu:///system')
-        if self.conn is None:
-            self.log('Failed to open connection to the hypervisor')
-            sys.exit(1)
+        self._conn = None
         self._dom = None
         self._pool = None
         self._vol = None
+
+    @property
+    def conn(self):
+        if self._conn is None:
+            self.logger.log('connecting to {}...'.format(self.uri))
+            self._conn = libvirt.open(self.uri)
+            if self._conn is None:
+                self.log('failed to connect to {}'.format(self.uri))
+                sys.exit(1)
+        return self._conn
 
     @property
     def dom(self):
@@ -96,9 +108,8 @@ class LibvirtdState(MachineState):
         return self._vol
 
     def get_console_output(self):
-        # TODO update with self.uri when https://github.com/NixOS/nixops/pull/824 gets merged
         import sys
-        return self._logged_exec(["virsh", "-c", "qemu:///system", 'console', self.vm_id.decode()],
+        return self._logged_exec(["virsh", "-c", self.uri, 'console', self.vm_id.decode()],
                 stdin=sys.stdin)
 
     def get_ssh_private_key_file(self):
@@ -132,6 +143,7 @@ class LibvirtdState(MachineState):
         self.set_common_state(defn)
         self.primary_net = defn.networks[0]
         self.storage_pool_name = defn.storage_pool_name
+        self.uri = defn.uri
 
         if not self.primary_mac:
             self._generate_primary_mac()
