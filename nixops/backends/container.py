@@ -4,6 +4,8 @@ from nixops.backends import MachineDefinition, MachineState
 import nixops.util
 import nixops.ssh_util
 import subprocess
+import time
+
 
 class ContainerDefinition(MachineDefinition):
     """Definition of a NixOS container."""
@@ -174,9 +176,15 @@ class ContainerState(MachineState):
 
     def stop(self):
         if not self.vm_id: return True
-        self.log("stopping container...")
+        self.log_continue("stopping container ...")
         self.state = self.STOPPING
         self.host_ssh.run_command("nixos-container stop {0}".format(self.vm_id))
+
+        while self._get_container_status() == "up":
+            time.sleep(1)
+            self.log_continue(".")
+
+        self.log_end(" stopped.")
         self.state = self.STOPPED
 
     def start(self):
