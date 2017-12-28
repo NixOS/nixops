@@ -226,5 +226,5 @@ class ContainerState(MachineState):
 
     def _get_container_status(self):
         return self.host_ssh.run_command(
-            "nixos-container status {0}".format(self.vm_id),
-            capture_stdout=True).rstrip()
+            "nixos-container status {0} 2>/dev/null".format(self.vm_id),
+            capture_stdout=True, check=False).rstrip()
