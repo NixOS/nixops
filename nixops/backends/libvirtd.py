@@ -40,6 +40,7 @@ class LibvirtdDefinition(MachineDefinition):
         self.initrd = x.find("attr[@name='initrd']/string").get("value")
         self.cmdline = x.find("attr[@name='cmdline']/string").get("value")
         self.storage_pool_name = x.find("attr[@name='storagePool']/string").get("value")
+        self.uri = x.find("attr[@name='URI']/string").get("value")
 
         self.networks = [
             k.get("value")
@@ -59,6 +60,10 @@ class LibvirtdState(MachineState):
     storage_pool_name = nixops.util.attr_property("libvirtd.storagePool", None)
     vcpu = nixops.util.attr_property("libvirtd.vcpu", None)
 
+    # older deployments may not have a libvirtd.URI attribute in the state file
+    # using qemu:///system in such case
+    uri = nixops.util.attr_property("libvirtd.URI", "qemu:///system")
+
     @classmethod
     def get_type(cls):
         return "libvirtd"
@@ -70,9 +75,10 @@ class LibvirtdState(MachineState):
         self._vol = None
 
     def connect(self):
-        self.conn = libvirt.open('qemu:///system')
+        self.logger.log('Connecting to {}...'.format(self.uri))
+        self.conn = libvirt.open(self.uri)
         if self.conn is None:
-            self.log('Failed to open connection to the hypervisor')
+            self.log('Failed to open connection to the hypervisor at {}'.format(self.uri))
             sys.exit(1)
 
     @property
@@ -98,9 +104,8 @@ class LibvirtdState(MachineState):
         return self._vol
 
     def get_console_output(self):
-        # TODO update with self.uri when https://github.com/NixOS/nixops/pull/824 gets merged
         import sys
-        return self._logged_exec(["virsh", "-c", "qemu:///system", 'console', self.vm_id.decode()],
+        return self._logged_exec(["virsh", "-c", self.uri, 'console', self.vm_id.decode()],
                 stdin=sys.stdin)
 
     def get_ssh_private_key_file(self):
@@ -134,6 +139,7 @@ class LibvirtdState(MachineState):
         self.set_common_state(defn)
         self.primary_net = defn.networks[0]
         self.storage_pool_name = defn.storage_pool_name
+        self.uri = defn.uri
 
         if not self.primary_mac:
             self._generate_primary_mac()
