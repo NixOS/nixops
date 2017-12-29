@@ -8,11 +8,14 @@ import shutil
 import string
 import subprocess
 import time
+import libvirt
 
 from nixops.backends import MachineDefinition, MachineState
 import nixops.known_hosts
 import nixops.util
 
+# to prevent libvirt errors from appearing on screen, see
+# https://www.redhat.com/archives/libvirt-users/2017-August/msg00011.html
 
 class LibvirtdDefinition(MachineDefinition):
     """Definition of a trivial machine."""
@@ -34,6 +37,9 @@ class LibvirtdDefinition(MachineDefinition):
         self.image_dir = x.find("attr[@name='imageDir']/string").get("value")
         assert self.image_dir is not None
         self.domain_type = x.find("attr[@name='domainType']/string").get("value")
+        self.kernel = x.find("attr[@name='kernel']/string").get("value")
+        self.initrd = x.find("attr[@name='initrd']/string").get("value")
+        self.cmdline = x.find("attr[@name='cmdline']/string").get("value")
 
         self.networks = [
             k.get("value")
@@ -57,6 +63,21 @@ class LibvirtdState(MachineState):
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
+
+        self.conn = libvirt.open('qemu:///system')
+        if self.conn is None:
+            self.log('Failed to open connection to the hypervisor')
+            sys.exit(1)
+        self._dom = None
+
+    @property
+    def dom(self):
+        if self._dom is None:
+            try:
+                self._dom = self.conn.lookupByName(self._vm_id())
+            except Exception as e:
+                self.log("Warning: %s" % e)
+        return self._dom
 
     def get_ssh_private_key_file(self):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
@@ -116,11 +137,10 @@ class LibvirtdState(MachineState):
                                "", self.disk_path])
             os.chmod(self.disk_path, 0660)
             self.vm_id = self._vm_id()
-            dom_file = self.depl.tempdir + "/{0}-domain.xml".format(self.name)
-            nixops.util.write_file(dom_file, self.domain_xml)
-            # By using "virsh define" we ensure that the domain is
-            # "persistent", as opposed to "transient" (removed on reboot).
-            self._logged_exec(["virsh", "-c", "qemu:///system", "define", dom_file])
+            # By using "define" we ensure that the domain is
+            # "persistent", as opposed to "transient" (i.e. removed on reboot).
+            self._dom = self.conn.defineXML(self.domain_xml)
+
         self.start()
         return True
 
@@ -146,14 +166,22 @@ class LibvirtdState(MachineState):
                 '    </interface>',
             ]).format(n)
 
+        def _make_os(defn):
+            return [
+                '<os>',
+                '    <type arch="x86_64">hvm</type>',
+                "    <kernel>%s</kernel>" % defn.kernel,
+                "    <initrd>%s</initrd>" % defn.initrd if len(defn.kernel) > 0 else "",
+                "    <cmdline>%s</cmdline>"% defn.cmdline if len(defn.kernel) > 0 else "",
+                '</os>']
+
+
         domain_fmt = "\n".join([
             '<domain type="{5}">',
             '  <name>{0}</name>',
             '  <memory unit="MiB">{1}</memory>',
             '  <vcpu>{4}</vcpu>',
-            '  <os>',
-            '    <type arch="x86_64">hvm</type>',
-            '  </os>',
+            '\n'.join(_make_os(defn)),
             '  <devices>',
             '    <emulator>{2}</emulator>',
             '    <disk type="file" device="disk">',
@@ -162,7 +190,7 @@ class LibvirtdState(MachineState):
             '      <target dev="hda"/>',
             '    </disk>',
             '\n'.join([iface(n) for n in defn.networks]),
-            '    <graphics type="sdl" display=":0.0"/>' if not defn.headless else "",
+            '    <graphics type="vnc" port="-1" autoport="yes"/>' if not defn.headless else "",
             '    <input type="keyboard" bus="usb"/>',
             '    <input type="mouse" bus="usb"/>',
             defn.extra_devices,
@@ -181,22 +209,19 @@ class LibvirtdState(MachineState):
         )
 
     def _parse_ip(self):
-        cmd = [
-            "virsh",
-            "-c",
-            "qemu:///system",
-            "net-dhcp-leases",
-            "--network",
-            self.primary_net,
-        ]
-        lines = subprocess.check_output(cmd)
-        try:
-            i = lines.split().index(self.primary_mac)
-        except ValueError:
-            pass
-        else:
-            ip_with_subnet = lines.split()[i + 2]
-            return ip_with_subnet.split('/')[0]
+        """
+        return an ip v4
+        """
+        # alternative is VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE if qemu agent is available
+        ifaces = self.dom.interfaceAddresses(libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE, 0)
+        if (ifaces == None):
+            self.log("Failed to get domain interfaces")
+            return
+
+        for (name, val) in ifaces.iteritems():
+            if val['addrs']:
+                for ipaddr in val['addrs']:
+                    return ipaddr['addr']
 
     def _wait_for_ip(self, prev_time):
         self.log_start("waiting for IP address to appear in DHCP leases...")
@@ -210,8 +235,11 @@ class LibvirtdState(MachineState):
         self.log_end(" " + self.private_ipv4)
 
     def _is_running(self):
-        ls = subprocess.check_output(["virsh", "-c", "qemu:///system", "list"])
-        return (string.find(ls, self.vm_id) != -1)
+        try:
+            return self.dom.isActive()
+        except libvirt.libvirtError:
+            self.log("Domain %s is not running" % self.vm_id)
+        return False
 
     def start(self):
         assert self.vm_id
@@ -222,18 +250,19 @@ class LibvirtdState(MachineState):
             self.private_ipv4 = self._parse_ip()
         else:
             self.log("starting...")
-            self._logged_exec(["virsh", "-c", "qemu:///system", "start", self.vm_id])
+            self.dom.create()
             self._wait_for_ip(0)
 
     def get_ssh_name(self):
-        assert self.private_ipv4
+        self.private_ipv4 = self._parse_ip()
         return self.private_ipv4
 
     def stop(self):
         assert self.vm_id
         if self._is_running():
             self.log_start("shutting down... ")
-            self._logged_exec(["virsh", "-c", "qemu:///system", "destroy", self.vm_id])
+            if self.dom.destroy() != 0:
+                self.log("Failed destroying machine")
         else:
             self.log("not running")
         self.state = self.STOPPED
@@ -243,7 +272,10 @@ class LibvirtdState(MachineState):
             return True
         self.log_start("destroying... ")
         self.stop()
-        self._logged_exec(["virsh", "-c", "qemu:///system", "undefine", self.vm_id])
+        if self.dom.undefine() != 0:
+            self.log("Failed undefining domain")
+            return False
+
         if (self.disk_path and os.path.exists(self.disk_path)):
             os.unlink(self.disk_path)
         return True

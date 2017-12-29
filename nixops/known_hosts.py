@@ -15,7 +15,8 @@ def _rewrite(ip_address, add, public_host_key):
         # If hosts file doesn't exist, create an empty file
         if not os.path.isfile(path):
             basedir = os.path.dirname(path)
-            os.makedirs(basedir)
+            if not os.path.exists(basedir):
+                os.makedirs(basedir)
             open(path, 'a').close()
 
         with open(os.path.expanduser("~/.ssh/.known_hosts.lock"), 'w') as lockfile:

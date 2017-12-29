@@ -1,8 +1,8 @@
-{ revision ? "local" }:
+{ revision ? "local", nixpkgs ? <nixpkgs> }:
 
 let
 
-  pkgs = import <nixpkgs> {};
+  pkgs = import nixpkgs {};
 
   systemModule = pkgs.lib.fixMergeModules [ ../../nix/options.nix ./dummy.nix ] {
                    inherit pkgs; utils = {};

@@ -31,6 +31,7 @@ class EC2RDSDbInstanceDefinition(nixops.resources.ResourceDefinition):
         self.rds_dbinstance_port = int(xml.find("attrs/attr[@name='port']/int").get("value"))
         self.rds_dbinstance_engine = xml.find("attrs/attr[@name='engine']/string").get("value")
         self.rds_dbinstance_db_name = xml.find("attrs/attr[@name='dbName']/string").get("value")
+        self.rds_dbinstance_multi_az = xml.find("attrs/attr[@name='multiAZ']/bool").get("value") == "true"
         # TODO: implement remainder of boto.rds.RDSConnection.create_dbinstance parameters
 
         # common params
@@ -54,6 +55,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
     rds_dbinstance_engine = nixops.util.attr_property("ec2.rdsEngine", None)
     rds_dbinstance_db_name = nixops.util.attr_property("ec2.rdsDbName", None)
     rds_dbinstance_endpoint = nixops.util.attr_property("ec2.rdsEndpoint", None)
+    rds_dbinstance_multi_az = nixops.util.attr_property("ec2.multiAZ", False)
 
     requires_reboot_attrs = ('rds_dbinstance_id', 'rds_dbinstance_allocated_storage',
         'rds_dbinstance_instance_class', 'rds_dbinstance_master_password')
@@ -126,7 +128,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         return dbinstance
 
     def _diff_defn(self, defn):
-        attrs = ('region', 'rds_dbinstance_port', 'rds_dbinstance_engine',
+        attrs = ('region', 'rds_dbinstance_port', 'rds_dbinstance_engine', 'rds_dbinstance_multi_az',
             'rds_dbinstance_instance_class', 'rds_dbinstance_db_name', 'rds_dbinstance_master_username',
             'rds_dbinstance_master_password', 'rds_dbinstance_allocated_storage')
 
@@ -154,6 +156,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
             self.rds_dbinstance_instance_class = dbinstance.instance_class
             self.rds_dbinstance_master_username = dbinstance.master_username
             self.rds_dbinstance_engine = dbinstance.engine
+            self.rds_dbinstance_multi_az = dbinstance.multi_az
             self.rds_dbinstance_port = int(dbinstance.endpoint[1])
             self.rds_dbinstance_endpoint = "%s:%d"% dbinstance.endpoint
 
@@ -161,7 +164,8 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         attr_to_kwarg = {
             'rds_dbinstance_allocated_storage': 'allocated_storage',
             'rds_dbinstance_master_password': 'master_password',
-            'rds_dbinstance_instance_class': 'instance_class'
+            'rds_dbinstance_instance_class': 'instance_class',
+            'rds_dbinstance_multi_az': 'multi_az'
         }
         return { attr_to_kwarg[attr] : attrs[attr] for attr in attrs.keys() }
 
@@ -221,7 +225,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                         defn.rds_dbinstance_allocated_storage, defn.rds_dbinstance_instance_class,
                         defn.rds_dbinstance_master_username, defn.rds_dbinstance_master_password,
                         port=defn.rds_dbinstance_port, engine=defn.rds_dbinstance_engine,
-                        db_name=defn.rds_dbinstance_db_name)
+                        db_name=defn.rds_dbinstance_db_name, multi_az=defn.rds_dbinstance_multi_az)
 
                     self.state = self.STARTING
                     self._wait_for_dbinstance(dbinstance)
@@ -256,6 +260,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 dbinstance = dbinstance.modify(**boto_kwargs)
                 self._wait_for_dbinstance(dbinstance, state="modifying")
                 self._wait_for_dbinstance(dbinstance)
+                self._copy_dbinstance_attrs(dbinstance)
 
 
     def after_activation(self, defn):

@@ -21,12 +21,15 @@ class S3BucketDefinition(nixops.resources.ResourceDefinition):
     def get_resource_type(cls):
         return "s3Buckets"
 
-    def __init__(self, xml):
-        nixops.resources.ResourceDefinition.__init__(self, xml)
+    def __init__(self, xml, config={}):
+        nixops.resources.ResourceDefinition.__init__(self, xml, config)
         self.bucket_name = xml.find("attrs/attr[@name='name']/string").get("value")
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
         self.policy = xml.find("attrs/attr[@name='policy']/string").get("value")
+        self.website_enabled = self.config["website"]["enabled"]
+        self.website_suffix = self.config["website"]["suffix"]
+        self.website_error_document = self.config["website"]["errorDocument"]
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -38,7 +41,6 @@ class S3BucketState(nixops.resources.ResourceState):
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     bucket_name = nixops.util.attr_property("ec2.bucketName", None)
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
-    policy = nixops.util.attr_property("ec2.policy", None)
     region = nixops.util.attr_property("ec2.region", None)
 
 
@@ -81,13 +83,12 @@ class S3BucketState(nixops.resources.ResourceState):
         if len(defn.bucket_name) > 63:
             raise Exception("bucket name ‘{0}’ is longer than 63 characters.".format(defn.bucket_name))
 
+        self.connect()
+        s3client = self._conn.client('s3')
         if check or self.state != self.UP:
-
-            self.connect()
 
             self.log("creating S3 bucket ‘{0}’...".format(defn.bucket_name))
             try:
-                s3client = self._conn.client('s3')
                 ACL = 'private' # ..or: public-read, public-read-write, authenticated-read
                 s3loc = region_to_s3_location(defn.region)
                 if s3loc == "US":
@@ -101,23 +102,35 @@ class S3BucketState(nixops.resources.ResourceState):
                                            })
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] != "BucketAlreadyOwnedByYou": raise
-            if defn.policy:
-                self.log("setting S3 bucket policy on ‘{0}’...".format(bucket))
-                s3client.put_bucket_policy(Bucket = defn.bucket_name,
-                                           Policy = defn.policy.strip())
-            else:
-                try:
-                    s3client.delete_bucket_policy(Bucket = defn.bucket_name)
-                except botocore.exceptions.ClientError as e:
-                    # This seems not to happen - despite docs indicating it should:
-                    # [http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETEpolicy.html]
-                    if e.response['ResponseMetadata']['HTTPStatusCode'] != 204: raise # (204 : Bucket didn't have any policy to delete)
 
             with self.depl._db:
                 self.state = self.UP
                 self.bucket_name = defn.bucket_name
                 self.region = defn.region
-                self.policy = defn.policy
+
+        if defn.policy:
+            self.log("setting S3 bucket policy on ‘{0}’...".format(defn.bucket_name))
+            s3client.put_bucket_policy(Bucket = defn.bucket_name,
+                                       Policy = defn.policy.strip())
+        else:
+            try:
+                s3client.delete_bucket_policy(Bucket = defn.bucket_name)
+            except botocore.exceptions.ClientError as e:
+                # This seems not to happen - despite docs indicating it should:
+                # [http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETEpolicy.html]
+                if e.response['ResponseMetadata']['HTTPStatusCode'] != 204: raise # (204 : Bucket didn't have any policy to delete)
+
+        if not defn.website_enabled:
+            try:
+                s3client.delete_bucket_website(Bucket = defn.bucket_name)
+            except botocore.exceptions.ClientError as e:
+                if e.response['ResponseMetadata']['HTTPStatusCode'] != 204: raise
+        else:
+            website_config = { 'IndexDocument': { 'Suffix': defn.website_suffix } }
+            if defn.website_error_document != "":
+                website_config['ErrorDocument'] = { 'Key': defn.website_error_document}
+            s3client.put_bucket_website(Bucket = defn.bucket_name, WebsiteConfiguration = website_config)
+
 
 
     def destroy(self, wipe=False):
