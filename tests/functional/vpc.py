@@ -34,7 +34,7 @@ CFG_VPC_MACHINE = ("network.nix", """
         {
           region = "us-east-1";
           vpcId = resources.vpc.vpc-test;
-          rules = [{ toPort = 22; fromPort = 22; sourceIp = "41.224.162.232/32"; }];
+          rules = [{ toPort = 22; fromPort = 22; sourceIp = "0.0.0.0/0"; }];
         };
   }
   """)
