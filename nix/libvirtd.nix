@@ -22,8 +22,11 @@ let
           '';
       }
       ''
-        . /sys/class/block/vda1/uevent
-        mknod /dev/vda1 b $MAJOR $MINOR
+        if [ ! -b /dev/vda1 ]; then
+          . /sys/class/block/vda1/uevent
+          mknod /dev/vda1 b $MAJOR $MINOR
+        fi
+
         mkdir /mnt
         mount /dev/vda1 /mnt
 
