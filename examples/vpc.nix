@@ -13,7 +13,7 @@ with (import <nixpkgs> {}).lib;
       deployment.ec2.accessKeyId = accessKeyId;
       deployment.ec2.associatePublicIpAddress = true;
       deployment.ec2.region = region;
-      deployment.ec2.instanceType = "r3.xlarge";
+      deployment.ec2.instanceType = "c3.large";
       deployment.ec2.subnetId = resources.vpcSubnets.subnet-b;
       deployment.ec2.keyPair = resources.ec2KeyPairs.keypair.name;
       deployment.ec2.securityGroups = [];
