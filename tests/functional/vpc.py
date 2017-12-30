@@ -13,6 +13,49 @@ parent_dir = path.dirname(__file__)
 
 base_spec = "{}/vpc.nix".format(parent_dir)
 
+CFG_DNS_SUPPORT = ("enable_dns_support.nix", py2nix({
+    ('resources', 'vpc', 'vpc-test', 'enableDnsSupport'): True
+    }))
+
+CFG_IPV6 = ("ipv6.nix", py2nix({
+    ('resources', 'vpc', 'vpc-test', 'amazonProvidedIpv6CidrBlock'): True
+    }))
+
+CFG_NAT_GTW = ("nat_gtw.nix", """
+   {
+      resources.elasticIPs.nat-eip =
+      {
+        region = "us-east-1";
+        vpc = true;
+      };
+
+      resources.vpcNatGateways.nat =
+        { resources, ... }:
+        {
+          region = "us-east-1";
+          allocationId = resources.elasticIPs.nat-eip;
+          subnetId = resources.vpcSubnets.subnet-test;
+        };
+    }
+    """)
+
+CFG_SUBNET = ("subnet.nix", """
+    {
+      resources.vpcSubnets.subnet-test =
+        { resources, ... }:
+        {
+          region = "us-east-1";
+          zone = "us-east-1a";
+          vpcId = resources.vpc.vpc-test;
+          cidrBlock = "10.0.0.0/19";
+          mapPublicIpOnLaunch = true;
+          tags = {
+            Source = "NixOps Tests";
+          };
+        };
+    }
+    """)
+
 class TestVPC(generic_deployment_test.GenericDeploymentTest):
 
     def setup(self):
@@ -28,12 +71,12 @@ class TestVPC(generic_deployment_test.GenericDeploymentTest):
         tools.eq_(vpc['Vpcs'][0]['CidrBlock'], "10.0.0.0/16", "CIDR block mismatch")
 
     def test_enable_dns_support(self):
-        self.depl.nix_exprs = [base_spec ] + [ self.config_enable_dns_support() ]
+        self.compose_expressions([CFG_DNS_SUPPORT])
         self.depl.deploy(plan_only=True)
         self.depl.deploy()
 
     def test_enable_ipv6(self):
-        self.depl.nix_exprs = [base_spec ] + [ self.config_enable_ipv6() ]
+        self.compose_expressions([CFG_IPV6])
         self.depl.deploy(plan_only=True)
         self.depl.deploy()
         vpc_resource = self.depl.get_typed_resource("vpc-test", "vpc")
@@ -45,49 +88,26 @@ class TestVPC(generic_deployment_test.GenericDeploymentTest):
     def test_deploy_subnets(self):
         # FIXME might need to factor out resources into separate test
         # classes depending on the number of tests needed.
-        self.depl.nix_exprs = [ base_spec ] + [ self.config_subnets() ]
+        self.compose_expressions([CFG_SUBNET])
         self.depl.deploy(plan_only=True)
         self.depl.deploy()
         subnet_resource = self.depl.get_typed_resource("subnet-test", "vpc-subnet")
         subnet = subnet_resource.get_client().describe_subnets(SubnetIds=[subnet_resource._state['subnetId']])
         tools.ok_(len(subnet['Subnets']) > 0, "VPC subnet not found!")
 
-    def config_subnets(self):
-        resources = """
-        {
-          resources.vpcSubnets.subnet-test =
-            { resources, ... }:
-            {
-              region = "us-east-1";
-              zone = "us-east-1a";
-              vpcId = resources.vpc.vpc-test;
-              cidrBlock = "10.0.0.0/19";
-              mapPublicIpOnLaunch = true;
-              tags = {
-                Source = "NixOps Tests";
-              };
-            };
-        }
-        """
-        path = "{}/vpc_subnets.nix".format(self.exprs_dir)
-        with open(path, "w") as cfg:
-            cfg.write(resources)
-        return path
+    def test_deploy_nat_gtw(self):
+        self.compose_expressions([CFG_SUBNET, CFG_NAT_GTW])
+        self.depl.deploy(plan_only=True)
+        self.depl.deploy()
 
-    def config_enable_dns_support(self):
-        enable_dns_support = py2nix({
-              ( 'resources', 'vpc', 'vpc-test', 'enableDnsSupport'): True
-            })
-        path = "{}/dns_support.nix".format(self.exprs_dir)
-        with open(path, "w") as cfg:
-            cfg.write(enable_dns_support)
-        return path
+    def compose_expressions(self, configurations):
+        extra_exprs = list(map(self.generate_config, configurations))
+        self.depl.nix_exprs = [base_spec] + extra_exprs
+        print self.depl.nix_exprs
 
-    def config_enable_ipv6(self):
-        enable_ipv6 = py2nix({
-            ( 'resources', 'vpc', 'vpc-test','amazonProvidedIpv6CidrBlock'): True
-            })
-        path = "{}/vpc_ipv6.nix".format(self.exprs_dir)
-        with open(path, "w") as cfg:
-            cfg.write(enable_ipv6)
-        return path
+    def generate_config(self, config):
+        basename, expr = config
+        expr_path = "{0}/{1}".format(self.exprs_dir, basename)
+        with open(expr_path, "w") as cfg:
+            cfg.write(expr)
+        return expr_path
