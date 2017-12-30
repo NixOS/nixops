@@ -1,3 +1,3 @@
 {
-  machine.deployment.ec2.spotInstancePrice = 200;
+  machine.deployment.ec2.spotInstancePrice = 24;
 }
