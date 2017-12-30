@@ -103,7 +103,6 @@ class TestVPC(generic_deployment_test.GenericDeploymentTest):
     def compose_expressions(self, configurations):
         extra_exprs = list(map(self.generate_config, configurations))
         self.depl.nix_exprs = [base_spec] + extra_exprs
-        print self.depl.nix_exprs
 
     def generate_config(self, config):
         basename, expr = config
