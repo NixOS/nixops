@@ -99,13 +99,17 @@ def retry(f, error_codes=[], logger=None):
     """
 
     def handle_exception(e):
-        if i == num_retries or (error_codes != [] and not e.error_code in error_codes or not 'Error' in e.response.keys() ):
+        if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
+            raise e
+        if logger is not None:
+            logger.log("got (possibly transient) EC2 error code '{0}': {1}. retrying...".format(e.error_code, e.error_message))
+
+    def handle_boto3_exception(e):
+        if i == num_retries:
             raise e
         if logger is not None:
             if hasattr(e, 'response'):
                 logger.log("got (possibly transient) EC2 error '{}'. retrying...".format(str(e.response['Error'])))
-            else:
-                logger.log("got (possibly transient) EC2 error code '{0}': {1}. retrying...".format(e.error_code, e.error_message))
 
     i = 0
     num_retries = 7
@@ -120,7 +124,7 @@ def retry(f, error_codes=[], logger=None):
         except SQSError as e:
             handle_exception(e)
         except ClientError as e:
-            handle_exception(e)
+            handle_boto3_exception(e)
         except BotoServerError as e:
             if e.error_code == "RequestLimitExceeded":
                 num_retries += 1
