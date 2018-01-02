@@ -864,7 +864,7 @@ class Deployment(object):
             self._destroy_resources(include=to_destroy)
 
 
-    def _deploy(self, dry_run=False, build_only=False, create_only=False, copy_only=False,
+    def _deploy(self, dry_run=False, plan_only=False, build_only=False, create_only=False, copy_only=False,
                 include=[], exclude=[], check=False, kill_obsolete=False,
                 allow_reboot=False, allow_recreate=False, force_reboot=False,
                 max_concurrent_copy=5, sync=True, always_activate=False, repair=False, dry_activate=False):
@@ -896,6 +896,19 @@ class Deployment(object):
                                     .format(r.name, r.get_type(), defn.get_type()))
                 r._created_event = threading.Event()
                 r._errored = False
+
+
+            def plan_worker(r):
+                if not should_do(r, include, exclude): return
+                if hasattr(r, 'plan'):
+                    r.plan(self.definitions[r.name])
+                else:
+                    r.warn("resource type {} doesn't implement a plan operation".format(r.get_type()))
+
+            if plan_only:
+                for r in self.active_resources.itervalues():
+                    plan_worker(r)
+                return
 
             def worker(r):
                 try:
