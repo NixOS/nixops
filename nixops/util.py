@@ -149,6 +149,7 @@ def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
         msg = "command ‘{0}’ failed on machine ‘{1}’"
         err = msg.format(command, logger.machine_name)
         raise CommandFailed(err, res)
+
     return stdout if capture_stdout else res
 
 

@@ -87,6 +87,8 @@ class MachineState(nixops.resources.ResourceState):
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
         self.has_fast_connection = defn.has_fast_connection
+        if not self.has_fast_connection:
+            self.ssh.enable_compression()
 
     def stop(self):
         """Stop this machine, if possible."""
@@ -361,7 +363,7 @@ class MachineState(nixops.resources.ResourceState):
         env['NIX_SSHOPTS'] = ' '.join(ssh._get_flags() + ssh.get_master().opts)
         self._logged_exec(
             ["nix-copy-closure", "--to", ssh._get_target(), path]
-            + ([] if self.has_fast_connection else ["--gzip", "--use-substitutes"]),
+            + ([] if self.has_fast_connection else ["--use-substitutes"]),
             env=env)
 
     def generate_vpn_key(self):
