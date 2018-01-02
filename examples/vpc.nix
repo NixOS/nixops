@@ -15,7 +15,7 @@ with (import <nixpkgs> {}).lib;
       deployment.ec2.region = region;
       deployment.ec2.instanceType = "c3.large";
       deployment.ec2.subnetId = resources.vpcSubnets.subnet-b;
-      deployment.ec2.keyPair = resources.ec2KeyPairs.keypair.name;
+      deployment.ec2.keyPair = resources.ec2KeyPairs.keypair;
       deployment.ec2.securityGroups = [];
       deployment.ec2.securityGroupIds = [ resources.ec2SecurityGroups.sg.name ];
     };
