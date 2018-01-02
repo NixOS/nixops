@@ -14,7 +14,7 @@ in
 
   options = {
     name = mkOption {
-      default = "charon-${uuid}-${name}";
+      default = "nixops-${uuid}-${name}";
       type = types.str;
       description = "Name of the VPC route.";
     };
