@@ -17,7 +17,7 @@ in
     name = mkOption {
       default = "charon-${uuid}-${name}";
       type = types.str;
-      description = "Name of the VPC network interface attachement.";
+      description = "Name of the VPC network interface attachment.";
     };
     
     networkInterfaceId = mkOption {
@@ -46,7 +46,7 @@ in
   };
 
   config = {
-    _type = "vpc-network-interface-attachement";
+    _type = "vpc-network-interface-attachment";
   };
 
 }

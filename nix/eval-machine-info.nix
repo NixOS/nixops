@@ -108,7 +108,7 @@ rec {
   resources.vpcNetworkAcls = evalResources ./vpc-network-acl.nix (zipAttrs resourcesByType.vpcNetworkAcls or []);
   resources.vpcNatGateways = evalResources ./vpc-nat-gateway.nix (zipAttrs resourcesByType.vpcNatGateways or []);
   resources.vpcNetworkInterfaces = evalResources ./vpc-network-interface.nix (zipAttrs resourcesByType.vpcNetworkInterfaces or []);
-  resources.vpcNetworkInterfaceAttachements = evalResources ./vpc-network-interface-attachement.nix (zipAttrs resourcesByType.vpcNetworkInterfaceAttachements or []);
+  resources.vpcNetworkInterfaceAttachments = evalResources ./vpc-network-interface-attachment.nix (zipAttrs resourcesByType.vpcNetworkInterfaceAttachments or []);
   resources.vpcRouteTables = evalResources ./vpc-route-table.nix (zipAttrs resourcesByType.vpcRouteTables or []);
   resources.vpcRouteTableAssociations = evalResources ./vpc-route-table-association.nix (zipAttrs resourcesByType.vpcRouteTableAssociations or []);
   resources.vpcRoutes = evalResources ./vpc-route.nix (zipAttrs resourcesByType.vpcRoutes or []);

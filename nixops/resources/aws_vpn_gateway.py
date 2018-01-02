@@ -106,7 +106,7 @@ class AWSVPNGatewayState(nixops.resources.DiffEngineResourceState, EC2CommonStat
                 VpnGatewayId=self._state['vpnGatewayId'])
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == "InvalidVpnGatewayAttachment.NotFound":
-                self.warn("VPN gateway {0} attachement with vpc {1} is invalid".format(
+                self.warn("VPN gateway '{0}' attachment with VPC '{1}' is invalid".format(
                     self._state['vpnGatewayId'], self._state['vpcId']))
             else:
                 raise e
