@@ -439,6 +439,11 @@ class GCEState(MachineState, ResourceState):
             self.automatic_restart = defn.automatic_restart
             self.on_host_maintenance = defn.on_host_maintenance
 
+        # Update instance type
+        if self.instance_type != defn.instance_type:
+            self.connect().ex_set_machine_type(self.node(), defn.instance_type)
+            self.instance_type = defn.instance_type
+
         # Update service account
         if self.email != defn.email or self.scopes != defn.scopes:
             self.log('updating the service account')
@@ -463,7 +468,7 @@ class GCEState(MachineState, ResourceState):
                 v['passphrase'] = defn_v['passphrase']
                 self.log("attaching GCE disk '{0}'...".format(disk_name))
                 if not v.get('bootDisk', False):
-                    self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_name, disk_region), 
+                    self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_name, disk_region),
                                    device = disk_name,
                                    ex_mode = ('READ_ONLY' if v['readOnly'] else 'READ_WRITE'))
                 del v['needsAttach']
