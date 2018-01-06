@@ -34,7 +34,7 @@ with (import ./lib.nix lib);
 
     zoneId = mkOption {
       type = types.nullOr (types.either types.str (resource "route53-hosted-zone"));
-      apply = x: if builtins.isString x then x else "res-" + x._name;
+      apply = x: if (builtins.isString x) || ( x == null) then x else "res-" + x._name;
       default = null;
       description = "The DNS hosted zone id. If null, the zoneName will be used to look up the zoneID";
     };
