@@ -118,8 +118,9 @@ class Route53RecordSetState(nixops.resources.ResourceState):
                 raise Exception("Both zoneName and zoneId are set for Route 53 Recordset '{0}'".format(defn.domain_name))
             else:
                 # We have the zoneName, find the zoneId
-                response = client.list_hosted_zones_by_name(DNSName=defn.zone_name)
-                zones = filter((lambda zone: zone["Name"] == defn.zone_name + "."), response["HostedZones"])
+                response = self.route53_retry(lambda: client.list_hosted_zones_by_name(DNSName=defn.zone_name))
+                zone_name = defn.zone_name if defn.zone_name.endswith('.') else (defn.zone_name + '.')
+                zones = filter((lambda zone: zone["Name"] == zone_name), response["HostedZones"])
                 if len(zones) == 0:
                     raise Exception("Can't find zone id")
                 elif len(zones) > 1:
@@ -127,6 +128,8 @@ class Route53RecordSetState(nixops.resources.ResourceState):
                 else:
                     zone_id = zones[0]["Id"]
 
+        if not zone_name.endswith('.'):
+            zone_name += '.'
         # zone name should be suffix of the dns name, if the zone name is set.
         if not defn.domain_name.endswith(zone_name):
             raise Exception("The domain name '{0}' does not end in the zone name '{1}'. You have to specify the FQDN for the zone name.".format(defn.domain_name, self.zone_name))
@@ -134,10 +137,10 @@ class Route53RecordSetState(nixops.resources.ResourceState):
         # Don't care about the state for now. We'll just upsert!
         # TODO: Copy properties_changed function used in GCE/Azure's
         # check output of operation. It now just barfs an exception if something doesn't work properly
-        change_result = client.change_resource_record_sets(
+        change_result = self.route53_retry(lambda: client.change_resource_record_sets(
             HostedZoneId=zone_id,
             ChangeBatch=self.make_batch('UPSERT', defn)
-        )
+        ))
 
         with self.depl._db:
             self.state = self.UP
@@ -183,12 +186,15 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             client = self.boto_session().client("route53")
 
             # TODO: catch exception
-            change_result = client.change_resource_record_sets(
+            change_result = self.route53_retry(lambda: client.change_resource_record_sets(
                 HostedZoneId=self.zone_id,
-                ChangeBatch=self.make_batch('DELETE', self))
+                ChangeBatch=self.make_batch('DELETE', self)))
 
             with self.depl._db:
                 self.state = self.MISSING
+
+    def route53_retry(self, f):
+        return nixops.ec2_utils.retry(f, error_codes=[ 'Throttling', 'PriorRequestNotComplete' ], logger=self)
 
     def create_after(self, resources, defn):
         return {r for r in resources if
