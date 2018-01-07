@@ -44,6 +44,7 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
     zone_name = nixops.util.attr_property("route53.zoneName", None)
     private_zone = nixops.util.attr_property("route53.privateZone", False)
     comment = nixops.util.attr_property('route53.comment', None)
+    delegation_set = nixops.util.attr_property('route53.delegationSet', [], 'json')
 
     @classmethod
     def get_type(cls):
@@ -57,8 +58,11 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
     def resource_id(self):
         return self.zone_id
 
-    def get_definition_prefix(self):
-        return "resources.route53HostedZones."
+    def prefix_definition(self, attr):
+        return {('resources', 'route53HostedZones'): attr}
+
+    def get_physical_spec(self):
+        return { 'delegationSet': self.delegation_set}
 
     def boto_session(self):
         if self._boto_session is None:
@@ -98,6 +102,7 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
                 self.private_zone = defn.private_zone
                 self.zone_name = defn.zone_name
                 self.comment = defn.comment
+                self.delegation_set = hosted_zone['DelegationSet']['NameServers']
 
         if defn.comment != self.comment or check:
             client.update_hosted_zone_comment(Id=self.zone_id, Comment=defn.comment)
@@ -137,4 +142,5 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
             self.zone_name = None
             self.private_zone = None
             self.comment = None
+            self.delegation_set = None
 

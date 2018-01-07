@@ -64,6 +64,15 @@ with lib;
       default = [];
     };
 
+    delegationSet = mkOption {
+      default = [];
+      internal = true;
+      type = types.listOf types.str;
+      description = ''
+        List of nameserves in the delegation set after creation. Set by nixops.
+      '';
+    };
+
   };
 
   config = {
