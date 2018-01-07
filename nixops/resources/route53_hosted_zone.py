@@ -89,6 +89,8 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
                 first_assoc = defn.associated_vpcs[0]
                 args['VPC'] = { 'VPCRegion': first_assoc['region'], 'VPCId': first_assoc['vpcId'] }
 
+            self.log('creating hosted zone for {}'.format(defn.zone_name))
+
             hosted_zone = client.create_hosted_zone(**args)
             with self.depl._db:
                 self.state = self.UP
@@ -122,6 +124,7 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
 
         if not self.zone_id: return
 
+        self.log('destroying hosted zone for {}'.format(self.zone_name))
         try:
             client.delete_hosted_zone(Id=self.zone_id)
         except botocore.exceptions.ClientError as e:
