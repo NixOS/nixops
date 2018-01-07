@@ -135,7 +135,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             raise Exception("The domain name '{0}' does not end in the zone name '{1}'. You have to specify the FQDN for the zone name.".format(defn.domain_name, self.zone_name))
 
 
-        self.log('creating record set ({}/{})'.format(defn.record_type, defn.domain_name))
+        self.log('creating record set ({})'.format(self.to_string(defn)))
 
         # Don't care about the state for now. We'll just upsert!
         # TODO: Copy properties_changed function used in GCE/Azure's
@@ -184,9 +184,15 @@ class Route53RecordSetState(nixops.resources.ResourceState):
 
         return batch
 
+    def to_string(self, obj):
+        res = "{}/{}".format(obj.record_type, obj.domain_name)
+        if obj.set_identifier:
+             res += "/{}".format(obj.set_identifier)
+        return res
+
     def destroy(self, wipe=False):
-        if self.state == self.UP:
-            self.log('destroying record set ({}/{})'.format(self.record_type, self.domain_name))
+        if self.state == self.UP and self.depl.logger.confirm("are you sure you want to destroy record: {}".format(self.to_string(self))):
+            self.log('destroying record set ({})'.format(self.to_string(self)))
             client = self.boto_session().client("route53")
 
             # TODO: catch exception
