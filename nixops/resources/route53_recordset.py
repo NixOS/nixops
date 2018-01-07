@@ -38,7 +38,7 @@ class Route53RecordSetDefinition(nixops.resources.ResourceDefinition):
         self.record_values = config["recordValues"]
 
     def show_type(self):
-        return "{0} [{1}]".format(self.get_type(), self.domain_name)
+        return "{0}".format(self.get_type())
 
 
 class Route53RecordSetState(nixops.resources.ResourceState):
@@ -202,6 +202,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
 
             with self.depl._db:
                 self.state = self.MISSING
+            return True
 
     def route53_retry(self, f):
         return nixops.ec2_utils.retry(f, error_codes=[ 'Throttling', 'PriorRequestNotComplete' ], logger=self)

@@ -138,9 +138,5 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
 
         with self.depl._db:
             self.state = self.MISSING
-            self.zone_id = None
-            self.zone_name = None
-            self.private_zone = None
-            self.comment = None
-            self.delegation_set = None
+        return True
 
