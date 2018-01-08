@@ -51,7 +51,9 @@ def print_record(record):
         print('      ];')
 
     if 'AliasTarget' in record:
-        print('')
+        print('      aliasDNSName = "{}";'.format(record['AliasTarget']['DNSName']))
+        print('      aliasEvaluateTargetHealth = {};'.format(record['AliasTarget']['EvaluateTargetHealth']))
+        print('      aliasHostedZoneId = "{}";'.format(record['AliasTarget']['HostedZoneId']))
 
     print('      recordType = "{}";'.format(record['Type']))
     print('    };')
