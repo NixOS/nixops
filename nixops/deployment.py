@@ -49,6 +49,7 @@ class Deployment(object):
     description = nixops.util.attr_property("description", default_description)
     configs_path = nixops.util.attr_property("configsPath", None)
     rollback_enabled = nixops.util.attr_property("rollbackEnabled", False)
+    datadog_notify = nixops.util.attr_property("datadogNotify", False, bool)
 
     def __init__(self, statefile, uuid, log_file=sys.stderr):
         self._statefile = statefile
@@ -333,6 +334,7 @@ class Deployment(object):
         # Extract global deployment attributes.
         self.description = config["network"].get("description", self.default_description)
         self.rollback_enabled = config["network"].get("enableRollback", False)
+        self.datadog_notify = config["network"].get("datadogNotify", False)
 
         # Extract machine information.
         for x in tree.findall("attrs/attr[@name='machines']/attrs/attr"):
@@ -991,9 +993,29 @@ class Deployment(object):
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active_resources.itervalues(), worker_fun=cleanup_worker)
         self.logger.log(ansi_success("{0}> deployment finished successfully".format(self.name or "unnamed"), outfile=self.logger._log_file))
 
+
+    # can generalize notifications later (e.g. emails, for now just hardcode datadog)
+    def notifyStart(self, action):
+        nixops.datadog_utils.create_event(self, title='nixops {} started'.format(action))
+
+    def notifySuccess(self, action):
+        nixops.datadog_utils.create_event(self, title='nixops {} succeeded'.format(action))
+
+    def notifyFailed(self, action, e):
+        nixops.datadog_utils.create_event(self, title='nixops {} failed'.format(action), text=e.message)
+
+    def run_with_notify(self, action, f):
+        self.notifyStart(action)
+        try:
+            f()
+            self.notifySuccess(action)
+        except Exception as e:
+            self.notifyFailed(action, e)
+            raise
+
     def deploy(self, **kwargs):
         with self._get_deployment_lock():
-            self._deploy(**kwargs)
+            self.run_with_notify('deploy', lambda: self._deploy(**kwargs))
 
 
     def _rollback(self, generation, include=[], exclude=[], check=False,
@@ -1076,7 +1098,7 @@ class Deployment(object):
         """Destroy all active and obsolete resources."""
 
         with self._get_deployment_lock():
-            self._destroy_resources(include, exclude, wipe)
+            self.run_with_notify('destroy', lambda: self._destroy_resources(include, exclude, wipe))
 
         # Remove the destroyed machines from the rollback profile.
         # This way, a subsequent "nix-env --delete-generations old" or
