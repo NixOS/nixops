@@ -127,7 +127,7 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
     def destroy(self, wipe=False):
         client = self.boto_session().client("route53")
 
-        if not self.zone_id: return
+        if not self.zone_id: return True
 
         self.log('destroying hosted zone for {}'.format(self.zone_name))
         try:
