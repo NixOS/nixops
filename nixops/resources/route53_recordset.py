@@ -93,6 +93,9 @@ class Route53RecordSetState(nixops.resources.ResourceState):
         if len(defn.domain_name) > 253:
             raise Exception("domain name ‘{0}’ is longer than 253 characters.".format(defn.domain_name))
 
+        if self.state == self.UP and not check:
+            return
+
         client = self.boto_session().client("route53")
 
         zone_name = defn.zone_name
@@ -135,7 +138,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             raise Exception("The domain name '{0}' does not end in the zone name '{1}'. You have to specify the FQDN for the zone name.".format(defn.domain_name, self.zone_name))
 
 
-        self.log('creating record set ({})'.format(self.to_string(defn)))
+        self.log('creating/updating record set ({})'.format(self.to_string(defn)))
 
         # Don't care about the state for now. We'll just upsert!
         # TODO: Copy properties_changed function used in GCE/Azure's
