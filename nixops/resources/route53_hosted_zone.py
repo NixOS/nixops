@@ -135,6 +135,7 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
         except botocore.exceptions.ClientError as e:
             if e.response['Error']['Code'] == 'NoSuchHostedZone':
                 pass
+            raise
 
         with self.depl._db:
             self.state = self.MISSING
