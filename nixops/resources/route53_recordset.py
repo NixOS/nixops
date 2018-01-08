@@ -131,6 +131,12 @@ class Route53RecordSetState(nixops.resources.ResourceState):
                 else:
                     zone_id = zones[0]["Id"]
 
+        if self.record_type and self.record_type != defn.record_type:
+            raise Exception("Cannot change record type from '{}' to '{}'".format(self.record_type, defn.record_type))
+        if self.zone_id and self.zone_id != zone_id:
+            raise Exception("Cannot change zone id from '{}' to '{}'.".format(self.zone_id, zone_id))
+        if self.set_identifier and self.set_identifier != defn.set_identifier:
+            raise Exception("Cannot change set identifier for a record from '{}' to '{}'. Need to destroy resource before deploying.".format(self.set_identifier, defn.set_identifier))
         if not zone_name.endswith('.'):
             zone_name += '.'
         # zone name should be suffix of the dns name, if the zone name is set.
