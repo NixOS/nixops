@@ -149,6 +149,7 @@ def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
         msg = "command ‘{0}’ failed on machine ‘{1}’"
         err = msg.format(command, logger.machine_name)
         raise CommandFailed(err, res)
+
     return stdout if capture_stdout else res
 
 
@@ -348,7 +349,8 @@ def xml_expr_to_python(node):
     if node.tag == "attrs":
         res = {}
         for attr in node.findall("attr"):
-            res[attr.get("name")] = xml_expr_to_python(attr.find("*"))
+            if attr.get("name") != "_module":
+                res[attr.get("name")] = xml_expr_to_python(attr.find("*"))
         return res
 
     elif node.tag == "list":

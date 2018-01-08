@@ -21,7 +21,7 @@ class SSHCommandFailed(nixops.util.CommandFailed):
 
 
 class SSHMaster(object):
-    def __init__(self, target, logger, ssh_flags, passwd, user):
+    def __init__(self, target, logger, ssh_flags, passwd, user, compress=False):
         self._running = False
         self._tempdir = nixops.util.SelfDeletingDir(mkdtemp(prefix="nixops-ssh-tmp"))
         self._askpass_helper = None
@@ -47,7 +47,8 @@ class SSHMaster(object):
                self._control_socket, "-M", "-N", "-f",
                '-oNumberOfPasswordPrompts={0}'.format(pass_prompts),
                '-oServerAliveInterval=60',
-               '-oControlPersist=600']
+               '-oControlPersist=600'] \
+              + (["-C"] if compress else [])
 
         res = subprocess.call(cmd + ssh_flags, **kwargs)
         if res != 0:
@@ -122,6 +123,7 @@ class SSH(object):
         self._passwd_fun = lambda: None
         self._logger = logger
         self._ssh_master = None
+        self._compress = False
 
     def register_host_fun(self, host_fun):
         """
@@ -194,7 +196,8 @@ class SSH(object):
                 started_at = time.time()
                 self._ssh_master = SSHMaster(self._get_target(user),
                                              self._logger, flags,
-                                             self._get_passwd(), user)
+                                             self._get_passwd(), user,
+                                             compress=self._compress)
                 break
             except Exception:
                 tries = tries - 1
@@ -295,3 +298,6 @@ class SSH(object):
                 raise SSHCommandFailed(err, res)
             else:
                 return res
+
+    def enable_compression(self):
+        self._compress = True
