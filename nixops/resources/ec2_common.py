@@ -1,9 +1,15 @@
 import socket
 import getpass
+
+import boto3
+
 import nixops.util
 import nixops.resources
+from nixops.diff import Diff, Handler
 
 class EC2CommonState():
+
+    COMMON_EC2_RESERVED = ['accessKeyId', 'ec2.tags']
 
     def _retry(self, fun, **kwargs):
         return nixops.ec2_utils.retry(fun, logger=self, **kwargs)
@@ -37,3 +43,21 @@ class EC2CommonState():
             self._retry(lambda: self._conn.create_tags([id], tags))
 
         self.update_tags_using(updater, user_tags=user_tags, check=check)
+
+    def get_client(self):
+        '''
+        Generic method to get a cached AWS client or create it.
+        '''
+        if self._state.get('accessKeyId', None) is None:
+            self.access_key_id = self.get_defn()['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
+            if not self.access_key_id:
+                raise Exception("please set 'accessKeyId', $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
+        if hasattr(self, '_client'):
+            if self._client: return self._client
+        assert self._state['region']
+        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
+        self._client = boto3.session.Session().client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+        return self._client
+
+    def reset_client(self):
+        self._client = None

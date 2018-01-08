@@ -101,6 +101,23 @@ rec {
   resources.elasticFileSystemMountTargets = evalResources ./elastic-file-system-mount-target.nix (zipAttrs resourcesByType.elasticFileSystemMountTargets or []);
   resources.cloudwatchLogGroups = evalResources ./cloudwatch-log-group.nix (zipAttrs resourcesByType.cloudwatchLogGroups or []);
   resources.cloudwatchLogStreams = evalResources ./cloudwatch-log-stream.nix (zipAttrs resourcesByType.cloudwatchLogStreams or []);
+  resources.vpc = evalResources ./vpc.nix (zipAttrs resourcesByType.vpc or []);
+  resources.vpcSubnets = evalResources ./vpc-subnet.nix (zipAttrs resourcesByType.vpcSubnets or []);
+  resources.vpcInternetGateways = evalResources ./vpc-internet-gateway.nix (zipAttrs resourcesByType.vpcInternetGateways or []);
+  resources.vpcEgressOnlyInternetGateways = evalResources ./vpc-egress-only-internet-gateway.nix (zipAttrs resourcesByType.vpcEgressOnlyInternetGateways or []);
+  resources.vpcDhcpOptions = evalResources ./vpc-dhcp-options.nix (zipAttrs resourcesByType.vpcDhcpOptions or []);
+  resources.vpcNetworkAcls = evalResources ./vpc-network-acl.nix (zipAttrs resourcesByType.vpcNetworkAcls or []);
+  resources.vpcNatGateways = evalResources ./vpc-nat-gateway.nix (zipAttrs resourcesByType.vpcNatGateways or []);
+  resources.vpcNetworkInterfaces = evalResources ./vpc-network-interface.nix (zipAttrs resourcesByType.vpcNetworkInterfaces or []);
+  resources.vpcNetworkInterfaceAttachments = evalResources ./vpc-network-interface-attachment.nix (zipAttrs resourcesByType.vpcNetworkInterfaceAttachments or []);
+  resources.vpcRouteTables = evalResources ./vpc-route-table.nix (zipAttrs resourcesByType.vpcRouteTables or []);
+  resources.vpcRouteTableAssociations = evalResources ./vpc-route-table-association.nix (zipAttrs resourcesByType.vpcRouteTableAssociations or []);
+  resources.vpcRoutes = evalResources ./vpc-route.nix (zipAttrs resourcesByType.vpcRoutes or []);
+  resources.vpcCustomerGateways = evalResources ./vpc-customer-gateway.nix (zipAttrs resourcesByType.vpcCustomerGateways or []);
+  resources.vpcEndpoints = evalResources ./vpc-endpoint.nix (zipAttrs resourcesByType.vpcEndpoints or []);
+  resources.awsVPNGateways = evalResources ./aws-vpn-gateway.nix (zipAttrs resourcesByType.awsVPNGateways or []);
+  resources.awsVPNConnections = evalResources ./aws-vpn-connection.nix (zipAttrs resourcesByType.awsVPNConnections or []);
+  resources.awsVPNConnectionRoutes = evalResources ./aws-vpn-connection-route.nix (zipAttrs resourcesByType.awsVPNConnectionRoutes or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Datadog resources

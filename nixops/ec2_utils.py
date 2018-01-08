@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 
 import os
-import boto.ec2
-import boto.vpc
 import time
 import random
+
 import nixops.util
 
+import boto3
+import boto.ec2
+import boto.vpc
 from boto.exception import EC2ResponseError
 from boto.exception import SQSError
 from boto.exception import BotoServerError
-
+from botocore.exceptions import ClientError
 from boto.pyami.config import Config
 
 def fetch_aws_secret_key(access_key_id):
@@ -69,6 +71,12 @@ def connect(region, access_key_id):
         raise Exception("invalid EC2 region ‘{0}’".format(region))
     return conn
 
+def connect_ec2_boto3(region, access_key_id):
+    assert region
+    (access_key_id, secret_access_key) = fetch_aws_secret_key(access_key_id)
+    client = boto3.session.Session().client('ec2', region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+    return client
+
 def connect_vpc(region, access_key_id):
     """Connect to the specified VPC region using the given access key."""
     assert region
@@ -94,7 +102,14 @@ def retry(f, error_codes=[], logger=None):
         if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
             raise e
         if logger is not None:
-            logger.log("got (possibly transient) EC2 error code '{0}': {1}. retrying...".format(e.error_code, e.error_message))
+            logger.log("got (possibly transient) EC2 error code '{0}': {1}, retrying...".format(e.error_code, e.error_message))
+
+    def handle_boto3_exception(e):
+        if i == num_retries:
+            raise e
+        if logger is not None:
+            if hasattr(e, 'response'):
+                logger.log("got (possibly transient) EC2 error '{}', retrying...".format(str(e.response['Error'])))
 
     i = 0
     num_retries = 7
@@ -108,6 +123,8 @@ def retry(f, error_codes=[], logger=None):
             handle_exception(e)
         except SQSError as e:
             handle_exception(e)
+        except ClientError as e:
+            handle_boto3_exception(e)
         except BotoServerError as e:
             if e.error_code == "RequestLimitExceeded":
                 num_retries += 1
