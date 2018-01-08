@@ -29,6 +29,7 @@ def run_tasks(nr_workers, tasks, worker_fun):
     if nr_workers == -1: nr_workers = nr_tasks
     if nr_workers < 1: raise Exception("number of worker threads must be at least 1")
 
+    print nr_workers
     def thread_fun():
         n = 0
         while True:
