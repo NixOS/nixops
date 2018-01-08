@@ -62,7 +62,7 @@ with (import ./lib.nix lib);
     };
 
     recordType = mkOption {
-      type = types.enum [ "SOA" "A" "AAAA" "TXT" "NS" "CNAME" "MX" "NAPT" "PTR" "SRV" "SPF" ];
+      type = types.enum [ "A" "AAAA" "TXT" "CNAME" "MX" "NAPT" "PTR" "SRV" "SPF" ];
       default = "A";
 
       description = ''
