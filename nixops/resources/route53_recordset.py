@@ -53,7 +53,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
 
     zone_name = nixops.util.attr_property("route53.zoneName", None)
     domain_name = nixops.util.attr_property("route53.domainName", None)
-    ttl = nixops.util.attr_property("route53.ttl", None)
+    ttl = nixops.util.attr_property("route53.ttl", None, int)
     record_type = nixops.util.attr_property("route53.recordType", None)
     record_values = nixops.util.attr_property("route53.recordValues", None, 'json')
 
@@ -93,9 +93,6 @@ class Route53RecordSetState(nixops.resources.ResourceState):
         if len(defn.domain_name) > 253:
             raise Exception("domain name ‘{0}’ is longer than 253 characters.".format(defn.domain_name))
 
-        if self.state == self.UP and not check:
-            return
-
         client = self.boto_session().client("route53")
 
         zone_name = defn.zone_name
@@ -131,18 +128,26 @@ class Route53RecordSetState(nixops.resources.ResourceState):
                 else:
                     zone_id = zones[0]["Id"]
 
+        if self.domain_name and self.domain_name != defn.domain_name:
+            raise Exception("Cannot change record domain name from '{}' to '{}'".format(self.domain_name, defn.domain_name))
         if self.record_type and self.record_type != defn.record_type:
             raise Exception("Cannot change record type from '{}' to '{}'".format(self.record_type, defn.record_type))
         if self.zone_id and self.zone_id != zone_id:
             raise Exception("Cannot change zone id from '{}' to '{}'.".format(self.zone_id, zone_id))
         if self.set_identifier and self.set_identifier != defn.set_identifier:
-            raise Exception("Cannot change set identifier for a record from '{}' to '{}'. Need to destroy resource before deploying.".format(self.set_identifier, defn.set_identifier))
+            raise Exception("Cannot change set identifier for a record from '{}' to '{}'.".format(self.set_identifier, defn.set_identifier))
         if not zone_name.endswith('.'):
             zone_name += '.'
         # zone name should be suffix of the dns name, if the zone name is set.
         if not defn.domain_name.endswith(zone_name):
             raise Exception("The domain name '{0}' does not end in the zone name '{1}'. You have to specify the FQDN for the zone name.".format(defn.domain_name, self.zone_name))
 
+
+        changed = self.record_values != defn.record_values \
+               or self.ttl != defn.ttl \
+               or self.weight != defn.weight
+        if not changed and not check:
+            return
 
         self.log('creating/updating record set ({})'.format(self.to_string(defn)))
 
