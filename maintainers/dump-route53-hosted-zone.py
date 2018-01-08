@@ -23,26 +23,36 @@ for record in records:
         by_hostname[name] = []
     by_hostname[name].append(record)
 
-count = {k : len(v) for (k, v) in by_hostname.items()}
+count = {k : len(filter(lambda x: x['Type']=='A', v)) for (k, v) in by_hostname.items()}
 
 def print_record(record):
     if record['Type'] in ( 'NS', 'SOA') :
         return
 
-    if len(record['ResourceRecords']) > 1:
-        raise Exception('Too many values')
-
     res = record['Name'][:-(len(domain)+1)]
     if count[record['Name']] > 1:
         res = res + "-" +  record['SetIdentifier']
+    if res == "":
+        res = record['Type'] + "-record"
+
     print('    "{0}" = {{ resources, ... }}: {{'.format(res))
     print('      zoneId = resources.route53HostedZones.hs;')
     print('      inherit accessKeyId;')
     print('      domainName = "{}";'.format(record['Name']))
     if 'SetIdentifier' in record:
         print('      setIdentifier = "{}";'.format(record['SetIdentifier']))
-    print('      ttl = {};'.format(record['TTL']))
-    print('      recordValues = [ "{}" ];'.format(record['ResourceRecords'][0]['Value']))
+    if 'TTL' in record:
+        print('      ttl = {};'.format(record['TTL']))
+
+    if 'ResourceRecords' in record:
+        print('      recordValues = [')
+        for v in record['ResourceRecords']:
+            print('        "{}"'.format(v['Value']))
+        print('      ];')
+
+    if 'AliasTarget' in record:
+        print('')
+
     print('      recordType = "{}";'.format(record['Type']))
     print('    };')
 
