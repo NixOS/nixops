@@ -14,6 +14,7 @@ with lib;
 
     accessKeyId = mkOption {
       type = types.str;
+      default = "";
       description = ''
         The AWS Access Key ID.  If left empty, it defaults to the
         contents of the environment variables
