@@ -2,7 +2,7 @@
 
 from nixops import known_hosts
 from nixops.util import attr_property, create_key_pair, generate_random_string
-from nixops.nix_expr import RawValue, Call
+from nixops.nix_expr import Function, RawValue, Call
 
 from nixops.backends import MachineDefinition, MachineState
 
@@ -347,9 +347,9 @@ class GCEState(MachineState, ResourceState):
                 v['region'] = defn.region
                 try:
                     self.connect().create_volume(v['size'], v['disk_name'], v['region'],
-                                                  snapshot = v['snapshot'], image = v['image'],
-                                                  ex_disk_type = "pd-" + v.get('type', 'standard'),
-                                                  use_existing= False)
+                                                snapshot=v['snapshot'], image=v['image'],
+                                                ex_disk_type="pd-" + v.get('type', 'standard'),
+                                                use_existing=False)
                 except AttributeError:
                     # libcloud bug: The region we're trying to create the disk
                     # in doesn't exist.
@@ -463,7 +463,7 @@ class GCEState(MachineState, ResourceState):
                 v['passphrase'] = defn_v['passphrase']
                 self.log("attaching GCE disk '{0}'...".format(disk_name))
                 if not v.get('bootDisk', False):
-                    self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_name, disk_region), 
+                    self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_name, disk_region),
                                    device = disk_name,
                                    ex_mode = ('READ_ONLY' if v['readOnly'] else 'READ_WRITE'))
                 del v['needsAttach']
@@ -701,6 +701,7 @@ class GCEState(MachineState, ResourceState):
         except libcloud.common.google.ResourceNotFoundError:
             res.exists = False
             res.is_up = False
+            self.vm_id = None
             self.state = self.MISSING;
 
     def create_after(self, resources, defn):
@@ -735,7 +736,7 @@ class GCEState(MachineState, ResourceState):
                                     .format(volume.name, self.machine_name)
                 })
 
-            backup[disk_name] = snapshot_name
+            backup[k] = snapshot_name
             _backups[backup_id] = backup
             self.backups = _backups
 
@@ -826,6 +827,17 @@ class GCEState(MachineState, ResourceState):
             ],
             ('deployment', 'gce', 'blockDeviceMapping'): block_device_mapping,
         }
+
+    def get_physical_backup_spec(self, backupid):
+          val = {}
+          if backupid in self.backups:
+              print self.backups[backupid]
+              for dev, snap in self.backups[backupid].items():
+                  val[dev] = { 'disk': Call(RawValue("pkgs.lib.mkOverride 10"), snap)}
+              val = { ('deployment', 'gce', 'blockDeviceMapping'): val }
+          else:
+              val = RawValue("{{}} /* No backup found for id '{0}' */".format(backupid))
+          return Function("{ config, pkgs, ... }", val)
 
     def get_keys(self):
         keys = MachineState.get_keys(self)
