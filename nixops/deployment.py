@@ -660,7 +660,7 @@ class Deployment(object):
 
 
     def activate_configs(self, configs_path, include, exclude, allow_reboot,
-                         force_reboot, check, sync, always_activate, dry_activate):
+                         force_reboot, check, sync, always_activate, dry_activate, max_concurrent_activate):
         """Activate the new configuration on a machine."""
 
         def worker(m):
@@ -732,7 +732,7 @@ class Deployment(object):
                 return m.name
             return None
 
-        res = nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
+        res = nixops.parallel.run_tasks(nr_workers=max_concurrent_activate, tasks=self.active.itervalues(), worker_fun=worker)
         failed = [x for x in res if x != None]
         if failed != []:
             raise Exception("activation of {0} of {1} machines failed (namely on {2})"
@@ -869,7 +869,8 @@ class Deployment(object):
     def _deploy(self, dry_run=False, plan_only=False, build_only=False, create_only=False, copy_only=False,
                 include=[], exclude=[], check=False, kill_obsolete=False,
                 allow_reboot=False, allow_recreate=False, force_reboot=False,
-                max_concurrent_copy=5, sync=True, always_activate=False, repair=False, dry_activate=False):
+                max_concurrent_copy=5, max_concurrent_activate=-1, sync=True,
+                always_activate=False, repair=False, dry_activate=False):
         """Perform the deployment defined by the deployment specification."""
 
         self.evaluate_active(include, exclude, kill_obsolete)
@@ -978,7 +979,8 @@ class Deployment(object):
         self.activate_configs(self.configs_path, include=include,
                               exclude=exclude, allow_reboot=allow_reboot,
                               force_reboot=force_reboot, check=check,
-                              sync=sync, always_activate=always_activate, dry_activate=dry_activate)
+                              sync=sync, always_activate=always_activate,
+                              dry_activate=dry_activate, max_concurrent_activate=max_concurrent_activate)
 
         if dry_activate: return
 
@@ -1020,7 +1022,7 @@ class Deployment(object):
 
     def _rollback(self, generation, include=[], exclude=[], check=False,
                   allow_reboot=False, force_reboot=False,
-                  max_concurrent_copy=5, sync=True):
+                  max_concurrent_copy=5, max_concurrent_activate=-1, sync=True):
         if not self.rollback_enabled:
             raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy"
                             )
@@ -1054,7 +1056,8 @@ class Deployment(object):
         self.activate_configs(self.configs_path, include=include,
                               exclude=exclude, allow_reboot=allow_reboot,
                               force_reboot=force_reboot, check=check,
-                              sync=sync, always_activate=True, dry_activate=False)
+                              sync=sync, always_activate=True,
+                              dry_activate=False, max_concurrent_activate=max_concurrent_activate)
 
 
     def rollback(self, **kwargs):
