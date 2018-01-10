@@ -72,7 +72,9 @@ with (import ./lib.nix lib);
     };
 
     recordValues = mkOption {
-      type = types.listOf types.str;
+      type = types.listOf (types.either types.str (resource "machine"));
+
+      apply = l: map (x: if (builtins.isString x) || ( x == null) then x else "res-" + x._name) l;
 
       description = ''
         The value of the DNS record 

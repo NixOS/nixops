@@ -142,6 +142,16 @@ class Route53RecordSetState(nixops.resources.ResourceState):
         if not defn.domain_name.endswith(zone_name):
             raise Exception("The domain name '{0}' does not end in the zone name '{1}'. You have to specify the FQDN for the zone name.".format(defn.domain_name, self.zone_name))
 
+        def resolve_machine_ip(v):
+            if v.startswith('res-'):
+                m = self.depl.get_machine(v[4:])
+                if not m.public_ipv4:
+                    raise Exception("cannot create record set for a machine that has not yet been created")
+                return m.public_ipv4
+            else:
+                return v
+
+        defn.record_values = map(resolve_machine_ip , defn.record_values)
 
         changed = self.record_values != defn.record_values \
                or self.ttl != defn.ttl \
