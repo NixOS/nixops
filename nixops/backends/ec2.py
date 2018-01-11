@@ -924,6 +924,18 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             # Cancel spot instance request, it isn't needed after the
             # instance has been provisioned.
             self._cancel_spot_request()
+        else: # not self.vm_id
+            pass
+            #if defn.instance_profile.startswith("arn:") :
+            #common_args['instance_profile_arn'] = defn.instance_profile
+            #else:
+            #common_args['instance_profile_name'] = defn.instance_profile
+            # use DescribeIamInstanceProfileAssociations to list profiles on instance
+            # call AssociateIamInstanceProfile and DisassociateIamInstanceProfile based on state
+            # TODO #785, query the instance profiles defined on the ec2 instance, then compare against defn.instance_profile
+            # use DisassociateIamInstanceProfile to remove any that dont belong
+            # and use AssociateIamInstanceProfile to attach any that belong and are missing
+
 
         # There is a short time window during which EC2 doesn't
         # know the instance ID yet.  So wait until it does.
