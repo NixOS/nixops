@@ -1017,11 +1017,9 @@ class Deployment(object):
         nixops.datadog_utils.create_event(self, title='nixops {} started'.format(action), text=self.datadog_event_info, tags=self.datadog_tags)
 
     def notify_success(self, action):
-        self.evaluate_network()
         nixops.datadog_utils.create_event(self, title='nixops {} succeeded'.format(action), tags=self.datadog_tags)
 
     def notify_failed(self, action, e):
-        self.evaluate_network()
         nixops.datadog_utils.create_event(self, title='nixops {} failed'.format(action), text=e.message, tags=self.datadog_tags)
 
     def run_with_notify(self, action, f):
