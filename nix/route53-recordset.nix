@@ -62,6 +62,15 @@ with (import ./lib.nix lib);
       '';
     };
 
+    routingPolicy = mkOption {
+      type = types.enum [ "simple" "weighted" "multivalue" ];
+      default = "simple";
+
+      description = ''
+        DNS record type
+      '';
+    };
+
     recordType = mkOption {
       type = types.enum [ "A" "AAAA" "TXT" "CNAME" "MX" "NAPT" "PTR" "SRV" "SPF" ];
       default = "A";

@@ -21,6 +21,7 @@
       recordValues = [ "1.2.3.4" ];
       recordType = "A";
       setIdentifier = "id1";
+      routingPolicy = "multivalue";
     };
 
     mv2 = { resources, ... }: {
@@ -30,6 +31,7 @@
       recordValues = [ "4.3.2.1" ];
       recordType = "A";
       setIdentifier = "id2";
+      routingPolicy = "multivalue";
     };
 
     weight1 = { resources, ... }: {
@@ -39,6 +41,7 @@
       recordValues = [ "5.4.3.2" ];
       recordType = "A";
       setIdentifier = "id1";
+      routingPolicy = "weighted";
     };
 
     weight2 = { resources, ... }: {
@@ -48,6 +51,7 @@
       recordValues = [ "2.3.4.5" ];
       recordType = "A";
       setIdentifier = "id2";
+      routingPolicy = "weighted";
     };
  };
 }

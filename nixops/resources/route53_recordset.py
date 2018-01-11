@@ -34,6 +34,7 @@ class Route53RecordSetDefinition(nixops.resources.ResourceDefinition):
         self.domain_name = config["domainName"]
 
         self.ttl = config["ttl"]
+        self.routing_policy = config["routingPolicy"]
         self.record_type = config["recordType"]
         self.record_values = config["recordValues"]
 
@@ -54,6 +55,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
     zone_name = nixops.util.attr_property("route53.zoneName", None)
     domain_name = nixops.util.attr_property("route53.domainName", None)
     ttl = nixops.util.attr_property("route53.ttl", None, int)
+    routing_policy = nixops.util.attr_property("route53.routingPolicy", None)
     record_type = nixops.util.attr_property("route53.recordType", None)
     record_values = nixops.util.attr_property("route53.recordValues", None, 'json')
 
@@ -128,6 +130,8 @@ class Route53RecordSetState(nixops.resources.ResourceState):
                 else:
                     zone_id = zones[0]["Id"]
 
+        if self.routing_policy and self.routing_policy != defn.routing_policy:
+            raise Exception("Cannot change record routing policy from '{}' to '{}'".format(self.routing_policy, defn.routing_policy))
         if self.domain_name and self.domain_name != defn.domain_name:
             raise Exception("Cannot change record domain name from '{}' to '{}'".format(self.domain_name, defn.domain_name))
         if self.record_type and self.record_type != defn.record_type:
@@ -175,6 +179,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             self.zone_id = zone_id
             self.domain_name = defn.domain_name
             self.record_type = defn.record_type
+            self.routing_policy = defn.routing_policy
             self.record_values = defn.record_values
             self.ttl = defn.ttl
             self.set_identifier = defn.set_identifier
@@ -198,12 +203,14 @@ class Route53RecordSetState(nixops.resources.ResourceState):
         }
 
         rs_batch = batch['Changes'][0]['ResourceRecordSet']
+
         if obj.set_identifier and obj.set_identifier != "":
             rs_batch.update({ 'SetIdentifier': obj.set_identifier })
-            if obj.weight == 0:
-                rs_batch.update({ 'MultiValueAnswer': True })
 
-        if obj.weight != 0:
+        if obj.routing_policy == "multivalue":
+            rs_batch.update({ 'MultiValueAnswer': True })
+
+        if obj.routing_policy == "weighted":
             rs_batch.update({ 'Weight': int(obj.weight) })
 
         return batch
