@@ -30,7 +30,9 @@ def print_record(record):
         return
 
     res = record['Name'][:-(len(domain)+1)]
+    mv = False
     if count[record['Name']] > 1:
+        mv = True
         res = res + "-" +  record['SetIdentifier']
     if res == "":
         res = record['Type'] + "-record"
@@ -38,6 +40,7 @@ def print_record(record):
     print('    "{0}" = {{ resources, ... }}: {{'.format(res))
     print('      zoneId = resources.route53HostedZones.hs;')
     print('      inherit accessKeyId;')
+    print('      routingPolicy = "{}";'.format('multivalue' if mv else 'simple'))
     print('      domainName = "{}";'.format(record['Name']))
     if 'SetIdentifier' in record:
         print('      setIdentifier = "{}";'.format(record['SetIdentifier']))
