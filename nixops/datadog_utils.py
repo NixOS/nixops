@@ -26,7 +26,7 @@ def get_template_variables(defn):
 def get_base_url():
     return "https://app.datadoghq.com/"
 
-def create_event(depl, title, text=''):
+def create_event(depl, title, text='', tags=[]):
     if not depl.datadog_notify: return
 
     try:
@@ -35,6 +35,6 @@ def create_event(depl, title, text=''):
         return
 
     try:
-        api.Event.create(title=title, text=text, tags=[ 'uuid:{}'.format(depl.uuid), 'deployment:{}'.format(depl.name)])
+        api.Event.create(title=title, text=text, tags=tags + [ 'uuid:{}'.format(depl.uuid), 'deployment:{}'.format(depl.name)])
     except:
         depl.logger.warn('Failed creating event in datadog, ignoring.')

@@ -50,6 +50,11 @@ class Deployment(object):
     configs_path = nixops.util.attr_property("configsPath", None)
     rollback_enabled = nixops.util.attr_property("rollbackEnabled", False)
     datadog_notify = nixops.util.attr_property("datadogNotify", False, bool)
+    datadog_event_info = nixops.util.attr_property("datadogEventInfo", "")
+    datadog_tags = nixops.util.attr_property("datadogTags", [], 'json')
+
+    # internal variable to mark if network attribute of network has been evaluated (separately)
+    network_attr_eval = False
 
     def __init__(self, statefile, uuid, log_file=sys.stderr):
         self._statefile = statefile
@@ -303,12 +308,7 @@ class Deployment(object):
         except subprocess.CalledProcessError:
             raise NixEvalError
 
-
-    def evaluate(self):
-        """Evaluate the Nix expressions belonging to this deployment into a deployment specification."""
-
-        self.definitions = {}
-
+    def evaluate_config(self, attr):
         try:
             # FIXME: use --json
             xml = subprocess.check_output(
@@ -317,7 +317,7 @@ class Deployment(object):
                 + self._eval_flags(self.nix_exprs) +
                 ["--eval-only", "--xml", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
-                 "-A", "info"], stderr=self.logger.log_file)
+                 "-A", attr], stderr=self.logger.log_file)
             if debug: print >> sys.stderr, "XML output of nix-instantiate:\n" + xml
         except OSError as e:
             raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
@@ -330,11 +330,26 @@ class Deployment(object):
         # in fact the same as what json.loads() on the output of
         # "nix-instantiate --json" would yield.
         config = nixops.util.xml_expr_to_python(tree.find("*"))
+        return (tree, config)
 
-        # Extract global deployment attributes.
-        self.description = config["network"].get("description", self.default_description)
-        self.rollback_enabled = config["network"].get("enableRollback", False)
-        self.datadog_notify = config["network"].get("datadogNotify", False)
+    def evaluate_network(self):
+        if not self.network_attr_eval:
+            # Extract global deployment attributes.
+            (_, config) = self.evaluate_config("info.network")
+            self.description = config.get("description", self.default_description)
+            self.rollback_enabled = config.get("enableRollback", False)
+            self.datadog_notify = config.get("datadogNotify", False)
+            self.datadog_event_info = config.get("datadogEventInfo", "")
+            self.datadog_tags = config.get("datadogTags", [])
+            self.network_attr_eval = True
+
+    def evaluate(self):
+        """Evaluate the Nix expressions belonging to this deployment into a deployment specification."""
+
+        self.definitions = {}
+        self.evaluate_network()
+
+        (tree, config) = self.evaluate_config("info")
 
         # Extract machine information.
         for x in tree.findall("attrs/attr[@name='machines']/attrs/attr"):
@@ -660,7 +675,7 @@ class Deployment(object):
 
 
     def activate_configs(self, configs_path, include, exclude, allow_reboot,
-                         force_reboot, check, sync, always_activate, dry_activate):
+                         force_reboot, check, sync, always_activate, dry_activate, max_concurrent_activate):
         """Activate the new configuration on a machine."""
 
         def worker(m):
@@ -732,7 +747,7 @@ class Deployment(object):
                 return m.name
             return None
 
-        res = nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
+        res = nixops.parallel.run_tasks(nr_workers=max_concurrent_activate, tasks=self.active.itervalues(), worker_fun=worker)
         failed = [x for x in res if x != None]
         if failed != []:
             raise Exception("activation of {0} of {1} machines failed (namely on {2})"
@@ -869,7 +884,8 @@ class Deployment(object):
     def _deploy(self, dry_run=False, plan_only=False, build_only=False, create_only=False, copy_only=False,
                 include=[], exclude=[], check=False, kill_obsolete=False,
                 allow_reboot=False, allow_recreate=False, force_reboot=False,
-                max_concurrent_copy=5, sync=True, always_activate=False, repair=False, dry_activate=False):
+                max_concurrent_copy=5, max_concurrent_activate=-1, sync=True,
+                always_activate=False, repair=False, dry_activate=False):
         """Perform the deployment defined by the deployment specification."""
 
         self.evaluate_active(include, exclude, kill_obsolete)
@@ -978,7 +994,8 @@ class Deployment(object):
         self.activate_configs(self.configs_path, include=include,
                               exclude=exclude, allow_reboot=allow_reboot,
                               force_reboot=force_reboot, check=check,
-                              sync=sync, always_activate=always_activate, dry_activate=dry_activate)
+                              sync=sync, always_activate=always_activate,
+                              dry_activate=dry_activate, max_concurrent_activate=max_concurrent_activate)
 
         if dry_activate: return
 
@@ -995,22 +1012,23 @@ class Deployment(object):
 
 
     # can generalize notifications later (e.g. emails, for now just hardcode datadog)
-    def notifyStart(self, action):
-        nixops.datadog_utils.create_event(self, title='nixops {} started'.format(action))
+    def notify_start(self, action):
+        self.evaluate_network()
+        nixops.datadog_utils.create_event(self, title='nixops {} started'.format(action), text=self.datadog_event_info, tags=self.datadog_tags)
 
-    def notifySuccess(self, action):
-        nixops.datadog_utils.create_event(self, title='nixops {} succeeded'.format(action))
+    def notify_success(self, action):
+        nixops.datadog_utils.create_event(self, title='nixops {} succeeded'.format(action), text=self.datadog_event_info, tags=self.datadog_tags)
 
-    def notifyFailed(self, action, e):
-        nixops.datadog_utils.create_event(self, title='nixops {} failed'.format(action), text=e.message)
+    def notify_failed(self, action, e):
+        nixops.datadog_utils.create_event(self, title='nixops {} failed'.format(action), text="Error: {}\n\n{}".format(e.message, self.datadog_event_info), tags=self.datadog_tags)
 
     def run_with_notify(self, action, f):
-        self.notifyStart(action)
+        self.notify_start(action)
         try:
             f()
-            self.notifySuccess(action)
+            self.notify_success(action)
         except Exception as e:
-            self.notifyFailed(action, e)
+            self.notify_failed(action, e)
             raise
 
     def deploy(self, **kwargs):
@@ -1020,7 +1038,7 @@ class Deployment(object):
 
     def _rollback(self, generation, include=[], exclude=[], check=False,
                   allow_reboot=False, force_reboot=False,
-                  max_concurrent_copy=5, sync=True):
+                  max_concurrent_copy=5, max_concurrent_activate=-1, sync=True):
         if not self.rollback_enabled:
             raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy"
                             )
@@ -1054,7 +1072,8 @@ class Deployment(object):
         self.activate_configs(self.configs_path, include=include,
                               exclude=exclude, allow_reboot=allow_reboot,
                               force_reboot=force_reboot, check=check,
-                              sync=sync, always_activate=True, dry_activate=False)
+                              sync=sync, always_activate=True,
+                              dry_activate=False, max_concurrent_activate=max_concurrent_activate)
 
 
     def rollback(self, **kwargs):

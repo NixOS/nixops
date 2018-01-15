@@ -100,6 +100,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
                 self.warn("monitor with id {0} doesn't exist anymore.. recreating ...".format(self.monitor_id))
                 monitor_id = self.create_monitor(defn=defn, options=options)
             else:
+                self.log("updating datadog monitor '{0}...'".format(defn.config['name']))
                 response = self._dd_api.Monitor.update(
                 self.monitor_id, query=defn.config['query'], name=defn.config['name'],
                 message=defn.config['message'], options=options)
