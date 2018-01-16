@@ -86,12 +86,12 @@ class LinodeState(MachineState):
     @staticmethod
     def get_kernel(client, kernel_label):
         for k in client.linode.get_kernels():
-            if k.deprecated or not k.x64 or not k.kvm:
+            if k.deprecated or k.architecture != 'x86_64' or not k.kvm:
                 pass
             elif k.label == kernel_label:
                 return k
 
-        raise ValueError("Unknown kernel id 'Direct Disk'")
+        raise ValueError("Unknown kernel label: " + str(kernel_label))
 
     @staticmethod
     def get_kernel_direct_disk(client):
@@ -100,14 +100,6 @@ class LinodeState(MachineState):
     @staticmethod
     def get_kernel_grub(client):
         return LinodeState.get_kernel(client, "GRUB 2")
-
-    @staticmethod
-    def get_debian(client):
-        for d in client.linode.get_distributions(linode.Distribution.vendor == "Debian"):
-            if d.id == "linode/debian8":
-                return d
-
-        raise ValueError("Unknown distribution 'Debian 8'")
 
     @staticmethod
     def try_until_success(f):
@@ -182,7 +174,19 @@ class LinodeState(MachineState):
         }
 
     def start(self):
-        return self.get_linode_instance().boot()
+        self.log_start("Booting")
+
+        instance = self.get_linode_instance()
+
+        result = instance.boot()
+
+        while instance.status != "running":
+            self.log_continue(".")
+            sleep(1)
+
+        self.log_start("Booted")
+
+        return result
 
     def stop(self):
         self.log_start("Shutting down")
@@ -252,22 +256,20 @@ class LinodeState(MachineState):
                 else:
                     raise
 
-
         plan = LinodeState.get_plan(client, defn.type_id)
-
-        service = linode.Service(client, plan.id)
 
         instance = None
 
         try:
             self.log_start("Creating Linode instance")
             instance = client.linode.create_instance(
-                service,
+                plan,
                 LinodeState.get_region(client, defn.region_id),
-                distribution = LinodeState.get_debian(client),
+                image = linode.Image(client, "linode/debian8"),
                 label = self.get_label(),
                 group = "nixops-" + self._deployment_name,
-                root_ssh_key = self.public_key
+                authorized_keys = [self.public_key],
+                booted = False
             )[0]
 
             if not instance:
@@ -278,42 +280,50 @@ class LinodeState(MachineState):
             self.public_ipv6 = instance.ipv6
 
             self.log_end("")
-            self.log_start("Booting instance into Debian 8 with standard Grub 2 kernel.")
 
             ## Changing configuration to Grub 2 lets us use the
             ## default Debian kernel instead of Linode's modified
             ## kernel (which has a weird disk setup and causes
             ## problems).
 
+            self.log_start("Waiting for machine to be provisioned.")
+            while instance.status == "provisioning":
+                self.log_continue(".")
+                sleep(1)
+
+            self.log_end("")
+
             config = instance.configs[0]
             config.kernel = LinodeState.get_kernel_grub(client)
             config.save()
 
-            instance.boot()
+            self.log_start("Debian 8 with standard Grub 2 kernel.")
+            self.start()
+            self.log_end("")
 
             self.wait_for_ssh()
-
-            self.log_end("")
 
             self.log_start("running nixos-infect")
             self.run_command('bash </dev/stdin 2>&1', stdin=open(INFECT_PATH))
             self.log_end("")
             self.stop()
 
-            self.log_start("Booting instance into Nixos")
+            self.log_start("Booting instance into NixOS")
             ## nixos-infect installs Grub on the disk - we want to switch to using that.
             config.kernel = LinodeState.get_kernel_direct_disk(client)
             config.save()
 
-            instance.boot()
+            self.start()
+            self.log_end("")
 
             self.wait_for_ssh()
 
-            self.log_end("")
-
         except:
+            ## Note: despite this, it's quite easy to end up with a dangling leftover instance.
+            ## Perhaps we should do some better cleanup here?
             if instance:
                 instance.delete()
+
             self.linode_id = None
 
             raise
