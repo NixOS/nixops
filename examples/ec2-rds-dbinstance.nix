@@ -6,17 +6,16 @@ in
   network.description = "NixOps RDS Testing";
 
   resources.rdsDbSecurityGroups.test-rds-sg =
-  { resources, ... }:
-  {
-    inherit region accessKeyId;
-    groupName = "test-nixops";
-    description = "testing sg for rds";
-    rules = [
-      {
-        cidrIp = "0.0.0.0/0";
-      }
-    ];
-  };
+    {
+      inherit region accessKeyId;
+      groupName = "test-nixops";
+      description = "testing sg for rds";
+      rules = [
+        {
+          cidrIp = "0.0.0.0/0";
+        }
+      ];
+    };
 
   resources.rdsDbInstances.test-rds-instance =
     { resources, ... }:
