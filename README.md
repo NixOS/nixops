@@ -1,5 +1,4 @@
-NixOps
-====
+# NixOps
 
 NixOps (formerly known as Charon) is a tool for deploying NixOS
 machines in a network or cloud.
@@ -11,3 +10,23 @@ machines in a network or cloud.
 * [Issue Tracker](https://github.com/NixOS/nixops/issues)
 * [Mailing list / Google group](https://groups.google.com/forum/#!forum/nixops-users)
 * [IRC - #nixos on freenode.net](irc://irc.freenode.net/#nixos)
+
+## Building from source
+
+The command to build NixOps depends on your platform:
+
+- `nix-build release.nix -A build.x86_64-linux` on 64 bit linux.
+- `nix-build release.nix -A build.i686-linux` on 32 bit linux.
+- `nix-build release.nix -A build.x86_64-darwin` on OSX.
+
+Similarly, using NixOps from another project (for instance a
+nix-shell) can be done using:
+
+```nix
+stdenv.mkDerivation {
+  name = "my-nixops-env";
+  buildInputs = [
+    (import /path/to/nixops/release.nix {}).build.x86_64-linux; in
+  ];
+}
+```
