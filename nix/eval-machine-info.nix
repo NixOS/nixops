@@ -102,6 +102,7 @@ rec {
   resources.cloudwatchLogGroups = evalResources ./cloudwatch-log-group.nix (zipAttrs resourcesByType.cloudwatchLogGroups or []);
   resources.cloudwatchLogStreams = evalResources ./cloudwatch-log-stream.nix (zipAttrs resourcesByType.cloudwatchLogStreams or []);
   resources.route53HostedZones = evalResources ./route53-hosted-zone.nix (zipAttrs resourcesByType.route53HostedZones or []);
+  resources.route53HealthChecks = evalResources ./route53-health-check.nix (zipAttrs resourcesByType.route53HealthChecks or []);
   resources.vpc = evalResources ./vpc.nix (zipAttrs resourcesByType.vpc or []);
   resources.vpcSubnets = evalResources ./vpc-subnet.nix (zipAttrs resourcesByType.vpcSubnets or []);
   resources.vpcInternetGateways = evalResources ./vpc-internet-gateway.nix (zipAttrs resourcesByType.vpcInternetGateways or []);

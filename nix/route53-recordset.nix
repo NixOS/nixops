@@ -113,5 +113,14 @@ with (import ./lib.nix lib);
         routing policy is not used.
       '';
     };
+
+    healthCheckId = mkOption {
+      type = types.either types.str (resource "route53-health-check");
+      default = "";
+      apply = x: if (builtins.isString x) || ( x == null) then x else "res-" + x. _name;
+      description = ''
+        Optional ID of an Amazon Route 53 health check.
+      '';
+    };
   };
 }

@@ -37,6 +37,7 @@ class Route53RecordSetDefinition(nixops.resources.ResourceDefinition):
         self.routing_policy = config["routingPolicy"]
         self.record_type = config["recordType"]
         self.record_values = config["recordValues"]
+        self.health_check_id = config["healthCheckId"]
 
     def show_type(self):
         return "{0}".format(self.get_type())
@@ -58,6 +59,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
     routing_policy = nixops.util.attr_property("route53.routingPolicy", None)
     record_type = nixops.util.attr_property("route53.recordType", None)
     record_values = nixops.util.attr_property("route53.recordValues", None, 'json')
+    health_check_id = nixops.util.attr_property("route53.healthCheckId", None)
 
     @classmethod
     def get_type(cls):
@@ -159,7 +161,9 @@ class Route53RecordSetState(nixops.resources.ResourceState):
 
         changed = self.record_values != defn.record_values \
                or self.ttl != defn.ttl \
-               or self.weight != defn.weight
+               or self.weight != defn.weight \
+               or self.health_check_id != defn.health_check_id
+
         if not changed and not check:
             return
 
@@ -184,6 +188,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             self.ttl = defn.ttl
             self.set_identifier = defn.set_identifier
             self.weight = defn.weight
+            self.health_check_id = defn.health_check_id
 
         return True
 
@@ -213,6 +218,19 @@ class Route53RecordSetState(nixops.resources.ResourceState):
         if obj.routing_policy == "weighted":
             rs_batch.update({ 'Weight': int(obj.weight) })
 
+
+        def resolve_health_check(v):
+            if v.startswith('res-'):
+                hc = self.depl.get_typed_resource(v[4:], "aws-route53-health-check")
+                if not hc.health_check_id:
+                    raise Exception("cannot refer to a health check resource that has not yet been created")
+                return hc.health_check_id
+            else:
+                return v
+
+        if obj.health_check_id and obj.health_check_id != "":
+            rs_batch.update({ 'HealthCheckId': resolve_health_check(obj.health_check_id) })
+
         return batch
 
     def to_string(self, obj):
@@ -241,5 +259,6 @@ class Route53RecordSetState(nixops.resources.ResourceState):
     def create_after(self, resources, defn):
         return {r for r in resources if
                 isinstance(r, nixops.resources.route53_hosted_zone.Route53HostedZoneState) or
+                isinstance(r, nixops.resources.route53_health_check.Route53HealthCheckState) or
                 isinstance(r, nixops.backends.MachineState)}
 
