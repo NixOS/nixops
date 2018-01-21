@@ -1,5 +1,6 @@
 import boto3
 import botocore.exceptions
+import botocore.errorfactory
 
 import nixops.util
 import nixops.resources
@@ -47,36 +48,41 @@ class EC2RDSDbSecurityGroupState(nixops.resources.DiffEngineResourceState, EC2Co
         if self._state.get('groupName', None) is None:
             return
         if self.state == self.UP:
-            response = self.get_client("rds").describe_db_security_groups(
-                DBSecurityGroupName=self._state['groupName'])
-            if len(response['DBSecurityGroups']) < 1:
-                self.warn("RDS db security group {} not found, performing destroy to sync the state ...".format(self._state['groupName']))
-                self._destroy()
-            else:
-                rules = []
-                def generate_rule(rule):
-                    # FIXME note that we're forcing sg name to None here
-                    # as it causes InvalidParameterCombination errors
-                    # during revoke diff handling since sg name and id
-                    # can't be used together and the api returns both
-                    # anyway. This might also cause some unnecessary diff
-                    # handling when the config has securityGroupName set
-                    # and we run nixops check as it will persist the id
-                    # instead.
-                    return {
-                        'securityGroupId': rule.get('EC2SecurityGroupId', None),
-                        'securityGroupName': None,
-                        'securityGroupOwnerId': rule.get('EC2SecurityGroupOwnerId', None),
-                        'cidrIp': rule.get('CIDRIP', None)
-                    }
+            try:
+                response = self.get_client("rds").describe_db_security_groups(
+                    DBSecurityGroupName=self._state['groupName'])
+            except botocore.exceptions.ClientError as error:
+                if error.response['Error']['Code'] == 'DBSecurityGroupNotFound':
+                    self.warn("RDS db security group {} not found, performing destroy to sync the state ...".format(self._state['groupName']))
+                    self._destroy()
+                    return
+                else:
+                    raise error
 
-                for rule in response['DBSecurityGroups'][0].get('EC2SecurityGroups', []):
-                    rules.append(generate_rule(rule))
-                for rule in response['DBSecurityGroups'][0].get('IPRanges', []):
-                    rules.append(generate_rule(rule))
+            rules = []
+            def generate_rule(rule):
+                # FIXME note that we're forcing sg name to None here
+                # as it causes InvalidParameterCombination errors
+                # during revoke diff handling since sg name and id
+                # can't be used together and the api returns both
+                # anyway. This might also cause some unnecessary diff
+                # handling when the config has securityGroupName set
+                # and we run nixops check as it will persist the id
+                # instead.
+                return {
+                    'securityGroupId': rule.get('EC2SecurityGroupId', None),
+                    'securityGroupName': None,
+                    'securityGroupOwnerId': rule.get('EC2SecurityGroupOwnerId', None),
+                    'cidrIp': rule.get('CIDRIP', None)
+                }
 
-                with self.depl._db:
-                    self._state['rules'] = rules
+            for rule in response['DBSecurityGroups'][0].get('EC2SecurityGroups', []):
+                rules.append(generate_rule(rule))
+            for rule in response['DBSecurityGroups'][0].get('IPRanges', []):
+                rules.append(generate_rule(rule))
+
+            with self.depl._db:
+                self._state['rules'] = rules
 
     def realize_create_sg(self, allow_recreate):
         config = self.get_defn()
