@@ -831,7 +831,6 @@ class GCEState(MachineState, ResourceState):
     def get_physical_backup_spec(self, backupid):
           val = {}
           if backupid in self.backups:
-              print self.backups[backupid]
               for dev, snap in self.backups[backupid].items():
                   val[dev] = { 'disk': Call(RawValue("pkgs.lib.mkOverride 10"), snap)}
               val = { ('deployment', 'gce', 'blockDeviceMapping'): val }
