@@ -16,10 +16,4 @@ class TestEc2RdsDbinstanceTest(generic_deployment_test.GenericDeploymentTest):
         self.depl.nix_exprs = [ logical_spec ]
 
     def test_deploy(self):
-        #self.depl.debug = True
         self.depl.deploy()
-
-    # def check_command(self, command):
-    #     self.depl.evaluate()
-    #     resource = self.depl.resources.values()[0]
-    #     return machine.run_command(command)
