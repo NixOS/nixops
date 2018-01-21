@@ -201,7 +201,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         for sg in config:
             if sg.startswith("res-"):
                 res = self.depl.get_typed_resource(sg[4:].split(".")[0], "ec2-rds-dbsecurity-group")
-                security_groups.append(res.security_group_name)
+                security_groups.append(res._state['groupName'])
             else:
                 security_groups.append(sg)
         return security_groups
