@@ -196,7 +196,12 @@ def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
     """Wait until the specified TCP port is open or closed."""
     n = 0
     while True:
-        if ping_tcp_port(ip, port, ensure_timeout=True) == open: return True
+        if ping_tcp_port(ip, port, ensure_timeout=True) == open: return port
+        # If we're waiting for `port` to open, and it doesn't, then
+        # maybe we're in the bootstrap phase, and OpenSSH only listens
+        # on port 22.
+        if open and port != 22:
+            if ping_tcp_port(ip, 22, ensure_timeout=True): return 22
         if not open: time.sleep(1)
         n = n + 1
         if timeout != -1 and n >= timeout: break

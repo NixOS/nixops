@@ -955,6 +955,7 @@ class Deployment(object):
                         # attribute, because the machine may have been
                         # booted from an older NixOS image.
                         if not r.state_version:
+                            r.wait_for_ssh(check=True)
                             os_release = r.run_command("cat /etc/os-release", capture_stdout=True)
                             match = re.search('VERSION_ID="([0-9]+\.[0-9]+).*"', os_release)
                             if match:
@@ -962,8 +963,8 @@ class Deployment(object):
                                 r.log("setting state version to {0}".format(r.state_version))
                             else:
                                 r.warn("cannot determine NixOS version")
-
-                        r.wait_for_ssh(check=check)
+                        else:
+                            r.wait_for_ssh(check=check)
                         r.generate_vpn_key()
 
                 except:

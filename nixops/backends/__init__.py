@@ -44,6 +44,7 @@ class MachineState(nixops.resources.ResourceState):
     has_fast_connection = nixops.util.attr_property("hasFastConnection", False, bool)
     ssh_pinged = nixops.util.attr_property("sshPinged", False, bool)
     ssh_port = nixops.util.attr_property("targetPort", 22, int)
+    open_ssh_port = ssh_port
     public_vpn_key = nixops.util.attr_property("publicVpnKey", None)
     store_keys_on_machine = nixops.util.attr_property("storeKeysOnMachine", False, bool)
     keys = nixops.util.attr_property("keys", {}, 'json')
@@ -192,7 +193,7 @@ class MachineState(nixops.resources.ResourceState):
         self.log_start("waiting for the machine to finish rebooting...")
         nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, open=False, callback=lambda: self.log_continue("."))
         self.log_continue("[down]")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue("."))
+        self.open_ssh_port = nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue("."))
         self.log_end("[up]")
         self.state = self.UP
         self.ssh_pinged = True
@@ -276,9 +277,9 @@ class MachineState(nixops.resources.ResourceState):
 
     def get_ssh_flags(self, scp=False):
         if scp:
-            return ["-P", str(self.ssh_port)]
+            return ["-P", str(self.open_ssh_port)]
         else:
-            return ["-p", str(self.ssh_port)]
+            return ["-p", str(self.open_ssh_port)]
 
 
     def get_ssh_password(self):
@@ -302,8 +303,8 @@ class MachineState(nixops.resources.ResourceState):
     def wait_for_ssh(self, check=False):
         """Wait until the SSH port is open on this machine."""
         if self.ssh_pinged and (not check or self._ssh_pinged_this_time): return
-        self.log_start("waiting for SSH...")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue("."))
+        self.log_start("waiting for SSH {0}...".format(self.get_ssh_name()))
+        self.open_ssh_port = nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue("."))
         self.log_end("")
         if self.state != self.RESCUE:
             self.state = self.UP
@@ -355,7 +356,6 @@ class MachineState(nixops.resources.ResourceState):
 
         # !!! Implement copying between cloud machines, as in the Perl
         # version.
-
         ssh = self.get_ssh_for_copy_closure()
 
         # Any remaining paths are copied from the local machine.
