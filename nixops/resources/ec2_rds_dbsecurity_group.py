@@ -33,8 +33,13 @@ class EC2RDSDbSecurityGroupState(nixops.resources.DiffEngineResourceState, EC2Co
 
     def __init__(self, depl, name, id):
         nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
-        self.handle_create_rds_db_sg = Handler(['groupName', 'region', 'description'], handle=self.realize_create_sg)
-        self.handle_rules = Handler(['rules'], after=[self.handle_create_rds_db_sg], handle=self.realize_rules_change)
+        self.handle_create_rds_db_sg = Handler(
+            ['groupName', 'region', 'description'],
+            handle=self.realize_create_sg)
+        self.handle_rules = Handler(
+            ['rules'],
+            after=[self.handle_create_rds_db_sg],
+            handle=self.realize_rules_change)
 
     def show_type(self):
         s = super(EC2RDSDbSecurityGroupState, self).show_type()
