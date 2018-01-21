@@ -36,6 +36,7 @@ with (import ./lib.nix lib);
 
     ipAddress = mkOption {
       type = types.nullOr (types.either types.str (resource "machine"));
+      apply = x: if (builtins.isString x) then x else "res-" + x._name;
       default = null;
       description = ''
         The IPv4 or IPv6 IP address of the endpoint to perform health checks on.
