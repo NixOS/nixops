@@ -137,9 +137,12 @@ class Route53HealthCheckState(nixops.resources.ResourceState):
 
         client = self.boto_session().client("route53")
 
-#     type #X
-#     requestInterval #X
-#     measureLatency #X
+        def cannot_change(desc, sk, d):
+            if self.health_check_config and sk in self.health_check_config and self.health_check_config[sk] != d:
+                raise Exception("{} of health check cannot be changed from {} to {}. Need to destroy before redeploying.".format(desc, self.health_check_config[sk], d))
+
+        cannot_change('type', 'Type', defn.type)
+        cannot_change('request interval', 'RequestInterval', defn.request_interval)
 
         cfg = self.build_config(defn)
         orig_cfg = copy.deepcopy(cfg)
