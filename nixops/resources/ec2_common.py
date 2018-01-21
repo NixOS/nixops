@@ -44,7 +44,7 @@ class EC2CommonState():
 
         self.update_tags_using(updater, user_tags=user_tags, check=check)
 
-    def get_client(self):
+    def get_client(self, service="ec2"):
         '''
         Generic method to get a cached AWS client or create it.
         '''
@@ -56,7 +56,11 @@ class EC2CommonState():
             if self._client: return self._client
         assert self._state['region']
         (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._client = boto3.session.Session().client('ec2', region_name=self._state['region'], aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+        self._client = boto3.session.Session().client(
+            service_name=service,
+            region_name=self._state['region'],
+            aws_access_key_id=access_key_id,
+            aws_secret_access_key=secret_access_key)
         return self._client
 
     def reset_client(self):

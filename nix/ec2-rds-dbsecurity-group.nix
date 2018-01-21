@@ -7,7 +7,7 @@ with import ./lib.nix lib;
 
   options = {
 
-    name = mkOption {
+    groupName = mkOption {
       type = types.str;
       description = ''
         Name of the RDS DB security group.
