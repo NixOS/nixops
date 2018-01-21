@@ -1,5 +1,27 @@
 
 {
+  machine =
+    { resources, ... }:
+    { imports = [ ./ec2-info.nix ./nix-homepage.nix ];
+      deployment.targetEnv = "ec2";
+      deployment.ec2.region = "us-east-1";
+      deployment.ec2.instanceType = "r3.large";
+      deployment.ec2.securityGroups = [ resources.ec2SecurityGroups.ssh-security-group ];
+    };
+
+  resources.ec2SecurityGroups.ssh-security-group = {
+     region = "us-east-1";
+     rules = [ {
+       fromPort = 22;
+       toPort = 22;
+       sourceIp = "0.0.0.0/0";
+     } {
+       fromPort = 80;
+       toPort = 80;
+       sourceIp = "0.0.0.0/0";
+     }];
+   };
+
   resources.route53HostedZones.hs =
       { name = "nixos.org.";
         comment = "Hosted zone for nixos.org";
@@ -22,6 +44,7 @@
       recordType = "A";
       setIdentifier = "id1";
       routingPolicy = "multivalue";
+      healthCheckId = resources.route53HealthChecks.my-google-check;
     };
 
     mv2 = { resources, ... }: {
@@ -32,6 +55,7 @@
       recordType = "A";
       setIdentifier = "id2";
       routingPolicy = "multivalue";
+      healthCheckId = resources.route53HealthChecks.my-machine-check;
     };
 
     weight1 = { resources, ... }: {
@@ -53,5 +77,23 @@
       setIdentifier = "id2";
       routingPolicy = "weighted";
     };
- };
+  };
+
+  resources.route53HealthChecks = {
+    my-google-check = {
+      type = "HTTPS";
+      fullyQualifiedDomainName = "www.google.com";
+    };
+    my-machine-check = { resources, ... }: {
+      type = "HTTP";
+      ipAddress = resources.machines.machine;
+    };
+    calc-check = { resources, ... }: {
+      type = "CALCULATED";
+      childHealthChecks = [
+        resources.route53HealthChecks.my-google-check
+        resources.route53HealthChecks.my-machine-check
+      ];
+    };
+  };
 }
