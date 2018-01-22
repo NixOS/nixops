@@ -11,6 +11,14 @@ machines in a network or cloud.
 * [Mailing list / Google group](https://groups.google.com/forum/#!forum/nixops-users)
 * [IRC - #nixos on freenode.net](irc://irc.freenode.net/#nixos)
 
+## Developing
+
+To start developing on nixops, you can run:
+
+```bash
+  $ ./dev-shell
+```
+
 ## Building from source
 
 The command to build NixOps depends on your platform:
