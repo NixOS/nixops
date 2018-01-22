@@ -108,6 +108,10 @@ rec {
       # Needed by libcloud during tests
       SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
 
+      # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
+      # the version of openssh is causing errors when have big networks (40+)
+      makeWrapperArgs = ["--prefix" "PATH" ":" "${openssl}/bin" "--set" "PYTHONPATH" ":"];
+
       postInstall =
         ''
           # Backward compatibility symlink.
@@ -118,11 +122,7 @@ rec {
 
           mkdir -p $out/share/nix/nixops
           cp -av nix/* $out/share/nix/nixops
-
-          # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
-          # the version of openssh is causing errors when have big networks (40+)
-          wrapProgram $out/bin/nixops --prefix PATH : "${openssh}/bin"
-        ''; # */
+        '';
 
       meta.description = "Nix package for ${stdenv.system}";
     });

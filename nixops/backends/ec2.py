@@ -967,7 +967,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         instance_groups = [g.id for g in instance.groups]
         if defn.subnet_id:
             new_instance_groups = self.security_groups_to_ids(defn.subnet_id, defn.security_group_ids)
-        else:
+        elif instance.vpc_id:
             new_instance_groups = self.security_groups_to_ids(instance.subnet_id, defn.security_groups)
 
         if instance.vpc_id and set(instance_groups) != set(new_instance_groups):

@@ -8,7 +8,7 @@ the infect itself, another after we pushed the nixos image.
 
 I hit a few subtle problems along the way:
 * DO doesn't do dhcp so we have to hard-code the network configuration
-* Ubuntu still uses eth0, 1 etc, not enp0s3 etc so we have a network
+* Ubuntu still uses eth0, 1 etc, not ens3 etc so we have a network
   link name change after the reboot.
 * I had to modify nixos-infect to reflect the network link name changes,
   and to not reboot to avoid ssh-interruption and therefore errors.
@@ -86,10 +86,10 @@ class DigitalOceanState(MachineState):
         networking = {
             'defaultGateway': self.default_gateway,
             'nameservers': ['8.8.8.8'], # default provided by DO
-            ('interfaces', 'enp0s3', 'ip4'): [{"address": self.public_ipv4, 'prefixLength': prefix_len(self.netmask)}],
+            ('interfaces', 'ens3', 'ip4'): [{"address": self.public_ipv4, 'prefixLength': prefix_len(self.netmask)}],
         }
         if self.public_ipv6:
-            networking[('interfaces', 'enp0s3', 'ip6')] = [{'address': self.public_ipv6['address'], 'prefixLength': self.public_ipv6['prefixLength']}]
+            networking[('interfaces', 'ens3', 'ip6')] = [{'address': self.public_ipv6['address'], 'prefixLength': self.public_ipv6['prefixLength']}]
         if self.default_gateway6:
             networking['defaultGateway6'] = self.default_gateway6
 
@@ -188,8 +188,19 @@ class DigitalOceanState(MachineState):
 
         # run modified nixos-infect
         # - no reboot
-        # - predictable network interface naming (enp0s3 etc)
+        # - predictable network interface naming (ens3 etc)
         self.wait_for_ssh()
         self.log_start("running nixos-infect")
         self.run_command('bash </dev/stdin 2>&1', stdin=open(infect_path))
         self.reboot_sync()
+
+    def reboot(self, hard=False):
+        if hard:
+            self.log("sending hard reset to droplet...")
+            droplet = digitalocean.Droplet(id=self.droplet_id, token=self.get_auth_token())
+            droplet.reboot()
+            self.wait_for_ssh()
+            self.state = self.STARTING
+        else:
+            MachineState.reboot(self, hard=hard)
+

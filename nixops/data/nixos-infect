@@ -78,10 +78,10 @@ EOF
 EOF
 
   local IFS=$'\n'
-  enp0s3_ip4s=($(ip address show dev eth0 | grep 'inet '          | sed -r 's|.*inet ([0-9.]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
-  enp0s3_ip6s=($(ip address show dev eth0 | grep 'inet6 .*global' | sed -r 's|.*inet6 ([0-9a-f:]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
-  enp0s4_ip4s=($(ip address show dev eth1 | grep 'inet '          | sed -r 's|.*inet ([0-9.]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
-  enp0s4_ip6s=($(ip address show dev eth1 | grep 'inet6 .*global' | sed -r 's|.*inet6 ([0-9a-f:]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
+  ens3_ip4s=($(ip address show dev eth0 | grep 'inet '          | sed -r 's|.*inet ([0-9.]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
+  ens3_ip6s=($(ip address show dev eth0 | grep 'inet6 .*global' | sed -r 's|.*inet6 ([0-9a-f:]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
+  ens4_ip4s=($(ip address show dev eth1 | grep 'inet '          | sed -r 's|.*inet ([0-9.]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
+  ens4_ip6s=($(ip address show dev eth1 | grep 'inet6 .*global' | sed -r 's|.*inet6 ([0-9a-f:]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
   gateway=($(ip route show dev eth0 | grep default | sed -r 's|default via ([0-9.]+).*|\1|'))
   gateway6=($(ip -6 route show dev eth0 | grep default | sed -r 's|default via ([0-9a-f:]+).*|\1|'))
   ether0=($(ip address show dev eth0 | grep link/ether | sed -r 's|.*link/ether ([0-9a-f:]+) .*|\1|'))
@@ -99,19 +99,19 @@ EOF
     defaultGateway = "${gateway}";
     defaultGateway6 = "${gateway6}";
     interfaces = {
-      enp0s3 = {
-        ip4 = [$(for a in ${enp0s3_ip4s[@]}; do echo -n "
+      ens3 = {
+        ip4 = [$(for a in ${ens3_ip4s[@]}; do echo -n "
           $a"; done)
         ];
-        ip6 = [$(for a in ${enp0s3_ip6s[@]}; do echo -n "
+        ip6 = [$(for a in ${ens3_ip6s[@]}; do echo -n "
           $a"; done)
         ];
       };
-      enp0s4 = {
-        ip4 = [$(for a in ${enp0s4_ip4s[@]}; do echo -n "
+      ens4 = {
+        ip4 = [$(for a in ${ens4_ip4s[@]}; do echo -n "
           $a"; done)
         ];
-        ip6 = [$(for a in ${enp0s4_ip6s[@]}; do echo -n "
+        ip6 = [$(for a in ${ens4_ip6s[@]}; do echo -n "
           $a"; done)
         ];
       };
@@ -158,7 +158,7 @@ curl https://nixos.org/nix/install | sh
 
 source ~/.nix-profile/etc/profile.d/nix.sh
 
-[ -z "$NIX_CHANNEL"] && NIX_CHANNEL="nixos-16.09"
+[ -z "$NIX_CHANNEL"] && NIX_CHANNEL="nixos-17.09"
 nix-channel --remove nixpkgs
 nix-channel --add "https://nixos.org/channels/$NIX_CHANNEL" nixos
 nix-channel --update
