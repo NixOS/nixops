@@ -721,7 +721,31 @@ $ openssl pkcs12 -in pkey.pkcs12 -passin pass:notasecret -nodes -nocerts | opens
   is impossible to create public images. Default bootstrap image specification can be
   overriden by defining <literal>resources.gceImages.bootstrap</literal>. Additionally,
   the instance's <literal>bootstrapImage</literal> option can be used to specify
-  an instance-specific bootstrap image.</para></listitem>
+  an instance-specific bootstrap image.</para>
+
+  <para>A solution is to create one's own image, by running the script
+  in <literal>&lt;nixpkgs/nixos/maintainers/scripts/gce/create-gce.sh&gt;</literal>.
+  Two things need to be done before running the script:
+  <itemizedList>
+    <listitem>Set the <literal>BUCKET_NAME</literal> environment
+    variable to the target Google Storage bucket's name</listitem>.
+    <listitem>Add permissions to that bucket for the "Compute Engine"
+    service account (under the Google Cloud console, IAM &amp;
+    Administration, IAM)</listitem>
+  </itemizedList>
+  Then, add the corresponding resources (i.e. at the top level of the
+  nixops deployment):
+  <example><programlisting>
+resources.gceImages.my-bootstrap = {
+  name = "my-bootstrap";
+  project = "…";
+  serviceAccount = "…";
+  accessKey = "…";
+  sourceUri = "gs://my-bucket/nixos-image-18.03.git.fa98773-x86_64-linux.raw.tar.gz";
+};
+  </programlisting></example>
+  </para>
+  </listitem>
 
   <listitem><para>There's no "native" support for starting and stopping instances.
   NixOps emulates starting and stoping by creating and tearing down GCE instances,
