@@ -1,6 +1,7 @@
 { config, lib, uuid, name, ... }:
 
 with lib;
+with import ./lib.nix lib;
 
 {
 
@@ -78,6 +79,15 @@ with lib;
       default = ""; # FIXME: Needs a default until read-only options are supported.
       type = types.str;
       description = "The endpoint address of the database instance.  This is set by NixOps.";
+    };
+
+    securityGroups = mkOption {
+      default = [ "default" ];
+      type = types.listOf (types.either types.str (resource "ec2-rds-security-group"));
+      apply = map (x: if builtins.isString x then x else "res-" + x._name);
+      description = ''
+        List of names of DBSecurityGroup to authorize on this DBInstance.
+      '';
     };
 
   };

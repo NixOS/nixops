@@ -776,7 +776,8 @@ subparser.add_argument('--all',  action='store_true', help='show all deployments
 subparser.add_argument('--plain',  action='store_true', help='do not pretty-print the output')
 subparser.add_argument('--no-eval', action='store_true', help='do not evaluate the deployment specification')
 
-subparser = add_subparser('check', help='check the state of the machines in the network')
+subparser = add_subparser('check', help='check the state of the machines in the network'
+                          ' (note that this might alter the internal nixops state to consolidate with the real state of the resource)')
 subparser.set_defaults(op=op_check)
 subparser.add_argument('--all',  action='store_true', help='check all deployments')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='check only the specified machines')
