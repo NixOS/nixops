@@ -5,11 +5,14 @@ import random
 import traceback
 
 class MultipleExceptions(Exception):
-    def __init__(self, exceptions=[]):
+    def __init__(self, exceptions={}):
         self.exceptions = exceptions
 
     def __str__(self):
-        return "Multiple exceptions: " + ", ".join([str(e[1]) for e in self.exceptions])
+        err = "Multiple exceptions (" + str(len(self.exceptions.keys()))+ "): \n"
+        for r in sorted(self.exceptions.keys()):
+            err += "  * {}: {}\n".format(r, self.exceptions[r][1])
+        return err
 
     def print_all_backtraces(self):
         for e in self.exceptions:
@@ -38,9 +41,9 @@ def run_tasks(nr_workers, tasks, worker_fun):
                 break
             n = n + 1
             try:
-                result_queue.put((worker_fun(t), None))
+                result_queue.put((worker_fun(t), None, t.name))
             except Exception as e:
-                result_queue.put((None, sys.exc_info()))
+                result_queue.put((None, sys.exc_info(), t.name))
         #sys.stderr.write("thread {0} did {1} tasks\n".format(threading.current_thread(), n))
 
     threads = []
@@ -51,26 +54,26 @@ def run_tasks(nr_workers, tasks, worker_fun):
         threads.append(thr)
 
     results = []
-    exceptions = []
+    exceptions = {}
     while len(results) < nr_tasks:
         try:
             # Use a timeout to allow keyboard interrupts to be
             # processed.  The actual timeout value doesn't matter.
-            (res, excinfo) = result_queue.get(True, 1000)
+            (res, excinfo, name) = result_queue.get(True, 1000)
         except Queue.Empty:
             continue
         if excinfo:
-            exceptions.append(excinfo)
+            exceptions[name]=excinfo
         results.append(res)
 
     for thr in threads:
         thr.join()
 
-    if len(exceptions) == 1:
-        excinfo = exceptions[0]
+    if len(exceptions.keys()) == 1:
+        excinfo = exceptions[exceptions.keys()[0]]
         raise excinfo[0], excinfo[1], excinfo[2]
 
-    if len(exceptions) > 1:
+    if len(exceptions.keys()) > 1:
         raise MultipleExceptions(exceptions)
 
     return results

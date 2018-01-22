@@ -141,7 +141,6 @@ class AzureDNSZoneState(ResourceState):
             self.get_settled_resource_assert_exists()
             self._create_or_update(defn)
 
-
     def create_after(self, resources, defn):
         from nixops.resources.azure_resource_group import AzureResourceGroupState
         return {r for r in resources

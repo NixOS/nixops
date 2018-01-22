@@ -15,6 +15,8 @@ from boto.exception import BotoServerError
 from botocore.exceptions import ClientError
 from boto.pyami.config import Config
 
+import botocore
+
 def fetch_aws_secret_key(access_key_id):
     """
         Fetch the secret access key corresponding to the given access key ID from ~/.ec2-keys,
@@ -99,10 +101,17 @@ def retry(f, error_codes=[], logger=None):
     """
 
     def handle_exception(e):
-        if i == num_retries or (error_codes != [] and not e.error_code in error_codes):
+        if 'error_code' in e:
+            err_code = e.error_code
+            err_msg = e.error_message
+        else:
+            err_code = e.response['Error']['Code']
+            err_msg = e.response['Error']['Message']
+
+        if i == num_retries or (error_codes != [] and not err_code in error_codes):
             raise e
         if logger is not None:
-            logger.log("got (possibly transient) EC2 error code '{0}': {1}, retrying...".format(e.error_code, e.error_message))
+            logger.log("got (possibly transient) EC2 error code '{0}': {1}. retrying...".format(err_code, err_msg))
 
     def handle_boto3_exception(e):
         if i == num_retries:
@@ -130,6 +139,8 @@ def retry(f, error_codes=[], logger=None):
                 num_retries += 1
             else:
                 handle_exception(e)
+        except botocore.exceptions.ClientError as e:
+            handle_exception(e)
         except Exception as e:
             raise e
 

@@ -97,10 +97,13 @@ rec {
   resources.elasticIPs = evalResources ./elastic-ip.nix (zipAttrs resourcesByType.elasticIPs or []);
   resources.rdsDbInstances = evalResources ./ec2-rds-dbinstance.nix (zipAttrs resourcesByType.rdsDbInstances or []);
   resources.rdsDbSecurityGroups = evalResources ./ec2-rds-dbsecurity-group.nix (zipAttrs resourcesByType.rdsDbSecurityGroups or []);
+  resources.route53RecordSets = evalResources ./route53-recordset.nix (zipAttrs resourcesByType.route53RecordSets or []);
   resources.elasticFileSystems = evalResources ./elastic-file-system.nix (zipAttrs resourcesByType.elasticFileSystems or []);
   resources.elasticFileSystemMountTargets = evalResources ./elastic-file-system-mount-target.nix (zipAttrs resourcesByType.elasticFileSystemMountTargets or []);
   resources.cloudwatchLogGroups = evalResources ./cloudwatch-log-group.nix (zipAttrs resourcesByType.cloudwatchLogGroups or []);
   resources.cloudwatchLogStreams = evalResources ./cloudwatch-log-stream.nix (zipAttrs resourcesByType.cloudwatchLogStreams or []);
+  resources.route53HostedZones = evalResources ./route53-hosted-zone.nix (zipAttrs resourcesByType.route53HostedZones or []);
+  resources.route53HealthChecks = evalResources ./route53-health-check.nix (zipAttrs resourcesByType.route53HealthChecks or []);
   resources.vpc = evalResources ./vpc.nix (zipAttrs resourcesByType.vpc or []);
   resources.vpcSubnets = evalResources ./vpc-subnet.nix (zipAttrs resourcesByType.vpcSubnets or []);
   resources.vpcInternetGateways = evalResources ./vpc-internet-gateway.nix (zipAttrs resourcesByType.vpcInternetGateways or []);
