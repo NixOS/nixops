@@ -26,7 +26,7 @@ nix-shell) can be done using:
 stdenv.mkDerivation {
   name = "my-nixops-env";
   buildInputs = [
-    (import /path/to/nixops/release.nix {}).build.x86_64-linux; in
+    (import /path/to/nixops/release.nix {}).build.x86_64-linux
   ];
 }
 ```
