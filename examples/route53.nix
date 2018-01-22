@@ -28,7 +28,7 @@
       };
 
   resources.route53RecordSets = {
-    
+
     a-record = { resources, ... }: {
       zoneId = resources.route53HostedZones.hs;
       domainName = "www.nixos.org.";
@@ -87,6 +87,11 @@
     my-machine-check = { resources, ... }: {
       type = "HTTP";
       ipAddress = resources.machines.machine;
+    };
+    my-machine-check-with-resource-path = { resources, ... }: {
+      type = "HTTP";
+      ipAddress = resources.machines.machine;
+      resourcePath = "/nixops/";
     };
     calc-check = { resources, ... }: {
       type = "CALCULATED";
