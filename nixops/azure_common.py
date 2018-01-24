@@ -170,9 +170,9 @@ class ResourceDefinition(ResourceDefinitionBase):
     def copy_credentials(self, xml):
         self.copy_option(xml, 'subscriptionId', str)
         self.copy_option(xml, 'authority', str, empty = True, optional = True)
-        self.copy_option(xml, 'user', str, empty = True, optional = True)
-        self.copy_option(xml, 'servicePrincipal', str, empty = True, optional = True)
-        self.copy_option(xml, 'password', str, empty = True, optional = True)
+        self.copy_option(xml, 'identifierUri', str, empty = True, optional = True)
+        self.copy_option(xml, 'appId', str, empty = True, optional = True)
+        self.copy_option(xml, 'appKey', str, empty = True, optional = True)
 
     @property
     def credentials_prefix(self):
@@ -190,33 +190,23 @@ class ResourceDefinition(ResourceDefinitionBase):
             raise Exception("please set '{0}.authority' or AZURE_AUTHORITY_URL".format(self.credentials_prefix))
         return authority_url
 
-    def get_user(self):
-        if self.user and self.service_principal:
-            raise Exception("not allowed to set both '{0}.user' "
-                            "and '{0}.servicePrincipal' at once"
-                            .format(self.credentials_prefix))
-        if os.environ.get('AZURE_USER') and os.environ.get('AZURE_SERVICE_PRINCIPAL'):
-            raise Exception("not allowed to set both AZURE_USER "
-                            "and AZURE_SERVICE_PRINCIPAL at once"
-                            .format(self.credentials_prefix))
-        result = (self.user or self.service_principal, bool(self.service_principal))
-        if result[0]:
-            return result
-        else:
-            result = (os.environ.get('AZURE_USER') or os.environ.get('AZURE_SERVICE_PRINCIPAL'),
-                      bool(os.environ.get('AZURE_SERVICE_PRINCIPAL')))
-            if result[0]:
-                return result
-            else:
-                raise Exception("please set '{0}.user' or AZURE_USER, or "
-                                "'{0}.servicePrincipal' or AZURE_SERVICE_PRINCIPAL"
-                                .format(self.credentials_prefix))
+    def get_identifier_uri(self):
+        identifier_uri = self.identifier_uri or os.environ.get('AZURE_ACTIVE_DIR_APP_IDENTIFIER_URI')
+        if not identifier_uri:
+            raise Exception("please set '{0}.identifierUri' or AZURE_ACTIVE_DIR_APP_IDENTIFIER_URI".format(self.credentials_prefix))
+        return identifier_uri;
 
-    def get_password(self):
-        password = self.password or os.environ.get('AZURE_PASSWORD')
-        if not password:
-            raise Exception("please set '{0}.password' or AZURE_PASSWORD".format(self.credentials_prefix))
-        return password
+    def get_app_id(self):
+        app_id = self.app_id or os.environ.get('AZURE_ACTIVE_DIR_APP_ID')
+        if not app_id:
+            raise Exception("please set '{0}.appId' or AZURE_ACTIVE_DIR_APP_ID".format(self.credentials_prefix))
+        return app_id
+
+    def get_app_key(self):
+        app_key = self.app_key or os.environ.get('AZURE_ACTIVE_DIR_APP_KEY')
+        if not app_key:
+            raise Exception("please set '{0}.appKey' or AZURE_ACTIVE_DIR_APP_KEY".format(self.credentials_prefix))
+        return app_key
 
     def copy_location(self, xml):
         self.location = normalize_location(
@@ -251,9 +241,9 @@ class ResourceState(nixops.resources.ResourceState):
 
     subscription_id = attr_property("azure.subscriptionId", None)
     authority_url = attr_property("azure.authorityUrl", None)
-    user = attr_property("azure.user", None)
-    is_service_principal = attr_property("azure.isServicePrincipal", None, bool)
-    password = attr_property("azure.password", None)
+    identifier_uri = attr_property("azure.identifierUri", None)
+    app_id = attr_property("azure.appId", None)
+    app_key = attr_property("azure.appKey", None)
 
     tokens_lock = threading.Lock()
     tokens = {}
@@ -267,15 +257,16 @@ class ResourceState(nixops.resources.ResourceState):
 
     def get_mgmt_credentials(self):
         with self.tokens_lock:
-            token_id = "{0}|||{1}|||{2}".format(self.authority_url, self.user, self.password)
+            token_id = "{0}|||{1}|||{2}".format(self.authority_url, self.app_id, self.app_key)
             if token_id in self.tokens:
                 token = self.tokens[token_id]
             else:
                 try:
-                    auth_func = (adal.acquire_token_with_client_credentials if self.is_service_principal else
-                                 adal.acquire_token_with_username_password)
-                    token = auth_func(str(self.authority_url),
-                                      str(self.user), str(self.password))
+                    context = adal.AuthenticationContext(self.authority_url)
+                    token = context.acquire_token_with_client_credentials(
+                        str(self.identifier_uri),
+                        str(self.app_id),
+                        str(self.app_key))
                 except Exception as e:
                     e.args = ("Auth failure: {0}".format(e.args[0]),) + e.args[1:] 
                     raise
@@ -311,8 +302,9 @@ class ResourceState(nixops.resources.ResourceState):
     def copy_mgmt_credentials(self, defn):
         self.subscription_id = defn.get_subscription_id()
         self.authority_url = defn.get_authority_url()
-        (self.user, self.is_service_principal) = defn.get_user()
-        self.password = defn.get_password()
+        self.identifier_uri = defn.get_identifier_uri()
+        self.app_id = defn.get_app_id()
+        self.app_key = defn.get_app_key()
 
     def is_deployed(self):
         return (self.state == self.UP)
