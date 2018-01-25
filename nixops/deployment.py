@@ -341,6 +341,8 @@ class Deployment(object):
             self.datadog_notify = config.get("datadogNotify", False)
             self.datadog_event_info = config.get("datadogEventInfo", "")
             self.datadog_tags = config.get("datadogTags", [])
+            self.datadog_downtime = config.get("datadogDowntime", False)
+            self.datadog_downtime_seconds = config.get("datadogDowntimeSeconds", 3600)
             self.network_attr_eval = True
 
     def evaluate(self):
@@ -1015,18 +1017,24 @@ class Deployment(object):
     def notify_start(self, action):
         self.evaluate_network()
         nixops.datadog_utils.create_event(self, title='nixops {} started'.format(action), text=self.datadog_event_info, tags=self.datadog_tags)
+        nixops.datadog_utils.create_downtime(self)
 
     def notify_success(self, action):
         nixops.datadog_utils.create_event(self, title='nixops {} succeeded'.format(action), text=self.datadog_event_info, tags=self.datadog_tags)
+        nixops.datadog_utils.delete_downtime(self)
 
     def notify_failed(self, action, e):
         nixops.datadog_utils.create_event(self, title='nixops {} failed'.format(action), text="Error: {}\n\n{}".format(e.message, self.datadog_event_info), tags=self.datadog_tags)
+        nixops.datadog_utils.delete_downtime(self)
 
     def run_with_notify(self, action, f):
         self.notify_start(action)
         try:
             f()
             self.notify_success(action)
+        except KeyboardInterrupt as e:
+            self.notify_failed(action, e)
+            raise
         except Exception as e:
             self.notify_failed(action, e)
             raise
