@@ -108,9 +108,9 @@ class ElasticIPState(nixops.resources.ResourceState):
 
     def destroy(self, wipe=False):
         if self.state == self.UP:
-            vpc = self.vpc
             self.connect(self.region)
             eip = self.describe_eip()
+            vpc = (eip.get('Domain', None) == 'vpc')
             if eip is not None:
                 if 'AssociationId' in eip.keys():
                     self.log("disassociating elastic ip {0} with assocation ID {1}".format(
