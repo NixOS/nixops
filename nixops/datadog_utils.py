@@ -4,6 +4,8 @@ from datadog import initialize, api
 import os
 import time
 
+GENERATED = 'NIXOPS GENERATED'
+
 def initializeDatadog(api_key = None, app_key = None):
     if not api_key: api_key = os.environ.get('DATADOG_API_KEY')
     if not app_key: app_key = os.environ.get('DATADOG_APP_KEY')
@@ -31,7 +33,7 @@ def get_active_downtimes(uuid):
     downtimes = api.Downtime.get_all()
     if 'errors' in downtimes:
         raise Exception("Failed getting downtimes: "+downtimes['errors'])
-    downtimes = filter(lambda dt: dt['scope'] == [ 'uuid:{}'.format(uuid) ] and dt['active'], downtimes)
+    downtimes = filter(lambda dt: dt['scope'] == [ 'uuid:{}'.format(uuid) ] and dt['active'] and dt['message']==GENERATED, downtimes)
     return downtimes
 
 def create_downtime(depl):
@@ -42,26 +44,22 @@ def create_downtime(depl):
     end = start + depl.datadog_downtime_seconds
 
     if len(dts) == 0:
-        api.Downtime.create(
+        dt = api.Downtime.create(
             scope='uuid:{}'.format(depl.uuid),
             start=start,
-            end=end
+            end=end,
+            message=GENERATED
         )
+        depl.logger.log("created Datadog downtime with id {}".format(dt['id']))
     elif len(dts) == 1:
-        if depl.logger.confirm("Found one active Datadog downtime with scope uuid:{}, would you like to update this downtime in stead of creating a new one?".format(depl.uuid)):
-            api.Downtime.update(
-                dts[0]['id'],
-                scope='uuid:{}'.format(depl.uuid),
-                start=start,
-                end=end,
-                message=''
-            )
-        else:
-            api.Downtime.create(
-                scope='uuid:{}'.format(depl.uuid),
-                start=start,
-                end=end
-            )
+        api.Downtime.update(
+            dts[0]['id'],
+            scope='uuid:{}'.format(depl.uuid),
+            start=start,
+            end=end,
+            message=GENERATED
+        )
+        depl.logger.log('updated Datadog downtime with id {}'.format(dts[0]['id']))
     else:
         raise Exception("Found more than one active Datadog downtimes with scope uuid:{}.".format(depl.uuid))
 
