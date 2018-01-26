@@ -631,7 +631,7 @@ def op_show_option():
     depl = open_deployment()
     if args.include_physical:
         depl.evaluate()
-    sys.stdout.write(depl.evaluate_option_value(args.machine, args.option, xml=args.xml, include_physical=args.include_physical))
+    sys.stdout.write(depl.evaluate_option_value(args.machine, args.option, json=args.json, xml=args.xml, include_physical=args.include_physical))
 
 
 def check_rollback_enabled():
@@ -930,6 +930,7 @@ subparser.set_defaults(op=op_show_option)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
 subparser.add_argument('option', metavar='OPTION', help='option name')
 subparser.add_argument('--xml', action='store_true', help='print the option value in XML format')
+subparser.add_argument('--json', action='store_true', help='print the option value in JSON format')
 subparser.add_argument('--include-physical', action='store_true', help='include the physical specification in the evaluation')
 
 subparser = add_subparser('list-generations', help='list previous configurations to which you can roll back')
