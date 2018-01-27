@@ -101,7 +101,7 @@ def retry(f, error_codes=[], logger=None):
     """
 
     def handle_exception(e):
-        if 'error_code' in e:
+        if hasattr(e, 'error_code'):
             err_code = e.error_code
             err_msg = e.error_message
         else:
