@@ -1443,7 +1443,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     res.messages.append("  * {0} - {1}".format(e.not_before, e.not_after))
 
 
-    def reboot(self, hard=False):
+    def reboot(self, hard=False, reset=True):
         self.log("rebooting EC2 machine...")
         instance = self._get_instance()
         instance.reboot()

@@ -321,16 +321,17 @@ class HetznerState(MachineState):
             self.run_command(cmd)
         self.log_end("done.")
 
-    def reboot(self, hard=False):
+    def reboot(self, hard=False, reset=True):
         if hard:
             self.log_start("sending hard reset to robot... ")
             server = self._get_server_by_ip(self.main_ipv4)
             server.reboot('hard')
             self.log_end("done.")
             self.state = self.STARTING
-            self.ssh.reset()
+            if reset:
+                self.ssh.reset()
         else:
-            MachineState.reboot(self, hard=hard)
+            MachineState.reboot(self, hard=hard, reset=reset)
 
     def reboot_rescue(self, install=False, partitions=None, bootstrap=True,
                       hard=False):

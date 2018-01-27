@@ -3,6 +3,7 @@
 import os
 import re
 import subprocess
+import time
 
 import nixops.util
 import nixops.resources
@@ -172,7 +173,7 @@ class MachineState(nixops.resources.ResourceState):
         """Make backup of persistent disks, if possible."""
         self.warn("don't know how to make backup of disks for machine ‘{0}’".format(self.name))
 
-    def reboot(self, hard=False):
+    def reboot(self, hard=False, reset=True):
         """Reboot this machine."""
         self.log("rebooting...")
         if self.state == self.RESCUE:
@@ -184,16 +185,46 @@ class MachineState(nixops.resources.ResourceState):
             reboot_command = "systemctl reboot"
         self.run_command(reboot_command, check=False)
         self.state = self.STARTING
-        self.ssh.reset()
+        if reset:
+            self.ssh.reset()
 
     def reboot_sync(self, hard=False):
         """Reboot this machine and wait until it's up again."""
-        self.reboot(hard=hard)
-        self.log_start("waiting for the machine to finish rebooting...")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, open=False, callback=lambda: self.log_continue("."))
-        self.log_continue("[down]")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue("."))
-        self.log_end("[up]")
+
+        # To check when the machine has finished rebooting in a race-free
+        # manner, we compare the output of `last reboot` before and after
+        # the reboot. Once the output has changed, the reboot is done.
+        def get_last_reboot_output():
+            # Note `last reboot` does not exist on older OSs like
+            # the Hetzner rescue system, but that doesn't matter much
+            # because all we care about is when the output of the
+            # command invocation changes.
+            # We use timeout=10 so that the user gets some sense
+            # of progress, as reboots can take a long time.
+            return self.run_command('last reboot --time-format iso | head -n1', capture_stdout=True, timeout=10).rstrip()
+
+        pre_reboot_last_reboot_output = get_last_reboot_output()
+
+        # We set reset=False so that we can continue running `last reboot`
+        # remotely; when the reboot happens, our SSH connection will be reset
+        # by the remote side instead.
+        self.reboot(hard=hard, reset=False)
+
+        self.log_start("waiting for reboot to complete...")
+        while True:
+            last_reboot_output = None
+            try:
+                last_reboot_output = get_last_reboot_output()
+            except (nixops.ssh_util.SSHConnectionFailed, nixops.ssh_util.SSHCommandFailed):
+                # We accept this because the machine might be down,
+                # and show an 'x' as progress indicator in that case.
+                self.log_continue("x")
+            if last_reboot_output is not None and last_reboot_output != pre_reboot_last_reboot_output:
+                break
+            self.log_continue(".")
+            time.sleep(1)
+        self.log_end("done.")
+
         self.state = self.UP
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True

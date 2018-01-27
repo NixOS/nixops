@@ -948,14 +948,15 @@ class AzureState(MachineState, ResourceState):
                 self._delete_encryption_key(d_id)
 
 
-    def reboot(self, hard=False):
+    def reboot(self, hard=False, reset=True):
         if hard:
             self.log("sending hard reset to Azure machine...")
             self.cmc().virtual_machines.restart(self.resource_group, self.machine_name)
             self.state = self.STARTING
-            self.ssh.reset()
+            if reset:
+                self.ssh.reset()
         else:
-            MachineState.reboot(self, hard=hard)
+            MachineState.reboot(self, hard=hard, reset=reset)
         self.ssh_pinged = False
 
     def start(self):

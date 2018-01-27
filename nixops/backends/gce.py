@@ -557,13 +557,13 @@ class GCEState(MachineState, ResourceState):
             self.on_host_maintenance = defn.on_host_maintenance
 
 
-    def reboot(self, hard=False):
+    def reboot(self, hard=False, reset=True):
         if hard:
             self.log("sending hard reset to GCE machine...")
             self.node().reboot()
             self.state = self.STARTING
         else:
-            MachineState.reboot(self, hard=hard)
+            MachineState.reboot(self, hard=hard, reset=reset)
 
 
     def start(self):
