@@ -3,6 +3,7 @@
 import os
 import re
 import subprocess
+import time
 
 import nixops.util
 import nixops.resources
@@ -182,16 +183,53 @@ class MachineState(nixops.resources.ResourceState):
             reboot_command = "systemctl reboot"
         self.run_command(reboot_command, check=False)
         self.state = self.STARTING
+        # Note we always reset the connection to ensure the SSH control master
+        # connection is stopped.
+        # While an orderly `reboot` should make the remote kernel send RST to
+        # all TCP connections, we don't want to rely on that here.
         self.ssh.reset()
 
     def reboot_sync(self, hard=False):
         """Reboot this machine and wait until it's up again."""
+
+        # To check when the machine has finished rebooting in a race-free
+        # manner, we compare the output of `last reboot` before and after
+        # the reboot. Once the output has changed, the reboot is done.
+        def get_last_reboot_output():
+            # Note `last reboot` does not exist on older OSs like
+            # the Hetzner rescue system, but that doesn't matter much
+            # because all we care about is when the output of the
+            # command invocation changes.
+            # We use timeout=10 so that the user gets some sense
+            # of progress, as reboots can take a long time.
+            return self.run_command('last reboot --time-format iso | head -n 1', capture_stdout=True, timeout=10).rstrip()
+
+        # The server might be off.
+        # In that case, we just set `pre_reboot_last_reboot_output` to some string
+        # so that it changes when it comes up.
+        try:
+            pre_reboot_last_reboot_output = get_last_reboot_output()
+        except nixops.ssh_util.SSHConnectionFailed:
+            self.log("server is unreachable, so reboot completion detection may not be accurate if it's a network problem")
+            pre_reboot_last_reboot_output = "server is off or couldn't be contacted"
+
         self.reboot(hard=hard)
-        self.log_start("waiting for the machine to finish rebooting...")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, open=False, callback=lambda: self.log_continue("."))
-        self.log_continue("[down]")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue("."))
-        self.log_end("[up]")
+
+        self.log_start("waiting for reboot to complete...")
+        while True:
+            last_reboot_output = None
+            try:
+                last_reboot_output = get_last_reboot_output()
+            except (nixops.ssh_util.SSHConnectionFailed, nixops.ssh_util.SSHCommandFailed):
+                # We accept this because the machine might be down,
+                # and show an 'x' as progress indicator in that case.
+                self.log_continue("x")
+            if last_reboot_output is not None and last_reboot_output != pre_reboot_last_reboot_output:
+                break
+            self.log_continue(".")
+            time.sleep(1)
+        self.log_end("done.")
+
         self.state = self.UP
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True

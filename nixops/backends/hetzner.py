@@ -318,6 +318,10 @@ class HetznerState(MachineState):
             server.reboot('hard')
             self.log_end("done.")
             self.state = self.STARTING
+            # Note we always reset the connection because on a hard reboot, the
+            # other side may not have a chance to terminate the SSH connection,
+            # (send TCP RST), which could lead to the control master process
+            # still being alive and hanging until the TCP connection times out.
             self.ssh.reset()
         else:
             MachineState.reboot(self, hard=hard)
