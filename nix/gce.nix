@@ -264,6 +264,14 @@ in
         '';
       };
 
+      subNetwork = mkOption {
+        default = null;
+        type = with types; nullOr str;
+        description =  ''
+          Specifies the subnet that the instances will be part of.
+        '';
+      };
+
       instanceServiceAccount = mkOption {
         default  = {};
         type = (types.submodule {

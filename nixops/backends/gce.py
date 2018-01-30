@@ -51,6 +51,7 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
 
         self.ipAddress = self.get_option_value(x, 'ipAddress', 'resource', optional = True)
         self.copy_option(x, 'network', 'resource', optional = True)
+        self.copy_option(x, 'subNetwork', str, optional = True)
 
         def opt_disk_name(dname):
             return ("{0}-{1}".format(self.machine_name, dname) if dname is not None else None)
@@ -119,6 +120,7 @@ class GCEState(MachineState, ResourceState):
     on_host_maintenance = attr_property("gce.scheduling.onHostMaintenance", None)
     ipAddress = attr_property("gce.ipAddress", None)
     network = attr_property("gce.network", None)
+    sub_network = attr_property("gce.subNetwork", None)
 
     block_device_mapping = attr_property("gce.blockDeviceMapping", {}, 'json')
 
@@ -198,7 +200,7 @@ class GCEState(MachineState, ResourceState):
             self.update_block_device_mapping(k, v)
 
     defn_properties = ['tags', 'region', 'instance_type',
-                       'email', 'scopes',
+                       'email', 'scopes', 'sub_network',
                        'metadata', 'ipAddress', 'network']
 
     def is_deployed(self):
@@ -367,8 +369,10 @@ class GCEState(MachineState, ResourceState):
                 self.warn("change of the instance type requires a reboot")
 
             if self.network != defn.network:
-                recreate = True
-                self.warn("change of the network requires a reboot")
+                raise Exception("change of network is currently not supported")
+
+            if self.sub_network != defn.sub_network:
+                raise Exception("change of sub-network is currently not supported")
 
             if self.email != defn.email or self.scopes != defn.scopes:
                 recreate = True
@@ -416,7 +420,13 @@ class GCEState(MachineState, ResourceState):
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk.get('region', None)),
                                  ex_metadata = self.full_metadata(defn.metadata), ex_tags = defn.tags, ex_service_accounts = service_accounts,
                                  external_ip = (self.connect().ex_get_address(defn.ipAddress) if defn.ipAddress else 'ephemeral'),
-                                 ex_network = (defn.network if defn.network else 'default') )
+                                 # in theory the API accepts creating an
+                                 # instance by specifying only the subnet
+                                 # but this seems to be a libcloud issue
+                                 # where it doesn't accept None for
+                                 # ex_network argument.
+                                 ex_network = (defn.network if defn.network else 'default'),
+                                 ex_subnetwork = (defn.sub_network if defn.sub_network is not None else None) )
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("tried creating an instance that already exists; "
                                 "please run 'deploy --check' to fix this")
