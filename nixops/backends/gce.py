@@ -51,7 +51,7 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
 
         self.ipAddress = self.get_option_value(x, 'ipAddress', 'resource', optional = True)
         self.copy_option(x, 'network', 'resource', optional = True)
-        self.copy_option(x, 'subNetwork', str, optional = True)
+        self.copy_option(x, 'subnet', str, optional = True)
 
         def opt_disk_name(dname):
             return ("{0}-{1}".format(self.machine_name, dname) if dname is not None else None)
@@ -120,7 +120,7 @@ class GCEState(MachineState, ResourceState):
     on_host_maintenance = attr_property("gce.scheduling.onHostMaintenance", None)
     ipAddress = attr_property("gce.ipAddress", None)
     network = attr_property("gce.network", None)
-    sub_network = attr_property("gce.subNetwork", None)
+    subnet = attr_property("gce.subnet", None)
 
     block_device_mapping = attr_property("gce.blockDeviceMapping", {}, 'json')
 
@@ -200,7 +200,7 @@ class GCEState(MachineState, ResourceState):
             self.update_block_device_mapping(k, v)
 
     defn_properties = ['tags', 'region', 'instance_type',
-                       'email', 'scopes', 'sub_network',
+                       'email', 'scopes', 'subnet',
                        'metadata', 'ipAddress', 'network']
 
     def is_deployed(self):
@@ -371,8 +371,8 @@ class GCEState(MachineState, ResourceState):
             if self.network != defn.network:
                 raise Exception("change of network is currently not supported")
 
-            if self.sub_network != defn.sub_network:
-                raise Exception("change of sub-network is currently not supported")
+            if self.subnet != defn.subnet:
+                raise Exception("change of subnet is currently not supported")
 
             if self.email != defn.email or self.scopes != defn.scopes:
                 recreate = True
@@ -426,7 +426,7 @@ class GCEState(MachineState, ResourceState):
                                  # where it doesn't accept None for
                                  # ex_network argument.
                                  ex_network = (defn.network if defn.network else 'default'),
-                                 ex_subnetwork = (defn.sub_network if defn.sub_network is not None else None) )
+                                 ex_subnetwork = (defn.subnet if defn.subnet is not None else None) )
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("tried creating an instance that already exists; "
                                 "please run 'deploy --check' to fix this")

@@ -264,7 +264,7 @@ in
         '';
       };
 
-      subNetwork = mkOption {
+      subnet = mkOption {
         default = null;
         type = with types; nullOr str;
         description =  ''
