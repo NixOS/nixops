@@ -1,21 +1,19 @@
 # -*- coding: utf-8 -*-
 
-from distutils import spawn
-import os
 import copy
 import json
+import os
 import random
 import shutil
-import string
-import subprocess
 import time
 from xml.etree import ElementTree
 
 import libvirt
 
-from nixops.backends import MachineDefinition, MachineState
 import nixops.known_hosts
 import nixops.util
+from nixops.backends import MachineDefinition, MachineState
+
 
 # to prevent libvirt errors from appearing on screen, see
 # https://www.redhat.com/archives/libvirt-users/2017-August/msg00011.html
@@ -262,9 +260,8 @@ class LibvirtdState(MachineState):
                 '    <type arch="x86_64">hvm</type>',
                 "    <kernel>%s</kernel>" % defn.kernel,
                 "    <initrd>%s</initrd>" % defn.initrd if len(defn.kernel) > 0 else "",
-                "    <cmdline>%s</cmdline>"% defn.cmdline if len(defn.kernel) > 0 else "",
+                "    <cmdline>%s</cmdline>" % defn.cmdline if len(defn.kernel) > 0 else "",
                 '</os>']
-
 
         domain_fmt = "\n".join([
             '<domain type="{5}">',
