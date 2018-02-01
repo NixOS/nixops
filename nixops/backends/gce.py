@@ -449,6 +449,11 @@ class GCEState(MachineState, ResourceState):
             self.automatic_restart = defn.automatic_restart
             self.on_host_maintenance = defn.on_host_maintenance
 
+        # Update instance type
+        if self.instance_type != defn.instance_type:
+            self.connect().ex_set_machine_type(self.node(), defn.instance_type)
+            self.instance_type = defn.instance_type
+
         # Update service account
         if self.email != defn.email or self.scopes != defn.scopes:
             self.log('updating the service account')
