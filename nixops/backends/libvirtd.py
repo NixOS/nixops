@@ -177,15 +177,17 @@ class LibvirtdState(MachineState):
         self.logger.log("preparing disk image...")
         newEnv = copy.deepcopy(os.environ)
         newEnv["NIXOPS_LIBVIRTD_PUBKEY"] = self.client_public_key
+
+        temp_image_path = os.path.join(self.depl.tempdir, 'libvirtd-image-{}'.format(self.name))
         base_image = self._logged_exec(
             ["nix-build"] + self.depl._eval_flags(self.depl.nix_exprs) +
             ["--arg", "checkConfigurationOptions", "false",
              "-A", "nodes.{0}.config.deployment.libvirtd.baseImage".format(self.name),
-             "-o", "{0}/libvirtd-image-{1}".format(self.depl.tempdir, self.name)],
+             "-o", temp_image_path],
             capture_stdout=True, env=newEnv).rstrip()
 
-        temp_disk_path = os.path.join(self.depl.tempdir, 'disk.qcow2')
-        shutil.copyfile(base_image + "/disk.qcow2", temp_disk_path)
+        temp_disk_path = os.path.join(self.depl.tempdir, 'disk-{}.qcow2'.format(self.name))
+        shutil.copyfile(os.path.join(temp_image_path, 'disk.qcow2'), temp_disk_path)
         # Rebase onto empty backing file to prevent breaking the disk image
         # when the backing file gets garbage collected.
         self._logged_exec(["qemu-img", "rebase", "-f", "qcow2", "-b",
@@ -301,7 +303,7 @@ class LibvirtdState(MachineState):
         """
         # alternative is VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE if qemu agent is available
         ifaces = self.dom.interfaceAddresses(libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE, 0)
-        if (ifaces == None):
+        if ifaces is None:
             self.log("Failed to get domain interfaces")
             return
 
