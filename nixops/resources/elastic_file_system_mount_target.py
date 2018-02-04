@@ -41,7 +41,7 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
         return "elastic-file-system-mount-target"
 
     def _reset_state(self):
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self.access_key_id = None
             self.region = None
@@ -97,7 +97,7 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
             securityGroups = self.security_groups_to_ids(region, access_key_id, subnetId, defn.config["securityGroups"] )
             res = client.create_mount_target(FileSystemId=fs_id, SubnetId=subnetId, SecurityGroups=securityGroups, **args)
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.STARTING
                 self.fsmt_id = res["MountTargetId"]
                 self.fs_id = fs_id

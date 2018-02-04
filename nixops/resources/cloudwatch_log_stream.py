@@ -72,7 +72,7 @@ class CloudWatchLogStreamState(nixops.resources.ResourceState):
             self._conn.delete_log_stream(log_group_name=self.log_group_name,log_stream_name=self.log_stream_name)
         except  boto.logs.exceptions.ResourceNotFoundException, e:
             self.log("the log group ‘{0}’ or log stream ‘{1}’ was already deleted".format(self.log_group_name,self.log_stream_name))
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self.log_group_name = None
             self.log_stream_name = None
@@ -121,7 +121,7 @@ class CloudWatchLogStreamState(nixops.resources.ResourceState):
             exist, arn = self.lookup_cloudwatch_log_stream(log_group_name=defn.config['logGroupName'],
              log_stream_name=defn.config['name'])
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self.log_stream_name = defn.config['name']
             self.log_group_name = defn.config['logGroupName']

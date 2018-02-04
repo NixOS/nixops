@@ -594,7 +594,7 @@ class HetznerState(MachineState):
                 self.log_start("creating an exclusive robot admin sub-account "
                                "for ‘{0}’... ".format(self.name))
                 server = self._get_server_from_main_robot(self.main_ipv4, defn)
-                with self.depl._db:
+                with self.depl._state._db:
                     (self.robot_admin_user,
                      self.robot_admin_pass) = server.admin.create()
                 self.log_end("done. ({0})".format(self.robot_admin_user))
@@ -609,7 +609,7 @@ class HetznerState(MachineState):
             )
             if robot_user != self.robot_admin_user or \
                robot_pass != self.robot_admin_pass:
-                with self.depl._db:
+                with self.depl._state._db:
                     (self.robot_admin_user,
                      self.robot_admin_pass) = (robot_user, robot_pass)
 

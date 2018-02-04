@@ -66,14 +66,8 @@ class ResourceState(object):
 
     def _set_attrs(self, attrs):
         """Update machine attributes in the state file."""
-        with self.depl._db:
-            c = self.depl._db.cursor()
-            for n, v in attrs.iteritems():
-                if v == None:
-                    c.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, n))
-                else:
-                    c.execute("insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
-                              (self.id, n, v))
+        self.depl._state.set_resource_attrs(self.depl.uuid, self.id, attrs)
+
 
     def _set_attr(self, name, value):
         """Update one machine attribute in the state file."""
@@ -81,31 +75,23 @@ class ResourceState(object):
 
     def _del_attr(self, name):
         """Delete a machine attribute from the state file."""
-        with self.depl._db:
-            self.depl._db.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, name))
+        self.depl._state.del_resource_attr(self.depl.uuid, self.id, name)
 
+    #TODO(moretea): again, the default option appears to be defunct.
+    # Have removed it in state/file.py.
     def _get_attr(self, name, default=nixops.util.undefined):
         """Get a machine attribute from the state file."""
-        with self.depl._db:
-            c = self.depl._db.cursor()
-            c.execute("select value from ResourceAttrs where machine = ? and name = ?", (self.id, name))
-            row = c.fetchone()
-            if row != None: return row[0]
-            return nixops.util.undefined
+        return self.depl._state.get_resource_attr(self.depl.uuid, self.id, name)
 
     def export(self):
         """Export the resource to move between databases"""
-        with self.depl._db:
-            c = self.depl._db.cursor()
-            c.execute("select name, value from ResourceAttrs where machine = ?", (self.id,))
-            rows = c.fetchall()
-            res = {row[0]: row[1] for row in rows}
-            res['type'] = self.get_type()
-            return res
+        res = self.depl._state.get_all_resource_attrs(self.depl.uuid, self.id)
+        res['type'] = self.get_type()
+        return res
 
     def import_(self, attrs):
         """Import the resource from another database"""
-        with self.depl._db:
+        with self.depl._state.db:
             for k, v in attrs.iteritems():
                 if k == 'type': continue
                 self._set_attr(k, v)

@@ -78,7 +78,7 @@ class EC2KeyPairState(nixops.resources.ResourceState):
         # Generate the key pair locally.
         if not self.public_key:
             (private, public) = nixops.util.create_key_pair(type="rsa") # EC2 only supports RSA keys.
-            with self.depl._db:
+            with self.depl._state.db:
                 self.public_key = public
                 self.private_key = private
 
@@ -102,7 +102,7 @@ class EC2KeyPairState(nixops.resources.ResourceState):
                 self.log("uploading EC2 key pair ‘{0}’...".format(defn.keypair_name))
                 self._conn.import_key_pair(defn.keypair_name, self.public_key)
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.UP
                 self.keypair_name = defn.keypair_name
 

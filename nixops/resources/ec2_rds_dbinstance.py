@@ -171,7 +171,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
             time.sleep(6)
 
     def _copy_dbinstance_attrs(self, dbinstance, security_groups):
-        with self.depl._db:
+        with self.depl._state.db:
             self.rds_dbinstance_id = dbinstance.id
             self.rds_dbinstance_allocated_storage = int(dbinstance.allocated_storage)
             self.rds_dbinstance_instance_class = dbinstance.instance_class
@@ -207,7 +207,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         return security_groups
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        with self.depl._db:
+        with self.depl._state.db:
             self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
             if not self.access_key_id:
                 raise Exception("please set ‘accessKeyId’, $EC2_ACCESS_KEY or $AWS_ACCESS_KEY_ID")
@@ -229,7 +229,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
 
             dbinstance = self._try_fetch_dbinstance(self.rds_dbinstance_id)
 
-        with self.depl._db:
+        with self.depl._state.db:
             if check or self.state == self.MISSING or self.state == self.UNKNOWN:
                 if dbinstance and (self.state == self.MISSING or self.state == self.UNKNOWN):
                     if dbinstance.status == 'deleting':
@@ -272,7 +272,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 self._copy_dbinstance_attrs(dbinstance, defn.rds_dbinstance_security_groups)
                 self.state = self.UP
 
-        with self.depl._db:
+        with self.depl._state.db:
             if self.state == self.UP and self._diff_defn(defn):
                 if dbinstance is None:
                     raise Exception("state is UP but database instance does not exist. re-run with --check option to synchronize states")

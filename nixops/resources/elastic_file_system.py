@@ -85,7 +85,7 @@ class ElasticFileSystemState(nixops.resources.ResourceState, \
                 if len(fss) == 1:
                     fs = fss[0]
                     if fs["LifeCycleState"] == "available":
-                        with self.depl._db:
+                        with self.depl._state.db:
                             self.state = self.UP
                             self.fs_id = fs["FileSystemId"]
                             self.region = defn.config["region"]
@@ -146,7 +146,7 @@ class ElasticFileSystemState(nixops.resources.ResourceState, \
                         break
                     time.sleep(1)
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.MISSING
                 self.fs_id = None
                 self.region = None

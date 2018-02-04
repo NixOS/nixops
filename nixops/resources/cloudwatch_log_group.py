@@ -72,7 +72,7 @@ class CloudWatchLogGroupState(nixops.resources.ResourceState):
          self._conn.delete_log_group(self.log_group_name)
         except  boto.logs.exceptions.ResourceNotFoundException, e:
             self.log("the log group ‘{0}’ was already deleted".format(self.log_group_name))
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self.log_group_name = None
             self.region = None
@@ -114,7 +114,7 @@ class CloudWatchLogGroupState(nixops.resources.ResourceState):
             self.log("setting the retention in days of '{0}' to '{1}'".format(defn.config['name'], defn.config['retentionInDays']))
             self._conn.set_retention(log_group_name=defn.config['name'],retention_in_days=defn.config['retentionInDays'])
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self.log_group_name = defn.config['name']
             self.region = defn.config['region']

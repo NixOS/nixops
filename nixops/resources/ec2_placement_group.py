@@ -67,11 +67,11 @@ class EC2PlacementGroupState(nixops.resources.ResourceState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         # Name or region change means a completely new security group
         if self.placement_group_name and (defn.placement_group_name != self.placement_group_name or defn.region != self.region):
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.UNKNOWN
                 self.old_placement_groups = self.old_placement_groups + [{'name': self.placement_group_name, 'region': self.region}]
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.region = defn.region
             self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
             self.placement_group_name = defn.placement_group_name
@@ -79,7 +79,7 @@ class EC2PlacementGroupState(nixops.resources.ResourceState):
 
         grp = None
         if check:
-            with self.depl._db:
+            with self.depl._state.db:
                 self._connect()
 
                 try:

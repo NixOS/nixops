@@ -103,7 +103,7 @@ class S3BucketState(nixops.resources.ResourceState):
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] != "BucketAlreadyOwnedByYou": raise
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.UP
                 self.bucket_name = defn.bucket_name
                 self.region = defn.region
