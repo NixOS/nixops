@@ -122,7 +122,7 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
             # volume we just created.  Doesn't seem to be anything we
             # can do about this.
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.STARTING
                 self.region = defn.region
                 self.zone = defn.zone

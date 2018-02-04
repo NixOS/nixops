@@ -12,7 +12,6 @@ import exceptions
 import errno
 from collections import defaultdict
 from xml.etree import ElementTree
-import nixops.statefile
 import nixops.backends
 import nixops.logger
 import nixops.parallel
@@ -22,7 +21,6 @@ from datetime import datetime, timedelta
 import getpass
 import traceback
 import glob
-import fcntl
 import itertools
 import platform
 from nixops.util import ansi_success
@@ -56,9 +54,8 @@ class Deployment(object):
     # internal variable to mark if network attribute of network has been evaluated (separately)
     network_attr_eval = False
 
-    def __init__(self, statefile, uuid, log_file=sys.stderr):
-        self._statefile = statefile
-        self._db = statefile._db
+    def __init__(self, state, uuid, log_file=sys.stderr):
+        self._state = state
         self.uuid = uuid
 
         self._last_log_prefix = None
@@ -78,15 +75,8 @@ class Deployment(object):
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
-        self.resources = {}
-        with self._db:
-            c = self._db.cursor()
-            c.execute("select id, name, type from Resources where deployment = ?", (self.uuid,))
-            for (id, name, type) in c.fetchall():
-                r = _create_state(self, type, name, id)
-                self.resources[name] = r
+        self.resources = self._state.get_resources_for(self)
         self.logger.update_log_prefixes()
-
         self.definitions = None
 
 
@@ -126,65 +116,41 @@ class Deployment(object):
             raise Exception("resource ‘{0}’ is not a machine".format(name))
         return res
 
-
     def _set_attrs(self, attrs):
-        """Update deployment attributes in the state file."""
-        with self._db:
-            c = self._db.cursor()
-            for n, v in attrs.iteritems():
-                if v == None:
-                    c.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, n))
-                else:
-                    c.execute("insert or replace into DeploymentAttrs(deployment, name, value) values (?, ?, ?)",
-                              (self.uuid, n, v))
+        """Update deployment attributes in the state."""
+        self._state.set_deployment_attrs(self.uuid, attrs)
 
 
     def _set_attr(self, name, value):
-        """Update one deployment attribute in the state file."""
+        """Update one deployment attribute in the state."""
         self._set_attrs({name: value})
 
 
     def _del_attr(self, name):
-        """Delete a deployment attribute from the state file."""
-        with self._db:
-            self._db.execute("delete from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
+        """Delete a deployment attribute from the state."""
+        self._state.del_deployment_attr(self.uuid, name)
 
 
+    #TODO(moretea): The default param does not appear to be used at all?
+    # Removed it when moving the body to nixops/state/file.py.
     def _get_attr(self, name, default=nixops.util.undefined):
-        """Get a deployment attribute from the state file."""
-        with self._db:
-            c = self._db.cursor()
-            c.execute("select value from DeploymentAttrs where deployment = ? and name = ?", (self.uuid, name))
-            row = c.fetchone()
-            if row != None: return row[0]
-            return nixops.util.undefined
-
+        """Get a deployment attribute from the state."""
+        return self._state.get_deployment_attr(self.uuid, name)
 
     def _create_resource(self, name, type):
-        c = self._db.cursor()
-        c.execute("select 1 from Resources where deployment = ? and name = ?", (self.uuid, name))
-        if len(c.fetchall()) != 0:
-            raise Exception("resource already exists in database!")
-        c.execute("insert into Resources(deployment, name, type) values (?, ?, ?)",
-                  (self.uuid, name, type))
-        id = c.lastrowid
-        r = _create_state(self, type, name, id)
+        r = self._state.create_resource(self, name, type)
         self.resources[name] = r
         return r
 
 
     def export(self):
-        with self._db:
-            c = self._db.cursor()
-            c.execute("select name, value from DeploymentAttrs where deployment = ?", (self.uuid,))
-            rows = c.fetchall()
-            res = {row[0]: row[1] for row in rows}
-            res['resources'] = {r.name: r.export() for r in self.resources.itervalues()}
-            return res
+        res = self._state.get_all_deployment_attrs(self.uuid)
+        res['resources'] = {r.name: r.export() for r in self.resources.itervalues()}
+        return res
 
 
     def import_(self, attrs):
-        with self._db:
+        with self._state.db:
             for k, v in attrs.iteritems():
                 if k == 'resources': continue
                 self._set_attr(k, v)
@@ -195,49 +161,21 @@ class Deployment(object):
 
 
     def clone(self):
-        with self._db:
-            new = self._statefile.create_deployment()
-            self._db.execute("insert into DeploymentAttrs (deployment, name, value) " +
-                             "select ?, name, value from DeploymentAttrs where deployment = ?",
-                             (new.uuid, self.uuid))
-            new.configs_path = None
-            return new
+        return self._state.clone_deployment(self.uuid)
 
 
     def _get_deployment_lock(self):
-        if self._lock_file_path is None:
-            lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
-            if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)
-            self._lock_file_path = lock_dir + "/" + self.uuid
-        class DeploymentLock(object):
-            def __init__(self, depl):
-                self._lock_file_path = depl._lock_file_path
-                self._logger = depl.logger
-                self._lock_file = None
-            def __enter__(self):
-                self._lock_file = open(self._lock_file_path, "w")
-                fcntl.fcntl(self._lock_file, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-                try:
-                    fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except IOError:
-                    self._logger.log(
-                        "waiting for exclusive deployment lock..."
-                    )
-                    fcntl.flock(self._lock_file, fcntl.LOCK_EX)
-            def __exit__(self, exception_type, exception_value, exception_traceback):
-                self._lock_file.close()
-        return DeploymentLock(self)
+        return self._state.get_deployment_lock(self)
 
 
     def delete_resource(self, m):
         del self.resources[m.name]
-        with self._db:
-            self._db.execute("delete from Resources where deployment = ? and id = ?", (self.uuid, m.id))
+        self._state.delete_resource(self.uuid, m.id)
 
 
     def delete(self, force=False):
         """Delete this deployment from the state file."""
-        with self._db:
+        with self._state.db:
             if not force and len(self.resources) > 0:
                 raise Exception("cannot delete this deployment because it still has resources")
 
@@ -248,7 +186,7 @@ class Deployment(object):
                 if os.path.islink(p): os.remove(p)
 
             # Delete the deployment from the database.
-            self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
+            self._state._delete_deployment(self.uuid)
 
 
     def _nix_path_flags(self):
@@ -856,7 +794,7 @@ class Deployment(object):
         self.evaluate()
 
         # Create state objects for all defined resources.
-        with self._db:
+        with self._state.db:
             for m in self.definitions.itervalues():
                 if m.name not in self.resources:
                     self._create_resource(m.name, m.get_type())
@@ -1197,9 +1135,7 @@ class Deployment(object):
 
         m = self.resources.pop(name)
         self.resources[new_name] = m
-
-        with self._db:
-            self._db.execute("update Resources set name = ? where deployment = ? and id = ?", (new_name, self.uuid, m.id))
+        self._state._rename_resource(self.uuid, m.id, new_name)
 
 
     def send_keys(self, include=[], exclude=[]):
@@ -1243,15 +1179,6 @@ def _create_definition(xml, config, type_name):
                 return cls(xml, config)
 
     raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type_name))
-
-def _create_state(depl, type, name, id):
-    """Create a resource state object of the desired type."""
-
-    for cls in _subclasses(nixops.resources.ResourceState):
-        if type == cls.get_type():
-            return cls(depl, name, id)
-
-    raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))
 
 
 # Automatically load all resource types.

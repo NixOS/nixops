@@ -124,7 +124,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
     def _reset_state(self):
         """Discard all state pertaining to an instance."""
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = MachineState.MISSING
             self.associate_public_ip_address = None
             self.use_private_ip_address = None
@@ -344,7 +344,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         self.log_end("{0} / {1}".format(instance.ip_address, instance.private_ip_address))
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.private_ipv4 = instance.private_ip_address
             self.public_ipv4 = instance.ip_address
             self.public_dns_name = instance.public_dns_name
@@ -588,7 +588,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
                 nixops.known_hosts.update(self.public_ipv4, elastic_ipv4, self.public_host_key)
 
-                with self.depl._db:
+                with self.depl._state.db:
                     self.elastic_ipv4 = elastic_ipv4
                     self.public_ipv4 = elastic_ipv4
                     self.ssh_pinged = False
@@ -601,7 +601,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 else:
                     self.log("address ‘{0}’ was not associated with instance ‘{1}’".format(self.elastic_ipv4, self.vm_id))
 
-                with self.depl._db:
+                with self.depl._state.db:
                     self.elastic_ipv4 = None
                     self.public_ipv4 = None
                     self.ssh_pinged = False
@@ -665,7 +665,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     lambda: self._conn.request_spot_instances(price=defn.spot_instance_price/100.0, **common_args)
                 )[0]
 
-                with self.depl._db:
+                with self.depl._state.db:
                     self.spot_instance_price = defn.spot_instance_price
                     self.spot_instance_request_id = request.id
 
@@ -696,7 +696,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             # the instance ID, we'll get the same instance ID on the
             # next run.
             if not self.client_token:
-                with self.depl._db:
+                with self.depl._state.db:
                     self.client_token = nixops.util.generate_random_string(length=48) # = 64 ASCII chars
                     self.state = self.STARTING
 
@@ -899,7 +899,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             # Generate a public/private host key.
             if not self.public_host_key:
                 (private, public) = nixops.util.create_key_pair(type=defn.host_key_type())
-                with self.depl._db:
+                with self.depl._state.db:
                     self.public_host_key = public
                     self.private_host_key = private
 
@@ -909,7 +909,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
             instance = self.create_instance(defn, zone, devmap, user_data, ebs_optimized)
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.vm_id = instance.id
                 self.ami = defn.ami
                 self.instance_type = defn.instance_type
@@ -994,7 +994,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             elastic_ipv4 = res.public_ipv4
         self._assign_elastic_ip(elastic_ipv4, check)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.use_private_ip_address = defn.use_private_ip_address
             self.associate_public_ip_address = defn.associate_public_ip_address
 

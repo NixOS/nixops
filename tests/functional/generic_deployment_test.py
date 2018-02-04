@@ -1,6 +1,5 @@
 import os
 import subprocess
-import nixops.statefile
 
 from nose import SkipTest
 

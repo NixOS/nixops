@@ -84,7 +84,7 @@ class SQSQueueState(nixops.resources.ResourceState):
         if q:
             self.log("destroying SQS queue ‘{0}’...".format(self.queue_name))
             self._conn.delete_queue(q)
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self.queue_name = None
             self.queue_base_name = None
@@ -122,7 +122,7 @@ class SQSQueueState(nixops.resources.ResourceState):
                 self.log("creating SQS queue ‘{0}’...".format(defn.queue_name))
                 q = nixops.ec2_utils.retry(lambda: self._conn.create_queue(defn.queue_name, defn.visibility_timeout), error_codes = ['AWS.SimpleQueueService.QueueDeletedRecently'])
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.UP
                 self.queue_name = defn.queue_name
                 self.url = q.url

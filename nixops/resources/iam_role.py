@@ -140,7 +140,7 @@ class IAMRoleState(nixops.resources.ResourceState):
             raise
 
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self.role_name = None
             self.access_key_id = None
@@ -226,7 +226,7 @@ class IAMRoleState(nixops.resources.ResourceState):
         if defn.assume_role_policy != "":
             self._conn.update_assume_role_policy(defn.role_name, defn.assume_role_policy)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self.role_name = defn.role_name
             self.policy = defn.policy

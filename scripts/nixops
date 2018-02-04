@@ -5,7 +5,7 @@ from nixops import deployment
 from nixops.nix_expr import py2nix
 from nixops.parallel import MultipleExceptions, run_tasks
 
-import nixops.statefile
+import nixops.state.sqlite3_file
 import prettytable
 import argparse
 import os
@@ -48,16 +48,16 @@ def sort_deployments(depls):
 # $NIXOPS_DEPLOYMENT.
 def one_or_all():
     if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
-        return sf.get_all_deployments()
+        state = nixops.state.open(args.state_url)
+        return state.get_all_deployments()
     else:
         return [open_deployment()]
 
 
 def op_list_deployments():
-    sf = nixops.statefile.StateFile(args.state_file)
+    state = nixops.state.open(args.state_url)
     tbl = create_table([("UUID", 'l'), ("Name", 'l'), ("Description", 'l'), ("# Machines", 'r'), ("Type", 'c')])
-    for depl in sort_deployments(sf.get_all_deployments()):
+    for depl in sort_deployments(state.get_all_deployments()):
         tbl.add_row(
             [depl.uuid, depl.name or "(none)",
              depl.description, len(depl.machines),
@@ -67,8 +67,8 @@ def op_list_deployments():
 
 
 def open_deployment():
-    sf = nixops.statefile.StateFile(args.state_file)
-    depl = sf.open_deployment(uuid=args.deployment)
+    state = nixops.state.open(args.state_url)
+    depl = state.open_deployment(uuid=args.deployment)
 
     depl.extra_nix_path = sum(args.nix_path or [], [])
     for (n, v) in args.nix_options or []: depl.extra_nix_flags.extend(["--option", n, v])
@@ -102,8 +102,8 @@ def modify_deployment(depl):
 
 
 def op_create():
-    sf = nixops.statefile.StateFile(args.state_file)
-    depl = sf.create_deployment()
+    state = nixops.state.open(args.state_url)
+    depl = state.create_deployment()
     sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
     modify_deployment(depl)
     if args.name or args.deployment: set_name(depl, args.name or args.deployment)
@@ -190,10 +190,10 @@ def op_info():
                     ])
 
     if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
+        state = nixops.state.open(args.state_url)
         if not args.plain:
             tbl = create_table([('Deployment', 'l')] + table_headers)
-        for depl in sort_deployments(sf.get_all_deployments()):
+        for depl in sort_deployments(state.get_all_deployments()):
             do_eval(depl)
             print_deployment(depl)
         if not args.plain: print tbl
@@ -519,16 +519,16 @@ def op_export():
 
 
 def op_import():
-    sf = nixops.statefile.StateFile(args.state_file)
-    existing = set(sf.query_deployments())
+    state = nixops.state.open(args.state_url)
+    existing = set(state.query_deployments())
 
     dump = json.loads(sys.stdin.read())
 
     for uuid, attrs in dump.iteritems():
         if uuid in existing:
             raise Exception("state file already contains a deployment with UUID ‘{0}’".format(uuid))
-        with sf._db:
-            depl = sf.create_deployment(uuid=uuid)
+        with state.db:
+            depl = state.create_deployment(uuid=uuid)
             depl.import_(attrs)
         sys.stderr.write("added deployment ‘{0}’\n".format(uuid))
 
@@ -723,8 +723,8 @@ subparsers = parser.add_subparsers(help='sub-command help')
 
 def add_subparser(name, help):
     subparser = subparsers.add_parser(name, help=help)
-    subparser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
-                           default=nixops.statefile.get_default_state_file(), help='path to state file')
+    subparser.add_argument('--state', '-s', dest='state_url', metavar='FILE',
+                           default=os.environ.get("NIXOPS_STATE_URL", nixops.state.sqlite3_file.get_default_state_file()), help='URL that points to the state provider.')
     subparser.add_argument('--deployment', '-d', dest='deployment', metavar='UUID_OR_NAME',
                            default=os.environ.get("NIXOPS_DEPLOYMENT", os.environ.get("CHARON_DEPLOYMENT", None)), help='UUID or symbolic name of the deployment')
     subparser.add_argument('--debug', action='store_true', help='enable debug output')

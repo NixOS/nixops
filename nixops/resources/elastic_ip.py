@@ -79,7 +79,7 @@ class ElasticIPState(nixops.resources.ResourceState):
             # address we just created.  Doesn't seem to be anything we
             # can do about this.
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.UP
                 self.region = defn.config['region']
                 self.public_ipv4 = address['PublicIp']

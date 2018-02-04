@@ -74,7 +74,7 @@ class SNSTopicState(nixops.resources.ResourceState):
         self.connect()
         self.log("destroying SNS topic ‘{0}’...".format(self.topic_name))
         self._conn.delete_topic(self.arn)
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self.topic_name = None
             self.region = None
@@ -136,7 +136,7 @@ class SNSTopicState(nixops.resources.ResourceState):
                     if subscriber_arn != "PendingConfirmation": 
                      self._conn.unsubscribe(subscription=subscriber_arn)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self.topic_name = defn.config['name']
             self.display_name = defn.config['displayName']
