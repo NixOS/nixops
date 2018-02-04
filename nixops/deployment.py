@@ -369,7 +369,7 @@ class Deployment(object):
                 self.definitions[name] = defn
 
 
-    def evaluate_option_value(self, machine_name, option_name, xml=False, include_physical=False):
+    def evaluate_option_value(self, machine_name, option_name, json=False, xml=False, include_physical=False):
         """Evaluate a single option of a single machine in the deployment specification."""
 
         exprs = self.nix_exprs
@@ -387,6 +387,7 @@ class Deployment(object):
                 ["--eval-only", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
                  "-A", "nodes.{0}.config.{1}".format(machine_name, option_name)]
+                + (["--json"] if json else [])
                 + (["--xml"] if xml else []),
                 stderr=self.logger.log_file)
         except subprocess.CalledProcessError:
