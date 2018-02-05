@@ -96,7 +96,7 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
             self.log('creating hosted zone for {}'.format(defn.zone_name))
 
             hosted_zone = client.create_hosted_zone(**args)
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.UP
                 self.zone_id = hosted_zone['HostedZone']['Id']
                 self.private_zone = defn.private_zone
@@ -119,7 +119,7 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
             for assoc in tbd:
                 client.disassociate_vpc_from_hosted_zone(HostedZoneId=self.zone_id, VPC={ 'VPCId': assoc['vpcId'], 'VPCRegion': assoc['region'] })
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.associated_vpcs = defn.associated_vpcs
 
         return True
@@ -137,7 +137,7 @@ class Route53HostedZoneState(nixops.resources.ResourceState):
                 pass
             raise
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
         return True
 

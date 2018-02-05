@@ -89,7 +89,7 @@ class AWSVPNConnectionState(nixops.resources.DiffEngineResourceState, EC2CommonS
             )
 
        vpn_conn_id = vpn_connection['VpnConnection']['VpnConnectionId']
-       with self.depl._db:
+       with self.depl._state.db:
            self.state = self.UP
            self._state['vpnConnectionId'] = vpn_conn_id
            self._state['vpnGatewayId'] = vpn_gateway_id
@@ -114,7 +114,7 @@ class AWSVPNConnectionState(nixops.resources.DiffEngineResourceState, EC2CommonS
                 else:
                     raise e
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['vpnConnectionId'] = None
             self._state['vpnGatewayId'] = None

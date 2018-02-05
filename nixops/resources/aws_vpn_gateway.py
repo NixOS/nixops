@@ -85,7 +85,7 @@ class AWSVPNGatewayState(nixops.resources.DiffEngineResourceState, EC2CommonStat
             VpnGatewayId=vpn_gtw_id)
         #TODO wait for the attchement state
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['vpnGatewayId'] = vpn_gtw_id
             self._state['vpcId'] = vpc_id
@@ -122,7 +122,7 @@ class AWSVPNGatewayState(nixops.resources.DiffEngineResourceState, EC2CommonStat
             else:
                 raise e
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['region'] = None
             self._state['vpnGatewayId'] = None

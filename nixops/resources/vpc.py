@@ -85,7 +85,7 @@ class VPCState(nixops.resources.DiffEngineResourceState, EC2CommonState):
         self.cleanup_state()
 
     def cleanup_state(self):
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['vpcId'] = None
             self._state['region'] = None
@@ -130,7 +130,7 @@ class VPCState(nixops.resources.DiffEngineResourceState, EC2CommonState):
                 raise Exception("couldn't find vpc {}, please run a deploy with --check".format(self._state["vpcId"]))
         self.log_end(" done")
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
 
     def realize_create_vpc(self, allow_recreate):
@@ -151,7 +151,7 @@ class VPCState(nixops.resources.DiffEngineResourceState, EC2CommonState):
                                       InstanceTenancy=config['instanceTenancy'])
         self.vpc_id = vpc.get('Vpc').get('VpcId')
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.STARTING
             self._state["vpcId"] = self.vpc_id
             self._state["region"] = config['region']
@@ -171,7 +171,7 @@ class VPCState(nixops.resources.DiffEngineResourceState, EC2CommonState):
             self.get_client().enable_vpc_classic_link(VpcId=self.vpc_id)
         elif config['enableClassicLink'] == False and self._state.get('enableClassicLink', None):
             self.get_client().disable_vpc_classic_link(VpcId=self.vpc_id)
-        with self.depl._db:
+        with self.depl._state.db:
             self._state["enableClassicLink"] = config['enableClassicLink']
 
     def realize_dns_config(self, allow_recreate):
@@ -184,7 +184,7 @@ class VPCState(nixops.resources.DiffEngineResourceState, EC2CommonState):
                                           EnableDnsHostnames={
                                               'Value': config['enableDnsHostnames']
                                               })
-        with self.depl._db:
+        with self.depl._state.db:
             self._state["enableDnsSupport"] = config['enableDnsSupport']
             self._state["enableDnsHostnames"] = config['enableDnsHostnames']
 
@@ -229,7 +229,7 @@ class VPCState(nixops.resources.DiffEngineResourceState, EC2CommonState):
                 self.get_client().disassociate_vpc_cidr_block(
                     AssociationId=self._state['associationId'])
 
-        with self.depl._db:
+        with self.depl._state.db:
             self._state["amazonProvidedIpv6CidrBlock"] = config['amazonProvidedIpv6CidrBlock']
             if assign_cidr: self._state['associationId'] = association_id
 

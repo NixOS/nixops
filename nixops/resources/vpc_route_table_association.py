@@ -91,7 +91,7 @@ class VPCRouteTableAssociationState(nixops.resources.DiffEngineResourceState, EC
         association = self.get_client().associate_route_table(RouteTableId=route_table_id,
                                                          SubnetId=subnet_id)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['routeTableId'] = route_table_id
             self._state['subnetId'] = subnet_id
@@ -108,7 +108,7 @@ class VPCRouteTableAssociationState(nixops.resources.DiffEngineResourceState, EC
             else:
                 raise error
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['routeTableId'] = None
             self._state['subnetId'] = None

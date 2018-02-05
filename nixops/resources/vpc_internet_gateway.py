@@ -89,7 +89,7 @@ class VPCInternetGatewayState(nixops.resources.DiffEngineResourceState, EC2Commo
         self.log("attaching internet gateway {0} to vpc {1}".format(igw_id, vpc_id))
         self.get_client().attach_internet_gateway(InternetGatewayId=igw_id,
                                              VpcId=vpc_id)
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['region'] = config['region']
             self._state['vpcId'] = vpc_id
@@ -110,7 +110,7 @@ class VPCInternetGatewayState(nixops.resources.DiffEngineResourceState, EC2Commo
         self.log("deleting internet gateway {0}".format(self._state['internetGatewayId']))
         self.get_client().delete_internet_gateway(InternetGatewayId=self._state['internetGatewayId'])
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['region'] = None
             self._state['vpcId'] = None

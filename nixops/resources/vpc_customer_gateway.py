@@ -79,12 +79,12 @@ class VPCCustomerGatewayState(nixops.resources.DiffEngineResourceState, EC2Commo
             Type=config['type'])
 
         customer_gtw_id = response['CustomerGateway']['CustomerGatewayId']
-        with self.depl._db: self.state = self.STARTING
+        with self.depl._state.db: self.state = self.STARTING
 
         waiter = self.get_client().get_waiter('customer_gateway_available')
         waiter.wait(CustomerGatewayIds=[customer_gtw_id])
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['region'] = config['region']
             self._state['customerGatewayId'] = customer_gtw_id
@@ -110,7 +110,7 @@ class VPCCustomerGatewayState(nixops.resources.DiffEngineResourceState, EC2Commo
                 raise e
 
         #TODO wait for customer gtw to be deleted
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['region'] = None
             self._state['customerGatewayId'] = None

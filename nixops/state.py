@@ -11,7 +11,7 @@ class StateDict(collections.MutableMapping):
     # TODO implement __repr__ for convenience e.g debuging the structure
     def __init__(self, depl, id):
         super(StateDict, self).__init__()
-        self._db = depl._db
+        self._db = depl._state.db
         self.id = id
 
     def __setitem__(self, key, value):

@@ -82,7 +82,7 @@ class VPCEgressOnlyInternetGatewayState(nixops.resources.DiffEngineResourceState
         response = self.get_client().create_egress_only_internet_gateway(VpcId=vpc_id)
         igw_id = response['EgressOnlyInternetGateway']['EgressOnlyInternetGatewayId']
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['region'] = config['region']
             self._state['vpcId'] = vpc_id
@@ -93,7 +93,7 @@ class VPCEgressOnlyInternetGatewayState(nixops.resources.DiffEngineResourceState
         self.log("deleting egress only internet gateway {0}".format(self._state['egressOnlyInternetGatewayId']))
         self.get_client().delete_egress_only_internet_gateway(EgressOnlyInternetGatewayId=self._state['egressOnlyInternetGatewayId'])
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['region'] = None
             self._state['vpcId'] = None

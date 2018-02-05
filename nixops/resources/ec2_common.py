@@ -19,7 +19,7 @@ class EC2CommonState():
     def get_common_tags(self):
         tags = {'CharonNetworkUUID': self.depl.uuid,
                 'CharonMachineName': self.name,
-                'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._db.db_file)}
+                'CharonStateFile': "{0}@{1}:{2}".format(getpass.getuser(), socket.gethostname(), self.depl._state.db.db_file)}
         if self.depl.name:
             tags['CharonNetworkName'] = self.depl.name
         return tags

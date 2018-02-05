@@ -111,7 +111,7 @@ class VPCDhcpOptionsState(nixops.resources.DiffEngineResourceState, EC2CommonSta
             return response.get('DhcpOptions').get('DhcpOptionsId')
 
         dhcp_options_id = create_dhcp_options(dhcp_config)
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.STARTING
             self._state['vpcId'] = vpc_id
             self._state['dhcpOptionsId'] = dhcp_options_id
@@ -122,7 +122,7 @@ class VPCDhcpOptionsState(nixops.resources.DiffEngineResourceState, EC2CommonSta
             self._state['netbiosNodeType'] = config["netbiosNodeType"]
 
         self.get_client().associate_dhcp_options(DhcpOptionsId=dhcp_options_id, VpcId=vpc_id)
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
 
     def realize_update_tag(self, allow_recreate):
@@ -145,7 +145,7 @@ class VPCDhcpOptionsState(nixops.resources.DiffEngineResourceState, EC2CommonSta
                 else:
                     raise e
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.MISSING
                 self._state['vpcId'] = None
                 self._state['dhcpOptions'] = None

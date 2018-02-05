@@ -177,7 +177,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             ChangeBatch=self.make_batch('UPSERT', defn)
         ))
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self.zone_name = zone_name
             self.zone_id = zone_id
@@ -249,7 +249,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
                 HostedZoneId=self.zone_id,
                 ChangeBatch=self.make_batch('DELETE', self)))
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.MISSING
             return True
 

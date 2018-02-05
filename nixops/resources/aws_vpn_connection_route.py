@@ -80,7 +80,7 @@ class AWSVPNConnectionState(nixops.resources.DiffEngineResourceState, EC2CommonS
             DestinationCidrBlock=config['destinationCidrBlock'],
             VpnConnectionId=vpn_conn_id)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['vpnConnectionId'] = vpn_conn_id
             self._state['destinationCidrBlock'] = config['destinationCidrBlock']
@@ -98,7 +98,7 @@ class AWSVPNConnectionState(nixops.resources.DiffEngineResourceState, EC2CommonS
             else:
                 raise e
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['vpnConnectionId'] = None
             self._state['destinationCidrBlock'] = None

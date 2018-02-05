@@ -86,7 +86,7 @@ class EC2RDSDbSecurityGroupState(nixops.resources.DiffEngineResourceState, EC2Co
             for rule in response['DBSecurityGroups'][0].get('IPRanges', []):
                 rules.append(generate_rule(rule))
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self._state['rules'] = rules
 
     def realize_create_sg(self, allow_recreate):
@@ -107,7 +107,7 @@ class EC2RDSDbSecurityGroupState(nixops.resources.DiffEngineResourceState, EC2Co
         self.get_client("rds").create_db_security_group(
             DBSecurityGroupName=config['groupName'],
             DBSecurityGroupDescription=config['description'])
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['groupName'] = config['groupName']
             self._state['description'] = config['description']
@@ -128,7 +128,7 @@ class EC2RDSDbSecurityGroupState(nixops.resources.DiffEngineResourceState, EC2Co
             kwargs = self.process_rule(rule)
             self.get_client("rds").authorize_db_security_group_ingress(**kwargs)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self._state['rules'] = config['rules']
 
     def process_rule(self, config):
@@ -153,7 +153,7 @@ class EC2RDSDbSecurityGroupState(nixops.resources.DiffEngineResourceState, EC2Co
             else:
                 raise error
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['groupName'] = None
             self._state['region'] = None

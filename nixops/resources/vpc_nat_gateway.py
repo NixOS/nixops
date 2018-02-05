@@ -101,7 +101,7 @@ class VPCNatGatewayState(nixops.resources.DiffEngineResourceState, EC2CommonStat
                                                    SubnetId=subnet_id)
 
         gtw_id = response['NatGateway']['NatGatewayId']
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['subnetId'] = subnet_id
             self._state['allocationId'] = allocation_id
@@ -137,7 +137,7 @@ class VPCNatGatewayState(nixops.resources.DiffEngineResourceState, EC2CommonStat
             self.log("deleting vpc NAT gateway {}".format(self._state['natGatewayId']))
             try:
                 self.get_client().delete_nat_gateway(NatGatewayId=self._state['natGatewayId'])
-                with self.depl._db: self.state = self.STOPPING
+                with self.depl._state.db: self.state = self.STOPPING
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] == "InvalidNatGatewayID.NotFound" or e.response['Error']['Code'] == "NatGatewayNotFound":
                     self.warn("nat gateway {} was already deleted".format(self._state['natGatewayId']))
@@ -147,7 +147,7 @@ class VPCNatGatewayState(nixops.resources.DiffEngineResourceState, EC2CommonStat
         if self.state == self.STOPPING:
             self.wait_for_nat_gtw_deletion()
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['region'] = None
             self._state['subnetId'] = None

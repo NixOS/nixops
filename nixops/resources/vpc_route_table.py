@@ -91,7 +91,7 @@ class VPCRouteTableState(nixops.resources.DiffEngineResourceState, EC2CommonStat
         self.log("creating route table in vpc {}".format(vpc_id))
         route_table = self.get_client().create_route_table(VpcId=vpc_id)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['vpcId'] = vpc_id
             self._state['routeTableId'] = route_table['RouteTable']['RouteTableId']
@@ -122,7 +122,7 @@ class VPCRouteTableState(nixops.resources.DiffEngineResourceState, EC2CommonStat
                 GatewayId=vgw,
                 RouteTableId=self._state['routeTableId'])
 
-        with self.depl._db:
+        with self.depl._state.db:
             self._state['propagatingVgws'] = new_vgws
 
     def realize_update_tag(self, allow_recreate):
@@ -142,7 +142,7 @@ class VPCRouteTableState(nixops.resources.DiffEngineResourceState, EC2CommonStat
             else:
                 raise error
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['vpcId'] = None
             self._state['routeTableId'] = None

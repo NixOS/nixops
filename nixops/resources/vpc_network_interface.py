@@ -99,7 +99,7 @@ class VPCNetworkInterfaceState(nixops.resources.DiffEngineResourceState, EC2Comm
 
         primary, secondary = split_ips(eni['PrivateIpAddresses'])
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['subnetId'] = eni_input['SubnetId']
             self._state['networkInterfaceId'] = eni['NetworkInterfaceId']
@@ -169,7 +169,7 @@ class VPCNetworkInterfaceState(nixops.resources.DiffEngineResourceState, EC2Comm
                                                         SourceDestCheck={
                                                             'Value':config['sourceDestCheck']
                                                             })
-        with self.depl._db:
+        with self.depl._state.db:
             self._state['description'] = config['description']
             self._state['securityGroups'] = groups
             self._state['sourceDestCheck'] = config['sourceDestCheck']
@@ -191,7 +191,7 @@ class VPCNetworkInterfaceState(nixops.resources.DiffEngineResourceState, EC2Comm
             else:
                 raise e
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['networkInterfaceId'] = None
             self._state['primaryPrivateIpAddress'] = None

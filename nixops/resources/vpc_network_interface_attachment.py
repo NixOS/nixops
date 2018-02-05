@@ -94,7 +94,7 @@ class VPCNetworkInterfaceAttachmentState(nixops.resources.DiffEngineResourceStat
 
         self.log_end(" done")
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
 
     def realize_create_eni_attachment(self, allow_recreate):
@@ -123,7 +123,7 @@ class VPCNetworkInterfaceAttachmentState(nixops.resources.DiffEngineResourceStat
             InstanceId=vm_id,
             NetworkInterfaceId=eni_id)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.STARTING
             self._state['attachmentId'] = eni_attachment['AttachmentId']
             self._state['instanceId'] = vm_id
@@ -157,7 +157,7 @@ class VPCNetworkInterfaceAttachmentState(nixops.resources.DiffEngineResourceStat
             try:
                 self.get_client().detach_network_interface(AttachmentId=self._state['attachmentId'],
                                                       Force=True)
-                with self.depl._db:
+                with self.depl._state.db:
                     self.state = self.STOPPING
 
             except botocore.exceptions.ClientError as e:
@@ -168,7 +168,7 @@ class VPCNetworkInterfaceAttachmentState(nixops.resources.DiffEngineResourceStat
         if self.state == self.STOPPING:
             self.wait_for_eni_detachment()
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['region'] = None
             self._state['attachmentId'] = None

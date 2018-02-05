@@ -114,7 +114,7 @@ class VPCSubnetState(nixops.resources.DiffEngineResourceState, EC2CommonState):
                 raise Exception("couldn't find subnet {}, please run deploy with --check".format(subnet_id))
         self.log_end(" done")
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
 
     def realize_create_subnet(self, allow_recreate):
@@ -143,7 +143,7 @@ class VPCSubnetState(nixops.resources.DiffEngineResourceState, EC2CommonState):
         self.subnet_id = subnet.get('SubnetId')
         self.zone = subnet.get('AvailabilityZone')
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.STARTING
             self._state['subnetId'] = self.subnet_id
             self._state['cidrBlock'] = config['cidrBlock']
@@ -165,7 +165,7 @@ class VPCSubnetState(nixops.resources.DiffEngineResourceState, EC2CommonState):
             MapPublicIpOnLaunch={'Value':config['mapPublicIpOnLaunch']},
             SubnetId=self.subnet_id)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self._state['mapPublicIpOnLaunch'] = config['mapPublicIpOnLaunch']
 
     def realize_associate_ipv6_cidr_block(self, allow_recreate):
@@ -181,7 +181,7 @@ class VPCSubnetState(nixops.resources.DiffEngineResourceState, EC2CommonState):
             self.get_client().disassociate_subnet_cidr_block(
                 AssociationId=self._state['associationId'])
 
-        with self.depl._db:
+        with self.depl._state.db:
             self._state["ipv6CidrBlock"] = config['ipv6CidrBlock']
             if config['ipv6CidrBlock'] is not None:
                 self._state['associationId'] = response['Ipv6CidrBlockAssociation']['AssociationId']
@@ -205,7 +205,7 @@ class VPCSubnetState(nixops.resources.DiffEngineResourceState, EC2CommonState):
             else:
                 raise error
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['subnetID'] = None
             self._state['region'] = None

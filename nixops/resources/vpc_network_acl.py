@@ -89,7 +89,7 @@ class VPCNetworkAclstate(nixops.resources.DiffEngineResourceState, EC2CommonStat
         response = self.get_client().create_network_acl(VpcId=vpc_id)
         self.network_acl_id = response['NetworkAcl']['NetworkAclId']
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['vpcId'] = vpc_id
             self._state['networkAclId'] = self.network_acl_id
@@ -112,7 +112,7 @@ class VPCNetworkAclstate(nixops.resources.DiffEngineResourceState, EC2CommonStat
         for entry in to_create:
             rule = self.process_rule_entry(entry)
             self.get_client().create_network_acl_entry(**rule)
-        with self.depl._db:
+        with self.depl._state.db:
             self._state['entries'] = config['entries']
 
     def realize_subnets_change(self, allow_recreate):
@@ -147,7 +147,7 @@ class VPCNetworkAclstate(nixops.resources.DiffEngineResourceState, EC2CommonStat
             self.log("associating subnet {0} to network acl {1}".format(subnet, self.network_acl_id))
             self.get_client().replace_network_acl_association(AssociationId=association_id, NetworkAclId=self.network_acl_id)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self._state['subnetIds'] = new_subnets
 
     def get_default_network_acl(self, vpc_id):
@@ -193,7 +193,7 @@ class VPCNetworkAclstate(nixops.resources.DiffEngineResourceState, EC2CommonStat
             else:
                 raise e
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['networkAclId'] = None
             self._state['region'] = None

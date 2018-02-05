@@ -123,7 +123,7 @@ class ElasticIPState(nixops.resources.ResourceState):
                 else:
                     self._client.release_address(PublicIp=eip['PublicIp'])
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.state = self.MISSING
                 self.public_ipv4 = None
                 self.allocation_id = None

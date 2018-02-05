@@ -120,7 +120,7 @@ class VPCRouteState(nixops.resources.DiffEngineResourceState, EC2CommonState):
         self.log("creating route {0} => {1} in route table {2}".format(retrieve_defn(target), config[destination], rtb_id))
         self.get_client().create_route(**route)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state[target] = route[self.upper(target)]
             self._state[destination] = config[destination]
@@ -144,7 +144,7 @@ class VPCRouteState(nixops.resources.DiffEngineResourceState, EC2CommonState):
             else:
                 raise error
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['routeTableId'] = None
             self._state[destination] = None

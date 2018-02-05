@@ -152,7 +152,7 @@ class Route53HealthCheckState(nixops.resources.ResourceState):
                 ref = str(uuid.uuid1())
                 self.log('creating health check')
                 health_check = client.create_health_check(CallerReference=ref, HealthCheckConfig=cfg)
-                with self.depl._db:
+                with self.depl._state.db:
                     self.state = self.UP
                     self.health_check_id = health_check['HealthCheck']['Id']
             else:
@@ -165,7 +165,7 @@ class Route53HealthCheckState(nixops.resources.ResourceState):
                 self.log('updating health check')
                 client.update_health_check(**cfg)
 
-            with self.depl._db:
+            with self.depl._state.db:
                 self.health_check_config = orig_cfg
                 self.child_health_checks = defn.child_health_checks
 
@@ -184,7 +184,7 @@ class Route53HealthCheckState(nixops.resources.ResourceState):
                 pass
             raise
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
         return True
 

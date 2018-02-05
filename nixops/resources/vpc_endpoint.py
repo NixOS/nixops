@@ -89,7 +89,7 @@ class VPCEndpointState(nixops.resources.DiffEngineResourceState, EC2CommonState)
             VpcId=vpc_id)
 
         endpoint_id = response['VpcEndpoint']['VpcEndpointId']
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.UP
             self._state['endpointId'] = endpoint_id
             self._state['vpcId'] = vpc_id
@@ -117,7 +117,7 @@ class VPCEndpointState(nixops.resources.DiffEngineResourceState, EC2CommonState)
 
         self.get_client().modify_vpc_endpoint(**edp_input)
 
-        with self.depl._db:
+        with self.depl._state.db:
             self._state['policy'] = config['policy']
             self._state['routeTableIds'] = new_rtbs
 
@@ -132,7 +132,7 @@ class VPCEndpointState(nixops.resources.DiffEngineResourceState, EC2CommonState)
             else:
                 raise e
 
-        with self.depl._db:
+        with self.depl._state.db:
             self.state = self.MISSING
             self._state['endpointId'] = None
             self._state['vpcId'] = None
