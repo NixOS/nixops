@@ -88,7 +88,7 @@ class SQLConnection(object):
         res = c.fetchall()
         return [x[0] for x in res]
 
-    def get_all_deployments(self):r
+    def get_all_deployments(self):
         """Return Deployment objects for every deployment in the database."""
         uuids = self.query_deployments()
         res = []
