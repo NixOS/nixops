@@ -1,8 +1,8 @@
+import os
 import urlparse
 import sys
-import sqlite3_file
 import json_file
-import mysql
+import sql_connector
 
 class WrongStateSchemeException(Exception):
     pass
@@ -10,19 +10,21 @@ class WrongStateSchemeException(Exception):
 def open(url):
     url = urlparse.urlparse(url)
     scheme = url.scheme
-    print 'my name is mog'
-    print url.scheme
-    print url.path
+    ext = os.path.splitext(url.path)[1]
+
     if scheme == "":
-        scheme = "sqlite3"
+        if ext == ".nixops":
+            scheme = "sql"
+            url = 'sqlite:///' + url.path
+        elif ext == ".json":
+            scheme = "json"
 
     def raise_(ex):
         raise ex
 
     switcher = {
-        "sqlite3": lambda(url): sqlite3_file.StateFile(url.path),
         "json": lambda(url): json_file.JsonFile(url.path),
-        "mysql": lambda(url): mysql.SQLConnection(url),
+        "sql": lambda(url): sql_connector.SQLConnection(url),
     }
 
     function = switcher.get(scheme, lambda(url): raise_(WrongStateSchemeException("Unknown state scheme!")))

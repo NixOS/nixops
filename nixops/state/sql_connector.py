@@ -43,6 +43,7 @@ class SQLConnection(object):
         cursor.close()
 
     def __init__(self, db_uri):
+        print db_uri
         self.db_uri = db_uri
 
         db_engine = sqlalchemy.create_engine(db_uri)
