@@ -86,8 +86,7 @@ class SQLConnection(object):
                 res.append(self.open_deployment(uuid=uuid))
             except nixops.deployment.UnknownBackend as e:
                 sys.stderr.write("skipping deployment '{}': {!r}\n".format(uuid, str(e)))
-        print res
-        print 'done'
+
         return res
 
 
@@ -122,21 +121,18 @@ class SQLConnection(object):
                 raise Exception("state file contains multiple deployments with the same name, so you should specify one using its UUID")
             else:
                 raise Exception("state file contains multiple deployments, so you should specify which one to use using ‘-d’, or set the environment variable NIXOPS_DEPLOYMENT")
-        print 'mog {}'.format(deployment)
         return nixops.deployment.Deployment(self, deployment, sys.stderr)
 
 
     def open_deployment(self, uuid=None):
-        print 'open a deployment'
         """Open an existing deployment."""
         deployment = self._find_deployment(uuid=uuid)
-        print deployment
+
         if deployment: return deployment
         raise Exception("could not find specified deployment in state file {!r}".format(self.db_uri))
 
 
     def create_deployment(self, uuid=None):
-        print 'createing a deployment'
         """Create a new deployment."""
         if not uuid:
             import uuid
@@ -163,14 +159,9 @@ class SQLConnection(object):
     def get_resources_for(self, deployment):
         """Get all the resources for a certain deployment"""
         resources = {}
-        print 'get some things {}'.format(deployment.uuid)
+
         rows = self.db.execute("select id, name, type from Resources where deployment = '{}'".format(deployment.uuid))
-        print 'got some thangs {}'.format(rows)
-        for row in rows:
-            print 'asdf'
-            print row
         for (id, name, type) in rows:
-            print 'WOOT {} {} {}'.format(id, name, type)
             r = self._create_state(deployment, type, name, id)
             resources[name] = r
         return resources
