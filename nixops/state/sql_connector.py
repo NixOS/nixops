@@ -10,6 +10,9 @@ import fcntl
 
 import sqlalchemy
 
+import pymysql_sa
+pymysql_sa.make_default_mysql_dialect()
+
 def _subclasses(cls):
     sub = cls.__subclasses__()
     return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
@@ -38,7 +41,10 @@ class SQLConnection(object):
         url = urlparse.urlparse(db_uri)
         self.db_uri = db_uri
 
+        print 'oh no you didnt {}'.format(db_uri)
+
         db_engine = sqlalchemy.create_engine(db_uri)
+
         db = db_engine.connect()
         if url.scheme == "sqlite":
             db.execute("pragma journal_mode = wal;")
@@ -312,13 +318,13 @@ class SQLConnection(object):
 
         c.execute(
             '''create table if not exists Deployments(
-                 uuid text primary key
+                 uuid VARCHAR(36) primary key
                );''')
 
         c.execute(
             '''create table if not exists DeploymentAttrs(
-                 deployment text not null,
-                 name text not null,
+                 deployment varchar(255) not null,
+                 name varchar(255) not null,
                  value text not null,
                  primary key(deployment, name),
                  foreign key(deployment) references Deployments(uuid) on delete cascade
