@@ -41,8 +41,6 @@ class SQLConnection(object):
         url = urlparse.urlparse(db_uri)
         self.db_uri = db_uri
 
-        print 'oh no you didnt {}'.format(db_uri)
-
         db_engine = sqlalchemy.create_engine(db_uri)
 
         db = db_engine.connect()
@@ -181,9 +179,14 @@ class SQLConnection(object):
                                 .format(deployment_uuid, name)
                 )
             else:
-                self.db.execute("insert or replace into DeploymentAttrs(deployment, name, value) values ('{}', '{}', {!r})"
-                                .format(deployment_uuid, name, value)
-                )
+                if self.get_deployment_attr(deployment_uuid, name) == nixops.util.undefined:
+                    self.db.execute("insert into DeploymentAttrs(deployment, name, value) values ('{}', '{}', {!r})"
+                                    .format(deployment_uuid, name, value)
+                    )
+                else:
+                    self.db.execute("update DeploymentAttrs set value={!r} where deployment='{}' and name='{}'"
+                                    .format(value, deployment_uuid, name)
+                    )
 
 
     def del_deployment_attr(self, deployment_uuid, attr_name):
@@ -267,8 +270,14 @@ class SQLConnection(object):
                 self.db.execute("delete from ResourceAttrs where machine = '{}' and name = '{}'"
                                 .format(resource_id, name))
             else:
-                self.db.execute("insert or replace into ResourceAttrs(machine, name, value) values ('{}', '{}', {!r})"
-                                .format(resource_id, name, value))
+                if get_resource_attr(deployment_uuid, name) == nixops.util.undefined:
+                    self.db.execute("insert into ResourceAttrs(machine, name, value) values ('{}', '{}', {!r})"
+                                    .format(resource_id, name, value)
+                    )
+                else:
+                    self.db.execute("update ResourceAttrs set value={!r} where machine='{}' and name='{}'"
+                                    .format(value, resource_id, name)
+                    )
 
 
     def del_resource_attr(self, _deployment_uuid, resource_id, name):
@@ -330,20 +339,24 @@ class SQLConnection(object):
                  foreign key(deployment) references Deployments(uuid) on delete cascade
                );''')
 
+        autoincrement = 'autoincrement'
+        url = urlparse.urlparse(self.db_uri)
+        if url.scheme == 'mysql':
+            autoincrement = 'auto_increment'
         c.execute(
             '''create table if not exists Resources(
-                 id integer primary key autoincrement,
-                 deployment text not null,
-                 name text not null,
-                 type text not null,
+                 id integer primary key {},
+                 deployment varchar(255) not null,
+                 name varchar(255) not null,
+                 type varchar(1024) not null,
                  foreign key(deployment) references Deployments(uuid) on delete cascade
-               );''')
+               );'''.format(autoincrement))
 
         c.execute(
             '''create table if not exists ResourceAttrs(
                  machine integer not null,
-                 name text not null,
-                 value text not null,
+                 name varchar(255) not null,
+                 value varchar(1024) not null,
                  primary key(machine, name),
                  foreign key(machine) references Resources(id) on delete cascade
                );''')
