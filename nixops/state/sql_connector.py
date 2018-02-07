@@ -287,10 +287,10 @@ class SQLConnection(object):
 
     def get_resource_attr(self, _deployment_uuid, resource_id, name):
         """Get a machine attribute from the state file."""
-        rows = self.db.execute("select value from ResourceAttrs where machine = {!r} and name = {!r}"
+        rows = self.db.execute("select value from ResourceAttrs where machine = '{}' and name = '{}'"
                                .format(resource_id, name))
-        if rows is not None:
-            return row[0][0]
+        for row in rows:
+            return row[0]
         return nixops.util.undefined
 
 
