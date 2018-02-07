@@ -3,18 +3,17 @@
 import nixops.deployment
 import os
 import os.path
-from pysqlite2 import dbapi2 as sqlite3
+import urlparse
 import sys
 import threading
 import fcntl
 
 import sqlalchemy
-from sqlalchemy.engine import Engine
-from sqlalchemy import event
 
 def _subclasses(cls):
     sub = cls.__subclasses__()
     return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
+
 
 def get_default_state_file():
     home = os.environ.get("HOME", "") + "/.nixops"
@@ -35,19 +34,19 @@ class SQLConnection(object):
 
     current_schema = 3
 
-    @event.listens_for(Engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        db.execute("pragma journal_mode = wal")
-        db.execute("pragma foreign_keys = 1")
-        cursor.close()
-
     def __init__(self, db_uri):
         print db_uri
+        url = urlparse.urlparse(db_uri)
+        print url.scheme
         self.db_uri = db_uri
 
         db_engine = sqlalchemy.create_engine(db_uri)
         db = db_engine.connect()
+
+        if url.scheme == "sqlite":
+            db.execute("pragma journal_mode = wal;")
+            db.execute("pragma foreign_keys;")
+
         # FIXME: this is not actually transactional, because pysqlite (not
         # sqlite) does an implicit commit before "create table".
         with db:

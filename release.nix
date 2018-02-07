@@ -93,7 +93,6 @@ rec {
           adal
           # Go back to sqlite once Python 2.7.13 is released
           sqlalchemy
-          pysqlite
           datadog
           digital-ocean
         ];
