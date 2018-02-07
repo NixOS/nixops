@@ -20,6 +20,7 @@ import nixops.ec2_utils
 import nixops.known_hosts
 from xml import etree
 import datetime
+import boto3
 
 class EC2InstanceDisappeared(Exception):
     pass
@@ -119,6 +120,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self._conn = None
         self._conn_vpc = None
         self._conn_route53 = None
+        self._conn_boto3 = None
         self._cached_instance = None
 
 
@@ -252,6 +254,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self._conn = nixops.ec2_utils.connect(self.region, self.access_key_id)
         return self._conn
 
+    def connect_boto3(self):
+        if self._conn_boto3: return self._conn_boto3
+        self._conn_boto3 = nixops.ec2_utils.connect_ec2_boto3(self.region, self.access_key_id)
+        return self._conn_boto3
 
     def connect_vpc(self):
         if self._conn_vpc:
@@ -792,6 +798,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         elif self.region != defn.region:
             self.warn("cannot change region of a running instance (from ‘{}‘ to ‘{}‘)".format(self.region, defn.region))
         self.connect()
+        self.connect_boto3()
 
         # Stop the instance (if allowed) to change instance attributes
         # such as the type.
@@ -833,6 +840,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 self.state = self.STARTING
 
         resize_root = False
+        update_instance_profile = True
 
         # Create the instance.
         if not self.vm_id:
@@ -908,6 +916,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 defn.host_key_type().upper())
 
             instance = self.create_instance(defn, zone, devmap, user_data, ebs_optimized)
+            update_instance_profile = False
 
             with self.depl._db:
                 self.vm_id = instance.id
@@ -918,23 +927,13 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 self.security_groups = defn.security_groups
                 self.placement_group = defn.placement_group
                 self.zone = instance.placement
+                self.instance_profile = defn.instance_profile
                 self.client_token = None
                 self.private_host_key = None
 
             # Cancel spot instance request, it isn't needed after the
             # instance has been provisioned.
             self._cancel_spot_request()
-        else: # not self.vm_id
-            pass
-            #if defn.instance_profile.startswith("arn:") :
-            #common_args['instance_profile_arn'] = defn.instance_profile
-            #else:
-            #common_args['instance_profile_name'] = defn.instance_profile
-            # use DescribeIamInstanceProfileAssociations to list profiles on instance
-            # call AssociateIamInstanceProfile and DisassociateIamInstanceProfile based on state
-            # TODO #785, query the instance profiles defined on the ec2 instance, then compare against defn.instance_profile
-            # use DisassociateIamInstanceProfile to remove any that dont belong
-            # and use AssociateIamInstanceProfile to attach any that belong and are missing
 
 
         # There is a short time window during which EC2 doesn't
@@ -980,6 +979,26 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     self.placement_group or "",
                     defn.placement_group)
             )
+
+        # update iam instance profiles of instance
+        if update_instance_profile and (self.instance_profile != defn.instance_profile or check):
+            assocs = self._conn_boto3.describe_iam_instance_profile_associations(Filters=[{ 'Name': 'instance-id', 'Values': [self.vm_id]}])['IamInstanceProfileAssociations']
+            if len(assocs) > 0 and self.instance_profile != assocs[0]['IamInstanceProfile']['Arn']:
+                self.log("disassociating instance profile {}".format(assocs[0]['IamInstanceProfile']['Arn']))
+                self._conn_boto3.disassociate_iam_instance_profile(AssociationId=assocs[0]['AssociationId'])
+                nixops.util.check_wait(lambda: len(self._conn_boto3.describe_iam_instance_profile_associations(Filters=[{ 'Name': 'instance-id', 'Values': [self.vm_id]}])['IamInstanceProfileAssociations']) == 0 )
+
+
+            if defn.instance_profile != "":
+                if defn.instance_profile.startswith('arn:'):
+                    iip = { 'Arn': defn.instance_profile }
+                else:
+                    iip = { 'Name': defn.instance_profile }
+                self.log("associating instance profile {}".format(defn.instance_profile))
+                self._retry(lambda: self._conn_boto3.associate_iam_instance_profile(IamInstanceProfile=iip, InstanceId=self.vm_id))
+
+            with self.depl._db:
+                self.instance_profile = defn.instance_profile
 
         # Reapply tags if they have changed.
         common_tags = defn.tags
