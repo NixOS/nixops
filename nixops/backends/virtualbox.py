@@ -141,6 +141,7 @@ class VirtualBoxState(MachineState):
             capture_stdout=True).rstrip()
         if res[0:7] != "Value: ": return
         new_address = res[7:]
+        print 'called here with data'
         nixops.known_hosts.update(self.private_ipv4, new_address, self.public_host_key)
         self.private_ipv4 = new_address
 
@@ -394,7 +395,7 @@ class VirtualBoxState(MachineState):
         self.state = self.STOPPED
 
         time.sleep(1) # hack to work around "machine locked" errors
-
+        print 'called here with none?'
         nixops.known_hosts.update(self.private_ipv4, None, self.public_host_key)
 
         self._logged_exec(["VBoxManage", "unregistervm", "--delete", self.vm_id])

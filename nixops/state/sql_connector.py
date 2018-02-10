@@ -8,7 +8,8 @@ import sys
 import threading
 import fcntl
 
-import sqlalchemy
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 import pymysql_sa
 pymysql_sa.make_default_mysql_dialect()
@@ -32,6 +33,50 @@ def get_default_state_file():
     return os.environ.get("NIXOPS_STATE", os.environ.get("CHARON_STATE", home + "/deployments.nixops"))
 
 
+class SQLAlchemyDBConnection(object):
+    """SQLAlchemy database connection"""
+
+    def __init__(self, connection_string):
+        print 'init'
+        self.connection_string = connection_string
+        self.session = None
+        self.nesting = 0
+        self.lock = threading.RLock()
+
+    def __enter__(self):
+        print 'enter'
+        self.lock.acquire()
+        if self.nesting == 0:
+            self.must_rollback = False
+        self.nesting = self.nesting + 1
+        engine = create_engine(self.connection_string, echo = True)
+        Session = sessionmaker()
+        self.session = Session(bind=engine)
+        self.engine = engine
+        return self
+
+    def __exit__(self, exception_type, excption_value, exception_traceback):
+        print 'exit'
+        if exception_type != None:
+            self.must_rollback = True
+        self.nesting = self.nesting - 1
+        assert self.nesting >= 0
+        if self.nesting == 0:
+            print 'not nested'
+            if self.must_rollback:
+                print 'MUST ROLL BACK'
+                try:
+                    self.session.rollback()
+                except:
+                    pass
+            else:
+                print 'closing'
+                self.session.flush()
+                self.session.commit()
+                self.session.close()
+        self.lock.release()
+
+
 class SQLConnection(object):
     """NixOps db uri."""
 
@@ -41,31 +86,30 @@ class SQLConnection(object):
         url = urlparse.urlparse(db_uri)
         self.db_uri = db_uri
 
-        db_engine = sqlalchemy.create_engine(db_uri)
+        db = SQLAlchemyDBConnection(db_uri)
+        with db:
+            if url.scheme == "sqlite":
+                db.session.execute("pragma journal_mode = wal;")
+                db.session.execute("pragma foreign_keys;")
+        with db:
+            version = 0 # new database
+            if db.engine.dialect.has_table(db.session, 'SchemaVersion'):
+                version = db.session.execute("select version from SchemaVersion").scalar()
+            elif db.engine.dialect.has_table(db.session, 'Deployments'):
+                version = 1
 
-        db = db_engine.connect()
-        if url.scheme == "sqlite":
-            db.execute("pragma journal_mode = wal;")
-            db.execute("pragma foreign_keys;")
-        version = 0 # new database
-
-        if db_engine.dialect.has_table(db, 'SchemaVersion'):
-            version = db.execute("select version from SchemaVersion").scalar()
-        elif db_engine.dialect.has_table(db, 'Deployments'):
-            version = 1
-
-        if version == self.current_schema:
-            pass
-        elif version == 0:
-            self._create_schema(db)
-        elif version < self.current_schema:
-            if version <= 1:
-                self._upgrade_1_to_2(db)
-            if version <= 2:
-                self._upgrade_2_to_3(db)
-            db.execute("update SchemaVersion set version = {!r}".format(self.current_schema))
-        else:
-            raise Exception("this NixOps version is too old to deal with schema version {!r}".format(version))
+            if version == self.current_schema:
+                pass
+            elif version == 0:
+                self._create_schema(db)
+            elif version < self.current_schema:
+                if version <= 1:
+                    self._upgrade_1_to_2(db)
+                if version <= 2:
+                    self._upgrade_2_to_3(db)
+                db.session.execute("update SchemaVersion set version = :current_schema", {'current_schema': self.current_schema})
+            else:
+                raise Exception("this NixOps version is too old to deal with schema version {}".format(version))
 
         self.db = db
 
@@ -77,7 +121,7 @@ class SQLConnection(object):
 
     def query_deployments(self):
         """Return the UUIDs of all deployments in the database."""
-        rows = self.db.execute("select uuid from Deployments")
+        rows = self.db.session.execute("select uuid from Deployments")
         return [x[0] for x in rows]
 
 
@@ -89,16 +133,16 @@ class SQLConnection(object):
             try:
                 res.append(self.open_deployment(uuid=uuid))
             except nixops.deployment.UnknownBackend as e:
-                sys.stderr.write("skipping deployment '{}': {!r}\n".format(uuid, str(e)))
+                sys.stderr.write("skipping deployment '{}': {}\n".format(uuid, str(e)))
 
         return res
 
 
     def _find_deployment(self, uuid=None):
         if not uuid:
-            rows = self.db.execute("select count(uuid), uuid from Deployments")
+            rows = self.db.session.execute("select count(uuid), uuid from Deployments")
         else:
-            rows = self.db.execute("select count(uuid), uuid from Deployments d where uuid = '{}' or exists (select 1 from DeploymentAttrs where deployment = d.uuid and name = 'name' and value = '{}')".format(uuid, uuid))
+            rows = self.db.session.execute("select count(uuid), uuid from Deployments d where uuid = :uuid or exists (select 1 from DeploymentAttrs where deployment = d.uuid and name = 'name' and value = :value)", {'uuid': uuid, 'value': uuid})
         row_count = 0
         deployment = None
         for row in rows:
@@ -109,7 +153,7 @@ class SQLConnection(object):
         if row_count == 0:
             if uuid:
                 # try the prefix match
-                rows = self.db.execute("select count(uuid), uuid from Deployments where uuid glob '{}'".format(uuid + '*'))
+                rows = self.db.session.execute("select count(uuid), uuid from Deployments where uuid glob :uuid".format(uuid + '*'))
                 for row in rows:
                     row_count = row[0]
                     deployment = row[1]
@@ -141,74 +185,82 @@ class SQLConnection(object):
         if not uuid:
             import uuid
             uuid = str(uuid.uuid1())
-        self.db.execute("insert into Deployments(uuid) values ('{}')".format(uuid))
+        with self.db:
+            self.db.session.execute("insert into Deployments(uuid) values ('{}')".format(uuid))
         return nixops.deployment.Deployment(self, uuid, sys.stderr)
 
 
     def _delete_deployment(self, deployment_uuid):
         """NOTE: This is UNSAFE, it's guarded in nixops/deployment.py. Do not call this function except from there!"""
-        self.db.execute("delete from Deployments where uuid = '{}'".format(deployment_uuid))
+        self.db.session.execute("delete from Deployments where uuid = '{}'".format(deployment_uuid))
 
 
     def clone_deployment(self, deployment_uuid):
-        new = self.create_deployment()
-        self.db.execute("insert into DeploymentAttrs (deployment, name, value) " +
-                        "select '{}', name, value from DeploymentAttrs where deployment = '{}'"
-                        .format(new.uuid, deployment_uuid)
-        )
-        new.configs_path = None
-        return new
+        with self.db:
+            new = self.create_deployment()
+            self.db.session.execute("insert into DeploymentAttrs (deployment, name, value) " +
+                            "select '{}', name, value from DeploymentAttrs where deployment = '{}'"
+                            .format(new.uuid, deployment_uuid)
+            )
+            new.configs_path = None
+            return new
 
 
     def get_resources_for(self, deployment):
         """Get all the resources for a certain deployment"""
-        resources = {}
+        with self.db:
+            resources = {}
 
-        rows = self.db.execute("select id, name, type from Resources where deployment = '{}'".format(deployment.uuid))
-        for (id, name, type) in rows:
-            r = self._create_state(deployment, type, name, id)
-            resources[name] = r
+            rows = self.db.session.execute("select id, name, type from Resources where deployment = '{}'".format(deployment.uuid))
+            for (id, name, type) in rows:
+                r = self._create_state(deployment, type, name, id)
+                resources[name] = r
         return resources
 
 
     def set_deployment_attrs(self, deployment_uuid, attrs):
         """Update deployment attributes in the state."""
-        for name, value in attrs.iteritems():
-            if value == None:
-                self.db.execute("delete from DeploymentAttrs where deployment = '{}' and name = '{}'"
-                                .format(deployment_uuid, name)
-                )
-            else:
-                if self.get_deployment_attr(deployment_uuid, name) == nixops.util.undefined:
-                    self.db.execute("insert into DeploymentAttrs(deployment, name, value) values ('{}', '{}', {!r})"
-                                    .format(deployment_uuid, name, value)
+        with self.db:
+            for name, value in attrs.iteritems():
+                if value == None:
+                    self.db.session.execute("delete from DeploymentAttrs where deployment = '{}' and name = '{}'"
+                                    .format(deployment_uuid, name)
                     )
                 else:
-                    self.db.execute("update DeploymentAttrs set value={!r} where deployment='{}' and name='{}'"
-                                    .format(value, deployment_uuid, name)
-                    )
+                    if self.get_deployment_attr(deployment_uuid, name) == nixops.util.undefined:
+                        self.db.session.execute("insert into DeploymentAttrs(deployment, name, value) values ('{}', '{}', {!r})"
+                                        .format(deployment_uuid, name, value)
+                        )
+                    else:
+                        self.db.session.execute("update DeploymentAttrs set value={!r} where deployment='{}' and name='{}'"
+                                        .format(value, deployment_uuid, name)
+                        )
 
 
     def del_deployment_attr(self, deployment_uuid, attr_name):
-        self.db.execute("delete from DeploymentAttrs where deployment = '{}' and name = {!r}"
-                        .format(deployment_uuid, attr_name)
-        )
+        with self.db:
+            self.db.session.execute("delete from DeploymentAttrs where deployment = '{}' and name = {!r}"
+                            .format(deployment_uuid, attr_name)
+            )
 
 
     def get_deployment_attr(self, deployment_uuid, name):
         """Get a deployment attribute from the state."""
-        rows = self.db.execute("select value from DeploymentAttrs where deployment = '{}' and name = {!r}"
-                               .format(deployment_uuid, name))
-        for row in rows:
-            return row[0]
-        return nixops.util.undefined
+        with self.db:
+            rows = self.db.session.execute("select value from DeploymentAttrs where deployment = '{}' and name = {!r}"
+                                   .format(deployment_uuid, name))
+            for row in rows:
+                print 'here is the deployment {}'.format(row[0])
+                return row[0]
+            return nixops.util.undefined
 
 
     def get_all_deployment_attrs(self, deployment_uuid):
-        rows = self.db.execute("select name, value from DeploymentAttrs where deployment = '{}'"
-                               .format(deployment_uuid))
-        res = {row[0]: row[1] for row in rows}
-        return res
+        with self.db:
+            rows = self.db.session.execute("select name, value from DeploymentAttrs where deployment = '{}'"
+                                   .format(deployment_uuid))
+            res = {row[0]: row[1] for row in rows}
+            return res
 
 
     def get_deployment_lock(self, deployment):
@@ -239,13 +291,13 @@ class SQLConnection(object):
     ## Resources
 
     def create_resource(self, deployment, name, type):
-        count = self.db.execute("select count(id) from Resources where deployment = '{}' and name = {!r}"
+        count = self.db.session.execute("select count(id) from Resources where deployment = '{}' and name = {!r}"
                                .format(deployment.uuid, name)).scalar()
 
         if count != 0:
             raise Exception("resource already exists in database!")
 
-        result = self.db.execute("insert into Resources(deployment, name, type) values ('{}', {!r}, {!r})"
+        result = self.db.session.execute("insert into Resources(deployment, name, type) values ('{}', {!r}, {!r})"
                                .format(deployment.uuid, name, type))
 
         id = result.lastrowid
@@ -254,56 +306,63 @@ class SQLConnection(object):
 
 
     def delete_resource(self, deployment_uuid, res_id):
-        self.db.execute("delete from Resources where deployment = '{}' and id = {!r}"
-                        .format(deployment_uuid, res_id))
+        with self.db:
+            self.db.session.execute("delete from Resources where deployment = '{}' and id = {!r}"
+                            .format(deployment_uuid, res_id))
 
 
     def _rename_resource(self, deployment_uuid, resource_id, new_name):
         """NOTE: Invariants are checked in nixops/deployment.py#rename"""
-        self.db.execute("update Resources set name = '{}' where deployment = '{}' and id = {!r}"
-                        .format(new_name, deployment_uuid, resource_id))
+        with self.db:
+            self.db.session.execute("update Resources set name = '{}' where deployment = '{}' and id = {!r}"
+                            .format(new_name, deployment_uuid, resource_id))
 
 
     def set_resource_attrs(self, _deployment_uuid, resource_id, attrs):
-        for name, value in attrs.iteritems():
-            if value == None:
-                self.db.execute("delete from ResourceAttrs where machine = '{}' and name = '{}'"
-                                .format(resource_id, name))
-            else:
-                if get_resource_attr(deployment_uuid, name) == nixops.util.undefined:
-                    self.db.execute("insert into ResourceAttrs(machine, name, value) values ('{}', '{}', {!r})"
-                                    .format(resource_id, name, value)
-                    )
+        with self.db:
+            for name, value in attrs.iteritems():
+                if value == None:
+                    self.db.session.execute("delete from ResourceAttrs where machine = '{}' and name = '{}'"
+                                    .format(resource_id, name))
                 else:
-                    self.db.execute("update ResourceAttrs set value={!r} where machine='{}' and name='{}'"
-                                    .format(value, resource_id, name)
-                    )
+                    if self.get_resource_attr(_deployment_uuid, resource_id, name) == nixops.util.undefined:
+                        self.db.session.execute("insert into ResourceAttrs(machine, name, value) values ('{}', '{}', '{}')"
+                                        .format(resource_id, name, value)
+                        )
+                    else:
+                        self.db.session.execute("update ResourceAttrs set value={!r} where machine='{}' and name='{}'"
+                                        .format(value, resource_id, name)
+                        )
 
 
     def del_resource_attr(self, _deployment_uuid, resource_id, name):
-        self.db.execute("delete from ResourceAttrs where machine = {!r} and name = {!r}"
-                        .format(resource_id, name))
+        with self.db:
+            self.db.session.execute("delete from ResourceAttrs where machine = {!r} and name = {!r}"
+                            .format(resource_id, name))
 
 
     def get_resource_attr(self, _deployment_uuid, resource_id, name):
-        """Get a machine attribute from the state file."""
-        rows = self.db.execute("select value from ResourceAttrs where machine = '{}' and name = '{}'"
-                               .format(resource_id, name))
-        for row in rows:
-            return row[0]
-        return nixops.util.undefined
+        with self.db:
+            """Get a machine attribute from the state file."""
+            rows = self.db.session.execute("select value from ResourceAttrs where machine = '{}' and name = '{}'"
+                                   .format(resource_id, name))
+            for row in rows:
+                print 'here is the resource {}'.format(row[0])
+                return row[0]
+            return nixops.util.undefined
 
 
     def get_all_resource_attrs(self, deployment_uuid, resource_id):
-        rows = self.db.execute("select name, value from ResourceAttrs where machine = {!r}"
-                               .format(resource_id))
-        res = {row[0]: row[1] for row in rows}
-        return res
+        with self.db:
+            rows = self.db.session.execute("select name, value from ResourceAttrs where machine = {!r}"
+                                   .format(resource_id))
+            res = {row[0]: row[1] for row in rows}
+            return res
 
 
     ### STATE
     def _create_state(self, depl, type, name, id):
-        """Create a resource state object of the desired type."""
+        """Create a resource state object  of the desired type."""
 
         for cls in _subclasses(nixops.resources.ResourceState):
             if type == cls.get_type():
@@ -314,23 +373,23 @@ class SQLConnection(object):
 
 
     def _create_schemaversion(self, c):
-        c.execute(
+        c.session.execute(
             '''create table if not exists SchemaVersion(
                  version integer not null
                );''')
 
-        c.execute("insert into SchemaVersion(version) values ({!r})"
+        c.session.execute("insert into SchemaVersion(version) values ({!r})"
                   .format(self.current_schema))
 
     def _create_schema(self, c):
         self._create_schemaversion(c)
 
-        c.execute(
+        c.session.execute(
             '''create table if not exists Deployments(
                  uuid VARCHAR(36) primary key
                );''')
 
-        c.execute(
+        c.session.execute(
             '''create table if not exists DeploymentAttrs(
                  deployment varchar(255) not null,
                  name varchar(255) not null,
@@ -343,7 +402,7 @@ class SQLConnection(object):
         url = urlparse.urlparse(self.db_uri)
         if url.scheme == 'mysql':
             autoincrement = 'auto_increment'
-        c.execute(
+        c.session.execute(
             '''create table if not exists Resources(
                  id integer primary key {},
                  deployment varchar(255) not null,
@@ -352,11 +411,11 @@ class SQLConnection(object):
                  foreign key(deployment) references Deployments(uuid) on delete cascade
                );'''.format(autoincrement))
 
-        c.execute(
+        c.session.execute(
             '''create table if not exists ResourceAttrs(
                  machine integer not null,
                  name varchar(255) not null,
-                 value varchar(1024) not null,
+                 value text not null,
                  primary key(machine, name),
                  foreign key(machine) references Resources(id) on delete cascade
                );''')
@@ -367,5 +426,5 @@ class SQLConnection(object):
 
     def _upgrade_2_to_3(self, c):
         sys.stderr.write("updating database schema from version 2 to 3...\n")
-        c.execute("alter table Machines rename to Resources")
-        c.execute("alter table MachineAttrs rename to ResourceAttrs")
+        c.session.execute("alter table Machines rename to Resources")
+        c.session.execute("alter table MachineAttrs rename to ResourceAttrs")

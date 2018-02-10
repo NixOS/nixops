@@ -57,6 +57,7 @@ def add(ip_address, public_host_key):
 
 
 def update(prev_address, new_address, public_host_key):
+    print 'FOUND on UPDATE {} {} {}'.format(prev_address, new_address, public_host_key)
     assert public_host_key is not None
     # FIXME: this rewrites known_hosts twice.
     if prev_address is not None and prev_address != new_address:
