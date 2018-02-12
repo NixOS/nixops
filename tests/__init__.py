@@ -3,14 +3,15 @@ import os
 import sys
 import threading
 from os import path
-import nixops.state.sqlite3_file
+import nixops.state
 
 _multiprocess_shared_ = True
 
 db_file = '%s/test.nixops' % (path.dirname(__file__))
 
 def setup():
-    nixops.state.sqlite3_file.StateFile(db_file).close()
+    state = nixops.state.open(db_file)
+    state.db.close()
 
 def destroy(sf, uuid):
     depl = sf.open_deployment(uuid)
@@ -27,7 +28,7 @@ def destroy(sf, uuid):
     depl.logger.log("deployment ‘{0}’ destroyed".format(uuid))
 
 def teardown():
-    sf = nixops.state.sqlite3_file.StateFile(db_file)
+    sf = nixops.state.open(db_file)
     uuids = sf.query_deployments()
     threads = []
     for uuid in uuids:
