@@ -847,7 +847,7 @@ class GCEState(MachineState, ResourceState):
           val = {}
           if backupid in self.backups:
               for dev, snap in self.backups[backupid].items():
-                  val[dev] = { 'disk': Call(RawValue("pkgs.lib.mkOverride 10"), snap)}
+                  val[dev] = { 'snapshot': Call(RawValue("pkgs.lib.mkOverride 10"), snap)}
               val = { ('deployment', 'gce', 'blockDeviceMapping'): val }
           else:
               val = RawValue("{{}} /* No backup found for id '{0}' */".format(backupid))
