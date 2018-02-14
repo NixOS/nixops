@@ -91,9 +91,6 @@ rec {
           azure-mgmt-resource
           azure-mgmt-storage
           adal
-          # Go back to sqlite once Python 2.7.13 is released
-          sqlalchemy
-          pymysqlsa
           datadog
           digital-ocean
         ];

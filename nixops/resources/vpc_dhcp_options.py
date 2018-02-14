@@ -12,7 +12,7 @@ import nixops.util
 import nixops.resources
 from nixops.resources.ec2_common import EC2CommonState
 import nixops.ec2_utils
-from nixops.state import StateDict
+from nixops.state.state import StateDict
 from nixops.diff import Diff, Handler
 
 class VPCDhcpOptionsDefinition(nixops.resources.ResourceDefinition):
