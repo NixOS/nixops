@@ -10,7 +10,7 @@ import nixops.resources
 from nixops.resources.ec2_common import EC2CommonState
 import nixops.ec2_utils
 from nixops.diff import Diff, Handler
-from nixops.state.state import StateDict
+from nixops.state import StateDict
 
 class VPCRouteTableDefinition(nixops.resources.ResourceDefinition):
     """Definition of a VPC route table"""
