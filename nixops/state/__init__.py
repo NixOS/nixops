@@ -23,7 +23,6 @@ def get_default_state_file():
 
 
 def open(url):
-    print 'url = {}'.format(url)
     url_parsed = urlparse.urlparse(url)
     scheme = url_parsed.scheme
     ext = os.path.splitext(url)[1]

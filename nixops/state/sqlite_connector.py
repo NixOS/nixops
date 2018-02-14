@@ -19,14 +19,12 @@ def _subclasses(cls):
 class Connection(sqlite3.Connection):
 
     def __init__(self, db_file, **kwargs):
-        print 'a file {}'.format(db_file)
         db_exists = os.path.exists(db_file)
         if not db_exists:
-            print 'failed'
             os.fdopen(os.open(db_file, os.O_WRONLY | os.O_CREAT, 0o600), 'w').close()
-        print 'opening'
+
         sqlite3.Connection.__init__(self, db_file, **kwargs)
-        print 'double fail'
+
         self.db_file = db_file
         self.nesting = 0
         self.lock = threading.RLock()
@@ -64,10 +62,9 @@ class SQLiteConnection(object):
     current_schema = 3
 
     def __init__(self, db_file):
-        print 'running {}'.format(db_file)
         url = urlparse.urlparse(db_file)
         self.db_file = url.netloc + url.path
-        print 'running {} {}'.format(self.db_file, urlparse.urlparse(db_file))
+
         if os.path.splitext(db_file)[1] not in ['.nixops', '.charon']:
             raise Exception("state file ‘{0}’ should have extension ‘.nixops’".format(db_file))
         db = sqlite3.connect(self.db_file, timeout=60, check_same_thread=False, factory=Connection, isolation_level=None) # FIXME
@@ -375,7 +372,6 @@ class SQLiteConnection(object):
             rows = self.db.execute("select value from ResourceAttrs where machine = '{}' and name = '{}'"
                                     .format(resource_id, name)).fetchall()
             for row in rows:
-                print 'here is the resource {}'.format(row[0])
                 return row[0]
             return nixops.util.undefined
 

@@ -135,7 +135,6 @@ class Deployment(object):
     # Removed it when moving the body to nixops/state/file.py.
     def _get_attr(self, name, default=nixops.util.undefined):
         """Get a deployment attribute from the state."""
-        print 'get deploymante attr'
         return self._state.get_deployment_attr(self.uuid, name)
 
     def _create_resource(self, name, type):

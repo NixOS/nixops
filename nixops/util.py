@@ -241,9 +241,8 @@ undefined = Undefined()
 def attr_property(name, default, type=str):
     """Define a property that corresponds to a value in the NixOps state file."""
     def get(self):
-        print 'getting attr {} {} {}'.format(name, default, type)
         s = self._get_attr(name, default)
-        print 'got s={}'.format(s)
+
         if s == undefined:
             if default != undefined: return copy.deepcopy(default)
             raise Exception("deployment attribute ‘{0}’ missing from state file".format(name))
@@ -254,7 +253,6 @@ def attr_property(name, default, type=str):
         elif type is 'json': return json.loads(s)
         else: assert False
     def set(self, x):
-        print 'setting attr {} {} {}'.format(name, default, type)
         if x == default: self._del_attr(name)
         elif type is 'json': self._set_attr(name, json.dumps(x))
         else: self._set_attr(name, x)

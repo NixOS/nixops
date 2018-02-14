@@ -81,7 +81,7 @@ class ResourceState(object):
     # Have removed it in state/file.py.
     def _get_attr(self, name, default=nixops.util.undefined):
         """Get a machine attribute from the state file."""
-        print 'get resource attr'
+
         return self.depl._state.get_resource_attr(self.depl.uuid, self.id, name)
 
     def export(self):
