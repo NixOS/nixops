@@ -3,7 +3,7 @@
 import re
 import nixops.util
 
-from nixops.state.state import StateDict
+from nixops.state import StateDict
 from nixops.diff import Diff, Handler
 
 class ResourceDefinition(object):

@@ -9,7 +9,7 @@ import nixops.resources
 from nixops.resources.ec2_common import EC2CommonState
 import nixops.ec2_utils
 from nixops.diff import Diff, Handler
-from nixops.state.state import StateDict
+from nixops.state import StateDict
 
 class VPCNetworkAcldefinition(nixops.resources.ResourceDefinition):
     """definition of a vpc network ACL."""
