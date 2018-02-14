@@ -8,6 +8,7 @@ import nixops.state
 _multiprocess_shared_ = True
 
 db_file = '%s/test.nixops' % (path.dirname(__file__))
+json_file = '%s/test.json' % (path.dirname(__file__))
 
 def setup():
     state = nixops.state.open(db_file)

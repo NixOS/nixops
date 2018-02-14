@@ -121,7 +121,7 @@ class JsonFile(object):
 
     def __init__(self, json_file):
         self.file_path = json_file
-
+        print "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX JSON XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
         if os.path.splitext(json_file)[1] not in ['.json']:
             raise Exception("state file ‘{0}’ should have extension ‘.json’".format(json_file))
 
