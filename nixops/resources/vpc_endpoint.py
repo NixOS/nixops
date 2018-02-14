@@ -2,7 +2,7 @@
 
 import uuid
 
-from nixops.state import StateDict
+from nixops.state.state_helper import StateDict
 from nixops.diff import Diff, Handler
 import nixops.util
 import nixops.resources
