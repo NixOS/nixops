@@ -355,7 +355,7 @@ class VirtualBoxState(MachineState):
                  "--nictype2", "virtio",
                  "--nic2", "hostonly",
                  "--hostonlyadapter2", "vboxnet0",
-                 "--nestedpaging", "off",s
+                 "--nestedpaging", "off",
                  "--paravirtprovider", "kvm"
             ]
             vcpus = defn.config["virtualbox"]["vcpu"]  # None or integer
