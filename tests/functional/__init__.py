@@ -8,17 +8,17 @@ class DatabaseUsingTest(object):
     _multiprocess_can_split_ = True
 
     def setup(self):
-        self.sf = nixops.state.open(db_file)
+        self.state = nixops.state.open(db_file)
 
     def teardown(self):
-        self.sf.close()
+        self.state.close()
 
 
 class JSONUsingTest(object):
     _multiprocess_can_split_ = True
 
     def setup(self):
-        self.sf = nixops.state.open(json_file)
+        self.state = nixops.state.open(json_file)
 
     def teardown(self):
-        self.sf.close()
+        self.state.close()

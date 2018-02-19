@@ -14,8 +14,8 @@ def setup():
     state = nixops.state.open(db_file)
     state.db.close()
 
-def destroy(sf, uuid):
-    depl = sf.open_deployment(uuid)
+def destroy(state, uuid):
+    depl = state.open_deployment(uuid)
     depl.logger.set_autoresponse("y")
     try:
         depl.clean_backups(keep=0)
@@ -29,17 +29,17 @@ def destroy(sf, uuid):
     depl.logger.log("deployment ‘{0}’ destroyed".format(uuid))
 
 def teardown():
-    sf = nixops.state.open(db_file)
-    uuids = sf.query_deployments()
+    state = nixops.state.open(db_file)
+    uuids = state.query_deployments()
     threads = []
     for uuid in uuids:
-        threads.append(threading.Thread(target=destroy,args=(sf, uuid)))
+        threads.append(threading.Thread(target=destroy,args=(state, uuid)))
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join()
-    uuids_left = sf.query_deployments()
-    sf.close()
+    uuids_left = state.query_deployments()
+    state.close()
     if not uuids_left:
         os.remove(db_file)
     else:

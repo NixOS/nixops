@@ -20,6 +20,7 @@ class TestVPC(generic_deployment_test.GenericDeploymentTest):
         self.depl.nix_exprs = [ base_spec ]
         self.exprs_dir = nixops.util.SelfDeletingDir(tempfile.mkdtemp("nixos-tests"))
 
+
     def test_deploy_vpc(self):
         self.depl.deploy()
         vpc_resource = self.depl.get_typed_resource("vpc-test", "vpc")

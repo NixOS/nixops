@@ -368,6 +368,7 @@ class SQLiteConnection(object):
             """Get a machine attribute from the state file."""
             rows = self.db.execute("select value from ResourceAttrs where machine = '{}' and name = '{}'"
                                     .format(resource_id, name)).fetchall()
+
             for row in rows:
                 return row[0]
             return nixops.util.undefined
@@ -375,7 +376,7 @@ class SQLiteConnection(object):
 
     def get_all_resource_attrs(self, deployment_uuid, resource_id):
         with self.db:
-            rows = self.db.execute("select name, value from ResourceAttrs where machine = {!r}"
+            rows = self.db.execute("select name, value from ResourceAttrs where machine = '{}'"
                                     .format(resource_id)).fetchall()
             res = {row[0]: row[1] for row in rows}
             return res
