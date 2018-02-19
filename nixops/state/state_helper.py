@@ -3,6 +3,11 @@ import collections
 import nixops.util
 
 
+def _subclasses(cls):
+    sub = cls.__subclasses__()
+    return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
+
+
 class StateDict(collections.MutableMapping):
     """
        An implementation of a MutableMapping container providing
@@ -19,7 +24,7 @@ class StateDict(collections.MutableMapping):
         self._state.set_resource_attrs(self.uuid, self.id, {key:value})
 
     def __getitem__(self, key):
-        value = self._state.get_resource_attr(self.uuid, self.id, name)
+        value = self._state.get_resource_attr(self.uuid, self.id, key)
         try:
             return json.loads(value)
         except ValueError:

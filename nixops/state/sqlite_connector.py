@@ -2,18 +2,15 @@
 
 
 import nixops.deployment
+from nixops.state.state_helper import _subclasses
 import os
 import os.path
 import urlparse
 import sys
 import threading
 import fcntl
+
 import sqlite3
-
-
-def _subclasses(cls):
-    sub = cls.__subclasses__()
-    return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
 
 
 class Connection(sqlite3.Connection):

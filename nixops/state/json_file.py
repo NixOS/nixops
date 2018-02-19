@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import nixops.deployment
+from nixops.state.state_helper import _subclasses
 import os
 import os.path
 import sys
@@ -11,10 +12,6 @@ import json
 import copy
 
 from uuid import uuid1 as gen_uuid
-
-def _subclasses(cls):
-    sub = cls.__subclasses__()
-    return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
 
 class TransactionalJsonFile:
     """
