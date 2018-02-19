@@ -152,15 +152,19 @@ class JsonFile(object):
     def _find_deployment(self, uuid=None):
         all_deployments = self.db.read()["deployments"]
         found = []
-        if not uuid:
-            found = all_deployments
-        if not found:
-            found = filter(lambda(id): id == uuid, all_deployments)
-        if not found:
-            found = filter(lambda(id): all_deployments[id]["attributes"].get("name") == uuid, all_deployments)
 
-        if not found:
-            found = filter(lambda(id): id.startswith(uuid), all_deployments)
+        # if nothing exists no reason to check for things
+        if not all_deployments:
+            return None
+
+        if not uuid:
+            found = filter(lambda(id): all_deployments[id]["attributes"].get("name"), all_deployments)
+        else:
+            found = filter(lambda(id): id == uuid, all_deployments)
+            if not found:
+                found = filter(lambda(id): all_deployments[id]["attributes"].get("name") == uuid, all_deployments)
+            if not found:
+                found = filter(lambda(id): id.startswith(uuid), all_deployments)
 
         if not found:
             return None
