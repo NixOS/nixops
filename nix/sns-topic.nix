@@ -61,4 +61,7 @@ with lib;
 
   };
 
+  config = {
+    _type = "sns-topic";
+  };
 }
