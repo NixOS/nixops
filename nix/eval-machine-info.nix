@@ -102,6 +102,7 @@ rec {
   resources.elasticFileSystemMountTargets = evalResources ./elastic-file-system-mount-target.nix (zipAttrs resourcesByType.elasticFileSystemMountTargets or []);
   resources.cloudwatchLogGroups = evalResources ./cloudwatch-log-group.nix (zipAttrs resourcesByType.cloudwatchLogGroups or []);
   resources.cloudwatchLogStreams = evalResources ./cloudwatch-log-stream.nix (zipAttrs resourcesByType.cloudwatchLogStreams or []);
+  resources.cloudwatchMetricAlarms = evalResources ./cloudwatch-metric-alarm.nix (zipAttrs resourcesByType.cloudwatchMetricAlarms or []);
   resources.route53HostedZones = evalResources ./route53-hosted-zone.nix (zipAttrs resourcesByType.route53HostedZones or []);
   resources.route53HealthChecks = evalResources ./route53-health-check.nix (zipAttrs resourcesByType.route53HealthChecks or []);
   resources.vpc = evalResources ./vpc.nix (zipAttrs resourcesByType.vpc or []);
