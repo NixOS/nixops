@@ -260,7 +260,7 @@ class JsonFile(object):
     def get_all_deployment_attrs(self, deployment_uuid):
         with self.db:
             state = self.db.read()
-            return copy.deepcopy(state["deployments"][deployment]["attributes"])
+            return copy.deepcopy(state["deployments"][deployment_uuid]["attributes"])
 
     def get_deployment_lock(self, deployment):
         lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
