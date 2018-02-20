@@ -108,6 +108,16 @@ class EC2KeyPairState(nixops.resources.ResourceState):
 
 
     def destroy(self, wipe=False):
+        def keypair_used():
+            for m in self.depl.active_resources.itervalues():
+                if isinstance(m, nixops.backends.ec2.EC2State) and m.key_pair == self.keypair_name:
+                    return m
+            return None
+
+        m = keypair_used()
+        if m:
+            self.warn("keypair ‘{0}’ is still in use by ‘{1}’ ({2})".format(self.keypair_name, m.name, m.vm_id))
+
         if not self.depl.logger.confirm("are you sure you want to destroy keypair ‘{0}’?".format(self.keypair_name)):
             return False
 
