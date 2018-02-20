@@ -79,6 +79,12 @@ class LibvirtdState(MachineState):
                 self.log("Warning: %s" % e)
         return self._dom
 
+    def get_console_output(self):
+        # TODO update with self.uri when https://github.com/NixOS/nixops/pull/824 gets merged
+        import sys
+        return self._logged_exec(["virsh", "-c", "qemu:///system", 'console', self.vm_id.decode()],
+                stdin=sys.stdin)
+
     def get_ssh_private_key_file(self):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
 
