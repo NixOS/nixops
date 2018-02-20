@@ -116,7 +116,7 @@ class EC2KeyPairState(nixops.resources.ResourceState):
 
         m = keypair_used()
         if m:
-            self.warn("keypair ‘{0}’ is still in use by ‘{1}’ ({2})".format(self.keypair_name, m.name, m.vm_id))
+            raise Exception("keypair ‘{0}’ is still in use by ‘{1}’ ({2})".format(self.keypair_name, m.name, m.vm_id))
 
         if not self.depl.logger.confirm("are you sure you want to destroy keypair ‘{0}’?".format(self.keypair_name)):
             return False
