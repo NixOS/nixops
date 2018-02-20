@@ -797,6 +797,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.region = defn.region
         elif self.region != defn.region:
             self.warn("cannot change region of a running instance (from ‘{}‘ to ‘{}‘)".format(self.region, defn.region))
+
+        if self.key_pair and self.key_pair != defn.key_pair:
+            raise Exception("cannot change key pair of an existing instance (from ‘{}‘ to ‘{}‘)".format(self.key_pair, defn.key_pair))
+
         self.connect()
         self.connect_boto3()
 
