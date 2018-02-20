@@ -88,7 +88,7 @@ class CloudwatchMetricAlarmState(nixops.resources.ResourceState):
             raise Exception("please set ‘accessKeyId’ or $AWS_ACCESS_KEY_ID")
         client = self.boto_session(self.region or defn.region).client("cloudwatch")
 
-        if self.alarm_name and self.region != defn.alarm_name:
+        if self.alarm_name and self.alarm_name != defn.alarm_name:
             raise Exception("Cannot change name of a CloudWatch Metric Alarm")
         if self.region and self.region != defn.region:
             raise Exception("Cannot change region of a CloudWatch Metric Alarm")
