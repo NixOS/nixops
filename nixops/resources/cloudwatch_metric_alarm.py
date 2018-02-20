@@ -135,7 +135,6 @@ class CloudwatchMetricAlarmState(nixops.resources.ResourceState):
         cfg['InsufficientDataActions'] = map(resolve_action, defn.insufficient_data_actions)
 
         if self.put_config != cfg or check:
-            pprint(cfg)
             client.put_metric_alarm(**cfg)
             with self.depl._db:
                 self.state = self.UP
