@@ -303,7 +303,7 @@ rec {
     machines =
       flip mapAttrs nodes (n: v': let v = scrubOptionValue v'; in
         { inherit (v.config.deployment) targetEnv targetPort targetHost encryptedLinksTo storeKeysOnMachine alwaysActivate owners keys hasFastConnection;
-          nixosRelease = v.config.system.nixosRelease or (removeSuffix v.config.system.nixosVersionSuffix v.config.system.nixosVersion);
+          nixosRelease = v.config.system.nixosRelease or (removeSuffix v.config.system.nixos.versionSuffix v.config.system.nixos.version);
           azure = optionalAttrs (v.config.deployment.targetEnv == "azure")  v.config.deployment.azure;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
           digitalOcean = optionalAttrs (v.config.deployment.targetEnv == "digitalOcean") v.config.deployment.digitalOcean;
