@@ -64,6 +64,8 @@ def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
     elif stdin is None:
         stdin = devnull
 
+    logger.log("%s" % (' '.join(command)))
+
     if capture_stdout:
         process = subprocess.Popen(command, env=env, stdin=stdin,
                                    stdout=subprocess.PIPE,
