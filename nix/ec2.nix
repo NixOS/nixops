@@ -150,7 +150,7 @@ let
     then "/dev/" + builtins.substring 12 100 dev
     else dev;
 
-  nixosVersion = builtins.substring 0 5 config.system.nixos.version;
+  nixosVersion = builtins.substring 0 5 config.system.nixosVersion;
 
   amis = import <nixpkgs/nixos/modules/virtualisation/ec2-amis.nix>;
 
