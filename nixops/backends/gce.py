@@ -470,7 +470,8 @@ class GCEState(MachineState, ResourceState):
         for k, v in self.block_device_mapping.items():
             defn_v = defn.block_device_mapping.get(k, None)
             if v.get('needsAttach', False) and defn_v:
-                disk_name = v['disk_name'] or v['disk']
+                disk_name = v['disk_name']
+                disk_volume = v['disk_name'] if v['disk'] is None else v['disk']
                 disk_region = v.get('region', None)
                 v['readOnly'] = defn_v['readOnly']
                 v['bootDisk'] = defn_v['bootDisk']
@@ -478,7 +479,7 @@ class GCEState(MachineState, ResourceState):
                 v['passphrase'] = defn_v['passphrase']
                 self.log("attaching GCE disk '{0}'...".format(disk_name))
                 if not v.get('bootDisk', False):
-                    self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_name, disk_region),
+                    self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_volume, disk_region),
                                    device = disk_name,
                                    ex_mode = ('READ_ONLY' if v['readOnly'] else 'READ_WRITE'))
                 del v['needsAttach']
