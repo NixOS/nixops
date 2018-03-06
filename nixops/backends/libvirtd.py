@@ -29,6 +29,7 @@ class LibvirtdDefinition(MachineDefinition):
 
         x = xml.find("attrs/attr[@name='libvirtd']/attrs")
         assert x is not None
+        self.domain_tpl = x.find("attr[@name='template']/string").get("value")
         self.vcpu = x.find("attr[@name='vcpu']/int").get("value")
         self.memory_size = x.find("attr[@name='memorySize']/int").get("value")
         self.extra_devices = x.find("attr[@name='extraDevicesXML']/string").get("value")
@@ -185,38 +186,19 @@ class LibvirtdState(MachineState):
                 "    <cmdline>%s</cmdline>"% defn.cmdline if len(defn.kernel) > 0 else "",
                 '</os>']
 
-
-        domain_fmt = "\n".join([
-            '<domain type="{5}">',
-            '  <name>{0}</name>',
-            '  <memory unit="MiB">{1}</memory>',
-            '  <vcpu>{4}</vcpu>',
-            '\n'.join(_make_os(defn)),
-            '  <devices>',
-            '    <emulator>{2}</emulator>',
-            '    <disk type="file" device="disk">',
-            '      <driver name="qemu" type="qcow2"/>',
-            '      <source file="{3}"/>',
-            '      <target dev="hda"/>',
-            '    </disk>',
-            '\n'.join([iface(n) for n in defn.networks]),
-            '    <graphics type="vnc" port="-1" autoport="yes"/>' if not defn.headless else "",
-            '    <input type="keyboard" bus="usb"/>',
-            '    <input type="mouse" bus="usb"/>',
-            defn.extra_devices,
-            '  </devices>',
-            defn.extra_domain,
-            '</domain>',
-        ])
-
-        return domain_fmt.format(
-            self._vm_id(),
-            defn.memory_size,
-            qemu,
-            self._disk_path(defn),
-            defn.vcpu,
-            defn.domain_type
+        result = defn.domain_tpl.format(
+            name=self._vm_id(),
+            memory_size=defn.memory_size,
+            os='\n'.join(_make_os(defn)),
+            emulator=qemu,
+            interfaces='\n'.join([iface(n) for n in defn.networks]),
+            diskPath=self._disk_path(defn),
+            vcpu=defn.vcpu,
+            domain_type=defn.domain_type,
+            extra_domain=defn.extra_domain,
+            extra_devices=defn.extra_devices + ('<graphics type="vnc" port="-1" autoport="yes"/>' if not defn.headless else ""),
         )
+        return result
 
     def _parse_ip(self):
         """
@@ -260,7 +242,9 @@ class LibvirtdState(MachineState):
             self.private_ipv4 = self._parse_ip()
         else:
             self.log("starting...")
-            self.dom.create()
+            if self.dom.create() is False:
+                self.log("Failed to create domain ");
+                return False
             self._wait_for_ip(0)
 
     def get_ssh_name(self):

@@ -53,6 +53,32 @@ in
       '';
     };
 
+    deployment.libvirtd.template = mkOption {
+      type = types.str;
+      default = ''<domain type="{domain_type}">
+          <name>{name}</name>
+          <memory unit="MiB">{memory_size}</memory>
+          <vcpu>{vcpu}</vcpu>
+          {os}
+          <devices>
+              <emulator>{emulator}</emulator>
+            <disk type="file" device="disk">
+              <driver name="qemu" type="qcow2"/>
+              <source file="{diskPath}"/>
+              <target dev="hda"/>
+            </disk>
+            {interfaces}
+            <input type="keyboard" bus="usb"/>
+            <input type="mouse" bus="usb"/>
+            {extra_devices}
+          </devices>
+          {extra_domain}
+        </domain>'';
+      description = ''
+        Template for the libvirt domain. You can use all other parameters.
+      '';
+    };
+
     deployment.libvirtd.vcpu = mkOption {
       default = 1;
       type = types.int;
