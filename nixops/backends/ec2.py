@@ -1173,8 +1173,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 v['generatedKey'] = nixops.util.generate_random_string(length=256)
                 self.update_block_device_mapping(k, v)
 
-    def _retry_route53(self, f):
-        return nixops.ec2_utils.retry(f, error_codes = ['Throttling', 'PriorRequestNotComplete'], logger=self)
+    def _retry_route53(self, f, error_codes=[]):
+        return nixops.ec2_utils.retry(f, error_codes = ['Throttling', 'PriorRequestNotComplete']+error_codes, logger=self)
 
     def _update_route53(self, defn):
         import boto.route53
@@ -1240,7 +1240,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         change = changes.add_change("CREATE", self.dns_hostname, record_type, ttl=self.dns_ttl)
         change.add_value(dns_value)
-        self._retry_route53(lambda: changes.commit())
+        # add InvalidChangeBatch to error codes to retry on. Unfortunately AWS sometimes returns
+        # this due to eventual consistency
+        self._retry_route53(lambda: changes.commit(), error_codes=['InvalidChangeBatch'])
 
 
     def _delete_volume(self, volume_id, allow_keep=False):
