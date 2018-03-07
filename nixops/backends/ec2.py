@@ -1173,6 +1173,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 v['generatedKey'] = nixops.util.generate_random_string(length=256)
                 self.update_block_device_mapping(k, v)
 
+    def _retry_route53(self, f):
+        return nixops.ec2_utils.retry(f, error_codes = ['Throttling', 'PriorRequestNotComplete'], logger=self)
 
     def _update_route53(self, defn):
         import boto.route53
@@ -1190,7 +1192,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self.connect_route53()
 
         hosted_zone = ".".join(self.dns_hostname.split(".")[1:])
-        zones = self._conn_route53.get_all_hosted_zones()
+        zones = self._retry_route53(lambda: self._conn_route53.get_all_hosted_zones())
 
         def testzone(hosted_zone, zone):
             """returns True if there is a subcomponent match"""
@@ -1209,20 +1211,20 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         dns_name = '{0}.'.format(self.dns_hostname)
 
         prev_a_rrs = [prev for prev
-                      in self._conn_route53.get_all_rrsets(
+                      in self._retry_route53(lambda: self._conn_route53.get_all_rrsets(
                           hosted_zone_id=zoneid,
                           type="A",
                           name=dns_name
-                      )
+                      ))
                       if prev.name == dns_name
                       and prev.type == "A"]
 
         prev_cname_rrs = [prev for prev
-                          in self._conn_route53.get_all_rrsets(
+                          in self._retry_route53(lambda: self._conn_route53.get_all_rrsets(
                               hosted_zone_id=zoneid,
                               type="CNAME",
                               name=self.dns_hostname
-                          )
+                          ))
                           if prev.name == dns_name
                           and prev.type == "CNAME"]
 
@@ -1238,22 +1240,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         change = changes.add_change("CREATE", self.dns_hostname, record_type, ttl=self.dns_ttl)
         change.add_value(dns_value)
-        self._commit_route53_changes(changes)
-
-
-    def _commit_route53_changes(self, changes):
-        """Commit changes, but retry PriorRequestNotComplete errors."""
-        retry = 3
-        while True:
-            try:
-                retry -= 1
-                return changes.commit()
-            except boto.route53.exception.DNSServerError, e:
-                code = e.body.split("<Code>")[1]
-                code = code.split("</Code>")[0]
-                if code != 'PriorRequestNotComplete' or retry < 0:
-                    raise e
-                time.sleep(1)
+        self._retry_route53(lambda: changes.commit())
 
 
     def _delete_volume(self, volume_id, allow_keep=False):
