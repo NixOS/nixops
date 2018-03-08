@@ -199,6 +199,14 @@ cloud.</para>
 
   </varlistentry>
 
+  <varlistentry><term><envar>NIXOPS_SSHOPTS</envar></term>
+
+    <listitem><para>Extra ssh flags passed when executing
+      remote actions, useful to override things like the base ssh config
+      file.</para></listitem>
+
+  </varlistentry>
+
   <varlistentry><term><envar>EC2_ACCESS_KEY</envar></term>
     <term><envar>AWS_ACCESS_KEY_ID</envar></term>
 
