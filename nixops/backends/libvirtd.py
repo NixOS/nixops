@@ -76,10 +76,14 @@ class LibvirtdState(MachineState):
 
     def connect(self):
         self.logger.log('Connecting to {}...'.format(self.uri))
-        self.conn = libvirt.open(self.uri)
-        if self.conn is None:
-            self.log('Failed to open connection to the hypervisor at {}'.format(self.uri))
-            sys.exit(1)
+        try:
+            self.conn = libvirt.open(self.uri)
+        except libvirt.libvirtError as error:
+            self.logger.error(error.get_error_message())
+            if error.get_error_code() == libvirt.VIR_ERR_NO_CONNECT:
+                # this error code usually means "no connection driver available for qemu:///..."
+                self.logger.error('make sure qemu-system-x86_64 is installed on the target host')
+            raise Exception('Failed to connect to the hypervisor at {}'.format(self.uri))
 
     @property
     def dom(self):
