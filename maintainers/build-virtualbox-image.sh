@@ -1,6 +1,6 @@
 #! /bin/sh -e
 export NIXOS_CONFIG=$(readlink -f $(dirname $0)/..)/nix/virtualbox-image-nixops.nix
-version=$(nix-instantiate --eval-only '<nixpkgs/nixos>' -A config.system.nixosVersion | sed s/'"'//g)
+version=$(nix-instantiate --eval-only '<nixpkgs/nixos>' -A config.system.nixos.version | sed s/'"'//g)
 echo "version = $version"
 nix-build '<nixpkgs/nixos>' -A config.system.build.virtualBoxOVA --keep-going --fallback
 mkdir ova && tar -xf ./result/*.ova -C ova && mv ova/{nixos*,nixos}.vmdk
