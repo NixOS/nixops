@@ -618,6 +618,10 @@ class GCEState(MachineState, ResourceState):
     def destroy(self, wipe=False):
         if wipe:
             self.depl.logger.warn("wipe is not supported")
+
+        if not self.project:
+            return True
+
         try:
             node = self.node()
             question = "are you sure you want to destroy {0}?"
@@ -842,6 +846,7 @@ class GCEState(MachineState, ResourceState):
                 RawValue("<nixpkgs/nixos/modules/virtualisation/google-compute-config.nix>")
             ],
             ('deployment', 'gce', 'blockDeviceMapping'): block_device_mapping,
+            ('environment', 'etc', 'default/instance_configs.cfg', 'text'): '[InstanceSetup]\nset_host_keys = false',
         }
 
     def get_physical_backup_spec(self, backupid):
