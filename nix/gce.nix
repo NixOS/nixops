@@ -233,6 +233,8 @@ in
         '';
       };
 
+      labels = (import ./common-gce-options.nix { inherit lib; }).labels;
+
       metadata = mkOption {
         default = {};
         example = { loglevel = "warn"; };

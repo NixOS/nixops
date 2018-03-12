@@ -52,6 +52,8 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
         self.ipAddress = self.get_option_value(x, 'ipAddress', 'resource', optional = True)
         self.copy_option(x, 'network', 'resource', optional = True)
         self.copy_option(x, 'subnet', str, optional = True)
+        self.labels = { k.get("name"): k.find("string").get("value")
+                        for k in x.findall("attr[@name='labels']/attrs/attr") }
 
         def opt_disk_name(dname):
             return ("{0}-{1}".format(self.machine_name, dname) if dname is not None else None)
@@ -113,6 +115,7 @@ class GCEState(MachineState, ResourceState):
 
     tags = attr_property("gce.tags", None, 'json')
     metadata = attr_property("gce.metadata", {}, 'json')
+    labels = attr_property("gce.labels", {}, 'json')
     email = attr_property("gce.serviceAccountEmail", 'default')
     scopes = attr_property("gce.serviceAccountScopes", [], 'json')
     automatic_restart = attr_property("gce.scheduling.automaticRestart", None, bool)
@@ -465,6 +468,16 @@ class GCEState(MachineState, ResourceState):
             self.connect().connection.async_request(request, method='POST', data=service_account)
             self.email = defn.email
             self.scopes = defn.scopes
+
+        if self.labels != defn.labels:
+            self.log('updating node labels')
+            node = self.node()
+            labels_request = "/zones/%s/instances/%s" % (node.extra['zone'].name, node.name)
+            response = self.connect().connection.request(labels_request, method='GET').object
+            body = { 'labels': defn.labels, 'labelFingerprint': response['labelFingerprint']}
+            request = '/zones/%s/instances/%s/setLabels' % (node.extra['zone'].name, node.name)
+            self.connect().connection.async_request(request, method='POST', data=body)
+            self.labels = defn.labels
 
         # Attach missing volumes
         for k, v in self.block_device_mapping.items():
