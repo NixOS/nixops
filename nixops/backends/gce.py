@@ -652,7 +652,7 @@ class GCEState(MachineState, ResourceState):
         # Destroy volumes created for this instance.
         for k, v in self.block_device_mapping.items():
             if v.get('deleteOnTermination', False):
-                self._delete_volume(v['disk_name'], v['region'])
+                self._delete_volume(v['disk_name'], v['region'], True)
             self.update_block_device_mapping(k, None)
 
         return True
