@@ -446,7 +446,8 @@ in
         with builtins;
         if hasAttr cfg.region amis' then
           let r = amis'."${cfg.region}";
-          in if hasAttr type r then r."${type}" else ""
+        in if hasAttr type r then r."${type}" else
+          throw "I don't know an AMI for virtualisation type ${type} with instance type ${cfg.instanceType}"
         else
           throw "I don't know an AMI for region ‘${cfg.region}’ and platform type ‘${config.nixpkgs.system}’"
       );
