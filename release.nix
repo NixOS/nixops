@@ -38,7 +38,7 @@ rec {
         ${pkgs.lib.concatMapStrings (fn: ''
           cp ${import ./doc/manual/resource.nix { revision = nixopsSrc.rev; module = ./nix + ("/" + fn + ".nix"); inherit nixpkgs; }} doc/manual/${fn}-options.xml
         '') [ "ebs-volume" "sns-topic" "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" "ssh-keypair" "ec2-security-group" "elastic-ip"
-              "cloudwatch-log-group" "cloudwatch-log-stream"
+              "cloudwatch-log-group" "cloudwatch-log-stream" "elastic-file-system" "elastic-file-system-mount-target"
               "gce-disk" "gce-image" "gce-forwarding-rule" "gce-http-health-check" "gce-network"
               "gce-static-ip" "gce-target-pool" "gse-bucket"
               "datadog-monitor" "datadog-timeboard" "datadog-screenboard"

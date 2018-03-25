@@ -168,6 +168,25 @@
         <xi:include href="cloudwatch-log-stream-options.xml" />
       </section>
 
+      <section>
+        <title>Elastic File Systems</title>
+        <para>An Elastic File System is defined by setting
+        <literal>resources.elasticFileSystems.<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="elastic-file-system-options.xml" />
+      </section>
+
+      <section>
+        <title>Elastic File System Mount Target</title>
+        <para>An Elastic File System Mount Target is defined by setting
+        <literal>resources.resources.elasticFileSystemMountTargets.<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="elastic-file-system-mount-target-options.xml" />
+      </section>
+
+
     </section>
 
     <section>
