@@ -728,7 +728,7 @@ class Deployment(object):
                 if dry_activate: return
 
                 if res != 0 and res != 100:
-                    raise Exception("unable to activate new configuration")
+                    raise Exception("unable to activate new configuration (exit code {})".format(res))
 
                 if res == 100 or force_reboot or m.state == m.RESCUE:
                     if not allow_reboot and not force_reboot:
