@@ -156,6 +156,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
             self.client_token = None
             self.spot_instance_request_id = None
+            self.spot_instance_price = None
 
     def get_ssh_name(self):
         retVal = None
