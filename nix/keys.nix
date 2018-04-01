@@ -182,46 +182,48 @@ in
       message = "Deployment key '${key}' must have either a 'text' or a 'keyFile' specified.";
     });
 
-    system.activationScripts.nixops-keys = stringAfter [ "users" "groups" ]
-      ''
-        mkdir -p /run/keys -m 0750
-        chown root:keys /run/keys
+    system.activationScripts.nixops-keys =
+      let
+        script = ''
+          mkdir -p /run/keys -m 0750
+          chown root:keys /run/keys
 
-        ${optionalString config.deployment.storeKeysOnMachine
-            (concatStrings (mapAttrsToList
-                            (name: value: let
-                                            # FIXME: The key file should be marked as private once
-                                            # https://github.com/NixOS/nix/issues/8 is fixed.
-                                            keyFile = pkgs.writeText name
-                                                      (if !isNull value.keyFile
-                                                       then builtins.readFile value.keyFile
-                                                       else value.text);
-                                            destDir = toString value.destDir;
-                                          in
-                                          ''
-                                               if test ! -d ${destDir}
-                                               then
-                                                   mkdir -p ${destDir} -m 0750
-                                                   chown root:keys ${destDir}
-                                               fi
-                                               ln -sfn ${keyFile} ${destDir}/${name}
-                                          '')
-                           config.deployment.keys)
-            + ''
-              # FIXME: delete obsolete keys?
-              touch /run/keys/done
-            '')
-        }
+          ${optionalString config.deployment.storeKeysOnMachine
+              (concatStrings (mapAttrsToList
+                              (name: value: let
+                                              # FIXME: The key file should be marked as private once
+                                              # https://github.com/NixOS/nix/issues/8 is fixed.
+                                              keyFile = pkgs.writeText name
+                                                        (if !isNull value.keyFile
+                                                         then builtins.readFile value.keyFile
+                                                         else value.text);
+                                              destDir = toString value.destDir;
+                                            in
+                                            ''
+                                                 if test ! -d ${destDir}
+                                                 then
+                                                     mkdir -p ${destDir} -m 0750
+                                                     chown root:keys ${destDir}
+                                                 fi
+                                                 ln -sfn ${keyFile} ${destDir}/${name}
+                                            '')
+                             config.deployment.keys)
+              + ''
+                # FIXME: delete obsolete keys?
+                touch /run/keys/done
+              '')
+          }
 
-        ${optionalString (!config.deployment.storeKeysOnMachine)
-          (concatStringsSep "\n" (flip mapAttrsToList config.deployment.keys (name: value:
-            # Make sure each key has correct ownership, since the configured owning
-            # user or group may not have existed when first uploaded.
-            ''
-              [[ -f "${value.path}" ]] && chown '${value.user}:${value.group}' "${value.path}"
-            ''
-        )))}
-      '';
+          ${optionalString (!config.deployment.storeKeysOnMachine)
+            (concatStringsSep "\n" (flip mapAttrsToList config.deployment.keys (name: value:
+              # Make sure each key has correct ownership, since the configured owning
+              # user or group may not have existed when first uploaded.
+              ''
+                [[ -f "${value.path}" ]] && chown '${value.user}:${value.group}' "${value.path}"
+              ''
+          )))}
+        '';
+        in stringAfter [ "users" "groups" ] "source ${pkgs.writeText "setup-keys.sh" script}";
 
     systemd.services = (
       { nixops-keys =
