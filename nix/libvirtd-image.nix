@@ -30,7 +30,8 @@ in pkgs.vmTools.runInLinuxVM (
         ''
           mv $diskImage $out/disk.qcow2
         '';
-      buildInputs = [ pkgs.utillinux pkgs.perl ];
+      # qemu for qemu-agent
+      buildInputs = [ pkgs.utillinux pkgs.perl pkgs.qemu ];
       exportReferencesGraph =
         [ "closure" config.system.build.toplevel ];
     }
