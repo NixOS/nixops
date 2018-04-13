@@ -104,9 +104,11 @@ in
     };
 
     deployment.libvirtd.networks = mkOption {
-      default = [ "default" ];
-      type = types.listOf types.str;
-      description = "Names of libvirt networks to attach the VM to.";
+      type = types.listOf (types.submodule (import ./network-options.nix {
+        inherit lib;
+      }));
+      default = [];
+      description = "Networks to attach the VM to.";
     };
 
     deployment.libvirtd.extraDevicesXML = mkOption {
@@ -164,6 +166,21 @@ in
     services.openssh.extraConfig = "UseDNS no";
 
     deployment.hasFastConnection = true;
+
+    services.udev.extraRules = ''
+      SUBSYSTEM=="virtio-ports", ATTR{name}=="org.qemu.guest_agent.0", TAG+="systemd" ENV{SYSTEMD_WANTS}="qemu-guest-agent.service"
+    '';
+
+    systemd.services.qemu-guest-agent = {
+      description = "QEMU Guest Agent";
+      bindsTo = [ "dev-virtio\\x2dports-org.qemu.guest_agent.0.device" ];
+      after = [ "dev-virtio\\x2dports-org.qemu.guest_agent.0.device" ];
+      serviceConfig = {
+        ExecStart = "-${pkgs.kvm}/bin/qemu-ga";
+        Restart = "always";
+        RestartSec = 0;
+      };
+    };
 };
 
 }
