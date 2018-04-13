@@ -334,7 +334,8 @@ class MachineState(nixops.resources.ResourceState):
         # mainly operating in a chroot environment.
         if self.state == self.RESCUE:
             command = "export LANG= LC_ALL= LC_TIME=; " + command
-        return self.ssh.run_command(command, self.get_ssh_flags(), **kwargs)
+
+        return self.ssh.run_command(command, **kwargs)
 
     def switch_to_configuration(self, method, sync, command=None):
         """
