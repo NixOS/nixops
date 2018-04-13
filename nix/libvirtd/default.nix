@@ -4,7 +4,7 @@ with lib;
 
 let
   sz = toString config.deployment.libvirtd.baseImageSize;
-  base_image = import ./libvirtd-image.nix { size = sz; };
+  base_image = import ./image.nix { size = sz; };
   the_key = builtins.getEnv "NIXOPS_LIBVIRTD_PUBKEY";
   ssh_image = pkgs.vmTools.runInLinuxVM (
     pkgs.runCommand "libvirtd-ssh-image"
