@@ -121,8 +121,12 @@ class LibvirtdState(MachineState):
 
     def get_ssh_flags(self, *args, **kwargs):
         super_flags = super(LibvirtdState, self).get_ssh_flags(*args, **kwargs)
+        from urlparse import urlparse
+        url = urlparse(self.uri)
+        jumphost = url.netloc.encode('utf-8')
         return super_flags + ["-o", "StrictHostKeyChecking=no",
-                              "-i", self.get_ssh_private_key_file()]
+                              "-i", self.get_ssh_private_key_file(),
+                              "-J", jumphost]
 
     def get_physical_spec(self):
         return {('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [self.client_public_key]}
