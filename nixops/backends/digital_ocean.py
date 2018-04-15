@@ -111,15 +111,27 @@ class DigitalOceanState(MachineState):
             isinstance(r, nixops.resources.ssh_keypair.SSHKeyPairState)
         }
 
-    def get_auth_token(self):
-        return os.environ.get('DIGITAL_OCEAN_AUTH_TOKEN', self.auth_token)
+    # Note: Getting the auth token from the machine definition is always
+    # better (more up-to-date) than getting it from the state, but not
+    # all functions have access to the definition.
+    # See https://github.com/NixOS/nixops/issues/627.
+    def get_auth_token_from_env_or_defn(self, defn):
+        return os.environ.get('DIGITAL_OCEAN_AUTH_TOKEN', defn.auth_token)
+
+    def get_auth_token_from_env_or_state(self):
+        token = os.environ.get('DIGITAL_OCEAN_AUTH_TOKEN', self.auth_token)
+        assert token, "auth_token not found in state, set it with the DIGITAL_OCEAN_AUTH_TOKEN env var or set ‘deployment.digitalOcean.authToken’ and redeploy"
+        return token
 
     def destroy(self, wipe=False):
         self.log("destroying droplet {}".format(self.droplet_id))
         try:
-            droplet = digitalocean.Droplet(id=self.droplet_id, token=self.get_auth_token())
+            droplet = digitalocean.Droplet(id=self.droplet_id, token=self.get_auth_token_from_env_or_state())
             droplet.destroy()
         except digitalocean.baseapi.NotFoundError:
+            # Note: Unfortunately this can also trigger when the droplet is still creating,
+            # and there doesn't seem to be a way to distinguish the two cases.
+            # In that case, we leak the droplet.
             self.log("droplet not found - assuming it's been destroyed already")
         self.public_ipv4 = None
         self.droplet_id = None
@@ -134,9 +146,12 @@ class DigitalOceanState(MachineState):
         if self.droplet_id is not None:
             return
 
-        self.manager = digitalocean.Manager(token=self.get_auth_token())
+        token = self.get_auth_token_from_env_or_defn(defn)
+        self.auth_token = token
+
+        self.manager = digitalocean.Manager(token=token)
         droplet = digitalocean.Droplet(
-            token=self.get_auth_token(),
+            token=token,
             name=self.name,
             region=defn.region,
             ipv6=defn.enable_ipv6,
