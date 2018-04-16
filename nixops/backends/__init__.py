@@ -3,6 +3,7 @@
 import os
 import re
 import subprocess
+import shlex
 
 import nixops.util
 import nixops.resources
@@ -275,10 +276,17 @@ class MachineState(nixops.resources.ResourceState):
         assert False
 
     def get_ssh_flags(self, scp=False):
+        flags = []
+        extra_opts = os.getenv('NIXOPS_SSHOPTS', None)
+        if extra_opts:
+            flags += shlex.split(extra_opts)
+
         if scp:
-            return ["-P", str(self.ssh_port)]
+            flags += ["-P", str(self.ssh_port)]
         else:
-            return ["-p", str(self.ssh_port)]
+            flags += ["-p", str(self.ssh_port)]
+
+        return flags
 
 
     def get_ssh_password(self):
