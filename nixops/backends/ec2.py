@@ -991,7 +991,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             if len(assocs) > 0 and self.instance_profile != assocs[0]['IamInstanceProfile']['Arn']:
                 self.log("disassociating instance profile {}".format(assocs[0]['IamInstanceProfile']['Arn']))
                 self._conn_boto3.disassociate_iam_instance_profile(AssociationId=assocs[0]['AssociationId'])
-                nixops.util.check_wait(lambda: len(self._conn_boto3.describe_iam_instance_profile_associations(Filters=[{ 'Name': 'instance-id', 'Values': [self.vm_id]}])['IamInstanceProfileAssociations']) == 0 )
+                nixops.util.check_wait(lambda: len(self._retry(lambda: self._conn_boto3.describe_iam_instance_profile_associations(Filters=[{ 'Name': 'instance-id', 'Values': [self.vm_id]}])['IamInstanceProfileAssociations'])) == 0 )
 
 
             if defn.instance_profile != "":
