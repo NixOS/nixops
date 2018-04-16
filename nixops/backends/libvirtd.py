@@ -68,6 +68,11 @@ class LibvirtdDefinition(MachineDefinition):
         self.networks = [
             LibvirtdNetwork.from_xml(n)
             for n in x.findall("attr[@name='networks']/list/*")]
+
+        print("%r" % self.networks)
+        # print("%r" % self.networks[0])
+        # print("%r" % self.networks[1])
+        print("len=%d" % len(self.networks))
         assert len(self.networks) > 0
 
 
@@ -102,7 +107,9 @@ class LibvirtdState(MachineState):
         if self._conn is None:
             self.logger.log('connecting to {}...'.format(self.uri))
             try:
+                print("test")
                 self._conn = libvirt.open(self.uri)
+                print("test 2")
             except libvirt.libvirtError as error:
                 self.logger.error(error.get_error_message())
                 if error.get_error_code() == libvirt.VIR_ERR_NO_CONNECT:
@@ -147,7 +154,8 @@ class LibvirtdState(MachineState):
         jumphost = url.netloc.encode('utf-8')
         return super_flags + ["-o", "StrictHostKeyChecking=no",
                               "-i", self.get_ssh_private_key_file(),
-                              "-J", jumphost]
+                              # "-J", jumphost
+                              ]
 
     def get_physical_spec(self):
         return {('users', 'extraUsers', 'root', 'openssh', 'authorizedKeys', 'keys'): [self.client_public_key]}
@@ -178,6 +186,8 @@ class LibvirtdState(MachineState):
             self._prepare_storage_volume()
             self.storage_volume_name = self.vol.name()
 
+        self.log("defining xml...")
+
         self.domain_xml = self._make_domain_xml(defn)
 
         if self.vm_id is None:
@@ -189,6 +199,8 @@ class LibvirtdState(MachineState):
                 return False
 
             self.vm_id = self._vm_id()
+
+        self.log("starting 2...")
 
         self.start()
         return True
@@ -262,6 +274,7 @@ class LibvirtdState(MachineState):
     def _make_domain_xml(self, defn):
         qemu = self._get_qemu_executable()
 
+        # '      <mtu size="9000"/>',
         def iface(n):
             return "\n".join([
                 '    <interface type="{interface_type}">',
@@ -322,12 +335,16 @@ class LibvirtdState(MachineState):
         return an ip v4
         """
 
+        print("parsing IP")
         dom_xml_str = self.dom.XMLDesc(0)
         xml = ElementTree.fromstring(dom_xml_str)
         first_iface_mac = xml.find('.//interface[1]/mac').get('address')
+        print("first iface mac = %r" % first_iface_mac)
 
         try:
             ifaces = self.dom.interfaceAddresses(libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT, 0)
+            for i in ifaces:
+                print("ifaces %r " % i)
         except libvirt.libvirtError:
             return
 
@@ -355,6 +372,8 @@ class LibvirtdState(MachineState):
 
     def _is_running(self):
         try:
+
+            print ("isActive")
             return self.dom.isActive()
         except libvirt.libvirtError:
             self.log("Domain %s is not running" % self.vm_id)
@@ -363,7 +382,9 @@ class LibvirtdState(MachineState):
     def start(self):
         assert self.vm_id
         assert self.domain_xml
+        print ("isRunning")
         if self._is_running():
+
             self.log("connecting...")
             self.private_ipv4 = self._parse_ip()
         else:

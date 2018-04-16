@@ -107,7 +107,8 @@ in
       type = types.listOf (types.submodule (import ./network-options.nix {
         inherit lib;
       }));
-      default = [];
+      
+      default = [{ source = "default"; type= "virtual"; }];
       description = "Networks to attach the VM to.";
     };
 
@@ -156,6 +157,8 @@ in
     nixpkgs.system = mkOverride 900 "x86_64-linux";
 
     fileSystems."/".device = "/dev/disk/by-label/nixos";
+
+    boot.extraKernelParams = [ "earlycon=ttyS0" "console=ttyS0" ];
 
     boot.loader.grub.version = 2;
     boot.loader.grub.device = "/dev/sda";
