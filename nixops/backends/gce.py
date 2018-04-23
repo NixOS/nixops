@@ -469,6 +469,7 @@ class GCEState(MachineState, ResourceState):
             self.email = defn.email
             self.scopes = defn.scopes
 
+        # Apply labels to node and disks just created
         if self.labels != defn.labels:
             self.log('updating node labels')
             node = self.node()
@@ -478,6 +479,16 @@ class GCEState(MachineState, ResourceState):
             request = '/zones/%s/instances/%s/setLabels' % (node.extra['zone'].name, node.name)
             self.connect().connection.async_request(request, method='POST', data=body)
             self.labels = defn.labels
+            self.log('updating disks labels')
+            for k, v in self.block_device_mapping.items():
+                disk_name = v['disk_name']
+                if not (('disk' in disk_name or 'part' in disk_name)
+                        and (disk_name.startswith(node.name))): continue
+                disk_labels_request = "/zones/%s/disks/%s" % (node.extra['zone'].name, disk_name)
+                response = self.connect().connection.request(disk_labels_request, method='GET').object
+                body = { 'labels': defn.labels, 'labelFingerprint': response['labelFingerprint']}
+                request = '/zones/%s/disks/%s/setLabels' % (node.extra['zone'].name, disk_name)
+                self.connect().connection.async_request(request, method='POST', data=body)
 
         # Attach missing volumes
         for k, v in self.block_device_mapping.items():
@@ -768,6 +779,25 @@ class GCEState(MachineState, ResourceState):
                     'description': "backup of disk {0} attached to {1}"
                                     .format(volume.name, self.machine_name)
                 })
+
+            # Apply labels to snapshot just created
+            def check_snapshot_initiated():
+                try:
+                    if self.connect().ex_get_snapshot(snapshot_name): return True
+                except libcloud.common.google.ResourceNotFoundError:
+                    pass
+            if nixops.util.check_wait(check_snapshot_initiated, initial=3, max_tries=10, exception=False): # = 30 sec max
+                self.log("updating labels of snapshot {0}".format(snapshot_name))
+                self.connect().connection.request(
+                    '/global/snapshots/%s/setLabels' %(snapshot_name),
+                method = 'POST', data = {
+                    'labels': defn.labels,
+                    'labelFingerprint':
+                        self.connect().connection.request("/global/snapshots/{0}".format(snapshot_name), method='GET').object['labelFingerprint']
+                })
+            else:
+                self.warn("could not update labels of snapsnot {0}".format(snapshot_name))
+                continue
 
             backup[k] = snapshot_name
             _backups[backup_id] = backup
