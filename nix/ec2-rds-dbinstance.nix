@@ -82,11 +82,20 @@ with import ./lib.nix lib;
     };
 
     securityGroups = mkOption {
-      default = [ "default" ];
+      default = [];
       type = types.listOf (types.either types.str (resource "ec2-rds-security-group"));
       apply = map (x: if builtins.isString x then x else "res-" + x._name);
       description = ''
         List of names of DBSecurityGroup to authorize on this DBInstance.
+      '';
+    };
+
+    vpcSecurityGroups = mkOption {
+      default = [];
+      type = types.listOf (types.either types.str (resource "ec2-security-group"));
+      apply = map (x: if builtins.isString x then x else "res-" + x._name);
+      description = ''
+        List of names of EC2SecurityGroup to authorize on this DBInstance.
       '';
     };
 

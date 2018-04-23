@@ -32,11 +32,8 @@ class EC2RDSDbInstanceDefinition(nixops.resources.ResourceDefinition):
         self.rds_dbinstance_engine = xml.find("attrs/attr[@name='engine']/string").get("value")
         self.rds_dbinstance_db_name = xml.find("attrs/attr[@name='dbName']/string").get("value")
         self.rds_dbinstance_multi_az = xml.find("attrs/attr[@name='multiAZ']/bool").get("value") == "true"
-        self.rds_dbinstance_security_groups = []
-        for sg in xml.findall("attrs/attr[@name='securityGroups']/list"):
-            for sg_str in sg.findall("string"):
-               sg_name =  sg_str.get("value")
-               self.rds_dbinstance_security_groups.append(sg_name)
+        self.rds_dbinstance_security_groups = self._fetch_list_attr_values(xml, 'securityGroups')
+        self.rds_dbinstance_vpc_security_groups = self._fetch_list_attr_values(xml, 'vpcSecurityGroups')
         # TODO: implement remainder of boto.rds.RDSConnection.create_dbinstance parameters
 
         # common params
@@ -45,6 +42,17 @@ class EC2RDSDbInstanceDefinition(nixops.resources.ResourceDefinition):
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
+
+    @staticmethod
+    def _fetch_list_attr_values(xml, attr_name):
+        values = []
+
+        for el in xml.findall("attrs/attr[@name='{0}']/list".format(attr_name)):
+            for el_str in el.findall("string"):
+               value = el_str.get("value")
+               values.append(value)
+        
+        return values
 
 class EC2RDSDbInstanceState(nixops.resources.ResourceState):
     """State of an RDS Database Instance."""
@@ -62,6 +70,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
     rds_dbinstance_endpoint = nixops.util.attr_property("ec2.rdsEndpoint", None)
     rds_dbinstance_multi_az = nixops.util.attr_property("ec2.multiAZ", False)
     rds_dbinstance_security_groups = nixops.util.attr_property("ec2.securityGroups", [], "json")
+    rds_dbinstance_vpc_security_groups = nixops.util.attr_property("ec2.vpcSecurityGroups", [], "json")
 
     requires_reboot_attrs = ('rds_dbinstance_id', 'rds_dbinstance_allocated_storage',
         'rds_dbinstance_instance_class', 'rds_dbinstance_master_password')
@@ -137,7 +146,8 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
     def _diff_defn(self, defn):
         attrs = ('region', 'rds_dbinstance_port', 'rds_dbinstance_engine', 'rds_dbinstance_multi_az',
             'rds_dbinstance_instance_class', 'rds_dbinstance_db_name', 'rds_dbinstance_master_username',
-            'rds_dbinstance_master_password', 'rds_dbinstance_allocated_storage', 'rds_dbinstance_security_groups')
+            'rds_dbinstance_master_password', 'rds_dbinstance_allocated_storage', 'rds_dbinstance_security_groups',
+            'rds_dbinstance_vpc_security_groups')
 
         def get_state_attr(attr):
             # handle boolean type in the state to avoid triggering false
@@ -149,7 +159,9 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
 
         def get_defn_attr(attr):
             if attr == 'rds_dbinstance_security_groups':
-                return self.fetch_security_group_resources(defn.rds_dbinstance_security_groups)
+                return self.fetch_security_group_resources(defn.rds_dbinstance_security_groups, "ec2-rds-dbsecurity-group", lambda res: res.resource_id)
+            elif attr == 'rds_dbinstance_vpc_security_groups':
+                return self.fetch_security_group_resources(defn.rds_dbinstance_vpc_security_groups, "ec2-security-group", lambda res: res.security_group_id)
             else:
                 return getattr(defn, attr)
 
@@ -170,7 +182,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 break
             time.sleep(6)
 
-    def _copy_dbinstance_attrs(self, dbinstance, security_groups):
+    def _copy_dbinstance_attrs(self, dbinstance, security_groups, vpc_security_groups):
         with self.depl._db:
             self.rds_dbinstance_id = dbinstance.id
             self.rds_dbinstance_allocated_storage = int(dbinstance.allocated_storage)
@@ -181,6 +193,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
             self.rds_dbinstance_port = int(dbinstance.endpoint[1])
             self.rds_dbinstance_endpoint = "%s:%d"% dbinstance.endpoint
             self.rds_dbinstance_security_groups = security_groups
+            self.rds_dbinstance_vpc_security_groups = vpc_security_groups
 
     def _to_boto_kwargs(self, attrs):
         attr_to_kwarg = {
@@ -188,7 +201,8 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
             'rds_dbinstance_master_password': 'master_password',
             'rds_dbinstance_instance_class': 'instance_class',
             'rds_dbinstance_multi_az': 'multi_az',
-            'rds_dbinstance_security_groups': 'security_groups'
+            'rds_dbinstance_security_groups': 'security_groups',
+            'rds_dbinstance_vpc_security_groups': 'vpc_security_groups'
         }
         return { attr_to_kwarg[attr] : attrs[attr] for attr in attrs.keys() }
 
@@ -196,12 +210,12 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         # take care when comparing instance ids, as aws lowercases and converts to unicode
         return unicode(self.rds_dbinstance_id).lower() == unicode(instance_id).lower()
 
-    def fetch_security_group_resources(self, config):
+    def fetch_security_group_resources(self, config, type, id_selector):
         security_groups = []
         for sg in config:
             if sg.startswith("res-"):
-                res = self.depl.get_typed_resource(sg[4:].split(".")[0], "ec2-rds-dbsecurity-group")
-                security_groups.append(res._state['groupName'])
+                res = self.depl.get_typed_resource(sg[4:].split(".")[0], type)
+                security_groups.append(id_selector(res))
             else:
                 security_groups.append(sg)
         return security_groups
@@ -254,13 +268,14 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 if not dbinstance and (self.state == self.MISSING or self.state == self.UNKNOWN):
                     self.logger.log("creating RDS database instance ‘{0}’ (this may take a while)...".format(defn.rds_dbinstance_id))
                     # create a new dbinstance with desired config
-                    security_groups = self.fetch_security_group_resources(defn.rds_dbinstance_security_groups)
+                    db_security_groups = self.fetch_security_group_resources(defn.rds_dbinstance_security_groups, "ec2-rds-dbsecurity-group", lambda res: res.resource_id)
+                    vpc_security_groups = self.fetch_security_group_resources(defn.rds_dbinstance_security_groups, "ec2-security-group", lambda res: res.security_group_id)
                     dbinstance = self._conn.create_dbinstance(defn.rds_dbinstance_id,
                         defn.rds_dbinstance_allocated_storage, defn.rds_dbinstance_instance_class,
                         defn.rds_dbinstance_master_username, defn.rds_dbinstance_master_password,
                         port=defn.rds_dbinstance_port, engine=defn.rds_dbinstance_engine,
                         db_name=defn.rds_dbinstance_db_name, multi_az=defn.rds_dbinstance_multi_az,
-                        security_groups=security_groups)
+                        security_groups=db_security_groups, vpc_security_groups=vpc_security_groups)
 
                     self.state = self.STARTING
                     self._wait_for_dbinstance(dbinstance)
@@ -269,7 +284,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
                 self.rds_dbinstance_db_name = defn.rds_dbinstance_db_name
                 self.rds_dbinstance_master_password = defn.rds_dbinstance_master_password
-                self._copy_dbinstance_attrs(dbinstance, defn.rds_dbinstance_security_groups)
+                self._copy_dbinstance_attrs(dbinstance, defn.rds_dbinstance_security_groups, defn.rds_dbinstance_vpc_security_groups)
                 self.state = self.UP
 
         with self.depl._db:
@@ -296,10 +311,10 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 # Ugly hack to prevent from waiting on state
                 # 'modifying' on sg change as that looks like it's an
                 # immediate change in RDS.
-                if not (len(boto_kwargs) == 2 and 'security_groups' in boto_kwargs):
+                if not (len(boto_kwargs) == 2 and any(attr in boto_kwargs for attr in ['security_groups', 'vpc_security_groups'])):
                     self._wait_for_dbinstance(dbinstance, state="modifying")
                 self._wait_for_dbinstance(dbinstance)
-                self._copy_dbinstance_attrs(dbinstance, defn.rds_dbinstance_security_groups)
+                self._copy_dbinstance_attrs(dbinstance, defn.rds_dbinstance_security_groups, defn.rds_dbinstance_vpc_security_groups)
 
 
     def after_activation(self, defn):
