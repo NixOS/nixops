@@ -8,6 +8,7 @@ parent_dir = path.dirname(__file__)
 
 logical_spec = '%s/ec2-rds-dbinstance.nix' % (parent_dir)
 sg_spec = '%s/ec2-rds-dbinstance-with-sg.nix' % (parent_dir)
+vpc_sg_spec ='%s/ec2-rds-dbinstance-with-vpc-sg.nix' % (parent_dir)
 
 class TestEc2RdsDbinstanceTest(generic_deployment_test.GenericDeploymentTest):
     _multiprocess_can_split_ = True
@@ -21,4 +22,8 @@ class TestEc2RdsDbinstanceTest(generic_deployment_test.GenericDeploymentTest):
 
     def test_deploy_with_sg(self):
         self.depl.nix_exprs = [ sg_spec ]
+        self.depl.deploy()
+
+    def test_deploy_with_vpc_sg(self):
+        self.depl.nix_exprs = [ vpc_sg_spec ]
         self.depl.deploy()
