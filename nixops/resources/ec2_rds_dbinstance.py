@@ -210,12 +210,12 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         # take care when comparing instance ids, as aws lowercases and converts to unicode
         return unicode(self.rds_dbinstance_id).lower() == unicode(instance_id).lower()
 
-    def fetch_security_group_resources(self, config, type, idSelector):
+    def fetch_security_group_resources(self, config, type, id_selector):
         security_groups = []
         for sg in config:
             if sg.startswith("res-"):
                 res = self.depl.get_typed_resource(sg[4:].split(".")[0], type)
-                security_groups.append(idSelector(res))
+                security_groups.append(id_selector(res))
             else:
                 security_groups.append(sg)
         return security_groups
