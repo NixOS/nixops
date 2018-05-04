@@ -22,6 +22,7 @@ in
       ./keys.nix
       ./gce.nix
       ./hetzner.nix
+      ./hetzner-cloud.nix
       ./container.nix
       ./libvirtd.nix
     ];

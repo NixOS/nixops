@@ -68,25 +68,48 @@ makeConf() {
 }
 EOF
   # (nixos-generate-config will add qemu-user and bind-mounts, so avoid)
+  local disk
+  if [ -e /dev/sda ]; then
+    disk=/dev/sda
+  else
+    disk=/dev/vda
+  fi
   cat > /etc/nixos/hardware-configuration.nix << EOF
 { ... }:
 {
   imports = [ <nixpkgs/nixos/modules/profiles/qemu-guest.nix> ];
-  boot.loader.grub.device = "/dev/vda";
-  fileSystems."/" = { device = "/dev/vda1"; fsType = "ext4"; };
+  boot.loader.grub.device = "${disk}";
+  fileSystems."/" = { device = "${disk}1"; fsType = "ext4"; };
 }
 EOF
 
   local IFS=$'\n'
-  ens3_ip4s=($(ip address show dev eth0 | grep 'inet '          | sed -r 's|.*inet ([0-9.]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
-  ens3_ip6s=($(ip address show dev eth0 | grep 'inet6 .*global' | sed -r 's|.*inet6 ([0-9a-f:]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
-  ens4_ip4s=($(ip address show dev eth1 | grep 'inet '          | sed -r 's|.*inet ([0-9.]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
-  ens4_ip6s=($(ip address show dev eth1 | grep 'inet6 .*global' | sed -r 's|.*inet6 ([0-9a-f:]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
-  gateway=($(ip route show dev eth0 | grep default | sed -r 's|default via ([0-9.]+).*|\1|'))
-  gateway6=($(ip -6 route show dev eth0 | grep default | sed -r 's|default via ([0-9a-f:]+).*|\1|'))
-  ether0=($(ip address show dev eth0 | grep link/ether | sed -r 's|.*link/ether ([0-9a-f:]+) .*|\1|'))
-  ether1=($(ip address show dev eth1 | grep link/ether | sed -r 's|.*link/ether ([0-9a-f:]+) .*|\1|'))
+  gateway=($(ip route show | grep default | sed -r 's|default via ([0-9.]+).*|\1|'))
+  gateway6=($(ip -6 route show | grep default | sed -r 's|default via ([0-9a-f:]+).*|\1|'))
+  interfaces=($(ip link | awk -F ': ' '/^[0-9]*: / {if ($2 != "lo") {print $2}}'))
   nameservers=($(grep ^nameserver /etc/resolv.conf | cut -f2 -d' '))
+
+  # Predict the predictable name for each interface since that is enabled in
+  # the nixos system.
+  declare -A predictable_names
+  for interface in ${interfaces[@]}; do
+    # udevadm prints out the candidate names which will be selected if
+    # available in this order.
+    local name=$(udevadm info /sys/class/net/$interface | awk -F = '
+    /^E: ID_NET_NAME_FROM_DATABASE=/ {arr[1]=$2}
+    /^E: ID_NET_NAME_ONBOARD=/ {arr[2]=$2}
+    /^E: ID_NET_NAME_SLOT=/ {arr[3]=$2}
+    /^E: ID_NET_NAME_PATH=/ {arr[4]=$2}
+    /^E: ID_NET_NAME_MAC=/ {arr[5]=$2}
+    END {for (i=1;i<6;i++) {if (length(arr[i]) > 0) { print arr[i]; break}}}')
+    if [ -z "$name" ]; then
+      echo Could not determine predictable name for interface $interface
+    fi
+    predictable_names[$interface]=$name
+  done
+
+  # Take a gamble on the first interface being able to reach the gateway.
+  local default_interface=${predictable_names[${interfaces[0]}]}
 
   cat > /etc/nixos/networking.nix << EOF
 { ... }: {
@@ -96,25 +119,27 @@ EOF
     nameservers = [$(for a in ${nameservers[@]}; do echo -n "
       \"$a\""; done)
     ];
-    defaultGateway = "${gateway}";
-    defaultGateway6 = "${gateway6}";
+    defaultGateway = {address = "${gateway}"; interface = "${default_interface}";};
+    defaultGateway6 = {address = "${gateway6}"; interface = "${default_interface}";};
     interfaces = {
-      ens3 = {
-        ip4 = [$(for a in ${ens3_ip4s[@]}; do echo -n "
+EOF
+
+  for interface in ${interfaces[@]}; do
+    ip4s=($(ip address show dev $interface | grep 'inet '          | sed -r 's|.*inet ([0-9.]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
+    ip6s=($(ip address show dev $interface | grep 'inet6 .*global' | sed -r 's|.*inet6 ([0-9a-f:]+)/([0-9]+).*|{ address="\1"; prefixLength=\2; }|'))
+    cat >> /etc/nixos/networking.nix << EOF
+      ${predictable_names[$interface]} = {
+        ip4 = [$(for a in ${ip4s[@]}; do echo -n "
           $a"; done)
         ];
-        ip6 = [$(for a in ${ens3_ip6s[@]}; do echo -n "
+        ip6 = [$(for a in ${ip6s[@]}; do echo -n "
           $a"; done)
         ];
       };
-      ens4 = {
-        ip4 = [$(for a in ${ens4_ip4s[@]}; do echo -n "
-          $a"; done)
-        ];
-        ip6 = [$(for a in ${ens4_ip6s[@]}; do echo -n "
-          $a"; done)
-        ];
-      };
+EOF
+  done
+
+  cat >> /etc/nixos/networking.nix << EOF
     };
   };
 }
@@ -153,6 +178,12 @@ export HOME="/root"
 
 groupadd -r nixbld -g 30000
 seq 1 10 | xargs -I{} useradd -c "Nix build user {}" -d /var/empty -g nixbld -G nixbld -M -N -r -s `which nologin` nixbld{}
+
+if ! which curl >/dev/null 2>/dev/null; then
+  if which apt-get >/dev/null 2>/dev/null; then
+    apt-get update && apt-get install -y curl
+  fi
+fi
 
 curl https://nixos.org/nix/install | sh
 
