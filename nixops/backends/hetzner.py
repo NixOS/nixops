@@ -51,16 +51,21 @@ class HetznerDefinition(MachineDefinition):
 
     def __init__(self, xml, config):
         MachineDefinition.__init__(self, xml, config)
-        x = xml.find("attrs/attr[@name='hetzner']/attrs")
-        assert x is not None
-        attrs = [("main_ipv4", "mainIPv4", "string"),
-                 ("create_sub_account", "createSubAccount", "bool"),
-                 ("robot_user", "robotUser", "string"),
-                 ("robot_pass", "robotPass", "string"),
-                 ("partitions", "partitions", "string")]
-        for var, name, valtype in attrs:
-            node = x.find("attr[@name='" + name + "']/" + valtype)
-            setattr(self, var, xml_expr_to_python(node))
+
+        self.main_ipv4 = config["hetzner"]["mainIPv4"]
+        assert type(self.main_ipv4) is str
+
+        self.create_sub_account = config["hetzner"]["createSubAccount"]
+        assert type(self.create_sub_account) is bool
+
+        self.robot_user = config["hetzner"]["robotUser"]
+        assert type(self.robot_user) is str
+
+        self.robot_pass = config["hetzner"]["robotPass"]
+        assert type(self.robot_pass) is str
+
+        self.partitions = config["hetzner"]["partitions"]
+        assert type(self.partitions) is str
 
 
 class HetznerState(MachineState):
