@@ -13,7 +13,7 @@ from nixops.util import wait_for_tcp_port, ping_tcp_port
 from nixops.util import attr_property, create_key_pair, xml_expr_to_python
 from nixops.ssh_util import SSHCommandFailed
 from nixops.backends import MachineDefinition, MachineState
-from nixops.nix_expr import nix2py
+from nixops.nix_expr import nix2py, py2nix
 
 # This is set to True by tests/hetzner-backend.nix. If it's in effect, no
 # attempt is made to connect to the real Robot API and the API calls only
@@ -65,7 +65,24 @@ class HetznerDefinition(MachineDefinition):
         assert type(self.robot_pass) is str
 
         self.partitions = config["hetzner"]["partitions"]
-        assert type(self.partitions) is str
+        assert self.partitions is None or type(self.partitions) is str
+
+        self.partitioning_script = config["hetzner"]["partitioningScript"]
+        assert self.partitioning_script is None or type(self.partitioning_script) is str
+
+        self.mount_script = config["hetzner"]["mountScript"]
+        assert self.mount_script is None or type(self.mount_script) is str
+
+        fs_info_py = config["hetzner"]["filesystemInfo"]
+        assert fs_info_py is None or type(fs_info_py) is dict
+        # If it's None, we want to keep it None, not turn it into null,
+        # because the code further down checks for None in order to determine
+        # if it was set at all.
+        self.fs_info = py2nix(fs_info_py) if fs_info_py is not None else None
+
+        assert (self.partitions is None) != (self.partitioning_script is None)
+        assert (self.partitioning_script is None) or (self.fs_info is not None)
+        assert (self.mount_script is None) == (self.mount_script is None)
 
 
 class HetznerState(MachineState):
@@ -82,10 +99,12 @@ class HetznerState(MachineState):
     robot_admin_user = attr_property("hetzner.robotUser", None)
     robot_admin_pass = attr_property("hetzner.robotPass", None)
     partitions = attr_property("hetzner.partitions", None)
+    partitioning_script = attr_property("hetzner.partitioningScript", None)
+    mount_script = attr_property("hetzner.mountScript", None)
+    fs_info = attr_property("hetzner.fsInfo", None)
 
     just_installed = attr_property("hetzner.justInstalled", False, bool)
     rescue_passwd = attr_property("hetzner.rescuePasswd", None)
-    fs_info = attr_property("hetzner.fsInfo", None)
     net_info = attr_property("hetzner.networkInfo", None, 'json')
     hw_info = attr_property("hetzner.hardwareInfo", None)
 
@@ -228,13 +247,27 @@ class HetznerState(MachineState):
         self.run_command("cat >> /etc/motd", stdin_string=fullmsg)
         self.log_end("done.")
 
-    def _bootstrap_rescue(self, install, partitions):
+    def _bootstrap_rescue(self,
+                          install,
+                          partitions,
+                          partitioning_script=None,
+                          mount_script=None,
+                          fs_info=None):
         """
         Bootstrap everything needed in order to get Nix and the partitioner
         usable in the rescue system. The keyword arguments are only for
         partitioning, see reboot_rescue() for description, if not given we will
         only mount based on information provided in self.partitions.
+
+        Exactly one of `partitions` and `partitioning_script` must be given as
+        non-None value.
+        If `partitioning_script` is given, `fs_info` must not be None.
+        `mount_script` must be given exactly when `partitioning_script` is given.
         """
+        assert (partitions is None) != (partitioning_script is None)
+        assert (partitioning_script is None) or (fs_info is not None)
+        assert (partitioning_script is None) == (mount_script is None)
+
         self.log_start("building Nix bootstrap installer... ")
         expr = os.path.join(self.depl.expr_path, "hetzner-bootstrap.nix")
         bootstrap_out = subprocess.check_output(["nix-build", expr,
@@ -288,8 +321,16 @@ class HetznerState(MachineState):
         if install:
             self.log_start("partitioning disks... ")
             try:
-                out = self.run_command("nixpart -p -", capture_stdout=True,
-                                       stdin_string=partitions)
+                if partitions is not None:
+                    out = self.run_command("nixpart -p -", capture_stdout=True,
+                                           stdin_string=partitions)
+                    # Note, `nixpart` already mounts the target / at /mnt
+                else:
+                    assert partitioning_script is not None
+                    assert mount_script is not None
+                    self.run_command("bash", stdin_string=partitioning_script)
+                    # Mount target / at /mnt
+                    self.run_command("bash", stdin_string=mount_script)
             except SSHCommandFailed as cmd:
                 # Exit code 100 is when the partitioner requires a reboot.
                 if cmd.exitcode == 100:
@@ -302,10 +343,18 @@ class HetznerState(MachineState):
             # This is the *only* place to set self.partitions unless we have
             # implemented a way to repartition the system!
             self.partitions = partitions
-            self.fs_info = out
+            self.partitioning_script = partitioning_script
+            self.mount_script = mount_script
+            # If the user has provided a manual fs_info, use that one, otherwise
+            # use the one obtained from nixpart.
+            self.fs_info = out if fs_info is None else fs_info
         else:
             self.log_start("mounting filesystems... ")
-            self.run_command("nixpart -m -", stdin_string=self.partitions)
+            if partitions is not None:
+                self.run_command("nixpart -m -", stdin_string=self.partitions)
+            else:
+                assert mount_script is not None
+                self.run_command("bash", stdin_string=mount_script)
         self.log_end("done.")
 
         if not install:
@@ -338,14 +387,19 @@ class HetznerState(MachineState):
         else:
             MachineState.reboot(self, hard=hard, reset=reset)
 
-    def reboot_rescue(self, install=False, partitions=None, bootstrap=True,
+    def reboot_rescue(self, install=False, partitions=None,
+                      partitioning_script=None,
+                      mount_script=None,
+                      fs_info=None,
+                      bootstrap=True,
                       hard=False):
         """
         Use the Robot to activate the rescue system and reboot the system. By
         default, only mount partitions and do not partition or wipe anything.
 
         On installation, both 'installed' has to be set to True and partitions
-        should contain a Kickstart configuration, otherwise it's read from
+        should contain a Kickstart configuration (or partitioning_script
+        should be given), otherwise it's read from
         self.partitions if available (which it shouldn't if you're not doing
         something nasty).
         """
@@ -369,7 +423,11 @@ class HetznerState(MachineState):
         self.state = self.RESCUE
         self.ssh.reset()
         if bootstrap:
-            self._bootstrap_rescue(install, partitions)
+            self._bootstrap_rescue(install,
+                                   partitions=partitions,
+                                   partitioning_script=partitioning_script,
+                                   mount_script=mount_script,
+                                   fs_info=fs_info)
 
     def _install_base_system(self):
         self.log_start("creating missing directories... ")
@@ -621,7 +679,11 @@ class HetznerState(MachineState):
 
         if not self.vm_id:
             self.log("installing machine...")
-            self.reboot_rescue(install=True, partitions=defn.partitions)
+            self.reboot_rescue(install=True,
+                               partitions=defn.partitions,
+                               partitioning_script=defn.partitioning_script,
+                               mount_script=defn.mount_script,
+                               fs_info=defn.fs_info)
             self._install_base_system()
             self._detect_hardware()
             server = self._get_server_by_ip(self.main_ipv4)
