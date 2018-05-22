@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import time
+
 from nixops import known_hosts
 from nixops.util import attr_property, create_key_pair, generate_random_string
 from nixops.nix_expr import Function, RawValue, Call
@@ -781,27 +783,33 @@ class GCEState(MachineState, ResourceState):
                 })
 
             # Apply labels to snapshot just created
-            def check_snapshot_initiated():
-                try:
-                    if self.connect().ex_get_snapshot(snapshot_name): return True
-                except libcloud.common.google.ResourceNotFoundError:
-                    pass
-            if nixops.util.check_wait(check_snapshot_initiated, initial=3, max_tries=10, exception=False): # = 30 sec max
-                self.log("updating labels of snapshot {0}".format(snapshot_name))
-                self.connect().connection.request(
-                    '/global/snapshots/%s/setLabels' %(snapshot_name),
+            self.wait_for_snapshot_initiated(snapshot_name)
+
+            self.log("updating labels of snapshot '{0}'".format(snapshot_name))
+            self.connect().connection.request(
+                '/global/snapshots/%s/setLabels' %(snapshot_name),
                 method = 'POST', data = {
                     'labels': defn.labels,
                     'labelFingerprint':
                         self.connect().connection.request("/global/snapshots/{0}".format(snapshot_name), method='GET').object['labelFingerprint']
-                })
-            else:
-                self.warn("could not update labels of snapsnot {0}".format(snapshot_name))
-                continue
+            })
 
             backup[k] = snapshot_name
             _backups[backup_id] = backup
             self.backups = _backups
+
+    def wait_for_snapshot_initiated(self, snapshot_name):
+        while True:
+            try:
+                snapshot_status = self.connect().connection.request("/global/snapshots/{0}".format(snapshot_name), method='GET').object['status']
+                if snapshot_status in "READY" "CREATING" "UPLOADING":
+                    self.log_end(" done")
+                    break
+                else:
+                    raise Exception("snapshot '{0}' is in an unexpected state {1}".format(snapshot_name, snapshot_status))
+            except libcloud.common.google.ResourceNotFoundError:
+                self.log_continue(".")
+                time.sleep(1)
 
     def restore(self, defn, backup_id, devices=[]):
         self.log("restoring {0} to backup '{1}'".format(self.full_name, backup_id))
