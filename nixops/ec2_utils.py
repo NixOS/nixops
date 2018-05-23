@@ -30,7 +30,11 @@ def fetch_aws_secret_key(access_key_id):
                 contents = f.read()
                 for l in contents.splitlines():
                     l = l.split("#")[0] # drop comments
-                    w = l.split()
+                    w = [x.strip() for x in l.split()]
+                    if w[0][:4] == "ASIA":
+                        # AWS session keys need a security token as well
+                        if (len(w) == 3 and not access_key_id) or (len(w) == 4 and w[3] == access_key_id):
+                            return tuple(w[:3])
                     if len(w) < 2 or len(w) > 3: continue
                     if len(w) == 3 and w[2] == access_key_id: return (w[0], w[1])
                     if w[0] == access_key_id: return (access_key_id, w[1])
@@ -46,45 +50,57 @@ def fetch_aws_secret_key(access_key_id):
         if access_key_id == conf.get('default', 'aws_access_key_id'):
             return (access_key_id, conf.get('default', 'aws_secret_access_key'))
         return (conf.get(access_key_id, 'aws_access_key_id'),
-                conf.get(access_key_id, 'aws_secret_access_key'))
+                conf.get(access_key_id, 'aws_secret_access_key'),
+                conf.get(access_key_id, 'aws_session_token', None))
 
     def ec2_keys_from_env():
-        return (access_key_id,
-                os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY'))
+        return (access_key_id or os.environ.get('AWS_ACCESS_KEY_ID'),
+                os.environ.get('EC2_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                os.environ.get('AWS_SESSION_TOKEN'))
 
     sources = (get_credentials() for get_credentials in
                 [parse_ec2_keys, parse_aws_credentials, ec2_keys_from_env])
     # Get the first existing access-secret key pair
     credentials = next( (keys for keys in sources if keys and keys[1]), None)
 
-    if not credentials:
+    if credentials:
+        return dict(zip(["aws_access_key_id", "aws_secret_access_key", "aws_session_token"],
+                        filter(None, credentials)))
+    elif not access_key_id:
+        # boto3 is able to query instance metadata service on an
+        # Amazon EC2 instance that has an IAM role configured
+        return {}
+    else:
         raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/.ec2-keys or ~/.aws/credentials"
                         .format(access_key_id))
 
-    return credentials
+def fetch_aws_secret_key_boto2(access_key_id):
+    "Renames session token keyword parameter for boto2 API"
+    creds = fetch_aws_secret_key(access_key_id)
+    if "aws_session_token" in creds:
+        creds["security_token"] = creds["aws_session_token"]
+        del creds["aws_session_token"]
+    return creds
 
 def connect(region, access_key_id):
     """Connect to the specified EC2 region using the given access key."""
     assert region
-    (access_key_id, secret_access_key) = fetch_aws_secret_key(access_key_id)
-    conn = boto.ec2.connect_to_region(
-        region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+    creds = fetch_aws_secret_key_boto2(access_key_id)
+    conn = boto.ec2.connect_to_region(region_name=region, **creds)
     if not conn:
         raise Exception("invalid EC2 region ‘{0}’".format(region))
     return conn
 
 def connect_ec2_boto3(region, access_key_id):
     assert region
-    (access_key_id, secret_access_key) = fetch_aws_secret_key(access_key_id)
-    client = boto3.session.Session().client('ec2', region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
-    return client
+    creds = fetch_aws_secret_key(access_key_id)
+    return boto3.session.Session().client('ec2', region_name=region, **creds)
 
 def connect_vpc(region, access_key_id):
     """Connect to the specified VPC region using the given access key."""
     assert region
-    (access_key_id, secret_access_key) = fetch_aws_secret_key(access_key_id)
-    conn = boto.vpc.connect_to_region(
-        region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+    creds = fetch_aws_secret_key_boto2(access_key_id)
+    conn = boto.vpc.connect_to_region(region_name=region, **creds)
     if not conn:
         raise Exception("invalid VPC region ‘{0}’".format(region))
     return conn

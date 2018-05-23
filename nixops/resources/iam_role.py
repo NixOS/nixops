@@ -75,9 +75,8 @@ class IAMRoleState(nixops.resources.ResourceState):
 
     def connect(self):
         if self._conn: return
-        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
-        self._conn = boto.connect_iam(
-            aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+        creds = nixops.ec2_utils.fetch_aws_secret_key_boto2(self.access_key_id)
+        self._conn = boto.connect_iam(**creds)
 
 
     def _destroy(self):

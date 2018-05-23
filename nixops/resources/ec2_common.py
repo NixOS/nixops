@@ -57,12 +57,11 @@ class EC2CommonState():
         if hasattr(self, '_client'):
             if self._client: return self._client
         assert self._state['region']
-        (access_key_id, secret_access_key) = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
+        creds = nixops.ec2_utils.fetch_aws_secret_key(self.access_key_id)
         self._client = boto3.session.Session().client(
             service_name=service,
             region_name=self._state['region'],
-            aws_access_key_id=access_key_id,
-            aws_secret_access_key=secret_access_key)
+            **creds)
         return self._client
 
     def reset_client(self):
