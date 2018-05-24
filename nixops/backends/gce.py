@@ -785,14 +785,15 @@ class GCEState(MachineState, ResourceState):
             # Apply labels to snapshot just created
             self.wait_for_snapshot_initiated(snapshot_name)
 
-            self.log("updating labels of snapshot '{0}'".format(snapshot_name))
-            self.connect().connection.request(
-                '/global/snapshots/%s/setLabels' %(snapshot_name),
-                method = 'POST', data = {
-                    'labels': defn.labels,
-                    'labelFingerprint':
-                        self.connect().connection.request("/global/snapshots/{0}".format(snapshot_name), method='GET').object['labelFingerprint']
-            })
+            if defn.labels:
+                self.log("updating labels of snapshot '{0}'".format(snapshot_name))
+                self.connect().connection.request(
+                    '/global/snapshots/%s/setLabels' %(snapshot_name),
+                    method = 'POST', data = {
+                        'labels': defn.labels,
+                        'labelFingerprint':
+                            self.connect().connection.request("/global/snapshots/{0}".format(snapshot_name), method='GET').object['labelFingerprint']
+                })
 
             backup[k] = snapshot_name
             _backups[backup_id] = backup
