@@ -801,8 +801,8 @@ class GCEState(MachineState, ResourceState):
     def wait_for_snapshot_initiated(self, snapshot_name):
         while True:
             try:
-                snapshot_status = self.connect().connection.request("/global/snapshots/{0}".format(snapshot_name), method='GET').object['status']
-                if snapshot_status in "READY" "CREATING" "UPLOADING":
+                snapshot = self.connect().ex_get_snapshot(snapshot_name)
+                if snapshot.status in "READY" "CREATING" "UPLOADING":
                     self.log_end(" done")
                     break
                 else:
