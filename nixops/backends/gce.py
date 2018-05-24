@@ -806,7 +806,7 @@ class GCEState(MachineState, ResourceState):
                     self.log_end(" done")
                     break
                 else:
-                    raise Exception("snapshot '{0}' is in an unexpected state {1}".format(snapshot_name, snapshot_status))
+                    raise Exception("snapshot '{0}' is in an unexpected state {1}".format(snapshot_name, snapshot.status))
             except libcloud.common.google.ResourceNotFoundError:
                 self.log_continue(".")
                 time.sleep(1)
