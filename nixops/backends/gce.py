@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import time
+
 from nixops import known_hosts
 from nixops.util import attr_property, create_key_pair, generate_random_string
 from nixops.nix_expr import Function, RawValue, Call
@@ -469,6 +471,7 @@ class GCEState(MachineState, ResourceState):
             self.email = defn.email
             self.scopes = defn.scopes
 
+        # Apply labels to node and disks just created
         if self.labels != defn.labels:
             self.log('updating node labels')
             node = self.node()
@@ -478,6 +481,16 @@ class GCEState(MachineState, ResourceState):
             request = '/zones/%s/instances/%s/setLabels' % (node.extra['zone'].name, node.name)
             self.connect().connection.async_request(request, method='POST', data=body)
             self.labels = defn.labels
+            self.log('updating disks labels')
+            for k, v in self.block_device_mapping.items():
+                disk_name = v['disk_name']
+                if not (('disk' in disk_name or 'part' in disk_name)
+                        and (disk_name.startswith(node.name))): continue
+                disk_labels_request = "/zones/%s/disks/%s" % (node.extra['zone'].name, disk_name)
+                response = self.connect().connection.request(disk_labels_request, method='GET').object
+                body = { 'labels': defn.labels, 'labelFingerprint': response['labelFingerprint']}
+                request = '/zones/%s/disks/%s/setLabels' % (node.extra['zone'].name, disk_name)
+                self.connect().connection.async_request(request, method='POST', data=body)
 
         # Attach missing volumes
         for k, v in self.block_device_mapping.items():
@@ -769,9 +782,35 @@ class GCEState(MachineState, ResourceState):
                                     .format(volume.name, self.machine_name)
                 })
 
+            # Apply labels to snapshot just created
+            self.wait_for_snapshot_initiated(snapshot_name)
+
+            if defn.labels:
+                self.log("updating labels of snapshot '{0}'".format(snapshot_name))
+                self.connect().connection.request(
+                    '/global/snapshots/%s/setLabels' %(snapshot_name),
+                    method = 'POST', data = {
+                        'labels': defn.labels,
+                        'labelFingerprint':
+                            self.connect().connection.request("/global/snapshots/{0}".format(snapshot_name), method='GET').object['labelFingerprint']
+                })
+
             backup[k] = snapshot_name
             _backups[backup_id] = backup
             self.backups = _backups
+
+    def wait_for_snapshot_initiated(self, snapshot_name):
+        while True:
+            try:
+                snapshot = self.connect().ex_get_snapshot(snapshot_name)
+                if snapshot.status in "READY" "CREATING" "UPLOADING":
+                    self.log_end(" done")
+                    break
+                else:
+                    raise Exception("snapshot '{0}' is in an unexpected state {1}".format(snapshot_name, snapshot.status))
+            except libcloud.common.google.ResourceNotFoundError:
+                self.log_continue(".")
+                time.sleep(1)
 
     def restore(self, defn, backup_id, devices=[]):
         self.log("restoring {0} to backup '{1}'".format(self.full_name, backup_id))
