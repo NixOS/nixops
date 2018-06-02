@@ -150,7 +150,10 @@ let
     then "/dev/" + builtins.substring 12 100 dev
     else dev;
 
-  nixosVersion = builtins.substring 0 5 (config.system.nixos.version or config.system.nixosVersion);
+  nixosVersion =
+    if cfg.nixosAmiVersion != null
+      then cfg.nixosAmiVersion
+      else builtins.substring 0 5 (config.system.nixos.version or config.system.nixosVersion);
 
   amis = import <nixpkgs/nixos/modules/virtualisation/ec2-amis.nix>;
 
@@ -233,6 +236,17 @@ in
       description = ''
         EC2 identifier of the AMI disk image used in the virtual
         machine.  This must be a NixOS image providing SSH access.
+      '';
+    };
+
+    deployment.ec2.nixosAmiVersion = mkOption {
+      example = "17.09";
+      type = types.nullOr types.str;
+      description = ''
+        NixOS version to choose AMIs from.
+        Has no effect if <option>ami</option> is set.
+        Useful if you want the base image to be a different NixOS version
+        than the system you will eventually deploy.
       '';
     };
 
