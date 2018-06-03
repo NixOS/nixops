@@ -13,6 +13,37 @@ let
       services.openssh.enable = true;
       services.openssh.startWhenNeeded = false;
       services.openssh.extraConfig = "UseDNS no";
+
+      # Patch nix to avoid problem running out of RAM when sending closures to the machine.
+      # See
+      #   https://github.com/NixOS/nix/issues/1681
+      #   https://github.com/NixOS/nix/issues/1969
+      #   https://github.com/NixOS/nixpkgs/issues/38808
+      # TODO Remove when https://github.com/NixOS/nix/pull/2206 is merged and available
+      nixpkgs.config.packageOverrides = pkgs: {
+        nix = pkgs.nixUnstable.overrideAttrs (oldAttrs: {
+          src = pkgs.fetchFromGitHub {
+            owner = "NixOS";
+            repo = "nix";
+            rev = "54b1c596435b0aaf3a2557652ad4bf74d5756514";
+            sha256 = "0g7knsfj445r50rk0d9hm5n1pv20k542bz6xf5c47qmkgvfa40x4";
+          };
+          patches = [
+            (pkgs.fetchpatch {
+              url = "https://github.com/nh2/nix/commit/d31a4410d92790e2c27110154896445d99d7abfe.patch";
+              sha256 = "08gcw2xw8yc61zz2nr1j3cnd6wagp5qs02mjfazrd9wa045y26hg";
+            })
+          ];
+          # Changes cherry-picked from upstream nix `release-common.nix` that
+          # aren't in `pkgs.nixUnstable` yet:
+          buildInputs = oldAttrs.buildInputs ++ [
+            (pkgs.aws-sdk-cpp.override {
+              apis = ["s3" "transfer"];
+              customMemoryManagement = false;
+            })
+          ];
+        });
+      };
     } ];
   }).config;
 
