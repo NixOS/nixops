@@ -205,7 +205,7 @@ class GCEState(MachineState, ResourceState):
             self.update_block_device_mapping(k, v)
 
     defn_properties = ['tags', 'region', 'instance_type',
-                       'email', 'scopes', 'subnet',
+                       'email', 'scopes', 'subnet', 'preemptible',
                        'metadata', 'ipAddress', 'network']
 
     def is_deployed(self):
