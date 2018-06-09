@@ -251,18 +251,18 @@ class SQLiteConnection(object):
                     )
                 else:
                     if self.get_deployment_attr(deployment_uuid, name) == nixops.util.undefined:
-                        self.db.execute("insert into DeploymentAttrs(deployment, name, value) values ('{}', '{}', {!r})"
+                        self.db.execute("insert into DeploymentAttrs(deployment, name, value) values ('{}', '{}', '{}')"
                                         .format(deployment_uuid, name, value)
                         )
                     else:
-                        self.db.execute("update DeploymentAttrs set value={!r} where deployment='{}' and name='{}'"
+                        self.db.execute("update DeploymentAttrs set value='{}' where deployment='{}' and name='{}'"
                                         .format(value, deployment_uuid, name)
                         )
 
 
     def del_deployment_attr(self, deployment_uuid, attr_name):
         with self.db:
-            self.db.execute("delete from DeploymentAttrs where deployment = '{}' and name = {!r}"
+            self.db.execute("delete from DeploymentAttrs where deployment = '{}' and name = '{}'"
                             .format(deployment_uuid, attr_name)
             )
 
@@ -313,13 +313,13 @@ class SQLiteConnection(object):
 #     ## Resources
 
     def create_resource(self, deployment, name, type):
-        count = self.db.execute("select count(id) from Resources where deployment = '{}' and name = {!r}"
+        count = self.db.execute("select count(id) from Resources where deployment = '{}' and name = '{}'"
                                  .format(deployment.uuid, name)).fetchone()[0]
 
         if count != 0:
             raise Exception("resource already exists in database!")
 
-        result = self.db.execute("insert into Resources(deployment, name, type) values ('{}', {!r}, {!r})"
+        result = self.db.execute("insert into Resources(deployment, name, type) values ('{}', '{}', '{}')"
                                   .format(deployment.uuid, name, type))
 
         id = result.lastrowid
@@ -329,14 +329,14 @@ class SQLiteConnection(object):
 
     def delete_resource(self, deployment_uuid, res_id):
         with self.db:
-            self.db.execute("delete from Resources where deployment = '{}' and id = {!r}"
+            self.db.execute("delete from Resources where deployment = '{}' and id = '{}'"
                              .format(deployment_uuid, res_id))
 
 
     def _rename_resource(self, deployment_uuid, resource_id, new_name):
         """NOTE: Invariants are checked in nixops/deployment.py#rename"""
         with self.db:
-            self.db.execute("update Resources set name = '{}' where deployment = '{}' and id = {!r}"
+            self.db.execute("update Resources set name = '{}' where deployment = '{}' and id = '{}'"
                              .format(new_name, deployment_uuid, resource_id))
 
 
@@ -352,14 +352,14 @@ class SQLiteConnection(object):
                                          .format(resource_id, name, value)
                         )
                     else:
-                        self.db.execute("update ResourceAttrs set value={!r} where machine='{}' and name='{}'"
+                        self.db.execute("update ResourceAttrs set value='{}' where machine='{}' and name='{}'"
                                          .format(value, resource_id, name)
                         )
 
 
     def del_resource_attr(self, _deployment_uuid, resource_id, name):
         with self.db:
-            self.db.execute("delete from ResourceAttrs where machine = {!r} and name = {!r}"
+            self.db.execute("delete from ResourceAttrs where machine = '{}' and name = '{}'"
                              .format(resource_id, name))
 
 
