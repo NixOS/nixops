@@ -49,9 +49,16 @@ linkend="sec-deploying-to-ec2"/>.)  To run a specific test, run
 <literal>python2 tests.py
 <replaceable>test-name</replaceable></literal>, e.g.
 
+To run all tests in <filename>./tests/functional/test_encrypted_links.py</filename>
 
 <screen>
 $ python2 tests.py tests.functional.test_encrypted_links
+</screen>
+          
+To run only one test in <filename>tests/functional/test_encrypted_links.py</filename>
+
+<screen>
+$ python2 tests.py tests.functional.test_encrypted_links:TestEncryptedLinks.test_deploy
 </screen>
 
 To filter on which backends you want to run functional tests against, you can
@@ -63,10 +70,32 @@ $ python2 tests.py tests.functional -A vbox
 </screen>
 
 
-There are also a few NixOS VM tests.  These can be run as follows:
+There are also a few NixOS VM tests. These can be run as follows:
 
 <screen>
 $ nix-build release.nix -A tests.none_backend
+</screen>
+
+</para>
+          
+<para>Some useful snippets to debug nixops:
+
+Logging
+
+<screen>
+# this will not work, because <literal>sys.stdout</literal> is substituted with log file
+print 'asdf' 
+
+# this will work
+self.log('asdf') 
+import sys; print >> sys.__stdout__, 'asdf'
+import sys; import pprint; pprint.pprint(some_structure, stream=sys.__stdout__)
+</screen>
+
+To set breakpoint use
+
+<screen>
+import sys; import pdb; pdb.Pdb(stdout=sys.__stdout__).set_trace()
 </screen>
 
 </para>
