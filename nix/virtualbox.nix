@@ -152,19 +152,30 @@ in
     };
 
     deployment.virtualbox.disks.disk1 =
+      let
+        nixosVersion = builtins.substring 0 5 (config.system.nixos.version or config.system.nixosVersion);
+        images =
+          let
+            p = pkgs.path + "/nixos/modules/virtualisation/virtualbox-images.nix";
+            self = rec {
+              "16.09" = { url = "http://nixos.org/releases/nixos/virtualbox-nixops-images/virtualbox-nixops-16.09.877.5b08a40.vmdk.xz"; sha256 = "c20ee9ff0f58b10cd2b1e52411a56a862c8eaecddbbddd337ae0cca888f6727f"; };
+              "17.03" = self."16.09";
+              "17.09" = self."16.09";
+              "18.03" = { url = "http://nixos.org/releases/nixos/virtualbox-nixops-images/virtualbox-nixops-18.03pre131587.b6ddb9913f2.vmdk.xz"; sha256 = "1hxdimjpndjimy40g1wh4lq7x0d78zg6zisp23cilqr7393chnna"; };
+              latest = self."18.03";
+            };
+          in if builtins.pathExists p then import p else self;
+      in
       { port = 0;
         size = mkDefault 0;
         baseImage = mkDefault (
           let
-            unpack = name: sha256: pkgsNative.runCommand "virtualbox-nixops-${name}.vmdk" { preferLocalBuild = true; allowSubstitutes = false; }
+            unpack = version: pkgsNative.runCommand "virtualbox-nixops-${version}.vmdk" { preferLocalBuild = true; allowSubstitutes = false; }
               ''
-                xz -d < ${pkgsNative.fetchurl {
-                  url = "http://nixos.org/releases/nixos/virtualbox-nixops-images/virtualbox-nixops-${name}.vmdk.xz";
-                  inherit sha256;
-                }} > $out
+                xz -d < ${pkgsNative.fetchurl (images."${version}" or images.latest)} > $out
               '';
           in if config.nixpkgs.system == "x86_64-linux" then
-            unpack "16.09.877.5b08a40" "c20ee9ff0f58b10cd2b1e52411a56a862c8eaecddbbddd337ae0cca888f6727f"
+            unpack nixosVersion
           else
             throw "Unsupported VirtualBox system type!"
         );

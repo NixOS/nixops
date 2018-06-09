@@ -79,6 +79,12 @@ class LibvirtdState(MachineState):
                 self.log("Warning: %s" % e)
         return self._dom
 
+    def get_console_output(self):
+        # TODO update with self.uri when https://github.com/NixOS/nixops/pull/824 gets merged
+        import sys
+        return self._logged_exec(["virsh", "-c", "qemu:///system", 'console', self.vm_id.decode()],
+                stdin=sys.stdin)
+
     def get_ssh_private_key_file(self):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
 
@@ -117,6 +123,13 @@ class LibvirtdState(MachineState):
             (self.client_private_key, self.client_public_key) = nixops.util.create_key_pair()
 
         if self.vm_id is None:
+            # By using "define" we ensure that the domain is
+            # "persistent", as opposed to "transient" (i.e. removed on reboot).
+            self._dom = self.conn.defineXML(self.domain_xml)
+            if self._dom is None:
+                self.log('Failed to register domain XML with the hypervisor')
+                return False
+
             newEnv = copy.deepcopy(os.environ)
             newEnv["NIXOPS_LIBVIRTD_PUBKEY"] = self.client_public_key
             base_image = self._logged_exec(
@@ -137,9 +150,6 @@ class LibvirtdState(MachineState):
                                "", self.disk_path])
             os.chmod(self.disk_path, 0660)
             self.vm_id = self._vm_id()
-            # By using "define" we ensure that the domain is
-            # "persistent", as opposed to "transient" (i.e. removed on reboot).
-            self._dom = self.conn.defineXML(self.domain_xml)
 
         self.start()
         return True

@@ -399,7 +399,7 @@ class HetznerState(MachineState):
         cmd = "nixos-generate-config --no-filesystems --show-hardware-config"
         hardware = self.run_command(cmd, capture_stdout=True)
         self.hw_info = '\n'.join([line for line in hardware.splitlines()
-                                  if not line.rstrip().startswith('#')])
+                                  if not line.lstrip().startswith('#')])
         self.log_end("done.")
 
     def switch_to_configuration(self, method, sync, command=None):

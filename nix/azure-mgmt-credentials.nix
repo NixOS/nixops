@@ -22,33 +22,35 @@ with lib;
     '';
   };
 
-  user = mkOption {
-    default = "";
-    example = "username@ACTIVE_DIRECTORY_TENANT.onmicrosoft.com";
+  identifierUri = mkOption {
+    default = "https://management.azure.com/";
+    example = "https://management.azure.com/";
     type = types.str;
     description = ''
-      The Azure User. If left empty, it defaults to the
-      contents of the environment variable <envar>AZURE_USER</envar>.
+      The URI that identifies the resource for which the token is valid.
+      If left empty, it defaults to the contents of the environment
+      variable <envar>AZURE_ACTIVE_DIR_APP_IDENTIFIER_URI</envar>.
     '';
   };
 
-  servicePrincipal = mkOption {
+  appId = mkOption {
     default = "";
     example = "aaaaaaaa-0000-aaaa-0000-aaaaaaaaaaaa";
     type = types.str;
     description = ''
-      The Azure Service Principal Id. If left empty, it defaults to the
-      contents of the environment variable <envar>AZURE_SERVICE_PRINCIPAL</envar>.
+      The ID of registrated application in Azure Active Directory.
+      If left empty, it defaults to the contents of the environment
+      variable <envar>AZURE_ACTIVE_DIR_APP_ID</envar>.
     '';
   };
 
-  password = mkOption {
+  appKey = mkOption {
     default = "";
-    example = "password";
     type = types.str;
     description = ''
-      The Azure Password. If left empty, it defaults to the
-      contents of the environment variable <envar>AZURE_PASSWORD</envar>.
+      The secret value of registrated application in Azure Active Directory.
+      If left empty, it defaults to the contents of the environment
+      variable <envar>AZURE_ACTIVE_DIR_APP_KEY</envar>.
     '';
   };
 

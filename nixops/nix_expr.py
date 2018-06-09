@@ -156,7 +156,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
             ("\t", "\\t"),
         ])
 
-        inline_variant = RawValue('"{0}"'.format(encoded))
+        inline_variant = RawValue(u'"{0}"'.format(encoded))
 
         if for_attribute:
             return inline_variant.value

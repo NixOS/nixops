@@ -115,7 +115,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
                     zone_id = hs.zone_id
 
                 # We have a zoneId, look up the zoneName
-                hosted_zone = client.get_hosted_zone(Id = zone_id)
+                hosted_zone = self.route53_retry(lambda: client.get_hosted_zone(Id = zone_id))
                 zone_name = hosted_zone["HostedZone"]["Name"][:-1]
         else:
             if defn.zone_id is not None:

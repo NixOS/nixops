@@ -6,6 +6,80 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.6"><title>Release 1.6 (Mar 28, 2018)</title>
+
+<itemizedlist>
+
+  <listitem><para>General</para>
+
+    <itemizedlist>
+      <listitem><para>JSON output option for <code>show-option</code> command.</para></listitem>
+      <listitem><para>Added experimental <code>--show-plan</code> to <code>deploy</code> command. Only works for VPC resources currently.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: libvirtd</para>
+    <itemizedlist>
+      <listitem><para>Added support for custom kernel/initrd/cmdline, for easier kernel testing/developing.</para></listitem>
+      <listitem><para>Fail early when defining domain.</para></listitem>
+      <listitem><para>Support NixOS 18.03</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: AWS/EC2</para>
+
+    <itemizedlist>
+      <listitem><para>Allow changing security groups for instances that were deployed with a default VPC (no explicit subnetId/vpc)</para></listitem>
+      <listitem><para>Make sure EC2 keypair not destroyed when it is in use, instead produce error.</para></listitem>
+      <listitem><para>Support for separate Route53 resources.</para></listitem>
+      <listitem><para>Support CloudWatch metrics and alarms.</para></listitem>
+      <listitem><para>Support updating IAM instance profile of an existing instance.</para></listitem>
+      <listitem><para>Support VPC resources.</para></listitem>
+      <listitem><para>RDS: allow multiple security groups.</para></listitem>
+      <listitem><para>Allow S3 buckets to be configured as websites.</para></listitem>
+      <listitem><para>Fix issue where S3 bucket policy was only set on initial deploy.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Datadog</para>
+    <itemizedlist>
+      <listitem><para>Support sending start/finish of deploy and destroy events.</para></listitem>
+      <listitem><para>Support setting downtime during deployment.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Azure</para>
+    <itemizedlist>
+      <listitem><para>Fix Azure access instructions.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Backend: Google Compute</para>
+
+    <itemizedlist>
+      <listitem><para>Add support for labelling GCE instances</para></listitem>
+      <listitem><para>Minor fixes to make GCE backend more consistent with backends such as EC2.</para></listitem>
+      <listitem><para>Fix attaching existing volumes to instances.</para></listitem>
+      <listitem><para>Implemented <code>show-physical --backup</code> for GCE, similar to EC2.</para></listitem>
+      <listitem><para>Prevent google-instance-setup service from replacing the host key deployed by NixOps.</para></listitem>
+      <listitem><para>Allow instances to be created inside VPC subnets.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+</itemizedlist>
+
+<para>
+    This release has contributions from Adam Scott, Amine Chikhaoui, Anthony Cowley, Brian Olsen,
+    Daniel Kuehn, David McFarland, Domen Kožar, Eelco Dolstra, Glenn Searby, Graham Christensen,
+    Masato Yonekawa, Maarten Hoogendoorn, Matthieu Coudron, Maximilian Bosch, Michael Bishop,
+    Niklas Hambüchen, Oussama Elkaceh, Pierre-Étienne Meunier, Peter Jones, Rob Vermaas,
+    Samuel Leathers, Shea Levy, Tomasz Czyż, Vaibhav Sagar.
+</para>
+
+</section>
+
+
+
 <section xml:id="ssec-relnotes-1.5.2"><title>Release 1.5.2 (Oct 29, 2017)</title>
 
 <itemizedlist>

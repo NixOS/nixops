@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import time
+
 from nixops import known_hosts
 from nixops.util import attr_property, create_key_pair, generate_random_string
 from nixops.nix_expr import Function, RawValue, Call
@@ -52,6 +54,8 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
         self.ipAddress = self.get_option_value(x, 'ipAddress', 'resource', optional = True)
         self.copy_option(x, 'network', 'resource', optional = True)
         self.copy_option(x, 'subnet', str, optional = True)
+        self.labels = { k.get("name"): k.find("string").get("value")
+                        for k in x.findall("attr[@name='labels']/attrs/attr") }
 
         def opt_disk_name(dname):
             return ("{0}-{1}".format(self.machine_name, dname) if dname is not None else None)
@@ -113,6 +117,7 @@ class GCEState(MachineState, ResourceState):
 
     tags = attr_property("gce.tags", None, 'json')
     metadata = attr_property("gce.metadata", {}, 'json')
+    labels = attr_property("gce.labels", {}, 'json')
     email = attr_property("gce.serviceAccountEmail", 'default')
     scopes = attr_property("gce.serviceAccountScopes", [], 'json')
     automatic_restart = attr_property("gce.scheduling.automaticRestart", None, bool)
@@ -200,7 +205,7 @@ class GCEState(MachineState, ResourceState):
             self.update_block_device_mapping(k, v)
 
     defn_properties = ['tags', 'region', 'instance_type',
-                       'email', 'scopes', 'subnet',
+                       'email', 'scopes', 'subnet', 'preemptible',
                        'metadata', 'ipAddress', 'network']
 
     def is_deployed(self):
@@ -466,11 +471,33 @@ class GCEState(MachineState, ResourceState):
             self.email = defn.email
             self.scopes = defn.scopes
 
+        # Apply labels to node and disks just created
+        if self.labels != defn.labels:
+            self.log('updating node labels')
+            node = self.node()
+            labels_request = "/zones/%s/instances/%s" % (node.extra['zone'].name, node.name)
+            response = self.connect().connection.request(labels_request, method='GET').object
+            body = { 'labels': defn.labels, 'labelFingerprint': response['labelFingerprint']}
+            request = '/zones/%s/instances/%s/setLabels' % (node.extra['zone'].name, node.name)
+            self.connect().connection.async_request(request, method='POST', data=body)
+            self.labels = defn.labels
+            self.log('updating disks labels')
+            for k, v in self.block_device_mapping.items():
+                disk_name = v['disk_name']
+                if not (('disk' in disk_name or 'part' in disk_name)
+                        and (disk_name.startswith(node.name))): continue
+                disk_labels_request = "/zones/%s/disks/%s" % (node.extra['zone'].name, disk_name)
+                response = self.connect().connection.request(disk_labels_request, method='GET').object
+                body = { 'labels': defn.labels, 'labelFingerprint': response['labelFingerprint']}
+                request = '/zones/%s/disks/%s/setLabels' % (node.extra['zone'].name, disk_name)
+                self.connect().connection.async_request(request, method='POST', data=body)
+
         # Attach missing volumes
         for k, v in self.block_device_mapping.items():
             defn_v = defn.block_device_mapping.get(k, None)
             if v.get('needsAttach', False) and defn_v:
-                disk_name = v['disk_name'] or v['disk']
+                disk_name = v['disk_name']
+                disk_volume = v['disk_name'] if v['disk'] is None else v['disk']
                 disk_region = v.get('region', None)
                 v['readOnly'] = defn_v['readOnly']
                 v['bootDisk'] = defn_v['bootDisk']
@@ -478,7 +505,7 @@ class GCEState(MachineState, ResourceState):
                 v['passphrase'] = defn_v['passphrase']
                 self.log("attaching GCE disk '{0}'...".format(disk_name))
                 if not v.get('bootDisk', False):
-                    self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_name, disk_region),
+                    self.connect().attach_volume(self.node(), self.connect().ex_get_volume(disk_volume, disk_region),
                                    device = disk_name,
                                    ex_mode = ('READ_ONLY' if v['readOnly'] else 'READ_WRITE'))
                 del v['needsAttach']
@@ -617,6 +644,10 @@ class GCEState(MachineState, ResourceState):
     def destroy(self, wipe=False):
         if wipe:
             self.depl.logger.warn("wipe is not supported")
+
+        if not self.project:
+            return True
+
         try:
             node = self.node()
             question = "are you sure you want to destroy {0}?"
@@ -634,7 +665,7 @@ class GCEState(MachineState, ResourceState):
         # Destroy volumes created for this instance.
         for k, v in self.block_device_mapping.items():
             if v.get('deleteOnTermination', False):
-                self._delete_volume(v['disk_name'], v['region'])
+                self._delete_volume(v['disk_name'], v['region'], True)
             self.update_block_device_mapping(k, None)
 
         return True
@@ -751,9 +782,35 @@ class GCEState(MachineState, ResourceState):
                                     .format(volume.name, self.machine_name)
                 })
 
+            # Apply labels to snapshot just created
+            self.wait_for_snapshot_initiated(snapshot_name)
+
+            if defn.labels:
+                self.log("updating labels of snapshot '{0}'".format(snapshot_name))
+                self.connect().connection.request(
+                    '/global/snapshots/%s/setLabels' %(snapshot_name),
+                    method = 'POST', data = {
+                        'labels': defn.labels,
+                        'labelFingerprint':
+                            self.connect().connection.request("/global/snapshots/{0}".format(snapshot_name), method='GET').object['labelFingerprint']
+                })
+
             backup[k] = snapshot_name
             _backups[backup_id] = backup
             self.backups = _backups
+
+    def wait_for_snapshot_initiated(self, snapshot_name):
+        while True:
+            try:
+                snapshot = self.connect().ex_get_snapshot(snapshot_name)
+                if snapshot.status in "READY" "CREATING" "UPLOADING":
+                    self.log_end(" done")
+                    break
+                else:
+                    raise Exception("snapshot '{0}' is in an unexpected state {1}".format(snapshot_name, snapshot.status))
+            except libcloud.common.google.ResourceNotFoundError:
+                self.log_continue(".")
+                time.sleep(1)
 
     def restore(self, defn, backup_id, devices=[]):
         self.log("restoring {0} to backup '{1}'".format(self.full_name, backup_id))
@@ -841,13 +898,14 @@ class GCEState(MachineState, ResourceState):
                 RawValue("<nixpkgs/nixos/modules/virtualisation/google-compute-config.nix>")
             ],
             ('deployment', 'gce', 'blockDeviceMapping'): block_device_mapping,
+            ('environment', 'etc', 'default/instance_configs.cfg', 'text'): '[InstanceSetup]\nset_host_keys = false',
         }
 
     def get_physical_backup_spec(self, backupid):
           val = {}
           if backupid in self.backups:
               for dev, snap in self.backups[backupid].items():
-                  val[dev] = { 'disk': Call(RawValue("pkgs.lib.mkOverride 10"), snap)}
+                  val[dev] = { 'snapshot': Call(RawValue("pkgs.lib.mkOverride 10"), snap)}
               val = { ('deployment', 'gce', 'blockDeviceMapping'): val }
           else:
               val = RawValue("{{}} /* No backup found for id '{0}' */".format(backupid))

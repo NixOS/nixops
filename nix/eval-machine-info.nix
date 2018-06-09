@@ -102,6 +102,7 @@ rec {
   resources.elasticFileSystemMountTargets = evalResources ./elastic-file-system-mount-target.nix (zipAttrs resourcesByType.elasticFileSystemMountTargets or []);
   resources.cloudwatchLogGroups = evalResources ./cloudwatch-log-group.nix (zipAttrs resourcesByType.cloudwatchLogGroups or []);
   resources.cloudwatchLogStreams = evalResources ./cloudwatch-log-stream.nix (zipAttrs resourcesByType.cloudwatchLogStreams or []);
+  resources.cloudwatchMetricAlarms = evalResources ./cloudwatch-metric-alarm.nix (zipAttrs resourcesByType.cloudwatchMetricAlarms or []);
   resources.route53HostedZones = evalResources ./route53-hosted-zone.nix (zipAttrs resourcesByType.route53HostedZones or []);
   resources.route53HealthChecks = evalResources ./route53-health-check.nix (zipAttrs resourcesByType.route53HealthChecks or []);
   resources.vpc = evalResources ./vpc.nix (zipAttrs resourcesByType.vpc or []);
@@ -196,7 +197,7 @@ rec {
   azure_default_group = flip mapAttrs' azure_deployments (name: depl:
     let azure = (scrubOptionValue depl).config.deployment.azure; in (
       nameValuePair ("def-group") [ {
-        inherit (azure) subscriptionId authority user servicePrincipal password location;
+        inherit (azure) subscriptionId authority location identifierUri appId appKey;
       }]
     )
   );
@@ -207,7 +208,7 @@ rec {
   azure_default_networks = mapAttrs' (name: depl:
     let azure = (scrubOptionValue depl).config.deployment.azure; in (
       nameValuePair ("dn-${normalize_location azure.location}") [({ resources, ...}: {
-        inherit (azure) subscriptionId authority user servicePrincipal password location;
+        inherit (azure) subscriptionId authority location identifierUri appId appKey;
         resourceGroup = resources.azureResourceGroups.def-group;
         addressSpace = [ "10.1.0.0/16" ];
       })]
@@ -217,7 +218,7 @@ rec {
   azure_default_storages = mapAttrs' (name: depl:
     let azure = (scrubOptionValue depl).config.deployment.azure; in (
       nameValuePair ("def-storage-${normalize_location azure.location}") [({ resources, ...}: {
-        inherit (azure) subscriptionId authority user servicePrincipal password location;
+        inherit (azure) subscriptionId authority location identifireUri appId appKey;
         resourceGroup = resources.azureResourceGroups.def-group;
         name = "${builtins.substring 0 12 (builtins.replaceStrings ["-"] [""] uuid)}${normalize_location azure.location}";
       })]
@@ -302,7 +303,7 @@ rec {
     machines =
       flip mapAttrs nodes (n: v': let v = scrubOptionValue v'; in
         { inherit (v.config.deployment) targetEnv targetPort targetHost encryptedLinksTo storeKeysOnMachine alwaysActivate owners keys hasFastConnection;
-          nixosRelease = v.config.system.nixosRelease or (removeSuffix v.config.system.nixosVersionSuffix v.config.system.nixosVersion);
+          nixosRelease = v.config.system.nixos.release or v.config.system.nixosRelease or (removeSuffix v.config.system.nixosVersionSuffix v.config.system.nixosVersion);
           azure = optionalAttrs (v.config.deployment.targetEnv == "azure")  v.config.deployment.azure;
           ec2 = optionalAttrs (v.config.deployment.targetEnv == "ec2") v.config.deployment.ec2;
           digitalOcean = optionalAttrs (v.config.deployment.targetEnv == "digitalOcean") v.config.deployment.digitalOcean;
