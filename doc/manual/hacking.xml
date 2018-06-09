@@ -83,7 +83,7 @@ $ nix-build release.nix -A tests.none_backend
 Logging
 
 <screen>
-# this will not work, because <literal>sys.stdout</literal> is substituted with log file
+# this will not work, because sys.stdout is substituted with log file
 print 'asdf' 
 
 # this will work
