@@ -19,9 +19,7 @@ from tests.functional.shared.using_state_file import using_state_file
     ],
 ))
 def test_ec2_backups_simple(state_extension, nix_expressions):
-    with using_state_file(
-            unique_name='test_ec2_backups',
-            state_extension=state_extension) as state:
+    with using_state_file(state_extension) as state:
         deployment = create_deployment(state, nix_expressions)
         backup_and_restore_path(deployment)
 
@@ -37,9 +35,7 @@ def test_ec2_backups_simple(state_extension, nix_expressions):
     ],
 ))
 def test_ec2_backups_raid(state_extension, nix_expressions):
-    with using_state_file(
-            unique_name='test_ec2_backups',
-            state_extension=state_extension) as state:
+    with using_state_file(state_extension) as state:
         deployment = create_deployment(state, nix_expressions)
         backup_and_restore_path(deployment, '/data')
 

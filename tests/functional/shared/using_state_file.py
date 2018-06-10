@@ -10,8 +10,8 @@ import nixops.state
 from nixops.util import root_dir
 
 @contextmanager
-def using_state_file(unique_name, state_extension):
-    state_file_path_ = state_file_path(unique_name, state_extension)
+def using_state_file(state_extension):
+    state_file_path_ = state_file_path(state_extension)
 
     create_file_parent_dirs_if_not_exists(state_file_path_)
 
@@ -26,11 +26,9 @@ def using_state_file(unique_name, state_extension):
 def create_file_parent_dirs_if_not_exists(file_path):
     mkpath(os.path.dirname(file_path))
 
-def state_file_path(unique_name, state_extension):
-    unique_name_ = unique_name + '_' + state_extension
-
-    return '{}/tests/state_files/{}/test.{}'.format(
-        root_dir, unique_name_, state_extension
+def state_file_path(state_extension):
+    return '{}/tests/state_files/test.{}'.format(
+        root_dir, state_extension
     )
 
 

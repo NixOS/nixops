@@ -38,8 +38,6 @@ from tests.functional.shared.using_state_file import using_state_file
 ))
 
 def test_deploys_nixos(state_extension, nix_expressions):
-    with using_state_file(
-            unique_name='test_deploys_nixos',
-            state_extension=state_extension) as state:
+    with using_state_file(state_extension) as state:
         deployment = create_deployment(state, nix_expressions)
         deployment_run_command(deployment, "test -f /etc/NIXOS")
