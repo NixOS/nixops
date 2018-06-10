@@ -1,30 +1,62 @@
-from os import path
 from nose import tools
-
-from tests.functional import single_machine_test
-
 from nixops.ssh_util import SSHCommandFailed
+from nixops.util import root_dir
+from itertools import product
+from parameterized import parameterized
 
-parent_dir = path.dirname(__file__)
+from tests.functional.shared.deployment_run_command import deployment_run_command
+from tests.functional.shared.create_deployment import create_deployment
+from tests.functional.shared.using_state_file import using_state_file
 
-has_hello_spec = '%s/single_machine_has_hello.nix' % (parent_dir)
+has_hello_spec = '{}/tests/functional/shared/nix_expressions/has_hello.nix'.format(root_dir)
+rollback_spec = '{}/tests/functional/shared/nix_expressions/rollback.nix'.format(root_dir)
 
-rollback_spec = '%s/single_machine_rollback.nix' % (parent_dir)
+@parameterized(product(
+    ['json', 'nixops'],
+    [
+        # vbox
+        [
+            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+            '{}/tests/functional/shared/nix_expressions/vbox_base.nix'.format(root_dir),
+        ],
+        # ec2
+        [
+            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+            '{}/tests/functional/shared/nix_expressions/ec2_base.nix'.format(root_dir),
+        ],
+        # gce
+        [
+            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+            '{}/tests/functional/shared/nix_expressions/gce_base.nix'.format(root_dir),
+        ],
+        # azure
+        [
+            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+            '{}/tests/functional/shared/nix_expressions/azure_base.nix'.format(root_dir),
+        ],
+        # libvirtd
+        [
+            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+            '{}/tests/functional/shared/nix_expressions/libvirtd_base.nix'.format(root_dir),
+        ]
+    ],
+))
+def test_rollback_rollsback(state_extension, nix_expressions):
+    with using_state_file(state_extension) as state:
+        deployment = create_deployment(state, nix_expressions)
 
-class TestRollbackRollsback(single_machine_test.SingleMachineTest):
-    _multiprocess_can_split_ = True
+        deployment.nix_exprs = deployment.nix_exprs + [ rollback_spec ]
+        deployment.deploy()
 
-    def setup(self):
-        super(TestRollbackRollsback,self).setup()
-        self.depl.nix_exprs = self.depl.nix_exprs + [ rollback_spec ]
-
-    def run_check(self):
-        self.depl.deploy()
         with tools.assert_raises(SSHCommandFailed):
-            self.check_command("hello")
-        self.depl.nix_exprs = self.depl.nix_exprs + [ has_hello_spec ]
-        self.depl.deploy()
-        self.check_command("hello")
-        self.depl.rollback(generation=1)
+            deployment_run_command(deployment, "hello")
+
+        deployment.nix_exprs = deployment.nix_exprs + [ has_hello_spec ]
+        deployment.deploy()
+
+        deployment_run_command(deployment, "hello")
+
+        deployment.rollback(generation=1)
+
         with tools.assert_raises(SSHCommandFailed):
-            self.check_command("hello")
+            deployment_run_command(deployment, "hello")

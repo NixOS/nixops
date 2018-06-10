@@ -1,24 +1,27 @@
-from os import path
+import time
 
-from nose import tools
+from itertools import product
+from parameterized import parameterized
 
-from tests.functional import generic_deployment_test
+from tests.functional.shared.deployment_run_command import deployment_run_command
+from tests.functional.shared.create_deployment import create_deployment
+from tests.functional.shared.using_state_file import using_state_file
 
 parent_dir = path.dirname(__file__)
 
-logical_spec = '%s/ec2-rds-dbinstance.nix' % (parent_dir)
-sg_spec = '%s/ec2-rds-dbinstance-with-sg.nix' % (parent_dir)
-
-class TestEc2RdsDbinstanceTest(generic_deployment_test.GenericDeploymentTest):
-    _multiprocess_can_split_ = True
-
-    def setup(self):
-        super(TestEc2RdsDbinstanceTest, self).setup()
-        self.depl.nix_exprs = [ logical_spec ]
-
-    def test_deploy(self):
-        self.depl.deploy()
-
-    def test_deploy_with_sg(self):
-        self.depl.nix_exprs = [ sg_spec ]
-        self.depl.deploy()
+@parameterized(product(
+    ['json', 'nixops'],
+    [
+        [
+            '{}/ec2-rds-dbinstance.nix'.format(parent_dir),
+        ],
+        [
+            '{}/ec2-rds-dbinstance.nix'.format(parent_dir),
+            '{}/ec2-rds-dbinstance-with-sg.nix'.format(parent_dir),
+        ]
+    ],
+))
+def test_ec2_rds_dbinstance(state_extension, nix_expressions):
+    with using_state_file(state_extension) as state:
+        deployment = create_deployment(state, nix_expressions)
+        deployment.deploy()

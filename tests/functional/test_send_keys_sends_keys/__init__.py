@@ -1,26 +1,57 @@
-from os import path
 from nose import tools
+from nixops.ssh_util import SSHCommandFailed
+from nixops.util import root_dir
+from itertools import product
+from parameterized import parameterized
 
-from tests.functional import single_machine_test
+from tests.functional.shared.deployment_run_command import deployment_run_command
+from tests.functional.shared.create_deployment import create_deployment
+from tests.functional.shared.using_state_file import using_state_file
 
-parent_dir = path.dirname(__file__)
+secret_key_spec    = '{}/tests/functional/shared/nix_expressions/single_machine_secret_key.nix'.format(root_dir)
+elsewhere_key_spec = '{}/tests/functional/shared/nix_expressions/single_machine_elsewhere_key.nix'.format(root_dir)
 
-secret_key_spec    = '%s/single_machine_secret_key.nix'    % (parent_dir)
-elsewhere_key_spec = '%s/single_machine_elsewhere_key.nix' % (parent_dir)
+@parameterized(product(
+    ['json', 'nixops'],
+    [
+        # vbox
+        [
+            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+            '{}/tests/functional/shared/nix_expressions/vbox_base.nix'.format(root_dir),
+        ],
+        # ec2
+        [
+            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+            '{}/tests/functional/shared/nix_expressions/ec2_base.nix'.format(root_dir),
+        ],
+        # gce
+        [
+            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+            '{}/tests/functional/shared/nix_expressions/gce_base.nix'.format(root_dir),
+        ],
+        # azure
+        [
+            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+            '{}/tests/functional/shared/nix_expressions/azure_base.nix'.format(root_dir),
+        ],
+        # libvirtd
+        [
+            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+            '{}/tests/functional/shared/nix_expressions/libvirtd_base.nix'.format(root_dir),
+        ]
+    ],
+))
+def test_send_keys_sends_keys(state_extension, nix_expressions):
+    with using_state_file(state_extension) as state:
+        deployment = create_deployment(state, nix_expressions)
 
-class TestSendKeysSendsKeys(single_machine_test.SingleMachineTest):
-    _multiprocess_can_split_ = True
+        deployment.nix_exprs = deployment.nix_exprs + [ secret_key_spec, elsewhere_key_spec ]
+        deployment.deploy()
 
-    def setup(self):
-        super(TestSendKeysSendsKeys,self).setup()
-        self.depl.nix_exprs = self.depl.nix_exprs + [ secret_key_spec, elsewhere_key_spec ]
-
-    def run_check(self):
-        self.depl.deploy()
-        self.check_command("test -f /run/keys/secret.key")
-        self.check_command("rm -f /run/keys/secret.key")
-        self.check_command("test -f /new/directory/elsewhere.key")
-        self.check_command("rm -f /new/directory/elsewhere.key")
-        self.depl.send_keys()
-        self.check_command("test -f /run/keys/secret.key")
-        self.check_command("test -f /new/directory/elsewhere.key")
+        deployment_run_command(deployment, "test -f /run/keys/secret.key")
+        deployment_run_command(deployment, "rm -f /run/keys/secret.key")
+        deployment_run_command(deployment, "test -f /new/directory/elsewhere.key")
+        deployment_run_command(deployment, "rm -f /new/directory/elsewhere.key")
+        deployment.send_keys()
+        deployment_run_command(deployment, "test -f /run/keys/secret.key")
+        deployment_run_command(deployment, "test -f /new/directory/elsewhere.key")

@@ -14,10 +14,11 @@ from tests.functional.shared.using_state_file import using_state_file
             '{}/tests/functional/shared/nix_expressions/ec2_base.nix'.format(root_dir),
             '{}/tests/functional/shared/nix_expressions/ec2_spot_instance.nix'.format(root_dir)
         ]
-    ],
+    ]
 ))
 
 def test_ec2_spot_instance(state_extension, nix_expressions):
     with using_state_file(state_extension) as state:
         deployment = create_deployment(state, nix_expressions)
+        deployment.deploy()
         deployment_run_command(deployment, "test -f /etc/NIXOS")

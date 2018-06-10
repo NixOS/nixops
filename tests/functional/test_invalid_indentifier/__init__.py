@@ -1,20 +1,23 @@
-from os import path
-
 from nose import tools
-from nose.tools import raises
-from tests.functional import generic_deployment_test
+from itertools import product
+from parameterized import parameterized
+
+from tests.functional.shared.deployment_run_command import deployment_run_command
+from tests.functional.shared.create_deployment import create_deployment
+from tests.functional.shared.using_state_file import using_state_file
 
 parent_dir = path.dirname(__file__)
 
-logical_spec = '%s/invalid-identifier.nix' % (parent_dir)
-
-class TestInvalidIdentifier(generic_deployment_test.GenericDeploymentTest):
-
-    def setup(self):
-        super(TestInvalidIdentifier,self).setup()
-        self.depl.nix_exprs = [ logical_spec ]
-
-    @raises(Exception)
-    def test_invalid_identifier_fails_evaluation(self):
-        self.depl.evaluate()
-
+@parameterized(product(
+    ['json', 'nixops'],
+    [
+        [
+            '{}/invalid-identifier.nix'.format(parent_dir),
+        ]
+    ]
+))
+def test_invalid_indentifier(state_extension, nix_expressions):
+    with using_state_file(state_extension) as state:
+        deployment = create_deployment(state, nix_expressions)
+        with tools.assert_raises(Exception):
+            deployment.evaluate()
