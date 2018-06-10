@@ -2,7 +2,6 @@ import time
 
 from nixops.util import root_dir
 from itertools import product
-from nose.tools import with_setup
 from parameterized import parameterized
 
 from tests.functional.shared.deployment_run_command import deployment_run_command
