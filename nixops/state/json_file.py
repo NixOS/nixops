@@ -35,7 +35,7 @@ class TransactionalJsonFile:
         self._lock_file = open(lock_file_path, "w")
         fcntl.fcntl(self._lock_file, fcntl.F_SETFD, fcntl.FD_CLOEXEC) # to not keep the lock in child processes
 
-        self._db_file = db_file
+        self.db_file = db_file
         self.nesting = 0
         self.lock = threading.RLock()
 
@@ -45,7 +45,7 @@ class TransactionalJsonFile:
 
     def read(self):
         if self.nesting == 0:
-            with open(self._db_file,"r") as f:
+            with open(self.db_file,"r") as f:
                 return json.load(f)
         else:
             assert self.nesting > 0
@@ -88,21 +88,21 @@ class TransactionalJsonFile:
         assert self.nesting == 0
 
         # TODO: write to temp file, then mv
-        with open(self._db_file, "w") as f:
+        with open(self.db_file, "w") as f:
           json.dump(self._current_state, f,indent=2)
 
         self._backup_state  = None
         self._current_state = None
 
     def _ensure_db_exists(self):
-        db_exists = os.path.exists(self._db_file)
+        db_exists = os.path.exists(self.db_file)
         if not db_exists:
             initial_db = {
               "schemaVersion": 0,
               "deployments": {}
             }
 
-            with open(self._db_file, "w", 0o600) as f:
+            with open(self.db_file, "w", 0o600) as f:
                 json.dump(initial_db, f)
                 f.close()
 
