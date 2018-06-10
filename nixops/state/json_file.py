@@ -109,7 +109,7 @@ class TransactionalJsonFile:
     def schema_version(self):
         version = self.read()["schemaVersion"]
         if version is None:
-            raise "illegal datafile" #TODO: proper exception
+            raise "illegal datafile" # TODO: proper exception
         else:
             return version
 
@@ -124,11 +124,14 @@ class JsonFile(object):
 
         self.db = TransactionalJsonFile(json_file)
 
-        # Check that we're not using a to new DB schema version.
+        # Check that we're not using a new DB schema version.
         with self.db:
             version = self.db.schema_version()
-            if version  > 0:
+            if version > 0:
                raise Exception("this NixOps version is too old to deal with JSON schema version {0}".format(version))
+
+    def close(self):
+        pass
 
     ###############################################################################################
     ## Deployment
@@ -195,7 +198,6 @@ class JsonFile(object):
 
     def _delete_deployment(self, deployment_uuid):
         """NOTE: This is UNSAFE, it's guarded in nixops/deployment.py. Do not call this function except from there!"""
-        self.__db.execute("delete from Deployments where uuid = ?", (deployment_uuid,))
         with self.db:
             state = self.db.read()
             state["deployments"].pop(deployment_uuid, None)

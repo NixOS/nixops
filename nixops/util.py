@@ -384,3 +384,5 @@ def xml_expr_to_python(node):
 def parse_nixos_version(s):
     """Split a NixOS version string into a list of components."""
     return s.split(".")
+
+root_dir = os.path.dirname(os.path.dirname(__file__))

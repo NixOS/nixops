@@ -8,4 +8,4 @@ html/
 result
 *.sw[a-z]
 tags
-tests/test.nixops*
+tests/state_files

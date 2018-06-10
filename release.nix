@@ -76,7 +76,7 @@ rec {
 
       src = "${tarball}/tarballs/*.tar.bz2";
 
-      buildInputs = [ python2Packages.nose python2Packages.coverage ];
+      buildInputs = with python2Packages; [ nose coverage parameterized ];
 
       propagatedBuildInputs = with python2Packages;
         [ prettytable
