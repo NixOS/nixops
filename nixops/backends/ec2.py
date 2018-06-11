@@ -15,7 +15,7 @@ from nixops.nix_expr import Function, Call, RawValue
 from nixops.resources.ebs_volume import EBSVolumeState
 from nixops.resources.elastic_ip import ElasticIPState
 import nixops.resources.ec2_common
-import nixops.util
+from nixops.util import device_name_to_sd
 import nixops.ec2_utils
 import nixops.known_hosts
 from xml import etree
@@ -57,7 +57,7 @@ class EC2Definition(MachineDefinition):
         self.associate_public_ip_address = config["ec2"]["associatePublicIpAddress"]
         self.use_private_ip_address = config["ec2"]["usePrivateIpAddress"]
         self.security_group_ids = config["ec2"]["securityGroupIds"]
-        self.block_device_mapping = {_xvd_to_sd(k): v for k, v in config["ec2"]["blockDeviceMapping"].iteritems()}
+        self.block_device_mapping = config["ec2"]["blockDeviceMapping"]
         self.elastic_ipv4 = config["ec2"]["elasticIPv4"]
 
         self.dns_hostname = config["route53"]["hostName"].lower()
@@ -194,7 +194,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 and v.get('encryptionType', "luks") == "luks"
                 and v.get('passphrase', "") == ""
                 and v.get('generatedKey', "") != ""):
-                block_device_mapping[_sd_to_xvd(k)] = {
+                block_device_mapping[k] = {
                     'passphrase': Call(RawValue("pkgs.lib.mkOverride 10"),
                                            v['generatedKey']),
                 }
@@ -211,9 +211,12 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     def get_physical_backup_spec(self, backupid):
         val = {}
         if backupid in self.backups:
+
             for dev, snap in self.backups[backupid].items():
-                if not dev.startswith("/dev/sda"):
-                    val[_sd_to_xvd(dev)] = { 'disk': Call(RawValue("pkgs.lib.mkOverride 10"), snap)}
+                is_root_device = dev.startswith("/dev/sda") or dev.startswith("/dev/xvda") or dev.startswith("/dev/nvme0")
+
+                if not is_root_device:
+                    val[dev] = { 'disk': Call(RawValue("pkgs.lib.mkOverride 10"), snap)}
             val = { ('deployment', 'ec2', 'blockDeviceMapping'): val }
         else:
             val = RawValue("{{}} /* No backup found for id '{0}' */".format(backupid))
@@ -228,7 +231,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # make the old way of defining keys work.
         for k, v in self.block_device_mapping.items():
             if v.get('encrypt', False) and v.get('passphrase', "") == "" and v.get('generatedKey', "") != "" and v.get('encryptionType', "luks") == "luks":
-                key_name = "luks-" + _sd_to_xvd(k).replace('/dev/', '')
+                key_name = "luks-" + k.replace('/dev/', '')
                 keys[key_name] = { 'text': v['generatedKey'], 'keyFile': '/run/keys/' + key_name, 'destDir': '/run/keys', 'group': 'root', 'permissions': '0600', 'user': 'root'}
         return keys
 
@@ -390,18 +393,18 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             for k, v in self.block_device_mapping.items():
                 if not k in b.keys():
                     backup_status = "incomplete"
-                    info.append("{0} - {1} - Not available in backup".format(self.name, _sd_to_xvd(k)))
+                    info.append("{0} - {1} - Not available in backup".format(self.name, k))
                 else:
                     snapshot_id = b[k]
                     try:
                         snapshot = self._get_snapshot_by_id(snapshot_id)
                         snapshot_status = snapshot.update()
-                        info.append("progress[{0},{1},{2}] = {3}".format(self.name, _sd_to_xvd(k), snapshot_id, snapshot_status))
+                        info.append("progress[{0},{1},{2}] = {3}".format(self.name, k, snapshot_id, snapshot_status))
                         if snapshot_status != '100%':
                             backup_status = "running"
                     except boto.exception.EC2ResponseError as e:
                         if e.error_code != "InvalidSnapshot.NotFound": raise
-                        info.append("{0} - {1} - {2} - Snapshot has disappeared".format(self.name, _sd_to_xvd(k), snapshot_id))
+                        info.append("{0} - {1} - {2} - Snapshot has disappeared".format(self.name, k, snapshot_id))
                         backup_status = "unavailable"
             backups[b_id]['status'] = backup_status
             backups[b_id]['info'] = info
@@ -458,8 +461,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         for d in devices:
             self.log(" - {0}".format(d))
 
-        for k, v in self.block_device_mapping.items():
-            if devices == [] or _sd_to_xvd(k) in devices:
+        # because name of the nvme device depends on the order it attached to maching
+        sorted_block_device_mapping = sorted(self.block_device_mapping.items())
+
+        for k, v in sorted_block_device_mapping:
+            if devices == [] or k in devices:
                 # detach disks
                 volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'])
                 if volume and volume.update() == "in-use":
@@ -478,8 +484,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 # Check if new volume is available.
                 nixops.ec2_utils.wait_for_volume_available(self._conn, new_volume.id, self.logger)
 
-                self.log("attaching volume ‘{0}’ to ‘{1}’".format(new_volume.id, self.name))
-                new_volume.attach(self.vm_id, k)
+                self.log("attaching volume ‘{0}’ to ‘{1}’ as {2}".format(new_volume.id, self.name, k))
+                device_name_that_boto_expects = device_name_to_sd(k)
+                new_volume.attach(self.vm_id, device_name_that_boto_expects)
                 new_v = self.block_device_mapping[k]
                 if v.get('partOfImage', False) or v.get('charonDeleteOnTermination', False) or v.get('deleteOnTermination', False):
                     new_v['charonDeleteOnTermination'] = True
@@ -528,10 +535,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 volume.detach(True)
                 nixops.util.check_wait(check_available)
 
-        self.log_start("attaching volume ‘{0}’ as ‘{1}’... ".format(volume_id, _sd_to_xvd(device)))
+        self.log_start("attaching volume ‘{0}’ as ‘{1}’... ".format(volume_id, device))
         if self.vm_id != volume.attach_data.instance_id:
             # Attach it.
-            self._conn.attach_volume(volume_id, self.vm_id, device)
+            device_name_that_boto_expects = device_name_to_sd(device)
+            self._conn.attach_volume(volume_id, self.vm_id, device_name_that_boto_expects)
 
         def check_attached():
             volume.update()
@@ -544,13 +552,21 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             nixops.util.check_wait(check_attached)
 
         # Wait until the device is visible in the instance.
-        def check_dev():
-            res = self.run_command("test -e {0}".format(_sd_to_xvd(device)), check=False)
+        def check_device():
+            res = self.run_command("test -e {0}".format(device), check=False)
             return res == 0
-        nixops.util.check_wait(check_dev)
 
-        self.log_end('')
+        if not nixops.util.check_wait(check_device, initial=1, max_tries=10, exception=False):
+            # If stopping times out, then do an unclean shutdown.
+            self.log_end("(timed out)")
 
+            self.log("can't find device ‘{0}’...".format(device))
+            self.log('available devices:')
+            self.run_command("lsblk")
+
+            raise Exception("operation timed out")
+        else:
+            self.log_end('')
 
     def _assign_elastic_ip(self, elastic_ipv4, check):
         instance = self._get_instance()
@@ -748,17 +764,17 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             if k not in defn.block_device_mapping and not v.get('partOfImage', False):
                 if v.get('disk', '').startswith("ephemeral"):
                     raise Exception("cannot detach ephemeral device ‘{0}’ from EC2 instance ‘{1}’"
-                    .format(_sd_to_xvd(k), self.name))
+                    .format(k, self.name))
 
                 assert v.get('volumeId', None)
 
-                self.log("detaching device ‘{0}’...".format(_sd_to_xvd(k)))
+                self.log("detaching device ‘{0}’...".format(k))
                 volumes = self._conn.get_all_volumes([],
                     filters={'attachment.instance-id': self.vm_id, 'attachment.device': k, 'volume-id': v['volumeId']})
                 assert len(volumes) <= 1
 
                 if len(volumes) == 1:
-                    device = _sd_to_xvd(k)
+                    device = k
                     if v.get('encrypt', False) and v.get('encryptionType', "luks") == "luks":
                         dm = device.replace("/dev/", "/dev/mapper/")
                         self.run_command("umount -l {0}".format(dm), check=False)
@@ -871,10 +887,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             # devices defined in the spec.  These cannot be changed
             # later.
             devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
-            devs_mapped = {}
+
             for k, v in defn.block_device_mapping.iteritems():
-                if re.match("/dev/sd[a-e]", k) and not v['disk'].startswith("ephemeral"):
-                    raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(_sd_to_xvd(k)))
+                is_root_device = re.match("/dev/sd[a-e]", k) or re.match("/dev/xvd[a-e]", k) or re.match("/dev/nvme0n1", k)
+                if is_root_device and not v['disk'].startswith("ephemeral"):
+                    raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(k))
                 if v['disk'].startswith("ephemeral"):
                     devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v['disk'])
                     self.update_block_device_mapping(k, v)
@@ -1053,7 +1070,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # by the initrd.
         if resize_root and nixops.util.parse_nixos_version(defn.config["nixosRelease"]) < ["15", "09"]:
             self.log('resizing root disk...')
-            self.run_command("resize2fs {0}".format(_sd_to_xvd(root_device)))
+            self.run_command("resize2fs {0}".format(root_device))
 
         # Add disks that were in the original device mapping of image.
         if self.first_boot:
@@ -1067,7 +1084,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # them.
         for k, v in self.block_device_mapping.items():
             if k not in self._get_instance().block_device_mapping.keys() and not v.get('needsAttach', False) and v.get('volumeId', None):
-                self.warn("device ‘{0}’ was manually detached!".format(_sd_to_xvd(k)))
+                self.warn("device ‘{0}’ was manually detached!".format(k))
                 v['needsAttach'] = True
                 self.update_block_device_mapping(k, v)
 
@@ -1156,11 +1173,15 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             volume_tags = {}
             volume_tags.update(common_tags)
             volume_tags.update(defn.tags)
-            volume_tags['Name'] = "{0} [{1} - {2}]".format(self.depl.description, self.name, _sd_to_xvd(k))
+            volume_tags['Name'] = "{0} [{1} - {2}]".format(self.depl.description, self.name, k)
             self._retry(lambda: self._conn.create_tags([v['volumeId']], volume_tags))
 
         # Attach missing volumes.
-        for k, v in self.block_device_mapping.items():
+
+        # because name of the nvme device depends on the order it attached to maching
+        sorted_block_device_mapping = sorted(self.block_device_mapping.items())
+
+        for k, v in sorted_block_device_mapping:
             if v.get('needsAttach', False):
                 self.attach_volume(k, v['volumeId'])
                 del v['needsAttach']
@@ -1408,14 +1429,14 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             for k, v in self.block_device_mapping.items():
                 if k not in instance.block_device_mapping.keys() and v.get('volumeId', None):
                     res.disks_ok = False
-                    res.messages.append("volume ‘{0}’ not attached to ‘{1}’".format(v['volumeId'], _sd_to_xvd(k)))
+                    res.messages.append("volume ‘{0}’ not attached to ‘{1}’".format(v['volumeId'], k))
                     volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'], allow_missing=True)
                     if not volume:
                         res.messages.append("volume ‘{0}’ no longer exists".format(v['volumeId']))
 
                 if k in instance.block_device_mapping.keys() and instance.block_device_mapping[k].status != 'attached' :
                     res.disks_ok = False
-                    res.messages.append("volume ‘{0}’ on device ‘{1}’ has unexpected state: ‘{2}’".format(v['volumeId'], _sd_to_xvd(k), instance.block_device_mapping[k].status))
+                    res.messages.append("volume ‘{0}’ on device ‘{1}’ has unexpected state: ‘{2}’".format(v['volumeId'], k, instance.block_device_mapping[k].status))
 
 
             if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:
@@ -1463,11 +1484,3 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # EC2 instances are paid for by the hour.
         uptime = time.time() - self.start_time
         return self.start_time + int(math.ceil(uptime / 3600.0) * 3600.0)
-
-
-def _xvd_to_sd(dev):
-    return dev.replace("/dev/xvd", "/dev/sd")
-
-
-def _sd_to_xvd(dev):
-    return dev.replace("/dev/sd", "/dev/xvd")

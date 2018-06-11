@@ -15,6 +15,7 @@ import tempfile
 import subprocess
 import logging
 import atexit
+import re
 from StringIO import StringIO
 
 devnull = open(os.devnull, 'rw')
@@ -383,3 +384,17 @@ def xml_expr_to_python(node):
 def parse_nixos_version(s):
     """Split a NixOS version string into a list of components."""
     return s.split(".")
+
+def device_name_to_sd(string):
+    """Transfoms device name to name, that boto expects."""
+    m = re.search('(.*)\/nvme(\d+)n1p?(\d+)?', string)
+    if m != None:
+        device = m.group(2)
+        device_ = int(device) - 1
+        device_transformed = chr(ord('f') + device_)
+
+        partition = m.group(3) or ''
+
+        return "{0}/sd{1}{2}".format(m.group(1), device_transformed, partition)
+    else:
+        return string.replace("/dev/xvd", "/dev/sd")
