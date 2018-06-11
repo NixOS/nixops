@@ -26,11 +26,6 @@ logical_spec = '{}/encrypted-links.nix'.format(parent_dir)
     ['json', 'nixops']
 )
 def test_vbox_encrypted_links(state_extension):
-    if subprocess.call(["VBoxManage", "--version"],
-                       stdout=devnull,
-                       stderr=devnull) != 0:
-        raise SkipTest("VirtualBox is not available")
-
     with using_state_file(state_extension) as state:
         deployment = create_deployment(state, [logical_spec])
 
