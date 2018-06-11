@@ -461,10 +461,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         for d in devices:
             self.log(" - {0}".format(d))
 
-        # because name of the nvme device depends on the order it attached to maching
-        sorted_block_device_mapping = sorted(self.block_device_mapping.items())
-
-        for k, v in sorted_block_device_mapping:
+        for k, v in self.sorted_block_device_mapping():
             if devices == [] or k in devices:
                 # detach disks
                 volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'])
@@ -889,8 +886,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
 
             for k, v in defn.block_device_mapping.iteritems():
-                is_root_device = re.match("/dev/sd[a-e]", k) or re.match("/dev/xvd[a-e]", k) or re.match("/dev/nvme0n1", k)
-                if is_root_device and not v['disk'].startswith("ephemeral"):
+                # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
+                device_name_recommended_for_ebs_volumes = re.match("/dev/sd[a-e]", k) or re.match("/dev/xvd[a-e]", k) or re.match("/dev/nvme0n1", k)
+
+                if device_name_recommended_for_ebs_volumes and not v['disk'].startswith("ephemeral"):
                     raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(k))
                 if v['disk'].startswith("ephemeral"):
                     devmap[k] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v['disk'])
@@ -1178,10 +1177,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         # Attach missing volumes.
 
-        # because name of the nvme device depends on the order it attached to maching
-        sorted_block_device_mapping = sorted(self.block_device_mapping.items())
-
-        for k, v in sorted_block_device_mapping:
+        for k, v in self.sorted_block_device_mapping():
             if v.get('needsAttach', False):
                 self.attach_volume(k, v['volumeId'])
                 del v['needsAttach']
@@ -1484,3 +1480,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # EC2 instances are paid for by the hour.
         uptime = time.time() - self.start_time
         return self.start_time + int(math.ceil(uptime / 3600.0) * 3600.0)
+
+    def sorted_block_device_mapping(self):
+        """In order to preserve nvme devices names volumes should be attached in lexicographic order (ordered by device name)."""
+        return sorted(self.block_device_mapping.items())
