@@ -888,7 +888,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             for k, v in defn.block_device_mapping.iteritems():
                 # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
                 ebs_disk = not v['disk'].startswith("ephemeral")
-                device_name_not_recommended_for_ebs_disks = re.match("/dev/sd[a-e]", k) or re.match("/dev/xvd[a-e]", k) or re.match("/dev/nvme0n1", k)
+                device_name_not_recommended_for_ebs_disks = re.match("/dev/sd[a-e]", k) or re.match("/dev/xvd[a-e]", k)
 
                 if ebs_disk and device_name_not_recommended_for_ebs_disks:
                     raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(k))
