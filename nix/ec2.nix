@@ -358,7 +358,21 @@ in
       example = { "/dev/xvdb".disk = "ephemeral0"; "/dev/xvdg".disk = "vol-00000000"; };
       type = with types; attrsOf (submodule ec2DiskOptions);
       description = ''
-        Block device mapping.  <filename>/dev/xvd[a-e]</filename> must be ephemeral devices.
+        Block device mapping.
+
+        <filename>/dev/sd[a-e]</filename> or <filename>/dev/xvd[a-e]</filename> must be ephemeral devices.
+
+        nvme devices should have name like <filename>/dev/nvme[1-26]n1</filename>, the number in device name should not be skipped.
+        For example this will not work:
+
+        <example>
+        {
+          machine = {
+            deployment.ec2.blockDeviceMapping."/dev/nvme1n1".size = 1;
+            deployment.ec2.blockDeviceMapping."/dev/nvme3n1".size = 1; # this device will be attached as /dev/nvme2n1, you should use /dev/nvme2n1
+          };
+        }
+        </example>
       '';
     };
 
