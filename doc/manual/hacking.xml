@@ -84,11 +84,11 @@ Logging
 
 <screen>
 # this will not work, because sys.stdout is substituted with log file
-print 'asdf' 
+print('asdf')
 
 # this will work
-self.log('asdf') 
-import sys; print >> sys.__stdout__, 'asdf'
+self.log('asdf')
+from __future__ import print_function; import sys; print('asfd', file=sys.__stdout__)
 import sys; import pprint; pprint.pprint(some_structure, stream=sys.__stdout__)
 </screen>
 
