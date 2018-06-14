@@ -3,20 +3,15 @@ from nixops.ssh_util import SSHCommandFailed
 from nixops.util import root_dir
 from itertools import product
 from parameterized import parameterized
-
-from tests.functional.shared.deployment_run_command import deployment_run_command
-from tests.functional.shared.create_deployment import create_deployment
-from tests.functional.shared.using_state_file import using_state_file
-
 from os import path
-from nose import tools, SkipTest
-from tests.functional import generic_deployment_test
-from nixops.ssh_util import SSHCommandFailed
-from nixops.util import devnull
 import sys
 import time
 import signal
 import subprocess
+
+from tests.functional.shared.deployment_run_command import deployment_run_command
+from tests.functional.shared.create_deployment import create_deployment
+from tests.functional.shared.using_state_file import using_state_file
 
 parent_dir = path.dirname(__file__)
 
