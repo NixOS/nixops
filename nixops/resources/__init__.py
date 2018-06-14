@@ -36,7 +36,7 @@ class ResourceState(object):
 
     @classmethod
     def get_type(cls):
-        """A resource type identifier that must match the corresponding ResourceDefinition classs"""
+        """A resource type identifier that must match the corresponding ResourceDefinition class"""
         raise NotImplementedError("get_type")
 
     # Valid values for self.state.  Not all of these make sense for

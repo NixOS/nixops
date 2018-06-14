@@ -17,7 +17,6 @@ parent_dir = path.dirname(__file__)
             '{}/ec2-rds-dbinstance.nix'.format(parent_dir),
         ],
         [
-            '{}/ec2-rds-dbinstance.nix'.format(parent_dir),
             '{}/ec2-rds-dbinstance-with-sg.nix'.format(parent_dir),
         ]
     ],

@@ -82,7 +82,7 @@ with import ./lib.nix lib;
     };
 
     securityGroups = mkOption {
-      default = [ "default" ];
+      default = [ ];
       type = types.listOf (types.either types.str (resource "ec2-rds-security-group"));
       apply = map (x: if builtins.isString x then x else "res-" + x._name);
       description = ''

@@ -18,7 +18,7 @@ with import ./lib.nix lib;
       type = types.str;
       description = ''
         Description of the RDS DB security group.
-      ''; 
+      '';
     };
 
     region = mkOption {
