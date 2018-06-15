@@ -1192,7 +1192,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         self.connect_route53()
 
-        hosted_zone = ".".join(self.dns_hostname.split(".")[1:])
+        hosted_zone = self.dns_hostname
         zones = self._retry_route53(lambda: self._conn_route53.get_all_hosted_zones())
 
         def testzone(hosted_zone, zone):
