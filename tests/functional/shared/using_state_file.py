@@ -7,34 +7,25 @@ import threading
 from distutils.dir_util import mkpath
 
 import nixops.state
-from nixops.util import root_dir
 
 @contextmanager
-def using_state_file(state_extension):
-    state_file_path_ = state_file_path(state_extension)
+def using_state_file(state_file_path):
+    create_file_parent_dirs_if_not_exists(state_file_path)
 
-    create_file_parent_dirs_if_not_exists(state_file_path_)
+    if os.path.exists(state_file_path):
+        destroy_deployments_and_remove_state_file(state_file_path)
 
-    if os.path.exists(state_file_path_):
-        destroy_deployments_and_remove_state_file(state_file_path_)
-
-    state = nixops.state.open(state_file_path_)
+    state = nixops.state.open(state_file_path)
 
     try:
         yield state
     finally:
         state.close()
-        destroy_deployments_and_remove_state_file(state_file_path_)
+        destroy_deployments_and_remove_state_file(state_file_path)
 
 
 def create_file_parent_dirs_if_not_exists(file_path):
     mkpath(os.path.dirname(file_path))
-
-def state_file_path(state_extension):
-    return '{}/tests/state_files/test.{}'.format(
-        root_dir, state_extension
-    )
-
 
 def destroy_deployments(state, uuid):
     deployment = state.open_deployment(uuid)
