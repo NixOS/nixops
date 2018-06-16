@@ -47,4 +47,3 @@ def test_vbox_encrypted_links(state_extension):
 
         with tools.assert_raises(SSHCommandFailed):
             ping(deployment, "machine2", "machine1")
-
