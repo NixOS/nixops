@@ -25,12 +25,18 @@ class StateDict(collections.MutableMapping):
 
     def __getitem__(self, key):
         value = self._state.get_resource_attr(self.uuid, self.id, key)
-        if value != nixops.util.undefined:
+
+        if value == nixops.util.undefined:
+            raise KeyError("couldn't find key {} in the state file".format(key))
+
+        if isinstance(value, str):
             try:
                 return json.loads(value)
             except ValueError:
                 return value
-        raise KeyError("couldn't find key {} in the state file".format(key))
+
+        return value
+
 
     def __delitem__(self, key):
         self._state.del_resource_attr(self.uuid, self.id, key)
