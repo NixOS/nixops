@@ -4,6 +4,7 @@ import sys
 from distutils.dir_util import mkpath
 
 import nixops.state
+from tests.functional.shared.destroy_deployments_and_remove_state_file import destroy_deployments_and_remove_state_file
 
 @contextmanager
 def using_state_file(state_file_path):
