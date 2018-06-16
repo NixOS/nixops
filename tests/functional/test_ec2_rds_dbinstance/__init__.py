@@ -6,8 +6,7 @@ from parameterized import parameterized
 
 from tests.functional.shared.deployment_run_command import deployment_run_command
 from tests.functional.shared.create_deployment import create_deployment
-from tests.functional.shared.using_state_file import using_state_file
-from tests.functional.shared.unique_state_file_path import unique_state_file_path
+from tests.functional.shared.using_unique_state_file import using_unique_state_file
 
 parent_dir = path.dirname(__file__)
 
@@ -34,11 +33,9 @@ parent_dir = path.dirname(__file__)
 def test_ec2_rds_dbinstance(state_extension, nix_expressions_tuple):
     nix_expressions_id, nix_expressions = nix_expressions_tuple
 
-    with using_state_file(
-            unique_state_file_path(
-                ['test_ec2_rds_dbinstance', nix_expressions_id],
-                state_extension
-            )
+    with using_unique_state_file(
+            [test_ec2_rds_dbinstance.__name__, nix_expressions_id],
+            state_extension
         ) as state:
         deployment = create_deployment(state, nix_expressions)
         deployment.deploy()

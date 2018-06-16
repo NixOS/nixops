@@ -6,10 +6,13 @@ from parameterized import parameterized
 
 from tests.functional.shared.deployment_run_command import deployment_run_command
 from tests.functional.shared.create_deployment import create_deployment
-from tests.functional.shared.using_state_file import using_state_file
+from tests.functional.shared.using_unique_state_file import using_unique_state_file
 
 @parameterized(product(
-    ['json', 'nixops'],
+    [
+        'json',
+        'nixops'
+    ],
     [
         [
             '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
@@ -19,12 +22,18 @@ from tests.functional.shared.using_state_file import using_state_file
     ],
 ))
 def test_ec2_backups_simple(state_extension, nix_expressions):
-    with using_state_file(state_extension) as state:
+    with using_unique_state_file(
+            [test_ec2_backups_simple.__name__],
+            state_extension
+        ) as state:
         deployment = create_deployment(state, nix_expressions)
         backup_and_restore_path(deployment)
 
 @parameterized(product(
-    ['json', 'nixops'],
+    [
+        'json',
+        'nixops'
+    ],
     [
         [
             '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
@@ -35,7 +44,10 @@ def test_ec2_backups_simple(state_extension, nix_expressions):
     ],
 ))
 def test_ec2_backups_raid(state_extension, nix_expressions):
-    with using_state_file(state_extension) as state:
+    with using_unique_state_file(
+            [test_ec2_backups_raid.__name__],
+            state_extension
+        ) as state:
         deployment = create_deployment(state, nix_expressions)
         backup_and_restore_path(deployment, '/data')
 
