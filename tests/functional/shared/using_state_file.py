@@ -33,6 +33,9 @@ def destroy_deployments(state, uuid):
     try:
         deployment.clean_backups(keep=0)
     except Exception:
+        # TODO: clean_backups() takes at least 3 arguments (2 given)
+        # import sys; import pprint; pprint.pprint(('clean_backups', e), stream=sys.__stdout__)
+
         pass
     try:
         deployment.destroy_resources()

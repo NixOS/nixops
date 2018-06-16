@@ -30,7 +30,6 @@ class TransactionalJsonFile:
     # Implementation notes:
     # if self.nesting > 0, then no write will propagate.
     def __init__(self, db_file):
-
         lock_file_path = re.sub("\.json$", ".lock", db_file)
         self._lock_file = open(lock_file_path, "w")
         fcntl.fcntl(self._lock_file, fcntl.F_SETFD, fcntl.FD_CLOEXEC) # to not keep the lock in child processes
@@ -154,6 +153,7 @@ class JsonFile(object):
 
     def _find_deployment(self, uuid=None):
         all_deployments = self.db.read()["deployments"]
+
         found = []
 
         # if nothing exists no reason to check for things
@@ -181,9 +181,10 @@ class JsonFile(object):
 
     def open_deployment(self, uuid=None):
         """Open an existing deployment."""
-        deployment = self._find_deployment(uuid=uuid)
-        if deployment: return deployment
-        raise Exception("could not find specified deployment in state file ‘{0}’".format(self.db_file))
+        with self.db:
+            deployment = self._find_deployment(uuid=uuid)
+            if deployment: return deployment
+            raise Exception("could not find specified deployment in state file ‘{0}’".format(self.db_file))
 
     def create_deployment(self, uuid=None):
         """Create a new deployment."""
