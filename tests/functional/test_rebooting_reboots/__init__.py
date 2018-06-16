@@ -6,40 +6,58 @@ from parameterized import parameterized
 
 from tests.functional.shared.deployment_run_command import deployment_run_command
 from tests.functional.shared.create_deployment import create_deployment
-from tests.functional.shared.using_state_file import using_state_file
+from tests.functional.shared.using_unique_state_file import using_unique_state_file
 
 @parameterized(product(
-    ['json', 'nixops'],
     [
-        # vbox
-        [
-            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
-            '{}/tests/functional/shared/nix_expressions/vbox_base.nix'.format(root_dir),
-        ],
-        # ec2
-        [
-            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
-            '{}/tests/functional/shared/nix_expressions/ec2_base.nix'.format(root_dir),
-        ],
-        # gce
-        [
-            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
-            '{}/tests/functional/shared/nix_expressions/gce_base.nix'.format(root_dir),
-        ],
-        # azure
-        [
-            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
-            '{}/tests/functional/shared/nix_expressions/azure_base.nix'.format(root_dir),
-        ],
-        # libvirtd
-        [
-            '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
-            '{}/tests/functional/shared/nix_expressions/libvirtd_base.nix'.format(root_dir),
-        ]
+        'json',
+        'nixops'
+    ],
+    [
+        (
+            'vbox',
+            [
+                '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+                '{}/tests/functional/shared/nix_expressions/vbox_base.nix'.format(root_dir),
+            ]
+        ),
+        (
+            'libvirtd',
+            [
+                '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+                '{}/tests/functional/shared/nix_expressions/libvirtd_base.nix'.format(root_dir),
+            ]
+        ),
+        (
+            'ec2',
+            [
+                '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+                '{}/tests/functional/shared/nix_expressions/ec2_base.nix'.format(root_dir),
+            ],
+        ),
+        (
+            'gce',
+            [
+                '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+                '{}/tests/functional/shared/nix_expressions/gce_base.nix'.format(root_dir),
+            ],
+        ),
+        (
+            'azure',
+            [
+                '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+                '{}/tests/functional/shared/nix_expressions/azure_base.nix'.format(root_dir),
+            ],
+        )
     ],
 ))
-def test_rebooting_reboots(state_extension, nix_expressions):
-    with using_state_file(state_extension) as state:
+def test_rebooting_reboots(state_extension, nix_expressions_tuple):
+    nix_expressions_id, nix_expressions = nix_expressions_tuple
+
+    with using_unique_state_file(
+            [test_rebooting_reboots.__name__, nix_expressions_id],
+            state_extension
+        ) as state:
         deployment = create_deployment(state, nix_expressions)
         deployment.deploy()
         deployment_run_command(deployment, "touch /run/not-rebooted")

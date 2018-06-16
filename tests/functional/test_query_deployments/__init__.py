@@ -8,7 +8,7 @@ from tests.functional.shared.using_unique_state_file import using_unique_state_f
 @parameterized(
     [
         'json',
-        # 'nixops'
+        'nixops'
     ]
 )
 def test_query_deployments(state_extension):

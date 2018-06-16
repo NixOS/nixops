@@ -20,6 +20,13 @@ from tests.functional.shared.using_unique_state_file import using_unique_state_f
             ]
         ),
         (
+            'libvirtd',
+            [
+                '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
+                '{}/tests/functional/shared/nix_expressions/libvirtd_base.nix'.format(root_dir),
+            ]
+        ),
+        (
             'ec2',
             [
                 '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
@@ -47,13 +54,6 @@ from tests.functional.shared.using_unique_state_file import using_unique_state_f
                 '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
                 '{}/tests/functional/shared/nix_expressions/azure_base.nix'.format(root_dir),
             ],
-        ),
-        (
-            'libvirtd',
-            [
-                '{}/tests/functional/shared/nix_expressions/logical_base.nix'.format(root_dir),
-                '{}/tests/functional/shared/nix_expressions/libvirtd_base.nix'.format(root_dir),
-            ]
         )
     ],
 ))
