@@ -205,20 +205,20 @@ class JsonFile(object):
 
     def clone_deployment(self, deployment_uuid):
         with self.db:
-            if not uuid:
-                import uuid
-                new_uuid = str(uuid.uuid1())
+            import uuid
+            new_deployment_uuid = str(uuid.uuid1())
+
             state = self.db.read()
 
             cloned_attributes = copy.deepcopy(state["deployments"][deployment_uuid]["attributes"])
-            state["deployments"][new_uuid] = {
+            state["deployments"][new_deployment_uuid] = {
                 "attributes": cloned_attributes,
                 "resources": {}
             }
 
             self.db.set(state)
 
-        return self._find_deployment(new_uuid)
+        return self._find_deployment(new_deployment_uuid)
 
     def get_resources_for(self, deployment):
         """Get all the resources for a certain deployment"""
