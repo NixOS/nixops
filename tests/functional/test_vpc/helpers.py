@@ -9,7 +9,7 @@ def compose_expressions(configurations):
     return nix_exprs
 
 def create_exprs_dir():
-    return nixops.util.SelfDeletingDir(tempfile.mkdtemp("nixos-tests"))
+    return tempfile.mkdtemp("nixos-tests")
 
 def generate_config(exprs_dir, config):
     basename, expr = config
