@@ -3,6 +3,7 @@
 import nixops.state
 import threading
 import os
+import sys
 
 def destroy_deployments_and_remove_state_file(state_file_path):
     state = nixops.state.open(state_file_path)
@@ -27,13 +28,16 @@ def destroy_deployments_and_remove_state_file(state_file_path):
 def destroy_deployments(state, uuid):
     deployment = state.open_deployment(uuid)
     deployment.logger.set_autoresponse("y")
+
     try:
         deployment.clean_backups(keep=False, keep_days=False)
-    except Exception:
-        pass
+    except Exception as e:
+        deployment.logger.error("on clean backups for deployment ‘{}’: {}".format(uuid, e))
+
     try:
         deployment.destroy_resources()
-    except Exception:
-        pass
+    except Exception as e:
+        deployment.logger.error("on destroy resources for deployment ‘{}’: {}".format(uuid, e))
+
     deployment.delete()
-    deployment.logger.log("deployment ‘{0}’ destroyed".format(uuid))
+    deployment.logger.log("deployment ‘{}’ destroyed".format(uuid))

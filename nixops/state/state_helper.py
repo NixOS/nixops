@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import json
 import collections
 import nixops.util
@@ -7,6 +9,12 @@ def _subclasses(cls):
     sub = cls.__subclasses__()
     return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
 
+def _create_resource_state(depl, type, name, id):
+    """Create a resource state object  of the desired type."""
+    for cls in _subclasses(nixops.resources.ResourceState):
+        if type == cls.get_type():
+            return cls(depl, name, id)
+    raise nixops.deployment.UnknownBackend("unknown resource type ‘{}’".format(type))
 
 class StateDict(collections.MutableMapping):
     """
@@ -21,7 +29,12 @@ class StateDict(collections.MutableMapping):
         self.id = id
 
     def __setitem__(self, key, value):
-        self._state.set_resource_attrs(self.uuid, self.id, {key:value})
+        value_ = value
+
+        if not isinstance(value, str):
+            value_ = json.dumps(value)
+
+        self._state.set_resource_attrs(self.uuid, self.id, { key: value_ })
 
     def __getitem__(self, key):
         value = self._state.get_resource_attr(self.uuid, self.id, key)

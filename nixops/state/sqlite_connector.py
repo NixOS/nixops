@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import nixops.deployment
-from nixops.state.state_helper import _subclasses
+from nixops.state.state_helper import _create_resource_state
 import os
 import os.path
 import urlparse
@@ -257,7 +257,7 @@ class SQLiteConnection(object):
                 "select id, name, type from Resources where deployment = ?",
                 (deployment.uuid, )).fetchall()
             for (id, name, type) in rows:
-                r = self._create_state(deployment, type, name, id)
+                r = _create_resource_state(deployment, type, name, id)
                 resources[name] = r
         return resources
 
@@ -348,7 +348,7 @@ class SQLiteConnection(object):
             (deployment.uuid, name, type))
 
         id = result.lastrowid
-        r = self._create_state(deployment, type, name, id)
+        r = _create_resource_state(deployment, type, name, id)
         return r
 
     def delete_resource(self, deployment_uuid, res_id):
@@ -406,17 +406,3 @@ class SQLiteConnection(object):
                 (resource_id, )).fetchall()
             res = {row[0]: row[1] for row in rows}
             return res
-
-
-#     ### STATE
-
-    def _create_state(self, depl, type, name, id):
-        """Create a resource state object  of the desired type."""
-
-        for cls in _subclasses(nixops.resources.ResourceState):
-            if type == cls.get_type():
-                return cls(depl, name, id)
-
-        raise nixops.deployment.UnknownBackend("unknown resource type ‘{!r}’"
-                                               .format(type))
-

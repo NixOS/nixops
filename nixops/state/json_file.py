@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import nixops.deployment
-from nixops.state.state_helper import _subclasses
+from nixops.state.state_helper import _create_resource_state
 import os
 import os.path
 import sys
@@ -228,7 +228,7 @@ class JsonFile(object):
             state = self.db.read()
             state_resources = state["deployments"][deployment.uuid]["resources"]
             for res_id, res in state_resources.items():
-                r = self._create_state(deployment, res["type"], res["name"], res_id)
+                r = _create_resource_state(deployment, res["type"], res["name"], res_id)
                 resources[res["name"]] = r
             self.db.set(state)
         return resources
@@ -304,7 +304,7 @@ class JsonFile(object):
                     "attributes" : {}
             }
             self.db.set(state)
-            r = self._create_state(deployment, type, name, id)
+            r = _create_resource_state(deployment, type, name, id)
             return r
 
     def delete_resource(self, deployment_uuid, res_id):
@@ -354,13 +354,3 @@ class JsonFile(object):
             state = self.db.read()
             resource_attrs = state["deployments"][deployment_uuid]["resources"][resource_id]["attributes"]
             return copy.deepcopy(resource_attrs)
-
-    ### STATE
-    def _create_state(self, depl, type, name, id):
-        """Create a resource state object of the desired type."""
-
-        for cls in _subclasses(nixops.resources.ResourceState):
-            if type == cls.get_type():
-                return cls(depl, name, id)
-
-        raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))

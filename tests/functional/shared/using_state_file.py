@@ -11,6 +11,7 @@ def using_state_file(state_file_path):
     create_file_parent_dirs_if_not_exists(state_file_path)
 
     if os.path.exists(state_file_path):
+        # TODO: throw error here if can't delete
         destroy_deployments_and_remove_state_file(state_file_path)
 
     state = nixops.state.open(state_file_path)

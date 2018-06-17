@@ -8,6 +8,9 @@ import boto3
 from tests.functional.shared.using_unique_state_file import using_unique_state_file
 from tests.functional.shared.create_deployment import create_deployment
 
+from tests.functional.test_vpc.helpers import compose_expressions
+from tests.functional.test_vpc.resources import CFG_VPC_MACHINE, CFG_INTERNET_ROUTE, CFG_DNS_SUPPORT, CFG_IPV6, CFG_NAT_GTW, CFG_SUBNET
+
 parent_dir = path.dirname(__file__)
 
 base_spec = "{}/vpc.nix".format(parent_dir)
@@ -32,7 +35,7 @@ def test_deploy_vpc(state_extension):
 
 @parameterized([
     'json',
-    'nixops'
+    # 'nixops'
 ])
 def test_deploy_vpc_machine(state_extension):
     with using_unique_state_file(
