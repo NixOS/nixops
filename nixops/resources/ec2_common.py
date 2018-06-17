@@ -44,6 +44,7 @@ class EC2CommonState():
 
         self.update_tags_using(updater, user_tags=user_tags, check=check)
 
+    # FIXME: it caches client, but doesnt use service as a key?
     def get_client(self, service="ec2"):
         '''
         Generic method to get a cached AWS client or create it.
