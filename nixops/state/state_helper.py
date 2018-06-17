@@ -31,7 +31,7 @@ class StateDict(collections.MutableMapping):
     def __setitem__(self, key, value):
         value_ = value
 
-        if not isinstance(value, str):
+        if not isinstance(value, basestring):
             value_ = json.dumps(value)
 
         self._state.set_resource_attrs(self.uuid, self.id, { key: value_ })
@@ -42,7 +42,7 @@ class StateDict(collections.MutableMapping):
         if value == nixops.util.undefined:
             raise KeyError("couldn't find key {} in the state file".format(key))
 
-        if isinstance(value, str):
+        if isinstance(value, basestring):
             try:
                 return json.loads(value)
             except ValueError:
