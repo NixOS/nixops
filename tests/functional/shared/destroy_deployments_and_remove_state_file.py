@@ -34,12 +34,12 @@ def destroy_deployments(state, uuid):
         deployment.clean_backups()
     except Exception as e:
         deployment.logger.warn("non-fatal error on clean backups for deployment ‘{}’: {}".format(uuid, e))
-        traceback.print_exc(file=sys.__stdout__)
+        # traceback.print_exc(file=sys.__stdout__)
     try:
         deployment.destroy_resources()
     except Exception as e:
         deployment.logger.warn("non-fatal error on destroy resources for deployment ‘{}’: {}".format(uuid, e))
-        traceback.print_exc(file=sys.__stdout__)
+        # traceback.print_exc(file=sys.__stdout__)
 
     deployment.delete()
     deployment.logger.log("deployment ‘{}’ destroyed".format(uuid))
