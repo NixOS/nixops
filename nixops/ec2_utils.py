@@ -194,3 +194,14 @@ def id_to_security_group_name(conn, sg_id, vpc_id):
             name = sg.name
             return name
     raise Exception("could not resolve security group id '{0}' in VPC '{1}'".format(sg_id, vpc_id))
+
+
+def wait_for_network_interfaces_deattached(connection_boto3, instance_id, max_wait_time_seconds=3):
+    filters = [{ 'Name': 'attachment.instance-id', 'Values': [ instance_id ] }]
+
+    def check_any():
+        response = connection_boto3.describe_network_interfaces(Filters=filters)
+        is_any_interfaces_left = len(response['NetworkInterfaces']) != 0
+        return is_any_interfaces_left
+
+    return nixops.util.check_wait(check_any, initial=1, max_tries=max_wait_time_seconds, exception=False)

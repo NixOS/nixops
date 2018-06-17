@@ -1275,7 +1275,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # in create() due to it being interrupted after the instance
         # was created but before it registered the ID in the database.
         self.connect()
+        self.connect_boto3()
+
         instance = None
+
         if self.vm_id:
             instance = self._get_instance(allow_missing=True)
         else:
@@ -1292,6 +1295,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 if instance.state == "terminated": break
                 time.sleep(3)
                 instance = self._get_instance(update=True)
+
+            # this will prevent `cannot delete ec2-security-group because it still has resources` error
+            nixops.ec2_utils.wait_for_network_interfaces_deattached(self._conn_boto3, self.vm_id)
 
         self.log_end("")
 
