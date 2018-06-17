@@ -68,7 +68,7 @@ class Diff(object):
         The output is a sorted sequence of handlers based on their
         dependencies.
         """
-        # TODO implement cycle detection 
+        # TODO implement cycle detection
         parent = {}
         sequence = []
 
@@ -116,7 +116,7 @@ class Diff(object):
 
     def get_resource_definition(self, key):
         def retrieve_def(d):
-            if isinstance(d, str) and d.startswith("res-"):
+            if isinstance(d, basestring) and d.startswith("res-"):
                 name = d[4:].split(".")[0]
                 res_type = d.split(".")[1]
                 k = d.split(".")[2] if len(d.split(".")) > 2 else key

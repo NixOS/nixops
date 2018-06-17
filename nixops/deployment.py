@@ -225,7 +225,7 @@ class Deployment(object):
 
     def unset_arg(self, name):
         """Unset a persistent argument to the deployment specification."""
-        assert isinstance(name, str)
+        assert isinstance(name, basestring)
         args = self.args
         args.pop(name, None)
         self.args = args
