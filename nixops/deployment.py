@@ -739,21 +739,23 @@ class Deployment(object):
 
         return backups
 
-    def clean_backups(self, keep, keep_days, keep_physical = False):
+    def clean_backups(self, keep = None, keep_days = None, keep_physical = False):
         _backups = self.get_backups()
+
         backup_ids = [b for b in _backups.keys()]
         backup_ids.sort()
+        to_be_removed = backup_ids
 
         if keep:
-            index = len(backup_ids)-keep
-            tbr = backup_ids[:index]
+            index = len(backup_ids) - keep
+            to_be_removed = backup_ids[:index]
 
         if keep_days:
             cutoff = (datetime.now()- timedelta(days=keep_days)).strftime("%Y%m%d%H%M%S")
             print cutoff
-            tbr = [bid for bid in backup_ids if bid < cutoff]
+            to_be_removed = [bid for bid in backup_ids if bid < cutoff]
 
-        for backup_id in tbr:
+        for backup_id in to_be_removed:
             print 'Removing backup {0}'.format(backup_id)
             self.remove_backup(backup_id, keep_physical)
 

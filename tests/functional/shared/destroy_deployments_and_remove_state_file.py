@@ -31,7 +31,7 @@ def destroy_deployments(state, uuid):
     deployment.logger.set_autoresponse("y")
 
     try:
-        deployment.clean_backups(keep=False, keep_days=False)
+        deployment.clean_backups()
     except Exception as e:
         deployment.logger.error("on clean backups for deployment ‘{}’: {}".format(uuid, e))
         traceback.print_exc(file=sys.__stdout__)
