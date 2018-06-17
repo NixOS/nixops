@@ -8,12 +8,7 @@ import boto3
 from tests.functional.shared.using_unique_state_file import using_unique_state_file
 from tests.functional.shared.create_deployment import create_deployment
 
-from tests.functional.test_vpc.helpers import compose_expressions
-from tests.functional.test_vpc.resources import CFG_VPC_MACHINE, CFG_INTERNET_ROUTE, CFG_DNS_SUPPORT, CFG_IPV6, CFG_NAT_GTW, CFG_SUBNET
-
 parent_dir = path.dirname(__file__)
-
-base_spec = "{}/vpc.nix".format(parent_dir)
 
 @parameterized([
     'json',
@@ -24,7 +19,9 @@ def test_deploy_vpc(state_extension):
             [test_deploy_vpc.__name__],
             state_extension
         ) as state:
-        deployment = create_deployment(state, [base_spec])
+        deployment = create_deployment(state, [
+            "{}/vpc.nix".format(parent_dir)
+        ])
 
         deployment.deploy()
 
@@ -35,17 +32,22 @@ def test_deploy_vpc(state_extension):
 
 @parameterized([
     'json',
-    # 'nixops'
+    'nixops'
 ])
 def test_deploy_vpc_machine(state_extension):
     with using_unique_state_file(
             [test_deploy_vpc_machine.__name__],
             state_extension
         ) as state:
-        nix_expressions = compose_expressions([CFG_SUBNET, CFG_INTERNET_ROUTE, CFG_VPC_MACHINE])
-        nix_expressions_ = [base_spec] + nix_expressions
 
-        deployment = create_deployment(state, nix_expressions_)
+        nix_expressions = [
+            "{}/vpc.nix".format(parent_dir),
+            "{}/subnet.nix".format(parent_dir),
+            "{}/igw_route.nix".format(parent_dir),
+            "{}/network.nix".format(parent_dir),
+        ]
+
+        deployment = create_deployment(state, nix_expressions)
 
         deployment.deploy(plan_only=True)
         deployment.deploy()
@@ -59,10 +61,13 @@ def test_enable_dns_support(state_extension):
             [test_enable_dns_support.__name__],
             state_extension
         ) as state:
-        nix_expressions = compose_expressions([CFG_DNS_SUPPORT])
-        nix_expressions_ = [base_spec] + nix_expressions
 
-        deployment = create_deployment(state, nix_expressions_)
+        nix_expressions = [
+            "{}/vpc.nix".format(parent_dir),
+            "{}/enable_dns_support.nix".format(parent_dir),
+        ]
+
+        deployment = create_deployment(state, nix_expressions)
 
         deployment.deploy(plan_only=True)
         deployment.deploy()
@@ -71,15 +76,17 @@ def test_enable_dns_support(state_extension):
     'json',
     'nixops'
 ])
-def test_enable_ipv6():
+def test_enable_ipv6(state_extension):
     with using_unique_state_file(
             [test_enable_ipv6.__name__],
             state_extension
         ) as state:
-        nix_expressions = compose_expressions([CFG_IPV6])
-        nix_expressions_ = [base_spec] + nix_expressions
+        nix_expressions = [
+            "{}/vpc.nix".format(parent_dir),
+            "{}/ipv6.nix".format(parent_dir),
+        ]
 
-        deployment = create_deployment(state, nix_expressions_)
+        deployment = create_deployment(state, nix_expressions)
 
         deployment.deploy(plan_only=True)
         deployment.deploy()
@@ -101,10 +108,13 @@ def test_deploy_subnets(state_extension):
         ) as state:
         # FIXME might need to factor out resources into separate test
         # classes depending on the number of tests needed.
-        nix_expressions = compose_expressions([CFG_SUBNET])
-        nix_expressions_ = [base_spec] + nix_expressions
 
-        deployment = create_deployment(state, nix_expressions_)
+        nix_expressions = [
+            "{}/vpc.nix".format(parent_dir),
+            "{}/subnet.nix".format(parent_dir),
+        ]
+
+        deployment = create_deployment(state, nix_expressions)
 
         deployment.deploy(plan_only=True)
         deployment.deploy()
@@ -121,10 +131,13 @@ def test_deploy_nat_gtw(state_extension):
             [test_deploy_nat_gtw.__name__],
             state_extension
         ) as state:
-        nix_expressions = compose_expressions([CFG_SUBNET, CFG_NAT_GTW])
-        nix_expressions_ = [base_spec] + nix_expressions
+        nix_expressions = [
+            "{}/vpc.nix".format(parent_dir),
+            "{}/subnet.nix".format(parent_dir),
+            "{}/nat_gtw.nix".format(parent_dir),
+        ]
 
-        deployment = create_deployment(state, nix_expressions_)
+        deployment = create_deployment(state, nix_expressions)
 
         deployment.deploy(plan_only=True)
         deployment.deploy()
