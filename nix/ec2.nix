@@ -362,8 +362,7 @@ in
 
         <filename>/dev/sd[a-e]</filename> or <filename>/dev/xvd[a-e]</filename> must be ephemeral devices.
 
-        nvme devices should have name like <filename>/dev/nvme[1-26]n1</filename>, the number in device name should not be skipped.
-        For example this will not work:
+        With the following instances, EBS volumes are exposed as NVMe block devices: C5, C5d, i3.metal, M5, and M5d (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html). For these instances volumes should be attached as <filename>/dev/nvme[1-26]n1</filename>, there should be no hole in numbering.
 
         <example>
         {
