@@ -972,7 +972,7 @@ class AzureState(MachineState, ResourceState):
 
     def stop(self):
         if self.vm_id:
-           #FIXME: there's also "stopped deallocated" version of this. how to integrate?
+            # FIXME: there's also "stopped deallocated" version of this. how to integrate?
             self.log("stopping Azure machine... ")
             self.state = self.STOPPING
             self.cmc().virtual_machines.power_off(self.resource_group, self.machine_name)
@@ -1169,8 +1169,7 @@ class AzureState(MachineState, ResourceState):
 
 
     def _check(self, res):
-        if(self.subscription_id is None or self.authority_url is None or
-           self.user is None or self.password is None):
+        if(self.subscription_id is None or self.authority_url is None):
             res.exists = False
             res.is_up = False
             self.state = self.MISSING;
