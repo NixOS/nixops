@@ -25,7 +25,7 @@ parent_dir = path.dirname(__file__)
         # This test with database security group can only be run on aws account,
         # that supports EC2-Classic platform.
         # (https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.FindDefaultVPC.html)
-        # These account are legacy and are not created after 2013.
+        # These accounts are legacy and are not created after 2013.
 
         # If your account doesn't support EC2-Classic, you will get an error:
         # `VPC DB Security Groups cannot be modified with this API version.
