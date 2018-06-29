@@ -490,6 +490,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 # attach backup disks
                 snapshot_id = self.backups[backup_id][device_stored]
                 self.log("creating volume from snapshot ‘{0}’".format(snapshot_id))
+
+                self.wait_for_snapshot_to_become_completed(snapshot_id)
+
                 new_volume = self._conn.create_volume(size=0, snapshot=snapshot_id, zone=self.zone)
 
                 # Check if original volume is available, aka detached from the machine.
@@ -512,6 +515,15 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 new_v['volumeId'] = new_volume.id
                 self.update_block_device_mapping(device_stored, new_v)
 
+    def wait_for_snapshot_to_become_completed(self, snapshot_id):
+        def check_completed():
+            res = self._get_snapshot_by_id(snapshot_id).status
+            self.log_continue("[{0}] ".format(res))
+            return res == 'completed'
+
+        self.log_start("waiting for shapshot ‘{0}’ to have status ‘completed’... ".format(snapshot_id))
+        nixops.util.check_wait(check_completed)
+        self.log_end('')
 
     def create_after(self, resources, defn):
         # EC2 instances can require key pairs, IAM roles, security
@@ -1108,7 +1120,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             for device_stored, dm in self._get_instance().block_device_mapping.items():
                 if device_stored not in self.block_device_mapping and dm.volume_id:
                     bdm = {'volumeId': dm.volume_id, 'partOfImage': True}
-                    self.update_block_device_mapping(device_stored, bdm)
+                    self.update_block_device_mapping(device_stored, bdm) # TODO: it stores root device as sd though its really attached as nvme
             self.first_boot = False
 
         # Detect if volumes were manually detached.  If so, reattach
