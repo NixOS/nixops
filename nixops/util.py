@@ -385,7 +385,10 @@ def parse_nixos_version(s):
     """Split a NixOS version string into a list of components."""
     return s.split(".")
 
-def device_name_to_sd(string):
+# sd -> sd
+# xvd -> sd
+# nvme -> sd
+def device_name_to_boto_expected(string):
     """Transfoms device name to name, that boto expects."""
     m = re.search('(.*)\/nvme(\d+)n1p?(\d+)?', string)
     if m != None:
@@ -398,3 +401,15 @@ def device_name_to_sd(string):
         return "{0}/sd{1}{2}".format(m.group(1), device_transformed, partition)
     else:
         return string.replace("/dev/xvd", "/dev/sd")
+
+# sd -> sd
+# xvd -> sd
+# nvme -> nvme
+def device_name_user_entered_to_stored(string):
+    return string.replace("/dev/xvd", "/dev/sd")
+
+# sd -> xvd
+# xvd -> xvd
+# nvme -> nvme
+def device_name_stored_to_real(string):
+    return string.replace("/dev/sd", "/dev/xvd")
