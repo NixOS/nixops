@@ -332,10 +332,15 @@ class Deployment(object):
         config = nixops.util.xml_expr_to_python(tree.find("*"))
         return (tree, config)
 
-    def evaluate_network(self):
+    def evaluate_network(self, action=''):
         if not self.network_attr_eval:
             # Extract global deployment attributes.
-            (_, config) = self.evaluate_config("info.network")
+            try:
+                (_, config) = self.evaluate_config("info.network")
+            except Exception as e:
+                if action not in ('destroy', 'delete'):
+                    raise e
+                config = {}
             self.description = config.get("description", self.default_description)
             self.rollback_enabled = config.get("enableRollback", False)
             self.datadog_notify = config.get("datadogNotify", False)
@@ -1022,7 +1027,7 @@ class Deployment(object):
 
     # can generalize notifications later (e.g. emails, for now just hardcode datadog)
     def notify_start(self, action):
-        self.evaluate_network()
+        self.evaluate_network(action)
         nixops.datadog_utils.create_event(self, title='nixops {} started'.format(action), text=self.datadog_event_info, tags=self.datadog_tags)
         nixops.datadog_utils.create_downtime(self)
 
