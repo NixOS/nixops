@@ -34,22 +34,6 @@ rec {
         # Generate the manual and the man page.
         cp ${import ./doc/manual { revision = nixopsSrc.rev; inherit nixpkgs; }} doc/manual/machine-options.xml
 
-        # IMPORTANT: when adding a file here, also populate doc/manual/manual.xml
-        ${pkgs.lib.concatMapStrings (fn: ''
-          cp ${import ./doc/manual/resource.nix { revision = nixopsSrc.rev; module = ./nix + ("/" + fn + ".nix"); inherit nixpkgs; }} doc/manual/${fn}-options.xml
-        '') [ "ebs-volume" "sns-topic" "sqs-queue" "ec2-keypair" "s3-bucket" "iam-role" "ssh-keypair" "ec2-security-group" "elastic-ip"
-              "cloudwatch-log-group" "cloudwatch-log-stream" "elastic-file-system" "elastic-file-system-mount-target"
-              "gce-disk" "gce-image" "gce-forwarding-rule" "gce-http-health-check" "gce-network"
-              "gce-static-ip" "gce-target-pool" "gse-bucket"
-              "datadog-monitor" "datadog-timeboard" "datadog-screenboard"
-              "azure-availability-set" "azure-blob-container" "azure-blob" "azure-directory"
-              "azure-dns-record-set" "azure-dns-zone" "azure-express-route-circuit"
-              "azure-file" "azure-gateway-connection" "azure-load-balancer" "azure-local-network-gateway"
-              "azure-network-security-group" "azure-queue" "azure-reserved-ip-address"
-              "azure-resource-group" "azure-share" "azure-storage" "azure-table"
-              "azure-traffic-manager-profile"
-              "azure-virtual-network" "azure-virtual-network-gateway"]}
-
         for i in scripts/nixops setup.py doc/manual/manual.xml; do
           substituteInPlace $i --subst-var-by version ${version}
         done
@@ -80,21 +64,9 @@ rec {
 
       propagatedBuildInputs = with python2Packages;
         [ prettytable
-          boto
-          boto3
-          hetzner
-          libcloud
-          libvirt
-          azure-storage
-          azure-mgmt-compute
-          azure-mgmt-network
-          azure-mgmt-resource
-          azure-mgmt-storage
           adal
           # Go back to sqlite once Python 2.7.13 is released
           pysqlite
-          datadog
-          digital-ocean
         ];
 
       # For "nix-build --run-env".
@@ -127,17 +99,7 @@ rec {
       meta.description = "Nix package for ${stdenv.system}";
     });
 
-  # This is included here, so it's easier to fetch by the newly installed
-  # Hetzner machine directly instead of waiting for ages if you have a
-  # connection with slow upload speed.
-  hetznerBootstrap = import ./nix/hetzner-bootstrap.nix;
-
   tests.none_backend = (import ./tests/none-backend.nix {
-    nixops = build.x86_64-linux;
-    system = "x86_64-linux";
-  }).test;
-
-  tests.hetzner_backend = (import ./tests/hetzner-backend {
     nixops = build.x86_64-linux;
     system = "x86_64-linux";
   }).test;

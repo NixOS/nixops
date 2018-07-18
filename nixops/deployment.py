@@ -49,9 +49,6 @@ class Deployment(object):
     description = nixops.util.attr_property("description", default_description)
     configs_path = nixops.util.attr_property("configsPath", None)
     rollback_enabled = nixops.util.attr_property("rollbackEnabled", False)
-    datadog_notify = nixops.util.attr_property("datadogNotify", False, bool)
-    datadog_event_info = nixops.util.attr_property("datadogEventInfo", "")
-    datadog_tags = nixops.util.attr_property("datadogTags", [], 'json')
 
     # internal variable to mark if network attribute of network has been evaluated (separately)
     network_attr_eval = False
@@ -343,11 +340,6 @@ class Deployment(object):
                 config = {}
             self.description = config.get("description", self.default_description)
             self.rollback_enabled = config.get("enableRollback", False)
-            self.datadog_notify = config.get("datadogNotify", False)
-            self.datadog_event_info = config.get("datadogEventInfo", "")
-            self.datadog_tags = config.get("datadogTags", [])
-            self.datadog_downtime = config.get("datadogDowntime", False)
-            self.datadog_downtime_seconds = config.get("datadogDowntimeSeconds", 3600)
             self.network_attr_eval = True
 
     def evaluate(self):
@@ -1028,16 +1020,12 @@ class Deployment(object):
     # can generalize notifications later (e.g. emails, for now just hardcode datadog)
     def notify_start(self, action):
         self.evaluate_network(action)
-        nixops.datadog_utils.create_event(self, title='nixops {} started'.format(action), text=self.datadog_event_info, tags=self.datadog_tags)
-        nixops.datadog_utils.create_downtime(self)
 
     def notify_success(self, action):
-        nixops.datadog_utils.create_event(self, title='nixops {} succeeded'.format(action), text=self.datadog_event_info, tags=self.datadog_tags)
-        nixops.datadog_utils.delete_downtime(self)
+        pass
 
     def notify_failed(self, action, e):
-        nixops.datadog_utils.create_event(self, title='nixops {} failed'.format(action), text="Error: {}\n\n{}".format(e.message, self.datadog_event_info), tags=self.datadog_tags)
-        nixops.datadog_utils.delete_downtime(self)
+        pass
 
     def run_with_notify(self, action, f):
         self.notify_start(action)
