@@ -1,6 +1,8 @@
 import pluggy
 
+
 hookspec = pluggy.HookspecMarker("nixops")
+
 
 @hookspec
 def load():

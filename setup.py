@@ -28,4 +28,4 @@ setup(name='nixops',
       packages=['nixops', 'nixops.plugins', 'nixops.resources', 'nixops.backends'],
       package_data={'nixops': ['data/nixos-infect']},
       cmdclass={'test': TestCommand}
-      )
+  )

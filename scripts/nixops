@@ -30,9 +30,9 @@ from pprint import pprint
 from nixops.plugins import hookspecs
 
 pm = pluggy.PluginManager("nixops")
-pm.add_hookspec(hookspecs)
+pm.add_hookspecs(hookspecs)
 pm.load_setuptools_entrypoints("nixops")
-pm.hook.load()
+pprint(pm.hook.load())
 
 def create_table(headers):
     tbl = prettytable.PrettyTable([name for (name, align) in headers])
