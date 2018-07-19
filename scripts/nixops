@@ -26,13 +26,11 @@ import pipes
 
 from datetime import datetime
 from pprint import pprint
+import importlib
 
-from nixops.plugins import hookspecs
-
-pm = pluggy.PluginManager("nixops")
-pm.add_hookspecs(hookspecs)
-pm.load_setuptools_entrypoints("nixops")
-pprint(pm.hook.load())
+from nixops.plugins import get_plugin_manager
+[[importlib.import_module(mod) for mod in pluginimports]
+     for pluginimports in get_plugin_manager().hook.load()]
 
 def create_table(headers):
     tbl = prettytable.PrettyTable([name for (name, align) in headers])

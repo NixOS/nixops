@@ -28,6 +28,7 @@ import platform
 from nixops.util import ansi_success
 import inspect
 import time
+from nixops.plugins import get_plugin_manager
 
 class NixEvalError(Exception):
     pass
@@ -258,12 +259,19 @@ class Deployment(object):
         flags = self._nix_path_flags()
         args = {key: RawValue(val) for key, val in self.args.iteritems()}
         exprs_ = [RawValue(x) if x[0] == '<' else x for x in exprs]
+
+        # wtaf
+        extraexprs = [path
+                          for paths in get_plugin_manager().hook.nixexprs()
+                          for path in paths]
+
+
         flags.extend(
             ["--arg", "networkExprs", py2nix(exprs_, inline=True),
              "--arg", "args", py2nix(args, inline=True),
              "--argstr", "uuid", self.uuid,
              "--argstr", "deploymentName", self.name if self.name else "",
-             "--arg", "pluginNixExprs", py2nix(["/home/grahamc/projects/nixops-aws/nix/"]),
+             "--arg", "pluginNixExprs", py2nix(extraexprs),
              "<nixops/eval-machine-info.nix>"])
         return flags
 
