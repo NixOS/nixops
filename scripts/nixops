@@ -1,12 +1,10 @@
-#! /usr/bin/env python2
+#! /usr/bin/env python2 -tt
 # -*- coding: utf-8 -*-
 
 from nixops import deployment
 from nixops.nix_expr import py2nix
 from nixops.parallel import MultipleExceptions, run_tasks
-import nixopsaws.resources
-import nixopsaws.backends.ec2
-import nixopsaws.resources.ec2_keypair
+import pluggy
 
 import nixops.statefile
 import prettytable
@@ -29,6 +27,12 @@ import pipes
 from datetime import datetime
 from pprint import pprint
 
+from nixops.plugins import hookspecs
+
+pm = pluggy.PluginManager("nixops")
+pm.add_hookspec(hookspecs)
+pm.load_setuptools_entrypoints("nixops")
+pm.hook.load()
 
 def create_table(headers):
     tbl = prettytable.PrettyTable([name for (name, align) in headers])

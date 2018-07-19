@@ -68,6 +68,7 @@ rec {
           # Go back to sqlite once Python 2.7.13 is released
           pysqlite
           aws.build."${system}"
+          pluggy
         ];
 
       # For "nix-build --run-env".
