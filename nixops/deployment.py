@@ -1245,10 +1245,12 @@ def _create_definition(xml, config, type_name):
 
 def _create_state(depl, type, name, id):
     """Create a resource state object of the desired type."""
-
     for cls in _subclasses(nixops.resources.ResourceState):
-        if type == cls.get_type():
-            return cls(depl, name, id)
+        try:
+            if type == cls.get_type():
+                return cls(depl, name, id)
+        except NotImplementedError:
+            pass
 
     raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))
 
