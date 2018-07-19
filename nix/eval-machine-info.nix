@@ -4,14 +4,20 @@
 , uuid
 , deploymentName
 , args
+, pluginNixExprs
 }:
 
 with import <nixpkgs/nixos/lib/testing.nix> { inherit system; };
 with pkgs;
 with lib;
 
-
 rec {
+
+  importedPluginNixExprs = map
+    (expr: import expr { inherit evalResources zipAttrs resourcesByType; })
+    pluginNixExprs;
+  pluginOptions = { imports = (map (e: e.options) importedPluginNixExprs); };
+  pluginDeploymentConfigNames = (map (e: e.name) importedPluginNixExprs);
 
   networks =
     let
@@ -52,7 +58,7 @@ rec {
             [ deploymentInfoModule ] ++
             [ { key = "nixops-stuff";
                 # Make NixOps's deployment.* options available.
-                imports = [ ./options.nix ./resource.nix ];
+                imports = [ ./options.nix ./resource.nix pluginOptions ];
                 # Provide a default hostname and deployment target equal
                 # to the attribute name of the machine in the model.
                 networking.hostName = mkOverride 900 machineName;
@@ -106,10 +112,16 @@ rec {
 
     machines =
       flip mapAttrs nodes (n: v': let v = scrubOptionValue v'; in
+      foldr (l: r: l // r)
         { inherit (v.config.deployment) targetEnv targetPort targetHost encryptedLinksTo storeKeysOnMachine alwaysActivate owners keys hasFastConnection;
           nixosRelease = v.config.system.nixos.release or v.config.system.nixosRelease or (removeSuffix v.config.system.nixosVersionSuffix v.config.system.nixosVersion);
           publicIPv4 = v.config.networking.publicIPv4;
         }
+      (map
+          (name: { "${name}" = optionalAttrs (v.config.deployment.targetEnv == name) v.config.deployment."${name}" or {};})
+          pluginDeploymentConfigNames)
+
+
       );
 
     network = fold (as: bs: as // bs) {} (network'.network or []);

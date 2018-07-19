@@ -263,6 +263,7 @@ class Deployment(object):
              "--arg", "args", py2nix(args, inline=True),
              "--argstr", "uuid", self.uuid,
              "--argstr", "deploymentName", self.name if self.name else "",
+             "--arg", "pluginNixExprs", py2nix(["/home/grahamc/projects/nixops-aws/nix/"]),
              "<nixops/eval-machine-info.nix>"])
         return flags
 

@@ -6,7 +6,7 @@
 let
   pkgs = import nixpkgs { };
   version = "1.6.1" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
-
+aws = import ../nixops-aws/release.nix {};
 in
 
 rec {
@@ -67,6 +67,7 @@ rec {
           adal
           # Go back to sqlite once Python 2.7.13 is released
           pysqlite
+          aws.build."${system}"
         ];
 
       # For "nix-build --run-env".
