@@ -14,10 +14,11 @@ with lib;
 rec {
 
   importedPluginNixExprs = map
-    (expr: import expr { inherit evalResources zipAttrs resourcesByType; })
+    (expr: import expr)
     pluginNixExprs;
-  pluginOptions = { imports = (map (e: e.options) importedPluginNixExprs); };
-  pluginDeploymentConfigNames = (map (e: e.name) importedPluginNixExprs);
+  pluginOptions = { imports = (foldl (a: e: a ++ e.options) [] importedPluginNixExprs); };
+  pluginResources = map (e: e.resources) importedPluginNixExprs;
+  pluginDeploymentConfigExporters = (foldl (a: e: a ++ (e.config_exporters { inherit optionalAttrs; })) [] importedPluginNixExprs);
 
   networks =
     let
@@ -58,7 +59,7 @@ rec {
             [ deploymentInfoModule ] ++
             [ { key = "nixops-stuff";
                 # Make NixOps's deployment.* options available.
-                imports = [ ./options.nix ./resource.nix pluginOptions ];
+          imports = [ ./options.nix ./resource.nix pluginOptions ];
                 # Provide a default hostname and deployment target equal
                 # to the attribute name of the machine in the model.
                 networking.hostName = mkOverride 900 machineName;
@@ -89,9 +90,13 @@ rec {
         { inherit pkgs uuid name resources; nodes = info.machines; }
       ).config) ["_module"]) _resources;
 
-  resources.sshKeyPairs = evalResources ./ssh-keypair.nix (zipAttrs resourcesByType.sshKeyPairs or []);
-
-  resources.machines = mapAttrs (n: v: v.config) nodes;
+  resources = foldl
+    (a: b: a // (b { inherit evalResources zipAttrs resourcesByType;}))
+    {
+      sshKeyPairs = evalResources ./ssh-keypair.nix (zipAttrs resourcesByType.sshKeyPairs or []);
+      machines = mapAttrs (n: v: v.config) nodes;
+    }
+    pluginResources;
 
   # check if there are duplicate elements in a sorted list
   noDups = l:
@@ -112,17 +117,15 @@ rec {
 
     machines =
       flip mapAttrs nodes (n: v': let v = scrubOptionValue v'; in
-      foldr (l: r: l // r)
+        foldl (a: b: a // b)
         { inherit (v.config.deployment) targetEnv targetPort targetHost encryptedLinksTo storeKeysOnMachine alwaysActivate owners keys hasFastConnection;
           nixosRelease = v.config.system.nixos.release or v.config.system.nixosRelease or (removeSuffix v.config.system.nixosVersionSuffix v.config.system.nixosVersion);
           publicIPv4 = v.config.networking.publicIPv4;
-        }
+      }
       (map
-          (name: { "${name}" = optionalAttrs (v.config.deployment.targetEnv == name) v.config.deployment."${name}" or {};})
-          pluginDeploymentConfigNames)
-
-
-      );
+        (f: f v.config)
+        pluginDeploymentConfigExporters
+      ));
 
     network = fold (as: bs: as // bs) {} (network'.network or []);
 

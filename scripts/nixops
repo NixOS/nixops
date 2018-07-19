@@ -6,6 +6,7 @@ from nixops.nix_expr import py2nix
 from nixops.parallel import MultipleExceptions, run_tasks
 import nixopsaws.resources
 import nixopsaws.backends.ec2
+import nixopsaws.resources.ec2_keypair
 
 import nixops.statefile
 import prettytable
