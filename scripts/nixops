@@ -993,7 +993,3 @@ except MultipleExceptions as e:
     if args.debug or args.show_trace or str(e) == "":
         e.print_all_backtraces()
     sys.exit(1)
-except Exception as e:
-    if args.debug or args.show_trace or str(e) == "": raise
-    error(str(e))
-    sys.exit(1)
