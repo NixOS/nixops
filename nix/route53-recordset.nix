@@ -90,6 +90,28 @@ with (import ./lib.nix lib);
         (e.g. IP adress in case of an A or AAA record type, 
          or a DNS name in case of a CNAME record type)
       '';
+
+      default = [];
+    };
+
+    aliasTarget = mkOption {
+      type = with types; (nullOr (submodule {
+        options = {
+          hostedZoneId = mkOption {
+            type = types.str;
+            default = "";
+          };
+          dnsName = mkOption {
+            type = types.string;
+            default = "";
+          };
+          evaluateTargetHealth = mkOption {
+            type = types.bool;
+            default = false;
+          };
+        };
+      }));
+      default = null;
     };
 
     setIdentifier = mkOption {

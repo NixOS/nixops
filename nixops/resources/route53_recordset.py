@@ -37,6 +37,7 @@ class Route53RecordSetDefinition(nixops.resources.ResourceDefinition):
         self.routing_policy = config["routingPolicy"]
         self.record_type = config["recordType"]
         self.record_values = config["recordValues"]
+        self.alias_target = config["aliasTarget"]
         self.health_check_id = config["healthCheckId"]
 
     def show_type(self):
@@ -58,7 +59,8 @@ class Route53RecordSetState(nixops.resources.ResourceState):
     ttl = nixops.util.attr_property("route53.ttl", None, int)
     routing_policy = nixops.util.attr_property("route53.routingPolicy", None)
     record_type = nixops.util.attr_property("route53.recordType", None)
-    record_values = nixops.util.attr_property("route53.recordValues", None, 'json')
+    record_values = nixops.util.attr_property("route53.recordValues", [], 'json')
+    alias_target = nixops.util.attr_property("route53.aliasTarget", {}, 'json')
     health_check_id = nixops.util.attr_property("route53.healthCheckId", None)
 
     @classmethod
@@ -162,7 +164,8 @@ class Route53RecordSetState(nixops.resources.ResourceState):
         changed = self.record_values != defn.record_values \
                or self.ttl != defn.ttl \
                or self.weight != defn.weight \
-               or self.health_check_id != defn.health_check_id
+               or self.health_check_id != defn.health_check_id \
+               or self.alias_target != defn.alias_target
 
         if not changed and not check:
             return
@@ -185,6 +188,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
             self.record_type = defn.record_type
             self.routing_policy = defn.routing_policy
             self.record_values = defn.record_values
+            self.alias_target = defn.alias_target
             self.ttl = defn.ttl
             self.set_identifier = defn.set_identifier
             self.weight = defn.weight
@@ -200,12 +204,20 @@ class Route53RecordSetState(nixops.resources.ResourceState):
                     'ResourceRecordSet': {
                         'Name': obj.domain_name,
                         'Type': obj.record_type,
-                        'TTL': int(obj.ttl),
-                        'ResourceRecords': map(lambda rv: { 'Value': rv }, obj.record_values)
                     }
                 },
             ]
         }
+        if obj.alias_target:
+            batch['Changes'][0]['ResourceRecordSet']['AliasTarget'] = {
+                'HostedZoneId': obj.alias_target.get('hostedZoneId'),
+                'DNSName': obj.alias_target.get('dnsName'),
+                'EvaluateTargetHealth': obj.alias_target.get('evaluateTargetHealth')
+            }
+        else:
+            batch['Changes'][0]['ResourceRecordSet']['ResourceRecords'] = map(lambda rv: { 'Value': rv }, obj.record_values)
+            batch['Changes'][0]['ResourceRecordSet']['TTL'] = int(obj.ttl)
+
 
         rs_batch = batch['Changes'][0]['ResourceRecordSet']
 
