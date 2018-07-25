@@ -34,6 +34,7 @@ class EC2RDSDbInstanceDefinition(nixops.resources.ResourceDefinition):
         self.rds_dbinstance_multi_az = xml.find("attrs/attr[@name='multiAZ']/bool").get("value") == "true"
         self.rds_dbinstance_security_groups = self._fetch_list_attr_values(xml, 'securityGroups')
         self.rds_dbinstance_vpc_security_groups = self._fetch_list_attr_values(xml, 'vpcSecurityGroups')
+        self.rds_dbinstance_subnet_group = xml.find("attrs/attr[@name='subnetGroup']/string").get("value")
         # TODO: implement remainder of boto.rds.RDSConnection.create_dbinstance parameters
 
         # common params
@@ -73,6 +74,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
     rds_dbinstance_multi_az = nixops.util.attr_property("ec2.multiAZ", False)
     rds_dbinstance_security_groups = nixops.util.attr_property("ec2.securityGroups", [], "json")
     rds_dbinstance_vpc_security_groups = nixops.util.attr_property("ec2.vpcSecurityGroups", [], "json")
+    rds_dbinstance_subnet_group = nixops.util.attr_property("ec2.rdsSubnetGroup", None)
 
     requires_reboot_attrs = ('rds_dbinstance_id', 'rds_dbinstance_allocated_storage',
         'rds_dbinstance_instance_class', 'rds_dbinstance_master_password')
@@ -124,7 +126,8 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         diff_attrs = set(diff.keys())
 
         invariant_attrs = set(['region', 'zone', 'rds_dbinstance_master_username',
-            'rds_dbinstance_engine', 'rds_dbinstance_port', 'rds_dbinstance_db_name'])
+            'rds_dbinstance_engine', 'rds_dbinstance_port', 'rds_dbinstance_db_name',
+            'rds_dbinstance_subnet_group'])
 
         violated_attrs = diff_attrs & invariant_attrs
         if len(violated_attrs) > 0:
@@ -149,7 +152,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         attrs = ('region', 'zone', 'rds_dbinstance_port', 'rds_dbinstance_engine', 'rds_dbinstance_multi_az',
             'rds_dbinstance_instance_class', 'rds_dbinstance_db_name', 'rds_dbinstance_master_username',
             'rds_dbinstance_master_password', 'rds_dbinstance_allocated_storage', 'rds_dbinstance_security_groups',
-            'rds_dbinstance_vpc_security_groups')
+            'rds_dbinstance_vpc_security_groups', 'rds_dbinstance_subnet_group')
 
         def get_state_attr(attr):
             # handle boolean type in the state to avoid triggering false
@@ -184,7 +187,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 break
             time.sleep(6)
 
-    def _copy_dbinstance_attrs(self, dbinstance, security_groups, vpc_security_groups):
+    def _copy_dbinstance_attrs(self, dbinstance, security_groups, vpc_security_groups, subnet_group):
         with self.depl._db:
             self.rds_dbinstance_id = dbinstance.id
             self.rds_dbinstance_allocated_storage = int(dbinstance.allocated_storage)
@@ -196,6 +199,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
             self.rds_dbinstance_endpoint = "%s:%d"% dbinstance.endpoint
             self.rds_dbinstance_security_groups = security_groups
             self.rds_dbinstance_vpc_security_groups = vpc_security_groups
+            self.rds_dbinstance_subnet_group = subnet_group
 
     def _to_boto_kwargs(self, attrs):
         attr_to_kwarg = {
@@ -204,7 +208,8 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
             'rds_dbinstance_instance_class': 'instance_class',
             'rds_dbinstance_multi_az': 'multi_az',
             'rds_dbinstance_security_groups': 'security_groups',
-            'rds_dbinstance_vpc_security_groups': 'vpc_security_groups'
+            'rds_dbinstance_vpc_security_groups': 'vpc_security_groups',
+            'rds_dbinstance_subnet_group': 'db_subnet_group_name'
         }
         return { attr_to_kwarg[attr] : attrs[attr] for attr in attrs.keys() }
 
@@ -278,7 +283,8 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                         port=defn.rds_dbinstance_port, engine=defn.rds_dbinstance_engine,
                         db_name=defn.rds_dbinstance_db_name, 
                         availability_zone=defn.zone, multi_az=defn.rds_dbinstance_multi_az,
-                        security_groups=db_security_groups, vpc_security_groups=vpc_security_groups)
+                        security_groups=db_security_groups, vpc_security_groups=vpc_security_groups,
+                        db_subnet_group_name=defn.rds_dbinstance_subnet_group)
 
                     self.state = self.STARTING
                     self._wait_for_dbinstance(dbinstance)
@@ -288,7 +294,11 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
                 self.rds_dbinstance_db_name = defn.rds_dbinstance_db_name
                 self.rds_dbinstance_master_password = defn.rds_dbinstance_master_password
-                self._copy_dbinstance_attrs(dbinstance, defn.rds_dbinstance_security_groups, defn.rds_dbinstance_vpc_security_groups)
+                self._copy_dbinstance_attrs(
+                    dbinstance,
+                    defn.rds_dbinstance_security_groups, defn.rds_dbinstance_vpc_security_groups,
+                    defn.rds_dbinstance_subnet_group
+                )
                 self.state = self.UP
 
         with self.depl._db:
@@ -318,7 +328,11 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                 if not (len(boto_kwargs) == 2 and any(attr in boto_kwargs for attr in ['security_groups', 'vpc_security_groups'])):
                     self._wait_for_dbinstance(dbinstance, state="modifying")
                 self._wait_for_dbinstance(dbinstance)
-                self._copy_dbinstance_attrs(dbinstance, defn.rds_dbinstance_security_groups, defn.rds_dbinstance_vpc_security_groups)
+                self._copy_dbinstance_attrs(
+                    dbinstance,
+                    defn.rds_dbinstance_security_groups, defn.rds_dbinstance_vpc_security_groups,
+                    defn.rds_dbinstance_subnet_group    
+                )
 
 
     def after_activation(self, defn):

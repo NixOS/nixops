@@ -107,6 +107,15 @@ with import ./lib.nix lib;
       '';
     };
 
+    subnetGroup = mkOption {
+      default = null;
+      type = with types; nullOr (either str (resource "ec2-rds-subnet-group"));
+      apply = x: if builtins.isString x then x else x._name;
+      description = ''
+        A DB subnet group to associate with this DB instance.
+      '';
+    };
+
   };
 
   config._type = "ec2-rds-dbinstance";

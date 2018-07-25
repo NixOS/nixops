@@ -97,6 +97,7 @@ rec {
   resources.elasticIPs = evalResources ./elastic-ip.nix (zipAttrs resourcesByType.elasticIPs or []);
   resources.rdsDbInstances = evalResources ./ec2-rds-dbinstance.nix (zipAttrs resourcesByType.rdsDbInstances or []);
   resources.rdsDbSecurityGroups = evalResources ./ec2-rds-dbsecurity-group.nix (zipAttrs resourcesByType.rdsDbSecurityGroups or []);
+  resources.rdsDbSubnetGroups = evalResources ./ec2-rds-dbsubnet-group.nix (zipAttrs resourcesByType.rdsDbSubnetGroups or []);
   resources.route53RecordSets = evalResources ./route53-recordset.nix (zipAttrs resourcesByType.route53RecordSets or []);
   resources.elasticFileSystems = evalResources ./elastic-file-system.nix (zipAttrs resourcesByType.elasticFileSystems or []);
   resources.elasticFileSystemMountTargets = evalResources ./elastic-file-system-mount-target.nix (zipAttrs resourcesByType.elasticFileSystemMountTargets or []);
