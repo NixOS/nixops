@@ -38,6 +38,7 @@ class EC2RDSDbInstanceDefinition(nixops.resources.ResourceDefinition):
 
         # common params
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
+        self.zone = xml.find("attrs/attr[@name='zone']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
 
     def show_type(self):
@@ -58,6 +59,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
     """State of an RDS Database Instance."""
 
     region = nixops.util.attr_property("ec2.region", None)
+    zone = nixops.util.attr_property("ec2.zone", None)
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
     rds_dbinstance_id = nixops.util.attr_property("ec2.rdsDbInstanceID", None)
     rds_dbinstance_allocated_storage = nixops.util.attr_property("ec2.rdsAllocatedStorage", None, int)
@@ -121,7 +123,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         diff = self._diff_defn(defn)
         diff_attrs = set(diff.keys())
 
-        invariant_attrs = set(['region', 'rds_dbinstance_master_username',
+        invariant_attrs = set(['region', 'zone', 'rds_dbinstance_master_username',
             'rds_dbinstance_engine', 'rds_dbinstance_port', 'rds_dbinstance_db_name'])
 
         violated_attrs = diff_attrs & invariant_attrs
@@ -144,7 +146,7 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
         return dbinstance
 
     def _diff_defn(self, defn):
-        attrs = ('region', 'rds_dbinstance_port', 'rds_dbinstance_engine', 'rds_dbinstance_multi_az',
+        attrs = ('region', 'zone', 'rds_dbinstance_port', 'rds_dbinstance_engine', 'rds_dbinstance_multi_az',
             'rds_dbinstance_instance_class', 'rds_dbinstance_db_name', 'rds_dbinstance_master_username',
             'rds_dbinstance_master_password', 'rds_dbinstance_allocated_storage', 'rds_dbinstance_security_groups',
             'rds_dbinstance_vpc_security_groups')
@@ -274,13 +276,15 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                         defn.rds_dbinstance_allocated_storage, defn.rds_dbinstance_instance_class,
                         defn.rds_dbinstance_master_username, defn.rds_dbinstance_master_password,
                         port=defn.rds_dbinstance_port, engine=defn.rds_dbinstance_engine,
-                        db_name=defn.rds_dbinstance_db_name, multi_az=defn.rds_dbinstance_multi_az,
+                        db_name=defn.rds_dbinstance_db_name, 
+                        availability_zone=defn.zone, multi_az=defn.rds_dbinstance_multi_az,
                         security_groups=db_security_groups, vpc_security_groups=vpc_security_groups)
 
                     self.state = self.STARTING
                     self._wait_for_dbinstance(dbinstance)
 
                 self.region = defn.region
+                self.zone = defn.zone
                 self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
                 self.rds_dbinstance_db_name = defn.rds_dbinstance_db_name
                 self.rds_dbinstance_master_password = defn.rds_dbinstance_master_password
