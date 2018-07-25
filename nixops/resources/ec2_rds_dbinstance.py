@@ -249,15 +249,15 @@ class EC2RDSDbInstanceState(nixops.resources.ResourceState):
                     if dbinstance.status == 'deleting':
                         self.logger.log("RDS instance `{0}` is being deleted, waiting...".format(dbinstance.id))
                         while True:
+                            dbinstance.update()
+                            self.log_continue("[{0}] ".format(dbinstance.status))
                             if dbinstance.status == 'deleting':
-                                continue
+                                time.sleep(6)
                             else:
                                 break
-                            self.log_continue("[{0}] ".format(dbinstance.status))
-                            time.sleep(6)
-
-                    self.logger.log("RDS instance `{0}` is MISSING but already exists, synchronizing state".format(dbinstance.id))
-                    self.state = self.UP
+                    else:
+                        self.logger.log("RDS instance `{0}` is MISSING but already exists, synchronizing state".format(dbinstance.id))
+                        self.state = self.UP
 
                 if not dbinstance and self.state == self.UP:
                     self.logger.log("RDS instance `{0}` state is UP but does not exist!")
