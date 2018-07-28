@@ -1,4 +1,4 @@
-
+import pluggy
 class NixOpsPluginSpec(object):
     """A hook specification namespace.
     """
