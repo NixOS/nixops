@@ -36,6 +36,7 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'instanceType', str, empty = False)
         self.copy_option(x, 'project', str)
         self.copy_option(x, 'serviceAccount', str)
+        self.copy_option(x, 'canIpForward', bool, optional=True)
         self.access_key_path = self.get_option_value(x, 'accessKey', str)
 
         self.copy_option(x, 'tags', 'strlist')
@@ -108,6 +109,8 @@ class GCEState(MachineState, ResourceState):
 
     region = attr_property("gce.region", None)
     instance_type = attr_property("gce.instanceType", None)
+
+    can_ip_forward = attr_property("gce.canIpForward", False)
 
     public_client_key = attr_property("gce.publicClientKey", None)
     private_client_key = attr_property("gce.privateClientKey", None)
@@ -425,6 +428,7 @@ class GCEState(MachineState, ResourceState):
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk.get('region', None)),
                                  ex_metadata = self.full_metadata(defn.metadata), ex_tags = defn.tags, ex_service_accounts = service_accounts,
                                  external_ip = (self.connect().ex_get_address(defn.ipAddress) if defn.ipAddress else 'ephemeral'),
+                                 ex_can_ip_forward = defn.can_ip_forward,
                                  # in theory the API accepts creating an
                                  # instance by specifying only the subnet
                                  # but this seems to be a libcloud issue
