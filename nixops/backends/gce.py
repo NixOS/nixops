@@ -746,7 +746,7 @@ class GCEState(MachineState, ResourceState):
                 isinstance(r, nixops.resources.gce_network.GCENetworkState)}
 
 
-    def backup(self, defn, backup_id):
+    def backup(self, defn, backup_id, devices=[]):
         self.log("backing up {0} using ID '{1}'".format(self.full_name, backup_id))
 
         if sorted(defn.block_device_mapping.keys()) != sorted(self.block_device_mapping.keys()):
@@ -757,19 +757,20 @@ class GCEState(MachineState, ResourceState):
         _backups = self.backups
         for k, v in self.block_device_mapping.iteritems():
             disk_name = v['disk_name'] or v['disk']
-            volume = self.connect().ex_get_volume(disk_name, v.get('region', None))
-            snapshot_name = "backup-{0}-{1}".format(backup_id, disk_name[-32:])
-            self.log("initiating snapshotting of disk '{0}': '{1}'".format(disk_name, snapshot_name))
-            self.connect().connection.request(
-                '/zones/%s/disks/%s/createSnapshot'
-                    %(volume.extra['zone'].name, volume.name),
-                method = 'POST', data = {
-                    'name': snapshot_name,
-                    'description': "backup of disk {0} attached to {1}"
-                                    .format(volume.name, self.machine_name)
-                })
+            if devices == [] or k in devices or disk_name in devices:
+                volume = self.connect().ex_get_volume(disk_name, v.get('region', None))
+                snapshot_name = "backup-{0}-{1}".format(backup_id, disk_name[-32:])
+                self.log("initiating snapshotting of disk '{0}': '{1}'".format(disk_name, snapshot_name))
+                self.connect().connection.request(
+                    '/zones/%s/disks/%s/createSnapshot'
+                        %(volume.extra['zone'].name, volume.name),
+                    method = 'POST', data = {
+                        'name': snapshot_name,
+                        'description': "backup of disk {0} attached to {1}"
+                                        .format(volume.name, self.machine_name)
+                    })
 
-            backup[k] = snapshot_name
+                backup[k] = snapshot_name
             _backups[backup_id] = backup
             self.backups = _backups
 

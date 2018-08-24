@@ -827,7 +827,7 @@ class Deployment(object):
             nixops.parallel.run_tasks(nr_workers=len(self.active), tasks=self.machines.itervalues(), worker_fun=worker)
 
 
-    def backup(self, include=[], exclude=[]):
+    def backup(self, include=[], exclude=[], devices=[]):
         self.evaluate_active(include, exclude)
         backup_id = datetime.now().strftime("%Y%m%d%H%M%S")
 
@@ -838,7 +838,7 @@ class Deployment(object):
                 res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + ["sync"])
                 if res != 0:
                     m.logger.log("running sync failed on {0}.".format(m.name))
-            m.backup(self.definitions[m.name], backup_id)
+            m.backup(self.definitions[m.name], backup_id, devices)
 
         nixops.parallel.run_tasks(nr_workers=5, tasks=self.active.itervalues(), worker_fun=worker)
 
