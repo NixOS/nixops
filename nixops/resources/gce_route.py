@@ -79,3 +79,16 @@ class GCERouteState(ResourceState):
                 except libcloud.common.google.ResourceExistsError:
                     raise Exception("tried creating a route that already exists.")
                 self.state = self.UP
+
+    def destroy(self, wipe=False):
+        if self.state == self.UP:
+            try:
+                route = self.connect().ex_get_route(self.route_name)
+                if not self.depl.logger.confirm("are you sure you want to destroy {0}?".format(self.full_name)):
+                    return False
+
+                self.log("destroying {0}...".format(self.full_name))
+                route.destroy()
+            except libcloud.common.google.ResourceNotFoundError:
+                self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
+        return True
