@@ -60,7 +60,7 @@ class EC2Definition(MachineDefinition):
         self.block_device_mapping = {_xvd_to_sd(k): v for k, v in config["ec2"]["blockDeviceMapping"].iteritems()}
         self.elastic_ipv4 = config["ec2"]["elasticIPv4"]
 
-        self.dns_hostname = config["route53"]["hostName"]
+        self.dns_hostname = config["route53"]["hostName"].lower()
         self.dns_ttl = config["route53"]["ttl"]
         self.route53_access_key_id = config["route53"]["accessKeyId"]
         self.route53_use_public_dns_name = config["route53"]["usePublicDNSName"]

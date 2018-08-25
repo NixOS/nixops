@@ -110,7 +110,7 @@ rec {
 
       # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
       # the version of openssh is causing errors when have big networks (40+)
-      makeWrapperArgs = ["--prefix" "PATH" ":" "${openssl}/bin" "--set" "PYTHONPATH" ":"];
+      makeWrapperArgs = ["--prefix" "PATH" ":" "${openssh}/bin" "--set" "PYTHONPATH" ":"];
 
       postInstall =
         ''

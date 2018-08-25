@@ -274,6 +274,14 @@ in
         '';
       };
 
+      canIpForward = mkOption {
+        default = false;
+        type = types.bool;
+        description = ''
+          Allows the instance to send and receive packets with non-matching destination or source IPs.
+        '';
+      };
+
       instanceServiceAccount = mkOption {
         default  = {};
         type = (types.submodule {
