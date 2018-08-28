@@ -6,10 +6,10 @@ with import ./lib.nix lib;
 
   options = (import ./gce-credentials.nix lib "route") // {
 
-
       name = mkOption {
         example = "my-route";
         type = types.str;
+        default = "route-${uuid}-${name}";
         description = "Name of the route";
       };
 

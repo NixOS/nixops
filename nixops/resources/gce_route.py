@@ -62,43 +62,53 @@ class GCERouteState(ResourceState):
         return s
 
     def _destroy_route(self):
-        route = self.connect().ex_get_route(self.route_name)
-        route.destroy()
+        try:
+            route = self.connect().ex_get_route(self.route_name)
+            route.destroy()
+        except libcloud.common.google.ResourceNotFoundError:
+            self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
 
     @property
     def full_name(self):
         return "GCE route '{0}'".format(self.name)
 
+    def _check(self):
+        try:
+            route = self.connect().ex_get_route(self.route_name)
+            # libcloud only expose these properties in the GCERoute class.
+            # "description" and "nextHop" can't be checked.
+            route_properties = {"name": "route_name",
+                                "dest_range": "destination",
+                                "network": "network",
+                                "tags": "tags",
+                                "priority": "priority"}
+            # This shouldn't happen, unless you delete the
+            # route manually and create another one with the
+            # same name, but different properties.
+            real_state_differ = any([getattr(route, route_attr) != getattr(self, self_attr)
+                                     for route_attr, self_attr in route_properties.iteritems()])
+            if real_state_differ:
+                if self.depl.logger.confirm("Route properties are different from those in the state, "
+                                       "destroy route {0}?".format(self.route_name)):
+                    self._destroy_route()
+                    self.state = self.MISSING
+
+        except libcloud.common.google.ResourceNotFoundError:
+            self.state = self.MISSING
+            return False
+        return False
+
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.copy_credentials(defn)
 
         if check:
-            try:
-                route = self.connect().ex_get_route(self.route_name)
-                # libcloud only expose these properties in the GCERoute class.
-                # "description" and "nextHop" can't be checked.
-                route_properties = {"name": "route_name",
-                                    "dest_range": "destination",
-                                    "network": "network",
-                                    "tags": "tags",
-                                    "priority": "priority"}
-                if any([getattr(route, route_attr) != getattr(self, self_attr)
-                        for route_attr, self_attr in route_properties.iteritems()]):
-                    # This shouldn't happen, unless you delete the
-                    # route manually and create another one with the
-                    # same name, but different properties.
-                    if allow_recreate:
-                        self._destroy_route()
-                        self.state = self.MISSING
-                    else:
-                        self.warn("Route properties are different from those in the state,"
-                                  " use --allow-create to delete the route and deploy it again.")
-
-            except libcloud.common.google.ResourceNotFoundError:
+            if self._check():
                 if allow_recreate:
+                    self._destroy_route()
                     self.state = self.MISSING
                 else:
-                    self.warn("The route doesn't exist, use --allow-recreate to create it.")
+                    self.warn("Route properties are different from those in the state,"
+                              " use --allow-create to delete the route and deploy it again.")
 
         if self.is_deployed() and self.properties_changed(defn):
             if allow_recreate:
@@ -121,13 +131,10 @@ class GCERouteState(ResourceState):
 
     def destroy(self, wipe=False):
         if self.state == self.UP:
-            try:
+            if not self.depl.logger.confirm("are you sure you want to destroy {0}?".format(self.full_name)):
+                return False
 
-                if not self.depl.logger.confirm("are you sure you want to destroy {0}?".format(self.full_name)):
-                    return False
+            self.log("destroying {0}...".format(self.full_name))
+            self._destroy_route()
 
-                self.log("destroying {0}...".format(self.full_name))
-                self._destroy_route()
-            except libcloud.common.google.ResourceNotFoundError:
-                self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
         return True
