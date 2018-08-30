@@ -72,43 +72,60 @@ class GCERouteState(ResourceState):
     def full_name(self):
         return "GCE route '{0}'".format(self.name)
 
-    def _check(self):
+    def _route_is_missing(self):
         try:
-            route = self.connect().ex_get_route(self.route_name)
-            # libcloud only expose these properties in the GCERoute class.
-            # "description" and "nextHop" can't be checked.
-            route_properties = {"name": "route_name",
-                                "dest_range": "destination",
-                                "network": "network",
-                                "tags": "tags",
-                                "priority": "priority"}
-            # This shouldn't happen, unless you delete the
-            # route manually and create another one with the
-            # same name, but different properties.
-            real_state_differ = any([getattr(route, route_attr) != getattr(self, self_attr)
-                                     for route_attr, self_attr in route_properties.iteritems()])
-            if real_state_differ:
-                if self.depl.logger.confirm("Route properties are different from those in the state, "
-                                       "destroy route {0}?".format(self.route_name)):
-                    self._destroy_route()
-                    self.state = self.MISSING
-
+            self.connect().ex_get_route(self.route_name)
+            return False
         except libcloud.common.google.ResourceNotFoundError:
+            return True
+
+    def _real_state_differ(self):
+        """ Check If any of the route's properties has a different value than that in the state"""
+        route = self.connect().ex_get_route(self.route_name)
+        # libcloud only expose these properties in the GCERoute class.
+        # "description" and "nextHop" can't be checked.
+        route_properties = {"name": "route_name",
+                            "dest_range": "destination",
+                            "tags": "tags",
+                            "priority": "priority"}
+        # This shouldn't happen, unless you delete the
+        # route manually and create another one with the
+        # same name, but different properties.
+        real_state_differ = any([getattr(route, route_attr) != getattr(self, self_attr)
+                                 for route_attr, self_attr in route_properties.iteritems()])
+
+        # We need to check the network in separate, since GCE API add the project and the region
+        network_differ = route.network.split("/")[-1] != self.network
+
+        return real_state_differ or network_differ
+
+    def _check(self):
+
+        if self._route_is_missing():
             self.state = self.MISSING
             return False
-        return False
+
+        if self._real_state_differ():
+                if self.depl.logger.confirm("Route properties are different from those in the state, "
+                                            "destroy route {0}?".format(self.route_name)):
+                    self._destroy_route()
+                    self.state = self.MISSING
+        return True
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.copy_credentials(defn)
 
         if check:
-            if self._check():
+            if self._route_is_missing():
+                self.state = self.MISSING
+
+            elif self._real_state_differ():
                 if allow_recreate:
                     self._destroy_route()
                     self.state = self.MISSING
                 else:
                     self.warn("Route properties are different from those in the state,"
-                              " use --allow-create to delete the route and deploy it again.")
+                              " use --allow-recreate to delete the route and deploy it again.")
 
         if self.is_deployed() and self.properties_changed(defn):
             if allow_recreate:
