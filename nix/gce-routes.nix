@@ -29,7 +29,8 @@ with import ./lib.nix lib;
 
       destination = mkOption {
         example ="1.1.1.1/32";
-        type = types.nullOr types.str;
+        type = types.nullOr (types.either types.str (resource "machine"));
+        apply = x: if x == null || (builtins.isString x) then x else "res-" + x._name;
         description = "The destination IP range that this route applies to. If the destination IP of a packet falls in this range, it matches this route.";
       };
 
@@ -43,7 +44,8 @@ with import ./lib.nix lib;
       nextHop = mkOption {
         default = null;
         example = "NAT-gateway";
-        type = types.nullOr types.str;
+        type = types.nullOr (types.either types.str (resource "machine"));
+        apply = x: if x == null || (builtins.isString x) then x else "res-" + x._name;
         description = "Next traffic hop, Leave it empty for the default internet gateway.";
       };
 

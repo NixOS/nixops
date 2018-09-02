@@ -99,6 +99,12 @@ class GCERouteState(ResourceState):
 
         return real_state_differ or network_differ
 
+    def _get_machine_property(self, machine_name, property):
+        """Get a property from the machine """
+        machine = self.depl.get_machine(machine_name)
+
+        return getattr(machine, property)
+
     def _check(self):
 
         if self._route_is_missing():
@@ -127,6 +133,13 @@ class GCERouteState(ResourceState):
                     self.warn("Route properties are different from those in the state,"
                               " use --allow-recreate to delete the route and deploy it again.")
 
+        if defn.destination.startswith("res-"):
+            # if a machine resource was used for the destination, get
+            # the public IP of the instance into the definition of the
+            # route
+            machine_name = defn.destination[4:]
+            defn.destination = "{ip}/32".format(ip=self._get_machine_property(machine_name, "public_ipv4"))
+
         if self.is_deployed() and self.properties_changed(defn):
             if allow_recreate:
                 self.log("deleting route {0}...".format(self.route_name))
@@ -139,6 +152,17 @@ class GCERouteState(ResourceState):
             with self.depl._db:
                 self.log("creating {0}...".format(self.full_name))
                 self.copy_properties(defn)
+
+                if defn.nextHop.startswith("res-"):
+                    try:
+                        nextHop_name = self._get_machine_property(defn.nextHop[4:], "machine_name")
+                        defn.nextHop = self.connect().ex_get_node(nextHop_name)
+                    except AttributeError:
+                        raise Exception("nextHop can only be a GCE machine.")
+                        raise
+                    except libcloud.common.google.ResourceNotFoundError:
+                        raise Exception("The machine {0} isn't deployed, it need to be before it's added as nextHop".format(nextHop_name))
+
                 args = [getattr(defn, attr) for attr in self.defn_properties]
                 try:
                     self.connect().ex_create_route(*args)
