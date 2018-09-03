@@ -1941,6 +1941,59 @@ deploy the new configuration.
   </para>
 </section>
 
+<section>
+  <title>Special NixOS module inputs</title>
+  <para>
+    In deployments with multiple machines, it is often convenient to access the
+    configuration of another node in the same network, e.g. if you want to
+    store a port number only once.  </para>
+  <para>
+    This is possible by using the extra NixOS module input <literal>nodes</literal>.
+  </para>
+  <para>
+    <programlisting>
+{
+  network.description = "Gollum server and reverse proxy";
+
+  gollum =
+    { config, pkgs, ... }:
+    { 
+      services.gollum = {
+        enable = true;
+        port = 40273;
+      };
+      networking.firewall.allowedTCPPorts = [ config.services.gollum.port ];
+    };
+
+  reverseproxy =
+    { config, pkgs, nodes, ... }:
+    { 
+      services.nginx = {
+        enable = true;
+        let
+          gollumPort = nodes.gollum.config.services.gollum.port;
+        in
+        virtualHosts."wiki.example.net".locations."/" = {
+          proxyPass = "http://gollum:${gollumPort}";
+        };
+      };
+    };
+}
+    </programlisting>
+  </para>
+  <para>
+    Moving the port number to a different value is now without the risk of an inconsistent deployment.
+  </para>
+  <para>
+    Aditional module inputs are
+  </para>
+  <itemizedlist> 
+    <listitem><para><literal>name</literal>: The name of the machine.</para></listitem>
+    <listitem><para><literal>uuid</literal>: The NixOps UUID of the deployment.</para></listitem>
+    <listitem><para><literal>resources</literal>: NixOps resources associated with the deployment.</para></listitem>
+  </itemizedlist> 
+</section>
+
 <!--
 
 <para>EC2 logical.nix</para>
