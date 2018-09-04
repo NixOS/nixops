@@ -24,7 +24,9 @@ with import ./lib.nix lib;
         example = "my-custom-network";
         default = "default";
         type = types.str;
-        description = "Name of the network, defaults to <literal>default</literal>.";
+        description = ''
+          Name of the network, defaults to <literal>default</literal>.
+        '';
       };
 
       destination = mkOption {
@@ -32,7 +34,9 @@ with import ./lib.nix lib;
         type = types.nullOr (types.either types.str (resource "machine"));
         apply = x: if x == null || (builtins.isString x) then x else "res-" + x._name;
         description = ''
-          The destination IP range that this route applies to. If the destination IP of a packet falls in this range, it matches this route.
+          The destination IP range that this route applies to. If the
+          destination IP of a packet falls in this range, it matches
+          this route.
         '';
       };
 
@@ -40,7 +44,10 @@ with import ./lib.nix lib;
         default = 1000;
         example = 800;
         type = types.int;
-        description = "Priority is used to break ties when there is more than one matching route of maximum length.";
+        description = ''
+          Priority is used to break ties when there is more than one
+          matching route of maximum length.
+        '';
       };
 
       nextHop = mkOption {
@@ -48,14 +55,17 @@ with import ./lib.nix lib;
         example = "NAT-gateway";
         type = types.nullOr (types.either types.str (resource "machine"));
         apply = x: if x == null || (builtins.isString x) then x else "res-" + x._name;
-        description = "Next traffic hop, Leave it empty for the default internet gateway.";
+        description = ''
+          Next traffic hop, Leave it empty for the default internet gateway.
+        '';
       };
 
       tags = mkOption {
         default = null;
         type = types.nullOr (types.listOf types.str);
         description = ''
-          The route applies to all instances with any of these tags, or to all instances in the network if no tags are specified
+          The route applies to all instances with any of these tags,
+          or to all instances in the network if no tags are specified
         '';
       };
     };
