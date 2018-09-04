@@ -266,6 +266,7 @@ rec {
   resources.gceForwardingRules = evalResources ./gce-forwarding-rule.nix (zipAttrs resourcesByType.gceForwardingRules or []);
   resources.gseBuckets = evalResources ./gse-bucket.nix (zipAttrs resourcesByType.gseBuckets or []);
   resources.gceImages = evalResources ./gce-image.nix (gce_default_bootstrap_images // ( zipAttrs resourcesByType.gceImages  or []) );
+  resources.gceRoutes = evalResources ./gce-routes.nix (zipAttrs resourcesByType.gceRoutes or []);
 
   gce_deployments = flip filterAttrs nodes
                       ( n: v: let dc = (scrubOptionValue v).config.deployment; in dc.targetEnv == "gce" );
