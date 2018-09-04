@@ -28,10 +28,12 @@ with import ./lib.nix lib;
       };
 
       destination = mkOption {
-        example ="1.1.1.1/32";
+        example = "1.1.1.1/32";
         type = types.nullOr (types.either types.str (resource "machine"));
         apply = x: if x == null || (builtins.isString x) then x else "res-" + x._name;
-        description = "The destination IP range that this route applies to. If the destination IP of a packet falls in this range, it matches this route.";
+        description = ''
+          The destination IP range that this route applies to. If the destination IP of a packet falls in this range, it matches this route.
+        '';
       };
 
       priority = mkOption {

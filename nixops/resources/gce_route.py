@@ -4,6 +4,7 @@
 
 import libcloud.common.google
 
+from nixops import backends
 from nixops.util import attr_property
 from nixops.gce_common import ResourceDefinition, ResourceState
 
@@ -21,7 +22,6 @@ class GCERouteDefinition(ResourceDefinition):
 
     def __init__(self, xml):
         ResourceDefinition.__init__(self, xml)
-
         self.route_name = self.get_option_value(xml, 'name', str)
         self.description = self.get_option_value(xml, 'description', str, optional=True)
         self.network = self.get_option_value(xml, 'network', str)
@@ -68,6 +68,9 @@ class GCERouteState(ResourceState):
         except libcloud.common.google.ResourceNotFoundError:
             self.warn("tried to destroy {0} which didn't exist".format(self.full_name))
 
+    def create_after(self, resources, defn):
+        return {r for r in resources if isinstance(r, backends.MachineState)}
+
     @property
     def full_name(self):
         return "GCE route '{0}'".format(self.name)
@@ -102,11 +105,9 @@ class GCERouteState(ResourceState):
     def _get_machine_property(self, machine_name, property):
         """Get a property from the machine """
         machine = self.depl.get_machine(machine_name)
-
         return getattr(machine, property)
 
     def _check(self):
-
         if self._route_is_missing():
             self.state = self.MISSING
             return False
@@ -153,7 +154,7 @@ class GCERouteState(ResourceState):
                 self.log("creating {0}...".format(self.full_name))
                 self.copy_properties(defn)
 
-                if defn.nextHop.startswith("res-"):
+                if defn.nextHop and defn.nextHop.startswith("res-"):
                     try:
                         nextHop_name = self._get_machine_property(defn.nextHop[4:], "machine_name")
                         defn.nextHop = self.connect().ex_get_node(nextHop_name)
