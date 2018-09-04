@@ -434,9 +434,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self.connect()
 
         self.log("backing up machine ‘{0}’ using id ‘{1}’".format(self.name, backup_id))
-        for d in devices:
-            self.log(" - {0}".format(d))
-
         backup = {}
         _backups = self.backups
         for k, v in self.block_device_mapping.items():
