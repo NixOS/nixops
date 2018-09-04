@@ -142,7 +142,7 @@ def op_info():
         if d and m and m.obsolete: return "Revived"
         if not m: return "New"
         if deployment.is_machine(m) and depl.configs_path != m.cur_configs_path: return "Outdated"
-        return "Up-to-date"
+        if deployment.is_machine(m): return "Up-to-date"
 
     def do_eval(depl):
         if not args.no_eval:
@@ -180,10 +180,14 @@ def op_info():
                      r.private_ipv4 or "" if r and deployment.is_machine(r) else ""
                     ])
             else:
+                if deployment.is_machine(r):
+                    resource_state = "{0} / {1}".format(r.show_state() if r else "Missing", state(depl, d, r))
+                else:
+                    resource_state = r.show_state() if r else "Missing"
                 tbl.add_row(
                     ([depl.name or depl.uuid] if args.all else []) +
                     [name,
-                     "{0} / {1}".format(r.show_state() if r else "Missing", state(depl, d, r)),
+                     resource_state,
                      r.show_type() if r else d.show_type(),
                      r.resource_id or "" if r else "",
                      (hasattr(r, 'public_ipv4') and r.public_ipv4) or (hasattr(r, 'private_ipv4') and r.private_ipv4) or "" if r else ""
