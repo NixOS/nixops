@@ -338,7 +338,7 @@ def op_backup():
     depl = open_deployment()
 
     def do_backup():
-        backup_id = depl.backup(include=args.include or [], exclude=args.exclude or [])
+        backup_id = depl.backup(include=args.include or [], exclude=args.exclude or [], devices=args.devices or [])
         print backup_id
 
     if args.force:
@@ -902,6 +902,7 @@ subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='per
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
 subparser.add_argument('--freeze', dest='freeze_fs', action="store_true", default=False, help='freeze filesystems for non-root filesystems that support this (e.g. xfs)')
 subparser.add_argument('--force', dest='force', action="store_true", default=False, help='start new backup even if previous is still running')
+subparser.add_argument('--devices', nargs='+', metavar='DEVICE-NAME', help='only backup the specified devices')
 
 subparser = add_subparser('backup-status', help='get status of backups')
 subparser.set_defaults(op=op_backup_status)
