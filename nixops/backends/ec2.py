@@ -449,23 +449,28 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.backups = _backups
 
 
-    def backup(self, defn, backup_id):
+    def backup(self, defn, backup_id, devices=[]):
         self.connect()
 
         self.log("backing up machine ‘{0}’ using id ‘{1}’".format(self.name, backup_id))
         backup = {}
         _backups = self.backups
+
         for device_stored, v in self.block_device_mapping.items():
-            snapshot = self._retry(lambda: self._conn.create_snapshot(volume_id=v['volumeId']))
-            self.log("+ created snapshot of volume ‘{0}’: ‘{1}’".format(v['volumeId'], snapshot.id))
+            device_real = device_name_stored_to_real(device_stored)
 
-            snapshot_tags = {}
-            snapshot_tags.update(defn.tags)
-            snapshot_tags.update(self.get_common_tags())
-            snapshot_tags['Name'] = "{0} - {3} [{1} - {2}]".format(self.depl.description, self.name, device_stored, backup_id)
+            if devices == [] or device_real in devices:
+                snapshot = self._retry(lambda: self._conn.create_snapshot(volume_id=v['volumeId']))
+                self.log("+ created snapshot of volume ‘{0}’: ‘{1}’".format(v['volumeId'], snapshot.id))
 
-            self._retry(lambda: self._conn.create_tags([snapshot.id], snapshot_tags))
-            backup[device_stored] = snapshot.id
+                snapshot_tags = {}
+                snapshot_tags.update(defn.tags)
+                snapshot_tags.update(self.get_common_tags())
+                snapshot_tags['Name'] = "{0} - {3} [{1} - {2}]".format(self.depl.description, self.name, device_stored, backup_id)
+
+                self._retry(lambda: self._conn.create_tags([snapshot.id], snapshot_tags))
+                backup[device_stored] = snapshot.id
+
         _backups[backup_id] = backup
         self.backups = _backups
 

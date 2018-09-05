@@ -142,7 +142,7 @@ def op_info():
         if d and m and m.obsolete: return "Revived"
         if not m: return "New"
         if deployment.is_machine(m) and depl.configs_path != m.cur_configs_path: return "Outdated"
-        return "Up-to-date"
+        if deployment.is_machine(m): return "Up-to-date"
 
     def do_eval(depl):
         if not args.no_eval:
@@ -180,10 +180,14 @@ def op_info():
                      r.private_ipv4 or "" if r and deployment.is_machine(r) else ""
                     ])
             else:
+                if deployment.is_machine(r):
+                    resource_state = "{0} / {1}".format(r.show_state() if r else "Missing", state(depl, d, r))
+                else:
+                    resource_state = r.show_state() if r else "Missing"
                 tbl.add_row(
                     ([depl.name or depl.uuid] if args.all else []) +
                     [name,
-                     "{0} / {1}".format(r.show_state() if r else "Missing", state(depl, d, r)),
+                     resource_state,
                      r.show_type() if r else d.show_type(),
                      r.resource_id or "" if r else "",
                      (hasattr(r, 'public_ipv4') and r.public_ipv4) or (hasattr(r, 'private_ipv4') and r.private_ipv4) or "" if r else ""
@@ -334,7 +338,7 @@ def op_backup():
     depl = open_deployment()
 
     def do_backup():
-        backup_id = depl.backup(include=args.include or [], exclude=args.exclude or [])
+        backup_id = depl.backup(include=args.include or [], exclude=args.exclude or [], devices=args.devices or [])
         print backup_id
 
     if args.force:
@@ -898,6 +902,7 @@ subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='per
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
 subparser.add_argument('--freeze', dest='freeze_fs', action="store_true", default=False, help='freeze filesystems for non-root filesystems that support this (e.g. xfs)')
 subparser.add_argument('--force', dest='force', action="store_true", default=False, help='start new backup even if previous is still running')
+subparser.add_argument('--devices', nargs='+', metavar='DEVICE-NAME', help='only backup the specified devices')
 
 subparser = add_subparser('backup-status', help='get status of backups')
 subparser.set_defaults(op=op_backup_status)
