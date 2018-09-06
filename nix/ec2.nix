@@ -358,7 +358,20 @@ in
       example = { "/dev/xvdb".disk = "ephemeral0"; "/dev/xvdg".disk = "vol-00000000"; };
       type = with types; attrsOf (submodule ec2DiskOptions);
       description = ''
-        Block device mapping.  <filename>/dev/xvd[a-e]</filename> must be ephemeral devices.
+        Block device mapping.
+
+        <filename>/dev/sd[a-e]</filename> or <filename>/dev/xvd[a-e]</filename> must be ephemeral devices.
+
+        With the following instances, EBS volumes are exposed as NVMe block devices: C5, C5d, i3.metal, M5, and M5d (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html). For these instances volumes should be attached as <filename>/dev/nvme[1-26]n1</filename>, there should be no hole in numbering.
+
+        <example>
+        {
+          machine = {
+            deployment.ec2.blockDeviceMapping."/dev/nvme1n1".size = 1;
+            deployment.ec2.blockDeviceMapping."/dev/nvme3n1".size = 1; # this device will be attached as /dev/nvme2n1, you should use /dev/nvme2n1
+          };
+        }
+        </example>
       '';
     };
 
