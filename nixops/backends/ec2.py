@@ -526,7 +526,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.log_continue("[{0}] ".format(res))
             return res == 'completed'
 
-        self.log_start("waiting for shapshot ‘{0}’ to have status ‘completed’... ".format(snapshot_id))
+        self.log_start("waiting for snapshot ‘{0}’ to have status ‘completed’... ".format(snapshot_id))
         nixops.util.check_wait(check_completed)
         self.log_end('')
 
