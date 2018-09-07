@@ -249,7 +249,9 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                 self.security_group_name, self.security_group_id))
             self._connect()
             try:
-                self._conn.delete_security_group(group_id=self.security_group_id)
+                nixops.ec2_utils.retry(
+                    lambda: self._conn.delete_security_group(group_id=self.security_group_id),
+                    error_codes=['DependencyViolation'])
             except boto.exception.EC2ResponseError as e:
                 if e.error_code != u'InvalidGroup.NotFound':
                     raise
