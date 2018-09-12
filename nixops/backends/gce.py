@@ -652,6 +652,10 @@ class GCEState(MachineState, ResourceState):
         if not self.project:
             return True
 
+        if self.state != self.UP:
+            # The machine is down, we have nothing to do.
+            return True
+
         try:
             node = self.node()
             question = "are you sure you want to destroy {0}?"
