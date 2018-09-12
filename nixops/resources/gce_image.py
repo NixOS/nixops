@@ -59,10 +59,13 @@ class GCEImageState(ResourceState):
         return "GCE image '{0}'".format(self.image_name)
 
     def image(self):
-        img = self.connect().ex_get_image(self.image_name)
-        if img:
-            img.destroy = img.delete
-        return img
+        try:
+            img = self.connect().ex_get_image(self.image_name)
+            if img:
+                img.destroy = img.delete
+            return img
+        except libcloud.common.google.ResourceNotFoundError:
+            return None
 
     defn_properties = [ 'description', 'source_uri' ]
 
