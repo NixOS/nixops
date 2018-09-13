@@ -147,7 +147,10 @@ class SSH(object):
         self._flag_fun = flag_fun
 
     def _get_flags(self):
-        return self._flag_fun()
+        if "NIX_SSHOPTS" in os.environ:
+            return self._flag_fun() + shlex.split(os.environ["NIX_SSHOPTS"])
+        else:
+            return self._flag_fun()
 
     def register_passwd_fun(self, passwd_fun):
         """
