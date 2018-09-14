@@ -67,8 +67,10 @@ class NoneState(MachineState):
             self._ssh_public_key_deployed = True
         return res
 
-    def get_ssh_name(self):
+    def get_ssh_name(self, scp=False):
         assert self.target_host
+        if scp and (":" in self.target_host):
+            return "[%s]" % (self.target_host)
         return self.target_host
 
     def get_ssh_private_key_file(self):
