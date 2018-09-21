@@ -4,9 +4,10 @@
 , uuid
 , deploymentName
 , args
+, nixpkgs ? (toString <nixpkgs>)
 }:
 
-with import <nixpkgs/nixos/lib/testing.nix> { inherit system; };
+with import "${nixpkgs}/nixos/lib/testing.nix" { inherit system; };
 with pkgs;
 with lib;
 
@@ -45,7 +46,7 @@ rec {
           networks;
       in
       { name = machineName;
-        value = import <nixpkgs/nixos/lib/eval-config.nix> {
+        value = import "${nixpkgs}/nixos/lib/eval-config.nix" {
           modules =
             modules ++
             defaults ++
