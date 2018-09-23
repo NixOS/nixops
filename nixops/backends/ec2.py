@@ -57,6 +57,8 @@ class EC2Definition(MachineDefinition):
         self.root_disk_size = config["ec2"]["ebsInitialRootDiskSize"]
         self.spot_instance_price = config["ec2"]["spotInstancePrice"]
         self.spot_instance_timeout = config["ec2"]["spotInstanceTimeout"]
+        self.spot_instance_request_type = config["ec2"]["spotInstanceRequestType"]
+        self.spot_instance_interruption_behavior = config["ec2"]["spotInstanceInterruptionBehavior"]
         self.ebs_optimized = config["ec2"]["ebsOptimized"]
         self.subnet_id = config["ec2"]["subnetId"]
         self.associate_public_ip_address = config["ec2"]["associatePublicIpAddress"]
@@ -689,87 +691,112 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 groups=groups
             )
         )
+    def _build_run_instance_request(self, defn, zone, devmap, user_data, ebs_optimized):
+        """ Build the instance request definition in Boto3 format """
 
+        # FIXME: Include device mapping.
 
-    def create_instance(self, defn, zone, devmap, user_data, ebs_optimized):
-        common_args = dict(
-            instance_type=defn.instance_type,
-            placement=zone,
-            key_name=defn.key_pair,
-            placement_group=defn.placement_group,
-            block_device_map=devmap,
-            user_data=user_data,
-            image_id=defn.ami,
-            ebs_optimized=ebs_optimized
-        )
+        placement = dict(
+            AvailabilityZone=zone or ""
+            )
 
+        IamInstanceProfile = {}
         if defn.instance_profile.startswith("arn:") :
-            common_args['instance_profile_arn'] = defn.instance_profile
+            IamInstanceProfile["Arn"] = defn.instance_profile
         else:
-            common_args['instance_profile_name'] = defn.instance_profile
+            IamInstanceProfile["Name"] = defn.instance_profile
+
+        args = dict(
+            InstanceType=defn.instance_type,
+            Placement=placement,
+            ImageId=defn.ami,
+            EbsOptimized=ebs_optimized,
+            IamInstanceProfile=IamInstanceProfile,
+            KeyName=defn.key_pair,
+            MaxCount=1, # We always want to deploy one instance.
+            MinCount=1
+        )
 
         if defn.subnet_id != "":
             if defn.security_groups != [] and defn.security_groups != ["default"]:
                 raise Exception("‘deployment.ec2.securityGroups’ is incompatible with ‘deployment.ec2.subnetId’")
-            common_args['network_interfaces'] = self._get_network_interfaces(defn)
+
+            args['NetworkInterface'] = dict(
+                AssociatePublicIpAddress=defn.associate_public_ip_address,
+                SubnetId=defn.subnet_id,
+                Groups=self.security_groups_to_ids(defn.subnet_id, defn.security_group_ids)
+            )
         else:
-            common_args['security_groups'] = defn.security_groups
+            args['SecurityGroups'] = defn.security_groups
 
         if defn.spot_instance_price:
-            if self.spot_instance_request_id is None:
+            args["InstanceMarketOptions"] = dict(
+                MarketType="spot",
+                SpotOptions=dict(
+                    MaxPrice=str(defn.spot_instance_price/100.0),
+                    SpotInstanceType=defn.spot_instance_request_type,
+                    ValidUntil=datetime.datetime.now() + datetime.timedelta(0, defn.spot_instance_timeout),
+                    InstanceInterruptionBehavior=defn.spot_instance_interruption_behavior
+                )
+            )
 
-                if defn.spot_instance_timeout:
-                    common_args['valid_until'] = \
-                        (datetime.datetime.utcnow() +
-                         datetime.timedelta(0, defn.spot_instance_timeout)).isoformat()
 
-                # FIXME: Should use a client token here, but
-                # request_spot_instances doesn't support one.
-                request = self._retry(
-                    lambda: self._conn.request_spot_instances(price=defn.spot_instance_price/100.0, **common_args)
-                )[0]
+        return args
 
-                with self.depl._db:
-                    self.spot_instance_price = defn.spot_instance_price
-                    self.spot_instance_request_id = request.id
+    def _wait_for_spot_request_fulfillment(self, request_id):
 
-            common_tags = self.get_common_tags()
-            tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
-            tags.update(defn.tags)
-            tags.update(common_tags)
-            self._retry(lambda: self._conn.create_tags([self.spot_instance_request_id], tags))
+        self.log_start("waiting for spot instance request ‘{0}’ to be fulfilled... ".format(self.spot_instance_request_id))
+        while True:
+            request = self._get_spot_instance_request_by_id(self.spot_instance_request_id)
+            self.log_continue("[{0}] ".format(request.status.code))
+            if request.status.code == "fulfilled": break
+            if request.status.code in {"schedule-expired", "canceled-before-fulfillment", "bad-parameters", "system-error"}:
+                self.spot_instance_request_id = None
+                self.log_end("")
+                raise Exception("spot instance request failed with result ‘{0}’".format(request.status.code))
+            time.sleep(3)
+        self.log_end("")
 
-            self.log_start("waiting for spot instance request ‘{0}’ to be fulfilled... ".format(self.spot_instance_request_id))
-            while True:
-                request = self._get_spot_instance_request_by_id(self.spot_instance_request_id)
-                self.log_continue("[{0}] ".format(request.status.code))
-                if request.status.code == "fulfilled": break
-                if request.status.code in {"schedule-expired", "canceled-before-fulfillment", "bad-parameters", "system-error"}:
-                    self.spot_instance_request_id = None
-                    self.log_end("")
-                    raise Exception("spot instance request failed with result ‘{0}’".format(request.status.code))
-                time.sleep(3)
-            self.log_end("")
+        instance = self._retry(lambda: self._get_instance(instance_id=request.instance_id))
 
-            instance = self._retry(lambda: self._get_instance(instance_id=request.instance_id))
+        return instance
 
-            return instance
-        else:
-            # Use a client token to ensure that instance creation is
-            # idempotent; i.e., if we get interrupted before recording
-            # the instance ID, we'll get the same instance ID on the
-            # next run.
-            if not self.client_token:
-                with self.depl._db:
-                    self.client_token = nixops.util.generate_random_string(length=48) # = 64 ASCII chars
-                    self.state = self.STARTING
 
-            reservation = self._retry(lambda: self._conn.run_instances(
-                client_token=self.client_token, **common_args), error_codes = ['InvalidParameterValue', 'UnauthorizedOperation' ])
+    def create_instance(self, defn, zone, devmap, user_data, ebs_optimized):
 
-            assert len(reservation.instances) == 1
-            return reservation.instances[0]
+        # Use a client token to ensure that instance creation is
+        # idempotent; i.e., if we get interrupted before recording
+        # the instance ID, we'll get the same instance ID on the
+        # next run.
+        if not self.client_token:
+            with self.depl._db:
+                self.client_token = nixops.util.generate_random_string(length=48) # = 64 ASCII chars
+                self.state = self.STARTING
 
+        args = self._build_run_instance_request(defn, zone, devmap, user_data, ebs_optimized)
+
+        args["ClientToken"] = self.client_token
+
+        reservation = self._retry(
+            lambda: self._conn_boto3.run_instances(**args)
+        )
+
+        assert len(reservation["Instances"]) == 1
+
+        if not defn.spot_instance_price:
+            # On demand instance, no need to any more checks, return it.
+            return self._get_instance(reservation["Instances"][0]["InstanceId"])
+
+        with self.depl._db:
+            self.spot_instance_price = defn.spot_instance_price
+            self.spot_instance_request_id = reservation["Instances"][0]["SpotInstanceRequestId"]
+
+        tags = {'Name': "{0} [{1}]".format(self.depl.description, self.name)}
+        tags.update(defn.tags)
+        tags.update(self.get_common_tags())
+        self._retry(lambda: self._conn.create_tags([self.spot_instance_request_id], tags))
+
+        return self._wait_for_spot_request_fulfillment(self.spot_instance_request_id)
 
     def _cancel_spot_request(self):
         if self.spot_instance_request_id is None: return
@@ -1004,8 +1031,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 self.private_host_key = None
 
             # Cancel spot instance request, it isn't needed after the
-            # instance has been provisioned.
-            self._cancel_spot_request()
+            # instance has been provisioned in case of "one-time" requests
+            if defn.spot_instance_request_type == "one-time":
+                self._cancel_spot_request()
 
 
         # There is a short time window during which EC2 doesn't
