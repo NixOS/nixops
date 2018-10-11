@@ -279,7 +279,13 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     def _get_spot_instance_request_by_id(self, request_id, allow_missing=False):
         """Get spot instance request object by id."""
         self.connect()
-        result = self._conn.get_all_spot_instance_requests([request_id])
+        try:
+            result = self._conn.get_all_spot_instance_requests([request_id])
+        except boto.exception.EC2ResponseError as e:
+            if allow_missing and e.error_code == "InvalidSpotInstanceRequestID.NotFound":
+                result = []
+            else:
+                raise
         if len(result) == 0:
             if allow_missing:
                 return None
