@@ -70,9 +70,8 @@ rec {
   build = pkgs.lib.genAttrs [ "x86_64-linux" "i686-linux" "x86_64-darwin" ] (system:
     with import nixpkgs { inherit system; };
 
-    python2Packages.buildPythonPackage rec {
+    python2Packages.buildPythonApplication rec {
       name = "nixops-${version}";
-      namePrefix = "";
 
       src = "${tarball}/tarballs/*.tar.bz2";
 
