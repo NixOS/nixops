@@ -61,7 +61,6 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
     vpc_id = nixops.util.attr_property("ec2.vpcId", None)
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
 
-
     @classmethod
     def get_type(cls):
         return "ec2-security-group"
@@ -69,7 +68,6 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
     def __init__(self, depl, name, id):
         super(EC2SecurityGroupState, self).__init__(depl, name, id)
         self._conn_boto3 = None
-
 
     def show_type(self):
         s = super(EC2SecurityGroupState, self).show_type()
@@ -104,15 +102,24 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
         # An error occurs when providing both GroupName and GroupId
         #args['GroupName'] = self.security_group_name
         args['GroupId'] = self.security_group_id
-        args['FromPort'] = config.get('FromPort', None)
-        args['IpProtocol'] = config.get('IpProtocol', None)
-        args['ToPort'] = config.get('ToPort', None)
         if config['IpRanges'] != []:
+            args['FromPort'] = config.get('FromPort', None)
+            args['ToPort'] = config.get('ToPort', None)
+            args['IpProtocol'] = config.get('IpProtocol', None)
             args['CidrIp'] = config['IpRanges'][0].get('CidrIp', None)
         else:
-            args['SourceSecurityGroupName'] = config['UserIdGroupPairs'][0].get('GroupId', None)
-            args['SourceSecurityGroupOwnerId'] = config['UserIdGroupPairs'][0].get('UserId', None)
-        return {attr : args[attr] for attr in args if args[attr] is not None}
+            # Got an error when using the SourceSecurityGroupName and SourceSecurityGroupOwnerId so i m using IpPermissions instead
+            args['IpPermissions'] = [{
+                    'UserIdGroupPairs':
+                    [{
+                        'GroupId': config['UserIdGroupPairs'][0].get('GroupId', None), 
+                        'UserId': config['UserIdGroupPairs'][0].get('UserId', None)
+                    }],
+                    'FromPort': config.get('FromPort', None),
+                    'ToPort': config.get('ToPort', None),
+                    'IpProtocol': config.get('IpProtocol', None),
+            }]
+        return {attr: args[attr] for attr in args if args[attr] is not None}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         def retry_notfound(f):
@@ -138,16 +145,10 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
             self.vpc_id = defn.vpc_id
 
         def generate_rule(rule):
-            return {
-                'FromPort': rule.get('FromPort', None),
-                'IpRanges': rule.get('IpRanges', []),
-                'ToPort': rule.get('ToPort', None),
-                'IpProtocol': rule.get('IpProtocol', None),
-                'UserIdGroupPairs': rule.get('UserIdGroupPairs', []),
-            }
-        def evolve_rule(rule):
 
             if len(rule) == 4:
+                if '/' not in rule[3]:
+                    rule[3] = rule[3] + '/32'
                 return {
                     'FromPort': rule[1],
                     'IpRanges': [{'CidrIp': rule[3]}],
@@ -156,12 +157,17 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                     'UserIdGroupPairs': []
                 }
             else:
+                self.connect_boto3()
+                sourceSecurityGroupId = self._conn_boto3.describe_security_groups(Filters=[{ 
+                    'Name': 'group-name',
+                    'Values': [rule[3]]
+                }])['SecurityGroups'][0]['GroupId']
                 return {
                     'FromPort': rule[1],
                     'IpRanges': [],
                     'ToPort': rule[2],
                     'IpProtocol': rule[0],
-                    'UserIdGroupPairs': [{'UserId': rule[4], 'GroupId': rule[3]}]
+                    'UserIdGroupPairs': [{'UserId': rule[4], 'GroupId': sourceSecurityGroupId}]
                 }
 
         if check and self.state != self.UNKNOWN:
@@ -178,9 +184,28 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                         return
                     else:
                         raise error
-                rules = []
+                rules = []         
                 for rule in grp['SecurityGroups'][0].get('IpPermissions', []):
-                    rules.append(generate_rule(rule))
+                    if len(rule['IpRanges']) != 0:
+                        for i in range(0, len(rule['IpRanges'])):
+                            res = {
+                                'FromPort': rule.get('FromPort', None),
+                                'IpRanges': [rule.get('IpRanges', [])[i]],
+                                'ToPort': rule.get('ToPort', None),
+                                'IpProtocol': rule.get('IpProtocol', None),
+                                'UserIdGroupPairs': [],
+                            }
+                            rules.append(res)
+                    if len(rule['UserIdGroupPairs']) != 0:
+                        for i in range(0, len(rule['UserIdGroupPairs'])):
+                            res = {
+                                'FromPort': rule.get('FromPort', None),
+                                'IpRanges': [],
+                                'ToPort': rule.get('ToPort', None),
+                                'IpProtocol': rule.get('IpProtocol', None),
+                                'UserIdGroupPairs': [rule.get('UserIdGroupPairs', [])[i]],
+                            }
+                            rules.append(res)
                 self.security_group_rules = rules
 
         # Dereference elastic IP if used for the source ip
@@ -189,7 +214,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
             if rule[-1].startswith("res-"):
                 res = self.depl.get_typed_resource(rule[-1][4:], "elastic-ip")
                 rule[-1] = res.public_ipv4 + '/32'
-            resolved_security_group_rules.append(evolve_rule(rule))
+            resolved_security_group_rules.append(generate_rule(rule))
 
         rules_to_remove = [r for r in self.security_group_rules if r not in resolved_security_group_rules ]
         rules_to_add = [r for r in resolved_security_group_rules if r not in self.security_group_rules ]
