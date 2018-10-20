@@ -92,7 +92,7 @@ class LibvirtdState(MachineState):
 
     def get_ssh_flags(self, *args, **kwargs):
         super_flags = super(LibvirtdState, self).get_ssh_flags(*args, **kwargs)
-        return super_flags + ["-o", "StrictHostKeyChecking=no",
+        return super_flags + ["-o", "StrictHostKeyChecking=accept-new",
                               "-i", self.get_ssh_private_key_file()]
 
     def get_physical_spec(self):

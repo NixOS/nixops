@@ -76,7 +76,7 @@ class DigitalOceanState(MachineState):
         super_flags = super(DigitalOceanState, self).get_ssh_flags(*args, **kwargs)
         return super_flags + [
             '-o', 'UserKnownHostsFile=/dev/null',
-            '-o', 'StrictHostKeyChecking=no',
+            '-o', 'StrictHostKeyChecking=accept-new',
             '-i', self.get_ssh_private_key_file(),
         ]
 
