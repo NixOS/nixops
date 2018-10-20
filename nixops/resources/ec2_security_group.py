@@ -170,7 +170,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                     'UserIdGroupPairs': [{'UserId': rule[4], 'GroupId': sourceSecurityGroupId}]
                 }
 
-        if check and self.state != self.UNKNOWN:
+        if check and self.state != self.UNKNOWN and self.state != self.MISSING:
             with self.depl._db:
 
                 self.connect_boto3()
@@ -178,7 +178,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                 try:
                     grp = self.get_security_group()
                 except botocore.exceptions.ClientError as error:
-                    if error.grp['Error']['Code'] == 'InvalidGroup.NotFound':
+                    if error.response['Error']['Code'] == 'InvalidGroup.NotFound':
                         self.warn("EC2 security group {} not found, performing destroy to sync the state ...".format(self.security_group_name))
                         self.destroy()
                         return
@@ -223,7 +223,11 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
             self.connect_boto3()
             try:
                 self.logger.log("creating EC2 security group ‘{0}’...".format(self.security_group_name))
-                grp = self._conn_boto3.create_security_group(Description=self.security_group_description, GroupName=self.security_group_name, VpcId=defn.vpc_id)
+                if defn.vpc_id is None: # AAAAA: create_security_group() do not accept None values
+                    VpcId = ""
+                else:
+                    VpcId = defn.vpc_id
+                grp = self._conn_boto3.create_security_group(Description=self.security_group_description, GroupName=self.security_group_name, VpcId=VpcId)
                 self.security_group_id = grp['GroupId']
             except botocore.exceptions.ClientError as e:
                 if self.state != self.UNKNOWN or e.response['Error']['Code'] != 'InvalidGroup.Duplicate':
@@ -253,10 +257,7 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
         self.state = self.UP
 
     def get_security_group(self):
-        if self.vpc_id:
-            return self._conn_boto3.describe_security_groups(GroupIds=[ self.security_group_id ])
-        else:
-            return self._conn_boto3.describe_security_groups(GroupNames=[ self.security_group_name ])
+        return self._conn_boto3.describe_security_groups(GroupIds=[ self.security_group_id ])
 
     def after_activation(self, defn):
         region = self.region
@@ -286,8 +287,5 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
             except botocore.exceptions.ClientError as e:
                 if e.response['Error']['Code'] != 'InvalidGroup.NotFound':
                     raise
-                else:
-                    self.logger.log(e.response['Error']['Message'])
-
             self.state = self.MISSING
         return True
