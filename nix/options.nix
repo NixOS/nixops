@@ -65,6 +65,12 @@ in
       '';
     };
 
+    deployment.sshConfigOptionsFile = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      description = "Arbitrary SSH configuration options file.";
+    };
+
     deployment.alwaysActivate = mkOption {
       type = types.bool;
       default = true;

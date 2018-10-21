@@ -30,6 +30,11 @@ with lib;
             type = types.int;
             description = "Port number that SSH listens to on the remote machine.";
           };
+          sshConfigOptionsFile = mkOption {
+            type = types.nullOr types.path;
+            default = null;
+            description = "Arbitrary SSH configuration option file.";
+          };
           privateKey = mkOption {
             type = types.path;
             description = "Path to the private key file used to connect to the remote machine.";
@@ -91,6 +96,7 @@ with lib;
        + " -o PermitLocalCommand=yes"
        + " -o ServerAliveInterval=20"
        + " -o LocalCommand='${localCommand}'"
+       + (if v.sshConfigOptionsFile == null then "" else " -F ${v.sshConfigOptionsFile}")
        + " -w ${toString v.localTunnel}:${toString v.remoteTunnel}"
        + " ${v.target} -p ${toString v.targetPort}"
        + " '${remoteCommand}'";

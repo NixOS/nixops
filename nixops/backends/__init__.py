@@ -16,6 +16,11 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
         self.ssh_port = int(xml.find("attrs/attr[@name='targetPort']/int").get("value"))
+        ssh_options_file_elem = xml.find("attrs/attr[@name='sshConfigOptionsFile']/string")
+        if ssh_options_file_elem:
+            self.ssh_config_options_file = ssh_options_file_elem.get('value')
+        else:
+            self.ssh_config_options_file = None
         self.always_activate = xml.find("attrs/attr[@name='alwaysActivate']/bool").get("value") == "true"
         self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
         self.has_fast_connection = xml.find("attrs/attr[@name='hasFastConnection']/bool").get("value") == "true"
@@ -44,6 +49,7 @@ class MachineState(nixops.resources.ResourceState):
     has_fast_connection = nixops.util.attr_property("hasFastConnection", False, bool)
     ssh_pinged = nixops.util.attr_property("sshPinged", False, bool)
     ssh_port = nixops.util.attr_property("targetPort", 22, int)
+    ssh_config_options_file = nixops.util.attr_property("sshConfigOptionsFile", "", str)
     public_vpn_key = nixops.util.attr_property("publicVpnKey", None)
     store_keys_on_machine = nixops.util.attr_property("storeKeysOnMachine", False, bool)
     keys = nixops.util.attr_property("keys", {}, 'json')
@@ -275,11 +281,17 @@ class MachineState(nixops.resources.ResourceState):
         assert False
 
     def get_ssh_flags(self, scp=False):
-        if scp:
-            return ["-P", str(self.ssh_port)]
+        if self.ssh_config_options_file == "":
+            options = []
         else:
-            return ["-p", str(self.ssh_port)]
+            options = [
+                "-F", self.ssh_config_options_file
+            ]
 
+        if scp:
+            return options + ["-P", str(self.ssh_port)]
+        else:
+            return options + ["-p", str(self.ssh_port)]
 
     def get_ssh_password(self):
         return None
