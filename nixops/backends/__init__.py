@@ -317,7 +317,7 @@ class MachineState(nixops.resources.ResourceState):
         """Wait until the SSH port is open on this machine."""
         if self.ssh_pinged and (not check or self._ssh_pinged_this_time): return
         self.log_start("waiting for SSH...")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue("."))
+        self.ssh.wait_for_ssh(callback=lambda: self.log_continue("."))
         self.log_end("")
         if self.state != self.RESCUE:
             self.state = self.UP

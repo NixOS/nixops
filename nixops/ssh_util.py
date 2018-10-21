@@ -299,5 +299,20 @@ class SSH(object):
             else:
                 return res
 
+    def wait_for_ssh(self, user=None, timeout=-1, callback=None):
+        """Wait until the remote's SSH is up."""
+        n = 0
+        while True:
+            try:
+                self.run_command('true', timeout=5, user=user)
+                return True
+            except nixops.ssh_util.SSHConnectionFailed:
+                n = n + 1
+                if timeout != -1 and n >= timeout: break
+                if callback: callback()
+        raise Exception("timed out waiting for SSH on ‘{1}’".format(
+            self._get_target(user)))
+
+
     def enable_compression(self):
         self._compress = True
