@@ -16,8 +16,9 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.encrypted_links_to = set([e.get("value") for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")])
         self.store_keys_on_machine = xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value") == "true"
         self.ssh_port = int(xml.find("attrs/attr[@name='targetPort']/int").get("value"))
-        ssh_options_file_elem = xml.find("attrs/attr[@name='sshConfigOptionsFile']/string")
-        if ssh_options_file_elem:
+        ssh_options_file_elem = xml.find("attrs/attr[@name='sshConfigOptionsFile']/path")
+
+        if ssh_options_file_elem is not None:
             self.ssh_config_options_file = ssh_options_file_elem.get('value')
         else:
             self.ssh_config_options_file = None
@@ -49,7 +50,7 @@ class MachineState(nixops.resources.ResourceState):
     has_fast_connection = nixops.util.attr_property("hasFastConnection", False, bool)
     ssh_pinged = nixops.util.attr_property("sshPinged", False, bool)
     ssh_port = nixops.util.attr_property("targetPort", 22, int)
-    ssh_config_options_file = nixops.util.attr_property("sshConfigOptionsFile", "", str)
+    ssh_config_options_file = nixops.util.attr_property("sshConfigOptionsFile", None, str)
     public_vpn_key = nixops.util.attr_property("publicVpnKey", None)
     store_keys_on_machine = nixops.util.attr_property("storeKeysOnMachine", False, bool)
     keys = nixops.util.attr_property("keys", {}, 'json')
@@ -92,6 +93,7 @@ class MachineState(nixops.resources.ResourceState):
         self.store_keys_on_machine = defn.store_keys_on_machine
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
+        self.ssh_config_options_file = defn.ssh_config_options_file
         self.has_fast_connection = defn.has_fast_connection
         if not self.has_fast_connection:
             self.ssh.enable_compression()
@@ -281,12 +283,12 @@ class MachineState(nixops.resources.ResourceState):
         assert False
 
     def get_ssh_flags(self, scp=False):
-        if self.ssh_config_options_file == "":
-            options = []
-        else:
+        if self.ssh_config_options_file:
             options = [
                 "-F", self.ssh_config_options_file
             ]
+        else:
+            options = []
 
         if scp:
             return options + ["-P", str(self.ssh_port)]
