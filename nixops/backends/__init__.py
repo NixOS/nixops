@@ -198,10 +198,10 @@ class MachineState(nixops.resources.ResourceState):
         """Reboot this machine and wait until it's up again."""
         self.reboot(hard=hard)
         self.log_start("waiting for the machine to finish rebooting...")
+        # !!! TODO
         nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, open=False, callback=lambda: self.log_continue("."))
         self.log_continue("[down]")
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue("."))
-        self.log_end("[up]")
+        self.wait_for_ssh()
         self.state = self.UP
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True
