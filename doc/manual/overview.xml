@@ -1735,7 +1735,7 @@ $ nixops check -d load-balancer-ec2
 
 This indicates that Apache httpd has failed on
 <literal>backend1</literal> and that machine
-<literal>backend</literal> is not running at all.  In this situation,
+<literal>backend2</literal> is not running at all.  In this situation,
 you should run <command>nixops deploy --check</command> to repair the
 deployment.</para>
 
