@@ -2,6 +2,7 @@ import os
 import json
 import itertools
 
+from typing import Any, Callable, Optional, List, Dict
 import nixops.util
 
 class Diff(object):
@@ -139,16 +140,20 @@ class Diff(object):
             d = retrieve_def(d)
             return d
 
+
 class Handler(object):
     def __init__(self, keys, after=None, handle=None):
+        # type: (Dict[str, Dict[str,str]], Optional[List], Optional[Callable]) -> None
         if after is None:
             after = []
-        if handle is not None:
+        if handle is None:
+            self.handle = self._default_handle
+        else:
             self.handle = handle
         self._keys = keys
         self._dependencies = after
 
-    def handle(self):
+    def _default_handle(self):
         """
         Method that should be implemented to handle the changes
         of keys returned by get_keys()
