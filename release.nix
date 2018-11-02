@@ -22,6 +22,8 @@ rec {
 
     buildInputs = [ pkgs.git pkgs.libxslt pkgs.docbook5_xsl ];
 
+    nativeBuildInputs = [ pkgs.mypy ];
+
     postUnpack = ''
       # Clean up when building from a working tree.
       if [ -d $sourceRoot/.git ]; then
@@ -94,6 +96,7 @@ rec {
           pysqlite
           datadog
           digital-ocean
+          typing
         ];
 
       # For "nix-build --run-env".
