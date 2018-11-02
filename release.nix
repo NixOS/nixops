@@ -107,6 +107,10 @@ rec {
 
       doCheck = true;
 
+      postCheck = ''
+        mypy --cache-dir=/dev/null nixops
+      '';
+
       # Needed by libcloud during tests
       SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
 
