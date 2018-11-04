@@ -1,0 +1,2 @@
+language: nix
+script: nix-build --quiet release.nix -A build.x86_64-linux
