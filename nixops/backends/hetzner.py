@@ -285,10 +285,10 @@ class HetznerState(MachineState):
             try:
                 out = self.run_command("nixpart -p -", capture_stdout=True,
                                        stdin_string=partitions)
-            except SSHCommandFailed as cmd:
+            except SSHCommandFailed as failed_command:
                 # Exit code 100 is when the partitioner requires a reboot.
-                if cmd.exitcode == 100:
-                    self.log(cmd.message)
+                if failed_command.exitcode == 100:
+                    self.log(failed_command.message)
                     self.reboot_rescue(install, partitions)
                     return
                 else:

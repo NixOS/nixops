@@ -22,6 +22,8 @@ rec {
 
     buildInputs = [ pkgs.git pkgs.libxslt pkgs.docbook5_xsl ];
 
+    nativeBuildInputs = [ pkgs.mypy ];
+
     postUnpack = ''
       # Clean up when building from a working tree.
       if [ -d $sourceRoot/.git ]; then
@@ -94,6 +96,7 @@ rec {
           pysqlite
           datadog
           digital-ocean
+          typing
         ];
 
       # For "nix-build --run-env".
@@ -103,6 +106,10 @@ rec {
       '';
 
       doCheck = true;
+
+      postCheck = ''
+        mypy --cache-dir=/dev/null nixops
+      '';
 
       # Needed by libcloud during tests
       SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";

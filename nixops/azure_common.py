@@ -10,6 +10,7 @@ import requests
 from nixops.util import attr_property, check_wait
 import nixops.resources
 
+from typing import Dict
 from azure import *
 
 from azure.mgmt.common import SubscriptionCloudCredentials
@@ -246,7 +247,7 @@ class ResourceState(nixops.resources.ResourceState):
     app_key = attr_property("azure.appKey", None)
 
     tokens_lock = threading.Lock()
-    tokens = {}
+    tokens = {}  # type: Dict[str, Dict]
 
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)

@@ -9,8 +9,8 @@ from requests import Request
 
 try:
     from urllib import quote
-except:
-    from urllib.parse import quote
+except ImportError:
+    from urllib.parse import quote  # type: ignore
 
 from nixops.util import attr_property
 from nixops.azure_common import ResourceDefinition, ResourceState, ResId, normalize_location
