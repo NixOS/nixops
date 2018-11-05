@@ -22,8 +22,6 @@ rec {
 
     buildInputs = [ pkgs.git pkgs.libxslt pkgs.docbook5_xsl ];
 
-    nativeBuildInputs = [ pkgs.mypy ];
-
     postUnpack = ''
       # Clean up when building from a working tree.
       if [ -d $sourceRoot/.git ]; then
@@ -79,6 +77,8 @@ rec {
 
       buildInputs = [ python2Packages.nose python2Packages.coverage ];
 
+      nativeBuildInputs = [ pkgs.mypy ];
+
       propagatedBuildInputs = with python2Packages;
         [ prettytable
           boto
@@ -107,8 +107,10 @@ rec {
 
       doCheck = true;
 
+      # We have to unset PYTHONPATH here since it will pick enum34 which collides
+      # with python3 own module. This can be removed when nixops is ported to python3.
       postCheck = ''
-        mypy --cache-dir=/dev/null nixops
+        PYTHONPATH= mypy --cache-dir=/dev/null nixops
       '';
 
       # Needed by libcloud during tests
