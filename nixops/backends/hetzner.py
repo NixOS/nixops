@@ -170,14 +170,14 @@ class HetznerState(MachineState):
             ["-o", "LogLevel=quiet",
              "-o", "UserKnownHostsFile=/dev/null",
              "-o", "GlobalKnownHostsFile=/dev/null",
-             "-o", "StrictHostKeyChecking=no"]
+             "-o", "StrictHostKeyChecking=accept-new"]
             if self.state == self.RESCUE else
             # XXX: Disabling strict host key checking will only impact the
             # behaviour on *new* keys, so it should be "reasonably" safe to do
             # this until we have a better way of managing host keys in
             # ssh_util. So far this at least avoids to accept every damn host
             # key on a large deployment.
-            ["-o", "StrictHostKeyChecking=no",
+            ["-o", "StrictHostKeyChecking=accept-new",
              "-i", self.get_ssh_private_key_file()]
         )
 
@@ -285,10 +285,10 @@ class HetznerState(MachineState):
             try:
                 out = self.run_command("nixpart -p -", capture_stdout=True,
                                        stdin_string=partitions)
-            except SSHCommandFailed as cmd:
+            except SSHCommandFailed as failed_command:
                 # Exit code 100 is when the partitioner requires a reboot.
-                if cmd.exitcode == 100:
-                    self.log(cmd.message)
+                if failed_command.exitcode == 100:
+                    self.log(failed_command.message)
                     self.reboot_rescue(install, partitions)
                     return
                 else:

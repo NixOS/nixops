@@ -9,6 +9,7 @@ in
       deployment.gce = {
         inherit region;
         instanceType = "g1-small";
+        rootDiskSize = 5;
         tags = [ "test" "instance" ];
         metadata.random = "mess";
       };

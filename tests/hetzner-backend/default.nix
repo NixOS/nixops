@@ -1,10 +1,14 @@
 { system, nixops }:
 
 with import <nixpkgs/nixos/lib/testing.nix> { inherit system; };
-with import <nixpkgs/nixos/lib/qemu-flags.nix>;
 with pkgs.lib;
 
 let
+  flagsExpr = import <nixpkgs/nixos/lib/qemu-flags.nix>;
+  qemuFlags = if isAttrs flagsExpr then flagsExpr
+              else flagsExpr { inherit pkgs; };
+  inherit (qemuFlags) qemuNICFlags;
+
   rescueISO = import ./rescue-image.nix { inherit pkgs; };
   rescuePasswd = "abcd1234";
 

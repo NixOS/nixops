@@ -20,7 +20,7 @@ let
     ${pkgs.libxslt.bin or pkgs.libxslt}/bin/xsltproc \
       --stringparam revision '${revision}' \
       --stringparam program 'nixops' \
-      -o $out ${<nixpkgs/nixos/doc/manual/options-to-docbook.xsl>} ${optionsXML}
+      -o $out ${nixpkgs + /nixos/doc/manual/options-to-docbook.xsl} ${optionsXML}
   '';
 
 in optionsDocBook

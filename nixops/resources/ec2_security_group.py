@@ -185,17 +185,21 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                 self._connect()
                 grp = self.get_security_group()
             for rule in new_rules:
-                if len(rule) == 4:
-                    retry_notfound(lambda: grp.authorize(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], cidr_ip=rule[3]))
-                else:
-                    args = {}
-                    args['owner_id']=rule[4]
-                    if self.vpc_id:
-                        args['id']=nixops.ec2_utils.name_to_security_group(self._conn, rule[3], self.vpc_id)
+                try:
+                    if len(rule) == 4:
+                        retry_notfound(lambda: grp.authorize(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], cidr_ip=rule[3]))
                     else:
-                        args['name']=rule[3]
-                    src_group = boto.ec2.securitygroup.SecurityGroup(**args)
-                    retry_notfound(lambda: grp.authorize(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], src_group=src_group))
+                        args = {}
+                        args['owner_id']=rule[4]
+                        if self.vpc_id:
+                            args['id']=nixops.ec2_utils.name_to_security_group(self._conn, rule[3], self.vpc_id)
+                        else:
+                            args['name']=rule[3]
+                        src_group = boto.ec2.securitygroup.SecurityGroup(**args)
+                        retry_notfound(lambda: grp.authorize(ip_protocol=rule[0], from_port=rule[1], to_port=rule[2], src_group=src_group))
+                except boto.exception.EC2ResponseError as e:
+                    if e.error_code != u'InvalidPermission.Duplicate':
+                        raise
 
         if old_rules:
             self.logger.log("removing old rules from EC2 security group ‘{0}’...".format(self.security_group_name))
@@ -245,7 +249,9 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                 self.security_group_name, self.security_group_id))
             self._connect()
             try:
-                self._conn.delete_security_group(group_id=self.security_group_id)
+                nixops.ec2_utils.retry(
+                    lambda: self._conn.delete_security_group(group_id=self.security_group_id),
+                    error_codes=['DependencyViolation'])
             except boto.exception.EC2ResponseError as e:
                 if e.error_code != u'InvalidGroup.NotFound':
                     raise

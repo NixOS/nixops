@@ -70,13 +70,14 @@ rec {
   build = pkgs.lib.genAttrs [ "x86_64-linux" "i686-linux" "x86_64-darwin" ] (system:
     with import nixpkgs { inherit system; };
 
-    python2Packages.buildPythonPackage rec {
+    python2Packages.buildPythonApplication rec {
       name = "nixops-${version}";
-      namePrefix = "";
 
       src = "${tarball}/tarballs/*.tar.bz2";
 
       buildInputs = with python2Packages; [ nose coverage parameterized ];
+
+      nativeBuildInputs = [ pkgs.mypy ];
 
       propagatedBuildInputs = with python2Packages;
         [ prettytable
@@ -93,6 +94,7 @@ rec {
           adal
           datadog
           digital-ocean
+          typing
         ];
 
       # For "nix-build --run-env".
@@ -102,6 +104,12 @@ rec {
       '';
 
       doCheck = true;
+
+      # We have to unset PYTHONPATH here since it will pick enum34 which collides
+      # with python3 own module. This can be removed when nixops is ported to python3.
+      postCheck = ''
+        PYTHONPATH= mypy --cache-dir=/dev/null nixops
+      '';
 
       # Needed by libcloud during tests
       SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";

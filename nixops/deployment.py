@@ -270,10 +270,15 @@ class Deployment(object):
         config = nixops.util.xml_expr_to_python(tree.find("*"))
         return (tree, config)
 
-    def evaluate_network(self):
+    def evaluate_network(self, action=''):
         if not self.network_attr_eval:
             # Extract global deployment attributes.
-            (_, config) = self.evaluate_config("info.network")
+            try:
+                (_, config) = self.evaluate_config("info.network")
+            except Exception as e:
+                if action not in ('destroy', 'delete'):
+                    raise e
+                config = {}
             self.description = config.get("description", self.default_description)
             self.rollback_enabled = config.get("enableRollback", False)
             self.datadog_notify = config.get("datadogNotify", False)
@@ -767,7 +772,7 @@ class Deployment(object):
             nixops.parallel.run_tasks(nr_workers=len(self.active), tasks=self.machines.itervalues(), worker_fun=worker)
 
 
-    def backup(self, include=[], exclude=[]):
+    def backup(self, include=[], exclude=[], devices=[]):
         self.evaluate_active(include, exclude)
         backup_id = datetime.now().strftime("%Y%m%d%H%M%S")
 
@@ -778,7 +783,7 @@ class Deployment(object):
                 res = subprocess.call(["ssh", "root@" + ssh_name] + m.get_ssh_flags() + ["sync"])
                 if res != 0:
                     m.logger.log("running sync failed on {0}.".format(m.name))
-            m.backup(self.definitions[m.name], backup_id)
+            m.backup(self.definitions[m.name], backup_id, devices)
 
         nixops.parallel.run_tasks(nr_workers=5, tasks=self.active.itervalues(), worker_fun=worker)
 
@@ -962,7 +967,7 @@ class Deployment(object):
 
     # can generalize notifications later (e.g. emails, for now just hardcode datadog)
     def notify_start(self, action):
-        self.evaluate_network()
+        self.evaluate_network(action)
         nixops.datadog_utils.create_event(self, title='nixops {} started'.format(action), text=self.datadog_event_info, tags=self.datadog_tags)
         nixops.datadog_utils.create_downtime(self)
 

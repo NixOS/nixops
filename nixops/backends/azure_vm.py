@@ -1024,7 +1024,7 @@ class AzureState(MachineState, ResourceState):
         return True
 
 
-    def backup(self, defn, backup_id):
+    def backup(self, defn, backup_id, devices=[]):
         self.log("backing up {0} using ID '{1}'".format(self.full_name, backup_id))
 
         if sorted(defn.block_device_mapping.keys()) != sorted(self.block_device_mapping.keys()):
@@ -1035,23 +1035,24 @@ class AzureState(MachineState, ResourceState):
         _backups = self.backups
         for d_id, disk in self.block_device_mapping.iteritems():
             media_link = disk['media_link']
-            self.log("snapshotting the BLOB {0} backing the Azure disk {1}"
-                     .format(media_link, disk['name']))
-            blob = parse_blob_url(media_link)
-            if blob is None:
-                raise Exception("failed to parse BLOB URL {0}"
-                                .format(media_link))
-            if blob['storage'] != self.storage:
-                raise Exception("storage {0} provided in the deployment specification "
-                                "doesn't match the storage of BLOB {1}"
-                                .format(self.storage, media_link))
-            snapshot = self.bs().snapshot_blob(blob['container'], blob['name'],
-                                               x_ms_meta_name_values = {
-                                                   'nixops_backup_id': backup_id,
-                                                   'description': "backup of disk {0} attached to {1}"
-                                                                  .format(disk['name'], self.machine_name)
-                                               })
-            backup[media_link] = snapshot['x-ms-snapshot']
+            if devices == [] or media_link in devices or disk['name'] in devices or disk['device'] in devices:
+                self.log("snapshotting the BLOB {0} backing the Azure disk {1}"
+                         .format(media_link, disk['name']))
+                blob = parse_blob_url(media_link)
+                if blob is None:
+                    raise Exception("failed to parse BLOB URL {0}"
+                                    .format(media_link))
+                if blob['storage'] != self.storage:
+                    raise Exception("storage {0} provided in the deployment specification "
+                                    "doesn't match the storage of BLOB {1}"
+                                    .format(self.storage, media_link))
+                snapshot = self.bs().snapshot_blob(blob['container'], blob['name'],
+                                                   x_ms_meta_name_values = {
+                                                       'nixops_backup_id': backup_id,
+                                                       'description': "backup of disk {0} attached to {1}"
+                                                                      .format(disk['name'], self.machine_name)
+                                                   })
+                backup[media_link] = snapshot['x-ms-snapshot']
             _backups[backup_id] = backup
             self.backups = _backups
 
