@@ -104,7 +104,7 @@ in stdenv.mkDerivation {
       echo 'scriptheadsize="$(head -n ''${lnum%%:*} "'"$installer"'" | wc -c)"'
       echo 'scriptsize="$(${pkgsNative.coreutils}/bin/stat -c %s "'"$installer"'")"'
       echo 'tarsize="$(($scriptsize - $scriptheadsize))"'
-      echo 'echo -n "$tarsize:"'
+      echo 'printf "$tarsize:"'
       echo 'tail -n +$((''${lnum%%:*} + 1)) "'"$installer"'"'
       # As before, don't quote here!
       echo '${pkgsNative.gnutar}/bin/tar c -C /' $stripped_full_storepaths

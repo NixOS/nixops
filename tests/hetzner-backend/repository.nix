@@ -141,7 +141,7 @@ let
       RELEASE
 
       # Create APT repository
-      echo -n "Creating APT repository..." >&2
+      printf "Creating APT repository..." >&2
       for debfile in $toInclude ${keyringPackage} ${toString extraPackages}; do
         REPREPRO_BASE_DIR="$out" ${reprepro}/bin/reprepro includedeb \
           "${debianCodename}" "$debfile" > /dev/null
