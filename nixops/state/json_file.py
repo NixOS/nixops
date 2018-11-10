@@ -160,14 +160,12 @@ class JsonFile(object):
         if not all_deployments:
             return None
 
-        if not uuid:
-            found = filter(lambda(id): all_deployments[id]["attributes"].get("name"), all_deployments)
+        if uuid:
+            found = filter(lambda(id): id == uuid, all_deployments) or \
+                    filter(lambda(id): all_deployments[id]["attributes"].get("name") == uuid, all_deployments) or \
+                    filter(lambda(id): id.startswith(uuid), all_deployments)
         else:
-            found = filter(lambda(id): id == uuid, all_deployments)
-            if not found:
-                found = filter(lambda(id): all_deployments[id]["attributes"].get("name") == uuid, all_deployments)
-            if not found:
-                found = filter(lambda(id): id.startswith(uuid), all_deployments)
+            found = filter(lambda(id): all_deployments[id]["attributes"].get("name"), all_deployments)
 
         if not found:
             return None
