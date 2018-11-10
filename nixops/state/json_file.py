@@ -15,7 +15,7 @@ from uuid import uuid1 as gen_uuid
 
 class TransactionalJsonFile:
     """
-        Transactional access to a JSON file, with support
+        Transactional access for a JSON file, with support
         of nested transactions.
 
         This is made possible by keeping track of the transaction nest level.
