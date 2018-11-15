@@ -1,2 +1,5 @@
 language: nix
-script: nix-build --quiet release.nix -A build.x86_64-linux
+before_script:
+  - sudo mkdir /etc/nix && echo 'sandbox = true' | sudo tee /etc/nix/nix.conf
+script: 
+  - nix-build --quiet release.nix -A build.x86_64-linux
