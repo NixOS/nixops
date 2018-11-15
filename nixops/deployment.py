@@ -28,6 +28,7 @@ import platform
 from nixops.util import ansi_success
 import inspect
 import time
+import importlib
 
 class NixEvalError(Exception):
     pass
@@ -1269,7 +1270,7 @@ def _create_state(depl, type, name, id):
 def _load_modules_from(dir):
     for module in os.listdir(os.path.dirname(__file__) + "/" + dir):
         if module[-3:] != '.py' or module == "__init__.py": continue
-        __import__("nixops." + dir + "." + module[:-3], globals(), locals())
+        importlib.import_module("nixops." + dir + "." + module[:-3])
 
 _load_modules_from("backends")
 _load_modules_from("resources")
