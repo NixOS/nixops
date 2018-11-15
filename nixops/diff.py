@@ -4,7 +4,6 @@ import itertools
 
 from typing import Any, Callable, Optional, List, Dict, Union, AnyStr
 import nixops.util
-from nixops.deployment import Deployment
 from nixops.logger import MachineLogger
 from nixops.state import StateDict
 
@@ -19,7 +18,10 @@ class Diff(object):
     UNSET = 2
 
     def __init__(self,
-                 depl,  # type: Deployment
+                 # FIXME: type should be 'nixops.deployment.Deployment'
+                 # however we have to upgrade to python3 in order
+                 # to solve the import cycle by forward declaration
+                 depl,
                  logger,  # type: MachineLogger
                  config,  # type: Dict[str, Any]
                  state,  # type: StateDict
