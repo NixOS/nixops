@@ -121,6 +121,7 @@ rec {
   resources.awsVPNGateways = evalResources ./aws-vpn-gateway.nix (zipAttrs resourcesByType.awsVPNGateways or []);
   resources.awsVPNConnections = evalResources ./aws-vpn-connection.nix (zipAttrs resourcesByType.awsVPNConnections or []);
   resources.awsVPNConnectionRoutes = evalResources ./aws-vpn-connection-route.nix (zipAttrs resourcesByType.awsVPNConnectionRoutes or []);
+  resources.output = evalResources ./output.nix (zipAttrs resourcesByType.output or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 
   # Datadog resources
