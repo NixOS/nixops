@@ -6,8 +6,7 @@
 , args
 }:
 
-with import <nixpkgs/nixos/lib/testing.nix> { inherit system; };
-with pkgs;
+with import <nixpkgs> { inherit system; };
 with lib;
 
 
