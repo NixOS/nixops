@@ -5,6 +5,38 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.6.2"><title>Release 1.6.2 (Nov XX, 2018)</title>
+<itemizedlist>
+  <listitem><para>General</para>
+    <listitem><para>Fix evaluation with latest nixpkgs.</para></listitem>
+    <listitem><para>
+      Trust on first use using openssh's accept-new for SSH keys instead of StrictHostKeyChecking=no
+    </para></listitem>
+  </listitem>
+
+  <listitem><para>AWS</para>
+
+    <itemizedlist>
+      <listitem><para>
+        Fix destroying EC2 one-time spot instance whereas the 
+        associated spot instance request resource does not exist no more.
+      </para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>GCE</para>
+    <itemizedlist> 
+      <listitem><para>Make sure that the machine is UP before trying to destroy it in GCP.</para></listitem>
+    </itemizedlist>
+  </listitem>
+</itemizedlist>
+
+<para>
+  This release has contributions from Amine Chikhaoui, aszlig, Aymen Memni,
+  Chaker Benhamed, Domen Kožar, dzanot, Eelco Dolstra, Jörg Thalheim
+</para>
+</section>
+
 <section xml:id="ssec-relnotes-1.6.1"><title>Release 1.6.1 (Sep 14, 2018)</title>
 <itemizedlist>
 
