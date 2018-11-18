@@ -5,7 +5,7 @@ import itertools
 from typing import Any, Callable, Optional, List, Dict, Union, AnyStr
 import nixops.util
 from nixops.logger import MachineLogger
-from nixops.state import StateDict
+from nixops.state.state_helper import StateDict
 
 class Diff(object):
     """
@@ -87,7 +87,7 @@ class Diff(object):
         dependencies.
         """
 
-        # TODO implement cycle detection 
+        # TODO implement cycle detection
         parent = {}  # type: Dict[Handler, Optional[Handler]]
         sequence = []  # type: List[Handler]
 

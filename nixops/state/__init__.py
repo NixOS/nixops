@@ -1,8 +1,9 @@
 import os
 import urlparse
 import sys
-import json_file
-import sqlite_connector
+
+import nixops.state.json_file
+import nixops.state.sqlite_connector
 
 class WrongStateSchemeException(Exception):
     pass
