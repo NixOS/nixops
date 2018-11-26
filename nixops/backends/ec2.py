@@ -406,6 +406,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         backups = {}
         current_volumes = set([v['volumeId'] for v in self.block_device_mapping.values()])
         for b_id, b in self.backups.items():
+            b = {device_name_stored_to_real(device): snap for device, snap in b.items()}
             backups[b_id] = {}
             backup_status = "complete"
             info = []
