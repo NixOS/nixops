@@ -127,3 +127,12 @@ class EC2KeyPairState(nixops.resources.ResourceState):
             self._conn.delete_key_pair(self.keypair_name)
 
         return True
+
+    def check(self):
+        self.connect()
+        try:
+            kp = self._conn.get_key_pair(self.keypair_name)
+        except IndexError as e:
+            kp = None
+        if kp is None:
+            self.state = self.MISSING
