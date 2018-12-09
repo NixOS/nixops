@@ -10,15 +10,16 @@ instanceTypes = {}
 for p in data['products'].keys():
     product = data['products'][p]['attributes']
     if 'operatingSystem' in product and product['operatingSystem'] in ('NA', 'Linux') \
-       and product['location'] == 'US East (N. Virginia)' \
-       and product['tenancy'] == 'Shared':
+       and 'tenancy' in product and product['tenancy'] == 'Shared' \
+       and product['location'] == 'US East (N. Virginia)':
            ebsOptimized = 'ebsOptimized' in product
            instanceType = product['instanceType']
            cores = product['vcpu']
            memory = int(float(product['memory'].replace(',','').split(' ')[0]) * 1024)
+           supportsNVMe = 'NVMe' in product['storage'] 
            if instanceType in instanceTypes and not ebsOptimized:
                continue
-           instanceTypes[product['instanceType']] = '  "'+instanceType+'" = { cores = '+cores+'; memory = '+str(memory)+'; allowsEbsOptimized = '+('true' if ebsOptimized else 'false')+'; };'
+           instanceTypes[product['instanceType']] = '  "'+instanceType+'" = { cores = '+cores+'; memory = '+str(memory)+'; allowsEbsOptimized = '+('true' if ebsOptimized else 'false')+'; nitro = '+('true' if supportsNVMe else 'false')+'; };'
 
 print '{'
 for instanceType in sorted(instanceTypes.keys()):
