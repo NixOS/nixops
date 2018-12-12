@@ -88,7 +88,7 @@ class NoneState(MachineState):
             res.exists = False
             return
         res.exists = True
-        res.is_up = nixops.util.ping_tcp_port(self.target_host, self.ssh_port)
+        res.is_up = self.try_ssh()
         if res.is_up:
             MachineState._check(self, res)
 

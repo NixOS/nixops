@@ -15,7 +15,6 @@ from azure.storage.blob import BlobService
 
 import nixops
 from nixops import known_hosts
-from nixops.util import wait_for_tcp_port, ping_tcp_port
 from nixops.util import attr_property, create_key_pair, generate_random_string, check_wait
 from nixops.nix_expr import Call, RawValue
 

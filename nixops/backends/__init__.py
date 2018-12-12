@@ -198,8 +198,8 @@ class MachineState(nixops.resources.ResourceState):
         """Reboot this machine and wait until it's up again."""
         self.reboot(hard=hard)
         self.log_start("waiting for the machine to finish rebooting...")
-        # !!! TODO
-        nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, open=False, callback=lambda: self.log_continue("."))
+        while self.try_ssh():
+            self.log_continue(".")
         self.log_continue("[down]")
         self.wait_for_ssh()
         self.state = self.UP
@@ -312,6 +312,9 @@ class MachineState(nixops.resources.ResourceState):
     def address_to(self, r):
         """Return the IP address to be used to access resource "r" from this machine."""
         return r.public_ipv4
+
+    def try_ssh(self):
+        return self.ssh.try_ssh()
 
     def wait_for_ssh(self, check=False):
         """Wait until the SSH port is open on this machine."""

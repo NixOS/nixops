@@ -9,7 +9,6 @@ import subprocess
 from hetzner.robot import Robot
 
 from nixops import known_hosts
-from nixops.util import wait_for_tcp_port, ping_tcp_port
 from nixops.util import attr_property, create_key_pair, xml_expr_to_python
 from nixops.ssh_util import SSHCommandFailed
 from nixops.backends import MachineDefinition, MachineState
@@ -187,10 +186,12 @@ class HetznerState(MachineState):
             # so only wait for the reboot to finish when deploying real
             # systems.
             self.log_start("waiting for rescue system...")
-            dotlog = lambda: self.log_continue(".")  # NOQA
-            wait_for_tcp_port(ip, 22, open=False, callback=dotlog)
+            while self.try_ssh():
+                self.log_continue(".")
             self.log_continue("[down]")
-            wait_for_tcp_port(ip, 22, callback=dotlog)
+
+            while not self.try_ssh():
+                self.log_continue(".")
             self.log_end("[up]")
         self.state = self.RESCUE
 
@@ -650,7 +651,9 @@ class HetznerState(MachineState):
         """
         self.log_start("waiting for system to shutdown... ")
         dotlog = lambda: self.log_continue(".")  # NOQA
-        wait_for_tcp_port(self.main_ipv4, 22, open=False, callback=dotlog)
+        while self.try_ssh():
+            self.log_continue(".")
+
         self.log_continue("[down]")
 
         self.state = self.STOPPED
@@ -684,7 +687,7 @@ class HetznerState(MachineState):
             return
 
         if self.state in (self.STOPPED, self.STOPPING):
-            res.is_up = ping_tcp_port(self.main_ipv4, 22)
+            res.is_up = self.try_ssh()
             if not res.is_up:
                 self.state = self.STOPPED
                 res.is_reachable = False
