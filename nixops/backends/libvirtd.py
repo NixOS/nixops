@@ -70,24 +70,27 @@ class LibvirtdState(MachineState):
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
+        self._conn = None
         self._dom = None
         self._pool = None
         self._vol = None
 
-    def connect(self):
-        self.logger.log('Connecting to {}...'.format(self.uri))
-        try:
-            self.conn = libvirt.open(self.uri)
-        except libvirt.libvirtError as error:
-            self.logger.error(error.get_error_message())
-            if error.get_error_code() == libvirt.VIR_ERR_NO_CONNECT:
-                # this error code usually means "no connection driver available for qemu:///..."
-                self.logger.error('make sure qemu-system-x86_64 is installed on the target host')
-            raise Exception('Failed to connect to the hypervisor at {}'.format(self.uri))
+    @property
+    def conn(self):
+        if self._conn is None:
+            self.logger.log('Connecting to {}...'.format(self.uri))
+            try:
+                self._conn = libvirt.open(self.uri)
+            except libvirt.libvirtError as error:
+                self.logger.error(error.get_error_message())
+                if error.get_error_code() == libvirt.VIR_ERR_NO_CONNECT:
+                    # this error code usually means "no connection driver available for qemu:///..."
+                    self.logger.error('make sure qemu-system-x86_64 is installed on the target host')
+                raise Exception('Failed to connect to the hypervisor at {}'.format(self.uri))
+        return self._conn
 
     @property
     def dom(self):
-        self.connect()
         if self._dom is None:
             try:
                 self._dom = self.conn.lookupByName(self._vm_id())
@@ -144,8 +147,6 @@ class LibvirtdState(MachineState):
         self.primary_net = defn.networks[0]
         self.storage_pool_name = defn.storage_pool_name
         self.uri = defn.uri
-
-        self.connect()
 
         # required for virConnectGetDomainCapabilities()
         # https://libvirt.org/formatdomaincaps.html
