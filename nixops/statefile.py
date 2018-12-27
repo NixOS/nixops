@@ -37,10 +37,9 @@ class Connection(sqlite3.Connection):
         assert self.nesting >= 0
         if self.nesting == 0:
             if self.must_rollback:
-                try:
-                    self.rollback()
-                except sqlite3.ProgrammingError:
-                    pass
+                # Any exceptions during rollback need to be handled by
+                # the caller/user, so they are allowed to bubble up.
+                self.rollback()
             else:
                 sqlite3.Connection.__exit__(self, exception_type, exception_value, exception_traceback)
         self.lock.release()
