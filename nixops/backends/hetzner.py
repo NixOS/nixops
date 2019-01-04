@@ -2,8 +2,6 @@
 from __future__ import absolute_import
 
 import os
-import socket
-import struct
 import subprocess
 
 from hetzner.robot import Robot
@@ -445,10 +443,9 @@ class HetznerState(MachineState):
         rule += 'NAME="{1}"'
         return rule.format(mac_addr, interface)
 
-    def _get_ipv4_addr_and_prefix_for(self, interface):
+    def _get_ipv4_addr_for(self, interface):
         """
-        Return a tuple of (ipv4_address, prefix_length) for the specified
-        interface.
+        Return the IPv4 address for the specified interface.
         """
         cmd = "ip addr show \"{0}\" | sed -n -e 's/^.*inet  *//p'"
         cmd += " | cut -d' ' -f1"
@@ -458,14 +455,15 @@ class HetznerState(MachineState):
             # No IP address set for this interface.
             return None
         else:
-            return ipv4_addr_prefix.split('/', 1)
+            return ipv4_addr_prefix.split('/', 1)[0]
 
     def _get_default_gw(self):
         """
         Return the default gateway of the currently running machine.
         """
         default_gw_cmd = "ip route list | sed -n -e 's/^default  *via  *//p'"
-        default_gw_output = self.run_command(default_gw_cmd, capture_stdout=True).strip()
+        default_gw_output = self.run_command(default_gw_cmd,
+                                             capture_stdout=True).strip()
         default_gw_output_split = default_gw_output.split(' ')
         gw_ip = default_gw_output_split[0]
         gw_dev = default_gw_output_split[2]
@@ -484,15 +482,6 @@ class HetznerState(MachineState):
         Indent list of lines by the specified level (one level = two spaces).
         """
         return map(lambda line: "  " + line, lines)
-
-    def _calculate_ipv4_subnet(self, ipv4, prefix_len):
-        """
-        Returns the address of the subnet for the given 'ipv4' and
-        'prefix_len'.
-        """
-        bits = struct.unpack('!L', socket.inet_aton(ipv4))[0]
-        mask = 0xffffffff >> (32 - prefix_len) << (32 - prefix_len)
-        return socket.inet_ntoa(struct.pack('!L', bits & mask))
 
     def _gen_network_spec(self):
         """
@@ -514,17 +503,21 @@ class HetznerState(MachineState):
             if iface == "lo":
                 continue
 
-            result = self._get_ipv4_addr_and_prefix_for(iface)
-            if result is None:
+            ipv4addr = self._get_ipv4_addr_for(iface)
+            if ipv4addr is None:
                 continue
 
             udev_rules.append(self._get_udev_rule_for(iface))
 
-            ipv4addr, prefix = result
+            # Instead of using the real netmask, we're using a prefix length of
+            # 32 bit to make sure that all packets go through the gateway. This
+            # is necessary because Hetzner uses VLANs in conjuction with
+            # filtering of local traffic to prevent ARP spoofing and similar
+            # attacks.
             iface_attrs[iface] = {
                 'ipv4': {
                     'addresses': [
-                        {'address': ipv4addr, 'prefixLength': int(prefix)},
+                        {'address': ipv4addr, 'prefixLength': 32},
                     ],
                 },
             }
@@ -532,22 +525,6 @@ class HetznerState(MachineState):
             # We can't handle Hetzner-specific networking info in test mode.
             if TEST_MODE:
                 continue
-
-            # Extra route for accessing own subnet for this interface
-            # (see https://wiki.hetzner.de/index.php/Netzkonfiguration_Debian/en#IPv4),
-            # but only if it's not the interface for the default gateway,
-            # because that one will already get such a route generated
-            # by NixOS's `network-setup.service`. See also:
-            #   https://github.com/NixOS/nixops/pull/1032#issuecomment-433741624
-            if iface != defgw_dev:
-                net = self._calculate_ipv4_subnet(ipv4addr, int(prefix))
-                iface_attrs[iface]['ipv4'] = {
-                    'routes': [{
-                        'address': net,
-                        'prefixLength': int(prefix),
-                        'via': defgw_ip,
-                    }],
-                }
 
             # IPv6 subnets only for eth0
             v6subnets = []
@@ -565,7 +542,7 @@ class HetznerState(MachineState):
                     'address': subnet.gateway,
                     'interface': defgw_dev,
                 }
-            iface_attrs[iface]['ipv6'] = { 'addresses': v6subnets }
+            iface_attrs[iface]['ipv6'] = {'addresses': v6subnets}
 
         self.net_info = {
             'services': {
