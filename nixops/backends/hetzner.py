@@ -170,14 +170,14 @@ class HetznerState(MachineState):
             ["-o", "LogLevel=quiet",
              "-o", "UserKnownHostsFile=/dev/null",
              "-o", "GlobalKnownHostsFile=/dev/null",
-             "-o", "StrictHostKeyChecking=no"]
+             "-o", "StrictHostKeyChecking=accept-new"]
             if self.state == self.RESCUE else
             # XXX: Disabling strict host key checking will only impact the
             # behaviour on *new* keys, so it should be "reasonably" safe to do
             # this until we have a better way of managing host keys in
             # ssh_util. So far this at least avoids to accept every damn host
             # key on a large deployment.
-            ["-o", "StrictHostKeyChecking=no",
+            ["-o", "StrictHostKeyChecking=accept-new",
              "-i", self.get_ssh_private_key_file()]
         )
 
@@ -285,10 +285,10 @@ class HetznerState(MachineState):
             try:
                 out = self.run_command("nixpart -p -", capture_stdout=True,
                                        stdin_string=partitions)
-            except SSHCommandFailed as cmd:
+            except SSHCommandFailed as failed_command:
                 # Exit code 100 is when the partitioner requires a reboot.
-                if cmd.exitcode == 100:
-                    self.log(cmd.message)
+                if failed_command.exitcode == 100:
+                    self.log(failed_command.message)
                     self.reboot_rescue(install, partitions)
                     return
                 else:
@@ -464,9 +464,12 @@ class HetznerState(MachineState):
         """
         Return the default gateway of the currently running machine.
         """
-        cmd = "ip route list | sed -n -e 's/^default  *via  *//p'"
-        cmd += " | cut -d' ' -f1"
-        return self.run_command(cmd, capture_stdout=True).strip()
+        default_gw_cmd = "ip route list | sed -n -e 's/^default  *via  *//p'"
+        default_gw_output = self.run_command(default_gw_cmd, capture_stdout=True).strip()
+        default_gw_output_split = default_gw_output.split(' ')
+        gw_ip = default_gw_output_split[0]
+        gw_dev = default_gw_output_split[2]
+        return (gw_ip, gw_dev)
 
     def _get_nameservers(self):
         """
@@ -499,13 +502,11 @@ class HetznerState(MachineState):
         """
         udev_rules = []
         iface_attrs = {}
-        extra_routes = []
-        ipv6_commands = []
 
         server = self._get_server_by_ip(self.main_ipv4)
 
         # Global networking options
-        defgw = self._get_default_gw()
+        defgw_ip, defgw_dev = self._get_default_gw()
         v6defgw = None
 
         # Interface-specific networking options
@@ -519,41 +520,52 @@ class HetznerState(MachineState):
 
             udev_rules.append(self._get_udev_rule_for(iface))
 
-            ipv4, prefix = result
+            ipv4addr, prefix = result
             iface_attrs[iface] = {
-                'ipAddress': ipv4,
-                'prefixLength': int(prefix),
+                'ipv4': {
+                    'addresses': [
+                        {'address': ipv4addr, 'prefixLength': int(prefix)},
+                    ],
+                },
             }
 
             # We can't handle Hetzner-specific networking info in test mode.
             if TEST_MODE:
                 continue
 
-            # Extra route for accessing own subnet
-            net = self._calculate_ipv4_subnet(ipv4, int(prefix))
-            extra_routes.append(("{0}/{1}".format(net, prefix), defgw, iface))
+            # Extra route for accessing own subnet for this interface
+            # (see https://wiki.hetzner.de/index.php/Netzkonfiguration_Debian/en#IPv4),
+            # but only if it's not the interface for the default gateway,
+            # because that one will already get such a route generated
+            # by NixOS's `network-setup.service`. See also:
+            #   https://github.com/NixOS/nixops/pull/1032#issuecomment-433741624
+            if iface != defgw_dev:
+                net = self._calculate_ipv4_subnet(ipv4addr, int(prefix))
+                iface_attrs[iface]['ipv4'] = {
+                    'routes': [{
+                        'address': net,
+                        'prefixLength': int(prefix),
+                        'via': defgw_ip,
+                    }],
+                }
 
-            # IPv6 subnets only for eth0 (XXX: more flexibility here?)
-            v6addr_command = "ip -6 addr add '{0}' dev '{1}' || true"
+            # IPv6 subnets only for eth0
+            v6subnets = []
             for subnet in server.subnets:
                 if "." in subnet.net_ip:
                     # skip IPv4 addresses
                     continue
-                v6addr = "{0}/{1}".format(subnet.net_ip, subnet.mask)
-                ipv6_commands.append(v6addr_command.format(v6addr, iface))
-                assert v6defgw is None or v6defgw == subnet.gateway
-                v6defgw = subnet.gateway
-
-        # Extra routes
-        route4_cmd = "ip -4 route change '{0}' via '{1}' dev '{2}' || true"
-        route_commands = [route4_cmd.format(network, gw, iface)
-                          for network, gw, iface in extra_routes]
-
-        # IPv6 configuration
-        route6_cmd = "ip -6 route add default via '{0}' dev eth0 || true"
-        route_commands.append(route6_cmd.format(v6defgw))
-
-        local_commands = '\n'.join(ipv6_commands + route_commands) + '\n'
+                v6subnets.append({
+                    'address': subnet.net_ip,
+                    'prefixLength': int(subnet.mask)
+                })
+                assert (v6defgw is None or
+                        v6defgw.get('address') == subnet.gateway)
+                v6defgw = {
+                    'address': subnet.gateway,
+                    'interface': defgw_dev,
+                }
+            iface_attrs[iface]['ipv6'] = { 'addresses': v6subnets }
 
         self.net_info = {
             'services': {
@@ -561,9 +573,12 @@ class HetznerState(MachineState):
             },
             'networking': {
                 'interfaces': iface_attrs,
-                'defaultGateway': defgw,
+                'defaultGateway': {
+                    'address': defgw_ip,
+                    'interface': defgw_dev,
+                },
+                'defaultGateway6': v6defgw,
                 'nameservers': self._get_nameservers(),
-                'localCommands': local_commands,
             }
         }
 

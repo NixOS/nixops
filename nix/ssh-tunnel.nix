@@ -87,7 +87,7 @@ with lib;
         remoteCommand = mkAddrConf v.remoteTunnel v.remoteIPv4 v.localIPv4;
 
       in "ssh -i ${v.privateKey} -x"
-       + " -o StrictHostKeyChecking=" + (if ((builtins.substring 0 5 lib.nixpkgsVersion) < "18.03") then "no" else "accept-new")
+       + " -o StrictHostKeyChecking=accept-new"
        + " -o PermitLocalCommand=yes"
        + " -o ServerAliveInterval=20"
        + " -o LocalCommand='${localCommand}'"

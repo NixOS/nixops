@@ -70,13 +70,14 @@ rec {
   build = pkgs.lib.genAttrs [ "x86_64-linux" "i686-linux" "x86_64-darwin" ] (system:
     with import nixpkgs { inherit system; };
 
-    python2Packages.buildPythonPackage rec {
+    python2Packages.buildPythonApplication rec {
       name = "nixops-${version}";
-      namePrefix = "";
 
       src = "${tarball}/tarballs/*.tar.bz2";
 
       buildInputs = [ python2Packages.nose python2Packages.coverage ];
+
+      nativeBuildInputs = [ pkgs.mypy ];
 
       propagatedBuildInputs = with python2Packages;
         [ prettytable
@@ -95,6 +96,7 @@ rec {
           pysqlite
           datadog
           digital-ocean
+          typing
         ];
 
       # For "nix-build --run-env".
@@ -105,12 +107,21 @@ rec {
 
       doCheck = true;
 
+      postCheck = ''
+        # We have to unset PYTHONPATH here since it will pick enum34 which collides
+        # with python3 own module. This can be removed when nixops is ported to python3.
+        PYTHONPATH= mypy --cache-dir=/dev/null nixops
+
+        # smoke test
+        HOME=$TMPDIR $out/bin/nixops --version
+      '';
+
       # Needed by libcloud during tests
       SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
 
       # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
       # the version of openssh is causing errors when have big networks (40+)
-      makeWrapperArgs = ["--prefix" "PATH" ":" "${openssl}/bin" "--set" "PYTHONPATH" ":"];
+      makeWrapperArgs = ["--prefix" "PATH" ":" "${openssh}/bin" "--set" "PYTHONPATH" ":"];
 
       postInstall =
         ''

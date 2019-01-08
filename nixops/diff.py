@@ -2,7 +2,10 @@ import os
 import json
 import itertools
 
+from typing import Any, Callable, Optional, List, Dict, Union, AnyStr
 import nixops.util
+from nixops.logger import MachineLogger
+from nixops.state import StateDict
 
 class Diff(object):
     """
@@ -14,17 +17,28 @@ class Diff(object):
     UPDATE = 1
     UNSET = 2
 
-    def __init__(self, depl, logger, config, state, res_type):
+    def __init__(self,
+                 # FIXME: type should be 'nixops.deployment.Deployment'
+                 # however we have to upgrade to python3 in order
+                 # to solve the import cycle by forward declaration
+                 depl,
+                 logger,  # type: MachineLogger
+                 config,  # type: Dict[str, Any]
+                 state,  # type: StateDict
+                 res_type,  # type: str
+                 ):
+        # type: (...) -> None
         self._definition = config
         self._state = state
         self._depl = depl
         self._type = res_type
         self.logger = logger
-        self._diff = {}
+        self._diff = {}  # type: Dict[str, int]
         self._reserved = ['index', 'state', '_type', 'deployment', '_name',
                           'name', 'creationTime']
 
     def set_reserved_keys(self, keys):
+        # type: (List[str]) -> None
         """
         Reserved keys are nix options or internal state keys that we don't
         want them to trigger the diff engine so we simply ignore the diff
@@ -33,10 +47,12 @@ class Diff(object):
         self._reserved.extend(keys)
 
     def get_keys(self):
+        # type: () -> List[str]
         diff = [k for k in self._diff.keys() if k not in self._reserved]
         return diff
 
     def plan(self,show=False):
+        # type: (bool) -> List[Handler]
         """
         This will go through the attributes of the resource and evaluate
         the diff between definition and state then return a sorted list
@@ -59,9 +75,11 @@ class Diff(object):
         return self.get_handlers_sequence()
 
     def set_handlers(self, handlers):
+        # type: (List[Handler]) -> None
         self.handlers = handlers
 
     def topological_sort(self, handlers):
+        # type: (List[Handler]) -> List[Handler]
         """
         Implements a topological sort of a direct acyclic graph of
         handlers using the depth first search algorithm.
@@ -69,10 +87,11 @@ class Diff(object):
         dependencies.
         """
         # TODO implement cycle detection 
-        parent = {}
-        sequence = []
+        parent = {}  # type: Dict[Handler, Optional[Handler]]
+        sequence = []  # type: List[Handler]
 
         def visit(handler):
+            # type: (Handler) -> None
             for v in handler.get_deps():
                 if v not in parent:
                     parent[v] = handler
@@ -87,6 +106,7 @@ class Diff(object):
         return [h for h in sequence if h in handlers]
 
     def get_handlers_sequence(self, combinations=1):
+        # type: (int) -> List[Handler]
         if len(self.get_keys()) == 0:
             return []
         for h_tuple in itertools.combinations(self.handlers, combinations):
@@ -104,6 +124,7 @@ class Diff(object):
         return self.get_handlers_sequence(combinations+1)
 
     def eval_resource_attr_diff(self, key):
+        # type: (str) -> None
         s = self._state.get(key, None)
         d = self.get_resource_definition(key)
         if s == None and d != None:
@@ -115,7 +136,9 @@ class Diff(object):
                 self._diff[key] = self.UPDATE
 
     def get_resource_definition(self, key):
+        # type: (str) -> Any
         def retrieve_def(d):
+            # type: (Any) -> Any
             if isinstance(d, str) and d.startswith("res-"):
                 name = d[4:].split(".")[0]
                 res_type = d.split(".")[1]
@@ -139,16 +162,20 @@ class Diff(object):
             d = retrieve_def(d)
             return d
 
+
 class Handler(object):
     def __init__(self, keys, after=None, handle=None):
+        # type: (List[str], Optional[List], Optional[Callable]) -> None
         if after is None:
             after = []
-        if handle is not None:
+        if handle is None:
+            self.handle = self._default_handle
+        else:
             self.handle = handle
         self._keys = keys
         self._dependencies = after
 
-    def handle(self):
+    def _default_handle(self):
         """
         Method that should be implemented to handle the changes
         of keys returned by get_keys()
@@ -158,7 +185,9 @@ class Handler(object):
         raise NotImplementedError
 
     def get_deps(self):
+        # type: () -> List[Handler]
         return self._dependencies
 
     def get_keys(self,*keys):
+        # type: (*AnyStr) -> List[str]
         return self._keys

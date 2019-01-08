@@ -63,15 +63,17 @@ class LibvirtdState(MachineState):
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
+        self._dom = None
 
+    def connect(self):
         self.conn = libvirt.open('qemu:///system')
         if self.conn is None:
             self.log('Failed to open connection to the hypervisor')
             sys.exit(1)
-        self._dom = None
 
     @property
     def dom(self):
+        self.connect()
         if self._dom is None:
             try:
                 self._dom = self.conn.lookupByName(self._vm_id())
@@ -90,7 +92,7 @@ class LibvirtdState(MachineState):
 
     def get_ssh_flags(self, *args, **kwargs):
         super_flags = super(LibvirtdState, self).get_ssh_flags(*args, **kwargs)
-        return super_flags + ["-o", "StrictHostKeyChecking=no",
+        return super_flags + ["-o", "StrictHostKeyChecking=accept-new",
                               "-i", self.get_ssh_private_key_file()]
 
     def get_physical_spec(self):
@@ -118,6 +120,7 @@ class LibvirtdState(MachineState):
         if not self.primary_mac:
             self._generate_primary_mac()
         self.domain_xml = self._make_domain_xml(defn)
+        self.connect()
 
         if not self.client_public_key:
             (self.client_private_key, self.client_public_key) = nixops.util.create_key_pair()
