@@ -67,6 +67,13 @@ with lib;
             </para>
           '';
         };
+        monitorTags = mkOption {
+          type = types.listOf types.str;
+          default = [];
+          description = ''
+            A list of tags to associate with your monitor.
+          '';
+        };
   };
   config._type = "datadog-monitor";
 }
