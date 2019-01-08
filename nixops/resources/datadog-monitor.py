@@ -33,6 +33,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
     message = nixops.util.attr_property("message", None)
     monitor_id = nixops.util.attr_property("monitorId", None)
     options = nixops.util.attr_property("monitorOptions",[],'json')
+    tags = nixops.util.attr_property("monitorTags", None, 'json')
 
     @classmethod
     def get_type(cls):
@@ -71,7 +72,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
     def create_monitor(self, defn, options):
         response = self._dd_api.Monitor.create(
             type=defn.config['type'], query=defn.config['query'], name=defn.config['name'],
-            message=defn.config['message'], options=options)
+            message=defn.config['message'], options=options, tags=defn.config['monitorTags'])
         if 'errors' in response:
             raise Exception(str(response['errors']))
         else:
@@ -103,7 +104,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
                 self.log("updating datadog monitor '{0}...'".format(defn.config['name']))
                 response = self._dd_api.Monitor.update(
                 self.monitor_id, query=defn.config['query'], name=defn.config['name'],
-                message=defn.config['message'], options=options)
+                message=defn.config['message'], options=options, tags=defn.config['monitorTags'])
                 if 'errors' in response:
                     raise Exception(str(response['errors']))
 
@@ -116,6 +117,7 @@ class DatadogMonitorState(nixops.resources.ResourceState):
             self.query = defn.config['query']
             self.message = defn.config['message']
             self.options = defn.config['monitorOptions']
+            self.tags = defn.config['monitorTags']
             if monitor_id != None: self.monitor_id = monitor_id
 
     def destroy(self, wipe=False):
