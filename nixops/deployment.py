@@ -747,6 +747,11 @@ class Deployment(object):
                     # failed to start after the reboot.
 
                 if res == 0:
+                    res = m.run_command("systemctl isolate multi-user.target")
+                    if res != 0:
+                        raise Exception("unable to start multi-user.target")
+
+                if res == 0:
                     m.success("activation finished successfully")
 
                 # Record that we switched this machine to the new
