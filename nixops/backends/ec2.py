@@ -222,7 +222,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         val = {}
         if backupid in self.backups:
             for device_stored, snap in self.backups[backupid].items():
-                device_real = device_name_save_to_real(dev)
+                device_real = device_name_stored_to_real(device_stored)
 
                 is_root_device = device_real.startswith("/dev/xvda") or device_real.startswith("/dev/nvme0")
 
