@@ -228,6 +228,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
                 if not is_root_device:
                     val[device_real] = { 'disk': Call(RawValue("pkgs.lib.mkOverride 10"), snap)}
+
+                    if self.block_device_mapping[device_stored]['encrypt']:
+                        device_passphrase = self.block_device_mapping[device_stored]['generatedKey']
+                        val[device_real].update({'passphrase': Call(RawValue("pkgs.lib.mkOverride 0"), device_passphrase)})
+
             val = { ('deployment', 'ec2', 'blockDeviceMapping'): val }
         else:
             val = RawValue("{{}} /* No backup found for id '{0}' */".format(backupid))
