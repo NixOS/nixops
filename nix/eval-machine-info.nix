@@ -128,6 +128,9 @@ rec {
   resources.datadogTimeboards = evalResources ./datadog-timeboard.nix (zipAttrs resourcesByType.datadogTimeboards or []);
   resources.datadogScreenboards = evalResources ./datadog-screenboard.nix (zipAttrs resourcesByType.datadogScreenboards or []);
 
+  # hashicorp vault resources
+  resources.vaultApprole = evalResources ./vault-approle.nix (zipAttrs resourcesByType.vaultApprole or []);
+
   # Azure resources
   resources.azureAvailabilitySets = evalAzureResources ./azure-availability-set.nix (zipAttrs resourcesByType.azureAvailabilitySets or []);
   resources.azureBlobContainers =
