@@ -223,16 +223,17 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if backupid in self.backups:
             for device_stored, snap in self.backups[backupid].items():
                 device_real = device_name_stored_to_real(device_stored)
-
                 is_root_device = device_real.startswith("/dev/xvda") or device_real.startswith("/dev/nvme0")
 
                 if not is_root_device:
-                    val[device_real] = { 'disk': Call(RawValue("pkgs.lib.mkOverride 10"), snap)}
+                   # FIXME this is for backward compatabilitie shoule be removed after 1 or 2 releases.
+                   if len(snap) == 2:
+                       val[device_real] = { 'disk': Call(RawValue("pkgs.lib.mkOverride 10"), snap[0]) }
 
-                    if self.block_device_mapping[device_stored]['encrypt']:
-                        device_passphrase = self.block_device_mapping[device_stored]['generatedKey']
-                        val[device_real].update({'passphrase': Call(RawValue("pkgs.lib.mkOverride 0"), device_passphrase)})
-
+                       if snap[1] != "":
+                          val[device_real].update({ 'passphrase': Call(RawValue("pkgs.lib.mkOverride 0"), snap[1]) })
+                   else:
+                        val[device_real] = { 'disk': Call(RawValue("pkgs.lib.mkOverride 10"), snap) }
             val = { ('deployment', 'ec2', 'blockDeviceMapping'): val }
         else:
             val = RawValue("{{}} /* No backup found for id '{0}' */".format(backupid))
@@ -424,6 +425,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     info.append("{0} - {1} - Not available in backup".format(self.name, device_real))
                 else:
                     snapshot_id = b[device_real]
+                    # FIXME this is for backward compatabilitie shoule be removed after 1 or 2 releases.
+                    if len(b[device_real]) == 2:
+                        snapshot_id = b[device_real][0]
                     try:
                         snapshot = self._get_snapshot_by_id(snapshot_id)
                         snapshot_status = snapshot.update()
@@ -447,7 +451,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.warn('backup {0} not found, skipping'.format(backup_id))
         else:
             if not keep_physical:
-                for dev, snapshot_id in _backups[backup_id].items():
+                for dev, snap in _backups[backup_id].items():
+                    # FIXME this is for backward compatabilitie shoule be removed after 1 or 2 releases.
+                    snapshot_id = snap
+                    if len(snap) == 2:
+                        snapshot_id = snap[0]
                     snapshot = None
                     try:
                         snapshot = self._get_snapshot_by_id(snapshot_id)
@@ -467,7 +475,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self.log("backing up machine ‘{0}’ using id ‘{1}’".format(self.name, backup_id))
         backup = {}
         _backups = self.backups
-
         for device_stored, v in self.block_device_mapping.items():
             device_real = device_name_stored_to_real(device_stored)
 
@@ -481,7 +488,12 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 snapshot_tags['Name'] = "{0} - {3} [{1} - {2}]".format(self.depl.description, self.name, device_stored, backup_id)
 
                 self._retry(lambda: self._conn.create_tags([snapshot.id], snapshot_tags))
-                backup[device_stored] = snapshot.id
+
+                bdm = self.block_device_mapping[device_stored]
+                encryption_passphrase = ""
+                if 'encrypt' in bdm and bdm['encrypt']:
+                    encryption_passphrase = bdm['generatedKey']
+                backup[device_stored] = [ snapshot.id, encryption_passphrase ]
 
         _backups[backup_id] = backup
         self.backups = _backups
@@ -505,7 +517,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     volume.detach()
 
                 # attach backup disks
+                # FIXME this is for backward compatabilitie shoule be removed after 1 or 2 releases.
                 snapshot_id = self.backups[backup_id][device_stored]
+                if len(snapshot_id) == 2:
+                    snapshot_id = self.backups[backup_id][device_stored][0]
                 self.log("creating volume from snapshot ‘{0}’".format(snapshot_id))
 
                 self.wait_for_snapshot_to_become_completed(snapshot_id)
