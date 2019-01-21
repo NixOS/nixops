@@ -15,7 +15,7 @@ let
   optionsDocBook = pkgs.runCommand "options-db.xml" {} ''
     ${pkgs.libxslt.bin or pkgs.libxslt}/bin/xsltproc \
       --stringparam revision '${revision}' \
-      -o $out ${<nixpkgs/nixos/doc/manual/options-to-docbook.xsl>} ${optionsXML}
+      -o $out ${nixpkgs + /nixos/doc/manual/options-to-docbook.xsl} ${optionsXML}
   '';
 
 in optionsDocBook
