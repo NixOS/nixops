@@ -1258,7 +1258,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         import boto.route53
         import boto.route53.record
 
-        self.dns_hostname = defn.dns_hostname
+        self.dns_hostname = defn.dns_hostname.lower()
         self.dns_ttl = defn.dns_ttl
         self.route53_access_key_id = defn.route53_access_key_id or nixops.ec2_utils.get_access_key_id()
         self.route53_use_public_dns_name = defn.route53_use_public_dns_name
