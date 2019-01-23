@@ -34,6 +34,12 @@ with lib;
       description = "The JSON Policy string to apply to the bucket.";
     };
 
+    lifeCycle = mkOption {
+      type = types.str;
+      default = "";
+      description = "The JSON lifecycle management string to apply to the bucket.";
+    };
+
     website.enabled = mkOption {
       type = types.bool;
       default = false;

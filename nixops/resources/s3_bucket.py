@@ -5,6 +5,7 @@
 import time
 import botocore
 import boto3
+import json
 import nixops.util
 import nixops.resources
 import nixops.ec2_utils
@@ -27,6 +28,7 @@ class S3BucketDefinition(nixops.resources.ResourceDefinition):
         self.region = xml.find("attrs/attr[@name='region']/string").get("value")
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
         self.policy = xml.find("attrs/attr[@name='policy']/string").get("value")
+        self.lifecycle = xml.find("attrs/attr[@name='lifeCycle']/string").get("value")
         self.website_enabled = self.config["website"]["enabled"]
         self.website_suffix = self.config["website"]["suffix"]
         self.website_error_document = self.config["website"]["errorDocument"]
@@ -119,6 +121,17 @@ class S3BucketState(nixops.resources.ResourceState):
                 # This seems not to happen - despite docs indicating it should:
                 # [http://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketDELETEpolicy.html]
                 if e.response['ResponseMetadata']['HTTPStatusCode'] != 204: raise # (204 : Bucket didn't have any policy to delete)
+
+        if defn.lifecycle:
+            self.log("setting S3 bucket lifecycle configuration on ‘{0}’...".format(defn.bucket_name))
+            s3client.put_bucket_lifecycle_configuration(Bucket = defn.bucket_name,
+                                       LifecycleConfiguration = json.loads(defn.lifecycle))
+        else:
+            try:
+                s3client.delete_bucket_lifecycle(Bucket = defn.bucket_name)
+            except botocore.exceptions.ClientError as e:
+                self.log("An Error occured while deleting lifecycle configuration on ‘{0}’...".format(defn.bucket_name))
+                raise e
 
         if not defn.website_enabled:
             try:
