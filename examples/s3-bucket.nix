@@ -7,6 +7,7 @@
     {
       inherit region accessKeyId;
       name = "s3-test-bucket";
+      versioning = "Suspended";
       policy = ''
         {
           "Version": "2012-10-17",

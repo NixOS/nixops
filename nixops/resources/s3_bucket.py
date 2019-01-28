@@ -29,6 +29,7 @@ class S3BucketDefinition(nixops.resources.ResourceDefinition):
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
         self.policy = xml.find("attrs/attr[@name='policy']/string").get("value")
         self.lifecycle = xml.find("attrs/attr[@name='lifeCycle']/string").get("value")
+        self.versioning = xml.find("attrs/attr[@name='versioning']/string").get("value")
         self.website_enabled = self.config["website"]["enabled"]
         self.website_suffix = self.config["website"]["suffix"]
         self.website_error_document = self.config["website"]["errorDocument"]
@@ -44,6 +45,7 @@ class S3BucketState(nixops.resources.ResourceState):
     bucket_name = nixops.util.attr_property("ec2.bucketName", None)
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
     region = nixops.util.attr_property("ec2.region", None)
+    versioning = nixops.util.attr_property("versioning", None)
 
 
     @classmethod
@@ -109,6 +111,19 @@ class S3BucketState(nixops.resources.ResourceState):
                 self.state = self.UP
                 self.bucket_name = defn.bucket_name
                 self.region = defn.region
+
+        try:
+
+            if self.versioning != defn.versioning:
+                self.log("Updating versioning configuration on ‘{0}’...".format(defn.bucket_name))
+                s3client.put_bucket_versioning(Bucket = defn.bucket_name,
+                                                VersioningConfiguration = {'Status': defn.versioning})
+                with self.depl._db:
+                    self.versioning = defn.versioning
+
+        except botocore.exceptions.ClientError as e:
+            self.log("An Error occured while Updating versioning configuration on ‘{0}’...".format(defn.bucket_name))
+            raise e
 
         if defn.policy:
             self.log("setting S3 bucket policy on ‘{0}’...".format(defn.bucket_name))
