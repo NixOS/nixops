@@ -137,6 +137,19 @@ let
 
   };
 
+  fileSystemsOptions = {
+    options.ec2 = mkOption {
+      default = null;
+      type = with types; (nullOr (submodule ec2DiskOptions));
+      description = ''
+        EC2 disk to be attached to this mount point.  This is
+        shorthand for defining a separate
+        <option>deployment.ec2.blockDeviceMapping</option>
+        attribute.
+      '';
+    };
+  };
+
   isEc2Hvm =
     let
       instanceTypeGroup = builtins.elemAt (splitString "." cfg.instanceType) 0;
@@ -423,18 +436,7 @@ in
     };
 
     fileSystems = mkOption {
-      options = {
-        ec2 = mkOption {
-          default = null;
-          type = with types; (nullOr (submodule ec2DiskOptions));
-          description = ''
-            EC2 disk to be attached to this mount point.  This is
-            shorthand for defining a separate
-            <option>deployment.ec2.blockDeviceMapping</option>
-            attribute.
-          '';
-        };
-      };
+      type = with types; loaOf (submodule fileSystemsOptions);
     };
 
   };

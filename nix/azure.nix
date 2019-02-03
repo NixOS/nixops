@@ -135,6 +135,27 @@ let
     config = {};
   };
 
+  fileSystemsOptions = { config, ... }: {
+    options = {
+      azure = mkOption {
+        default = null;
+        type = with types; uniq (nullOr (submodule azureDiskOptions));
+        description = ''
+          Azure disk to be attached to this mount point.  This is
+          a shorthand for defining a separate
+          <option>deployment.azure.blockDeviceMapping</option>
+          attribute.
+        '';
+      };
+    };
+    config = mkIf(config.azure != null) {
+      device = mkDefault (
+          if config.azure.encrypt then "/dev/mapper/${luksName (mkDefaultEphemeralName config.mountPoint config.azure)}"
+                                  else "/dev/disk/by-lun/${toString config.azure.lun}"
+        );
+    };
+  };
+
 in
 {
   ###### interface
@@ -360,26 +381,7 @@ in
     };
 
     fileSystems = mkOption {
-      options = { config, ... }: {
-        options = {
-          azure = mkOption {
-            default = null;
-            type = with types; uniq (nullOr (submodule azureDiskOptions));
-            description = ''
-              Azure disk to be attached to this mount point.  This is
-              a shorthand for defining a separate
-              <option>deployment.azure.blockDeviceMapping</option>
-              attribute.
-            '';
-          };
-        };
-        config = mkIf(config.azure != null) {
-          device = mkDefault (
-              if config.azure.encrypt then "/dev/mapper/${luksName (mkDefaultEphemeralName config.mountPoint config.azure)}"
-                                      else "/dev/disk/by-lun/${toString config.azure.lun}"
-            );
-        };
-      };
+      type = with types; loaOf (submodule fileSystemsOptions);
     };
 
   };
