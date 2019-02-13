@@ -14,29 +14,29 @@ def initializeVault(vault_token=None):
 def approle_path(base, path):
     return base + '/v1/auth/approle/role/' + path
 
-def get_helper(self, path):
+def get_helper(vault_token, vault_address, path):
     try:
-        header = {"X-Vault-Token": self.vault_token}
-        remote_endpoint = approle_path(self.vault_address, path)
+        header = {"X-Vault-Token": vault_token}
+        remote_endpoint = approle_path(vault_address, path)
         r = requests.get(remote_endpoint, headers=header, timeout=TIMEOUT)
     except requests.exceptions.RequestException as e:
         raise e.args[0]
     return r
 
-def post_helper(self, path, data):
+def post_helper(vault_token, vault_address, path, data):
     try:
-        header = {"X-Vault-Token": self.vault_token}
-        remote_endpoint = approle_path(self.vault_address, path)
+        header = {"X-Vault-Token": vault_token}
+        remote_endpoint = approle_path(vault_address, path)
         r = requests.post(remote_endpoint, headers=header,
                           json=data, timeout=TIMEOUT)
     except requests.exceptions.RequestException as e:
         raise e.args[0]
     return r
 
-def delete_helper(self):
+def delete_helper(vault_token, vault_address, path):
     try:
-        header = {"X-Vault-Token": self.vault_token}
-        remote_endpoint = approle_path(self.vault_address, self.role_name)
+        header = {"X-Vault-Token": vault_token}
+        remote_endpoint = approle_path(vault_address, path)
         r = requests.delete(remote_endpoint, headers=header, timeout=TIMEOUT)
     except requests.exceptions.RequestException as e:
         raise e.args[0]

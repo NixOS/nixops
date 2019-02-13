@@ -74,7 +74,9 @@ class VaultApproleState(nixops.resources.ResourceState):
         if self.role_id is None:
             return
 
-        r = nixops.vault_common.get_helper(self, self.role_name + '/role-id')
+        r = nixops.vault_common.get_helper(
+                self.vault_token, self.vault_address,
+                self.role_name + '/role-id')
 
         if r.status_code == 404:
             self.warn("Approle '{0}' was deleted from outside nixops,"
@@ -85,7 +87,9 @@ class VaultApproleState(nixops.resources.ResourceState):
                 r.status_code, r.reason, r.json()))
 
     def _get_role_id_secret_id(self, defn):
-        r = nixops.vault_common.get_helper(self, self.role_name + '/role-id')
+        r = nixops.vault_common.get_helper(
+                self.vault_token, self.vault_address,
+                self.role_name + '/role-id')
 
         if r.status_code == 200:
             self.role_id = r.json()['data']['role_id']
@@ -99,7 +103,8 @@ class VaultApproleState(nixops.resources.ResourceState):
                 "token_bound_cidrs": defn.config['tokenBoundCidrs']
             }
             r = nixops.vault_common.post_helper(
-                self, self.role_name + '/secret-id', data)
+                self.vault_token, self.vault_address,
+                self.role_name + '/secret-id', data)
 
             if r.status_code == 200:
                 self.secret_id = r.json()['data']['secret_id']
@@ -130,7 +135,9 @@ class VaultApproleState(nixops.resources.ResourceState):
             "bind_secret_id": defn.config['bindSecretId'],
             "token_type": defn.config['tokenType']
         }
-        r = nixops.vault_common.post_helper(self, self.role_name, data)
+        r = nixops.vault_common.post_helper(
+                self.vault_token, self.vault_address,
+                self.role_name, data)
 
         if r.status_code != 204:
             raise Exception("{} {}, {}".format(
@@ -157,10 +164,11 @@ class VaultApproleState(nixops.resources.ResourceState):
             self.cidr_list = defn.config['cidrList']
 
     def _destroy(self):
-        if self.state != (self.UP or self.STARTING):
+        if self.state != self.UP:
             return
         self.log("deleting vault Approle {0} ...".format(self.role_name))
-        r = nixops.vault_common.delete_helper(self)
+        r = nixops.vault_common.delete_helper(
+                self.vault_token, self.vault_address, self.role_name)
         if r.status_code == 204:
             return True
         else:
