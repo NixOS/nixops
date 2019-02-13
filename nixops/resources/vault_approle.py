@@ -61,7 +61,8 @@ class VaultApproleState(nixops.resources.ResourceState):
     def get_physical_spec(self):
         physical = {}
         if self.role_name:
-            physical['url'] = nixops.vault_common.approle_path(self.vault_address, self.role_name)
+            physical['url'] = nixops.vault_common.approle_path(
+                self.vault_address, self.role_name)
             physical['roleId'] = self.role_id
             physical['secretId'] = self.secret_id
         return physical
@@ -77,10 +78,11 @@ class VaultApproleState(nixops.resources.ResourceState):
 
         if r.status_code == 404:
             self.warn("Approle '{0}' was deleted from outside nixops,"
-                           " it needs to be recreated...".format(self.role_name))
+                      " it needs to be recreated...".format(self.role_name))
             self.destroy()
         elif r.status_code != 200:
-            raise Exception("{} {}, {}".format(r.status_code, r.reason, r.json()))
+            raise Exception("{} {}, {}".format(
+                r.status_code, r.reason, r.json()))
 
     def _get_role_id_secret_id(self, defn):
         r = nixops.vault_common.get_helper(self, self.role_name + '/role-id')
@@ -88,19 +90,22 @@ class VaultApproleState(nixops.resources.ResourceState):
         if r.status_code == 200:
             self.role_id = r.json()['data']['role_id']
         else:
-            raise Exception("{} {}, {}".format(r.status_code, r.reason, r.json()))
+            raise Exception("{} {}, {}".format(
+                r.status_code, r.reason, r.json()))
 
         if defn.config['bindSecretId'] and self.state != self.UP:
             data = {
                 "cidr_list": defn.config['cidrList'],
                 "token_bound_cidrs": defn.config['tokenBoundCidrs']
             }
-            r = nixops.vault_common.post_helper(self, self.role_name + '/secret-id', data)
+            r = nixops.vault_common.post_helper(
+                self, self.role_name + '/secret-id', data)
 
             if r.status_code == 200:
                 self.secret_id = r.json()['data']['secret_id']
             else:
-                raise Exception("{} {}, {}".format(r.status_code, r.reason, r.json()))
+                raise Exception("{} {}, {}".format(
+                    r.status_code, r.reason, r.json()))
         # TODO: Maybe enable setting custom role ID and custom secret ID.
 
     def create(self, defn, check, allow_reboot, allow_recreate):
@@ -108,26 +113,28 @@ class VaultApproleState(nixops.resources.ResourceState):
         self.vault_token = defn.config['vaultToken']
         self.role_name = defn.config['roleName']
 
-        self.log("Creating Approle '{}' at {} ...".format(self.role_name, self.vault_address))
+        self.log("Creating Approle '{}' at {} ...".format(
+            self.role_name, self.vault_address))
 
         data = {
-          "token_ttl": defn.config['tokenTtl'],
-          "token_max_ttl": defn.config['tokenMaxTtl'],
-          "policies": defn.config['policies'],
-          "secret_id_bound_cidrs": defn.config['secretIdBoundCidrs'],
-          "token_bound_cidrs": defn.config['tokenBoundCidrs'],
-          "secret_id_num_uses": defn.config['secretIdNumUses'],
-          "secret_id_ttl": defn.config['secretIdTtl'],
-          "token_num_uses": defn.config['tokenNumUses'],
-          "period": defn.config['period'],
-          "enable_local_secret_ids": defn.config['enableLocalSecretIds'],
-          "bind_secret_id": defn.config['bindSecretId'],
-          "token_type": defn.config['tokenType']
+            "token_ttl": defn.config['tokenTtl'],
+            "token_max_ttl": defn.config['tokenMaxTtl'],
+            "policies": defn.config['policies'],
+            "secret_id_bound_cidrs": defn.config['secretIdBoundCidrs'],
+            "token_bound_cidrs": defn.config['tokenBoundCidrs'],
+            "secret_id_num_uses": defn.config['secretIdNumUses'],
+            "secret_id_ttl": defn.config['secretIdTtl'],
+            "token_num_uses": defn.config['tokenNumUses'],
+            "period": defn.config['period'],
+            "enable_local_secret_ids": defn.config['enableLocalSecretIds'],
+            "bind_secret_id": defn.config['bindSecretId'],
+            "token_type": defn.config['tokenType']
         }
         r = nixops.vault_common.post_helper(self, self.role_name, data)
 
         if r.status_code != 204:
-            raise Exception("{} {}, {}".format(r.status_code, r.reason, r.json()))
+            raise Exception("{} {}, {}".format(
+                r.status_code, r.reason, r.json()))
 
         self._get_role_id_secret_id(defn)
 
@@ -150,7 +157,8 @@ class VaultApproleState(nixops.resources.ResourceState):
             self.cidr_list = defn.config['cidrList']
 
     def _destroy(self):
-        if self.state != (self.UP or self.STARTING): return
+        if self.state != (self.UP or self.STARTING):
+            return
         self.log("deleting vault Approle {0} ...".format(self.role_name))
         r = nixops.vault_common.delete_helper(self)
         if r.status_code == 204:
