@@ -14,7 +14,7 @@ def initializeVault(vault_token=None):
 def approle_path(base, path):
     return base + '/v1/auth/approle/role/' + path
 
-def get_helper(vault_token, vault_address, path):
+def vault_get(vault_token, vault_address, path):
     try:
         header = {"X-Vault-Token": vault_token}
         remote_endpoint = approle_path(vault_address, path)
@@ -23,7 +23,7 @@ def get_helper(vault_token, vault_address, path):
         raise e.args[0]
     return r
 
-def post_helper(vault_token, vault_address, path, data):
+def vault_post(vault_token, vault_address, path, data):
     try:
         header = {"X-Vault-Token": vault_token}
         remote_endpoint = approle_path(vault_address, path)
@@ -33,7 +33,7 @@ def post_helper(vault_token, vault_address, path, data):
         raise e.args[0]
     return r
 
-def delete_helper(vault_token, vault_address, path):
+def vault_delete(vault_token, vault_address, path):
     try:
         header = {"X-Vault-Token": vault_token}
         remote_endpoint = approle_path(vault_address, path)

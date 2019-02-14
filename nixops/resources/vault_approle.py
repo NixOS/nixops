@@ -1,8 +1,8 @@
+import json
+
 import nixops.util
 import nixops.resources
 import nixops.vault_common
-from nixops.diff import Handler
-import json
 
 
 class VaultApproleDefinition(nixops.resources.ResourceDefinition):
@@ -74,7 +74,7 @@ class VaultApproleState(nixops.resources.ResourceState):
         if self.role_id is None:
             return
 
-        r = nixops.vault_common.get_helper(
+        r = nixops.vault_common.vault_get(
                 self.vault_token, self.vault_address,
                 self.role_name + '/role-id')
 
@@ -87,7 +87,7 @@ class VaultApproleState(nixops.resources.ResourceState):
                 r.status_code, r.reason, r.json()))
 
     def _get_role_id_secret_id(self, defn):
-        r = nixops.vault_common.get_helper(
+        r = nixops.vault_common.vault_get(
                 self.vault_token, self.vault_address,
                 self.role_name + '/role-id')
 
@@ -102,7 +102,7 @@ class VaultApproleState(nixops.resources.ResourceState):
                 "cidr_list": defn.config['cidrList'],
                 "token_bound_cidrs": defn.config['tokenBoundCidrs']
             }
-            r = nixops.vault_common.post_helper(
+            r = nixops.vault_common.vault_post(
                 self.vault_token, self.vault_address,
                 self.role_name + '/secret-id', data)
 
@@ -135,7 +135,7 @@ class VaultApproleState(nixops.resources.ResourceState):
             "bind_secret_id": defn.config['bindSecretId'],
             "token_type": defn.config['tokenType']
         }
-        r = nixops.vault_common.post_helper(
+        r = nixops.vault_common.vault_post(
                 self.vault_token, self.vault_address,
                 self.role_name, data)
 
@@ -167,7 +167,7 @@ class VaultApproleState(nixops.resources.ResourceState):
         if self.state != self.UP:
             return
         self.log("deleting vault Approle {0} ...".format(self.role_name))
-        r = nixops.vault_common.delete_helper(
+        r = nixops.vault_common.vault_delete(
                 self.vault_token, self.vault_address, self.role_name)
         if r.status_code == 204:
             return True
