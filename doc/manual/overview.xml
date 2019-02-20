@@ -1967,16 +1967,17 @@ deploy the new configuration.
 
   reverseproxy =
     { config, pkgs, nodes, ... }:
+    let
+      gollumPort = nodes.gollum.config.services.gollum.port;
+    in
     { 
       services.nginx = {
         enable = true;
-        let
-          gollumPort = nodes.gollum.config.services.gollum.port;
-        in
         virtualHosts."wiki.example.net".locations."/" = {
-          proxyPass = "http://gollum:${gollumPort}";
+          proxyPass = "http://gollum:${toString gollumPort}";
         };
       };
+      networking.firewall.allowedTCPPorts = [ 80 ];
     };
 }
     </programlisting>
