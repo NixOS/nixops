@@ -446,7 +446,19 @@ class VirtualBoxState(MachineState):
         if not self.vm_id:
             res.exists = False
             return
-        state = self._get_vm_state()
+        state = self._get_vm_state(can_fail=True)
+        if state is None:
+            with self.depl._db:
+                self.vm_id = None
+                self.private_ipv4 = None
+                self.sata_controller_created = False
+                self.public_host_key = None
+                self.private_host_key = None
+                self.shared_folders = {}
+                self.disks = {}
+                self.state = self.MISSING
+                return
+
         res.exists = True
         #self.log("VM state is ‘{0}’".format(state))
         if state == "poweroff" or state == "aborted":
