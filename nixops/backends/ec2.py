@@ -681,68 +681,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         return groups
 
-    def _get_network_interfaces(self, defn):
-        groups = self.security_groups_to_ids(defn.subnet_id, defn.security_group_ids)
-
-        return boto.ec2.networkinterface.NetworkInterfaceCollection(
-            boto.ec2.networkinterface.NetworkInterfaceSpecification(
-                subnet_id=defn.subnet_id,
-                associate_public_ip_address=defn.associate_public_ip_address,
-                groups=groups
-            )
-        )
-    def _build_run_instance_request(self, defn, zone, devmap, user_data, ebs_optimized):
-        """ Build the instance request definition in Boto3 format """
-
-        # FIXME: Include device mapping.
-
-        placement = dict(
-            AvailabilityZone=zone or ""
-            )
-
-        IamInstanceProfile = {}
-        if defn.instance_profile.startswith("arn:") :
-            IamInstanceProfile["Arn"] = defn.instance_profile
-        else:
-            IamInstanceProfile["Name"] = defn.instance_profile
-
-        args = dict(
-            InstanceType=defn.instance_type,
-            Placement=placement,
-            ImageId=defn.ami,
-            EbsOptimized=ebs_optimized,
-            IamInstanceProfile=IamInstanceProfile,
-            KeyName=defn.key_pair,
-            MaxCount=1, # We always want to deploy one instance.
-            MinCount=1
-        )
-
-        if defn.subnet_id != "":
-            if defn.security_groups != [] and defn.security_groups != ["default"]:
-                raise Exception("‘deployment.ec2.securityGroups’ is incompatible with ‘deployment.ec2.subnetId’")
-
-            args['NetworkInterface'] = dict(
-                AssociatePublicIpAddress=defn.associate_public_ip_address,
-                SubnetId=defn.subnet_id,
-                Groups=self.security_groups_to_ids(defn.subnet_id, defn.security_group_ids)
-            )
-        else:
-            args['SecurityGroups'] = defn.security_groups
-
-        if defn.spot_instance_price:
-            args["InstanceMarketOptions"] = dict(
-                MarketType="spot",
-                SpotOptions=dict(
-                    MaxPrice=str(defn.spot_instance_price/100.0),
-                    SpotInstanceType=defn.spot_instance_request_type,
-                    ValidUntil=datetime.datetime.now() + datetime.timedelta(0, defn.spot_instance_timeout),
-                    InstanceInterruptionBehavior=defn.spot_instance_interruption_behavior
-                )
-            )
-
-
-        return args
-
     def _wait_for_spot_request_fulfillment(self, request_id):
 
         self.log_start("waiting for spot instance request ‘{0}’ to be fulfilled... ".format(self.spot_instance_request_id))
@@ -762,7 +700,52 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         return instance
 
 
-    def create_instance(self, defn, zone, devmap, user_data, ebs_optimized):
+    def create_instance(self, defn, zone, user_data, ebs_optimized, args):
+        IamInstanceProfile = {}
+        if defn.instance_profile.startswith("arn:") :
+            IamInstanceProfile["Arn"] = defn.instance_profile
+        else:
+            IamInstanceProfile["Name"] = defn.instance_profile
+
+        if defn.subnet_id != "":
+            if defn.security_groups != [] and defn.security_groups != ["default"]:
+                raise Exception("‘deployment.ec2.securityGroups’ is incompatible with ‘deployment.ec2.subnetId’")
+
+            args['NetworkInterfaces'] = [dict(
+                AssociatePublicIpAddress=defn.associate_public_ip_address,
+                SubnetId=defn.subnet_id,
+                DeviceIndex=0,
+                Groups=self.security_groups_to_ids(defn.subnet_id, defn.security_group_ids)
+            )]
+        else:
+            args['SecurityGroups'] = defn.security_groups
+
+        if defn.spot_instance_price:
+            args["InstanceMarketOptions"] = dict(
+                MarketType="spot",
+                SpotOptions=dict(
+                    MaxPrice=str(defn.spot_instance_price/100.0),
+                    SpotInstanceType=defn.spot_instance_request_type,
+                    InstanceInterruptionBehavior=defn.spot_instance_interruption_behavior
+                )
+            )
+            if defn.spot_instance_timeout:
+                args["InstanceMarketOptions"]["SpotOptions"]["ValidUntil"]=(datetime.datetime.utcnow() +
+                    datetime.timedelta(0, defn.spot_instance_timeout)).isoformat()
+
+        placement = dict(
+            AvailabilityZone=zone or ""
+        )
+
+        args['InstanceType'] = defn.instance_type
+        args['ImageId'] = defn.ami
+        args['IamInstanceProfile'] = IamInstanceProfile
+        args['KeyName'] = defn.key_pair
+        args['Placement'] = placement
+        args['UserData'] = user_data
+        args['EbsOptimized'] = ebs_optimized
+        args['MaxCount'] = 1 # We always want to deploy one instance.
+        args['MinCount'] = 1
 
         # Use a client token to ensure that instance creation is
         # idempotent; i.e., if we get interrupted before recording
@@ -773,15 +756,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 self.client_token = nixops.util.generate_random_string(length=48) # = 64 ASCII chars
                 self.state = self.STARTING
 
-        args = self._build_run_instance_request(defn, zone, devmap, user_data, ebs_optimized)
-
         args["ClientToken"] = self.client_token
 
         reservation = self._retry(
             lambda: self._conn_boto3.run_instances(**args)
         )
-
-        assert len(reservation["Instances"]) == 1
 
         if not defn.spot_instance_price:
             # On demand instance, no need to any more checks, return it.
@@ -943,23 +922,24 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 self.connect()
 
             # Figure out whether this AMI is EBS-backed.
-            amis = self._conn.get_all_images([defn.ami])
+            amis = self._conn_boto3.describe_images(ImageIds=[defn.ami])
             if len(amis) == 0:
                 raise Exception("AMI ‘{0}’ does not exist in region ‘{1}’".format(defn.ami, self.region))
-            ami = self._conn.get_all_images([defn.ami])[0]
-            self.root_device_type = ami.root_device_type
+            ami = self._conn_boto3.describe_images(ImageIds=[defn.ami])['Images'][0]
+            self.root_device_type = ami['RootDeviceType']
 
             # Check if we need to resize the root disk
-            resize_root = defn.root_disk_size != 0 and ami.root_device_type == 'ebs'
+            resize_root = defn.root_disk_size != 0 and ami['RootDeviceType'] == 'ebs'
+
+            args = dict()
 
             # Set the initial block device mapping to the ephemeral
             # devices defined in the spec.  These cannot be changed
             # later.
-            devmap = boto.ec2.blockdevicemapping.BlockDeviceMapping()
+            args['BlockDeviceMappings'] = []
 
             for device_stored, v in defn.block_device_mapping.iteritems():
                 device_real = device_name_stored_to_real(device_stored)
-
                 # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html
                 ebs_disk = not v['disk'].startswith("ephemeral")
 
@@ -970,15 +950,24 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     raise Exception("non-ephemeral disk not allowed on device ‘{0}’; use /dev/xvdf or higher".format(device_real))
 
                 if v['disk'].startswith("ephemeral"):
-                    devmap[device_stored] = boto.ec2.blockdevicemapping.BlockDeviceType(ephemeral_name=v['disk'])
+                    ephemeral_mapping = dict(
+                        DeviceName=device_name_to_boto_expected(device_real),
+                        VirtualName=v['disk']
+                    )
+                    args['BlockDeviceMappings'].append(ephemeral_mapping)
                     self.update_block_device_mapping(device_stored, v)
 
-            root_device = ami.root_device_name
+            root_device = ami['RootDeviceName']
             if resize_root:
-                devmap[root_device] = ami.block_device_mapping[root_device]
-                devmap[root_device].size = defn.root_disk_size
-                devmap[root_device].encrypted = None
-
+                root_mapping = dict(
+                    DeviceName=root_device,
+                    Ebs=dict(
+                        DeleteOnTermination=True,
+                        VolumeSize=defn.root_disk_size,
+                        VolumeType=ami['BlockDeviceMappings'][0]['Ebs']['VolumeType']
+                    )
+                )
+                args['BlockDeviceMappings'].append(root_mapping)
             # If we're attaching any EBS volumes, then make sure that
             # we create the instance in the right placement zone.
             zone = defn.zone or None
@@ -1002,7 +991,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
             # if we have PIOPS volume and instance type supports EBS Optimized flags, then use ebs_optimized
             ebs_optimized = prefer_ebs_optimized and defn.ebs_optimized
-
             # Generate a public/private host key.
             if not self.public_host_key:
                 (private, public) = nixops.util.create_key_pair(type=defn.host_key_type())
@@ -1014,7 +1002,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 self.public_host_key, self.private_host_key.replace("\n", "|"),
                 defn.host_key_type().upper())
 
-            instance = self.create_instance(defn, zone, devmap, user_data, ebs_optimized)
+            instance = self.create_instance(defn, zone, user_data, ebs_optimized, args)
             update_instance_profile = False
 
             with self.depl._db:
