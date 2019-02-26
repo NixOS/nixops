@@ -1058,7 +1058,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         # update iam instance profiles of instance
         if update_instance_profile and (self.instance_profile != defn.instance_profile or check):
-            assocs = self._conn_boto3.describe_iam_instance_profile_associations(Filters=[{ 'Name': 'instance-id', 'Values': [self.vm_id]}])['IamInstanceProfileAssociations']
+            assocs = self._retry(lambda: self._conn_boto3.describe_iam_instance_profile_associations(Filters=[{ 'Name': 'instance-id', 'Values': [self.vm_id]}])['IamInstanceProfileAssociations'])
             if len(assocs) > 0 and self.instance_profile != assocs[0]['IamInstanceProfile']['Arn']:
                 self.log("disassociating instance profile {}".format(assocs[0]['IamInstanceProfile']['Arn']))
                 self._conn_boto3.disassociate_iam_instance_profile(AssociationId=assocs[0]['AssociationId'])

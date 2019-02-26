@@ -25,5 +25,6 @@ in
         securityGroups = [ resources.ec2SecurityGroups.ssh-security-group ];
         keyPair = resources.ec2KeyPairs.my-key-pair;
       };
+
     };
 }
