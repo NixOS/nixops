@@ -33,6 +33,7 @@ class S3BucketDefinition(nixops.resources.ResourceDefinition):
         self.website_enabled = self.config["website"]["enabled"]
         self.website_suffix = self.config["website"]["suffix"]
         self.website_error_document = self.config["website"]["errorDocument"]
+        self.persist_on_destroy = self.config["persistOnDestroy"]
 
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
@@ -46,6 +47,7 @@ class S3BucketState(nixops.resources.ResourceState):
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
     region = nixops.util.attr_property("ec2.region", None)
     versioning = nixops.util.attr_property("versioning", None)
+    persist_on_destroy = nixops.util.attr_property("persistOnDestroy", False)
 
 
     @classmethod
@@ -111,6 +113,7 @@ class S3BucketState(nixops.resources.ResourceState):
                 self.state = self.UP
                 self.bucket_name = defn.bucket_name
                 self.region = defn.region
+                self.persist_on_destroy = defn.persist_on_destroy
 
         try:
 
@@ -120,6 +123,10 @@ class S3BucketState(nixops.resources.ResourceState):
                                                 VersioningConfiguration = {'Status': defn.versioning})
                 with self.depl._db:
                     self.versioning = defn.versioning
+
+            if self.persist_on_destroy != defn.persist_on_destroy:
+                with self.depl._db:
+                    self.persist_on_destroy = defn.persist_on_destroy
 
         except botocore.exceptions.ClientError as e:
             self.log("An Error occured while Updating versioning configuration on ‘{0}’...".format(defn.bucket_name))
@@ -163,6 +170,11 @@ class S3BucketState(nixops.resources.ResourceState):
 
     def destroy(self, wipe=False):
         if self.state == self.UP:
+            if self.persist_on_destroy:
+                self.warn("S3 bucket '{}' will be left due to the usage of"
+                          " persistOnDestroy = true".format(self.bucket_name))
+                return True;
+
             self.connect()
             try:
                 self.log("destroying S3 bucket ‘{0}’...".format(self.bucket_name))

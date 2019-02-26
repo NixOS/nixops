@@ -46,6 +46,15 @@ with lib;
       description = "Whether to enable S3 versioning or not. Valid values are 'Enabled' or 'Suspended'";
     };
 
+    persistOnDestroy = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        If set to true <command>nixops destroy</command> won't delete the bucket
+        on destroy.
+      '';
+    };
+
     website.enabled = mkOption {
       type = types.bool;
       default = false;
