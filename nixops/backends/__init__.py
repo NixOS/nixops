@@ -271,7 +271,7 @@ class MachineState(nixops.resources.ResourceState):
     def get_keys(self):
         return self.keys
 
-    def get_ssh_name(self, scp=False):
+    def get_ssh_name(self):
         assert False
 
     def get_ssh_flags(self, scp=False):
@@ -390,7 +390,7 @@ class MachineState(nixops.resources.ResourceState):
         cmdline = ["scp"] + self.get_ssh_flags(True) + master.opts
         if recursive:
             cmdline += ['-r']
-        cmdline += [source, "root@" + self.get_ssh_name(True) + ":" + target]
+        cmdline += [source, "root@" + self.get_ssh_name() + ":" + target]
         return self._logged_exec(cmdline)
 
     def download_file(self, source, target, recursive=False):
@@ -398,7 +398,7 @@ class MachineState(nixops.resources.ResourceState):
         cmdline = ["scp"] + self.get_ssh_flags(True) + master.opts
         if recursive:
             cmdline += ['-r']
-        cmdline += ["root@" + self.get_ssh_name(True) + ":" + source, target]
+        cmdline += ["root@" + self.get_ssh_name() + ":" + source, target]
         return self._logged_exec(cmdline)
 
     def get_console_output(self):
