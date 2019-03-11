@@ -28,6 +28,7 @@ class SSHMaster(object):
         self._control_socket = self._tempdir + "/master-socket"
         self._ssh_target = target
         pass_prompts = 0 if "-i" in ssh_flags and user is None else 3
+        if '-i' in ssh_flags: ssh_flags.append('-oPubkeyAuthentication=yes')
         kwargs = {}
 
         if passwd is not None:
