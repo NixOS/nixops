@@ -143,8 +143,8 @@ with lib;
     };
 
     secretId = mkOption {
-      default = "";
-      type = types.str;
+      default = null;
+      type = types.nullOr types.str;
       description = "SecretID to be attached to the Role. This is set by NixOps";
     };
 
