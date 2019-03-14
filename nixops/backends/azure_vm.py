@@ -109,6 +109,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.ip_domain_name_label = self.get_option_value(ip_xml, 'domainNameLabel', str, optional = True)
         self.ip_allocation_method = self.get_option_value(ip_xml, 'allocationMethod', str)
         self.ip_resid = self.get_option_value(ip_xml, 'resource', 'res-id', optional = True)
+        self.use_private_ip_address = self.get_option_value(ip_xml, 'usePrivateIpAddress', bool, optional = True)
 
         if self.ip_resid and self.obtain_ip:
             raise Exception("{0}: must set ip.obtain = false to use a reserved IP address"
@@ -225,6 +226,7 @@ class AzureState(MachineState, ResourceState):
     ip_domain_name_label = attr_property("azure.ipDomainNameLabel", None)
     ip_resid = attr_property("azure.ipResId", None)
     ip_allocation_method = attr_property("azure.ipAllocationMethod", None)
+    use_private_ip_address = attr_property("azure.usePrivateIpAddress", False, type=bool)
     security_group = attr_property("azure.securityGroup", None)
     availability_set = attr_property("azure.availabilitySet", None)
 
@@ -1286,19 +1288,25 @@ class AzureState(MachineState, ResourceState):
 
     # return ssh host and port formatted for ssh/known_hosts file
     def get_ssh_host_port(self):
-        if self.public_ipv4:
-            return self.public_ipv4
-        ep = self.find_lb_endpoint() or {}
-        ip = ep.get('ip', None)
-        port = ep.get('port', None)
-        if ip is not None and port is not None:
-            return "[{0}]:{1}".format(ip, port)
+        if self.use_private_ip_address:
+            if self.private_ipv4:
+                return self.private_ipv4
+            else:
+                return None
         else:
-            return None
+            if self.public_ipv4:
+                return self.public_ipv4
+            ep = self.find_lb_endpoint() or {}
+            ip = ep.get('ip', None)
+            port = ep.get('port', None)
+            if ip is not None and port is not None:
+                return "[{0}]:{1}".format(ip, port)
+            else:
+                return None
 
     @MachineState.ssh_port.getter
     def ssh_port(self):
-        if self.public_ipv4:
+        if self.public_ipv4 or (self.use_private_ip_address and self.private_ipv4):
             return super(AzureState, self).ssh_port
         else:
             return (self.find_lb_endpoint() or {}).get('port', None)
@@ -1315,9 +1323,9 @@ class AzureState(MachineState, ResourceState):
             self.known_ssh_host_port = ssh_host_port
 
     def get_ssh_name(self):
-        ip = self.public_ipv4 or (self.find_lb_endpoint() or {}).get('ip', None)
+        ip = self.private_ipv4 if self.use_private_ip_address else self.public_ipv4 or (self.find_lb_endpoint() or {}).get('ip', None)
         if ip is None:
-            raise Exception("{0} does not have a public IPv4 address and is not reachable "
+            raise Exception("{0} does not have a routable IPv4 address and is not reachable "
                             "via an inbound NAT rule on a load balancer"
                             .format(self.full_name))
         return ip
