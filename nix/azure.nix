@@ -176,6 +176,15 @@ in
         type = types.str;
         description = "The Azure data center location where the virtual machine should be created.";
       };
+      
+      usePrivateIpAddress = mkOption {
+        default = false;
+        example = true;
+        type = types.bool;
+        description = ''
+          If instance is in a subnet/VPC whether to use the private IP address for ssh connections to this host. Defaults to false due to networkInterfaces.default.ip.obtain defaulting to true.
+        '';
+      };
 
       size = mkOption {
         default = "Basic_A0";
