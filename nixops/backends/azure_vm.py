@@ -99,6 +99,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'ephemeralDiskContainer', 'resource', optional = True)
 
         self.copy_option(x, 'availabilitySet', 'res-id', optional = True)
+        self.copy_option(x, 'usePrivateIpAddress', bool, optional = True)
 
         ifaces_xml = x.find("attr[@name='networkInterfaces']")
         if_xml = ifaces_xml.find("attrs/attr[@name='default']")
@@ -109,7 +110,6 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.ip_domain_name_label = self.get_option_value(ip_xml, 'domainNameLabel', str, optional = True)
         self.ip_allocation_method = self.get_option_value(ip_xml, 'allocationMethod', str)
         self.ip_resid = self.get_option_value(ip_xml, 'resource', 'res-id', optional = True)
-        self.use_private_ip_address = self.get_option_value(ip_xml, 'usePrivateIpAddress', bool, optional = True)
 
         if self.ip_resid and self.obtain_ip:
             raise Exception("{0}: must set ip.obtain = false to use a reserved IP address"
@@ -206,6 +206,7 @@ class AzureState(MachineState, ResourceState):
     machine_name = attr_property("azure.name", None)
     public_ipv4 = attr_property("publicIpv4", None)
     private_ipv4 = attr_property("privateIpv4", None)
+    use_private_ip_address = attr_property("azure.usePrivateIpAddress", False, type=bool)
 
     size = attr_property("azure.size", None)
     location = attr_property("azure.location", None)
@@ -226,7 +227,6 @@ class AzureState(MachineState, ResourceState):
     ip_domain_name_label = attr_property("azure.ipDomainNameLabel", None)
     ip_resid = attr_property("azure.ipResId", None)
     ip_allocation_method = attr_property("azure.ipAllocationMethod", None)
-    use_private_ip_address = attr_property("azure.usePrivateIpAddress", False, type=bool)
     security_group = attr_property("azure.securityGroup", None)
     availability_set = attr_property("azure.availabilitySet", None)
 
@@ -343,7 +343,7 @@ class AzureState(MachineState, ResourceState):
         self.public_ipv4 = None
 
 
-    defn_properties = [ 'size', 'availability_set' ]
+    defn_properties = [ 'size', 'availability_set', 'use_private_ip_address' ]
 
     def is_deployed(self):
         return (self.vm_id or self.block_device_mapping or self.public_ip or self.network_interface)
@@ -762,9 +762,11 @@ class AzureState(MachineState, ResourceState):
         self.copy_iface_properties(defn)
         self.public_ipv4 = self.fetch_public_ip()
         if self.public_ipv4:
-            self.log("got IP: {0}".format(self.public_ipv4))
+            self.log("got public IP: {0}".format(self.public_ipv4))
         self.update_ssh_known_hosts()
         self.private_ipv4 = self.fetch_private_ip()
+        if self.private_ipv4:
+            self.log("got private IP: {0}".format(self.private_ipv4))
 
     def copy_ip_properties(self, defn):
         self.ip_allocation_method = defn.ip_allocation_method
@@ -905,9 +907,12 @@ class AzureState(MachineState, ResourceState):
         self.copy_properties(defn)
 
         self.public_ipv4 = self.fetch_public_ip()
-        self.log("got IP: {0}".format(self.public_ipv4))
+        if self.public_ipv4:
+            self.log("got public IP: {0}".format(self.public_ipv4)) 
         self.update_ssh_known_hosts()
         self.private_ipv4 = self.fetch_private_ip()
+        if self.private_ipv4:
+            self.log("got private IP: {0}".format(self.private_ipv4))
 
         for d_id, disk in defn.block_device_mapping.iteritems():
             self.update_block_device_mapping(d_id, disk)
@@ -1306,7 +1311,7 @@ class AzureState(MachineState, ResourceState):
 
     @MachineState.ssh_port.getter
     def ssh_port(self):
-        if self.public_ipv4 or (self.use_private_ip_address and self.private_ipv4):
+        if self.public_ipv4 or self.private_ipv4:
             return super(AzureState, self).ssh_port
         else:
             return (self.find_lb_endpoint() or {}).get('port', None)
