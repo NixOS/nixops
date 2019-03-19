@@ -99,6 +99,7 @@ class AzureDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'ephemeralDiskContainer', 'resource', optional = True)
 
         self.copy_option(x, 'availabilitySet', 'res-id', optional = True)
+        self.copy_option(x, 'usePrivateIpAddress', bool, optional = True)
 
         ifaces_xml = x.find("attr[@name='networkInterfaces']")
         if_xml = ifaces_xml.find("attrs/attr[@name='default']")
@@ -205,6 +206,7 @@ class AzureState(MachineState, ResourceState):
     machine_name = attr_property("azure.name", None)
     public_ipv4 = attr_property("publicIpv4", None)
     private_ipv4 = attr_property("privateIpv4", None)
+    use_private_ip_address = attr_property("azure.usePrivateIpAddress", False, type=bool)
 
     size = attr_property("azure.size", None)
     location = attr_property("azure.location", None)
@@ -341,7 +343,7 @@ class AzureState(MachineState, ResourceState):
         self.public_ipv4 = None
 
 
-    defn_properties = [ 'size', 'availability_set' ]
+    defn_properties = [ 'size', 'availability_set', 'use_private_ip_address' ]
 
     def is_deployed(self):
         return (self.vm_id or self.block_device_mapping or self.public_ip or self.network_interface)
@@ -760,9 +762,11 @@ class AzureState(MachineState, ResourceState):
         self.copy_iface_properties(defn)
         self.public_ipv4 = self.fetch_public_ip()
         if self.public_ipv4:
-            self.log("got IP: {0}".format(self.public_ipv4))
+            self.log("got public IP: {0}".format(self.public_ipv4))
         self.update_ssh_known_hosts()
         self.private_ipv4 = self.fetch_private_ip()
+        if self.private_ipv4:
+            self.log("got private IP: {0}".format(self.private_ipv4))
 
     def copy_ip_properties(self, defn):
         self.ip_allocation_method = defn.ip_allocation_method
@@ -903,9 +907,12 @@ class AzureState(MachineState, ResourceState):
         self.copy_properties(defn)
 
         self.public_ipv4 = self.fetch_public_ip()
-        self.log("got IP: {0}".format(self.public_ipv4))
+        if self.public_ipv4:
+            self.log("got public IP: {0}".format(self.public_ipv4)) 
         self.update_ssh_known_hosts()
         self.private_ipv4 = self.fetch_private_ip()
+        if self.private_ipv4:
+            self.log("got private IP: {0}".format(self.private_ipv4))
 
         for d_id, disk in defn.block_device_mapping.iteritems():
             self.update_block_device_mapping(d_id, disk)
@@ -1286,19 +1293,25 @@ class AzureState(MachineState, ResourceState):
 
     # return ssh host and port formatted for ssh/known_hosts file
     def get_ssh_host_port(self):
-        if self.public_ipv4:
-            return self.public_ipv4
-        ep = self.find_lb_endpoint() or {}
-        ip = ep.get('ip', None)
-        port = ep.get('port', None)
-        if ip is not None and port is not None:
-            return "[{0}]:{1}".format(ip, port)
+        if self.use_private_ip_address:
+            if self.private_ipv4:
+                return self.private_ipv4
+            else:
+                return None
         else:
-            return None
+            if self.public_ipv4:
+                return self.public_ipv4
+            ep = self.find_lb_endpoint() or {}
+            ip = ep.get('ip', None)
+            port = ep.get('port', None)
+            if ip is not None and port is not None:
+                return "[{0}]:{1}".format(ip, port)
+            else:
+                return None
 
     @MachineState.ssh_port.getter
     def ssh_port(self):
-        if self.public_ipv4:
+        if self.public_ipv4 or self.private_ipv4:
             return super(AzureState, self).ssh_port
         else:
             return (self.find_lb_endpoint() or {}).get('port', None)
@@ -1315,9 +1328,9 @@ class AzureState(MachineState, ResourceState):
             self.known_ssh_host_port = ssh_host_port
 
     def get_ssh_name(self):
-        ip = self.public_ipv4 or (self.find_lb_endpoint() or {}).get('ip', None)
+        ip = self.private_ipv4 if self.use_private_ip_address else self.public_ipv4 or (self.find_lb_endpoint() or {}).get('ip', None)
         if ip is None:
-            raise Exception("{0} does not have a public IPv4 address and is not reachable "
+            raise Exception("{0} does not have a routable IPv4 address and is not reachable "
                             "via an inbound NAT rule on a load balancer"
                             .format(self.full_name))
         return ip
