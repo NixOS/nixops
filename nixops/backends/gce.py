@@ -652,7 +652,7 @@ class GCEState(MachineState, ResourceState):
         if not self.project:
             return True
 
-        if self.state != self.UP:
+        if self.state == self.MISSING:
             # The machine is down, we have nothing to do.
             return True
 
