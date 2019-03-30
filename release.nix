@@ -92,7 +92,7 @@ rec {
           azure-mgmt-resource
           azure-mgmt-storage
           adal
-          sqlite3
+          pkgs.sqlite
           datadog
           digital-ocean
           typing
