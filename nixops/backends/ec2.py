@@ -1344,7 +1344,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # The latter allows us to destroy instances that were "leaked"
         # in create() due to it being interrupted after the instance
         # was created but before it registered the ID in the database.
-        self.connect()
+        self.connect_boto3()
         instance = None
         if self.vm_id:
             instance = self._get_instance(allow_missing=True)
@@ -1354,7 +1354,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 instance = reservations[0].instances[0]
 
         if instance:
-            instance.terminate()
+            self._conn_boto3.terminate_instances(InstanceIds=[instance.id])
 
             # Wait until it's really terminated.
             while True:
@@ -1386,8 +1386,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         self.log_start("stopping EC2 machine... ")
 
+        self.connect_boto3()
         instance = self._get_instance()
-        instance.stop()  # no-op if the machine is already stopped
+        self._conn_boto3.stop_instances(InstanceIds=[instance.id]) # no-op if the machine is already stopped
 
         self.state = self.STOPPING
 
@@ -1426,10 +1427,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             return
 
         self.log("starting EC2 machine...")
-
+        self.connect_boto3()
         instance = self._get_instance()
-        instance.start()  # no-op if the machine is already started
-
+        self._conn_boto3.start_instances(InstanceIds=[instance.id])  # no-op if the machine is already started
         self.state = self.STARTING
 
         # Wait until it's really started, and obtain its new IP
@@ -1519,15 +1519,16 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     def reboot(self, hard=False):
         self.log("rebooting EC2 machine...")
         instance = self._get_instance()
-        instance.reboot()
+        self.connect_boto3()
+        self._conn_boto3.reboot_instances(InstanceIds=[instance.id])
         self.state = self.STARTING
 
 
     def get_console_output(self):
         if not self.vm_id:
             raise Exception("cannot get console output of non-existant machine ‘{0}’".format(self.name))
-        self.connect()
-        return self._conn.get_console_output(self.vm_id).output or "(not available)"
+        self.connect_boto3()
+        return self._conn_boto3.get_console_output(InstanceId=self.vm_id)['Output'] or "(not available)"
 
 
     def next_charge_time(self):
