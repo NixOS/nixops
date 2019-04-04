@@ -668,12 +668,12 @@ This terminates the GCE instances and deletes the alternative GCE-based load bal
 
 <itemizedlist>
 
-  <listitem><para>Obviously, you need an GCE service account which you can create from the
+  <listitem><para>Obviously, you need a GCE service account, which you can create from the
   <link xlink:href="https://console.developers.google.com/">Developer Console</link>.</para></listitem>
 
-  <listitem><para>Once you've created a new GCE service account and downloaded the generated
-  private key (in the PKCS12 format), you'll need to convert the key to PEM format by running
-  the following command:
+  <listitem><para>Once you've created a new GCE service account, generate and download a
+  private key. Keys in the .json format can be used as-is, but keys in the PKCS12 format will
+  need to be converted to PEM format by running the following command:
 
 <programlisting>
 $ openssl pkcs12 -in pkey.pkcs12 -passin pass:notasecret -nodes -nocerts | openssl rsa -out pkey.pem
@@ -688,7 +688,7 @@ $ openssl pkcs12 -in pkey.pkcs12 -passin pass:notasecret -nodes -nocerts | opens
   <listitem><para>You must ensure that the GCE service account you've created has sufficient permissions
   to manage resources in the project.</para></listitem>
 
-  <listitem><para>You must supply the credentials(project, service account name and path to the key)
+  <listitem><para>You must supply the credentials(project ID, service account name, and path to the key)
   via either <varname>*.project</varname>, <varname>*.serviceAccount</varname> and
   <varname>*.accessKey</varname> options or <envar>GCE_PROJECT</envar>,
   <envar>GCE_SERVICE_ACCOUNT</envar> and <envar>ACCESS_KEY_PATH</envar> environment variables.
@@ -719,23 +719,65 @@ $ openssl pkcs12 -in pkey.pkcs12 -passin pass:notasecret -nodes -nocerts | opens
 <itemizedlist>
 
   <listitem><para>A bootstrap image needs to be created for each deployment because it
-  is impossible to create public images. Default bootstrap image specification can be
-  overriden by defining <literal>resources.gceImages.bootstrap</literal>. Additionally,
-  the instance's <literal>bootstrapImage</literal> option can be used to specify
-  an instance-specific bootstrap image.</para>
+  is impossible to create public images. The raw.tar.gz file used to create the
+  bootstrap image can be overriden by defining
+  <literal>resources.gceImages.bootstrap</literal> as shown here:
+<programlisting>
+resources.gceImages.nixos-latest = credentials // {
+  name = "nixos-latest";
+  sourceUri = (import &lt;nixpkgs/nixos/modules/virtualisation/gce-images.nix&gt;).latest;
+};
+</programlisting>
+  or
+<programlisting>
+resources.gceImages.nixos-1809 = credentials // {
+  name = "nixos-1809";
+  sourceUri = (import &lt;nixpkgs/nixos/modules/virtualisation/gce-images.nix&gt;)."18.09";
+};
+</programlisting>
+  
+  A list of available raw.tar.gz files can be found here:
+  <link xlink:href="https://github.com/NixOS/nixpkgs/blob/master/nixos/modules/virtualisation/gce-images.nix">&lt;nixpkgs/nixos/modules/virtualisation/gce-images.nix&gt;</link>.
 
-  <para>A solution is to create one's own image, by running the script
-  in <literal>&lt;nixpkgs/nixos/maintainers/scripts/gce/create-gce.sh&gt;</literal>.
-  Two things need to be done before running the script:
-  <itemizedList>
-    <listitem>Set the <literal>BUCKET_NAME</literal> environment
-    variable to the target Google Storage bucket's name</listitem>.
-    <listitem>Add permissions to that bucket for the "Compute Engine"
-    service account (under the Google Cloud console, IAM &amp;
-    Administration, IAM)</listitem>
-  </itemizedList>
-  Then, add the corresponding resources (i.e. at the top level of the
-  nixops deployment):
+  Once you specify a gceImage resource, you can then use it to define a GCE machine's
+  <literal>bootstrapImage</literal> option:
+<programlisting>
+gcevm = {resources, ...}: {
+  deployment = {
+    targetEnv = "gce";
+    gce = credentials // {
+      bootstrapImage = resources.gceImages.nixos-latest;
+      ...
+    };
+  };
+};
+</programlisting>
+  </para>
+
+  <para>If you would prefer to create your own raw.tar.gz file for whatever reason,
+  you may do so by running
+  <link xlink:href="https://github.com/NixOS/nixpkgs/blob/master/nixos/maintainers/scripts/gce/create-gce.sh">&lt;nixpkgs/nixos/maintainers/scripts/gce/create-gce.sh&gt;</link>.
+  Three things need to be done before running the script:
+  <itemizedlist>
+    <listitem>Set the <literal>BUCKET_NAME</literal> environment variable to
+    the target Google Storage bucket's name (e.g. <literal>my-bootstrap</literal>
+    (if not specified, <literal>nixos-cloud-images</literal> will be used))</listitem>
+    <listitem>Add permissions to that bucket for a service account associated
+    with your project (under the Google Cloud console, IAM &amp; Administration,
+    IAM)- for convenience, you can use the "Compute Engine default service
+    account" provided by GCE (this is automatically created the first time you
+    attempt to provision anything in the Compute Engine (even if provisioning
+    fails))</listitem>
+    <listitem>Authorize calls made by that service account from gsutil on the
+    machine from which you are running NixOps. This can be done a few different
+    ways; the following is offered as a suggestion:
+<programlisting>
+$ GCE_KEY=./foo       # possibly relative path to the access key (.json or .pem) of your service account
+$ chmod 400 $GCE_KEY  # otherwise gsutil will prompt for permission to do this- disrupting automation
+$ readlink -e $GCE_KEY | $(nix-build '&lt;nixpkgs&gt;' -A google-cloud-sdk)/bin/gsutil config -e
+</programlisting></listitem>
+  </itemizedlist>
+  Then, add the corresponding resources (i.e. at the top level of the nixops deployment):
   <example><programlisting>
 resources.gceImages.my-bootstrap = {
   name = "my-bootstrap";
