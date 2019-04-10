@@ -49,7 +49,7 @@ class ElasticIPState(nixops.resources.ResourceState):
 
     @property
     def resource_id(self):
-        return self.public_ipv4
+        return self.allocation_id
 
     def connect(self, region):
         if self._client:
