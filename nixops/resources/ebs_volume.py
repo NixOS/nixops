@@ -7,6 +7,7 @@ import boto.ec2
 import nixops.util
 import nixops.ec2_utils
 import nixops.resources
+import botocore.exceptions
 import nixops.resources.ec2_common
 
 
@@ -29,6 +30,7 @@ class EBSVolumeDefinition(nixops.resources.ResourceDefinition):
         self.access_key_id = xml.find("attrs/attr[@name='accessKeyId']/string").get("value")
         self.size = int(xml.find("attrs/attr[@name='size']/int").get("value"))
         self.snapshot = xml.find("attrs/attr[@name='snapshot']/string").get("value")
+        self.volume_id = xml.find("attrs/attr[@name='volumeId']/string").get("value")
         self.iops = int(xml.find("attrs/attr[@name='iops']/int").get("value"))
         if self.iops == 0: self.iops = None
         self.volume_type = xml.find("attrs/attr[@name='volumeType']/string").get("value")
@@ -58,6 +60,7 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._conn = None
+        self._conn_boto3 = None
 
 
     def _exists(self):
@@ -80,6 +83,29 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
         self._conn = nixops.ec2_utils.connect(region, self.access_key_id)
         return self._conn
 
+    def connect_boto3(self, region):
+        if self._conn_boto3: return self._conn_boto3
+        self._conn_boto3 = nixops.ec2_utils.connect_ec2_boto3(region, self.access_key_id)
+        return self._conn_boto3
+
+    def _get_vol(self, defn):
+        self.connect_boto3(defn.region)
+        try:
+            _vol = self._conn_boto3.describe_volumes(VolumeIds=[defn.volume_id])['Volumes'][0]
+        except botocore.exceptions.ClientError as error:
+            raise error
+        if _vol['VolumeType'] == "io1":
+            iops = _vol['Iops']
+        else:
+            iops = defn.iops
+        with self.depl._db:
+            self.state = self.STARTING
+            self.region = defn.region
+            self.zone = _vol['AvailabilityZone']
+            self.size = _vol['Size']
+            self.volume_id = defn.volume_id
+            self.iops = iops
+            self.volume_type = _vol['VolumeType']
 
     def create(self, defn, check, allow_reboot, allow_recreate):
 
@@ -103,39 +129,40 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
                 raise Exception("changing the IOPS of an EBS volume is currently not supported")
 
         if self.state == self.MISSING:
-
-            if defn.size == 0 and defn.snapshot != "":
-                snapshots = self._conn.get_all_snapshots(snapshot_ids=[defn.snapshot])
-                assert len(snapshots) == 1
-                defn.size = snapshots[0].volume_size
-
-            if defn.snapshot:
-                self.log("creating EBS volume of {0} GiB from snapshot ‘{1}’...".format(defn.size, defn.snapshot))
+            if defn.volume_id:
+                self.log("Using provided EBS volume ‘{0}’, make sure to update its attributes...".format(defn.volume_id))
+                self._get_vol(defn)
             else:
-                self.log("creating EBS volume of {0} GiB...".format(defn.size))
+                if defn.size == 0 and defn.snapshot != "":
+                    snapshots = self._conn.get_all_snapshots(snapshot_ids=[defn.snapshot])
+                    assert len(snapshots) == 1
+                    defn.size = snapshots[0].volume_size
 
-            volume = self._conn.create_volume(
-                zone=defn.zone, size=defn.size, snapshot=defn.snapshot,
-                iops=defn.iops, volume_type=defn.volume_type)
+                if defn.snapshot:
+                    self.log("creating EBS volume of {0} GiB from snapshot ‘{1}’...".format(defn.size, defn.snapshot))
+                else:
+                    self.log("creating EBS volume of {0} GiB...".format(defn.size))
 
-            # FIXME: if we crash before the next step, we forget the
-            # volume we just created.  Doesn't seem to be anything we
-            # can do about this.
+                volume = self._conn.create_volume(
+                    zone=defn.zone, size=defn.size, snapshot=defn.snapshot,
+                    iops=defn.iops, volume_type=defn.volume_type)
+                # FIXME: if we crash before the next step, we forget the
+                # volume we just created.  Doesn't seem to be anything we
+                # can do about this.
 
-            with self.depl._db:
-                self.state = self.STARTING
-                self.region = defn.region
-                self.zone = defn.zone
-                self.size = defn.size
-                self.volume_id = volume.id
-                self.iops = defn.iops
-                self.volume_type = defn.volume_type
+                with self.depl._db:
+                    self.state = self.STARTING
+                    self.region = defn.region
+                    self.zone = defn.zone
+                    self.size = defn.size
+                    self.volume_id = volume.id
+                    self.iops = defn.iops
+                    self.volume_type = defn.volume_type
 
-            self.log("volume ID is ‘{0}’".format(volume.id))
-
-        self.update_tags(self.volume_id, user_tags=defn.tags, check=check)
+                self.log("volume ID is ‘{0}’".format(self.volume_id))
 
         if self.state == self.STARTING or check:
+            self.update_tags(self.volume_id, user_tags=defn.tags, check=check)
             nixops.ec2_utils.wait_for_volume_available(
                 self._conn, self.volume_id, self.logger,
                 states=['available', 'in-use'])
