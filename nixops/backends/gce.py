@@ -37,6 +37,7 @@ class GCEDefinition(MachineDefinition, ResourceDefinition):
         self.copy_option(x, 'project', str)
         self.copy_option(x, 'serviceAccount', str)
         self.copy_option(x, 'canIpForward', bool, optional=True)
+        self.copy_option(x, 'associatePublicIpAddress', bool, optional=True)
         self.access_key_path = self.get_option_value(x, 'accessKey', str)
 
         self.copy_option(x, 'tags', 'strlist')
@@ -104,6 +105,7 @@ class GCEState(MachineState, ResourceState):
         return "gce"
 
     machine_name = attr_property("gce.name", None)
+    associate_public_ip_address = attr_property("gce.associatePublicIpAddress", True, bool)
     public_ipv4 = attr_property("publicIpv4", None)
     private_ipv4 = attr_property("privateIpv4", None)
 
@@ -158,7 +160,7 @@ class GCEState(MachineState, ResourceState):
 
     def address_to(self, resource):
         """Return the IP address to be used to access "resource" from this machine."""
-        if isinstance(resource, GCEState) and resource.network == self.network:
+        if isinstance(resource, GCEState) and (not resource.associate_public_ip_address or resource.network == self.network):
             return resource.private_ipv4
         else:
             return MachineState.address_to(self, resource)
@@ -199,7 +201,6 @@ class GCEState(MachineState, ResourceState):
         except libcloud.common.google.ResourceNotFoundError:
             self.warn("seems to have been destroyed already")
 
-
     def _node_deleted(self):
         self.vm_id = None
         self.state = self.STOPPED
@@ -209,7 +210,8 @@ class GCEState(MachineState, ResourceState):
 
     defn_properties = ['tags', 'region', 'instance_type',
                        'email', 'scopes', 'subnet', 'preemptible',
-                       'metadata', 'ipAddress', 'network']
+                       'metadata', 'ipAddress', 'network',
+                       'associate_public_ip_address']
 
     def is_deployed(self):
         return (self.vm_id or self.block_device_mapping)
@@ -262,12 +264,12 @@ class GCEState(MachineState, ResourceState):
                     self.handle_changed_property('public_ipv4',
                                                  node.public_ips[0] if node.public_ips else None,
                                                  property_name = 'public IP address')
-                    if self.public_ipv4:
-                        known_hosts.add(self.public_ipv4, self.public_host_key)
-
+                    
                     self.handle_changed_property('private_ipv4',
                                                  node.private_ips[0] if node.private_ips else None,
                                                  property_name = 'private IP address')
+
+                    known_hosts.add(self.get_ssh_name(), self.public_host_key)
 
                     if self.ipAddress:
                         try:
@@ -427,7 +429,7 @@ class GCEState(MachineState, ResourceState):
                                  location = self.connect().ex_get_zone(defn.region),
                                  ex_boot_disk = self.connect().ex_get_volume(boot_disk['disk_name'] or boot_disk['disk'], boot_disk.get('region', None)),
                                  ex_metadata = self.full_metadata(defn.metadata), ex_tags = defn.tags, ex_service_accounts = service_accounts,
-                                 external_ip = (self.connect().ex_get_address(defn.ipAddress) if defn.ipAddress else 'ephemeral'),
+                                 external_ip = (None if not defn.associate_public_ip_address else self.connect().ex_get_address(defn.ipAddress) if defn.ipAddress else 'ephemeral'),
                                  ex_can_ip_forward = defn.can_ip_forward,
                                  # in theory the API accepts creating an
                                  # instance by specifying only the subnet
@@ -435,7 +437,7 @@ class GCEState(MachineState, ResourceState):
                                  # where it doesn't accept None for
                                  # ex_network argument.
                                  ex_network = (defn.network if defn.network else 'default'),
-                                 ex_subnetwork = (defn.subnet if defn.subnet is not None else None) )
+                                 ex_subnetwork = defn.subnet )
             except libcloud.common.google.ResourceExistsError:
                 raise Exception("tried creating an instance that already exists; "
                                 "please run 'deploy --check' to fix this")
@@ -443,10 +445,13 @@ class GCEState(MachineState, ResourceState):
             self.state = self.STARTING
             self.ssh_pinged = False
             self.copy_properties(defn)
-            self.public_ipv4 = node.public_ips[0]
-            self.log("got public IP: {0}".format(self.public_ipv4))
-            known_hosts.add(self.public_ipv4, self.public_host_key)
+            if self.associate_public_ip_address:
+                self.public_ipv4 = node.public_ips[0]
+                self.log("got public IP: {0}".format(self.public_ipv4))
             self.private_ipv4 = node.private_ips[0]
+            if not self.associate_public_ip_address:
+                self.log("got private IP: {0}".format(self.private_ipv4))
+            known_hosts.add(self.get_ssh_name(), self.public_host_key)
             for k,v in self.block_device_mapping.iteritems():
                 v['needsAttach'] = True
                 self.update_block_device_mapping(k, v)
@@ -540,15 +545,21 @@ class GCEState(MachineState, ResourceState):
             self.connect().ex_set_node_tags(self.node(), defn.tags)
             self.tags = defn.tags
 
-        if self.public_ipv4 and self.ipAddress != defn.ipAddress:
+        if not self.associate_public_ip_address and defn.associate_public_ip_address:
+            known_hosts.remove(self.get_ssh_name(), self.public_host_key)
+
+        if self.public_ipv4 and (self.ipAddress != defn.ipAddress or not defn.associate_public_ip_address):
             self.log("detaching old public IP address {0}".format(self.public_ipv4))
-            self.connect().connection.async_request(
-                "/zones/{0}/instances/{1}/deleteAccessConfig?accessConfig=External+NAT&networkInterface=nic0"
-                .format(self.region, self.machine_name), method = 'POST')
+            self._delete_public_ip_address()
+            known_hosts.remove(self.get_ssh_name(), self.public_host_key)
             self.public_ipv4 = None
             self.ipAddress = None
 
-        if self.public_ipv4 is None:
+        if self.associate_public_ip_address and not defn.associate_public_ip_address:
+            known_hosts.add(self.private_ipv4, self.public_host_key)
+            self._reset_ssh_connection()
+
+        if self.public_ipv4 is None and defn.associate_public_ip_address:
             self.log("attaching public IP address {0}".format(defn.ipAddress or "[Ephemeral]"))
             self.connect().connection.async_request(
                 "/zones/{0}/instances/{1}/addAccessConfig?networkInterface=nic0"
@@ -562,8 +573,9 @@ class GCEState(MachineState, ResourceState):
             self.public_ipv4 = self.node().public_ips[0]
             self.log("got public IP: {0}".format(self.public_ipv4))
             known_hosts.add(self.public_ipv4, self.public_host_key)
-            self.ssh.reset()
-            self.ssh_pinged = False
+            self._reset_ssh_connection()
+
+        self.associate_public_ip_address = defn.associate_public_ip_address
 
         if self.automatic_restart != defn.automatic_restart or self.on_host_maintenance != defn.on_host_maintenance:
             self.log("setting scheduling configuration")
@@ -573,6 +585,15 @@ class GCEState(MachineState, ResourceState):
             self.automatic_restart = defn.automatic_restart
             self.on_host_maintenance = defn.on_host_maintenance
 
+    def _reset_ssh_connection(self):
+        self.log("resetting ssh connection")
+        self.ssh.reset()
+        self.ssh_pinged = False
+    
+    def _delete_public_ip_address(self):
+        self.connect().connection.async_request(
+                "/zones/{0}/instances/{1}/deleteAccessConfig?accessConfig=External+NAT&networkInterface=nic0"
+                .format(self.region, self.machine_name), method = 'POST')
 
     def reboot(self, hard=False):
         if hard:
@@ -598,9 +619,10 @@ class GCEState(MachineState, ResourceState):
             if node and (node.state == NodeState.STOPPED):
                 self.log("starting GCE machine")
                 self.connect().ex_start_node(node)
-                self.public_ipv4 = self.node().public_ips[0]
+                if self.associate_public_ip_address:
+                    self.public_ipv4 = self.node().public_ips[0]
                 self.private_ipv4 = self.node().private_ips[0]
-                known_hosts.add(self.public_ipv4, self.public_host_key)
+                known_hosts.add(self.get_ssh_name(), self.public_host_key)
                 self.wait_for_ssh(check=True)
                 self.send_keys()
 
@@ -662,7 +684,7 @@ class GCEState(MachineState, ResourceState):
             if not self.depl.logger.confirm(question.format(self.full_name)):
                 return False
 
-            known_hosts.remove(self.public_ipv4, self.public_host_key)
+            known_hosts.remove(self.get_ssh_name(), self.public_host_key)
             self.log("destroying the GCE machine...")
             node.destroy()
 
@@ -740,15 +762,15 @@ class GCEState(MachineState, ResourceState):
                             self.connect().ex_get_volume(disk_name, v.get('region', None))
                         except libcloud.common.google.ResourceNotFoundError:
                             res.messages.append("disk {0} is destroyed".format(disk_name))
+
                 self.handle_changed_property('public_ipv4',
                                               node.public_ips[0] if node.public_ips else None,
                                               property_name = 'public IP address')
-                if self.public_ipv4:
-                    known_hosts.add(self.public_ipv4, self.public_host_key)
 
                 self.handle_changed_property('private_ipv4',
                                               node.private_ips[0] if node.private_ips else None,
                                               property_name = 'private IP address')
+                known_hosts.add(self.get_ssh_name(), self.public_host_key)
 
                 MachineState._check(self, res)
 
@@ -932,9 +954,16 @@ class GCEState(MachineState, ResourceState):
         return keys
 
     def get_ssh_name(self):
-        if not self.public_ipv4:
-            raise Exception("{0} does not have a public IPv4 address (yet)".format(self.full_name))
-        return self.public_ipv4
+        if self.associate_public_ip_address:
+            if self.public_ipv4:
+                return self.public_ipv4
+            else:
+                raise Exception("{0} does not have a public IPv4 address (yet)".format(self.full_name))
+        else:
+            if self.private_ipv4:
+                return self.private_ipv4
+            else:
+                raise Exception("{0} does not have a private IPv4 address (yet)".format(self.full_name))
 
     def get_ssh_private_key_file(self):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.private_client_key)

@@ -278,6 +278,14 @@ in
         '';
       };
 
+      associatePublicIpAddress = mkOption {
+        default = true;
+        type = types.bool;
+        description = ''
+          Whether or not to associate a public IP address with this node.
+        '';
+      };
+
       network = mkOption {
         default = null;
         example = "resources.gceNetworks.verySecureNetwork";
