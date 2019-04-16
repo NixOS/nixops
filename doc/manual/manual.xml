@@ -186,6 +186,132 @@
         <xi:include href="elastic-file-system-mount-target-options.xml" />
       </section>
 
+      <section>
+        <title>Vpc</title>
+        <para>A Vpc is defined by setting
+        <literal>  resources.vpc .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Subnet</title>
+        <para>A Vpc Subnet is defined by setting
+        <literal>  resources.vpcSubnets .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-subnet-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Route</title>
+        <para>A Vpc Route is defined by setting
+        <literal>  resources.vpcRoutes .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-route-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Route Table</title>
+        <para>A Vpc Route Table is defined by setting
+        <literal>  resources.vpcRouteTables .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-route-table-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Route Table Association</title>
+        <para>A Vpc Route Table Association is defined by setting
+        <literal>  resources.vpcRouteTableAssociations .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-route-table-association-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Network Interface</title>
+        <para>A Vpc Network Interface is defined by setting
+        <literal>  resources.vpcNetworkInterfaces .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-network-interface-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Network Interface Attachment</title>
+        <para>A Vpc Network Interface Attachment is defined by setting
+        <literal>  resources.vpcNetworkInterfaceAttachments .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-network-interface-attachment-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Network Acl</title>
+        <para>A Vpc Network Acl is defined by setting
+        <literal>  resources.vpcNetworkAcls .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-network-acl-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Nat Gateway</title>
+        <para>A Vpc Nat Gateway is defined by setting
+        <literal>  resources.vpcNatGateways .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-nat-gateway-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Internet Gateway</title>
+        <para>A Vpc Internet Gateway is defined by setting
+        <literal>  resources.vpcInternetGateways .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-internet-gateway-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Endpoint</title>
+        <para>A Vpc Endpoint is defined by setting
+        <literal>  resources.vpcEndpoints .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-endpoint-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Egress Only Internet Gateway</title>
+        <para>A Vpc Egress Only Internet Gateway is defined by setting
+        <literal>  resources.vpcEgressOnlyInternetGateways .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-egress-only-internet-gateway-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Dhcp Options</title>
+        <para>A Vpc Dhcp Options is defined by setting
+        <literal>  resources.vpcDhcpOptions .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-dhcp-options-options.xml" />
+      </section>
+
+      <section>
+        <title>Vpc Customer Gateway</title>
+        <para>A Vpc Customer Gateway is defined by setting
+        <literal>  resources.vpcCustomerGateways .<replaceable>name</replaceable></literal>
+        to an attribute set containing values for the following
+        options.</para>
+        <xi:include href="vpc-customer-gateway-options.xml" />
+      </section>
+
     </section>
 
     <section>
