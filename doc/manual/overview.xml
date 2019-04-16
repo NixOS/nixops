@@ -830,6 +830,12 @@ under NixOps control.
 
 
 <section xml:id="sec-deploying-to-azure"><title>Deploying to Microsoft Azure</title>
+  <warning>
+    <para>
+      The Azure backend in Nixops is now disabled. See <link xlink:href="https://github.com/NixOS/nixops/pull/1131">PR#1131</link>
+    </para>
+    <para>For existent deployments, Azure backend is supported in Nixops up to release 1.6.1 only.</para>
+  </warning>
   <para>Note: only ARM(Azure Resource Manager) mode is supported by this backend.</para>
 
   <para><xref linkend="ex-physical-multi-azure.nix" /> shows a physical

@@ -396,6 +396,12 @@
 
     <section>
       <title>Azure Resources</title>
+      <warning>
+        <para>The Azure backend in Nixops is now disabled. See <link xlink:href="https://github.com/NixOS/nixops/pull/1131">PR#1131</link>
+        </para>
+        <para>For existent deployments, Azure backend is supported in Nixops up to release 1.6.1 only.</para>
+    </warning>
+
 
       <para>This section lists resource types associated with the
       Microsoft Azure (Azure) cloud computing environment.</para>
