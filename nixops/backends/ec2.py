@@ -413,12 +413,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             for device_stored, v in self.block_device_mapping.items():
                 device_real = device_name_stored_to_real(device_stored)
 
-                if not device_real in b.keys():
-                    backup_status = "incomplete"
-
-                    info.append("{0} - {1} - Not available in backup".format(self.name, device_real))
-                else:
-                    snapshot_id = b[device_real]
+                snapshot_id = b.get(device_real, None)
+                if snapshot_id is not None:
                     try:
                         snapshot = self._get_snapshot_by_id(snapshot_id)
                         snapshot_status = snapshot.update()
