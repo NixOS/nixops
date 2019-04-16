@@ -169,21 +169,22 @@ def op_info():
         for name in names:
             d = definitions.get(name)
             r = depl.resources.get(name)
+            if deployment.is_machine(r):
+                resource_state = "{0} / {1}".format(r.show_state() if r else "Missing", state(depl, d, r))
+            else:
+                resource_state = r.show_state() if r else "Missing"
+
             if args.plain:
                 print "\t".join(
                     ([depl.uuid, depl.name or '(none)'] if args.all else []) +
                     [name,
-                     state(depl, d, r).lower(),
+                     resource_state.lower(),
                      r.show_type() if r else d.show_type(),
                      r.resource_id or "" if r else "",
                      r.public_ipv4 or "" if r and hasattr(r, 'public_ipv4') else "",
                      r.private_ipv4 or "" if r and deployment.is_machine(r) else ""
                     ])
             else:
-                if deployment.is_machine(r):
-                    resource_state = "{0} / {1}".format(r.show_state() if r else "Missing", state(depl, d, r))
-                else:
-                    resource_state = r.show_state() if r else "Missing"
                 tbl.add_row(
                     ([depl.name or depl.uuid] if args.all else []) +
                     [name,
