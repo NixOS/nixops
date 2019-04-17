@@ -163,7 +163,8 @@ in
               "17.09" = self."16.09";
               "18.03" = { url = "http://nixos.org/releases/nixos/virtualbox-nixops-images/virtualbox-nixops-18.03pre131587.b6ddb9913f2.vmdk.xz"; sha256 = "1hxdimjpndjimy40g1wh4lq7x0d78zg6zisp23cilqr7393chnna"; };
               "18.09" = { url = "http://nixos.org/releases/nixos/virtualbox-nixops-images/virtualbox-nixops-18.09.2211.19a0543c628.vmdk.xz"; sha256 = "f37799b99f430ede872b17f4485f950b667ab7f9c7a75fe25b3cdd3aa7518f10"; };
-              latest = self."18.09";
+              "19.03" = { url = "http://nixos.org/releases/nixos/virtualbox-nixops-images/virtualbox-nixops-19.03.172205.ea497998e4b.vmdk.xz"; sha256 = "2f18b22978d779995bcf0d076f88447a90a8e5364d384cac7fa6d20e9b4050c6"; };
+              latest = self."19.03";
             };
           in if builtins.pathExists p then import p else self;
       in
