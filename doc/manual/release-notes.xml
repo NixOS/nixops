@@ -5,6 +5,87 @@
 
 <!--==================================================================-->
 
+<section xml:id="ssec-relnotes-1.7"><title>Release 1.7 (April XX, 2019)</title>
+<itemizedlist>
+
+  <listitem><para>General</para>
+    <itemizedlist>
+      <listitem><para>Mitigation for ssh StrictHostKeyChecking=no issue.</para></listitem>
+      <listitem><para>Fix nixops info --plain output.</para></listitem>
+      <listitem><para>Documentation fixes: add AWS VPC resources and fix some outdated command outputs.</para></listitem>
+      <listitem><para>Addition of Hashicorp's Vault AppRole resource.</para></listitem>
+      <warning>
+        <para>
+          Azure backend is now disabled after the updates to Azure's Python libraries in NixOS 19.03.
+          Please see <link xlink:href="https://github.com/NixOS/nixops/pull/1131">PR#1131</link> for
+          more details.
+        </para>
+        <para>
+          Existing Azure deployments should use NixOps release 1.6.1. We hope to revive the Azure
+          support in the future once the API compatibility issues are resolved.
+        </para>
+      </warning>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>AWS</para>
+    <itemizedlist>
+      <listitem><para>Add more auto retries to api calls to prevent eventual consistency issues.</para></listitem>
+      <listitem><para>Fix <code>nixops check</code> with NVMe devices.</para></listitem>
+      <listitem><para>Route53: normalize DNS hostname.</para></listitem>
+      <listitem><para>S3: support bucket lifecycle configuration as well as versioning.</para></listitem>
+      <listitem><para>S3: introduce persistOnDestroy for S3 buckets which allows keeping the bucket during a destroy for later usage</para></listitem>
+      <listitem><para>Fix backup-status output when backup is performed on a subset of devices.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Datadog</para>
+    <itemizedlist>
+      <listitem><para>add tags for Datadog monitors</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>GCE</para>
+    <itemizedlist>
+      <listitem><para>Fix machines being leaked when running destroy after a stop operation.</para></listitem>
+      <listitem><para>make sure the machine exists before attempting a destroy.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>Hetzner</para>
+    <itemizedlist>
+      <listitem>
+        <para>
+          Remove usage of local commands for network configuration.
+        </para>
+        <warning>
+          <para>
+            Note that this is incompatible with NixOS versions prior to 18.03, see <link xlink:href="https://nixos.org/nixos/manual/release-notes.html#sec-release-18.03-notable-changes">release-notes.</link>
+          </para>
+        </warning>
+      </listitem>
+    </itemizedlist>
+  </listitem>
+
+  <listitem><para>VirtualBox</para>
+    <itemizedlist>
+      <listitem><para>added NixOS 18.09/19.03 images.</para></listitem>
+      <listitem><para>handle deleted VMs from outside NixOps.</para></listitem>
+    </itemizedlist>
+  </listitem>
+
+</itemizedlist>
+
+<para>
+    This release has contributions from Amine Chikhaoui, Assassinkin,  aszlig, Aymen Memni,
+    Chaker Benhamed, Chawki Cheikch, David Kleuker, Domen Kožar, Dorra Hadrich, dzanot,
+    Eelco Dolstra, Jörg Thalheim, Kosyrev Serge,  Max Wilson,  Michael Bishop, Niklas Hambüchen,
+    Pierre Bourdon, PsyanticY, Robert Hensing.
+</para>
+
+</section>
+
+
 <section xml:id="ssec-relnotes-1.6.1"><title>Release 1.6.1 (Sep 14, 2018)</title>
 <itemizedlist>
 
