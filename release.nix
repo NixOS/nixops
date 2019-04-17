@@ -89,18 +89,22 @@ rec {
           hetzner
           libcloud
           libvirt
-          azure-storage
-          azure-mgmt-compute
-          azure-mgmt-network
-          azure-mgmt-resource
-          azure-mgmt-storage
           adal
           # Go back to sqlite once Python 2.7.13 is released
           pysqlite
           datadog
           digital-ocean
           typing
-        ];
+        ] ++
+        #FIXME add back once https://github.com/NixOS/nixops/pull/1131
+        # is reverted.
+        (lib.optional false [
+          azure-storage
+          azure-mgmt-compute
+          azure-mgmt-network
+          azure-mgmt-resource
+          azure-mgmt-storage
+        ]);
 
       # For "nix-build --run-env".
       shellHook = ''
