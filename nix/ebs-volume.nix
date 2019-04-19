@@ -29,6 +29,16 @@ with lib;
       description = "The AWS Access Key ID.";
     };
 
+    volumeId = mkOption {
+      default = "";
+      example = "vol-abc123";
+      type = types.str;
+      description = ''
+        The volume ID that will be set by nixops or overriden
+        by nix exressions to force the seperate resource to use it.
+      '';
+    };
+
     snapshot = mkOption {
       default = "";
       example = "snap-1cbda474";
@@ -44,7 +54,7 @@ with lib;
 
   config = {
     _type = "ebs-volume";
-    size = mkIf (config.snapshot != "") (mkDefault 0);
+    size = mkIf (config.snapshot != "" || config.volumeId != "") (mkDefault 0);
   };
 
 }
