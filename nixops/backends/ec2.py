@@ -1131,7 +1131,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # Detect if volumes were manually detached.  If so, reattach
         # them.
         for device_stored, v in self.block_device_mapping.items():
-            if device_stored not in self._get_instance().block_device_mapping.keys() and not v.get('needsAttach', False) and v.get('volumeId', None):
+            if device_name_to_boto_expected(device_stored) not in self._get_instance().block_device_mapping.keys() and not v.get('needsAttach', False) and v.get('volumeId', None):
                 device_real = device_name_stored_to_real(device_stored)
                 self.warn("device ‘{0}’ was manually detached!".format(device_real))
                 v['needsAttach'] = True
