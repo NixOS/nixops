@@ -54,7 +54,7 @@ with lib;
 
   config = {
     _type = "ebs-volume";
-    size = mkIf (config.snapshot != "") (mkDefault 0);
+    size = mkIf (config.snapshot != "" || config.volumeId != "") (mkDefault 0);
   };
 
 }

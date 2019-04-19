@@ -24,15 +24,15 @@ with lib;
     };
 
     iops = mkOption {
-      default = 0;
-      type = types.int;
+      default = null;
+      type = types.nullOr types.int;
       description = ''
         The provisioned IOPS you want to associate with this EBS volume.
       '';
     };
 
     volumeType = mkOption {
-      default = if config.iops == 0 then "standard" else "io1";
+      default = if config.iops == null then "standard" else "io1";
       type = types.enum [ "standard" "io1" "gp2" "st1" "sc1" ];
       description = ''
         The volume type for the EBS volume, which must be one of
