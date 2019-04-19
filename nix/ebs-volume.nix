@@ -34,8 +34,7 @@ with lib;
       example = "vol-abc123";
       type = types.str;
       description = ''
-        The volume ID that will be set by nixops or overriden
-        by nix exressions to force the seperate resource to use it.
+        The volume id to be imported into the NixOps ebs-volume resource.
       '';
     };
 
