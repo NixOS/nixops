@@ -227,7 +227,9 @@ in
 
     systemd.services = (
       { nixops-keys =
-        { enable = config.deployment.keys != {};
+        { enable = any (key: hasPrefix "/run/" key.destDir) (
+            attrValues config.deployment.keys
+          );
           description = "Waiting for NixOps Keys";
           wantedBy = [ "keys.target" ];
           before = [ "keys.target" ];
