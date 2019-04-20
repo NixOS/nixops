@@ -385,12 +385,19 @@ class MachineState(nixops.resources.ResourceState):
         if res != 0: raise Exception("unable to upload VPN key to ‘{0}’".format(self.name))
         self.public_vpn_key = public
 
+    def get_scp_name(self):
+        ssh_name = self.get_ssh_name()
+        # ipv6 addresses have to be wrapped in brackets for scp
+        if (":" in ssh_name):
+            return "[%s]" % (ssh_name)
+        return ssh_name
+
     def upload_file(self, source, target, recursive=False):
         master = self.ssh.get_master()
         cmdline = ["scp"] + self.get_ssh_flags(True) + master.opts
         if recursive:
             cmdline += ['-r']
-        cmdline += [source, "root@" + self.get_ssh_name() + ":" + target]
+        cmdline += [source, "root@" + self.get_scp_name() + ":" + target]
         return self._logged_exec(cmdline)
 
     def download_file(self, source, target, recursive=False):
@@ -398,7 +405,7 @@ class MachineState(nixops.resources.ResourceState):
         cmdline = ["scp"] + self.get_ssh_flags(True) + master.opts
         if recursive:
             cmdline += ['-r']
-        cmdline += ["root@" + self.get_ssh_name() + ":" + source, target]
+        cmdline += ["root@" + self.get_scp_name() + ":" + source, target]
         return self._logged_exec(cmdline)
 
     def get_console_output(self):
