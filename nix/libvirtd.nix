@@ -22,14 +22,6 @@ let
           '';
       }
       ''
-        # TODO (@Ma27) remove this entirely after NixOS 17.09 is EOLed, in
-        # 18.03 `devtmpfs` is used which makes the block creation obsolete
-        # (see https://github.com/NixOS/nixpkgs/commit/0d27df280f7ed502bba65e2ea13469069f9b275a)
-        if [ ! -b /dev/vda1 ]; then
-          . /sys/class/block/vda1/uevent
-          mknod /dev/vda1 b $MAJOR $MINOR
-        fi
-
         mkdir /mnt
         mount /dev/vda1 /mnt
 
