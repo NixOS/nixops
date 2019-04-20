@@ -1084,6 +1084,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # Reapply sourceDestCheck if it has changed.
         if self.source_dest_check != defn.source_dest_check:
             instance.modify_attribute("sourceDestCheck", defn.source_dest_check)
+            self.source_dest_check = defn.source_dest_check
 
         # Assign the elastic IP.  If necessary, dereference the resource.
         elastic_ipv4 = defn.elastic_ipv4
