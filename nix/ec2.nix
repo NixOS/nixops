@@ -354,6 +354,15 @@ in
       '';
     };
 
+    deployment.ec2.sourceDestCheck = mkOption {
+      default = true;
+      type = types.bool;
+      description = ''
+        If instance in a subnet/VPC, whether to enable or disable
+        source-destination-check.
+      '';
+    };
+
     deployment.ec2.placementGroup = mkOption {
       default = "";
       example = "my-cluster";

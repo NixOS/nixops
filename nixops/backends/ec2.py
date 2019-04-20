@@ -61,6 +61,7 @@ class EC2Definition(MachineDefinition):
         self.subnet_id = config["ec2"]["subnetId"]
         self.associate_public_ip_address = config["ec2"]["associatePublicIpAddress"]
         self.use_private_ip_address = config["ec2"]["usePrivateIpAddress"]
+        self.source_dest_check = config["ec2"]["sourceDestCheck"]
         self.security_group_ids = config["ec2"]["securityGroupIds"]
 
         # convert sd to xvd because they are equal from aws perspective
@@ -95,6 +96,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     private_ipv4 = nixops.util.attr_property("privateIpv4", None)
     public_dns_name = nixops.util.attr_property("publicDnsName", None)
     use_private_ip_address = nixops.util.attr_property("ec2.usePrivateIpAddress", False, type=bool)
+    source_dest_check = nixops.util.attr_property("ec2.sourceDestCheck", True, type=bool)
     associate_public_ip_address = nixops.util.attr_property("ec2.associatePublicIpAddress", False, type=bool)
     elastic_ipv4 = nixops.util.attr_property("ec2.elasticIpv4", None)
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
@@ -138,6 +140,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.state = MachineState.MISSING
             self.associate_public_ip_address = None
             self.use_private_ip_address = None
+            self.source_dest_check = None
             self.vm_id = None
             self.public_ipv4 = None
             self.private_ipv4 = None
@@ -1077,6 +1080,10 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if defn.owners != []:
             common_tags['Owners'] = ", ".join(defn.owners)
         self.update_tags(self.vm_id, user_tags=common_tags, check=check)
+
+        # Reapply sourceDestCheck if it has changed.
+        if self.source_dest_check != defn.source_dest_check:
+            instance.modify_attribute("sourceDestCheck", defn.source_dest_check)
 
         # Assign the elastic IP.  If necessary, dereference the resource.
         elastic_ipv4 = defn.elastic_ipv4
