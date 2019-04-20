@@ -160,6 +160,10 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
                 states=['available', 'in-use'])
             self.state = self.UP
 
+    def check(self):
+        volume = nixops.ec2_utils.get_volume_by_id(self.connect(self.region), self.volume_id)
+        if volume is None:
+            self.state = self.MISSING
 
     def destroy(self, wipe=False):
         if not self._exists(): return True

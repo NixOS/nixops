@@ -557,6 +557,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         device_real = device_name_stored_to_real(device_stored)
 
         volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id)
+        if not volume:
+            raise Exception("volume {0} doesn't exist, run check to update the state of the volume".format(volume_id))
         if volume.status == "in-use" and \
             self.vm_id != volume.attach_data.instance_id and \
             self.depl.logger.confirm("volume ‘{0}’ is in use by instance ‘{1}’, "
