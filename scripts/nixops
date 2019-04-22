@@ -682,6 +682,20 @@ def op_edit():
     os.system("$EDITOR " + " ".join([pipes.quote(x) for x in depl.nix_exprs]))
 
 
+def op_copy_closure():
+    depl = open_deployment()
+    (username, machine) = parse_machine(args.machine)
+    m = depl.machines.get(machine)
+    if not m:
+        raise Exception("unknown machine ‘{0}’".format(machine))
+    env = dict(os.environ)
+    env['NIX_SSHOPTS'] = ' '.join(m.get_ssh_flags())
+    res = subprocess.call(
+        ["nix", "copy", "--to",
+            "ssh://{}".format(m.get_ssh_name()), args.storepath],
+        env=env)
+    sys.exit(res)
+
 # Set up logging of all commands and output
 def setup_logging(args):
     if os.path.exists('/dev/log') \
@@ -972,6 +986,11 @@ subparser.set_defaults(op=op_import)
 
 subparser = add_subparser('edit', help='open the deployment specification in $EDITOR')
 subparser.set_defaults(op=op_edit)
+
+subparser = add_subparser('copy-closure', help='copy closure to a target machine')
+subparser.add_argument('machine', help='identifier of the machine')
+subparser.add_argument('storepath', help='store path of the closure to be copied')
+subparser.set_defaults(op=op_copy_closure)
 
 
 if os.path.basename(sys.argv[0]) == "charon":
