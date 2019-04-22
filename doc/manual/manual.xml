@@ -70,6 +70,21 @@
       Amazon Web Services (AWS) cloud computing environment.</para>
 
       <section>
+        <title>Route53 RecordSet</title>
+        <xi:include href="route53-recordset-options.xml" />
+      </section>
+
+      <section>
+        <title>Route53 Hosted Zone</title>
+        <xi:include href="route53-hosted-zone-options.xml" />
+      </section>
+
+      <section>
+        <title>Route53 Health Check</title>
+        <xi:include href="route53-health-check-options.xml" />
+      </section>
+
+      <section>
         <title>EBS Volumes</title>
         <para>An Amazon EBS volume is defined by setting
         <literal>resources.ebsVolumes.<replaceable>name</replaceable></literal>

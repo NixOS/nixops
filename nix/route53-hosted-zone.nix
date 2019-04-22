@@ -63,6 +63,7 @@ with lib;
         };
       });
       default = [];
+      description = "VPCs";
     };
 
     delegationSet = mkOption {
