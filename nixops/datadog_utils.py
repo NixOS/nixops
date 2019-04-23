@@ -11,7 +11,7 @@ def initializeDatadog(api_key = None, app_key = None):
     if not app_key: app_key = os.environ.get('DATADOG_APP_KEY')
     if not api_key or not app_key:
         raise Exception("please set the datadog apiKey and appKey options (or the environment variables DATADOG_API_KEY and DATADOG_APP_KEY)")
-    options = {'api_key': api_key, 'app_key': app_key}
+    options = {'api_key': api_key.rstrip(), 'app_key': app_key.rstrip()}
     initialize(**options)
     return (api, options)
 
