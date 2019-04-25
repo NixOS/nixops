@@ -65,6 +65,7 @@ class EC2Definition(MachineDefinition):
         self.use_private_ip_address = config["ec2"]["usePrivateIpAddress"]
         self.source_dest_check = config["ec2"]["sourceDestCheck"]
         self.security_group_ids = config["ec2"]["securityGroupIds"]
+        self.enable_hibernation = config["ec2"]["enableHibernation"]
 
         # convert sd to xvd because they are equal from aws perspective
         self.block_device_mapping = {device_name_user_entered_to_stored(k): v for k, v in config["ec2"]["blockDeviceMapping"].iteritems()}
@@ -126,6 +127,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     subnet_id = nixops.util.attr_property("ec2.subnetId", None)
     first_boot = nixops.util.attr_property("ec2.firstBoot", True, type=bool)
     virtualization_type = nixops.util.attr_property("ec2.virtualizationType", None)
+    enable_hibernation = nixops.util.attr_property("ec2.enableHibernation", False, type=bool)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -166,6 +168,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.dns_hostname = None
             self.dns_ttl = None
             self.subnet_id = None
+            self.enable_hibernation = None
 
             self.client_token = None
             self.spot_instance_request_id = None
@@ -724,6 +727,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             )]
         else:
             args['SecurityGroups'] = defn.security_groups
+
+        if defn.enable_hibernation:
+            args['HibernationOptions'] = dict( Configured=defn.enable_hibernation )
+            with self.depl._db:
+                self.enable_hibernation = defn.enable_hibernation
 
         if defn.spot_instance_price:
             args["InstanceMarketOptions"] = dict(

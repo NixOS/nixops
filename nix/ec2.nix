@@ -461,6 +461,14 @@ in
       '';
     };
 
+    deployment.ec2.enableHibernation = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        Indicates whether an instance is enabled for hibernation.
+      '';
+    };
+
     fileSystems = mkOption {
       type = with types; loaOf (submodule fileSystemsOptions);
     };
