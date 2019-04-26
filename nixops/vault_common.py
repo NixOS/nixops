@@ -16,7 +16,7 @@ def approle_path(base, path):
 
 def vault_get(vault_token, vault_address, path):
     try:
-        header = {"X-Vault-Token": vault_token}
+        header = {"X-Vault-Token": vault_token.rstrip()}
         remote_endpoint = approle_path(vault_address, path)
         r = requests.get(remote_endpoint, headers=header, timeout=TIMEOUT)
     except requests.exceptions.RequestException as e:
@@ -25,7 +25,7 @@ def vault_get(vault_token, vault_address, path):
 
 def vault_post(vault_token, vault_address, path, data):
     try:
-        header = {"X-Vault-Token": vault_token}
+        header = {"X-Vault-Token": vault_token.rstrip()}
         remote_endpoint = approle_path(vault_address, path)
         r = requests.post(remote_endpoint, headers=header,
                           json=data, timeout=TIMEOUT)
@@ -35,7 +35,7 @@ def vault_post(vault_token, vault_address, path, data):
 
 def vault_delete(vault_token, vault_address, path):
     try:
-        header = {"X-Vault-Token": vault_token}
+        header = {"X-Vault-Token": vault_token.rstrip()}
         remote_endpoint = approle_path(vault_address, path)
         r = requests.delete(remote_endpoint, headers=header, timeout=TIMEOUT)
     except requests.exceptions.RequestException as e:
