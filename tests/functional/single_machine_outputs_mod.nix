@@ -3,7 +3,7 @@ let
 in
 {
   resources = {
-    output.thing = {
+    commandOutput.thing = {
       script = lib.mkForce ''
         #!/bin/sh
         echo -n '"123456"'

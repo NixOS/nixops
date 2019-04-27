@@ -1,16 +1,14 @@
 {
   resources = {
-    output.thing = {
+    commandOutput.thing = {
       script = ''
         #!/bin/sh
         echo -n '"12345"'
       '';
     };
   };
-  machine = {resources, ...} : {
+  machine = {resources, pkgs, ...} : {
     imports = [ <nixpkgs/nixos/modules/profiles/minimal.nix> ];
-    deployment = {
-      keys."secret.key".text = resources.output.thing.value;
-    };
+    environment.etc."test.txt".text = resources.commandOutput.thing.value;
   };
 }

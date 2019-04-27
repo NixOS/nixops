@@ -5,7 +5,7 @@ with lib;
     name = mkOption {
       default = name;
       type = types.str;
-      description = "Name of the output.";
+      description = "Name of the Command Output.";
     };
 
     script = mkOption {
@@ -27,6 +27,6 @@ with lib;
     };
   };
   config = {
-    _type = "output";
+    _type = "commandOutput";
   };
 }

@@ -16,8 +16,4 @@ class TestOutputCreates(single_machine_test.SingleMachineTest):
 
     def run_check(self):
         self.depl.deploy()
-        self.check_command("test -f /run/keys/secret.key")
-        self.check_command("rm -f /run/keys/secret.key")
-        self.depl.send_keys()
-        self.check_command("test -f /run/keys/secret.key")
-        assert "\"12345\"" == self.depl.machines["machine"].run_command("cat /run/keys/secret.key",capture_stdout=True), "Key contents incorrect"
+        assert "\"12345\"" == self.depl.machines["machine"].run_command("cat /etc/test.txt",capture_stdout=True), "Resource contents incorrect"

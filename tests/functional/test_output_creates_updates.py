@@ -18,8 +18,8 @@ class TestOutputCreates(single_machine_test.SingleMachineTest):
 
     def run_check(self):
         self.depl.deploy()
-        assert "\"12345\"" == self.depl.machines["machine"].run_command("cat /run/keys/secret.key",capture_stdout=True), "Key contents incorrect"
+        assert "\"12345\"" == self.depl.machines["machine"].run_command("cat /etc/test.txt",capture_stdout=True), "Resource contents incorrect"
 
         self.depl.nix_exprs = self.depl.nix_exprs + [ output_spec2 ]
         self.depl.deploy()
-        assert "\"123456\"" == self.depl.machines["machine"].run_command("cat /run/keys/secret.key",capture_stdout=True), "Key contents incorrect"
+        assert "\"123456\"" == self.depl.machines["machine"].run_command("cat /etc/test.txt",capture_stdout=True), "Resource contents update incorrect"

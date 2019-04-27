@@ -309,13 +309,13 @@ class Deployment(object):
         except subprocess.CalledProcessError:
             raise NixEvalError
 
-    def evaluate_config(self, attr,extra_exprs=[]):
+    def evaluate_config(self, attr):
         try:
             # FIXME: use --json
             xml = subprocess.check_output(
                 ["nix-instantiate"]
                 + self.extra_nix_eval_flags
-                + self._eval_flags(self.nix_exprs + extra_exprs) +
+                + self._eval_flags(self.nix_exprs) +
                 ["--eval-only", "--xml", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
                  "-A", attr], stderr=self.logger.log_file)
@@ -653,11 +653,6 @@ class Deployment(object):
             os.environ['NIX_CURRENT_LOAD'] = load_dir
 
         try:
-            # Re-evaluate info.machines in order to have phys_expr (IP's, resources, etc) available for keys
-            (_,config) = self.evaluate_config("info.machines",extra_exprs=[phys_expr])
-            for m in selected:
-                m.keys = config[m.name]['keys']
-
             configs_path = subprocess.check_output(
                 ["nix-build"]
                 + self._eval_flags(self.nix_exprs + [phys_expr]) +
