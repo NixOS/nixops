@@ -52,12 +52,12 @@ class CommandOutputState(nixops.resources.ResourceState):
         # type: () -> Optional[str]
         if self.value is not None:
             # Avoid printing any potential secret information
-            return "{0}-{1}".format(self.outputName,hashlib.sha256(self.value).hexdigest()[:32])
+            return "{0}-{1}".format(self.commandName,hashlib.sha256(self.value).hexdigest()[:32])
         else:
             return None
 
     def create(self, defn, check, allow_reboot, allow_recreate):
-        # type: (OutputDefinition,bool,bool,bool) -> None
+        # type: (CommandOutputDefinition,bool,bool,bool) -> None
         if (defn.config['script'] is not None ) and (self.script != defn.config['script']) or self.value is None:
             self.commandName = defn.name
             try:
