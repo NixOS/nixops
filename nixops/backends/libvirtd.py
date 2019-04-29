@@ -270,7 +270,7 @@ class LibvirtdState(MachineState):
         self.private_ipv4 = self._parse_ip()
         return self.private_ipv4
 
-    def stop(self):
+    def stop(self, hibernate=False):
         assert self.vm_id
         if self._is_running():
             self.log_start("shutting down... ")

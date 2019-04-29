@@ -977,7 +977,7 @@ class AzureState(MachineState, ResourceState):
             self.wait_for_ssh(check=True)
             self.send_keys()
 
-    def stop(self):
+    def stop(self, hibernate=False):
         if self.vm_id:
            #FIXME: there's also "stopped deallocated" version of this. how to integrate?
             self.log("stopping Azure machine... ")

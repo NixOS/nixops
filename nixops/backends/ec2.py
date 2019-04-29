@@ -1406,18 +1406,30 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         return True
 
 
-    def stop(self):
+    def stop(self, hibernate=False):
         if not self._booted_from_ebs():
             self.warn("cannot stop non-EBS-backed instance")
             return
 
-        if not self.depl.logger.confirm("are you sure you want to stop machine '{}'".format(self.name)):
-            return
-
-        self.log_start("stopping EC2 machine... ")
-
+        self.connect_boto3()
         instance = self._get_instance()
-        instance.stop()  # no-op if the machine is already stopped
+
+        if hibernate:
+            if not self.depl.logger.confirm("are you sure you want to stop hibernate machine '{}'".format(self.name)):
+                return
+
+            self.log_start("stopping EC2 machine... ")
+
+            self._conn_boto3.stop_instances(InstanceIds=[instance.id], Hibernate=hibernate)
+            # no-op if the machine is already hibernated
+        else:
+            if not self.depl.logger.confirm("are you sure you want to stop machine '{}'".format(self.name)):
+                return
+
+            self.log_start("stopping EC2 machine... ")
+
+            self._conn_boto3.stop_instances(InstanceIds=[instance.id])
+            # no-op if the machine is already stopped
 
         self.state = self.STOPPING
 

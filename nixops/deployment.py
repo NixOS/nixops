@@ -1178,12 +1178,12 @@ class Deployment(object):
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
 
-    def stop_machines(self, include=[], exclude=[]):
+    def stop_machines(self, include=[], exclude=[], hibernate=False):
         """Stop all active machines."""
 
         def worker(m):
             if not should_do(m, include, exclude): return
-            m.stop()
+            m.stop(hibernate=hibernate)
 
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 

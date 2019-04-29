@@ -670,7 +670,7 @@ class HetznerState(MachineState):
 
         self.state = self.STOPPED
 
-    def stop(self):
+    def stop(self, hibernate=False):
         """
         Stops the server by shutting it down without powering it off.
         """

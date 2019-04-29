@@ -620,7 +620,7 @@ class GCEState(MachineState, ResourceState):
             self.send_keys()
 
 
-    def stop(self):
+    def stop(self, hibernate=False):
         if not self.vm_id: return
 
         try:

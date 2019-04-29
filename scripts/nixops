@@ -445,7 +445,9 @@ def op_stop():
     depl = open_deployment()
     if args.confirm:
         depl.logger.set_autoresponse("y")
-    depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
+    depl.stop_machines(include=args.include or [],
+                       exclude=args.exclude or [],
+                       hibernate=args.hibernate)
 
 
 def op_start():
@@ -850,6 +852,7 @@ subparser = add_subparser('stop', help='stop all virtual machines in the network
 subparser.set_defaults(op=op_stop)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='stop only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='stop all except the specified machines')
+subparser.add_argument('--hibernate', action='store_true', default=False, help='hibernate then stop the specified machines')
 
 subparser = add_subparser('start', help='start all virtual machines in the network')
 subparser.set_defaults(op=op_start)

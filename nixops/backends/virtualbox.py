@@ -402,7 +402,7 @@ class VirtualBoxState(MachineState):
         return True
 
 
-    def stop(self):
+    def stop(self, hibernate=False):
         state = self._get_vm_state()
 
         if state not in ['poweroff', 'aborted']:

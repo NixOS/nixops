@@ -172,7 +172,7 @@ class ContainerState(MachineState):
 
         return True
 
-    def stop(self):
+    def stop(self, hibernate=False):
         if not self.vm_id: return True
         self.log("stopping container...")
         self.state = self.STOPPING
