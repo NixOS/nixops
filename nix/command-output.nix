@@ -11,7 +11,6 @@ with lib;
     script = mkOption {
       default = null;
       type = types.nullOr types.str;
-      #type = types.nullOr (types.either types.str types.path);
       description = ''
         Text of a script which will produce a JSON value.
         <warning>Warning: This uses shell features and is potentially dangerous.</warning>
