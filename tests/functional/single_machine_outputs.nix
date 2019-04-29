@@ -8,7 +8,7 @@
     };
   };
   machine = {resources, pkgs, ...} : {
-    imports = [ <nixpkgs/nixos/modules/profiles/minimal.nix> ];
+    deployment.targetEnv = "libvirtd";
     environment.etc."test.txt".text = resources.commandOutput.thing.value;
   };
 }
