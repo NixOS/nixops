@@ -158,7 +158,7 @@ curl https://nixos.org/nix/install | sh
 
 source ~/.nix-profile/etc/profile.d/nix.sh
 
-[ -z "$NIX_CHANNEL" ] && NIX_CHANNEL="nixos-18.09"
+[ -z "$NIX_CHANNEL" ] && NIX_CHANNEL="nixos-19.03"
 nix-channel --remove nixpkgs
 nix-channel --add "https://nixos.org/channels/$NIX_CHANNEL" nixos
 nix-channel --update
