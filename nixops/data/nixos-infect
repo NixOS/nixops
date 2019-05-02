@@ -100,18 +100,18 @@ EOF
     defaultGateway6 = "${gateway6}";
     interfaces = {
       ens3 = {
-        ip4 = [$(for a in ${ens3_ip4s[@]}; do echo -n "
+        ipv4.addresses = [$(for a in ${ens3_ip4s[@]}; do echo -n "
           $a"; done)
         ];
-        ip6 = [$(for a in ${ens3_ip6s[@]}; do echo -n "
+        ipv6.addresses = [$(for a in ${ens3_ip6s[@]}; do echo -n "
           $a"; done)
         ];
       };
       ens4 = {
-        ip4 = [$(for a in ${ens4_ip4s[@]}; do echo -n "
+        ipv4.addresses = [$(for a in ${ens4_ip4s[@]}; do echo -n "
           $a"; done)
         ];
-        ip6 = [$(for a in ${ens4_ip6s[@]}; do echo -n "
+        ipv6.addresses = [$(for a in ${ens4_ip6s[@]}; do echo -n "
           $a"; done)
         ];
       };
@@ -158,7 +158,7 @@ curl https://nixos.org/nix/install | sh
 
 source ~/.nix-profile/etc/profile.d/nix.sh
 
-[ -z "$NIX_CHANNEL" ] && NIX_CHANNEL="nixos-18.09"
+[ -z "$NIX_CHANNEL" ] && NIX_CHANNEL="nixos-19.03"
 nix-channel --remove nixpkgs
 nix-channel --add "https://nixos.org/channels/$NIX_CHANNEL" nixos
 nix-channel --update
