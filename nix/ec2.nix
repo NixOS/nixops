@@ -427,7 +427,7 @@ in
 
     deployment.ec2.spotInstanceRequestType = mkOption {
       default = "one-time";
-      type = types.str;
+      type = types.enum [ "one-time" "persistent" ];
       description = ''
         The type of the spot instance request. It can be either "one-time" or "persistent".
       '';
@@ -435,7 +435,7 @@ in
 
     deployment.ec2.spotInstanceInterruptionBehavior = mkOption {
       default = "terminate";
-      type = types.str;
+      type = types.enum [ "terminate" "stop" "hibernate" ];
       description = ''
         Whether to terminate, stop or hibernate the instance when it gets interrupted.
         For stop, spotInstanceRequestType must be set to "persistent".
