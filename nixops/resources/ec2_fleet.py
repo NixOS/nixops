@@ -1,0 +1,328 @@
+# -*- coding: utf-8 -*-
+import datetime
+import time
+import sys
+import nixops.util
+import nixops.resources
+import botocore.exceptions
+from nixops.resources.ec2_common import EC2CommonState
+
+class ec2FleetDefinition(nixops.resources.ResourceDefinition):
+    """Definition of an ec2 fleet"""
+
+    @classmethod
+    def get_type(cls):
+        return "ec2-fleet"
+
+    @classmethod
+    def get_resource_type(cls):
+        return "ec2Fleet"
+
+    def show_type(self):
+        return "{0}".format(self.get_type())
+
+
+class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
+    """State of an ec2 fleet"""
+
+    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    access_key_id = nixops.util.attr_property("accessKeyId", None)
+    region = nixops.util.attr_property("region", None)
+    excessCapacityTerminationPolicy = nixops.util.attr_property("ExcessCapacityTerminationPolicy", None)
+    launchTemplateVersion = nixops.util.attr_property("launchTemplateVersion", None)
+    launchTemplateOverrides = nixops.util.attr_property("launchTemplateOverrides", {}, 'json')
+    launchTemplateName = nixops.util.attr_property("launchTemplateName", None)
+    terminateInstancesWithExpiration = nixops.util.attr_property("TerminateInstancesWithExpiration", True, type=bool)
+    fleetRequestType = nixops.util.attr_property("fleetRequestType", None)
+    replaceUnhealthyInstances = nixops.util.attr_property("replaceUnhealthyInstances", False, type=bool)
+    spotAllocationStrategy = nixops.util.attr_property("spotAllocationStrategy", None)
+    spotInstanceInterruptionBehavior = nixops.util.attr_property("spotInstanceInterruptionBehavior", None)
+    spotInstancePoolsToUseCount = nixops.util.attr_property("spotInstancePoolsToUseCount", None)
+    spotSingleInstanceType = nixops.util.attr_property("spotSingleInstanceType", True, type=bool)
+    spotSingleAvailabilityZone = nixops.util.attr_property("spotSingleAvailabilityZone", True, type=bool)
+    spotMinTargetCapacity = nixops.util.attr_property("spotMinTargetCapacity", None, int)
+    onDemandAllocationStrategy = nixops.util.attr_property("onDemandAllocationStrategy", None)
+    onDemandSingleInstanceType = nixops.util.attr_property("onDemandSingleInstanceType", True, type=bool)
+    onDemandSingleAvailabilityZone = nixops.util.attr_property("onDemandSingleAvailabilityZone", True, type=bool)
+    onDemandMinTargetCapacity = nixops.util.attr_property("onDemandMinTargetCapacity", None, int)
+    totalTargetCapacity = nixops.util.attr_property("totalTargetCapacity", None, int)
+    onDemandTargetCapacity = nixops.util.attr_property("onDemandTargetCapacity", None, int)
+    spotTargetCapacity = nixops.util.attr_property("spotTargetCapacity", None, int)
+    defaultTargetCapacityType = nixops.util.attr_property("defaultTargetCapacityType", None)
+    terminateInstancesOnDeletion = nixops.util.attr_property("terminateInstancesOnDeletion", False, type=bool)
+    client_token = nixops.util.attr_property("clientToken", None)
+    fleetId = nixops.util.attr_property("fleetId", None)
+    fleetInstances = nixops.util.attr_property("fleetInstances", {}, 'json')
+
+    @classmethod
+    def get_type(cls):
+        return "ec2-fleet"
+
+    def __init__(self, depl, name, id):
+        nixops.resources.ResourceState.__init__(self, depl, name, id)
+        self._conn_boto3 = None
+
+    def _exists(self):
+        return self.state != self.MISSING
+
+    def show_type(self):
+        s = super(ec2FleetState, self).show_type()
+        return s
+
+    @property
+    def resource_id(self):
+        return self.fleetId
+
+    # def get_definition_prefix(self):
+    #     return "resources.ec2Fleet."
+
+    # def prefix_definition(self, attr):
+    #     return {('resources', 'ec2Fleet'): attr}
+
+    def connect_boto3(self, region):
+        if self._conn_boto3: return self._conn_boto3
+        self._conn_boto3 = nixops.ec2_utils.connect_ec2_boto3(region, self.access_key_id)
+        return self._conn_boto3
+
+    def create(self, defn, check, allow_reboot, allow_recreate):
+
+        if self.region is None:
+            self.region = defn.config['region']
+        elif self.region != defn.config['region']:
+            self.warn("cannot change region of a running instance (from ‘{}‘ to ‘{}‘)".format(self.region, defn.config['region']))
+
+        self.terminateInstancesOnDeletion = defn.config['terminateInstancesOnDeletion']
+        self.access_key_id = defn.config['accessKeyId']
+        self.connect_boto3(self.region)
+
+        # Create the fleet dict request.
+        if self.state != self.UP: 
+            args = dict()
+            if defn.config['spotOptions']['minTargetCapacity']:
+                args['SpotOptions'] = dict(
+                    AllocationStrategy=defn.config['spotOptions']['allocationStrategy'],
+                    InstanceInterruptionBehavior=defn.config['spotOptions']['instanceInterruptionBehavior'],
+                    InstancePoolsToUseCount=defn.config['spotOptions']['instancePoolsToUseCount'],
+                    SingleInstanceType=defn.config['spotOptions']['singleInstanceType'],
+                    SingleAvailabilityZone=defn.config['spotOptions']['singleAvailabilityZone'],
+                    MinTargetCapacity=defn.config['spotOptions']['minTargetCapacity']
+                )
+                with self.depl._db:
+                    self.spotAllocationStrategy = defn.config['spotOptions']['allocationStrategy']
+                    self.spotInstanceInterruptionBehavior = defn.config['spotOptions']['instanceInterruptionBehavior']
+                    self.spotInstancePoolsToUseCount = defn.config['spotOptions']['instancePoolsToUseCount']
+                    self.spotSingleInstanceType = defn.config['spotOptions']['singleInstanceType']
+                    self.spotSingleAvailabilityZone = defn.config['spotOptions']['singleAvailabilityZone']
+                    self.spotMinTargetCapacity = defn.config['spotOptions']['minTargetCapacity']
+            if defn.config['onDemandOptions']['minTargetCapacity']:
+                args['OnDemandOptions'] = dict(
+                    AllocationStrategy=defn.config['onDemandOptions']['allocationStrategy'],
+                    SingleInstanceType=defn.config['onDemandOptions']['singleInstanceType'],
+                    SingleAvailabilityZone=defn.config['onDemandOptions']['singleAvailabilityZone'],
+                    MinTargetCapacity=defn.config['onDemandOptions']['minTargetCapacity']
+                )
+                with self.depl._db:
+                    self.onDemandAllocationStrategy = defn.config['onDemandOptions']['allocationStrategy']
+                    self.onDemandSingleInstanceType = defn.config['onDemandOptions']['singleInstanceType']
+                    self.onDemandSingleAvailabilityZone = defn.config['onDemandOptions']['singleAvailabilityZone']
+                    self.onDemandMinTargetCapacity = defn.config['onDemandOptions']['minTargetCapacity']
+            args['TargetCapacitySpecification'] = dict(
+                TotalTargetCapacity=defn.config['targetCapacitySpecification']['totalTargetCapacity'],
+                OnDemandTargetCapacity=defn.config['targetCapacitySpecification']['onDemandTargetCapacity'],
+                SpotTargetCapacity=defn.config['targetCapacitySpecification']['spotTargetCapacity'],
+                DefaultTargetCapacityType=defn.config['targetCapacitySpecification']['defaultTargetCapacityType']
+            )
+            with self.depl._db:
+                self.totalTargetCapacity = defn.config['targetCapacitySpecification']['totalTargetCapacity']
+                self.onDemandTargetCapacity = defn.config['targetCapacitySpecification']['onDemandTargetCapacity']
+                self.spotTargetCapacity = defn.config['targetCapacitySpecification']['spotTargetCapacity']
+                self.defaultTargetCapacityType = defn.config['targetCapacitySpecification']['defaultTargetCapacityType']
+
+            args['ExcessCapacityTerminationPolicy'] = defn.config['excessCapacityTerminationPolicy']
+
+            args['LaunchTemplateConfigs'] = [dict(
+                LaunchTemplateSpecification=dict(
+                    LaunchTemplateName=defn.config['launchTemplateName'],
+                    Version=defn.config['launchTemplateVersion']
+                ),
+                Overrides=defn.config['launchTemplateOverrides']
+            )]
+
+            args['TerminateInstancesWithExpiration'] = defn.config['terminateInstancesWithExpiration']
+            args['Type'] = defn.config['fleetRequestType']
+
+            if defn.config['ec2FleetValidFrom']:
+                args['ValidFrom'] = (datetime.datetime.utcnow() +
+                        datetime.timedelta(0, defn.config['ec2FleetValidFrom'])).isoformat()
+            if defn.config['ec2FleetValidUntil']:
+                args['validUntil'] = (datetime.datetime.utcnow() +
+                        datetime.timedelta(0, defn.config['ec2FleetValidUntil'])).isoformat()
+
+            args['ReplaceUnhealthyInstances'] = defn.config['replaceUnhealthyInstances']
+            # for instances you need to specify that in the launch template
+            # make sure to use tag updater to put the default nixops tags in here
+            # args['TagSpecifications'] = [dict(
+            #     ResourceType='fleet',
+            #     Tags = [defn.config['tags']]
+            # )]
+            # Use a client token to ensure that fleet creation is
+            # idempotent; i.e., if we get interrupted before recording
+            # the fleet ID, we'll get the same fleet ID on the
+            # next run.
+            if not self.client_token:
+                with self.depl._db:
+                    self.client_token = nixops.util.generate_random_string(length=48) # = 64 ASCII chars
+                    #self.state = self.STARTING
+
+            args['ClientToken'] = self.client_token
+
+            # fleet = self._retry(
+            #     lambda: self._conn_boto3.create_fleet(**args)
+            # )
+
+            try:
+                fleet = self._conn_boto3.create_fleet(**args)
+            except botocore.exceptions.ClientError as error:
+                raise error
+                # IdempotentParameterMismatch
+            with self.depl._db:
+                self.state = self.STARTING
+                self.fleetId = fleet['FleetId']
+                self.excessCapacityTerminationPolicy = defn.config['excessCapacityTerminationPolicy']
+                self.launchTemplateVersion = defn.config['launchTemplateVersion']
+                self.launchTemplateOverrides = defn.config['launchTemplateOverrides']
+                self.launchTemplateName = defn.config['launchTemplateName']
+                self.terminateInstancesWithExpiration = defn.config['terminateInstancesWithExpiration']
+                self.fleetRequestType = defn.config['fleetRequestType']
+                self.replaceUnhealthyInstances = defn.config['replaceUnhealthyInstances']
+        
+            self.log_start("deploying EC2 fleet... ".format(self.name))
+            fleetState = self._conn_boto3.describe_fleets(
+                        FleetIds=[fleet['FleetId']]
+                       )['Fleets'][0]['FleetState']
+            while True:
+                self.log_continue("[{}] ".format(fleetState))
+                if fleetState == "active": break
+                time.sleep(3)
+                fleetState = self._conn_boto3.describe_fleets(FleetIds=[fleet['FleetId']])['Fleets'][0]['FleetState']
+            self.log_end("")
+
+            self.log_start("EC2 fleet activity status... ".format(self.name))
+            fleetStatus = self._conn_boto3.describe_fleets(
+                        FleetIds=[fleet['FleetId']]
+                       )['Fleets'][0]['ActivityStatus']
+            while True:
+                self.log_continue("[{}] ".format(fleetStatus))
+                if fleetStatus == "error":
+                    raise Exception("ec2 fleet activity status is error; check your config")
+                    # i need to fix this bette way
+                if fleetStatus == "fulfilled": break
+                time.sleep(3)
+                fleetStatus = self._conn_boto3.describe_fleets(FleetIds=[fleet['FleetId']])['Fleets'][0]['ActivityStatus']
+            self.log_end("")
+        if self.state == self.STARTING or check:
+            fleet_instances = dict()
+            fleetInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
+            for i in fleetInstances['ActiveInstances']:
+                instance = self._conn_boto3.describe_instances(InstanceIds=[i['InstanceId']])['Reservations'][0]['Instances'][0]
+                fleet_instances[i['InstanceId']] = dict(
+                    instanceType=i['InstanceType'],
+                    ami=instance['ImageId'],
+                    keyPair=instance['KeyName'],
+                    ebsOptimized=instance['EbsOptimized'],
+                    placement=dict(
+                        zone=instance['Placement']['AvailabilityZone'],
+                        tenancy=instance['Placement']['Tenancy']
+                    ),
+                    securityGroupIds=instance['NetworkInterfaces'][0]['Groups'][0]['GroupId'],
+                    subnetId=instance['SubnetId'],
+                    publicIpAddress=instance['PublicIpAddress']
+                )
+                if 'IamInstanceProfile' in instance.keys():
+                    fleet_instances[i['InstanceId']]['instanceProfile'] = instance['IamInstanceProfile']['Arn']
+                if 'SpotInstanceRequestId' in i.keys():
+                    fleet_instances[i['InstanceId']]['SpotInstanceRequestId'] = i['SpotInstanceRequestId']
+            self.fleetInstances = fleet_instances
+            self.state = self.UP
+    
+    def check(self):
+        self.connect_boto3(self.region)
+        fleet = self._conn_boto3.describe_fleets(
+                    FleetIds=[self.fleetId]
+                   )['Fleets']
+        if fleet is None:
+            self.state = self.MISSING
+            return
+            # check with amine if we should set the other stuff to None
+            # also check the instnaces
+        # getting the instances IDs
+        fleet_instances = dict()
+        fleetInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
+        for i in fleetInstances['ActiveInstances']:
+            instance = self._conn_boto3.describe_instances(InstanceIds=[i['InstanceId']])['Reservations'][0]['Instances'][0]
+            fleet_instances[i['InstanceId']] = dict(
+                instanceType=i['InstanceType'],
+                ami=instance['ImageId'],
+                keyPair=instance['KeyName'],
+                ebsOptimized=instance['EbsOptimized'],
+                placement=dict(
+                    zone=instance['Placement']['AvailabilityZone'],
+                    tenancy=instance['Placement']['Tenancy']
+                ),
+                securityGroupIds=instance['NetworkInterfaces'][0]['Groups'][0]['GroupId'],
+                subnetId=instance['SubnetId'],
+                publicIpAddress=instance['PublicIpAddress']
+            )
+            # public ip check
+            if 'IamInstanceProfile' in instance.keys():
+                fleet_instances[i['InstanceId']]['instanceProfile'] = instance['IamInstanceProfile']['Arn']
+            if 'SpotInstanceRequestId' in i.keys():
+                fleet_instances[i['InstanceId']]['SpotInstanceRequestId'] = i['SpotInstanceRequestId']
+        if self.fleetInstances != fleet_instances:
+            self.warn("EC2 fleet instances configration changed")
+            self.fleetInstances = fleet_instances    
+
+    def _destroy(self):
+
+        self.connect_boto3(self.region)
+        if self.terminateInstancesOnDeletion:
+            self.warn("terminateInstancesOnDeletion is set to {}, hence all instance related to the Fleet will be terminated ..."
+                        .format(self.terminateInstancesOnDeletion))
+        
+        self.log_start("destroying EC2 fleet... ".format(self.name))
+        fleet = self._conn_boto3.describe_fleets(
+                    FleetIds=[self.fleetId])['Fleets']
+        if fleet:
+            self._conn_boto3.delete_fleets(
+                        FleetIds=[self.fleetId], 
+                        TerminateInstances=self.terminateInstancesOnDeletion)
+            while True:
+                FleetState = fleet[0]['FleetState']
+                # maybe check and log destroyed instance/instances
+                # use describe_fleet_instances()
+                if self.terminateInstancesOnDeletion:
+                    fleetInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
+                    instances = [i['InstanceId'] for i in fleetInstances['ActiveInstances']]
+                    while True:
+                        if instances == []:
+                            break
+                        else:
+                            self.log_continue("destroying: {0}, ".format(", ".join(instances)))
+                            time.sleep(2)
+                            fleetInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
+                            instances = [i['InstanceId'] for i in fleetInstances['ActiveInstances']] 
+                self.log_continue("[{0}] ".format(FleetState))    
+                if FleetState == "terminated" or FleetState == "deleted": break
+                time.sleep(4)
+                fleet = self._conn_boto3.describe_fleets(FleetIds=[self.fleetId])['Fleets']
+        self.log_end("")
+
+    def destroy(self, wipe=False):
+        if not self._exists(): return True
+
+        self._destroy()
+        return True
+
+
+# when using maintain request type things will go above nixops so it is not like persistent spot
+# we can show the instance ids and their ips in info 
