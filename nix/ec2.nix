@@ -218,6 +218,17 @@ in
       '';
     };
 
+    deployment.ec2.tenancy = mkOption {
+      default = "default";
+      type = types.enum [ "default" "dedicated" "host" ];
+      description = ''
+        The tenancy of the instance (if the instance is running in a VPC).
+        An instance with a tenancy of dedicated runs on single-tenant hardware.
+        An instance with host tenancy runs on a Dedicated Host, which is an
+        isolated server with configurations that you can control.
+      '';
+    };
+
     deployment.ec2.ebsBoot = mkOption {
       default = true;
       type = types.bool;

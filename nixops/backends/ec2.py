@@ -44,6 +44,7 @@ class EC2Definition(MachineDefinition):
         self.access_key_id = config["ec2"]["accessKeyId"]
         self.region = config["ec2"]["region"]
         self.zone = config["ec2"]["zone"]
+        self.tenancy = config["ec2"]["tenancy"]
         self.ami = config["ec2"]["ami"]
         if self.ami == "":
             raise Exception("no AMI defined for EC2 machine ‘{0}’".format(self.name))
@@ -104,6 +105,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     access_key_id = nixops.util.attr_property("ec2.accessKeyId", None)
     region = nixops.util.attr_property("ec2.region", None)
     zone = nixops.util.attr_property("ec2.zone", None)
+    tenancy = nixops.util.attr_property("ec2.tenancy", None)
     ami = nixops.util.attr_property("ec2.ami", None)
     instance_type = nixops.util.attr_property("ec2.instanceType", None)
     ebs_optimized = nixops.util.attr_property("ec2.ebsOptimized", None, bool)
@@ -150,6 +152,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.elastic_ipv4 = None
             self.region = None
             self.zone = None
+            self.tenancy = None
             self.ami = None
             self.instance_type = None
             self.ebs_optimized = None
@@ -741,6 +744,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         placement = dict(
             AvailabilityZone=zone or ""
         )
+        if defn.tenancy:
+            placement['Tenancy'] = defn.tenancy
 
         args['InstanceType'] = defn.instance_type
         args['ImageId'] = defn.ami
@@ -1019,6 +1024,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 self.security_groups = defn.security_groups
                 self.placement_group = defn.placement_group
                 self.zone = instance.placement
+                self.tenancy = defn.tenancy
                 self.instance_profile = defn.instance_profile
                 self.client_token = None
                 self.private_host_key = None
