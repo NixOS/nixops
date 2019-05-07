@@ -131,7 +131,7 @@ class DatadogTimeboardState(nixops.resources.ResourceState):
             else:
                 self.log("deleting datadog timeboard ‘{0}’...".format(self.title))
                 response = self._dd_api.Timeboard.delete(self.timeboard_id)
-                if 'errors' in response.keys():
+                if response and 'errors' in response:
                     raise Exception("there was errors while deleting the timeboard: {}".format(
                         str(response['errors'])))
 
