@@ -112,7 +112,7 @@ class VPCEndpointState(nixops.resources.DiffEngineResourceState, EC2CommonState)
         edp_input = dict()
         edp_input['AddRouteTableIds'] = to_add
         edp_input['RemoveRouteTableIds'] = to_remove
-        if config['policy'] is not None: edp_input['PolicyDocument']
+        if config['policy'] is not None: edp_input['PolicyDocument'] = config['policy']
         edp_input['VpcEndpointId'] = self._state['endpointId']
 
         self.get_client().modify_vpc_endpoint(**edp_input)
