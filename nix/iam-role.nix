@@ -28,6 +28,8 @@ with lib;
       default = "";
     };
 
+  config._type = "ec2-iam-role";
+
   };
 
 }
