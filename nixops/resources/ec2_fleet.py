@@ -50,7 +50,7 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
     spotTargetCapacity = nixops.util.attr_property("spotTargetCapacity", None, int)
     defaultTargetCapacityType = nixops.util.attr_property("defaultTargetCapacityType", None)
     terminateInstancesOnDeletion = nixops.util.attr_property("terminateInstancesOnDeletion", False, type=bool)
-    client_token = nixops.util.attr_property("clientToken", None)
+    client_token = nixops.util.attr_property("fleetClientToken", None)
     fleetId = nixops.util.attr_property("fleetId", None)
     fleetInstances = nixops.util.attr_property("fleetInstances", {}, 'json')
 
@@ -100,10 +100,12 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 ExcessCapacityTerminationPolicy=defn.config['excessCapacityTerminationPolicy'],
                 FleetId=self.fleetId,
                 TargetCapacitySpecification=dict(
-                    TotalTargetCapacity=defn.config['targetCapacitySpecification']['totalTargetCapacity'],
-                    OnDemandTargetCapacity=defn.config['targetCapacitySpecification']['onDemandTargetCapacity'],
-                    SpotTargetCapacity=defn.config['targetCapacitySpecification']['spotTargetCapacity'],
-                    DefaultTargetCapacityType=defn.config['targetCapacitySpecification']['defaultTargetCapacityType']
+                    TotalTargetCapacity=defn.config['targetCapacitySpecification']['totalTargetCapacity']
+                    # Currently ec2-fleet only support total target capacity modification.
+                    # Uncomment below when changing that become supported
+                    # OnDemandTargetCapacity=defn.config['targetCapacitySpecification']['onDemandTargetCapacity'],
+                    # SpotTargetCapacity=defn.config['targetCapacitySpecification']['spotTargetCapacity'],
+                    # DefaultTargetCapacityType=defn.config['targetCapacitySpecification']['defaultTargetCapacityType']
                 )
             )
             try:
@@ -292,7 +294,6 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
             self.fleetInstances = fleet_instances
 
     def _destroy(self):
-
         self.connect_boto3(self.region)
         if self.terminateInstancesOnDeletion:
             self.warn("terminateInstancesOnDeletion is set to {}, hence all instance related to the Fleet will be terminated ..."

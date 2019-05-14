@@ -13,6 +13,12 @@ with lib;
       description = "Name of the launch template.";
     };
 
+    templateId = mkOption {
+      default = "";
+      type = types.str;
+      description = "ec2 launch template ID (set by NixOps)";
+    };
+
     description = mkOption {
       default = "";
       type = types.str;
