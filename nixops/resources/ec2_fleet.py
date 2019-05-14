@@ -73,12 +73,6 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
     def resource_id(self):
         return self.fleetId
 
-    # def get_definition_prefix(self):
-    #     return "resources.ec2Fleet."
-
-    # def prefix_definition(self, attr):
-    #     return {('resources', 'ec2Fleet'): attr}
-
     def connect_boto3(self, region):
         if self._conn_boto3: return self._conn_boto3
         self._conn_boto3 = nixops.ec2_utils.connect_ec2_boto3(region, self.access_key_id)
@@ -94,6 +88,35 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
         self.terminateInstancesOnDeletion = defn.config['terminateInstancesOnDeletion']
         self.access_key_id = defn.config['accessKeyId']
         self.connect_boto3(self.region)
+
+        # check if the desired capacity changed then update it.
+        if self.state == self.UP and (self.totalTargetCapacity != defn.config['targetCapacitySpecification']['totalTargetCapacity'] or
+            self.onDemandTargetCapacity != defn.config['targetCapacitySpecification']['onDemandTargetCapacity'] or
+            self.spotTargetCapacity != defn.config['targetCapacitySpecification']['spotTargetCapacity'] or
+            self.defaultTargetCapacityType != defn.config['targetCapacitySpecification']['defaultTargetCapacityType'] or
+            self.excessCapacityTerminationPolicy != defn.config['excessCapacityTerminationPolicy']):
+            check = True
+            args = dict(
+                ExcessCapacityTerminationPolicy=defn.config['excessCapacityTerminationPolicy'],
+                FleetId=self.fleetId,
+                TargetCapacitySpecification=dict(
+                    TotalTargetCapacity=defn.config['targetCapacitySpecification']['totalTargetCapacity'],
+                    OnDemandTargetCapacity=defn.config['targetCapacitySpecification']['onDemandTargetCapacity'],
+                    SpotTargetCapacity=defn.config['targetCapacitySpecification']['spotTargetCapacity'],
+                    DefaultTargetCapacityType=defn.config['targetCapacitySpecification']['defaultTargetCapacityType']
+                )
+            )
+            try:
+                self._conn_boto3.modify_fleet(**args)
+            except botocore.exceptions.ClientError as error:
+                raise error
+
+            with self.depl._db:
+                self.totalTargetCapacity = defn.config['targetCapacitySpecification']['totalTargetCapacity']
+                self.onDemandTargetCapacity = defn.config['targetCapacitySpecification']['onDemandTargetCapacity']
+                self.spotTargetCapacity = defn.config['targetCapacitySpecification']['spotTargetCapacity']
+                self.defaultTargetCapacityType = defn.config['targetCapacitySpecification']['defaultTargetCapacityType']
+                self.excessCapacityTerminationPolicy = defn.config['excessCapacityTerminationPolicy']
 
         # Create the fleet dict request.
         if self.state != self.UP: 
@@ -159,12 +182,14 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                         datetime.timedelta(0, defn.config['ec2FleetValidUntil'])).isoformat()
 
             args['ReplaceUnhealthyInstances'] = defn.config['replaceUnhealthyInstances']
+
             # for instances you need to specify that in the launch template
             # make sure to use tag updater to put the default nixops tags in here
             # args['TagSpecifications'] = [dict(
             #     ResourceType='fleet',
             #     Tags = [defn.config['tags']]
             # )]
+
             # Use a client token to ensure that fleet creation is
             # idempotent; i.e., if we get interrupted before recording
             # the fleet ID, we'll get the same fleet ID on the
@@ -184,7 +209,8 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 fleet = self._conn_boto3.create_fleet(**args)
             except botocore.exceptions.ClientError as error:
                 raise error
-                # IdempotentParameterMismatch
+                #TODO: handle IdempotentParameterMismatch
+                # Not sure whether to use lambda retry or keep it like this
             with self.depl._db:
                 self.state = self.STARTING
                 self.fleetId = fleet['FleetId']
@@ -198,18 +224,19 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
         
             self.log_start("deploying EC2 fleet... ".format(self.name))
             fleetState = self._conn_boto3.describe_fleets(
-                        FleetIds=[fleet['FleetId']]
+                        FleetIds=[self.fleetId]
                        )['Fleets'][0]['FleetState']
             while True:
                 self.log_continue("[{}] ".format(fleetState))
                 if fleetState == "active": break
                 time.sleep(3)
-                fleetState = self._conn_boto3.describe_fleets(FleetIds=[fleet['FleetId']])['Fleets'][0]['FleetState']
+                fleetState = self._conn_boto3.describe_fleets(FleetIds=[self.fleetId])['Fleets'][0]['FleetState']
             self.log_end("")
 
+        if self.state == self.STARTING or check:
             self.log_start("EC2 fleet activity status... ".format(self.name))
             fleetStatus = self._conn_boto3.describe_fleets(
-                        FleetIds=[fleet['FleetId']]
+                        FleetIds=[self.fleetId]
                        )['Fleets'][0]['ActivityStatus']
             while True:
                 self.log_continue("[{}] ".format(fleetStatus))
@@ -218,31 +245,9 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                     # i need to fix this bette way
                 if fleetStatus == "fulfilled": break
                 time.sleep(3)
-                fleetStatus = self._conn_boto3.describe_fleets(FleetIds=[fleet['FleetId']])['Fleets'][0]['ActivityStatus']
+                fleetStatus = self._conn_boto3.describe_fleets(FleetIds=[self.fleetId])['Fleets'][0]['ActivityStatus']
             self.log_end("")
-        if self.state == self.STARTING or check:
-            fleet_instances = dict()
-            fleetInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
-            for i in fleetInstances['ActiveInstances']:
-                instance = self._conn_boto3.describe_instances(InstanceIds=[i['InstanceId']])['Reservations'][0]['Instances'][0]
-                fleet_instances[i['InstanceId']] = dict(
-                    instanceType=i['InstanceType'],
-                    ami=instance['ImageId'],
-                    keyPair=instance['KeyName'],
-                    ebsOptimized=instance['EbsOptimized'],
-                    placement=dict(
-                        zone=instance['Placement']['AvailabilityZone'],
-                        tenancy=instance['Placement']['Tenancy']
-                    ),
-                    securityGroupIds=instance['NetworkInterfaces'][0]['Groups'][0]['GroupId'],
-                    subnetId=instance['SubnetId'],
-                    publicIpAddress=instance['PublicIpAddress']
-                )
-                if 'IamInstanceProfile' in instance.keys():
-                    fleet_instances[i['InstanceId']]['instanceProfile'] = instance['IamInstanceProfile']['Arn']
-                if 'SpotInstanceRequestId' in i.keys():
-                    fleet_instances[i['InstanceId']]['SpotInstanceRequestId'] = i['SpotInstanceRequestId']
-            self.fleetInstances = fleet_instances
+            self._get_fleet_instances()
             self.state = self.UP
     
     def check(self):
@@ -256,9 +261,13 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
             # check with amine if we should set the other stuff to None
             # also check the instnaces
         # getting the instances IDs
+        self._get_fleet_instances()
+
+    def _get_fleet_instances(self):
+        self.connect_boto3(self.region)
         fleet_instances = dict()
-        fleetInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
-        for i in fleetInstances['ActiveInstances']:
+        activeInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
+        for i in activeInstances['ActiveInstances']:
             instance = self._conn_boto3.describe_instances(InstanceIds=[i['InstanceId']])['Reservations'][0]['Instances'][0]
             fleet_instances[i['InstanceId']] = dict(
                 instanceType=i['InstanceType'],
@@ -280,7 +289,7 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 fleet_instances[i['InstanceId']]['SpotInstanceRequestId'] = i['SpotInstanceRequestId']
         if self.fleetInstances != fleet_instances:
             self.warn("EC2 fleet instances configration changed")
-            self.fleetInstances = fleet_instances    
+            self.fleetInstances = fleet_instances
 
     def _destroy(self):
 
@@ -298,8 +307,6 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                         TerminateInstances=self.terminateInstancesOnDeletion)
             while True:
                 FleetState = fleet[0]['FleetState']
-                # maybe check and log destroyed instance/instances
-                # use describe_fleet_instances()
                 if self.terminateInstancesOnDeletion:
                     fleetInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
                     instances = [i['InstanceId'] for i in fleetInstances['ActiveInstances']]
