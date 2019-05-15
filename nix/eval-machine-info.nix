@@ -122,6 +122,7 @@ rec {
   resources.awsVPNConnections = evalResources ./aws-vpn-connection.nix (zipAttrs resourcesByType.awsVPNConnections or []);
   resources.awsVPNConnectionRoutes = evalResources ./aws-vpn-connection-route.nix (zipAttrs resourcesByType.awsVPNConnectionRoutes or []);
   resources.commandOutput = evalResources ./command-output.nix (zipAttrs resourcesByType.commandOutput or []);
+  resources.ec2LaunchTemplate = evalResources ./ec2-launch-template.nix (zipAttrs resourcesByType.ec2LaunchTemplate or []);
   resources.ec2Fleet = evalResources ./ec2-fleet.nix (zipAttrs resourcesByType.ec2Fleet or []);
   resources.machines = mapAttrs (n: v: v.config) nodes;
 

@@ -19,12 +19,6 @@ with lib;
       description = "ec2 launch template ID (set by NixOps)";
     };
 
-    description = mkOption {
-      default = "";
-      type = types.str;
-      description = "The description of the launch template";
-    };
-
     version = mkOption {
       default = "1";
       type = types.str;
@@ -54,7 +48,7 @@ with lib;
           instanceProfile = mkOption {
             default = "";
             example = "rolename";
-            type = types.either types.str (resource "ec2-iam-role");
+            type = with types; (nullOr (either str (resource "ec2-iam-role")));
             apply = x: if builtins.isString x then x else x.name;
             description = ''
               The name of the IAM Instance Profile (IIP) to associate with
@@ -70,9 +64,9 @@ with lib;
           };
 
           instanceType = mkOption {
-            default = "m1.small";
+            default = null;
             example = "m1.large";
-            type = types.str;
+            type = with types; (nullOr str);
             description = ''
               EC2 instance type.  See <link
               xlink:href='http://aws.amazon.com/ec2/instance-types/'/> for a
@@ -81,8 +75,9 @@ with lib;
           };
 
           keyName = mkOption {
+            default = "";
             example = "ssh-keypair";
-            type = types.either types.str (resource "ec2-keypair");
+            type = with types; (nullOr (either str (resource "ec2-keypair")));
             apply = x: if builtins.isString x then x else x.name;
             description = ''
               Name of the SSH key pair to be used to communicate securely
@@ -101,9 +96,9 @@ with lib;
           };
 
           securityGroupIds = mkOption {
-            default = null;
+            default = [];
             example = [ "sg-123abc" ];
-            type = with types; (nullOr (listOf (either str (resource "ec2-security-group"))));
+            type = with types; listOf (either str (resource "ec2-security-group"));
             apply = map (x: if builtins.isString x then x else x. groupId);
             description = ''
               Security groups Ids for the instance. These determine the
@@ -134,16 +129,16 @@ with lib;
           placementGroup = mkOption {
             default = "";
             example = "my-cluster";
-            type = types.either types.str (resource "ec2-placement-group");
+            type = with types; (nullOr (either str (resource "ec2-placement-group")));
             apply = x: if builtins.isString x then x else x.name;
             description = ''
               Placement group for the instance.
             '';
           };
           availabilityZone = mkOption {
-            default = "";
+            default = null;
             example = "us-east-1c";
-            type = types.str;
+            type = with types; (nullOr str);
             description = ''
               The EC2 availability zone in which the instance should be
               created.  If not specified, a zone is selected automatically.
@@ -158,7 +153,7 @@ with lib;
               An instance with host tenancy runs on a Dedicated Host, which is an
               isolated server with configurations that you can control.
             '';
-          }
+          };
 
           # Network interfaces options
           associatePublicIpAddress = mkOption {
@@ -167,9 +162,9 @@ with lib;
             description = ''
               Associates a public IPv4 address with eth0 for a new network interface.
             '';
-          }
+          };
           networkInterfaceId = mkOption {
-            default = null;
+            default = "";
             # must get the id fro mthe name
             type = with types; (nullOr (either str (resource "vpc-network-interface")));
             apply = x: if builtins.isString x then x else x.name;
@@ -180,15 +175,15 @@ with lib;
           subnetId = mkOption {
             default = "";
             example = "subnet-12345678";
-            type = types.either types.str (resource "vpc-subnet");
+            type = with types; (either str (resource "vpc-subnet"));
             apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;
             description = ''
               The subnet inside a VPC to launch the instance in.
             '';
           };
           privateIpAddresses = mkOption {
-            default = [];
-            type = types.listOf types.str;
+            default = null;
+            type = with types; (nullOr (listOf str));
             description = ''
               One or more secondary private IPv4 addresses.
             '';
@@ -216,8 +211,8 @@ with lib;
           instanceMarketOptions = mkOption {
             # we can create different options but i think users can take care of this themselves
             # make sure that this is json and transform it to a dict if thats possible
-            default = "";
-            type = types.str;
+            default = null;
+            type = with types; (nullOr str);
             description = ''
               {
                 'MarketType': 'spot',
@@ -234,7 +229,7 @@ with lib;
         };
       };
     };
-  };
+  }// import ./common-ec2-options.nix { inherit lib; };
 
-  config._type = "launchTemplate";
+  config._type = "ec2-launch-template";
 }

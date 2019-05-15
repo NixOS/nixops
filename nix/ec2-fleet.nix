@@ -30,13 +30,14 @@ with lib;
     };
 
     launchTemplateName = mkOption {
-      type = types.str;
+      type = with types; either str (resource "ec2-launch-template");
+      apply = x: if builtins.isString x then x else x.name;
       description = "The launch template configuration for the EC2 Fleet";
     };
     launchTemplateVersion = mkOption {
       default = "1";
-      # these needs to be changed to dict i think
-      type = types.str;
+      type = with types; either str (resource "ec2-launch-template");
+      apply = x: if builtins.isString x then x else x.version;
       description = "The launch template version to use";
     };
     launchTemplateOverrides = mkOption {

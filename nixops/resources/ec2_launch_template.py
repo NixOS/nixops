@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import ast
+import sys
 import nixops.util
 import nixops.resources
 import botocore.exceptions
@@ -18,16 +20,14 @@ class ec2LaunchTemplateDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-
 class ec2LaunchTemplate(nixops.resources.ResourceState, EC2CommonState):
     """State of an ec2 launch template"""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     region = nixops.util.attr_property("region", None)
-    name = nixops.util.attr_property("LTName", None)
+    templateName = nixops.util.attr_property("LTName", None)
     templateId = nixops.util.attr_property("templateId", None)
-    LTdescription = nixops.util.attr_property("LTdescription", None)
     version = nixops.util.attr_property("LTVersion", None)
     versionDescription = nixops.util.attr_property("LTVersionDescription", None)
     ebsOptimized = nixops.util.attr_property("LTEbsOptimized", True, type=bool)
@@ -75,20 +75,59 @@ class ec2LaunchTemplate(nixops.resources.ResourceState, EC2CommonState):
         self._conn_boto3 = nixops.ec2_utils.connect_ec2_boto3(region, self.access_key_id)
         return self._conn_boto3
 
+    # TODO: Work on how to update the template (create a new version and update default version to use or what)
     def create(self, defn, check, allow_reboot, allow_recreate):
 
         if self.region is None:
             self.region = defn.config['region']
         elif self.region != defn.config['region']:
-            self.warn("cannot change region of a running instance (from ‘{}‘ to ‘{}‘)".format(self.region, defn.config['region']))
+            self.warn("cannot change region of a running instance (from ‘{}‘ to ‘{}‘)"
+                    .format(self.region, defn.config['region']))
 
         self.access_key_id = defn.config['accessKeyId']
         self.connect_boto3(self.region)
 
-        # Create the fleet dict request.
         if self.state != self.UP: 
             args = dict()
-            
+            args['LaunchTemplateName'] = defn.config['name']
+            args['VersionDescription'] = defn.config['versionDescription']
+            args['LaunchTemplateData'] = dict(
+                EbsOptimized=defn.config['LTData']['ebsOptimized'],
+                ImageId=defn.config['LTData']['imageId'],
+                Placement=dict(Tenancy=defn.config['LTData']['tenancy']),
+                Monitoring=dict(Enabled=defn.config['LTData']['monitoring']),
+                DisableApiTermination=defn.config['LTData']['disableApiTermination'],
+                InstanceInitiatedShutdownBehavior=defn.config['LTData']['instanceInitiatedShutdownBehavior'],
+                UserData=defn.config['LTData']['userData'],
+                NetworkInterfaces=[dict(
+                    AssociatePublicIpAddress=defn.config['LTData']['associatePublicIpAddress']
+                )]
+            )
+            if defn.config['LTData']['instanceProfile'] != "":
+                args['IamInstanceProfile'] = dict(
+                    Name=defn.config['LTData']['instanceProfile']
+                )
+            if defn.config['LTData']['instanceType']:
+                args['LaunchTemplateData']['InstanceType'] = defn.config['LTData']['instanceType']
+            if defn.config['LTData']['securityGroupIds']:
+                args['LaunchTemplateData']['SecurityGroupIds'] = defn.config['LTData']['securityGroupIds']
+            if defn.config['LTData']['placementGroup'] != "":
+                args['LaunchTemplateData']['Placement']['GroupName'] = defn.config['LTData']['placementGroup']
+            if defn.config['LTData']['availabilityZone']:
+                args['LaunchTemplateData']['Placement']['AvailabilityZone'] = defn.config['LTData']['availabilityZone']
+            if defn.config['LTData']['instanceMarketOptions']:
+                args['LaunchTemplateData']['InstanceMarketOptions'] = ast.literal_eval(defn.config['LTData']['instanceMarketOptions'])
+            if defn.config['LTData']['networkInterfaceId'] != "":
+                args['LaunchTemplateData']['NetworkInterfaces'][0]['networkInterfaceId']=defn.config['LTData']['networkInterfaceId']
+            if defn.config['LTData']['subnetId'] != "":
+                args['LaunchTemplateData']['NetworkInterfaces'][0]['subnetId']=defn.config['LTData']['subnetId']
+            if defn.config['LTData']['secondaryPrivateIpAddressCount']:
+                args['LaunchTemplateData']['NetworkInterfaces'][0]['SecondaryPrivateIpAddressCount']=defn.config['LTData']['secondaryPrivateIpAddressCount']
+            if defn.config['LTData']['privateIpAddresses']:
+                args['LaunchTemplateData']['NetworkInterfaces'][0]['PrivateIpAddresses']=defn.config['LTData']['privateIpAddresses']
+            if defn.config['LTData']['keyName'] != "":
+                args['LaunchTemplateData']['KeyName']=defn.config['LTData']['keyName']
+            # TODO: work on tags.
             # Use a client token to ensure that fleet creation is
             # idempotent; i.e., if we get interrupted before recording
             # the fleet ID, we'll get the same fleet ID on the
@@ -96,52 +135,49 @@ class ec2LaunchTemplate(nixops.resources.ResourceState, EC2CommonState):
             if not self.clientToken:
                 with self.depl._db:
                     self.clientToken = nixops.util.generate_random_string(length=48) # = 64 ASCII chars
-                    #self.state = self.STARTING
+                    self.state = self.STARTING
 
             args['ClientToken'] = self.clientToken
-
-            # fleet = self._retry(
-            #     lambda: self._conn_boto3.create_fleet(**args)
-            # )
-
+            self.log("creating launch template {} ...".format(defn.config['name']))
             try:
                 launch_template = self._conn_boto3.create_launch_template(**args)
             except botocore.exceptions.ClientError as error:
                 raise error
-                #TODO: handle IdempotentParameterMismatch
                 # Not sure whether to use lambda retry or keep it like this
             with self.depl._db:
-                self.state = self.STARTING
-                self.templateId = fleet['FleetId']
-            self.state = self.UP
+                self.templateId = launch_template['LaunchTemplate']['LaunchTemplateId']
+                self.templateName = defn.config['name']
+                self.version = defn.config['version']
+                self.versionDescription = defn.config['versionDescription']
+                self.state = self.UP
     
     def check(self):
 
-        # check default version and make sure it match the current version in the state
         self.connect_boto3(self.region)
         launch_template = self._conn_boto3.describe_launch_templates(
-                    FleetIds=[self.templateId]
-                   )['Fleets']
-        if fleet is None:
+                    LaunchTemplateIds=[self.templateId]
+                   )['LaunchTemplates']
+        if launch_template is None:
             self.state = self.MISSING
             return
+        print launch_template
+        if str(launch_template[0]['DefaultVersionNumber']) != self.version:
+            self.warn("default version on the launch template is different then nixops managed version...") 
 
     def _destroy(self):
 
         self.connect_boto3(self.region)
-        self.log("deleting ec2 launch template `{}`... ".format(self.name))
+        self.log("deleting ec2 launch template `{}`... ".format(self.templateName))
         try:
             self._conn_boto3.delete_launch_template(LaunchTemplateId=self.templateId)
         except botocore.exceptions.ClientError as error:
-            # check if it is already deleted and say that it is
-            raise error
+            if error.response['Error']['Code'] == "InvalidLaunchTemplateId.NotFound":
+                self.warn("Template `{}` already deleted...".format(self.templateName))
+            else:
+                raise error
 
     def destroy(self, wipe=False):
         if not self._exists(): return True
 
         self._destroy()
         return True
-
-
-# when using maintain request type things will go above nixops so it is not like persistent spot
-# we can show the instance ids and their ips in info 

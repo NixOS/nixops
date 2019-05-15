@@ -184,7 +184,7 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                         datetime.timedelta(0, defn.config['ec2FleetValidUntil'])).isoformat()
 
             args['ReplaceUnhealthyInstances'] = defn.config['replaceUnhealthyInstances']
-
+            # TODO: work on tags
             # for instances you need to specify that in the launch template
             # make sure to use tag updater to put the default nixops tags in here
             # args['TagSpecifications'] = [dict(
@@ -289,7 +289,7 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 fleet_instances[i['InstanceId']]['instanceProfile'] = instance['IamInstanceProfile']['Arn']
             if 'SpotInstanceRequestId' in i.keys():
                 fleet_instances[i['InstanceId']]['SpotInstanceRequestId'] = i['SpotInstanceRequestId']
-        if self.fleetInstances != fleet_instances:
+        if self.fleetInstances is not None and self.fleetInstances != fleet_instances:
             self.warn("EC2 fleet instances configration changed")
             self.fleetInstances = fleet_instances
 
@@ -330,7 +330,3 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
 
         self._destroy()
         return True
-
-
-# when using maintain request type things will go above nixops so it is not like persistent spot
-# we can show the instance ids and their ips in info 
