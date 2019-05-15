@@ -1768,7 +1768,7 @@ deployment specification.</para>
 <programlisting>
 { nrMachines, active }:
 
-with import &lt;nixpkgs/pkgs/lib>;
+with import &lt;nixpkgs/lib>;
 
 let
 
