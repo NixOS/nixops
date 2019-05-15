@@ -23,7 +23,7 @@ class EBSVolumeDefinition(nixops.resources.ResourceDefinition):
         return "ebsVolumes"
 
     def show_type(self):
-        return "{0} [{1}]".format(self.get_type(), self.region)
+        return "{0}".format(self.get_type())
 
 
 class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common.EC2CommonState):
