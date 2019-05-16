@@ -91,7 +91,6 @@ class DatadogMonitorState(nixops.resources.ResourceState):
         options = json.loads(defn.config['monitorOptions'])
         silenced = defn.config['silenced']
         if silenced!=None: options['silenced'] = ast.literal_eval(silenced)
-        options.update(self._key_options)
         if self.state != self.UP:
             self.log("creating datadog monitor '{0}...'".format(defn.config['name']))
             monitor_id = self.create_monitor(defn=defn, options=options)
