@@ -1,5 +1,6 @@
 { config, lib, uuid, name, ... }:
 
+with import ./lib.nix lib;
 with lib;
 
 {
@@ -48,8 +49,7 @@ with lib;
           instanceProfile = mkOption {
             default = "";
             example = "rolename";
-            type = with types; (nullOr (either str (resource "ec2-iam-role")));
-            apply = x: if builtins.isString x then x else x.name;
+            type = types.str;
             description = ''
               The name of the IAM Instance Profile (IIP) to associate with
               the instances.
@@ -77,7 +77,7 @@ with lib;
           keyName = mkOption {
             default = "";
             example = "ssh-keypair";
-            type = with types; (nullOr (either str (resource "ec2-keypair")));
+            type = with types; either str (resource "ec2-keypair");
             apply = x: if builtins.isString x then x else x.name;
             description = ''
               Name of the SSH key pair to be used to communicate securely
@@ -87,8 +87,8 @@ with lib;
           };
 
           userData = mkOption {
-            default = "";
-            type = types.str;
+            default = null;
+            type = types.nullOr types.str;
             description = ''
               The Base64-encoded user data to make available to the instance.
               It should be valid nix expressions.
@@ -99,7 +99,8 @@ with lib;
             default = [];
             example = [ "sg-123abc" ];
             type = with types; listOf (either str (resource "ec2-security-group"));
-            apply = map (x: if builtins.isString x then x else x. groupId);
+            # why when using x.groupId instead of name the value is not passed on
+            apply = map (x: if builtins.isString x then x else x.name);
             description = ''
               Security groups Ids for the instance. These determine the
               firewall rules applied to the instance.
@@ -129,7 +130,7 @@ with lib;
           placementGroup = mkOption {
             default = "";
             example = "my-cluster";
-            type = with types; (nullOr (either str (resource "ec2-placement-group")));
+            type = with types; either str (resource "ec2-placement-group");
             apply = x: if builtins.isString x then x else x.name;
             description = ''
               Placement group for the instance.
@@ -166,7 +167,7 @@ with lib;
           networkInterfaceId = mkOption {
             default = "";
             # must get the id fro mthe name
-            type = with types; (nullOr (either str (resource "vpc-network-interface")));
+            type = with types; either str (resource "vpc-network-interface");
             apply = x: if builtins.isString x then x else x.name;
             description = ''
               The ID of the network interface.

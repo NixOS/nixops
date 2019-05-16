@@ -44,6 +44,17 @@ with lib;
       default = [];
       # these needs to be changed to dict i think
       type = types.listOf types.attrs;
+      example = ''
+        {
+          InstanceType = 'm5.large';
+          SubnetId': 'subnet-xxxxx';
+          AvailabilityZone: 'us-east-1a';
+          ...
+        };
+        ...
+        check https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2.html#EC2.Client.create_fleet
+        for full list
+      '';
       description = "Specific parameters to override the parameters in the launch template.";
     };
 

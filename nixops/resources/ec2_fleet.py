@@ -78,6 +78,10 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
         self._conn_boto3 = nixops.ec2_utils.connect_ec2_boto3(region, self.access_key_id)
         return self._conn_boto3
 
+    def create_after(self, resources, defn):
+        return {r for r in resources if
+                isinstance(r, nixops.resources.ec2_launch_template.ec2LaunchTemplateState)}
+
     def create(self, defn, check, allow_reboot, allow_recreate):
 
         if self.region is None:
@@ -164,7 +168,6 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 self.defaultTargetCapacityType = defn.config['targetCapacitySpecification']['defaultTargetCapacityType']
 
             args['ExcessCapacityTerminationPolicy'] = defn.config['excessCapacityTerminationPolicy']
-
             args['LaunchTemplateConfigs'] = [dict(
                 LaunchTemplateSpecification=dict(
                     LaunchTemplateName=defn.config['launchTemplateName'],

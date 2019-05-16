@@ -20,7 +20,7 @@ class ec2LaunchTemplateDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-class ec2LaunchTemplate(nixops.resources.ResourceState, EC2CommonState):
+class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
     """State of an ec2 launch template"""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
@@ -63,7 +63,7 @@ class ec2LaunchTemplate(nixops.resources.ResourceState, EC2CommonState):
         return self.state != self.MISSING
 
     def show_type(self):
-        s = super(ec2LaunchTemplate, self).show_type()
+        s = super(ec2LaunchTemplateState, self).show_type()
         return s
 
     @property
@@ -76,6 +76,18 @@ class ec2LaunchTemplate(nixops.resources.ResourceState, EC2CommonState):
         return self._conn_boto3
 
     # TODO: Work on how to update the template (create a new version and update default version to use or what)
+
+    # i think this is done automatically so i think i need to remove it right ?
+    def create_after(self, resources, defn):
+        # EC2 launch templates can require key pairs, IAM roles, security
+        # groups and placement groups
+        return {r for r in resources if
+                isinstance(r, nixops.resources.ec2_keypair.EC2KeyPairState) or
+                isinstance(r, nixops.resources.iam_role.IAMRoleState) or
+                isinstance(r, nixops.resources.ec2_security_group.EC2SecurityGroupState) or
+                isinstance(r, nixops.resources.ec2_placement_group.EC2PlacementGroupState) or
+                isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState)}
+
     def create(self, defn, check, allow_reboot, allow_recreate):
 
         if self.region is None:
@@ -86,7 +98,6 @@ class ec2LaunchTemplate(nixops.resources.ResourceState, EC2CommonState):
 
         self.access_key_id = defn.config['accessKeyId']
         self.connect_boto3(self.region)
-
         if self.state != self.UP: 
             args = dict()
             args['LaunchTemplateName'] = defn.config['name']
@@ -98,18 +109,21 @@ class ec2LaunchTemplate(nixops.resources.ResourceState, EC2CommonState):
                 Monitoring=dict(Enabled=defn.config['LTData']['monitoring']),
                 DisableApiTermination=defn.config['LTData']['disableApiTermination'],
                 InstanceInitiatedShutdownBehavior=defn.config['LTData']['instanceInitiatedShutdownBehavior'],
-                UserData=defn.config['LTData']['userData'],
                 NetworkInterfaces=[dict(
+                    DeviceIndex=0,
                     AssociatePublicIpAddress=defn.config['LTData']['associatePublicIpAddress']
                 )]
             )
             if defn.config['LTData']['instanceProfile'] != "":
-                args['IamInstanceProfile'] = dict(
+                args['LaunchTemplateData']['IamInstanceProfile'] = dict(
                     Name=defn.config['LTData']['instanceProfile']
                 )
+            if defn.config['LTData']['userData']:
+                args['LaunchTemplateData']['UserData'] = defn.config['LTData']['userData']
+
             if defn.config['LTData']['instanceType']:
                 args['LaunchTemplateData']['InstanceType'] = defn.config['LTData']['instanceType']
-            if defn.config['LTData']['securityGroupIds']:
+            if defn.config['LTData']['securityGroupIds']!=[]:
                 args['LaunchTemplateData']['SecurityGroupIds'] = defn.config['LTData']['securityGroupIds']
             if defn.config['LTData']['placementGroup'] != "":
                 args['LaunchTemplateData']['Placement']['GroupName'] = defn.config['LTData']['placementGroup']
@@ -117,10 +131,12 @@ class ec2LaunchTemplate(nixops.resources.ResourceState, EC2CommonState):
                 args['LaunchTemplateData']['Placement']['AvailabilityZone'] = defn.config['LTData']['availabilityZone']
             if defn.config['LTData']['instanceMarketOptions']:
                 args['LaunchTemplateData']['InstanceMarketOptions'] = ast.literal_eval(defn.config['LTData']['instanceMarketOptions'])
+            if defn.config['LTData']['subnetId'] == "" and defn.config['LTData']['networkInterfaceId'] == "":
+                raise Exception("You must specify either a subnetId or a networkInterfaceId")
             if defn.config['LTData']['networkInterfaceId'] != "":
                 args['LaunchTemplateData']['NetworkInterfaces'][0]['networkInterfaceId']=defn.config['LTData']['networkInterfaceId']
             if defn.config['LTData']['subnetId'] != "":
-                args['LaunchTemplateData']['NetworkInterfaces'][0]['subnetId']=defn.config['LTData']['subnetId']
+                args['LaunchTemplateData']['NetworkInterfaces'][0]['SubnetId']=defn.config['LTData']['subnetId']
             if defn.config['LTData']['secondaryPrivateIpAddressCount']:
                 args['LaunchTemplateData']['NetworkInterfaces'][0]['SecondaryPrivateIpAddressCount']=defn.config['LTData']['secondaryPrivateIpAddressCount']
             if defn.config['LTData']['privateIpAddresses']:
@@ -160,7 +176,6 @@ class ec2LaunchTemplate(nixops.resources.ResourceState, EC2CommonState):
         if launch_template is None:
             self.state = self.MISSING
             return
-        print launch_template
         if str(launch_template[0]['DefaultVersionNumber']) != self.version:
             self.warn("default version on the launch template is different then nixops managed version...") 
 
