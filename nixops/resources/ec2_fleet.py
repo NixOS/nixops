@@ -82,6 +82,12 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
         return {r for r in resources if
                 isinstance(r, nixops.resources.ec2_launch_template.ec2LaunchTemplateState)}
 
+    def _update_tag(self, defn):
+        self.connect_boto3(self.region)
+        tags = defn.config['tags']
+        tags.update(self.get_common_tags())
+        self._conn_boto3.create_tags(Resources=[self.fleetId], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+
     def create(self, defn, check, allow_reboot, allow_recreate):
 
         if self.region is None:
@@ -252,6 +258,7 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 time.sleep(3)
                 fleetStatus = self._conn_boto3.describe_fleets(FleetIds=[self.fleetId])['Fleets'][0]['ActivityStatus']
             self.log_end("")
+            self._update_tag(defn)
             self._get_fleet_instances()
             self.state = self.UP
     

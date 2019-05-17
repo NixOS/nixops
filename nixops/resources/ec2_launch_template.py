@@ -75,8 +75,14 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
         self._conn_boto3 = nixops.ec2_utils.connect_ec2_boto3(region, self.access_key_id)
         return self._conn_boto3
 
-    # TODO: Work on how to update the template (create a new version and update default version to use or what)
 
+    def _update_tag(self, defn):
+        self.connect_boto3(self.region)
+        tags = defn.config['tags']
+        tags.update(self.get_common_tags())
+        self._conn_boto3.create_tags(Resources=[self.templateId], Tags=[{"Key": k, "Value": tags[k]} for k in tags])
+
+    # TODO: Work on how to update the template (create a new version and update default version to use or what)
     # i think this is done automatically so i think i need to remove it right ?
     def create_after(self, resources, defn):
         # EC2 launch templates can require key pairs, IAM roles, security
@@ -99,6 +105,8 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
         self.access_key_id = defn.config['accessKeyId']
         self.connect_boto3(self.region)
         if self.state != self.UP: 
+            tags = defn.config['tags']
+            tags.update(self.get_common_tags())
             args = dict()
             args['LaunchTemplateName'] = defn.config['name']
             args['VersionDescription'] = defn.config['versionDescription']
@@ -112,7 +120,15 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
                 NetworkInterfaces=[dict(
                     DeviceIndex=0,
                     AssociatePublicIpAddress=defn.config['LTData']['associatePublicIpAddress']
-                )]
+                )],
+                TagSpecifications=[dict(
+                    ResourceType='instance',
+                    Tags=[{"Key": k, "Value": tags[k]} for k in tags]
+                ),
+                dict(
+                    ResourceType='volume',
+                    Tags=[{"Key": k, "Value": tags[k]} for k in tags]
+                ) ]
             )
             if defn.config['LTData']['instanceProfile'] != "":
                 args['LaunchTemplateData']['IamInstanceProfile'] = dict(
@@ -166,7 +182,9 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
                 self.version = defn.config['version']
                 self.versionDescription = defn.config['versionDescription']
                 self.state = self.UP
-    
+
+            self._update_tag(defn)
+
     def check(self):
 
         self.connect_boto3(self.region)
