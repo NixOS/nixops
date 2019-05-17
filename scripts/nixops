@@ -241,14 +241,27 @@ def op_check():
         [('Name', 'l'), ('Exists', 'l'), ('Up', 'l'), ('Reachable', 'l'),
          ('Disks OK', 'l'), ('Load avg.', 'l'), ('Units', 'l'), ('Notes', 'l')])
 
+    resources_tbl = create_table(
+            ([('Deployment', 'l')] if args.all else []) +
+            [('Name', 'l'), ('Exists', 'l')])
+
+    fleet_tbl = create_table(
+            ([('Deployment', 'l')] if args.all else []) +
+            [('Name', 'l'), ('Exists', 'l'), ('Instance Id', 'l'),
+            ('IP address', 'l'), ('Instance State', 'l'), ('Status Check', 'l'),
+            ('Event', 'l')])
+    #TODO: maybe add spot/OD and instance type
     machines = []
     resources = []
+    fleets = []
 
     def check(depl):
         for m in depl.active_resources.itervalues():
             if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): continue
             if nixops.deployment.is_machine(m):
                 machines.append(m)
+            elif nixops.deployment.is_ec2_fleet(m):
+                fleets.append(m)
             else:
                 resources.append(m)
 
@@ -282,9 +295,26 @@ def op_check():
         if res.failed_units != None and res.failed_units != []: status |= 16
         return (m.depl.name or m.depl.uuid, m, row, status)
 
-    resources_tbl = create_table(
-            ([('Deployment', 'l')] if args.all else []) +
-            [('Name', 'l'), ('Exists', 'l')])
+    def fleet_worker(r):
+        if nixops.deployment.is_ec2_fleet(r):
+            res = r.check()
+            InstanceId = [ i['instanceId'] for i in res]
+            InstanceIp = [ i['publicIpAddress'] for i in res]
+            instanceState = [ i['instanceState'] for i in res]
+            statusCheck = [ i['statusCheck'] for i in res]
+            #TODO: fix events
+            event = [ i['event'] for i in res]
+            exist = True if r.state == nixops.resources.ResourceState.UP else False
+            row = ([r.depl.name or r.depl.uuid] if args.all else []) + \
+                [ r.name,
+                  render_tristate(exist),
+                  '\n'.join(InstanceId),
+                  '\n'.join(InstanceIp),
+                  '\n'.join(instanceState),
+                  '\n'.join(statusCheck),
+                  '\n'.join(event)
+                ]
+            return (r.depl.name or r.depl.uuid, r, row, 0)
 
     def resource_worker(r):
         if not nixops.deployment.is_machine(r):
@@ -296,7 +326,7 @@ def op_check():
 
     results = run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
     resources_results = run_tasks(nr_workers=len(resources), tasks=resources, worker_fun=resource_worker)
-
+    fleet_results = run_tasks(nr_workers=len(fleets), tasks=fleets, worker_fun=fleet_worker)
     # Sort the rows by deployment/machine.
     status = 0
     for res in sorted(results, key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type())):
@@ -305,7 +335,13 @@ def op_check():
     print nixops.util.ansi_success("Machines state:")
     print tbl
 
-    for res in  sorted(resources_results, key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type())):
+    for res in sorted(fleet_results, key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type())):
+        fleet_tbl.add_row(res[2])
+        status |= res[3]
+    print nixops.util.ansi_success("EC2-Fleet resources machines state:")
+    print fleet_tbl
+
+    for res in sorted(resources_results, key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type())):
         resources_tbl.add_row(res[2])
         status |= res[3]
     print nixops.util.ansi_success("Non machines resources state:")

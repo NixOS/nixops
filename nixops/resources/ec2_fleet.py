@@ -274,14 +274,21 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
             # also check the instnaces
         # getting the instances IDs
         self._get_fleet_instances()
+        instances_status = self.get_instances_status()
+        return instances_status
+
+    def _get_active_fleet_instance(self):
+        self.connect_boto3(self.region)
+        return self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)['ActiveInstances']
 
     def _get_fleet_instances(self):
         self.connect_boto3(self.region)
-        fleet_instances = dict()
-        activeInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
-        for i in activeInstances['ActiveInstances']:
+        fleet_instances = []
+        activeInstances = self._get_active_fleet_instance()
+        for i in activeInstances:
             instance = self._conn_boto3.describe_instances(InstanceIds=[i['InstanceId']])['Reservations'][0]['Instances'][0]
-            fleet_instances[i['InstanceId']] = dict(
+            fleet_instance = dict(
+                instanceId=i['InstanceId'],
                 instanceType=i['InstanceType'],
                 ami=instance['ImageId'],
                 keyPair=instance['KeyName'],
@@ -292,16 +299,49 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 ),
                 securityGroupIds=instance['NetworkInterfaces'][0]['Groups'][0]['GroupId'],
                 subnetId=instance['SubnetId'],
-                publicIpAddress=instance['PublicIpAddress']
             )
-            # public ip check
+            if 'PublicIpAddress' in instance.keys():
+                fleet_instance['publicIpAddress'] = instance['PublicIpAddress']
             if 'IamInstanceProfile' in instance.keys():
-                fleet_instances[i['InstanceId']]['instanceProfile'] = instance['IamInstanceProfile']['Arn']
+                fleet_instance['instanceProfile'] = instance['IamInstanceProfile']['Arn']
             if 'SpotInstanceRequestId' in i.keys():
-                fleet_instances[i['InstanceId']]['SpotInstanceRequestId'] = i['SpotInstanceRequestId']
+                fleet_instance['SpotInstanceRequestId'] = i['SpotInstanceRequestId']
+            fleet_instances.append(fleet_instance)
         if self.fleetInstances is not None and self.fleetInstances != fleet_instances:
             self.warn("EC2 fleet instances configration changed")
             self.fleetInstances = fleet_instances
+
+    def get_instances_status(self):
+        self.connect_boto3(self.region)
+        instance_status = []
+        activeInstances = self._get_active_fleet_instance()
+        for i in activeInstances:
+            instance = self._conn_boto3.describe_instance_status(InstanceIds=[i['InstanceId']])['InstanceStatuses'][0]
+            if instance['InstanceStatus']['Details'][0]['Status'] == "passed" and instance['SystemStatus']['Details'][0]['Status'] == "passed":
+                s_check = "2/2"
+            elif instance['InstanceStatus']['Details'][0]['Status'] == "passed" and instance['SystemStatus']['Details'][0]['Status'] == "failed":
+                s_check = "1/2"
+            elif instance['InstanceStatus']['Details'][0]['Status'] == "failed" and instance['SystemStatus']['Details'][0]['Status'] == "failed":
+                s_check = "0/2"
+            else:
+                s_check = "Insufficient Data"
+            i_s = dict(
+                instanceId=instance['InstanceId'],
+                instanceState=instance['InstanceState']['Name'],
+                statusCheck=s_check
+            )
+            if "Events" in instance.keys():
+                i_s['event']=instance['Events'][0]['Code']
+            else:
+                i_s['event'] = " "
+            for j in self.fleetInstances:
+                if j['instanceId'] == instance['InstanceId']:
+                    if 'publicIpAddress' in j.keys():
+                        i_s['publicIpAddress']=j['publicIpAddress']
+                    else:
+                        i_s['publicIpAddress'] = "No Public IP for this instance"
+            instance_status.append(i_s)
+        return instance_status
 
     def _destroy(self):
         self.connect_boto3(self.region)
@@ -317,7 +357,7 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                         FleetIds=[self.fleetId], 
                         TerminateInstances=self.terminateInstancesOnDeletion)
             while True:
-                FleetState = fleet[0]['FleetState']
+                FleetState = self._conn_boto3.describe_fleets(FleetIds=[self.fleetId])['Fleets'][0]['FleetState']
                 if self.terminateInstancesOnDeletion:
                     fleetInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
                     instances = [i['InstanceId'] for i in fleetInstances['ActiveInstances']]
@@ -332,7 +372,6 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 self.log_continue("[{0}] ".format(FleetState))    
                 if FleetState == "terminated" or FleetState == "deleted": break
                 time.sleep(4)
-                fleet = self._conn_boto3.describe_fleets(FleetIds=[self.fleetId])['Fleets']
         self.log_end("")
 
     def destroy(self, wipe=False):

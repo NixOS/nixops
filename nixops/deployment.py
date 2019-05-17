@@ -1241,6 +1241,9 @@ def should_do_n(name, include, exclude):
 def is_machine(r):
     return isinstance(r, nixops.backends.MachineState)
 
+def is_ec2_fleet(r):
+    return isinstance(r, nixops.resources.ec2_fleet.ec2FleetState)
+
 def is_machine_defn(r):
     return isinstance(r, nixops.backends.MachineDefinition)
 
