@@ -37,13 +37,6 @@ class SingleMachineTest(generic_deployment_test.GenericDeploymentTest):
         ]
         self.run_check()
 
-    @attr("azure")
-    def test_azure(self):
-        self.depl.nix_exprs = self.depl.nix_exprs + [
-            ('{0}/single_machine_azure_base.nix'.format(parent_dir))
-        ]
-        self.run_check()
-
     @attr("libvirtd")
     def test_libvirtd(self):
         self.depl.nix_exprs = self.depl.nix_exprs + [

@@ -170,7 +170,7 @@ class Route53RecordSetState(nixops.resources.ResourceState):
         self.log('creating/updating record set ({})'.format(self.to_string(defn)))
 
         # Don't care about the state for now. We'll just upsert!
-        # TODO: Copy properties_changed function used in GCE/Azure's
+        # TODO: Copy properties_changed function used in GCE's
         # check output of operation. It now just barfs an exception if something doesn't work properly
         change_result = self.route53_retry(lambda: client.change_resource_record_sets(
             HostedZoneId=zone_id,

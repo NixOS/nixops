@@ -45,14 +45,7 @@ rec {
               "vpc-route" "vpc-route-table" "vpc-route-table-association" "vpc-subnet"
               "gce-disk" "gce-image" "gce-forwarding-rule" "gce-http-health-check" "gce-network"
               "gce-static-ip" "gce-target-pool" "gse-bucket"
-              "datadog-monitor" "datadog-timeboard" "datadog-screenboard"
-              "azure-availability-set" "azure-blob-container" "azure-blob" "azure-directory"
-              "azure-dns-record-set" "azure-dns-zone" "azure-express-route-circuit"
-              "azure-file" "azure-gateway-connection" "azure-load-balancer" "azure-local-network-gateway"
-              "azure-network-security-group" "azure-queue" "azure-reserved-ip-address"
-              "azure-resource-group" "azure-share" "azure-storage" "azure-table"
-              "azure-traffic-manager-profile"
-              "azure-virtual-network" "azure-virtual-network-gateway"]}
+              "datadog-monitor" "datadog-timeboard" "datadog-screenboard" ]}
 
         for i in scripts/nixops setup.py doc/manual/manual.xml; do
           substituteInPlace $i --subst-var-by version ${version}
@@ -96,16 +89,7 @@ rec {
           datadog
           digital-ocean
           typing
-        ] ++
-        #FIXME add back once https://github.com/NixOS/nixops/pull/1131
-        # is reverted.
-        (lib.optional false [
-          azure-storage
-          azure-mgmt-compute
-          azure-mgmt-network
-          azure-mgmt-resource
-          azure-mgmt-storage
-        ]);
+        ];
 
       # For "nix-build --run-env".
       shellHook = ''

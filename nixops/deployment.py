@@ -1275,7 +1275,7 @@ def _create_state(depl, type, name, id):
 # Automatically load all resource types.
 def _load_modules_from(dir):
     for module in os.listdir(os.path.dirname(__file__) + "/" + dir):
-        if module[-3:] != '.py' or module == "__init__.py" or "azure" in module: continue
+        if module[-3:] != '.py' or module == "__init__.py": continue
         importlib.import_module("nixops." + dir + "." + module[:-3])
 
 _load_modules_from("backends")
