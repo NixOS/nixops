@@ -444,7 +444,8 @@ in
 
     deployment.ec2.spotInstanceTimeout = mkOption {
       default = 0;
-      type = types.int;
+      type = types.addCheck types.int (x: x == 0 && cfg.spotInstanceRequestType == "one-time" ||
+                                       x >= 0 && cfg.spotInstanceRequestType == "persistent" );
       description = ''
         The duration (in seconds) that the spot instance request is
         valid. If the request cannot be satisfied in this amount of
