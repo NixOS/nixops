@@ -3,24 +3,10 @@
 with lib;
 
 {
+  imports = [ ./vault-common-auth-options.nix ];
+
   options = {
 
-    # Global vault options that can be migrated to a seperate file
-    # if another resource is to be supported
-    vaultToken = mkOption {
-      default = "";
-      type = types.str;
-      description = "Vault token.";
-    };
-
-    vaultAddress = mkOption {
-      default = "";
-      example = "https://vault.nixops.com:8200";
-      type = types.str;
-      description = "Vault URL address.";
-    };
-
-    # Approle specific options
     roleName = mkOption {
       default = "vault-approle-${uuid}-${name}";
       type = types.str;
@@ -158,6 +144,8 @@ with lib;
         blocks listed on the role.
       '';
     };
+
   };
+
   config._type = "vault-approle";
 }

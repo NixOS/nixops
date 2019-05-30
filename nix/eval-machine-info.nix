@@ -131,6 +131,8 @@ rec {
 
   # hashicorp vault resources
   resources.vaultApprole = evalResources ./vault-approle.nix (zipAttrs resourcesByType.vaultApprole or []);
+  resources.vaultPolicy = evalResources ./vault-policy.nix (zipAttrs resourcesByType.vaultPolicy or []);
+  resources.vaultKVSecretEngine = evalResources ./vault-kv-secret-engine.nix (zipAttrs resourcesByType.vaultKVSecretEngine or []);
 
   # Azure resources
   resources.azureAvailabilitySets = evalAzureResources ./azure-availability-set.nix (zipAttrs resourcesByType.azureAvailabilitySets or []);
