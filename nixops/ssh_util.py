@@ -306,12 +306,11 @@ class SSH(object):
         except nixops.ssh_util.SSHConnectionFailed:
             return False
 
-
-    def wait_for_ssh(self, user=None, attempts=-1, timeout=5, callback=None):
-        """Wait until the remote's SSH is up."""
+    def wait_for_ssh(self, user=None, attempts=-1, timeout=5, callback=None, up=True):
+        """Wait until the remote's SSH is up or down based on the «up» parameter."""
         attempt = 0
         while True:
-            if self.try_ssh(user=user, timeout=timeout)
+            if self.try_ssh(user=user, timeout=timeout) == up
                 return True
             else
                 attempt += 1
@@ -319,7 +318,6 @@ class SSH(object):
                 if callback: callback()
         raise Exception("timed out waiting for SSH on ‘{1}’".format(
             self._get_target(user)))
-
 
     def enable_compression(self):
         self._compress = True
