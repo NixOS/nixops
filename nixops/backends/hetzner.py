@@ -186,12 +186,11 @@ class HetznerState(MachineState):
             # so only wait for the reboot to finish when deploying real
             # systems.
             self.log_start("waiting for rescue system...")
-            while self.try_ssh():
-                self.log_continue(".")
+            dotlog = lambda: self.log_continue(".")  # NOQA
+            self.wait_for_ssh(callback=dotlog, up=False)
             self.log_continue("[down]")
 
-            while not self.try_ssh():
-                self.log_continue(".")
+            self.wait_for_ssh(callback=dotlog, up=True)
             self.log_end("[up]")
         self.state = self.RESCUE
 
