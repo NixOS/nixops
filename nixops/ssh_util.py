@@ -310,9 +310,9 @@ class SSH(object):
         """Wait until the remote's SSH is up or down based on the «up» parameter."""
         attempt = 0
         while True:
-            if self.try_ssh(user=user, timeout=timeout) == up
+            if self.try_ssh(user=user, timeout=timeout) == up:
                 return True
-            else
+            else:
                 attempt += 1
                 if attempts != -1 and attempt >= attempts: break
                 if callback: callback()
