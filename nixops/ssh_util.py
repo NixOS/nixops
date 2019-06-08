@@ -299,7 +299,7 @@ class SSH(object):
             else:
                 return res
 
-    def try_ssh(self, user=None, timeout=-1):
+    def try_ssh(self, user=None):
         try:
             self.run_command('true', timeout=1, user=user, flags=['-q'])
             return True
