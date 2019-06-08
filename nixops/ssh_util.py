@@ -311,10 +311,9 @@ class SSH(object):
         """Wait until the remote's SSH is up."""
         attempt = 0
         while True:
-            try:
-                self.run_command('true', timeout=timeout, user=user, flags=['-q'])
+            if self.try_ssh(user=user, timeout=timeout)
                 return True
-            except nixops.ssh_util.SSHConnectionFailed:
+            else
                 attempt += 1
                 if attempts != -1 and attempt >= attempts: break
                 if callback: callback()
