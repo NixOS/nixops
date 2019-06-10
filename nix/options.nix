@@ -117,6 +117,18 @@ in
       '';
     };
 
+    deployment.jumpHost = mkOption {
+      example = "root@10.10.10.1:222";
+      default = null;
+      type = types.nullOr types.str;
+      description = ''
+        If set to a string, the value will be used as an SSH jump host to
+        tunnel through to the machine.
+
+        SSH connections to the jump host use the invoking users SSH key/agent.
+      '';
+    };
+
     # Computed options useful for referring to other machines in
     # network specifications.
 

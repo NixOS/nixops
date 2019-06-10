@@ -20,6 +20,9 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.owners = [e.get("value") for e in xml.findall("attrs/attr[@name='owners']/list/string")]
         self.has_fast_connection = xml.find("attrs/attr[@name='hasFastConnection']/bool").get("value") == "true"
 
+        jump_host_node = xml.find("attrs/attr[@name='jumpHost']/string")
+        self.jump_host = None if jump_host_node is None else jump_host_node.get("value").encode("ascii")
+
         def _extract_key_options(x):
             opts = {}
             for (key, xmlType) in (('text',        'string'),
@@ -65,6 +68,9 @@ class MachineState(nixops.resources.ResourceState):
     # machine was created.
     state_version = nixops.util.attr_property("stateVersion", None, str)
 
+    # Connect to the host by first making an ssh connection to the jumpHost
+    jump_host = nixops.util.attr_property("jumpHost", None, str)
+
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
@@ -86,6 +92,7 @@ class MachineState(nixops.resources.ResourceState):
         self.store_keys_on_machine = defn.store_keys_on_machine
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
+        self.jump_host = defn.jump_host
         self.has_fast_connection = defn.has_fast_connection
         if not self.has_fast_connection:
             self.ssh.enable_compression()
@@ -275,10 +282,11 @@ class MachineState(nixops.resources.ResourceState):
         assert False
 
     def get_ssh_flags(self, scp=False):
+        maybe_jump_host = [] if self.jump_host is None else ["-J", self.jump_host]
         if scp:
-            return ["-P", str(self.ssh_port)]
+            return ["-P", str(self.ssh_port)] + maybe_jump_host
         else:
-            return ["-p", str(self.ssh_port)]
+            return ["-p", str(self.ssh_port)] + maybe_jump_host
 
 
     def get_ssh_password(self):
