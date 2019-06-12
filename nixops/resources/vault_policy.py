@@ -24,7 +24,6 @@ class VaultPolicyDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0}".format(self.get_type())
 
-
 class VaultPolicyState(nixops.resources.DiffEngineResourceState):
     """State of a vault policy."""
 
@@ -38,7 +37,8 @@ class VaultPolicyState(nixops.resources.DiffEngineResourceState):
 
     def __init__(self, depl, name, id):
         nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
-        self.handle_create_policy = Handler(['policies', 'vaultAddress'], handle=self.realize_create_policy)
+        self.handle_create_policy = Handler(['policies', 'vaultAddress'],
+                                            handle=self.realize_create_policy)
         self.handle_update_policy = Handler(['policies'], handle=self.realize_create_policy)
     def show_type(self):
         s = super(VaultPolicyState, self).show_type()
@@ -57,11 +57,6 @@ class VaultPolicyState(nixops.resources.DiffEngineResourceState):
         self._state['vaultAddress'] = config['vaultAddress']
         self._state['vaultToken'] = config['vaultToken']
 
-        #TODO: be able to use secret resources as paths 
-        # if vpc_id.startswith("res-"):
-        #     res = self.depl.get_typed_resource(vpc_id[4:].split(".")[0], "vpc")
-        #     vpc_id = res._state['vpcId']
-
         if self.policies:
             self.log("Updating policy `{0}`...".format(self._state['name']))
         else:
@@ -69,7 +64,8 @@ class VaultPolicyState(nixops.resources.DiffEngineResourceState):
 
         policy_definition = ""
         for i in config['policies']:
-            policy_definition = policy_definition + 'path "{0}" {{ capabilities = {1} }} '.format(i['path'], json.dumps(i['capabilities']))
+            policy_definition = policy_definition + 'path "{0}" {{ capabilities = {1} }} '.format(i['path'],
+                                                                                                json.dumps(i['capabilities']))
 
         data = {'policy': policy_definition}
 
@@ -106,7 +102,8 @@ class VaultPolicyState(nixops.resources.DiffEngineResourceState):
         if self.state != self.UP: return
         self.log("deleting policy `{0}`...".format(self._state['name']))
         r = nixops.vault_common.vault_delete(
-                self._state['vaultToken'], self._state['vaultAddress'], self._state['name'], "policy")
+                self._state['vaultToken'], self._state['vaultAddress'],
+                self._state['name'], "policy")
         if r.status_code == 204:
             pass
         else:

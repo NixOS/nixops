@@ -36,13 +36,15 @@ class VaultKVSecretEngineState(nixops.resources.DiffEngineResourceState):
 
     def __init__(self, depl, name, id):
         nixops.resources.DiffEngineResourceState.__init__(self, depl, name, id)
-        self.handle_create_engine = Handler(['name', 'vaultAddress', 'type', 'local', 'sealWrap', 'version', 'forceNoCache'], handle=self.realize_create_engine)
+        self.handle_create_engine = Handler(['name', 'vaultAddress', 'type', 'local', 'sealWrap', 'version', 'forceNoCache'],
+                                            handle=self.realize_create_engine)
         self.handle_update_engine = Handler(['maxLeaseTtl', 'listingVisibility', 'passthroughRequestHeaders', 'defaultLeaseTtl', 'allowedResponseHeaders', 'auditNonHmacRequestKeys', 'auditNonHmacResponseKeys', 'description'],
                                             after=[self.handle_create_engine],
                                             handle=self.realize_update_engine)
         self.handle_update_policy = Handler(['secrets'],
                                             after=[self.handle_update_engine, self.handle_create_engine], 
                                             handle=self.realize_create_secrets)
+
     def show_type(self):
         s = super(VaultKVSecretEngineState, self).show_type()
         return s

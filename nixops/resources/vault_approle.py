@@ -61,8 +61,8 @@ class VaultApproleState(nixops.resources.ResourceState):
     def get_physical_spec(self):
         physical = {}
         if self.role_name:
-            physical['url'] = nixops.vault_common.approle_path(
-                self.vault_address, self.role_name)
+            physical['url'] = nixops.vault_common.remote_path(
+                self.vault_address, self.role_name, "approle")
             physical['roleId'] = self.role_id
             physical['secretId'] = self.secret_id
         return physical
@@ -76,7 +76,7 @@ class VaultApproleState(nixops.resources.ResourceState):
 
         r = nixops.vault_common.vault_get(
                 self.vault_token, self.vault_address,
-                self.role_name + '/role-id')
+                self.role_name + '/role-id', "approle")
 
         if r.status_code == 404:
             self.warn("Approle '{0}' was deleted from outside nixops,"
@@ -89,7 +89,7 @@ class VaultApproleState(nixops.resources.ResourceState):
     def _get_role_id_secret_id(self, defn):
         r = nixops.vault_common.vault_get(
                 self.vault_token, self.vault_address,
-                self.role_name + '/role-id')
+                self.role_name + '/role-id', "approle")
 
         if r.status_code == 200:
             self.role_id = r.json()['data']['role_id']
@@ -104,7 +104,7 @@ class VaultApproleState(nixops.resources.ResourceState):
             }
             r = nixops.vault_common.vault_post(
                 self.vault_token, self.vault_address,
-                self.role_name + '/secret-id', data)
+                self.role_name + '/secret-id', data, "approle")
 
             if r.status_code == 200:
                 self.secret_id = r.json()['data']['secret_id']
@@ -112,6 +112,12 @@ class VaultApproleState(nixops.resources.ResourceState):
                 raise Exception("{} {}, {}".format(
                     r.status_code, r.reason, r.json()))
         # TODO: Maybe enable setting custom role ID and custom secret ID.
+
+
+    def create_after(self, resources, defn):
+        return {r for r in resources if
+                isinstance(r, nixops.resources.vault_kv_secret_engine.VaultKVSecretEngineState) or
+                isinstance(r, nixops.resources.vault_policy.VaultPolicyState)}
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         self.vault_address = defn.config['vaultAddress']
@@ -137,7 +143,7 @@ class VaultApproleState(nixops.resources.ResourceState):
         }
         r = nixops.vault_common.vault_post(
                 self.vault_token, self.vault_address,
-                self.role_name, data)
+                self.role_name, data, "approle")
 
         if r.status_code != 204:
             raise Exception("{} {}, {}".format(
@@ -168,7 +174,7 @@ class VaultApproleState(nixops.resources.ResourceState):
             return
         self.log("deleting vault Approle {0} ...".format(self.role_name))
         r = nixops.vault_common.vault_delete(
-                self.vault_token, self.vault_address, self.role_name)
+                self.vault_token, self.vault_address, self.role_name, "approle")
         if r.status_code == 204:
             return True
         else:

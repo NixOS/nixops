@@ -1,5 +1,6 @@
 { config, lib, uuid, name, ... }:
 
+with import ./lib.nix lib;
 with lib;
 
 {
@@ -19,7 +20,8 @@ with lib;
       type = with types; listOf (submodule {
         options = {
           path = mkOption {
-            type = types.str;
+            type = types.either types.str (resource "vault-kv-secret-engine");
+            apply = x: if builtins.isString x then x else x.name;
             description = ''
               The vault path to apply the rules to.
               Policy paths are matched using the most specific path match.
