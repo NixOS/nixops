@@ -229,4 +229,7 @@ class DiffEngineResourceState(ResourceState):
         return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
 
     def get_defn(self):
-        return self.depl.definitions[self.name].config
+        if self.name in self.depl.definitions:
+            return self.depl.definitions[self.name].config
+        else:
+            return {}

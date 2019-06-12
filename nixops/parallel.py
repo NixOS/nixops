@@ -15,7 +15,7 @@ class MultipleExceptions(Exception):
         return err
 
     def print_all_backtraces(self):
-        for e in self.exceptions:
+        for k, e in self.exceptions.iteritems():
             sys.stderr.write('-'*30 + '\n')
             traceback.print_exception(e[0], e[1], e[2])
 

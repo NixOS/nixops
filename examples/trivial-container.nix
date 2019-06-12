@@ -1,5 +1,0 @@
-{
-  machine =
-    { deployment.targetEnv = "container";
-    };
-}
