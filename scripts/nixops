@@ -4,6 +4,7 @@
 from nixops import deployment
 from nixops.nix_expr import py2nix
 from nixops.parallel import MultipleExceptions, run_tasks
+import pluggy
 
 import nixops.statefile
 import prettytable
@@ -23,14 +24,34 @@ import syslog
 import json
 import pipes
 
-# For 14.04 user convenience.
-import libcloud.security
-if os.getenv('OPENSSL_X509_CERT_FILE') is not None:
-    libcloud.security.CA_CERTS_PATH.append(os.getenv('OPENSSL_X509_CERT_FILE'))
-
 from datetime import datetime
 from pprint import pprint
+import importlib
 
+from nixops.plugins import get_plugin_manager
+
+
+pm = get_plugin_manager()
+[[importlib.import_module(mod) for mod in pluginimports]
+     for pluginimports in pm.hook.load()]
+
+try:
+    pm.check_pending()
+except pluggy.PluginValidationError as e:
+    print('WARNING - Plugin validation failure:\n{0}\n'.format(e))
+
+
+def op_list_plugins():
+    if args.verbose:
+        tbl = create_table([('Installed Plugins', 'c'), ('Plugin Reference', 'c')])
+    else:
+        tbl = create_table([('Installed Plugins', 'c')])
+    for plugin in sorted(pm.list_name_plugin()):
+        if args.verbose:
+            tbl.add_row([plugin[0], plugin[1].__str__()])
+        else:
+            tbl.add_row([plugin[0]])
+    print tbl
 
 def create_table(headers):
     tbl = prettytable.PrettyTable([name for (name, align) in headers])
@@ -740,6 +761,11 @@ parser.add_argument('--version', action='version', version='NixOps @version@')
 
 subparsers = parser.add_subparsers(help='sub-command help')
 
+subparser = subparsers.add_parser('list-plugins', help='list the available nixops plugins')
+subparser.set_defaults(op=op_list_plugins)
+subparser.add_argument('--verbose', '-v', action='store_true', help='Provide extra plugin information')
+subparser.add_argument('--debug', action='store_true', help='enable debug output')
+
 def add_subparser(name, help):
     subparser = subparsers.add_parser(name, help=help)
     subparser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
@@ -769,6 +795,7 @@ subparser.set_defaults(op=op_list_deployments)
 def add_common_modify_options(subparser):
     subparser.add_argument('nix_exprs', nargs='*', metavar='NIX-FILE', help='Nix expression(s) defining the network')
     subparser.add_argument('--template', '-t', action="append", dest="templates", metavar='TEMPLATE', help='name of template to be used')
+
 
 subparser = add_subparser('create', help='create a new deployment')
 subparser.set_defaults(op=op_create)
@@ -830,8 +857,7 @@ subparser.add_argument('--build-only', action='store_true', help='build only; do
 subparser.add_argument('--create-only', action='store_true', help='exit after creating missing machines')
 subparser.add_argument('--copy-only', action='store_true', help='exit after copying closures')
 subparser.add_argument('--allow-recreate', action='store_true', help='recreate resources machines that have disappeared')
-subparser.add_argument('--always-activate', action='store_true',
-                       help='activate unchanged configurations as well')
+subparser.add_argument('--always-activate', action='store_true', help='activate unchanged configurations as well')
 add_common_deployment_options(subparser)
 
 subparser = add_subparser('send-keys', help='send encryption keys')
@@ -856,21 +882,13 @@ subparser.set_defaults(op=op_start)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='start only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='start all except the specified machines')
 
-subparser = add_subparser('reboot',
-                          help='reboot all virtual machines in the network')
+subparser = add_subparser('reboot', help='reboot all virtual machines in the network')
 subparser.set_defaults(op=op_reboot)
-subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME',
-                       help='reboot only the specified machines')
-subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME',
-                       help='reboot all except the specified machines')
-subparser.add_argument('--no-wait', action='store_true',
-                       help='do not wait until the machines are up again')
-subparser.add_argument('--rescue', action='store_true',
-                       help='reboot machines into the rescue system'
-                            ' (if available)')
-subparser.add_argument('--hard', action='store_true',
-                       help='send a hard reset (power switch) to the machines'
-                            ' (if available)')
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='reboot only the specified machines')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='reboot all except the specified machines')
+subparser.add_argument('--no-wait', action='store_true', help='do not wait until the machines are up again')
+subparser.add_argument('--rescue', action='store_true', help='reboot machines into the rescue system (if available)')
+subparser.add_argument('--hard', action='store_true', help='send a hard reset (power switch) to the machines (if available)')
 
 subparser = add_subparser('show-arguments', help='print the arguments to the network expressions')
 subparser.set_defaults(op=op_show_arguments)

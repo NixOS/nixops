@@ -29,6 +29,7 @@ from nixops.util import ansi_success
 import inspect
 import time
 import importlib
+from nixops.plugins import get_plugin_manager
 
 class NixEvalError(Exception):
     pass
@@ -50,9 +51,6 @@ class Deployment(object):
     description = nixops.util.attr_property("description", default_description)
     configs_path = nixops.util.attr_property("configsPath", None)
     rollback_enabled = nixops.util.attr_property("rollbackEnabled", False)
-    datadog_notify = nixops.util.attr_property("datadogNotify", False, bool)
-    datadog_event_info = nixops.util.attr_property("datadogEventInfo", "")
-    datadog_tags = nixops.util.attr_property("datadogTags", [], 'json')
 
     # internal variable to mark if network attribute of network has been evaluated (separately)
     network_attr_eval = False
@@ -262,11 +260,17 @@ class Deployment(object):
         flags = self._nix_path_flags()
         args = {key: RawValue(val) for key, val in self.args.iteritems()}
         exprs_ = [RawValue(x) if x[0] == '<' else x for x in exprs]
+
+        extraexprs = [path
+                          for paths in get_plugin_manager().hook.nixexprs()
+                          for path in paths]
+
         flags.extend(
             ["--arg", "networkExprs", py2nix(exprs_, inline=True),
              "--arg", "args", py2nix(args, inline=True),
              "--argstr", "uuid", self.uuid,
              "--argstr", "deploymentName", self.name if self.name else "",
+             "--arg", "pluginNixExprs", py2nix(extraexprs),
              "<nixops/eval-machine-info.nix>"])
         return flags
 
@@ -344,11 +348,6 @@ class Deployment(object):
                 config = {}
             self.description = config.get("description", self.default_description)
             self.rollback_enabled = config.get("enableRollback", False)
-            self.datadog_notify = config.get("datadogNotify", False)
-            self.datadog_event_info = config.get("datadogEventInfo", "")
-            self.datadog_tags = config.get("datadogTags", [])
-            self.datadog_downtime = config.get("datadogDowntime", False)
-            self.datadog_downtime_seconds = config.get("datadogDowntimeSeconds", 3600)
             self.network_attr_eval = True
 
     def evaluate(self):
@@ -1035,16 +1034,12 @@ class Deployment(object):
     # can generalize notifications later (e.g. emails, for now just hardcode datadog)
     def notify_start(self, action):
         self.evaluate_network(action)
-        nixops.datadog_utils.create_event(self, title='nixops {} started'.format(action), text=self.datadog_event_info, tags=self.datadog_tags)
-        nixops.datadog_utils.create_downtime(self)
 
     def notify_success(self, action):
-        nixops.datadog_utils.create_event(self, title='nixops {} succeeded'.format(action), text=self.datadog_event_info, tags=self.datadog_tags)
-        nixops.datadog_utils.delete_downtime(self)
+        pass
 
     def notify_failed(self, action, e):
-        nixops.datadog_utils.create_event(self, title='nixops {} failed'.format(action), text="Error: {}\n\n{}".format(e.message, self.datadog_event_info), tags=self.datadog_tags)
-        nixops.datadog_utils.delete_downtime(self)
+        pass
 
     def run_with_notify(self, action, f):
         self.notify_start(action)
@@ -1266,8 +1261,11 @@ def _create_state(depl, type, name, id):
     """Create a resource state object of the desired type."""
 
     for cls in _subclasses(nixops.resources.ResourceState):
-        if type == cls.get_type():
-            return cls(depl, name, id)
+        try:
+            if type == cls.get_type():
+                return cls(depl, name, id)
+        except NotImplementedError:
+            pass
 
     raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))
 

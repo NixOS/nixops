@@ -11,19 +11,11 @@ in
 {
 
   imports =
-    [ ./ec2.nix
-      ./digital-ocean.nix
-      ./azure.nix
-      ./route53.nix
-      ./virtualbox.nix
+    [
       ./ssh-tunnel.nix
       ./auto-raid0.nix
       ./auto-luks.nix
       ./keys.nix
-      ./gce.nix
-      ./hetzner.nix
-      ./container.nix
-      ./libvirtd.nix
     ];
 
 
