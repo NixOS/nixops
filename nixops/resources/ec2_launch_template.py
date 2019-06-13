@@ -50,6 +50,7 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
     monitoring = nixops.util.attr_property("LTMonitoring", False, type=bool)
     instanceMarketOptions = nixops.util.attr_property("LTInstanceMarketOptions", {}, 'json')
     clientToken = nixops.util.attr_property("LTClientToken", None)
+    rootDiskSize = nixops.util.attr_property("rootDiskSize", None)
 
     @classmethod
     def get_type(cls):
@@ -159,6 +160,17 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
                 args['LaunchTemplateData']['NetworkInterfaces'][0]['PrivateIpAddresses']=defn.config['LTData']['privateIpAddresses']
             if defn.config['LTData']['keyName'] != "":
                 args['LaunchTemplateData']['KeyName']=defn.config['LTData']['keyName']
+
+            ami = self._conn_boto3.describe_images(ImageIds=[defn.config['LTData']['imageId']])['Images'][0]
+
+            args['LaunchTemplateData']['BlockDeviceMappings'] = [dict(
+                DeviceName="/dev/sda",
+                    Ebs=dict(
+                        DeleteOnTermination=True,
+                        VolumeSize=defn.config['LTData']['rootDiskSize'],
+                        VolumeType=ami['BlockDeviceMappings'][0]['Ebs']['VolumeType']
+                    )
+                )]
             # TODO: work on tags.
             # Use a client token to ensure that fleet creation is
             # idempotent; i.e., if we get interrupted before recording

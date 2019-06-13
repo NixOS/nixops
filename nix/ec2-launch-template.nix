@@ -63,6 +63,16 @@ with lib;
             type = types.str;
           };
 
+          rootDiskSize = mkOption {
+            default = 0;
+            type = types.int;
+            description = ''
+              Preferred size (G) of the root disk of the EBS-backed instance. By
+              default, EBS-backed images have a size determined by the
+              AMI. Only supported on creation of the instance.
+            '';
+          };
+
           instanceType = mkOption {
             default = null;
             example = "m1.large";

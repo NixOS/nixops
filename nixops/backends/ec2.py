@@ -45,6 +45,7 @@ class EC2Definition(MachineDefinition):
         self.region = config["ec2"]["region"]
         self.zone = config["ec2"]["zone"]
         self.tenancy = config["ec2"]["tenancy"]
+        self.instance_id = config["ec2"]["instanceId"]
         self.ami = config["ec2"]["ami"]
         if self.ami == "":
             raise Exception("no AMI defined for EC2 machine ‘{0}’".format(self.name))
@@ -66,6 +67,7 @@ class EC2Definition(MachineDefinition):
         self.use_private_ip_address = config["ec2"]["usePrivateIpAddress"]
         self.source_dest_check = config["ec2"]["sourceDestCheck"]
         self.security_group_ids = config["ec2"]["securityGroupIds"]
+        self.fleet_instance_number = config["ec2"]["fleetInstanceNumber"]
 
         # convert sd to xvd because they are equal from aws perspective
         self.block_device_mapping = {device_name_user_entered_to_stored(k): v for k, v in config["ec2"]["blockDeviceMapping"].iteritems()}
@@ -129,6 +131,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
     subnet_id = nixops.util.attr_property("ec2.subnetId", None)
     first_boot = nixops.util.attr_property("ec2.firstBoot", True, type=bool)
     virtualization_type = nixops.util.attr_property("ec2.virtualizationType", None)
+    fleet_instance_number = nixops.util.attr_property("ec2.fleetInstanceNumber", None)
 
     def __init__(self, depl, name, id):
         MachineState.__init__(self, depl, name, id)
@@ -170,6 +173,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             self.dns_hostname = None
             self.dns_ttl = None
             self.subnet_id = None
+            self.fleet_instance_number = None
 
             self.client_token = None
             self.spot_instance_request_id = None
@@ -556,7 +560,8 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState) or
                 isinstance(r, nixops.resources.vpc_route.VPCRouteState) or
                 isinstance(r, nixops.resources.elastic_file_system.ElasticFileSystemState) or
-                isinstance(r, nixops.resources.elastic_file_system_mount_target.ElasticFileSystemMountTargetState)}
+                isinstance(r, nixops.resources.elastic_file_system_mount_target.ElasticFileSystemMountTargetState) or
+                isinstance(r, nixops.resources.ec2_fleet.ec2FleetState)}
 
 
     def attach_volume(self, device_stored, volume_id):
@@ -1013,18 +1018,28 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 self.public_host_key, self.private_host_key.replace("\n", "|"),
                 defn.host_key_type().upper())
 
-            instance = self.create_instance(defn, zone, user_data, ebs_optimized, args)
-            update_instance_profile = False
+            if defn.instance_id != "":
+                if defn.instance_id.startswith("res-"):
+                    res = self.depl.get_typed_resource(defn.instance_id[4:].split(".")[0], "ec2-fleet")
+                    fleet_instances = res.fleetInstances
+                    instance_id = fleet_instances[defn.fleet_instance_number]['instanceId']
+                self.log("Using instance launched from the ec2-fleet resource, Please update your expressions to match those: {}".format(fleet_instances[defn.fleet_instance_number]))
+
+                with self.depl._db:
+                    self.vm_id = instance_id
+            else:
+                instance = self.create_instance(defn, zone, user_data, ebs_optimized, args)
+                update_instance_profile = False
+                self.vm_id = instance.id
+                self.zone = instance.placement
 
             with self.depl._db:
-                self.vm_id = instance.id
                 self.ami = defn.ami
                 self.instance_type = defn.instance_type
                 self.ebs_optimized = ebs_optimized
                 self.key_pair = defn.key_pair
                 self.security_groups = defn.security_groups
                 self.placement_group = defn.placement_group
-                self.zone = instance.placement
                 self.tenancy = defn.tenancy
                 self.instance_profile = defn.instance_profile
                 self.client_token = None

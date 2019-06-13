@@ -137,11 +137,12 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 args['SpotOptions'] = dict(
                     AllocationStrategy=defn.config['spotOptions']['allocationStrategy'],
                     InstanceInterruptionBehavior=defn.config['spotOptions']['instanceInterruptionBehavior'],
-                    InstancePoolsToUseCount=defn.config['spotOptions']['instancePoolsToUseCount'],
                     SingleInstanceType=defn.config['spotOptions']['singleInstanceType'],
                     SingleAvailabilityZone=defn.config['spotOptions']['singleAvailabilityZone'],
                     MinTargetCapacity=defn.config['spotOptions']['minTargetCapacity']
                 )
+                if defn.config['spotOptions']['allocationStrategy'] != "diversified":
+                    args['SpotOptions']['InstancePoolsToUseCount']=defn.config['spotOptions']['instancePoolsToUseCount']
                 with self.depl._db:
                     self.spotAllocationStrategy = defn.config['spotOptions']['allocationStrategy']
                     self.spotInstanceInterruptionBehavior = defn.config['spotOptions']['instanceInterruptionBehavior']
@@ -271,7 +272,6 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
             self.state = self.MISSING
             return
             # check with amine if we should set the other stuff to None
-            # also check the instnaces
         # getting the instances IDs
         self._get_fleet_instances()
         instances_status = self.get_instances_status()
@@ -291,7 +291,7 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 instanceId=i['InstanceId'],
                 instanceType=i['InstanceType'],
                 ami=instance['ImageId'],
-                keyPair=instance['KeyName'],
+                keyPair = instance.get('KeyName', None),
                 ebsOptimized=instance['EbsOptimized'],
                 placement=dict(
                     zone=instance['Placement']['AvailabilityZone'],
@@ -365,7 +365,7 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                         if instances == []:
                             break
                         else:
-                            self.log_continue("destroying: {0}, ".format(", ".join(instances)))
+                            self.log_continue("destroying ({0} left) ... ".format(len(instances)))
                             time.sleep(2)
                             fleetInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
                             instances = [i['InstanceId'] for i in fleetInstances['ActiveInstances']] 

@@ -194,5 +194,5 @@ with lib;
     };
   } // import ./common-ec2-options.nix { inherit lib; } ;
 
-  config._type = "ecc-fleet";
+  config._type = "ec2-fleet";
 }

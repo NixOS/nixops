@@ -273,9 +273,17 @@ in
 
     deployment.ec2.instanceId = mkOption {
       default = "";
-      type = types.str;
+      type = types.either types.str (resource "ec2-fleet");
+      apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;
       description = ''
         EC2 instance ID (set by NixOps).
+      '';
+    };
+    deployment.ec2.fleetInstanceNumber = mkOption {
+      default = null;
+      type = types.nullOr types.int;
+      description = ''
+        Instance to be used from the ec2fleet list
       '';
     };
 
