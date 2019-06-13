@@ -17,6 +17,14 @@ class ContainerDefinition(MachineDefinition):
         x = xml.find("attrs/attr[@name='container']/attrs")
         assert x is not None
         self.host = x.find("attr[@name='host']/string").get("value")
+        self.host_address = self.nullOrOpt(x, "hostAddress")
+        self.local_address = self.nullOrOpt(x, "localAddress")
+
+    def nullOrOpt(self, x, param):
+        tmp = x.find("attr[@name='{0}']/string".format(param))
+        if tmp is None:
+            return tmp
+        return tmp.get("value")
 
 class ContainerState(MachineState):
     """State of a NixOS container."""
@@ -26,7 +34,12 @@ class ContainerState(MachineState):
         return "container"
 
     state = nixops.util.attr_property("state", MachineState.MISSING, int)  # override
-    private_ipv4 = nixops.util.attr_property("privateIpv4", None)
+
+    # The result of `nixos-container show-ip <name>` (a.k.a local address)
+    # was originally stored as `privateIpv4` in the state file. To ensure backwards-compatibility
+    # with existing setups, this name should be kept.
+    local_address = nixops.util.attr_property("privateIpv4", None)
+    host_address = nixops.util.attr_property("container.hostAddress", None)
     host = nixops.util.attr_property("container.host", None)
     client_private_key = nixops.util.attr_property("container.clientPrivateKey", None)
     client_public_key = nixops.util.attr_property("container.clientPublicKey", None)
@@ -44,15 +57,15 @@ class ContainerState(MachineState):
 
     def address_to(self, m):
         if isinstance(m, ContainerState) and self.host == m.host:
-            return m.private_ipv4
+            return m.local_address
         return MachineState.address_to(self, m)
 
     def get_ssh_name(self):
-        assert self.private_ipv4
+        assert self.local_address
         if self.host == "localhost":
-            return self.private_ipv4
+            return self.local_address
         else:
-            return self.get_host_ssh() + "~" + self.private_ipv4
+            return self.get_host_ssh() + "~" + self.local_address
 
     def get_ssh_private_key_file(self):
         return self._ssh_private_key_file or self.write_ssh_private_key(self.client_private_key)
@@ -63,7 +76,7 @@ class ContainerState(MachineState):
         flags = super(ContainerState, self).get_ssh_flags(*args, **kwargs)
         flags += ["-i", self.get_ssh_private_key_file()]
         if self.host != "localhost":
-            cmd = "ssh -x -a root@{0} {1} nc {2} {3}".format(self.get_host_ssh(), " ".join(self.get_host_ssh_flags()), self.private_ipv4, self.ssh_port)
+            cmd = "ssh -x -a root@{0} {1} nc {2} {3}".format(self.get_host_ssh(), " ".join(self.get_host_ssh_flags()), self.local_address, self.ssh_port)
             flags.extend(["-o", "ProxyCommand=" + cmd])
         return flags
 
@@ -143,19 +156,28 @@ class ContainerState(MachineState):
 
             self.log("creating container...")
             self.host = defn.host
+            self.host_address = defn.host_address
+            self.local_address = defn.local_address
             self.copy_closure_to(path)
+
+            ipArgs = ""
+            if bool(self.host_address) != bool(self.local_address):
+                raise Exception("Either both deployment.container.hostAddress and deployment.container.localAddress or none of those can be set for container {0}!".format(self.name))
+            elif self.host_address is not None:
+                ipArgs = "--host-address {0} --local-address {1}".format(self.host_address, self.local_address)
+
             self.vm_id = self.host_ssh.run_command(
-                "nixos-container create {0} --ensure-unique-name --system-path '{1}'"
-                .format(self.name[:7], path), capture_stdout=True).rstrip()
+                "nixos-container create {0} --ensure-unique-name --system-path '{1}' {2}"
+                .format(self.name[:7], path, ipArgs), capture_stdout=True).rstrip()
             self.state = self.STOPPED
 
         if self.state == self.STOPPED:
             self.host_ssh.run_command("nixos-container start {0}".format(self.vm_id))
             self.state = self.UP
 
-        if self.private_ipv4 is None:
-            self.private_ipv4 = self.host_ssh.run_command("nixos-container show-ip {0}".format(self.vm_id), capture_stdout=True).rstrip()
-            self.log("IP address is {0}".format(self.private_ipv4))
+        if self.local_address is None:
+            self.local_address = self.host_ssh.run_command("nixos-container show-ip {0}".format(self.vm_id), capture_stdout=True).rstrip()
+            self.log("IP address is {0}".format(self.local_address))
 
         if self.public_host_key is None:
             self.public_host_key = self.host_ssh.run_command("nixos-container show-host-key {0}".format(self.vm_id), capture_stdout=True).rstrip()

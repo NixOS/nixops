@@ -27,6 +27,22 @@ in
       '';
     };
 
+    deployment.container.localAddress = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = ''
+        Local address of the container.
+      '';
+    };
+
+    deployment.container.hostAddress = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      description = ''
+        Host address of the container.
+      '';
+    };
+
   };
 
   config = mkIf (config.deployment.targetEnv == "container") {
