@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 import ast
 import sys
+import base64
 import nixops.util
+import nixops.ec2_utils
 import nixops.resources
 import botocore.exceptions
 from nixops.resources.ec2_common import EC2CommonState
@@ -26,31 +28,34 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
     access_key_id = nixops.util.attr_property("accessKeyId", None)
     region = nixops.util.attr_property("region", None)
-    templateName = nixops.util.attr_property("LTName", None)
+    templateName = nixops.util.attr_property("templateName", None)
     templateId = nixops.util.attr_property("templateId", None)
-    version = nixops.util.attr_property("LTVersion", None)
-    versionDescription = nixops.util.attr_property("LTVersionDescription", None)
-    ebsOptimized = nixops.util.attr_property("LTEbsOptimized", True, type=bool)
-    instanceProfile = nixops.util.attr_property("LTInstanceProfile", None)
-    imageId = nixops.util.attr_property("LTImageId", None)
-    instanceType = nixops.util.attr_property("LTInstanceType", None)
-    keyName = nixops.util.attr_property("LTKeyName", None)
-    userData = nixops.util.attr_property("LTUserData", None)
-    securityGroupIds = nixops.util.attr_property("LTSecurityGroupIds", None, 'json')
-    disableApiTermination = nixops.util.attr_property("LTDisableApiTermination", False, type=bool)
-    instanceInitiatedShutdownBehavior = nixops.util.attr_property("LTInstanceInitiatedShutdownBehavior", None)
-    placementGroup = nixops.util.attr_property("LTPlacementGroup", None)
-    availabilityZone = nixops.util.attr_property("LTAvailabilityZone", None)
-    tenancy = nixops.util.attr_property("LTTenancy", None)
-    associatePublicIpAddress = nixops.util.attr_property("LTAssociatePublicIpAddress", True, type=bool)
-    networkInterfaceId = nixops.util.attr_property("LTNetworkInterfaceId", None)
-    subnetId = nixops.util.attr_property("LTSubnetId", None)
-    privateIpAddresses = nixops.util.attr_property("LTPrivateIpAddresses", {}, 'json')
-    secondaryPrivateIpAddressCount = nixops.util.attr_property("LTSecondaryPrivateIpAddressCount", None)
+    templateVersion = nixops.util.attr_property("templateVersion", None)
+    versionDescription = nixops.util.attr_property("versionDescription", None)
+    ebsOptimized = nixops.util.attr_property("ebsOptimized", True, type=bool)
+    instanceProfile = nixops.util.attr_property("instanceProfile", None)
+    ami = nixops.util.attr_property("ami", None)
+    instanceType = nixops.util.attr_property("instanceType", None)
+    keyPair = nixops.util.attr_property("keyPair", None)
+    userData = nixops.util.attr_property("userData", None)
+    securityGroupIds = nixops.util.attr_property("securityGroupIds", None, 'json')
+    disableApiTermination = nixops.util.attr_property("disableApiTermination", False, type=bool)
+    instanceInitiatedShutdownBehavior = nixops.util.attr_property("instanceInitiatedShutdownBehavior", None)
+    placementGroup = nixops.util.attr_property("placementGroup", None)
+    zone = nixops.util.attr_property("zone", None)
+    tenancy = nixops.util.attr_property("tenancy", None)
+    associatePublicIpAddress = nixops.util.attr_property("associatePublicIpAddress", True, type=bool)
+    networkInterfaceId = nixops.util.attr_property("networkInterfaceId", None)
+    subnetId = nixops.util.attr_property("subnetId", None)
+    privateIpAddresses = nixops.util.attr_property("privateIpAddresses", {}, 'json')
+    secondaryPrivateIpAddressCount = nixops.util.attr_property("secondaryPrivateIpAddressCount", None)
     monitoring = nixops.util.attr_property("LTMonitoring", False, type=bool)
-    instanceMarketOptions = nixops.util.attr_property("LTInstanceMarketOptions", {}, 'json')
-    clientToken = nixops.util.attr_property("LTClientToken", None)
-    rootDiskSize = nixops.util.attr_property("rootDiskSize", None)
+    spotInstancePrice = nixops.util.attr_property("ec2.spotInstancePrice", None)
+    spotInstanceRequestType = nixops.util.attr_property("spotInstanceRequestType", None)
+    spotInstanceInterruptionBehavior = nixops.util.attr_property("spotInstanceInterruptionBehavior", None)
+    spotInstanceTimeout = nixops.util.attr_property("spotInstanceTimeout", None)
+    clientToken = nixops.util.attr_property("clientToken", None)
+    ebsInitialRootDiskSize = nixops.util.attr_property("ebsInitialRootDiskSize", None)
 
     @classmethod
     def get_type(cls):
@@ -95,6 +100,16 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
                 isinstance(r, nixops.resources.ec2_placement_group.EC2PlacementGroupState) or
                 isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState)}
 
+    # fix security group stuff later
+    # def security_groups_to_ids(self, subnetId, groups):
+        # sg_names = filter(lambda g: not g.startswith('sg-'), groups)
+        # if sg_names != [ ] and subnetId != "":
+            # self.connect_vpc()
+            # vpc_id = self._conn_vpc.get_all_subnets([subnetId])[0].vpc_id
+            # groups = map(lambda g: nixops.ec2_utils.name_to_security_group(self._conn, g, vpc_id), groups)
+
+        # return groups
+
     def create(self, defn, check, allow_reboot, allow_recreate):
 
         if self.region is None:
@@ -105,73 +120,84 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
 
         self.access_key_id = defn.config['accessKeyId']
         self.connect_boto3(self.region)
-        if self.state != self.UP: 
+        if self.state != self.UP:
             tags = defn.config['tags']
             tags.update(self.get_common_tags())
             args = dict()
-            args['LaunchTemplateName'] = defn.config['name']
+            args['LaunchTemplateName'] = defn.config['templateName']
             args['VersionDescription'] = defn.config['versionDescription']
             args['LaunchTemplateData'] = dict(
-                EbsOptimized=defn.config['LTData']['ebsOptimized'],
-                ImageId=defn.config['LTData']['imageId'],
-                Placement=dict(Tenancy=defn.config['LTData']['tenancy']),
-                Monitoring=dict(Enabled=defn.config['LTData']['monitoring']),
-                DisableApiTermination=defn.config['LTData']['disableApiTermination'],
-                InstanceInitiatedShutdownBehavior=defn.config['LTData']['instanceInitiatedShutdownBehavior'],
+                EbsOptimized=defn.config['ebsOptimized'],
+                ImageId=defn.config['ami'],
+                Placement=dict(Tenancy=defn.config['tenancy']),
+                Monitoring=dict(Enabled=defn.config['monitoring']),
+                DisableApiTermination=defn.config['disableApiTermination'],
+                InstanceInitiatedShutdownBehavior=defn.config['instanceInitiatedShutdownBehavior'],
                 NetworkInterfaces=[dict(
                     DeviceIndex=0,
-                    AssociatePublicIpAddress=defn.config['LTData']['associatePublicIpAddress']
+                    AssociatePublicIpAddress=defn.config['associatePublicIpAddress']
                 )],
-                TagSpecifications=[dict(
-                    ResourceType='instance',
-                    Tags=[{"Key": k, "Value": tags[k]} for k in tags]
-                ),
-                dict(
-                    ResourceType='volume',
-                    Tags=[{"Key": k, "Value": tags[k]} for k in tags]
-                ) ]
+                # TagSpecifications=[dict(
+                #     ResourceType='instance',
+                #     Tags=[{"Key": k, "Value": tags[k]} for k in tags]
+                # ),
+                # dict(
+                #     ResourceType='volume',
+                #     Tags=[{"Key": k, "Value": tags[k]} for k in tags]
+                # ) ]
             )
-            if defn.config['LTData']['instanceProfile'] != "":
+            if defn.config['instanceProfile'] != "":
                 args['LaunchTemplateData']['IamInstanceProfile'] = dict(
-                    Name=defn.config['LTData']['instanceProfile']
+                    Name=defn.config['instanceProfile']
                 )
-            if defn.config['LTData']['userData']:
-                args['LaunchTemplateData']['UserData'] = defn.config['LTData']['userData']
+            if defn.config['userData']:
+                args['LaunchTemplateData']['UserData'] = base64.b64encode(defn.config['userData'])
 
-            if defn.config['LTData']['instanceType']:
-                args['LaunchTemplateData']['InstanceType'] = defn.config['LTData']['instanceType']
-            if defn.config['LTData']['securityGroupIds']!=[]:
-                args['LaunchTemplateData']['SecurityGroupIds'] = defn.config['LTData']['securityGroupIds']
-            if defn.config['LTData']['placementGroup'] != "":
-                args['LaunchTemplateData']['Placement']['GroupName'] = defn.config['LTData']['placementGroup']
-            if defn.config['LTData']['availabilityZone']:
-                args['LaunchTemplateData']['Placement']['AvailabilityZone'] = defn.config['LTData']['availabilityZone']
-            if defn.config['LTData']['instanceMarketOptions']:
-                args['LaunchTemplateData']['InstanceMarketOptions'] = ast.literal_eval(defn.config['LTData']['instanceMarketOptions'])
-            if defn.config['LTData']['subnetId'] == "" and defn.config['LTData']['networkInterfaceId'] == "":
+            if defn.config['instanceType']:
+                args['LaunchTemplateData']['InstanceType'] = defn.config['instanceType']
+            # if defn.config['securityGroupIds']!=[]:
+                # args['LaunchTemplateData']['SecurityGroupIds'] = self.security_groups_to_ids(defn.config['subnetId'], defn.config['securityGroupIds'])
+            if defn.config['placementGroup'] != "":
+                args['LaunchTemplateData']['Placement']['GroupName'] = defn.config['placementGroup']
+            if defn.config['zone']:
+                args['LaunchTemplateData']['Placement']['AvailabilityZone'] = defn.config['zone']
+            ######
+            if defn.config['spotInstancePrice'] != 0:
+                print 'here'
+                args['LaunchTemplateData']['InstanceMarketOptions'] = dict(
+                        MarketType="spot",
+                        SpotOptions=dict(
+                            MaxPrice=str(defn.config['spotInstancePrice']/100.0),
+                            SpotInstanceType=defn.config['spotInstanceRequestType'],
+                            ValidUntil=(datetime.datetime.utcnow() +
+                                datetime.timedelta(0, defn.config['spotInstanceTimeout'])).isoformat(),
+                            InstanceInterruptionBehavior=defn.config['spotInstanceInterruptionBehavior']
+                        )
+                    )
+            if defn.config['subnetId'] == "" and defn.config['networkInterfaceId'] == "":
                 raise Exception("You must specify either a subnetId or a networkInterfaceId")
-            if defn.config['LTData']['networkInterfaceId'] != "":
-                args['LaunchTemplateData']['NetworkInterfaces'][0]['networkInterfaceId']=defn.config['LTData']['networkInterfaceId']
-            if defn.config['LTData']['subnetId'] != "":
-                args['LaunchTemplateData']['NetworkInterfaces'][0]['SubnetId']=defn.config['LTData']['subnetId']
-            if defn.config['LTData']['secondaryPrivateIpAddressCount']:
-                args['LaunchTemplateData']['NetworkInterfaces'][0]['SecondaryPrivateIpAddressCount']=defn.config['LTData']['secondaryPrivateIpAddressCount']
-            if defn.config['LTData']['privateIpAddresses']:
-                args['LaunchTemplateData']['NetworkInterfaces'][0]['PrivateIpAddresses']=defn.config['LTData']['privateIpAddresses']
-            if defn.config['LTData']['keyName'] != "":
-                args['LaunchTemplateData']['KeyName']=defn.config['LTData']['keyName']
+            if defn.config['networkInterfaceId'] != "":
+                args['LaunchTemplateData']['NetworkInterfaces'][0]['networkInterfaceId']=defn.config['networkInterfaceId']
+            if defn.config['subnetId'] != "":
+                args['LaunchTemplateData']['NetworkInterfaces'][0]['SubnetId']=defn.config['subnetId']
+            if defn.config['secondaryPrivateIpAddressCount']:
+                args['LaunchTemplateData']['NetworkInterfaces'][0]['SecondaryPrivateIpAddressCount']=defn.config['secondaryPrivateIpAddressCount']
+            if defn.config['privateIpAddresses']:
+                args['LaunchTemplateData']['NetworkInterfaces'][0]['PrivateIpAddresses']=defn.config['privateIpAddresses']
+            if defn.config['keyPair'] != "":
+                args['LaunchTemplateData']['KeyName']=defn.config['keyPair']
 
-            ami = self._conn_boto3.describe_images(ImageIds=[defn.config['LTData']['imageId']])['Images'][0]
+            ami = self._conn_boto3.describe_images(ImageIds=[defn.config['ami']])['Images'][0]
 
+            # TODO: BlockDeviceMappings for non root volumes
             args['LaunchTemplateData']['BlockDeviceMappings'] = [dict(
-                DeviceName="/dev/sda",
+                DeviceName="/dev/sda1",
                     Ebs=dict(
                         DeleteOnTermination=True,
-                        VolumeSize=defn.config['LTData']['rootDiskSize'],
+                        VolumeSize=defn.config['ebsInitialRootDiskSize'],
                         VolumeType=ami['BlockDeviceMappings'][0]['Ebs']['VolumeType']
                     )
                 )]
-            # TODO: work on tags.
             # Use a client token to ensure that fleet creation is
             # idempotent; i.e., if we get interrupted before recording
             # the fleet ID, we'll get the same fleet ID on the
@@ -182,7 +208,7 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
                     self.state = self.STARTING
 
             args['ClientToken'] = self.clientToken
-            self.log("creating launch template {} ...".format(defn.config['name']))
+            self.log("creating launch template {} ...".format(defn.config['templateName']))
             try:
                 launch_template = self._conn_boto3.create_launch_template(**args)
             except botocore.exceptions.ClientError as error:
@@ -190,11 +216,11 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
                 # Not sure whether to use lambda retry or keep it like this
             with self.depl._db:
                 self.templateId = launch_template['LaunchTemplate']['LaunchTemplateId']
-                self.templateName = defn.config['name']
-                self.version = defn.config['version']
+                self.templateName = defn.config['templateName']
+                self.templateVersion = defn.config['templateVersion']
                 self.versionDescription = defn.config['versionDescription']
                 self.state = self.UP
-
+            # these are the tags for the template
             self._update_tag(defn)
 
     def check(self):
@@ -206,8 +232,8 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
         if launch_template is None:
             self.state = self.MISSING
             return
-        if str(launch_template[0]['DefaultVersionNumber']) != self.version:
-            self.warn("default version on the launch template is different then nixops managed version...") 
+        if str(launch_template[0]['DefaultVersionNumber']) != self.templateVersion:
+            self.warn("default version on the launch template is different then nixops managed version...")
 
     def _destroy(self):
 

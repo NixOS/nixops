@@ -31,7 +31,7 @@ with lib;
 
     launchTemplateName = mkOption {
       type = with types; either str (resource "ec2-launch-template");
-      apply = x: if builtins.isString x then x else x.name;
+      apply = x: if builtins.isString x then x else x.templateName;
       description = "The launch template configuration for the EC2 Fleet";
     };
     launchTemplateVersion = mkOption {
@@ -62,7 +62,7 @@ with lib;
       default = true;
       type = types.bool;
       description = ''
-        Indicates whether running instances 
+        Indicates whether running instances
         should be terminated when the EC2 Fleet expires'';
     };
 
@@ -72,13 +72,13 @@ with lib;
       type = types.enum [ "request" "maintain" "instant" ];
       description = ''
         The type of the request. By default, the EC2 Fleet places
-        an asynchronous request for your desired capacity, and 
+        an asynchronous request for your desired capacity, and
         maintains it by replenishing interrupted Spot Instances
         (maintain ). A value of instant places a synchronous one-time
         request, and returns errors for any instances that could not
         be launched. A value of request places an asynchronous one-time
         request without maintaining capacity or submitting requests
-        in alternative capacity pools if capacity is unavailable. 
+        in alternative capacity pools if capacity is unavailable.
       '';
     };
 
@@ -109,8 +109,8 @@ with lib;
 
     spotOptions = {
       allocationStrategy = mkOption {
-        default = "lowestPrice";
-        type = types.enum [ "lowestPrice" "diversified" ];
+        default = "capacityOptimized";
+        type = types.enum [ "lowestPrice" "diversified" "capacityOptimized" ];
         description = "Describes the configuration of Spot Instances in an EC2 Fleet.";
       };
       instanceInterruptionBehavior = mkOption {
@@ -119,7 +119,7 @@ with lib;
         description = "The behavior when a Spot Instance is interrupted.";
       };
       instancePoolsToUseCount = mkOption {
-        default = 1;
+        default = types.nullOr types.int;
         type = types.int;
         description = ''
           The number of Spot pools across which to allocate your
@@ -151,7 +151,7 @@ with lib;
     onDemandOptions = {
       allocationStrategy = mkOption {
         default = "lowestPrice";
-        type = types.enum [ "lowestPrice" "diversified" ];
+        type = types.enum [ "lowestPrice" "prioritized" ];
         description = "The allocation strategy of On-Demand Instances in an EC2 Fleet.";
       };
       singleInstanceType = mkOption {

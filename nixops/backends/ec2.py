@@ -1024,18 +1024,22 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     fleet_instances = res.fleetInstances
                     instance_id = fleet_instances[defn.fleet_instance_number]['instanceId']
                 self.log("Using instance launched from the ec2-fleet resource, Please update your expressions to match those: {}".format(fleet_instances[defn.fleet_instance_number]))
-
                 with self.depl._db:
                     self.vm_id = instance_id
+                    self.instance_type = fleet_instances[defn.fleet_instance_number]['instanceType']
+                    self.subnet_id = fleet_instances[defn.fleet_instance_number]['subnetId']
+                    # using ec2 security groups option will override the sg in the ec2-fleet launch template
+
             else:
                 instance = self.create_instance(defn, zone, user_data, ebs_optimized, args)
                 update_instance_profile = False
-                self.vm_id = instance.id
-                self.zone = instance.placement
+                with self.depl._db:
+                    self.vm_id = instance.id
+                    self.zone = instance.placement
+                    self.instance_type = defn.instance_type
 
             with self.depl._db:
                 self.ami = defn.ami
-                self.instance_type = defn.instance_type
                 self.ebs_optimized = ebs_optimized
                 self.key_pair = defn.key_pair
                 self.security_groups = defn.security_groups
@@ -1157,6 +1161,11 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if "NixOps auto-generated key" in self.public_host_key:
             self.log("replacing temporary host key...")
             key_type = defn.host_key_type()
+            if defn.instance_id != "":
+                nixops.known_hosts.update(self.public_ipv4, None, self.public_host_key)
+                # TODO: currently we need to add "host * StrictHostKeyChecking no" to the ssh
+                # config file to bypass the fingerprint verification prompt
+
             new_key = self.run_command(
                 "rm -f /etc/ssh/ssh_host_{0}_key*; systemctl restart sshd; cat /etc/ssh/ssh_host_{0}_key.pub"
                 .format(key_type),

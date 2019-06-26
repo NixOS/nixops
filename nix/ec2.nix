@@ -173,9 +173,9 @@ in
 
   ###### interface
 
-  options = {
+  options.deployment.ec2 = {
 
-    deployment.ec2.accessKeyId = mkOption {
+    accessKeyId = mkOption {
       default = "";
       example = "AKIABOGUSACCESSKEY";
       type = types.str;
@@ -197,7 +197,7 @@ in
       '';
     };
 
-    deployment.ec2.region = mkOption {
+    region = mkOption {
       default = "";
       example = "us-east-1";
       type = types.str;
@@ -208,28 +208,7 @@ in
       '';
     };
 
-    deployment.ec2.zone = mkOption {
-      default = "";
-      example = "us-east-1c";
-      type = types.str;
-      description = ''
-        The EC2 availability zone in which the instance should be
-        created.  If not specified, a zone is selected automatically.
-      '';
-    };
-
-    deployment.ec2.tenancy = mkOption {
-      default = "default";
-      type = types.enum [ "default" "dedicated" "host" ];
-      description = ''
-        The tenancy of the instance (if the instance is running in a VPC).
-        An instance with a tenancy of dedicated runs on single-tenant hardware.
-        An instance with host tenancy runs on a Dedicated Host, which is an
-        isolated server with configurations that you can control.
-      '';
-    };
-
-    deployment.ec2.ebsBoot = mkOption {
+    ebsBoot = mkOption {
       default = true;
       type = types.bool;
       description = ''
@@ -241,37 +220,7 @@ in
       '';
     };
 
-    deployment.ec2.ebsInitialRootDiskSize = mkOption {
-      default = 0;
-      type = types.int;
-      description = ''
-        Preferred size (G) of the root disk of the EBS-backed instance. By
-        default, EBS-backed images have a size determined by the
-        AMI. Only supported on creation of the instance.
-      '';
-    };
-
-    deployment.ec2.ami = mkOption {
-      example = "ami-00000000";
-      type = types.str;
-      description = ''
-        EC2 identifier of the AMI disk image used in the virtual
-        machine.  This must be a NixOS image providing SSH access.
-      '';
-    };
-
-    deployment.ec2.instanceType = mkOption {
-      default = "m1.small";
-      example = "m1.large";
-      type = types.str;
-      description = ''
-        EC2 instance type.  See <link
-        xlink:href='http://aws.amazon.com/ec2/instance-types/'/> for a
-        list of valid Amazon EC2 instance types.
-      '';
-    };
-
-    deployment.ec2.instanceId = mkOption {
+    instanceId = mkOption {
       default = "";
       type = types.either types.str (resource "ec2-fleet");
       apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;
@@ -279,7 +228,7 @@ in
         EC2 instance ID (set by NixOps).
       '';
     };
-    deployment.ec2.fleetInstanceNumber = mkOption {
+    fleetInstanceNumber = mkOption {
       default = null;
       type = types.nullOr types.int;
       description = ''
@@ -287,28 +236,7 @@ in
       '';
     };
 
-    deployment.ec2.instanceProfile = mkOption {
-      default = "";
-      example = "rolename";
-      type = types.str;
-      description = ''
-        The name of the IAM Instance Profile (IIP) to associate with
-        the instances.
-      '';
-    };
-
-    deployment.ec2.keyPair = mkOption {
-      example = "my-keypair";
-      type = types.either types.str (resource "ec2-keypair");
-      apply = x: if builtins.isString x then x else x.name;
-      description = ''
-        Name of the SSH key pair to be used to communicate securely
-        with the instance.  Key pairs can be created using the
-        <command>ec2-add-keypair</command> command.
-      '';
-    };
-
-    deployment.ec2.privateKey = mkOption {
+    privateKey = mkOption {
       default = "";
       example = "/home/alice/.ssh/id_rsa-my-keypair";
       type = types.str;
@@ -322,7 +250,7 @@ in
       '';
     };
 
-    deployment.ec2.securityGroups = mkOption {
+    securityGroups = mkOption {
       default = [ "default" ];
       example = [ "my-group" "my-other-group" ];
       type = types.listOf (types.either types.str (resource "ec2-security-group"));
@@ -333,36 +261,7 @@ in
       '';
     };
 
-    deployment.ec2.securityGroupIds = mkOption {
-      default = [ "default" ];
-      type = types.listOf types.str;
-      description = ''
-        Security Group IDs for the instance. Necessary if starting
-        an instance inside a VPC/subnet. In the non-default VPC, security
-        groups needs to be specified by ID and not name.
-      '';
-    };
-
-    deployment.ec2.subnetId = mkOption {
-      default = "";
-      example = "subnet-00000000";
-      type = types.either types.str (resource "vpc-subnet");
-      apply = x: if builtins.isString x then x else "res-" + x._name + "." + x._type;
-      description = ''
-        The subnet inside a VPC to launch the instance in.
-      '';
-    };
-
-    deployment.ec2.associatePublicIpAddress = mkOption {
-      default = false;
-      type = types.bool;
-      description = ''
-        If instance in a subnet/VPC, whether to associate a public
-        IP address with the instance.
-      '';
-    };
-
-    deployment.ec2.usePrivateIpAddress = mkOption {
+    usePrivateIpAddress = mkOption {
       default = defaultUsePrivateIpAddress;
       type = types.bool;
       description = ''
@@ -373,7 +272,7 @@ in
       '';
     };
 
-    deployment.ec2.sourceDestCheck = mkOption {
+    sourceDestCheck = mkOption {
       default = true;
       type = types.bool;
       description = ''
@@ -382,19 +281,9 @@ in
       '';
     };
 
-    deployment.ec2.placementGroup = mkOption {
-      default = "";
-      example = "my-cluster";
-      type = types.either types.str (resource "ec2-placement-group");
-      apply = x: if builtins.isString x then x else x.name;
-      description = ''
-        Placement group for the instance.
-      '';
-    };
+    tags = commonEC2Options.tags;
 
-    deployment.ec2.tags = commonEC2Options.tags;
-
-    deployment.ec2.blockDeviceMapping = mkOption {
+    blockDeviceMapping = mkOption {
       default = { };
       example = { "/dev/xvdb".disk = "ephemeral0"; "/dev/xvdg".disk = "vol-00000000"; };
       type = with types; attrsOf (submodule ec2DiskOptions);
@@ -416,7 +305,7 @@ in
       '';
     };
 
-    deployment.ec2.elasticIPv4 = mkOption {
+    elasticIPv4 = mkOption {
       default = "";
       example = "123.1.123.123";
       type = types.either types.str (resource "elastic-ip");
@@ -426,7 +315,7 @@ in
       '';
     };
 
-    deployment.ec2.physicalProperties = mkOption {
+    physicalProperties = mkOption {
       default = {};
       example = { cores = 4; memory = 14985; };
       description = ''
@@ -435,55 +324,16 @@ in
       '';
     };
 
-    deployment.ec2.spotInstancePrice = mkOption {
-      default = 0;
-      type = types.int;
-      description = ''
-        Price (in dollar cents per hour) to use for spot instances request for the machine.
-        If the value is equal to 0 (default), then spot instances are not used.
-      '';
-    };
-
-    deployment.ec2.spotInstanceRequestType = mkOption {
-      default = "one-time";
-      type = types.enum [ "one-time" "persistent" ];
-      description = ''
-        The type of the spot instance request. It can be either "one-time" or "persistent".
-      '';
-    };
-
-    deployment.ec2.spotInstanceInterruptionBehavior = mkOption {
-      default = "terminate";
-      type = types.enum [ "terminate" "stop" "hibernate" ];
-      description = ''
-        Whether to terminate, stop or hibernate the instance when it gets interrupted.
-        For stop, spotInstanceRequestType must be set to "persistent".
-      '';
-    };
-
-    deployment.ec2.spotInstanceTimeout = mkOption {
-      default = 0;
-      type = types.int;
-      description = ''
-        The duration (in seconds) that the spot instance request is
-        valid. If the request cannot be satisfied in this amount of
-        time, the request will be cancelled automatically, and NixOps
-        will fail with an error message. The default (0) is no timeout.
-      '';
-    };
-
-    deployment.ec2.ebsOptimized = mkOption {
+    ebsOptimized = mkOption {
       default = defaultEbsOptimized;
       type = types.bool;
       description = ''
         Whether the EC2 instance should be created as an EBS Optimized instance.
       '';
     };
-
-    fileSystems = mkOption {
+  } // import ./common-ec2-instance-options.nix { inherit lib; };
+  options.fileSystems = mkOption {
       type = with types; loaOf (submodule fileSystemsOptions);
-    };
-
   };
 
 

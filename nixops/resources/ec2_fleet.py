@@ -131,7 +131,7 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 self.excessCapacityTerminationPolicy = defn.config['excessCapacityTerminationPolicy']
 
         # Create the fleet dict request.
-        if self.state != self.UP: 
+        if self.state != self.UP:
             args = dict()
             if defn.config['spotOptions']['minTargetCapacity']:
                 args['SpotOptions'] = dict(
@@ -141,12 +141,13 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                     SingleAvailabilityZone=defn.config['spotOptions']['singleAvailabilityZone'],
                     MinTargetCapacity=defn.config['spotOptions']['minTargetCapacity']
                 )
-                if defn.config['spotOptions']['allocationStrategy'] != "diversified":
-                    args['SpotOptions']['InstancePoolsToUseCount']=defn.config['spotOptions']['instancePoolsToUseCount']
+                if defn.config['spotOptions']['allocationStrategy'] == "lowestPrice":
+                    if defn.config['spotOptions']['instancePoolsToUseCount']:
+                        args['SpotOptions']['InstancePoolsToUseCount']=defn.config['spotOptions']['instancePoolsToUseCount']
+                        self.spotInstancePoolsToUseCount = defn.config['spotOptions']['instancePoolsToUseCount']
                 with self.depl._db:
                     self.spotAllocationStrategy = defn.config['spotOptions']['allocationStrategy']
                     self.spotInstanceInterruptionBehavior = defn.config['spotOptions']['instanceInterruptionBehavior']
-                    self.spotInstancePoolsToUseCount = defn.config['spotOptions']['instancePoolsToUseCount']
                     self.spotSingleInstanceType = defn.config['spotOptions']['singleInstanceType']
                     self.spotSingleAvailabilityZone = defn.config['spotOptions']['singleAvailabilityZone']
                     self.spotMinTargetCapacity = defn.config['spotOptions']['minTargetCapacity']
@@ -233,7 +234,7 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 self.terminateInstancesWithExpiration = defn.config['terminateInstancesWithExpiration']
                 self.fleetRequestType = defn.config['fleetRequestType']
                 self.replaceUnhealthyInstances = defn.config['replaceUnhealthyInstances']
-        
+
             self.log_start("deploying EC2 fleet... ".format(self.name))
             fleetState = self._conn_boto3.describe_fleets(
                         FleetIds=[self.fleetId]
@@ -262,7 +263,7 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
             self._update_tag(defn)
             self._get_fleet_instances()
             self.state = self.UP
-    
+
     def check(self):
         self.connect_boto3(self.region)
         fleet = self._conn_boto3.describe_fleets(
@@ -348,13 +349,13 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
         if self.terminateInstancesOnDeletion:
             self.warn("terminateInstancesOnDeletion is set to {}, hence all instance related to the Fleet will be terminated ..."
                         .format(self.terminateInstancesOnDeletion))
-        
+
         self.log_start("destroying EC2 fleet... ".format(self.name))
         fleet = self._conn_boto3.describe_fleets(
                     FleetIds=[self.fleetId])['Fleets']
         if fleet:
             self._conn_boto3.delete_fleets(
-                        FleetIds=[self.fleetId], 
+                        FleetIds=[self.fleetId],
                         TerminateInstances=self.terminateInstancesOnDeletion)
             while True:
                 FleetState = self._conn_boto3.describe_fleets(FleetIds=[self.fleetId])['Fleets'][0]['FleetState']
@@ -368,8 +369,8 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                             self.log_continue("destroying ({0} left) ... ".format(len(instances)))
                             time.sleep(2)
                             fleetInstances = self._conn_boto3.describe_fleet_instances(FleetId=self.fleetId)
-                            instances = [i['InstanceId'] for i in fleetInstances['ActiveInstances']] 
-                self.log_continue("[{0}] ".format(FleetState))    
+                            instances = [i['InstanceId'] for i in fleetInstances['ActiveInstances']]
+                self.log_continue("[{0}] ".format(FleetState))
                 if FleetState == "terminated" or FleetState == "deleted": break
                 time.sleep(4)
         self.log_end("")
