@@ -157,17 +157,6 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                 rule[-1] = res.public_ipv4 + '/32'
             resolved_security_group_rules.append(rule)
 
-        new_rules = set()
-        old_rules = set()
-        for rule in self.security_group_rules:
-            old_rules.add(tuple(rule))
-        for rule in resolved_security_group_rules:
-            tupled_rule = tuple(rule)
-            if not tupled_rule in old_rules:
-                new_rules.add(tupled_rule)
-            else:
-                old_rules.remove(tupled_rule)
-
         if self.state == self.MISSING or self.state == self.UNKNOWN:
             self._connect()
             try:
@@ -178,6 +167,17 @@ class EC2SecurityGroupState(nixops.resources.ResourceState):
                 if self.state != self.UNKNOWN or e.error_code != u'InvalidGroup.Duplicate':
                     raise
             self.state = self.STARTING #ugh
+
+        new_rules = set()
+        old_rules = set()
+        for rule in self.security_group_rules:
+            old_rules.add(tuple(rule))
+        for rule in resolved_security_group_rules:
+            tupled_rule = tuple(rule)
+            if not tupled_rule in old_rules:
+                new_rules.add(tupled_rule)
+            else:
+                old_rules.remove(tupled_rule)
 
         if new_rules:
             self.logger.log("adding new rules to EC2 security group ‘{0}’...".format(self.security_group_name))
