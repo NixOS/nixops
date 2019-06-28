@@ -93,6 +93,7 @@ rec {
   resources.ec2SecurityGroups = evalResources ./ec2-security-group.nix (zipAttrs resourcesByType.ec2SecurityGroups or []);
   resources.ec2PlacementGroups = evalResources ./ec2-placement-group.nix (zipAttrs resourcesByType.ec2PlacementGroups or []);
   resources.ebsVolumes = evalResources ./ebs-volume.nix (zipAttrs resourcesByType.ebsVolumes or []);
+  resources.cmk = evalResources ./cmk.nix (zipAttrs resourcesByType.cmk or []);
   resources.elasticIPs = evalResources ./elastic-ip.nix (zipAttrs resourcesByType.elasticIPs or []);
   resources.rdsDbInstances = evalResources ./ec2-rds-dbinstance.nix (zipAttrs resourcesByType.rdsDbInstances or []);
   resources.rdsDbSecurityGroups = evalResources ./ec2-rds-dbsecurity-group.nix (zipAttrs resourcesByType.rdsDbSecurityGroups or []);
