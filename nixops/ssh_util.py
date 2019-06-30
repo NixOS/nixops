@@ -43,12 +43,16 @@ class SSHMaster(object):
             kwargs['preexec_fn'] = os.setsid
             pass_prompts = 1
 
+        # Allow the user to provide some extra SSH flags via an env var.
+        env_flags = shlex.split(os.getenv('NIXOPS_SSHOPTS', default =""))
+
         cmd = ["ssh", "-x", self._ssh_target, "-S",
                self._control_socket, "-M", "-N", "-f",
                '-oNumberOfPasswordPrompts={0}'.format(pass_prompts),
                '-oServerAliveInterval=60',
                '-oControlPersist=600'] \
-              + (["-C"] if compress else [])
+              + (["-C"] if compress else []) \
+              + env_flags
 
         res = subprocess.call(cmd + ssh_flags, **kwargs)
         if res != 0:
