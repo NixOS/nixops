@@ -49,6 +49,16 @@ with lib;
       '';
     };
 
+    kmsKeyId = mkOption {
+      default = null;
+      type = types.nullOr types.str;
+      description = ''
+        The identifier of the AWS Key Management Service (AWS KMS)
+        customer master key (CMK) to use for Amazon EBS encryption.
+        If this parameter is not specified, your AWS managed CMK for EBS is used. 
+      '';
+    };
+
   } // import ./common-ec2-options.nix { inherit lib; };
 
   config = {
