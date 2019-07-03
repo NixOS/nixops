@@ -98,6 +98,10 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
             self.volume_type = _vol['VolumeType']
             self.kms_key_id = _vol['KmsKeyId']
 
+    def create_after(self, resources, defn):
+        return {r for r in resources if
+                isinstance(r, nixops.resources.cmk.CMKState)}
+
     def create(self, defn, check, allow_reboot, allow_recreate):
 
         self.access_key_id = defn.config['accessKeyId'] or nixops.ec2_utils.get_access_key_id()
@@ -147,6 +151,9 @@ class EBSVolumeState(nixops.resources.ResourceState, nixops.resources.ec2_common
                 if defn.config['iops']:
                     args['Iops'] = defn.config['iops']
                 if defn.config['kmsKeyId']:
+                    if defn.config['kmsKeyId'].startswith("res-"):
+                        res = self.depl.get_typed_resource(defn.config['kmsKeyId'][4:].split(".")[0], "cmk")
+                        defn.config['kmsKeyId'] = res.keyId
                     args['Encrypted']=True
                     args['KmsKeyId']=defn.config['kmsKeyId']
 

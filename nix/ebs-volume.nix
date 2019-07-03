@@ -1,6 +1,7 @@
 { config, lib, uuid, name, ... }:
 
 with lib;
+with import ./lib.nix lib;
 
 {
 
@@ -51,7 +52,8 @@ with lib;
 
     kmsKeyId = mkOption {
       default = null;
-      type = types.nullOr types.str;
+      type = with types; nullOr (either types.str (resource "cmk"));
+      apply = x: if builtins.isString x then x else "res-" + x._name;
       description = ''
         The identifier of the AWS Key Management Service (AWS KMS)
         customer master key (CMK) to use for Amazon EBS encryption.
