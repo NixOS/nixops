@@ -178,6 +178,10 @@ class ResourceState(object):
     def _check(self):
         return True
 
+    def import_into_state(self, defn):
+        self.warn("don't know how to import resource ‘{0}’ into state".format(self.get_type()))
+        return
+
     def after_activation(self, defn):
         """Actions to be performed after the network is activated"""
         return

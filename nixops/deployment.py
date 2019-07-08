@@ -194,6 +194,21 @@ class Deployment(object):
                 r = self._create_resource(k, v['type'])
                 r.import_(v)
 
+    def import_to_state(self, include=[], exclude=[]):
+        """import existing resources to the state file from nix expressions."""
+
+        with self._get_deployment_lock():
+            self.run_with_notify('import_to_state', lambda: self._import_to_state(include, exclude))
+
+    def _import_to_state(self, include=[], exclude=[]):
+        self.evaluate_active(include, exclude)
+
+        def worker(r):
+            if not should_do(r, include, exclude): return
+            r.import_into_state(self.definitions[r.name])
+
+        nixops.parallel.run_tasks(nr_workers=-1, tasks=self.resources.itervalues(), worker_fun=worker)
+
 
     def clone(self):
         with self._db:

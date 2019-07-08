@@ -546,6 +546,10 @@ def op_import():
                         nixops.known_hosts.add(m.private_ipv4, m.public_host_key)
 
 
+def op_import_to_state():
+    depl = open_deployment()
+    depl.import_to_state(include=args.include or [], exclude=args.exclude or [])
+
 def parse_machine(name):
     return ("root", name) if name.find("@") == -1 else name.split("@", 1)
 
@@ -983,6 +987,11 @@ subparser.set_defaults(op=op_export)
 subparser = add_subparser('import', help='import deployments into the state file')
 subparser.add_argument('--include-keys',  action='store_true', help='import public SSH hosts keys to .ssh/known_hosts')
 subparser.set_defaults(op=op_import)
+
+subparser = add_subparser('import-to-state', help='import existing resources into the state file')
+subparser.add_argument('--include', nargs='+', metavar='RESOURCE_NAME', help='import only the specified resources')
+subparser.add_argument('--exclude', nargs='+', metavar='RESOURCE_NAME', help='import all except the specified resources')
+subparser.set_defaults(op=op_import_to_state)
 
 subparser = add_subparser('edit', help='open the deployment specification in $EDITOR')
 subparser.set_defaults(op=op_edit)
