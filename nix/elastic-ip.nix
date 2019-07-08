@@ -32,6 +32,15 @@ with lib;
       '';
     };
 
+    persistOnDestroy = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        If set to true <command>nixops destroy</command> won't delete
+        the elastic IP on destroy.
+      '';
+    };
+
   };
 
   config._type = "elastic-ip";

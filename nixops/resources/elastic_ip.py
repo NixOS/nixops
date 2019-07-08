@@ -32,6 +32,7 @@ class ElasticIPState(nixops.resources.ResourceState):
     public_ipv4 = nixops.util.attr_property("ec2.ipv4", None)
     allocation_id = nixops.util.attr_property("allocationId", None)
     vpc = nixops.util.attr_property("vpc", False, bool)
+    persistOnDestroy = nixops.util.attr_property("persistOnDestroy", False)
 
 
     @classmethod
@@ -95,6 +96,7 @@ class ElasticIPState(nixops.resources.ResourceState):
                 if is_vpc:
                     self.allocation_id = address['AllocationId']
                 self.vpc = is_vpc
+                self.persistOnDestroy = defn.config['persistOnDestroy']
 
             self.log("IP address is {0}".format(self.public_ipv4))
 
@@ -117,10 +119,14 @@ class ElasticIPState(nixops.resources.ResourceState):
 
     def destroy(self, wipe=False):
         if self.state == self.UP:
+            if self.persistOnDestroy:
+                self.warn("Elastic IP '{}' will be left due to the usage of"
+                    " persistOnDestroy = true".format(self.public_ipv4))
+                return True;
             self.connect(self.region)
             eip = self.describe_eip()
-            vpc = (eip.get('Domain', None) == 'vpc')
             if eip is not None:
+                vpc = (eip.get('Domain', None) == 'vpc')
                 if 'AssociationId' in eip.keys():
                     self.log("disassociating elastic ip {0} with assocation ID {1}".format(
                         eip['PublicIp'], eip['AssociationId']))
