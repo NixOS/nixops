@@ -6,6 +6,7 @@ import time
 import nixops.util
 import nixops.resources
 import nixops.ec2_utils
+import botocore.exceptions
 
 
 class ElasticIPDefinition(nixops.resources.ResourceDefinition):
@@ -41,6 +42,7 @@ class ElasticIPState(nixops.resources.ResourceState):
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._client = None
+        self._conn_boto3 = None
 
     def show_type(self):
         s = super(ElasticIPState, self).show_type()
@@ -64,6 +66,32 @@ class ElasticIPState(nixops.resources.ResourceState):
         if self._client:
             return
         self._client = nixops.ec2_utils.connect_ec2_boto3(region, self.access_key_id)
+
+    def connect_boto3(self, region):
+        if self._conn_boto3: return self._conn_boto3
+        self._conn_boto3 = nixops.ec2_utils.connect_ec2_boto3(region, self.access_key_id)
+        return self._conn_boto3
+
+    def import_into_state(self, defn):
+        if defn.config['address']== "_UNKNOWN_ELASTIC_IP_":
+            self.warn("`address` option is not set, no elastic ip to import...")
+            return True
+        self.access_key_id = defn.config['accessKeyId']
+        self.connect_boto3(defn.config['region'])
+        try:
+            address = self._conn_boto3.describe_addresses(PublicIps=[defn.config['address']])['Addresses'][0]
+        except botocore.exceptions.ClientError as error:
+            raise error
+        with self.depl._db:
+            self.state = self.UP
+            self.region = defn.config['region']
+            self.public_ipv4 = address['PublicIp']
+            if defn.config['vpc']:
+                self.allocation_id = address['AllocationId']
+            self.vpc = defn.config['vpc']
+
+        self.log("imported IP address {0}".format(self.public_ipv4))
+
 
     def create(self, defn, check, allow_reboot, allow_recreate):
 
