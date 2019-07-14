@@ -188,6 +188,9 @@ class MachineState(nixops.resources.ResourceState):
 
     def reboot_sync(self, hard=False):
         """Reboot this machine and wait until it's up again."""
+        if not self.depl.logger.confirm("are you sure you want to reboot {0}".format(self.name)):
+            self.depl.logger.get_logger_for(self.name).warn("Not rebooting...")
+            return False
         self.reboot(hard=hard)
         self.log_start("waiting for the machine to finish rebooting...")
         nixops.util.wait_for_tcp_port(self.get_ssh_name(), self.ssh_port, open=False, callback=lambda: self.log_continue("."))

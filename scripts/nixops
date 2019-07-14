@@ -434,6 +434,8 @@ def op_destroy():
 
 def op_reboot():
     depl = open_deployment()
+    if args.confirm:
+        depl.logger.set_autoresponse("y")
     depl.reboot_machines(include=args.include or [],
                          exclude=args.exclude or [],
                          wait=(not args.no_wait),
