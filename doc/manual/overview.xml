@@ -1532,15 +1532,6 @@ add your user to libvirtd group and change firewall not to filter DHCP packets.
 </programlisting>
 </para>
 
-<para>Next we have to make sure our user has access to create images by
-  executing:
-  <programlisting>
-  $ sudo mkdir /var/lib/libvirt/images
-  $ sudo chgrp libvirtd /var/lib/libvirt/images
-  $ sudo chmod g+w /var/lib/libvirt/images
-  </programlisting>
-</para>
-
 <para>We're ready to create the deployment, start by creating
 <literal>example.nix</literal>:
 
@@ -1608,6 +1599,101 @@ deployment.libvirtd.extraDevicesXML = ''
 <tip>In order to log in you have to set a (root) password.</tip>
 </para>
 </note>
+
+<section>
+<title>Remote libvirtd server</title>
+
+<para>
+By default, NixOps uses the local libvirtd daemon (<literal>qemu:///system</literal>). It is also possible to
+deploy to a
+<link xlink:href="https://libvirt.org/remote.html">remote libvirtd server</link>.
+Remote deployment requires a couple of things:
+
+<itemizedlist>
+
+  <listitem>Pointing <code>deployment.libvirtd.URI</code> to the
+    <link xlink:href="https://libvirt.org/remote.html">remote libvirtd server</link>
+    instead of <literal>qemu:///system</literal>.
+  </listitem>
+
+  <listitem>
+    Configuring the network to ensure the VM running on the remote server is
+    reachable from the local machine. This is required so that NixOps can reach the
+    newly created VM by SSH to finish the deployment.
+  </listitem>
+
+</itemizedlist>
+</para>
+
+<para>Example: suppose the remote libvirtd server is located at 10.2.0.15.</para>
+
+<para>
+First, create a new <link
+xlink:href="https://wiki.libvirt.org/page/TaskRoutedNetworkSetupVirtManager">routed
+virtual network</link> on the libvirtd server. In this example we'll use the
+192.168.122.0/24 network named <literal>routed</literal>.
+</para>
+
+<para>
+Next, add a route to the virtual network via the remote libvirtd server. This
+can be done by running this command on the local machine:
+
+<screen>
+# ip route add to 192.168.122.0/24 via 10.2.0.15
+</screen>
+</para>
+
+<para>
+Now, create a NixOps configuration file <literal>remote-libvirtd.nix</literal>:
+
+<programlisting>{
+  example = {
+    deployment.targetEnv = "libvirtd";
+    deployment.libvirtd.URI = "qemu+ssh://10.2.0.15/system";
+    deployment.libvirtd.networks = [ "routed" ];
+  };
+}
+</programlisting>
+</para>
+
+<para>
+Finally, deploy it with NixOps:
+
+<screen>
+$ nixops create -d remote-libvirtd ./remote-libvirtd.nix
+$ nixops deploy -d remote-libvirtd
+</screen>
+</para>
+
+</section>
+
+<section>
+<title>Libvirtd storage pools</title>
+
+<para>
+By default, NixOps uses the <literal>default</literal>
+<link xlink:href="https://libvirt.org/storage.html">storage pool</link> which
+usually corresponds to the <filename>/var/lib/libvirt/images</filename>
+directory. You can choose another storage pool with the
+<code>deployment.libvirtd.storagePool</code> option:
+
+<programlisting>
+{
+  example = {
+    deployment.targetEnv = "libvirtd";
+    deployment.libvirtd.storagePool = "mystoragepool";
+  };
+}
+</programlisting>
+</para>
+
+<warning>
+  <para>NixOps has only been tested with storage pools of type <code>dir</code> (filesystem directory).
+    Attempting to use a storage pool of any other type with NixOps may not work as expected.
+  </para>
+</warning>
+
+</section>
 
 </section>
 
