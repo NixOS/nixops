@@ -1,21 +1,35 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+
 import os
 import time
 import random
+
+from botocore import credentials
+from typing import Optional, Callable, List, TypeVar, Dict, Mapping, TYPE_CHECKING, Container
 
 import nixops.util
 
 import boto3
 import boto.ec2
 import boto.vpc
+import logging
 from boto.exception import EC2ResponseError
 from boto.exception import SQSError
 from boto.exception import BotoServerError
 from botocore.exceptions import ClientError
 from boto.pyami.config import Config
 
-import botocore
+import botocore.session
+import botocore.exceptions
+
+from nixops.resources import ResourceState
+
+if TYPE_CHECKING:
+    from nixops.resources.ec2_common import EC2CommonState
+    T = TypeVar('T')
+
 
 def fetch_aws_secret_key(access_key_id):
     """
@@ -57,26 +71,53 @@ def fetch_aws_secret_key(access_key_id):
     # Get the first existing access-secret key pair
     credentials = next( (keys for keys in sources if keys and keys[1]), None)
 
-    if not credentials:
-        raise Exception("please set $EC2_SECRET_KEY or $AWS_SECRET_ACCESS_KEY, or add the key for ‘{0}’ to ~/.ec2-keys or ~/.aws/credentials"
-                        .format(access_key_id))
-
     return credentials
 
-def connect(region, access_key_id):
+
+def session(**kwargs):
+    # type: (**str) -> boto3.Session
+    # TODO: remove me
+    print("session", kwargs)
+
+    kwargs = kwargs.copy()
+    profile = kwargs.pop('profile_name', None)
+
+    # cache MFA session between runs so we don't have to enter the code every time
+    cli_cache = os.path.join(os.path.expanduser('~'), '.aws/cli/cache')
+    session = botocore.session.Session(profile=profile)
+    resolver = session.get_component('credential_provider')
+    provider = resolver.get_provider('assume-role')
+    provider.cache = credentials.JSONFileCache(cli_cache)
+
+    return boto3.session.Session(botocore_session=session, **kwargs)
+
+
+def connect(region, profile, access_key_id):
     """Connect to the specified EC2 region using the given access key."""
+    print("connect", region, profile, access_key_id)
     assert region
-    (access_key_id, secret_access_key) = fetch_aws_secret_key(access_key_id)
-    conn = boto.ec2.connect_to_region(
-        region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+    credentials = fetch_aws_secret_key(access_key_id)
+    if credentials:
+        (access_key_id, secret_access_key) = credentials
+        conn = boto.ec2.connect_to_region(
+            region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+    else:
+        conn = boto.ec2.connect_to_region(region_name=region, profile_name=profile)
+
     if not conn:
         raise Exception("invalid EC2 region ‘{0}’".format(region))
+
     return conn
 
-def connect_ec2_boto3(region, access_key_id):
+def connect_ec2_boto3(region, profile, access_key_id):
+    print("connect3", region, profile, access_key_id)
     assert region
-    (access_key_id, secret_access_key) = fetch_aws_secret_key(access_key_id)
-    client = boto3.session.Session().client('ec2', region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+    credentials = fetch_aws_secret_key(access_key_id)
+    if credentials:
+        (access_key_id, secret_access_key) = credentials
+        client = boto3.session.Session().client('ec2', region_name=region, aws_access_key_id=access_key_id, aws_secret_access_key=secret_access_key)
+    else:
+        client = boto3.session.Session(region_name=region, profile_name=profile)
     return client
 
 def connect_vpc(region, access_key_id):
@@ -94,31 +135,26 @@ def get_access_key_id():
     return os.environ.get('EC2_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
 
 
-def retry(f, error_codes=[], logger=None):
+def retry(f, error_codes=None, logger=None):
+    # type: (Callable[[], T], Optional[List[str]], Optional[EC2CommonState]) -> T
     """
         Retry function f up to 7 times. If error_codes argument is empty list, retry on all EC2 response errors,
         otherwise, only on the specified error codes.
     """
+    if error_codes is None:
+        error_codes = []
 
     def handle_exception(e):
-        if hasattr(e, 'error_code'):
-            err_code = e.error_code
-            err_msg = e.error_message
-        else:
-            err_code = e.response['Error']['Code']
-            err_msg = e.response['Error']['Message']
+        # type: (botocore.exceptions.ClientError) -> None
 
-        if i == num_retries or (error_codes != [] and not err_code in error_codes):
-            raise e
-        if logger is not None:
-            logger.log("got (possibly transient) EC2 error code '{0}': {1}. retrying...".format(err_code, err_msg))
+        err_code = e.response['Error']['Code']
+        err_msg = e.response['Error']['Message']
 
-    def handle_boto3_exception(e):
-        if i == num_retries:
+        if i == num_retries or (error_codes and not err_code in error_codes):
             raise e
+
         if logger is not None:
-            if hasattr(e, 'response'):
-                logger.log("got (possibly transient) EC2 error '{}', retrying...".format(str(e.response['Error'])))
+            logger.logger.log("got (possibly transient) EC2 error code '%s': %s. retrying..." % (err_code, err_msg))
 
     i = 0
     num_retries = 7
@@ -128,64 +164,63 @@ def retry(f, error_codes=[], logger=None):
 
         try:
             return f()
-        except EC2ResponseError as e:
-            handle_exception(e)
-        except SQSError as e:
-            handle_exception(e)
         except ClientError as e:
-            handle_boto3_exception(e)
-        except BotoServerError as e:
-            if e.error_code == "RequestLimitExceeded":
+            if e.response['Error']['Code'] == "RequestLimitExceeded":
                 num_retries += 1
-            else:
-                handle_exception(e)
-        except botocore.exceptions.ClientError as e:
+                continue
             handle_exception(e)
-        except Exception as e:
-            raise e
 
         time.sleep(next_sleep)
 
 
-def get_volume_by_id(conn, volume_id, allow_missing=False):
+def get_volume_by_id(session, volume_id, allow_missing=False):
+    # type: (boto3.Session, str, bool) -> Optional[...]
     """Get volume object by volume id."""
+    ec2 = session.resource('ec2')
+    volume = ec2.Volume(volume_id)
     try:
-        volumes = conn.get_all_volumes([volume_id])
-        if len(volumes) != 1:
-            raise Exception("unable to find volume ‘{0}’".format(volume_id))
-        return volumes[0]
-    except boto.exception.EC2ResponseError as e:
-        if e.error_code != "InvalidVolume.NotFound": raise
-    return None
+        volume.load()
+        return volume
+    except botocore.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == 'InvalidVolume.NotFound':
+            return None
+        raise
 
 
-def wait_for_volume_available(conn, volume_id, logger, states=['available']):
+def wait_for_volume_available(session, volume_id, logger, states=None):
+    # type: (boto3.Session, str, ResourceState, Optional[Container[str]]) -> None
     """Wait for an EBS volume to become available."""
+
+    if states is None:
+        states = ['available']
 
     logger.log_start("waiting for volume ‘{0}’ to become available... ".format(volume_id))
 
     def check_available():
+        # type: () -> bool
+
         # Allow volume to be missing due to eventual consistency.
-        volume = get_volume_by_id(conn, volume_id, allow_missing=True)
+        volume = get_volume_by_id(session, volume_id, allow_missing=True)
         logger.log_continue("[{0}] ".format(volume.status))
-        return volume.status in states
+        return volume.state in states
 
     nixops.util.check_wait(check_available, max_tries=90)
 
     logger.log_end('')
 
 
-def name_to_security_group(conn, name, vpc_id):
+def name_to_security_group(session, name, vpc_id):
+    # type: (boto3.Session, str, str) -> str
     if not vpc_id or name.startswith('sg-'):
         return name
 
-    id = None
-    for sg in conn.get_all_security_groups(filters={'group-name':name, 'vpc-id': vpc_id}):
-        if sg.name == name:
-            id = sg.id
-            return id
+    ec2 = session.client('ec2')
+    for sg in ec2.describe_security_groups(Filters=[{'Name': 'group-name', 'Values': [name]}, {'Name': 'vpc-id', 'Values': [vpc_id]}])['SecurityGroups']:
+        if sg['GroupName'] == name:
+            return sg['GroupId']
+    else:
+        raise Exception("could not resolve security group name '{0}' in VPC '{1}'".format(name, vpc_id))
 
-    raise Exception("could not resolve security group name '{0}' in VPC '{1}'".format(name, vpc_id))
 
 def id_to_security_group_name(conn, sg_id, vpc_id):
     name = None
@@ -194,3 +229,9 @@ def id_to_security_group_name(conn, sg_id, vpc_id):
             name = sg.name
             return name
     raise Exception("could not resolve security group id '{0}' in VPC '{1}'".format(sg_id, vpc_id))
+
+
+def key_value_to_ec2_key_value(kv):
+    # type: (Mapping[str, str]) -> List[Dict[str, str]]
+
+    return [{'Key': key, 'Value': value} for key, value in kv.items()]

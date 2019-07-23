@@ -26,9 +26,8 @@ class ElasticFileSystemDefinition(nixops.resources.ResourceDefinition):
     def show_type(self):
         return "{0} [{1}]".format(self.get_type(), self.region)
 
-class ElasticFileSystemState(nixops.resources.ResourceState, \
-                             nixops.resources.ec2_common.EC2CommonState, \
-                             nixops.resources.efs_common.EFSCommonState):
+class ElasticFileSystemState(nixops.resources.ec2_common.EC2CommonState, nixops.resources.efs_common.EFSCommonState,
+                             nixops.resources.ResourceState):
     """State of an AWS Elastic File System."""
 
     state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)

@@ -4,6 +4,8 @@ import os
 import re
 import subprocess
 
+from typing import List
+
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
@@ -275,6 +277,7 @@ class MachineState(nixops.resources.ResourceState):
         assert False
 
     def get_ssh_flags(self, scp=False):
+        # type: (bool) -> List[str]
         if scp:
             return ["-P", str(self.ssh_port)]
         else:

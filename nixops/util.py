@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+
 import os
 import sys
 import time
@@ -18,18 +20,22 @@ import atexit
 import re
 from StringIO import StringIO
 
+from typing import Callable
+
 devnull = open(os.devnull, 'rw')
 
 
 def check_wait(test, initial=10, factor=1, max_tries=60, exception=True):
+    # type: (Callable[[], bool], int, int, int, bool) -> bool
     """Call function ‘test’ periodically until it returns True or a timeout occurs."""
     wait = initial
     tries = 0
     while tries < max_tries and not test():
-        wait = wait * factor
-        tries = tries + 1
+        wait *= factor
+        tries += 1
         if tries == max_tries:
-            if exception: raise Exception("operation timed out")
+            if exception:
+                raise Exception("operation timed out")
             return False
         time.sleep(wait)
     return True
@@ -389,9 +395,10 @@ def parse_nixos_version(s):
 # xvd -> sd
 # nvme -> sd
 def device_name_to_boto_expected(string):
+    # type: (str) -> str
     """Transfoms device name to name, that boto expects."""
     m = re.search('(.*)\/nvme(\d+)n1p?(\d+)?', string)
-    if m != None:
+    if m is not None:
         device = m.group(2)
         device_ = int(device) - 1
         device_transformed = chr(ord('f') + device_)
@@ -412,4 +419,5 @@ def device_name_user_entered_to_stored(string):
 # xvd -> xvd
 # nvme -> nvme
 def device_name_stored_to_real(string):
+    # type: (str) -> str
     return string.replace("/dev/sd", "/dev/xvd")
