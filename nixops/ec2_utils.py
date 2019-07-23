@@ -7,7 +7,8 @@ import time
 import random
 
 from botocore import credentials
-from typing import Optional, Callable, List, TypeVar, Dict, Mapping, TYPE_CHECKING, Container
+from typing import Optional, Callable, List, TypeVar, Dict, Mapping, TYPE_CHECKING, Container, Any, cast, NoReturn, \
+    Union
 
 import nixops.util
 
@@ -150,7 +151,7 @@ def retry(f, error_codes=None, logger=None):
         err_code = e.response['Error']['Code']
         err_msg = e.response['Error']['Message']
 
-        if i == num_retries or (error_codes and not err_code in error_codes):
+        if i == num_retries or (error_codes and err_code not in error_codes):
             raise e
 
         if logger is not None:
@@ -172,9 +173,11 @@ def retry(f, error_codes=None, logger=None):
 
         time.sleep(next_sleep)
 
+    return f()  # to make mypy happy
+
 
 def get_volume_by_id(session, volume_id, allow_missing=False):
-    # type: (boto3.Session, str, bool) -> Optional[...]
+    # type: (boto3.Session, str, bool) -> Optional[Any]
     """Get volume object by volume id."""
     ec2 = session.resource('ec2')
     volume = ec2.Volume(volume_id)
@@ -182,7 +185,7 @@ def get_volume_by_id(session, volume_id, allow_missing=False):
         volume.load()
         return volume
     except botocore.exceptions.ClientError as e:
-        if e.response['Error']['Code'] == 'InvalidVolume.NotFound':
+        if allow_missing and e.response['Error']['Code'] == 'InvalidVolume.NotFound':
             return None
         raise
 
@@ -191,18 +194,23 @@ def wait_for_volume_available(session, volume_id, logger, states=None):
     # type: (boto3.Session, str, ResourceState, Optional[Container[str]]) -> None
     """Wait for an EBS volume to become available."""
 
-    if states is None:
-        states = ['available']
+    states = states or ['available']
 
     logger.log_start("waiting for volume ‘{0}’ to become available... ".format(volume_id))
 
     def check_available():
         # type: () -> bool
 
+        assert states
+
         # Allow volume to be missing due to eventual consistency.
         volume = get_volume_by_id(session, volume_id, allow_missing=True)
-        logger.log_continue("[{0}] ".format(volume.status))
-        return volume.state in states
+        if volume:
+            logger.log_continue("[{0}] ".format(volume.status))
+            return volume.state in states
+        else:
+            logger.log_continue("[missing] ")
+            return "missing" in states
 
     nixops.util.check_wait(check_available, max_tries=90)
 

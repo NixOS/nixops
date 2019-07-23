@@ -24,6 +24,7 @@ from ..util import device_name_to_boto_expected, device_name_stored_to_real, dev
 import nixops.ec2_utils
 import nixops.known_hosts
 import nixops.util
+import nixops.resources.ec2_keypair
 from xml import etree
 import datetime
 import boto3
@@ -342,7 +343,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         return result[0]
 
     def _get_instance(self, instance_id=None, allow_missing=False, update=False):
-        # type: (Optional[str], bool, bool) -> ...
+        # type: (Optional[str], bool, bool) -> Any
         """Get instance object for this machine, with caching"""
         if not instance_id:
             instance_id = self.vm_id
@@ -371,7 +372,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         elif update:
             self._cached_instance.reload()
 
-        if self._cached_instance.launch_time:
+        if self._cached_instance and self._cached_instance.launch_time:
             self.start_time = self._cached_instance.launch_time
 
         return self._cached_instance
@@ -651,6 +652,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             raise Exception("operation timed out")
         else:
             self.log_end('')
+            return True
 
     def _assign_elastic_ip(self, elastic_ipv4, check):
         instance = self._get_instance()
@@ -731,29 +733,30 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         return group_ids
 
     def _wait_for_spot_request_fulfillment(self, request_id):
-        # type: (str) -> ...
+        # type: (str) -> Any
 
         self.log_start("waiting for spot instance request ‘{0}’ to be fulfilled... ".format(self.spot_instance_request_id))
         while True:
             request = self._get_spot_instance_request_by_id(self.spot_instance_request_id)
-            self.log_continue("[{0}] ".format(request.status.code))
-            if request.status.code == "fulfilled":
+            assert request
+            self.log_continue("[{0}] ".format(request['Status']['Code']))
+            if request['Status']['Code'] == "fulfilled":
                 break
 
-            if request.status.code in {"schedule-expired", "canceled-before-fulfillment", "bad-parameters", "system-error"}:
+            if request['Status']['Code'] in {"schedule-expired", "canceled-before-fulfillment", "bad-parameters", "system-error"}:
                 self.spot_instance_request_id = None
                 self.log_end("")
-                raise Exception("spot instance request failed with result ‘{0}’".format(request.status.code))
+                raise Exception("spot instance request failed with result ‘{0}’".format(request['Status']['Code']))
 
             time.sleep(3)
         self.log_end("")
 
-        instance = self._retry(lambda: self._get_instance(instance_id=request.instance_id))
+        instance = self._retry(lambda: self._get_instance(instance_id=request['InstanceId']))
 
         return instance
 
     def create_instance(self, defn, zone, user_data, ebs_optimized, args):
-        # type: (EC2Definition, str, str, bool, Dict[str, Any]) -> ...
+        # type: (EC2Definition, str, str, bool, Dict[str, Any]) -> Any
         IamInstanceProfile = {}  # type: Dict[str, str]
         if defn.instance_profile.startswith("arn:"):
             IamInstanceProfile["Arn"] = defn.instance_profile
@@ -910,7 +913,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         # Figure out the access key.
         self.access_key_id = defn.access_key_id or nixops.ec2_utils.get_access_key_id()
-        
+
         self.private_key_file = defn.private_key or None
 
         if self.region is None:
@@ -982,7 +985,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             # Check if we need to resize the root disk
             resize_root = defn.root_disk_size != 0 and ami.root_device_type == 'ebs'
 
-            args = dict()
+            args = dict()  # type: Dict[str, Any]
 
             # Set the initial block device mapping to the ephemeral
             # devices defined in the spec.  These cannot be changed
@@ -1023,9 +1026,12 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             # we create the instance in the right placement zone.
             zone = defn.zone or None
             for device_stored, v in defn.block_device_mapping.iteritems():
-                if not v['disk'].startswith("vol-"): continue
+                if not v['disk'].startswith("vol-"):
+                    continue
                 # Make note of the placement zone of the volume.
                 volume = nixops.ec2_utils.get_volume_by_id(self.session(), v['disk'])
+                assert volume
+
                 if not zone:
                     self.log("starting EC2 instance in zone ‘{0}’ due to volume ‘{1}’".format(
                             volume.availability_zone, v['disk']))
@@ -1033,6 +1039,9 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 elif zone != volume.availability_zone:
                     raise Exception("unable to start EC2 instance ‘{0}’ in zone ‘{1}’ because volume ‘{2}’ is in zone ‘{3}’"
                                     .format(self.name, zone, v['disk'], volume.availability_zone))
+
+            if zone is None:
+                raise Exception("unable to start EC2 instance '{0}' because zone was not provided".format(self.name))
 
             # Do we want an EBS-optimized instance?
             prefer_ebs_optimized = False
@@ -1300,7 +1309,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                                           or v['disk'].startswith("vol-")))
                     or 'partOfImage' in v):
                 continue
-            volume_tags = {}
+            volume_tags = {}  # type: Dict[str, str]
             volume_tags.update(common_tags)
             volume_tags.update(defn.tags)
             volume_tags['Name'] = "{0} [{1} - {2}]".format(self.depl.description, self.name, device_real)
