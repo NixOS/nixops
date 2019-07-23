@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
+
 import os
 import re
-import subprocess
 
 from typing import List
 
-import nixops.util
 import nixops.resources
 import nixops.ssh_util
+import nixops.util
+
 
 class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
@@ -315,7 +317,7 @@ class MachineState(nixops.resources.ResourceState):
 
     def write_ssh_private_key(self, private_key):
         key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
-        with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0600), "w") as f:
+        with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0o600), "w") as f:
             f.write(private_key)
         self._ssh_private_key_file = key_file
         return key_file

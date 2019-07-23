@@ -5,7 +5,6 @@
 from __future__ import absolute_import
 
 import boto3
-import botocore.client
 
 import nixops.ec2_utils
 import nixops.resources

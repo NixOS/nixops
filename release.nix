@@ -96,6 +96,7 @@ rec {
           datadog
           digital-ocean
           typing
+          six
         ] ++
         #FIXME add back once https://github.com/NixOS/nixops/pull/1131
         # is reverted.

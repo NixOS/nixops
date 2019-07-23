@@ -2,24 +2,24 @@
 
 from __future__ import absolute_import
 
-import os
-import sys
-import time
-import json
+import atexit
+import base64
 import copy
 import fcntl
-import base64
+import json
+import logging
+import os
+import re
 import select
+import shutil
 import socket
 import struct
-import shutil
-import tempfile
 import subprocess
-import logging
-import atexit
-import re
-from StringIO import StringIO
+import sys
+import tempfile
+import time
 
+from six import StringIO
 from typing import Callable
 
 devnull = open(os.devnull, 'rw')

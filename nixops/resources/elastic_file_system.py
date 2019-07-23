@@ -2,15 +2,19 @@
 
 # AWS Elastic File Systems.
 
+from __future__ import absolute_import
+
+import time
 import uuid
-import boto3
+
 import botocore
-import nixops.util
+
 import nixops.ec2_utils
 import nixops.resources
 import nixops.resources.ec2_common
 import nixops.resources.efs_common
-import time
+import nixops.util
+
 
 class ElasticFileSystemDefinition(nixops.resources.ResourceDefinition):
     """Definition of an AWS Elastic File System."""
