@@ -749,7 +749,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         return instance
 
     def create_instance(self, defn, zone, user_data, ebs_optimized, args):
-        # type: (EC2Definition, str, str, bool, Dict[str, Any]) -> Any
+        # type: (EC2Definition, Optional[str], str, bool, Dict[str, Any]) -> Any
         IamInstanceProfile = {}  # type: Dict[str, str]
         if defn.instance_profile.startswith("arn:"):
             IamInstanceProfile["Arn"] = defn.instance_profile
@@ -1032,9 +1032,6 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 elif zone != volume.availability_zone:
                     raise Exception("unable to start EC2 instance ‘{0}’ in zone ‘{1}’ because volume ‘{2}’ is in zone ‘{3}’"
                                     .format(self.name, zone, v['disk'], volume.availability_zone))
-
-            if zone is None:
-                raise Exception("unable to start EC2 instance '{0}' because zone was not provided".format(self.name))
 
             # Do we want an EBS-optimized instance?
             prefer_ebs_optimized = False
