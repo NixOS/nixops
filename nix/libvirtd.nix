@@ -3,33 +3,19 @@
 with lib;
 
 let
-  sz = toString config.deployment.libvirtd.baseImageSize;
-  base_image = import ./libvirtd-image.nix { size = sz; };
   the_key = builtins.getEnv "NIXOPS_LIBVIRTD_PUBKEY";
-  ssh_image = pkgs.vmTools.runInLinuxVM (
-    pkgs.runCommand "libvirtd-ssh-image"
-      { memSize = 768;
-        preVM =
-          ''
-            mkdir $out
-            diskImage=$out/image
-            ${pkgs.vmTools.qemu}/bin/qemu-img create -f qcow2 -b ${base_image}/disk.qcow2 $diskImage
-          '';
-        buildInputs = [ pkgs.utillinux ];
-        postVM =
-          ''
-            mv $diskImage $out/disk.qcow2
-          '';
-      }
-      ''
-        mkdir /mnt
-        mount /dev/vda1 /mnt
-
-        mkdir -p /mnt/etc/ssh/authorized_keys.d
-        echo '${the_key}' > /mnt/etc/ssh/authorized_keys.d/root
-        umount /mnt
-      ''
-  );
+  ssh_image = import <nixpkgs/nixos/lib/make-disk-image.nix> {
+    name = "libvirtd-ssh-image";
+    format = "qcow2";
+    diskSize = config.deployment.libvirtd.baseImageSize * 1024;
+    config = config;
+    contents = [{
+      source = (pkgs.writeText "authorized_keys.d-root" the_key);
+      target = "/etc/ssh/authorized_keys.d/root";
+    }];
+    lib = pkgs.lib;
+    inherit pkgs;
+  };
 in
 
 {
