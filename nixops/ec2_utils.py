@@ -194,7 +194,7 @@ def wait_for_volume_available(session, volume_id, logger, states=None):
         # Allow volume to be missing due to eventual consistency.
         volume = get_volume_by_id(session, volume_id, allow_missing=True)
         if volume:
-            logger.log_continue("[{0}] ".format(volume.status))
+            logger.log_continue("[{0}] ".format(volume.state))
             return volume.state in states
         else:
             logger.log_continue("[missing] ")

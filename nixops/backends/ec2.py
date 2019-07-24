@@ -370,14 +370,14 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
         return self._cached_instance
 
-
     def _get_snapshot_by_id(self, snapshot_id):
+        # type: (str) -> Any
         """Get snapshot object by instance id."""
-        self.connect()
-        snapshots = self._conn.get_all_snapshots([snapshot_id])
-        if len(snapshots) != 1:
-            raise Exception("unable to find snapshot ‘{0}’".format(snapshot_id))
-        return snapshots[0]
+        ec2 = self.session().resource('ec2')
+        snapshot = ec2.Snapshot(snapshot_id)
+        snapshot.load()
+
+        return snapshot
 
     def _wait_for_ip(self):
         self.log_start("waiting for IP address... ".format(self.name))
@@ -431,11 +431,13 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             x[k] = v
         self.block_device_mapping = x
 
-
     def get_backups(self):
-        if not self.region: return {}
-        self.connect()
-        backups = {}
+        # type: () -> Dict[str, Dict[str, Any]]
+
+        if not self.region:
+            return {}
+
+        backups = {}  # type: Dict[str, Dict[str, Any]]
         current_volumes = set([v['volumeId'] for v in self.block_device_mapping.values()])
         for b_id, b in self.backups.items():
             b = {device_name_stored_to_real(device): snap for device, snap in b.items()}
@@ -449,22 +451,26 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                 if snapshot_id is not None:
                     try:
                         snapshot = self._get_snapshot_by_id(snapshot_id)
-                        snapshot_status = snapshot.update()
+                        snapshot_status = snapshot.progress
                         info.append("progress[{0},{1},{2}] = {3}".format(self.name, device_real, snapshot_id, snapshot_status))
                         if snapshot_status != '100%':
                             backup_status = "running"
-                    except boto.exception.EC2ResponseError as e:
-                        if e.error_code != "InvalidSnapshot.NotFound": raise
+                    except botocore.exceptions.ClientError as e:
+                        if e.response['Error']['Code'] != "InvalidSnapshot.NotFound":
+                            raise
+
                         info.append("{0} - {1} - {2} - Snapshot has disappeared".format(self.name, device_real, snapshot_id))
                         backup_status = "unavailable"
+
             backups[b_id]['status'] = backup_status
             backups[b_id]['info'] = info
+
         return backups
 
-
     def remove_backup(self, backup_id, keep_physical=False):
+        # type: (str, bool) -> None
+
         self.log('removing backup {0}'.format(backup_id))
-        self.connect()
         _backups = self.backups
         if not backup_id in _backups.keys():
             self.warn('backup {0} not found, skipping'.format(backup_id))
@@ -483,49 +489,60 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
             _backups.pop(backup_id)
             self.backups = _backups
 
+    def backup(self, defn, backup_id, devices=None):
+        # type: (EC2Definition, str, Optional[List[str]]) -> None
 
-    def backup(self, defn, backup_id, devices=[]):
-        self.connect()
+        if devices is None:
+            devices = []
 
         self.log("backing up machine ‘{0}’ using id ‘{1}’".format(self.name, backup_id))
         backup = {}
         _backups = self.backups
 
+        ec2 = self.session().client('ec2')
         for device_stored, v in self.block_device_mapping.items():
             device_real = device_name_stored_to_real(device_stored)
 
-            if devices == [] or device_real in devices:
-                snapshot = self._retry(lambda: self._conn.create_snapshot(volume_id=v['volumeId']))
-                self.log("+ created snapshot of volume ‘{0}’: ‘{1}’".format(v['volumeId'], snapshot.id))
+            if not devices or device_real in devices:
+                snapshot = self._retry(lambda: ec2.create_snapshot(VolumeId=v['volumeId']))
+                self.log("+ created snapshot of volume ‘{0}’: ‘{1}’".format(v['volumeId'], snapshot['SnapshotId']))
 
-                snapshot_tags = {}
+                snapshot_tags = {}  # type: Dict[str, str]
                 snapshot_tags.update(defn.tags)
                 snapshot_tags.update(self.get_common_tags())
                 snapshot_tags['Name'] = "{0} - {3} [{1} - {2}]".format(self.depl.description, self.name, device_stored, backup_id)
 
-                self._retry(lambda: self._conn.create_tags([snapshot.id], snapshot_tags))
-                backup[device_stored] = snapshot.id
+                self._retry(lambda: ec2.create_tags(Resources=[snapshot['SnapshotId']], Tags=key_value_to_ec2_key_value(snapshot_tags)))
+                backup[device_stored] = snapshot['SnapshotId']
 
         _backups[backup_id] = backup
         self.backups = _backups
 
     # devices - array of dictionaries, keys - /dev/nvme or /dev/xvd device name, values - device options
-    def restore(self, defn, backup_id, devices=[]):
+    def restore(self, defn, backup_id, devices=None):
+        # type: (EC2Definition, str, Optional[List[str]]) -> None
+
+        if devices is None:
+            devices = []
+
         self.stop()
 
         self.log("restoring machine ‘{0}’ to backup ‘{1}’".format(self.name, backup_id))
         for d in devices:
             self.log(" - {0}".format(d))
 
+        ec2 = self.session().client('ec2')
+        ec2r = self.session().resource('ec2')
+
         for device_stored, v in self.sorted_block_device_mapping():
             device_real = device_name_stored_to_real(device_stored)
 
-            if devices == [] or device_real in devices:
+            if not devices or device_real in devices:
                 # detach disks
-                volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'])
-                if volume and volume.update() == "in-use":
+                volume = nixops.ec2_utils.get_volume_by_id(self.session(), v['volumeId'])
+                if volume and volume.state == "in-use":
                     self.log("detaching volume from ‘{0}’".format(self.name))
-                    volume.detach()
+                    volume.detach_from_instance()
 
                 # attach backup disks
                 snapshot_id = self.backups[backup_id][device_stored]
@@ -533,19 +550,20 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
                 self.wait_for_snapshot_to_become_completed(snapshot_id)
 
-                new_volume = self._conn.create_volume(size=0, snapshot=snapshot_id, zone=self.zone)
+                res = ec2.create_volume(SnapshotId=snapshot_id, AvailabilityZone=self.zone)
+                new_volume = ec2r.Volume(res['VolumeId'])
 
                 # Check if original volume is available, aka detached from the machine.
                 if volume:
-                    nixops.ec2_utils.wait_for_volume_available(self._conn, volume.id, self.logger)
+                    nixops.ec2_utils.wait_for_volume_available(self.session(), volume.id, self.logger)
 
                 # Check if new volume is available.
-                nixops.ec2_utils.wait_for_volume_available(self._conn, new_volume.id, self.logger)
+                nixops.ec2_utils.wait_for_volume_available(self.session(), new_volume.id, self.logger)
 
                 self.log("attaching volume ‘{0}’ to ‘{1}’ as {2}".format(new_volume.id, self.name, device_real))
 
-                device_that_boto_expects = device_name_to_boto_expected(device_real) # boto expects only sd names
-                new_volume.attach(self.vm_id, device_that_boto_expects)
+                device_that_boto_expects = device_name_to_boto_expected(device_real)  # boto expects only sd names
+                new_volume.attach_to_instance(InstanceId=self.vm_id, Device=device_that_boto_expects)
 
                 new_v = self.block_device_mapping[device_stored]
 
@@ -557,7 +575,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
     def wait_for_snapshot_to_become_completed(self, snapshot_id):
         def check_completed():
-            res = self._get_snapshot_by_id(snapshot_id).status
+            res = self._get_snapshot_by_id(snapshot_id).state
             self.log_continue("[{0}] ".format(res))
             return res == 'completed'
 
@@ -1405,17 +1423,26 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         # this due to eventual consistency
         self._retry_route53(lambda: changes.commit(), error_codes=['InvalidChangeBatch'])
 
-
     def _delete_volume(self, volume_id, allow_keep=False):
+        # type: (str, bool) -> None
+
         if not self.depl.logger.confirm("are you sure you want to destroy EBS volume ‘{0}’?".format(volume_id)):
             if allow_keep:
                 return
             else:
                 raise Exception("not destroying EBS volume ‘{0}’".format(volume_id))
         self.log("destroying EBS volume ‘{0}’...".format(volume_id))
-        volume = nixops.ec2_utils.get_volume_by_id(self.connect(), volume_id, allow_missing=True)
-        if not volume: return
-        nixops.util.check_wait(lambda: volume.update() == 'available')
+        volume = nixops.ec2_utils.get_volume_by_id(self.session(), volume_id, allow_missing=True)
+        if not volume:
+            return
+
+        def check_volume_available(volume):
+            # type: (Any) -> bool
+
+            volume.reload()
+            return volume.state == 'available'
+
+        nixops.util.check_wait(lambda: check_volume_available(volume))
         volume.delete()
 
 
@@ -1492,7 +1519,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         def check_stopped():
             # type: () -> bool
             instance = self._get_instance(update=True)
-            self.log_continue("[{0}] ".format(instance.state))
+            self.log_continue("[{0}] ".format(instance.state['Name']))
             if instance.state['Name'] == "stopped":
                 return True
             if instance.state['Name'] not in {"running", "stopping"}:
