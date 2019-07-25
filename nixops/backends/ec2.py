@@ -1639,20 +1639,22 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
                     res.messages.append("  * {0}".format(e.description))
                     res.messages.append("  * {0} - {1}".format(e.not_before, e.not_after))
 
-
     def reboot(self, hard=False):
+        # type: (bool) -> None
+
         self.log("rebooting EC2 machine...")
         instance = self._get_instance()
         instance.reboot()
         self.state = self.STARTING
 
-
     def get_console_output(self):
+        # type: () -> str
+
         if not self.vm_id:
             raise Exception("cannot get console output of non-existant machine ‘{0}’".format(self.name))
-        self.connect()
-        return self._conn.get_console_output(self.vm_id).output or "(not available)"
 
+        ec2 = self.session().client('ec2')
+        return ec2.get_console_output(InstanceId=self.vm_id)['Output'] or "(not available)"
 
     def next_charge_time(self):
         if not self.start_time:
