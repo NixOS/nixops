@@ -20,6 +20,7 @@ import nixops.known_hosts
 import nixops.resources.ec2_common
 import nixops.resources.ec2_keypair
 import nixops.util
+from . import CheckResult
 from . import MachineDefinition, MachineState
 from ..ec2_utils import key_value_to_ec2_key_value
 from ..nix_expr import Call, Function, RawValue
@@ -1575,69 +1576,71 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         self.wait_for_ssh(check=True)
         self.send_keys()
 
-    def _check(self, res):
+    def _machine_check(self, res):
+        # type: (CheckResult) -> None
+
         if not self.vm_id:
             res.exists = False
             return
 
-        self.connect()
         instance = self._get_instance(allow_missing=True)
         old_state = self.state
         #self.log("instance state is ‘{0}’".format(instance.state if instance else "gone"))
 
-        if instance is None or instance.state in {"shutting-down", "terminated"}:
+        if instance is None or instance.state['Name'] in {"shutting-down", "terminated"}:
             self.state = self.MISSING
             self.vm_id = None
             return
 
         res.exists = True
-        if instance.state == "pending":
+        if instance.state['Name'] == "pending":
             res.is_up = False
             self.state = self.STARTING
 
-        elif instance.state == "running":
+        elif instance.state['Name'] == "running":
             res.is_up = True
 
             res.disks_ok = True
+            mappings = {mapping['DeviceName']: {"Ebs": mapping["Ebs"]} for mapping in instance.block_device_mappings}
             for device_stored, v in self.block_device_mapping.items():
                 device_real = device_name_stored_to_real(device_stored)
-                device_that_boto_expects = device_name_to_boto_expected(device_real) # boto expects only sd names
+                device_that_boto_expects = device_name_to_boto_expected(device_real)  # boto expects only sd names
 
-                if device_that_boto_expects not in instance.block_device_mapping.keys() and v.get('volumeId', None):
+                if device_that_boto_expects not in mappings.keys() and v.get('volumeId', None):
                     res.disks_ok = False
                     res.messages.append("volume ‘{0}’ not attached to ‘{1}’".format(v['volumeId'], device_real))
-                    volume = nixops.ec2_utils.get_volume_by_id(self.connect(), v['volumeId'], allow_missing=True)
+                    volume = nixops.ec2_utils.get_volume_by_id(self.session(), v['volumeId'], allow_missing=True)
                     if not volume:
                         res.messages.append("volume ‘{0}’ no longer exists".format(v['volumeId']))
 
-                if device_that_boto_expects in instance.block_device_mapping.keys() and instance.block_device_mapping[device_that_boto_expects].status != 'attached' :
+                if device_that_boto_expects in mappings.keys() and mappings[device_that_boto_expects]['Ebs']['Status'] != 'attached':
                     res.disks_ok = False
-                    res.messages.append("volume ‘{0}’ on device ‘{1}’ has unexpected state: ‘{2}’".format(v['volumeId'], device_real, instance.block_device_mapping[device_stored].status))
+                    res.messages.append("volume ‘{0}’ on device ‘{1}’ has unexpected state: ‘{2}’".format(v['volumeId'], device_real, mappings[device_stored]['Ebs']['Status']))
 
-
-            if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.ip_address:
+            if self.private_ipv4 != instance.private_ip_address or self.public_ipv4 != instance.public_ip_address:
                 self.warn("IP address has changed, you may need to run ‘nixops deploy’")
                 self.private_ipv4 = instance.private_ip_address
-                self.public_ipv4 = instance.ip_address
+                self.public_ipv4 = instance.public_ip_address
 
-            MachineState._check(self, res)
+            super(EC2State, self)._machine_check(res)
 
-        elif instance.state == "stopping":
+        elif instance.state['Name'] == "stopping":
             res.is_up = False
             self.state = self.STOPPING
 
-        elif instance.state == "stopped":
+        elif instance.state['Name'] == "stopped":
             res.is_up = False
             self.state = self.STOPPED
 
         # check for scheduled events
-        instance_status = self._conn.get_all_instance_status(instance_ids=[instance.id])
+        ec2 = self.session().client('ec2')
+        instance_status = ec2.describe_instance_status(InstanceIds=[instance.id], IncludeAllInstances=True)['InstanceStatuses']
         for ist in instance_status:
-            if ist.events:
-                for e in ist.events:
-                    res.messages.append("Event ‘{0}’:".format(e.code))
-                    res.messages.append("  * {0}".format(e.description))
-                    res.messages.append("  * {0} - {1}".format(e.not_before, e.not_after))
+            if 'Events' in ist:
+                for e in ist['Events']:
+                    res.messages.append("Event ‘{0}’:".format(e['Code']))
+                    res.messages.append("  * {0}".format(e['Description']))
+                    res.messages.append("  * {0} - {1}".format(e['NotBefore'], e['NotAfters']))
 
     def reboot(self, hard=False):
         # type: (bool) -> None

@@ -118,13 +118,16 @@ class MachineState(nixops.resources.ResourceState):
     def check(self):
         """Check machine state."""
         res = CheckResult()
-        self._check(res)
+        self._machine_check(res)
         return res
 
-    def _check(self, res):
+    def _machine_check(self, res):
+        # type: (CheckResult) -> None
+
         avg = self.get_load_avg()
-        if avg == None:
-            if self.state == self.UP: self.state = self.UNREACHABLE
+        if avg is None:
+            if self.state == self.UP:
+                self.state = self.UNREACHABLE
             res.is_reachable = False
         else:
             self.state = self.UP
@@ -140,11 +143,13 @@ class MachineState(nixops.resources.ResourceState):
             res.in_progress_units = []
             for l in out:
                 match = re.match("^([^ ]+) .* failed .*$", l)
-                if match: res.failed_units.append(match.group(1))
+                if match:
+                    res.failed_units.append(match.group(1))
 
                 # services that are in progress
                 match = re.match("^([^ ]+) .* activating .*$", l)
-                if match: res.in_progress_units.append(match.group(1))
+                if match:
+                    res.in_progress_units.append(match.group(1))
 
                 # Currently in systemd, failed mounts enter the
                 # "inactive" rather than "failed" state.  So check for
