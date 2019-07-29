@@ -18,7 +18,7 @@ rec {
     pluginNixExprs;
   pluginOptions = { imports = (foldl (a: e: a ++ e.options) [] importedPluginNixExprs); };
   pluginResources = map (e: e.resources) importedPluginNixExprs;
-  pluginDeploymentConfigExporters = (foldl (a: e: a ++ (e.config_exporters { inherit optionalAttrs; })) [] importedPluginNixExprs);
+  pluginDeploymentConfigExporters = (foldl (a: e: a ++ (e.config_exporters { inherit optionalAttrs pkgs; })) [] importedPluginNixExprs);
 
   networks =
     let

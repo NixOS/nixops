@@ -359,6 +359,314 @@ See <xref linkend="ex-physical-nixos.nix" />.
 
 </section>
 
+<section><title>Accessing machines</title>
+
+<para>We have seen above that you can login to individual machines by
+doing <literal>nixops ssh <replaceable>name</replaceable></literal>,
+where <replaceable>name</replaceable> is the name of the
+machine.</para>
+
+<para>It’s also possible to perform a command on all machines:
+
+<screen>
+$ nixops ssh-for-each -d load-balancer-ec2 -- df /tmp
+backend1...> /dev/xvdb      153899044 192084 145889336   1% /tmp
+proxy......> /dev/xvdb      153899044 192084 145889336   1% /tmp
+backend2...> /dev/xvdb      153899044 192084 145889336   1% /tmp
+</screen>
+
+By default, the command is executed sequentially on each machine.  You
+can add the flag <option>-p</option> to execute it in parallel.</para>
+
+</section>
+
+
+<section><title>Checking machine status</title>
+
+<para>The command <command>nixops check</command> checks the status of
+each machine in a deployment.  It verifies that the machine still
+exists (i.e. hasn’t been destroyed outside of NixOps), is up (i.e. the
+instance has been started) and is reachable via SSH.  It also checks
+that any attached disks (such as EBS volumes) are not in a failed
+state, and prints the names of any systemd units that are in a failed
+state.</para>
+
+<para>For example, for the 3-machine EC2 network shown above, it might
+show:
+
+<screen>
+$ nixops check -d load-balancer-ec2
++----------+--------+-----+-----------+----------+----------------+---------------+-------+
+| Name     | Exists | Up  | Reachable | Disks OK | Load avg.      | Failed units  | Notes |
++----------+--------+-----+-----------+----------+----------------+---------------+-------+
+| backend1 | Yes    | Yes | Yes       | Yes      | 0.03 0.03 0.05 | httpd.service |       |
+| backend2 | Yes    | No  | N/A       | N/A      |                |               |       |
+| proxy    | Yes    | Yes | Yes       | Yes      | 0.00 0.01 0.05 |               |       |
++----------+--------+-----+-----------+----------+----------------+---------------+-------+
+</screen>
+
+This indicates that Apache httpd has failed on
+<literal>backend1</literal> and that machine
+<literal>backend2</literal> is not running at all.  In this situation,
+you should run <command>nixops deploy --check</command> to repair the
+deployment.</para>
+
+</section>
+
+<section><title>Network special attributes</title>
+
+<para>
+It is possible to define special options for the whole network. For example:
+
+<screen>
+{
+  network = {
+    description = "staging environment";
+    enableRollback = true;
+  };
+
+  defaults = {
+    imports = [ ./common.nix ];
+  };
+
+  machine = { ... }: {};
+}
+</screen>
+
+Each attribute is explained below:
+
+</para>
+
+
+<variablelist>
+
+  <varlistentry><term><option>defaults</option></term>
+
+    <listitem><para>Applies given NixOS module to all machines defined in the network.
+    </para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>network.description</option></term>
+
+    <listitem><para>A sentence describing the purpose of the network
+    for easier comparison when running <command>nixops list</command>
+    </para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><option>network.enableRollback</option></term>
+
+  <listitem><para>If <literal>true</literal>, each deployment creates
+  a new profile generation to able to run <command>nixops rollback</command>.
+  Defaults to <literal>false</literal>.
+  </para></listitem>
+
+  </varlistentry>
+
+</variablelist>
+
+
+</section>
+
+<section><title>Network arguments</title>
+
+<para>In NixOps you can pass in arguments from outside the nix
+expression. The network file can be a nix function, which takes a set
+of arguments which are passed in externally and can be used to change
+configuration values, or even to generate a variable number of
+machines in the network.</para>
+
+<para>Here is an example of a network with network arguments:
+
+<screen>
+{ maintenance ? false
+}:
+{
+  machine =
+    { config, pkgs, ... }:
+    { services.httpd.enable = maintenance;
+      ...
+    };
+}
+</screen>
+
+This network has a <emphasis>maintenance</emphasis> argument that
+defaults to <code>false</code>. This value can be used inside the
+network expression to set NixOS option, in this case whether or not
+Apache HTTPD should be enabled on the system.
+</para>
+
+<para>
+You can pass network arguments using the <code>set-args</code> nixops
+command. For example, if we want to set the <code>maintenance</code>
+argument to <code>true</code> in the previous example, you can run:
+
+<screen>
+  $ nixops set-args --arg maintenance true -d &lt;name&gt;
+</screen>
+
+The arguments that have been set will show up:
+
+<screen>
+$ nixops info -d argtest
+Network name: argtest
+Network UUID: 634d6273-f9f6-11e2-a004-15393537e5ff
+Network description: Unnamed NixOps network
+Nix expressions: .../network-arguments.nix
+<emphasis>Nix arguments: maintenance = true</emphasis>
+
++---------+---------------+------+-------------+------------+
+| Name    |     Status    | Type | Resource Id | IP address |
++---------+---------------+------+-------------+------------+
+| machine | Missing / New | none |             |            |
++---------+---------------+------+-------------+------------+
+
+</screen>
+
+Running <code>nixops deploy</code> after changing the arguments will
+deploy the new configuration.
+
+</para>
+
+</section>
+
+<section>
+  <title>Managing keys</title>
+
+  <para>
+    Files in <filename>/nix/store/</filename> are readable by every
+    user on that host, so storing secret keys embedded in nix derivations
+    is insecure. To address this, nixops provides the configuration
+    option <varname>deployment.keys</varname>, which nixops manages
+    separately from the main configuration derivation for each machine.
+  </para>
+
+  <para>
+    Add a key to a machine like so.
+
+    <screen>
+{
+  machine =
+    { config, pkgs, ... }:
+    {
+      deployment.keys.my-secret.text = "shhh this is a secret";
+      deployment.keys.my-secret.user = "myuser";
+      deployment.keys.my-secret.group = "wheel";
+      deployment.keys.my-secret.permissions = "0640";
+    };
+}
+    </screen>
+
+    This will create a file <filename>/run/keys/my-secret</filename>
+    with the specified contents, ownership, and permissions.
+  </para>
+
+  <para>
+    Among the key options, only <varname>text</varname> is required. The
+    <varname>user</varname> and <varname>group</varname> options both default
+    to <literal>"root"</literal>, and <varname>permissions</varname> defaults
+    to <literal>"0600"</literal>.
+  </para>
+
+  <para>
+    Keys from <varname>deployment.keys</varname> are stored under <filename>/run/</filename>
+    on a temporary filesystem and will not persist across a reboot.
+    To send a rebooted machine its keys, use <command>nixops send-keys</command>. Note that all
+    <command>nixops</command> commands implicitly upload keys when appropriate,
+    so manually sending keys should only be necessary after an unattended reboot.
+  </para>
+
+  <para>
+    If you have a custom service that depends on a key from <varname>deployment.keys</varname>,
+    you can opt to let systemd track that dependency. Each key gets a corresponding
+    systemd service <literal>"${keyname}-key.service"</literal> which is active
+    while the key is present, and otherwise inactive when the key is absent. See
+    <xref linkend="key-dependency.nix" /> for how to set this up.
+
+    <example xml:id="key-dependency.nix">
+      <title><filename>key-dependency.nix</filename>: track key dependence with systemd</title>
+      <programlisting>
+{
+  machine =
+    { config, pkgs, ... }:
+    {
+      deployment.keys.my-secret.text = "shhh this is a secret";
+
+      systemd.services.my-service = {
+        after = [ "my-secret-key.service" ];
+        wants = [ "my-secret-key.service" ];
+        script = ''
+          export MY_SECRET=$(cat /run/keys/my-secret)
+          run-my-program
+        '';
+      };
+    };
+}
+      </programlisting>
+    </example>
+
+    These dependencies will ensure that the service is only started when the keys it
+    requires are present. For example, after a reboot, the services will be delayed
+    until the keys are available, and <command>systemctl status</command> and friends
+    will lead you to the cause.
+  </para>
+</section>
+
+<section>
+  <title>Special NixOS module inputs</title>
+  <para>
+    In deployments with multiple machines, it is often convenient to access the
+    configuration of another node in the same network, e.g. if you want to
+    store a port number only once.  </para>
+  <para>
+    This is possible by using the extra NixOS module input <literal>nodes</literal>.
+  </para>
+  <para>
+    <programlisting>
+{
+  network.description = "Gollum server and reverse proxy";
+
+  gollum =
+    { config, pkgs, ... }:
+    { 
+      services.gollum = {
+        enable = true;
+        port = 40273;
+      };
+      networking.firewall.allowedTCPPorts = [ config.services.gollum.port ];
+    };
+
+  reverseproxy =
+    { config, pkgs, nodes, ... }:
+    let
+      gollumPort = nodes.gollum.config.services.gollum.port;
+    in
+    { 
+      services.nginx = {
+        enable = true;
+        virtualHosts."wiki.example.net".locations."/" = {
+          proxyPass = "http://gollum:${toString gollumPort}";
+        };
+      };
+      networking.firewall.allowedTCPPorts = [ 80 ];
+    };
+}
+    </programlisting>
+  </para>
+  <para>
+    Moving the port number to a different value is now without the risk of an inconsistent deployment.
+  </para>
+  <para>
+    Aditional module inputs are
+  </para>
+  <itemizedlist> 
+    <listitem><para><literal>name</literal>: The name of the machine.</para></listitem>
+    <listitem><para><literal>uuid</literal>: The NixOps UUID of the deployment.</para></listitem>
+    <listitem><para><literal>resources</literal>: NixOps resources associated with the deployment.</para></listitem>
+  </itemizedlist> 
+</section>
+
 <!--
 
 <para>EC2 logical.nix</para>

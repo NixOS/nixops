@@ -251,7 +251,11 @@ class Deployment(object):
 
 
     def _nix_path_flags(self):
-        flags = list(itertools.chain(*[["-I", x] for x in (self.extra_nix_path + self.nix_path)])) + self.extra_nix_flags
+        extraexprs = [path
+                      for paths in get_plugin_manager().hook.nixexprs()
+                      for path in paths]
+
+        flags = list(itertools.chain(*[["-I", x] for x in (self.extra_nix_path + self.nix_path + extraexprs)])) + self.extra_nix_flags
         flags.extend(["-I", "nixops=" + self.expr_path])
         return flags
 
