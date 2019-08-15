@@ -43,7 +43,7 @@ in rec {
     distPhase =
       ''
         # Generate the manual and the man page.
-        cp ${import ./doc/manual { revision = nixopsSrc.rev; inherit nixpkgs; }} doc/manual/machine-options.xml
+        cp ${(import ./doc/manual { revision = nixopsSrc.rev; inherit nixpkgs; }).optionsDocBook} doc/manual/machine-options.xml
 
         for i in scripts/nixops setup.py doc/manual/manual.xml; do
           substituteInPlace $i --subst-var-by version ${version}
