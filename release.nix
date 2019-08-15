@@ -17,7 +17,9 @@ let
           rev = "v${v.version}";
         };
       srcDrv = v: (fetch v) + "/release.nix";
-    in self: (builtins.mapAttrs (n: v: self.callPackage (srcDrv allPluginVers.${n}) {}) allPluginVers);
+    in self: let
+      rawPlugins = (builtins.mapAttrs (n: v: self.callPackage (srcDrv allPluginVers.${n}) {}) allPluginVers);
+    in rawPlugins // { inherit nixpkgs; };
   in pkgs.lib.makeScope pkgs.newScope plugins;
 
 in rec {
