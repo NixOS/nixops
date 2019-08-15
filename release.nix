@@ -32,7 +32,7 @@ rec {
     distPhase =
       ''
         # Generate the manual and the man page.
-        cp ${import ./doc/manual { revision = nixopsSrc.rev; inherit nixpkgs; }} doc/manual/machine-options.xml
+        cp ${(import ./doc/manual { revision = nixopsSrc.rev; inherit nixpkgs; }).optionsDocBook} doc/manual/machine-options.xml
 
         # IMPORTANT: when adding a file here, also populate doc/manual/manual.xml
         ${pkgs.lib.concatMapStrings (fn: ''
