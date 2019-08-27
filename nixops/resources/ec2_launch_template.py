@@ -64,6 +64,7 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._conn_boto3 = None
+        self._conn_vpc = None
 
     def _exists(self):
         return self.state != self.MISSING
@@ -81,6 +82,11 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
         self._conn_boto3 = nixops.ec2_utils.connect_ec2_boto3(region, self.access_key_id)
         return self._conn_boto3
 
+    def connect_vpc(self):
+        if self._conn_vpc:
+            return self._conn_vpc
+        self._conn_vpc = nixops.ec2_utils.connect_vpc(self.region, self.access_key_id)
+        return self._conn_vpc
 
     def _update_tag(self, defn):
         self.connect_boto3(self.region)
@@ -101,14 +107,24 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
                 isinstance(r, nixops.resources.vpc_subnet.VPCSubnetState)}
 
     # fix security group stuff later
-    # def security_groups_to_ids(self, subnetId, groups):
-        # sg_names = filter(lambda g: not g.startswith('sg-'), groups)
-        # if sg_names != [ ] and subnetId != "":
-            # self.connect_vpc()
-            # vpc_id = self._conn_vpc.get_all_subnets([subnetId])[0].vpc_id
-            # groups = map(lambda g: nixops.ec2_utils.name_to_security_group(self._conn, g, vpc_id), groups)
-
-        # return groups
+    def security_groups_to_ids(self, subnetId, groups):
+        sg_names = filter(lambda g: not g.startswith('sg-'), groups)
+        if sg_names != [ ] and subnetId != "":
+            self.connect_vpc()
+            vpc_id = self._conn_vpc.get_all_subnets([subnetId])[0].vpc_id
+            # we can use ec2_utils.name_to_security_group but it only works with boto2
+            group_ids = []
+            for i in groups:
+                if i.startswith('sg-'):
+                    group_ids.append(i)
+                else:
+                    try:
+                        group_ids.append(self._conn_boto3.describe_security_groups(Filters=[{'Name': 'group-name',
+                                                                                             'Values': [i]}]
+                                                                                   )['SecurityGroups'][0]['GroupId'])
+                    except botocore.exceptions.ClientError as error:
+                        raise error
+        return group_ids
 
     def create(self, defn, check, allow_reboot, allow_recreate):
 
@@ -155,8 +171,8 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
 
             if defn.config['instanceType']:
                 args['LaunchTemplateData']['InstanceType'] = defn.config['instanceType']
-            # if defn.config['securityGroupIds']!=[]:
-                # args['LaunchTemplateData']['SecurityGroupIds'] = self.security_groups_to_ids(defn.config['subnetId'], defn.config['securityGroupIds'])
+            if defn.config['securityGroupIds']!=[]:
+                args['LaunchTemplateData']['SecurityGroupIds'] = self.security_groups_to_ids(defn.config['subnetId'], defn.config['securityGroupIds'])
             if defn.config['placementGroup'] != "":
                 args['LaunchTemplateData']['Placement']['GroupName'] = defn.config['placementGroup']
             if defn.config['zone']:

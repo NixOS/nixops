@@ -46,7 +46,7 @@ with lib;
       default = null;
       type = types.nullOr types.str;
       description = ''
-        The Base64-encoded user data to make available to the instance.
+        The user data to make available to the instance.
         It should be valid nix expressions.
         '';
     };
