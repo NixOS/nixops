@@ -20,12 +20,6 @@ with lib;
       description = "ec2 launch template ID (set by NixOps)";
     };
 
-    templateVersion = mkOption {
-      default = "1";
-      type = types.str;
-      description = "The launch template version";
-    };
-
     versionDescription = mkOption {
       default = "";
       type = types.str;
@@ -76,7 +70,7 @@ with lib;
       default = "";
       # must get the id fro mthe name
       type = with types; either str (resource "vpc-network-interface");
-      apply = x: if builtins.isString x then x else x.name;
+      apply = x: if builtins.isString x then x else "res-" + x._name "." + x._type;
       description = ''
         The ID of the network interface.
       '';

@@ -111,8 +111,8 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 FleetId=self.fleetId,
                 TargetCapacitySpecification=dict(
                     TotalTargetCapacity=defn.config['targetCapacitySpecification']['totalTargetCapacity']
-                    # Currently ec2-fleet only support total target capacity modification.
-                    # Uncomment below when changing that become supported
+                    #TODO: Currently ec2-fleet only support total target capacity modification.
+                    #TODO: Uncomment below when changing that become supported
                     # OnDemandTargetCapacity=defn.config['targetCapacitySpecification']['onDemandTargetCapacity'],
                     # SpotTargetCapacity=defn.config['targetCapacitySpecification']['spotTargetCapacity'],
                     # DefaultTargetCapacityType=defn.config['targetCapacitySpecification']['defaultTargetCapacityType']
@@ -176,6 +176,9 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
                 self.defaultTargetCapacityType = defn.config['targetCapacitySpecification']['defaultTargetCapacityType']
 
             args['ExcessCapacityTerminationPolicy'] = defn.config['excessCapacityTerminationPolicy']
+            if defn.config['launchTemplateVersion'].startswith("res-"):
+                res = self.depl.get_typed_resource(defn.config['launchTemplateVersion'][4:].split(".")[0], "ec2-launch-template")
+                defn.config['launchTemplateVersion'] = res.templateVersion
             args['LaunchTemplateConfigs'] = [dict(
                 LaunchTemplateSpecification=dict(
                     LaunchTemplateName=defn.config['launchTemplateName'],
@@ -266,12 +269,15 @@ class ec2FleetState(nixops.resources.ResourceState, EC2CommonState):
 
     def check(self):
         self.connect_boto3(self.region)
+        if self.fleetId is None:
+            self.state = self.MISSING
+            return []
         fleet = self._conn_boto3.describe_fleets(
                     FleetIds=[self.fleetId]
                    )['Fleets']
         if fleet is None:
             self.state = self.MISSING
-            return
+            return []
             # check with amine if we should set the other stuff to None
         # getting the instances IDs
         self._get_fleet_instances()

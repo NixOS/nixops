@@ -37,7 +37,7 @@ with lib;
     launchTemplateVersion = mkOption {
       default = "1";
       type = with types; either str (resource "ec2-launch-template");
-      apply = x: if builtins.isString x then x else x.version;
+      apply = x: if builtins.isString x then x else "res-" + x._name;
       description = "The launch template version to use";
     };
     launchTemplateOverrides = mkOption {
