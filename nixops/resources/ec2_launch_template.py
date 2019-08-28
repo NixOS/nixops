@@ -125,7 +125,9 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
                                                                                    )['SecurityGroups'][0]['GroupId'])
                     except botocore.exceptions.ClientError as error:
                         raise error
-        return group_ids
+            return group_ids
+        else:
+            return groups
 
     def create(self, defn, check, allow_reboot, allow_recreate):
 
