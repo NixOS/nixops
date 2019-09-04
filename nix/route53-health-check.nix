@@ -128,7 +128,7 @@ with (import ./lib.nix lib);
     };
 
     regions = mkOption {
-      type = types.list types.str;
+      type = types.listOf types.str;
       default = [];
       description = ''
         Regions to trigger health checks from. Empty list (default) enables health checks
@@ -164,7 +164,7 @@ with (import ./lib.nix lib);
     };
 
     childHealthChecks = mkOption {
-      type = types.list (types.either types.str (resource "route53-health-check"));
+      type = types.listOf (types.either types.str (resource "route53-health-check"));
       default = [];
       apply = l: map (x: if (builtins.isString x) then x else "res-" + x._name) l;
       description = ''
