@@ -2,737 +2,9 @@
 # -*- coding: utf-8 -*-
 
 from nixops import deployment
-from nixops.nix_expr import py2nix
-from nixops.parallel import MultipleExceptions, run_tasks
-
-import nixops.statefile
-import prettytable
 import argparse
 import os
-import pwd
-import re
-import sys
-import subprocess
-import nixops.parallel
-import nixops.util
-import nixops.known_hosts
-import time
-import logging
-import logging.handlers
-import syslog
-import json
-import pipes
-
-# For 14.04 user convenience.
-import libcloud.security
-if os.getenv('OPENSSL_X509_CERT_FILE') is not None:
-    libcloud.security.CA_CERTS_PATH.append(os.getenv('OPENSSL_X509_CERT_FILE'))
-
-from datetime import datetime
-from pprint import pprint
-
-
-def create_table(headers):
-    tbl = prettytable.PrettyTable([name for (name, align) in headers])
-    for (name, align) in headers:
-        tbl.align[name] = align
-    return tbl
-
-
-def sort_deployments(depls):
-    return sorted(depls, key=lambda depl: (depl.name, depl.uuid))
-
-
-# Handle the --all switch: if --all is given, return all deployments;
-# otherwise, return the deployment specified by -d /
-# $NIXOPS_DEPLOYMENT.
-def one_or_all():
-    if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
-        return sf.get_all_deployments()
-    else:
-        return [open_deployment()]
-
-
-def op_list_deployments():
-    sf = nixops.statefile.StateFile(args.state_file)
-    tbl = create_table([("UUID", 'l'), ("Name", 'l'), ("Description", 'l'), ("# Machines", 'r'), ("Type", 'c')])
-    for depl in sort_deployments(sf.get_all_deployments()):
-        tbl.add_row(
-            [depl.uuid, depl.name or "(none)",
-             depl.description, len(depl.machines),
-             ", ".join(set([m.get_type() for m in depl.machines.itervalues()]))
-         ])
-    print tbl
-
-
-def open_deployment():
-    sf = nixops.statefile.StateFile(args.state_file)
-    depl = sf.open_deployment(uuid=args.deployment)
-
-    depl.extra_nix_path = sum(args.nix_path or [], [])
-    for (n, v) in args.nix_options or []: depl.extra_nix_flags.extend(["--option", n, v])
-    if args.max_jobs != None: depl.extra_nix_flags.extend(["--max-jobs", str(args.max_jobs)])
-    if args.cores != None: depl.extra_nix_flags.extend(["--cores", str(args.cores)])
-    if args.keep_going: depl.extra_nix_flags.append("--keep-going")
-    if args.keep_failed: depl.extra_nix_flags.append("--keep-failed")
-    if args.show_trace: depl.extra_nix_flags.append("--show-trace")
-    if args.fallback: depl.extra_nix_flags.append("--fallback")
-    if args.no_build_output: depl.extra_nix_flags.append("--no-build-output")
-    if not args.read_only_mode: depl.extra_nix_eval_flags.append("--read-write-mode")
-
-    return depl
-
-
-def set_name(depl, name):
-    if not name: return
-    if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-\.]*$", name):
-        raise Exception("invalid deployment name ‘{0}’".format(name))
-    depl.name = name
-
-
-def modify_deployment(depl):
-    nix_exprs = args.nix_exprs
-    templates = args.templates or []
-    for i in templates: nix_exprs.append("<nixops/templates/{0}.nix>".format(i))
-    if len(nix_exprs) == 0:
-        raise Exception("you must specify the path to a Nix expression and/or use ‘-t’")
-    depl.nix_exprs = [os.path.abspath(x) if x[0:1] != '<' else x for x in nix_exprs]
-    depl.nix_path = [nixops.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
-
-
-def op_create():
-    sf = nixops.statefile.StateFile(args.state_file)
-    depl = sf.create_deployment()
-    sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
-    modify_deployment(depl)
-    if args.name or args.deployment: set_name(depl, args.name or args.deployment)
-    sys.stdout.write(depl.uuid + "\n")
-
-
-def op_modify():
-    depl = open_deployment()
-    modify_deployment(depl)
-    if args.name: set_name(depl, args.name)
-
-
-def op_clone():
-    depl = open_deployment()
-    depl2 = depl.clone()
-    sys.stderr.write("created deployment ‘{0}’\n".format(depl2.uuid))
-    set_name(depl2, args.name)
-    sys.stdout.write(depl2.uuid + "\n")
-
-
-def op_delete():
-    for depl in one_or_all():
-        depl.delete(force=args.force or False)
-
-
-def machine_to_key(depl, name, type):
-    xs = [int(x) if x.isdigit() else x for x in re.split('(\d+)', name)]
-    return [depl, type, xs]
-
-
-def op_info():
-    table_headers = [('Name', 'l'), ('Status', 'c'), ('Type', 'l'), ('Resource Id', 'l'), ('IP address', 'l')]
-
-    def state(depl, d, m):
-        if not d and (depl.definitions != None or m.obsolete): return "Obsolete"
-        if d and m and m.obsolete: return "Revived"
-        if not m: return "New"
-        if deployment.is_machine(m) and depl.configs_path != m.cur_configs_path: return "Outdated"
-        if deployment.is_machine(m): return "Up-to-date"
-
-    def do_eval(depl):
-        if not args.no_eval:
-            try:
-                depl.evaluate()
-            except nixops.deployment.NixEvalError:
-                sys.stderr.write(nixops.util.ansi_warn("warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"))
-                depl.definitions = None
-
-    def print_deployment(depl):
-        definitions = depl.definitions or {}
-
-        # Sort machines by type, then name.  Sort numbers in machine
-        # names numerically (e.g. "foo10" comes after "foo9").
-        def name_to_key(name):
-            d = definitions.get(name)
-            r = depl.resources.get(name)
-            return machine_to_key(depl.uuid, name, r.get_type()) if r else machine_to_key(depl.uuid, name, d.get_type)
-        names = sorted(
-            set(definitions.keys()) | set(depl.resources.keys()),
-            key=name_to_key
-            )
-
-        for name in names:
-            d = definitions.get(name)
-            r = depl.resources.get(name)
-            if deployment.is_machine(r):
-                resource_state = "{0} / {1}".format(r.show_state() if r else "Missing", state(depl, d, r))
-            else:
-                resource_state = r.show_state() if r else "Missing"
-
-            if args.plain:
-                print "\t".join(
-                    ([depl.uuid, depl.name or '(none)'] if args.all else []) +
-                    [name,
-                     resource_state.lower(),
-                     r.show_type() if r else d.show_type(),
-                     r.resource_id or "" if r else "",
-                     r.public_ipv4 or "" if r and hasattr(r, 'public_ipv4') else "",
-                     r.private_ipv4 or "" if r and deployment.is_machine(r) else ""
-                    ])
-            else:
-                tbl.add_row(
-                    ([depl.name or depl.uuid] if args.all else []) +
-                    [name,
-                     resource_state,
-                     r.show_type() if r else d.show_type(),
-                     r.resource_id or "" if r else "",
-                     (hasattr(r, 'public_ipv4') and r.public_ipv4) or (hasattr(r, 'private_ipv4') and r.private_ipv4) or "" if r else ""
-                    ])
-
-    if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
-        if not args.plain:
-            tbl = create_table([('Deployment', 'l')] + table_headers)
-        for depl in sort_deployments(sf.get_all_deployments()):
-            do_eval(depl)
-            print_deployment(depl)
-        if not args.plain: print tbl
-
-    else:
-        depl = open_deployment()
-        do_eval(depl)
-
-        if args.plain:
-            print_deployment(depl)
-        else:
-            print "Network name:", depl.name or "(none)"
-            print "Network UUID:", depl.uuid
-            print "Network description:", depl.description
-            print "Nix expressions:", " ".join(depl.nix_exprs)
-            if depl.nix_path != []: print "Nix path:", " ".join(map(lambda x: "-I " + x, depl.nix_path))
-            if depl.rollback_enabled: print "Nix profile:", depl.get_profile()
-            if depl.args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl.args.iteritems()])
-            print
-            tbl = create_table(table_headers)
-            print_deployment(depl)
-            print tbl
-
-
-def op_check():
-    def highlight(s):
-        return nixops.util.ansi_highlight(s, outfile=sys.stdout)
-
-    def warn(s):
-        return nixops.util.ansi_warn(s, outfile=sys.stdout)
-
-    def render_tristate(x):
-        if x == None: return "N/A"
-        elif x: return nixops.util.ansi_success("Yes", outfile=sys.stdout)
-        else: return warn("No")
-
-
-    tbl = create_table(
-        ([('Deployment', 'l')] if args.all else []) +
-        [('Name', 'l'), ('Exists', 'l'), ('Up', 'l'), ('Reachable', 'l'),
-         ('Disks OK', 'l'), ('Load avg.', 'l'), ('Units', 'l'), ('Notes', 'l')])
-
-    machines = []
-    resources = []
-
-    def check(depl):
-        for m in depl.active_resources.itervalues():
-            if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): continue
-            if nixops.deployment.is_machine(m):
-                machines.append(m)
-            else:
-                resources.append(m)
-
-    for depl in one_or_all(): check(depl)
-
-    # Check all machines in parallel.
-    def worker(m):
-        res = m.check()
-
-        unit_lines = []
-        if res.failed_units:
-            unit_lines.append('\n'.join([warn('{0} [failed]'.format(x)) for x in res.failed_units]))
-        if res.in_progress_units:
-            unit_lines.append('\n'.join([highlight('{0} [running]'.format(x)) for x in res.in_progress_units]))
-
-        row = ([m.depl.name or m.depl.uuid] if args.all else []) + \
-            [m.name,
-             render_tristate(res.exists),
-             render_tristate(res.is_up),
-             render_tristate(res.is_reachable),
-             render_tristate(res.disks_ok),
-             '{0} {1} {2}'.format(res.load[0], res.load[1], res.load[2]) if res.load != None else "",
-             '\n'.join(unit_lines),
-             '\n'.join([warn(x) for x in res.messages])
-            ]
-        status = 0
-        if res.exists == False: status |= 1
-        if res.is_up == False: status |= 2
-        if res.is_reachable == False: status |= 4
-        if res.disks_ok == False: status |= 8
-        if res.failed_units != None and res.failed_units != []: status |= 16
-        return (m.depl.name or m.depl.uuid, m, row, status)
-
-    resources_tbl = create_table(
-            ([('Deployment', 'l')] if args.all else []) +
-            [('Name', 'l'), ('Exists', 'l')])
-
-    def resource_worker(r):
-        if not nixops.deployment.is_machine(r):
-            r.check()
-            exist = True if r.state == nixops.resources.ResourceState.UP else False
-            row = ([r.depl.name or r.depl.uuid] if args.all else []) + \
-                [r.name, render_tristate(exist)]
-            return (r.depl.name or r.depl.uuid, r, row, 0)
-
-    results = run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
-    resources_results = run_tasks(nr_workers=len(resources), tasks=resources, worker_fun=resource_worker)
-
-    # Sort the rows by deployment/machine.
-    status = 0
-    for res in sorted(results, key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type())):
-        tbl.add_row(res[2])
-        status |= res[3]
-    print nixops.util.ansi_success("Machines state:")
-    print tbl
-
-    for res in  sorted(resources_results, key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type())):
-        resources_tbl.add_row(res[2])
-        status |= res[3]
-    print nixops.util.ansi_success("Non machines resources state:")
-    print resources_tbl
-
-    sys.exit(status)
-
-
-def print_backups(depl, backups):
-    tbl = prettytable.PrettyTable(["Backup ID", "Status", "Info"])
-    for k, v in sorted(backups.items(), reverse=True):
-        tbl.add_row([k,v['status'], "\n".join(v['info'])])
-    print tbl
-
-
-def op_clean_backups():
-    if args.keep and args.keep_days:
-        raise Exception("Combining of --keep and --keep-days arguments are not possible, please use one.")
-    if not (args.keep or args.keep_days):
-        raise Exception("Please specify at least --keep or --keep-days arguments.")
-    depl = open_deployment()
-    depl.clean_backups(args.keep, args.keep_days, args.keep_physical)
-
-
-def op_remove_backup():
-    depl = open_deployment()
-    depl.remove_backup(args.backupid, args.keep_physical)
-
-
-def op_backup():
-    depl = open_deployment()
-
-    def do_backup():
-        backup_id = depl.backup(include=args.include or [], exclude=args.exclude or [], devices=args.devices or [])
-        print backup_id
-
-    if args.force:
-        do_backup()
-    else:
-        backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
-        backups_status = [b['status'] for _, b in backups.items()]
-        if "running" in backups_status:
-            raise Exception("There are still backups running, use --force to run a new backup concurrently (not advised!)")
-        else:
-            do_backup()
-
-
-def op_backup_status():
-    depl = open_deployment()
-    backupid = args.backupid
-    while True:
-        backups = depl.get_backups(include=args.include or [], exclude=args.exclude or [])
-
-        if backupid or args.latest:
-            sorted_backups = sorted(backups.keys(), reverse=True)
-            if args.latest:
-                if len(backups) == 0:
-                    raise Exception("no backups found")
-                backupid = sorted_backups[0]
-            if backupid not in backups:
-                raise Exception("backup ID ‘{0}’ does not exist".format(backupid))
-            _backups = {}
-            _backups[backupid] = backups[backupid]
-        else:
-            _backups = backups
-
-        print_backups(depl, _backups)
-
-        backups_status = [b['status'] for _, b in _backups.items()]
-        if "running" in backups_status:
-            if args.wait:
-                print "waiting for 30 seconds..."
-                time.sleep(30)
-            else:
-                raise Exception("backup has not yet finished")
-        else:
-            return
-
-
-def op_restore():
-    depl = open_deployment()
-    depl.restore(include=args.include or [], exclude=args.exclude or [], backup_id=args.backup_id, devices=args.devices or [])
-
-
-def op_deploy():
-    depl = open_deployment()
-    if args.confirm:
-        depl.logger.set_autoresponse("y")
-    if args.evaluate_only:
-        raise Exception("--evaluate-only was removed as it's the same as --dry-run")
-    depl.deploy(dry_run=args.dry_run,
-                build_only=args.build_only, plan_only=args.plan_only,
-                create_only=args.create_only, copy_only=args.copy_only,
-                include=args.include or [], exclude=args.exclude or [],
-                check=args.check, kill_obsolete=args.kill_obsolete,
-                allow_reboot=args.allow_reboot,
-                allow_recreate=args.allow_recreate,
-                force_reboot=args.force_reboot,
-                max_concurrent_copy=args.max_concurrent_copy,
-                sync=not args.no_sync,
-                always_activate=args.always_activate,
-                repair=args.repair, dry_activate=args.dry_activate,
-                max_concurrent_activate=args.max_concurrent_activate)
-
-
-def op_send_keys():
-    depl = open_deployment()
-    depl.send_keys(include=args.include or [], exclude=args.exclude or [])
-
-
-def op_set_args():
-    depl = open_deployment()
-    for [n, v] in args.args or []: depl.set_arg(n, v)
-    for [n, v] in args.argstrs or []: depl.set_argstr(n, v)
-    for [n] in args.unset or []: depl.unset_arg(n)
-
-
-def op_destroy():
-    for depl in one_or_all():
-        if args.confirm:
-            depl.logger.set_autoresponse("y")
-        depl.destroy_resources(include=args.include or [],
-                               exclude=args.exclude or [],
-                               wipe=args.wipe)
-
-
-def op_reboot():
-    depl = open_deployment()
-    depl.reboot_machines(include=args.include or [],
-                         exclude=args.exclude or [],
-                         wait=(not args.no_wait),
-                         rescue=args.rescue,
-                         hard=args.hard)
-
-
-def op_stop():
-    depl = open_deployment()
-    if args.confirm:
-        depl.logger.set_autoresponse("y")
-    depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
-
-
-def op_start():
-    depl = open_deployment()
-    depl.start_machines(include=args.include or [], exclude=args.exclude or [])
-
-
-def op_rename():
-    depl = open_deployment()
-    depl.rename(args.current_name, args.new_name)
-
-
-def print_physical_backup_spec(backupid):
-    depl = open_deployment()
-    config = {}
-    for m in depl.active.itervalues():
-        config[m.name] = m.get_physical_backup_spec(backupid)
-    sys.stdout.write(py2nix(config))
-
-def op_show_arguments():
-    depl = open_deployment()
-    tbl = create_table([('Name', 'l'), ('Location', 'l')])
-    args = depl.get_arguments()
-    for arg in sorted(args.keys()):
-        files = sorted(args[arg])
-        tbl.add_row([arg, "\n".join(files)])
-    print tbl
-
-
-def op_show_physical():
-    depl = open_deployment()
-    if args.backupid:
-        print_physical_backup_spec(args.backupid)
-        return
-    depl.evaluate()
-    sys.stdout.write(depl.get_physical_spec())
-
-
-def op_dump_nix_paths():
-    def get_nix_path(p):
-        if p is None:
-            return None
-        p = os.path.realpath(os.path.abspath(p))
-        # FIXME: hardcoded nix store
-        nix_store = '/nix/store'
-        if not p.startswith('{0}/'.format(nix_store)):
-            return None
-        return '/'.join(p.split('/')[:len(nix_store.split('/'))+1])
-
-    def strip_nix_path(p):
-        p = p.split('=')
-        if len(p) == 1:
-            return p[0]
-        else:
-            return p[1]
-
-    def nix_paths(depl):
-        candidates = depl.nix_exprs + [strip_nix_path(p) for p in depl.nix_path] + [ depl.configs_path ]
-        candidates = [ get_nix_path(p) for p in candidates ]
-        return [ p for p in candidates if not p is None ]
-
-    paths = []
-
-    for depl in one_or_all():
-        paths.extend(nix_paths(depl))
-
-    for p in paths:
-        print p
-
-
-def op_export():
-    res = {}
-    for depl in one_or_all():
-        res[depl.uuid] = depl.export()
-    print json.dumps(res, indent=2, sort_keys=True)
-
-
-def op_import():
-    sf = nixops.statefile.StateFile(args.state_file)
-    existing = set(sf.query_deployments())
-
-    dump = json.loads(sys.stdin.read())
-
-    for uuid, attrs in dump.iteritems():
-        if uuid in existing:
-            raise Exception("state file already contains a deployment with UUID ‘{0}’".format(uuid))
-        with sf._db:
-            depl = sf.create_deployment(uuid=uuid)
-            depl.import_(attrs)
-        sys.stderr.write("added deployment ‘{0}’\n".format(uuid))
-
-        if args.include_keys:
-            for m in depl.active.itervalues():
-                if deployment.is_machine(m) and hasattr(m, 'public_host_key'):
-                    if m.public_ipv4:
-                        nixops.known_hosts.add(m.public_ipv4, m.public_host_key)
-                    if m.private_ipv4:
-                        nixops.known_hosts.add(m.private_ipv4, m.public_host_key)
-
-
-def parse_machine(name):
-    return ("root", name) if name.find("@") == -1 else name.split("@", 1)
-
-
-def op_ssh():
-    depl = open_deployment()
-    (username, machine) = parse_machine(args.machine)
-    m = depl.machines.get(machine)
-    if not m: raise Exception("unknown machine ‘{0}’".format(machine))
-    flags, command = m.ssh.split_openssh_args(args.args)
-    user = None if username == "root" else username
-    sys.exit(m.ssh.run_command(command, flags, check=False, logged=False,
-                               allow_ssh_args=True, user=user))
-
-
-def op_ssh_for_each():
-    results = []
-    for depl in one_or_all():
-      def worker(m):
-          if not nixops.deployment.should_do(m, args.include or [], args.exclude or []): return
-          return m.ssh.run_command(args.args, allow_ssh_args=True, check=False)
-      results = results + nixops.parallel.run_tasks(
-          nr_workers=len(depl.machines) if args.parallel else 1,
-          tasks=depl.active.itervalues(), worker_fun=worker)
-
-    sys.exit(max(results) if results != [] else 0)
-
-
-def scp_loc(user, ssh_name, remote, loc):
-    return "{0}@{1}:{2}".format(user, ssh_name, loc) if remote else loc
-
-
-def op_scp():
-    if args.scp_from == args.scp_to:
-        raise Exception("exactly one of ‘--from’ and ‘--to’ must be specified");
-    depl = open_deployment()
-    (username, machine) = parse_machine(args.machine)
-    m = depl.machines.get(machine)
-    if not m: raise Exception("unknown machine ‘{0}’".format(machine))
-    ssh_name = m.get_ssh_name()
-    from_loc = scp_loc(username, ssh_name, args.scp_from, args.source)
-    to_loc = scp_loc(username, ssh_name, args.scp_to, args.destination)
-    print >> sys.stderr, "{0} -> {1}".format(from_loc, to_loc)
-    flags = ["scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc]
-    # Map ssh's ‘-p’ to scp's ‘-P’.
-    flags = ["-P" if f == "-p" else f for f in flags]
-    res = subprocess.call(flags)
-    sys.exit(res)
-
-
-def op_mount():
-    depl = open_deployment()
-    (username, rest) = parse_machine(args.machine)
-    (machine, remote_path) = (rest, "/") if rest.find(":") == -1 else rest.split(":", 1)
-    m = depl.machines.get(machine)
-    if not m: raise Exception("unknown machine ‘{0}’".format(machine))
-    ssh_name = m.get_ssh_name()
-
-    flags = m.get_ssh_flags()
-    new_flags = []
-    n = 0
-    while n < len(flags):
-        if flags[n] == "-i":
-            new_flags.extend(["-o", "IdentityFile=" + flags[n+1]])
-            n = n + 2
-        elif flags[n] == "-p":
-            new_flags.extend(["-p", flags[n+1]])
-            n = n + 2
-        elif flags[n] == "-o":
-            new_flags.extend(["-o", flags[n+1]])
-            n = n + 2
-        else:
-            raise Exception("don't know how to pass SSH flag ‘{0}’ to sshfs".format(flags[n]))
-
-    for o in args.sshfs_option or []:
-        new_flags.extend(["-o", o])
-
-    # Note: sshfs will go into the background when it has finished
-    # setting up, so we can safely delete the SSH identity file
-    # afterwards.
-    res = subprocess.call(
-        ["sshfs", username + "@" + ssh_name + ":" + remote_path, args.destination]
-        + new_flags)
-    sys.exit(res)
-
-
-def op_show_option():
-    depl = open_deployment()
-    if args.include_physical:
-        depl.evaluate()
-    sys.stdout.write(depl.evaluate_option_value(args.machine, args.option, json=args.json, xml=args.xml, include_physical=args.include_physical))
-
-
-def check_rollback_enabled():
-    depl = open_deployment()
-    if not depl.rollback_enabled:
-        raise Exception("rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy")
-    return depl
-
-
-def op_list_generations():
-    depl = check_rollback_enabled()
-    if subprocess.call(["nix-env", "-p", depl.get_profile(), "--list-generations"]) != 0:
-        raise Exception("nix-env --list-generations failed")
-
-
-def op_delete_generation():
-    depl = check_rollback_enabled()
-    if subprocess.call(["nix-env", "-p", depl.get_profile(), "--delete-generations", str(args.generation)]) != 0:
-        raise Exception("nix-env --delete-generations failed")
-
-
-def op_rollback():
-    depl = check_rollback_enabled()
-    depl.rollback(generation=args.generation,
-                  include=args.include or [], exclude=args.exclude or [],
-                  check=args.check, allow_reboot=args.allow_reboot,
-                  force_reboot=args.force_reboot, max_concurrent_copy=args.max_concurrent_copy,
-                  max_concurrent_activate=args.max_concurrent_activate,
-                  sync=not args.no_sync)
-
-
-def op_show_console_output():
-    depl = open_deployment()
-    m = depl.machines.get(args.machine)
-    if not m: raise Exception("unknown machine ‘{0}’".format(args.machine))
-    sys.stdout.write(m.get_console_output())
-
-
-def op_edit():
-    depl = open_deployment()
-    editor = os.environ.get('EDITOR')
-    if not editor: raise Exception("the $EDITOR environment variable is not set")
-    os.system("$EDITOR " + " ".join([pipes.quote(x) for x in depl.nix_exprs]))
-
-
-def op_copy_closure():
-    depl = open_deployment()
-    (username, machine) = parse_machine(args.machine)
-    m = depl.machines.get(machine)
-    if not m:
-        raise Exception("unknown machine ‘{0}’".format(machine))
-    env = dict(os.environ)
-    env['NIX_SSHOPTS'] = ' '.join(m.get_ssh_flags())
-    res = subprocess.call(
-        ["nix", "copy", "--to",
-            "ssh://{}".format(m.get_ssh_name()), args.storepath],
-        env=env)
-    sys.exit(res)
-
-# Set up logging of all commands and output
-def setup_logging(args):
-    if os.path.exists('/dev/log') \
-        and not args.op in [
-                op_ssh,
-                op_ssh_for_each,
-                op_scp,
-                op_mount,
-                op_info,
-                op_list_deployments,
-                op_list_generations,
-                op_backup_status,
-                op_show_console_output,
-                op_dump_nix_paths,
-                op_export,
-                op_show_physical
-            ]:
-        # determine user
-        try:
-            user = subprocess.check_output(['logname'],stderr=subprocess.PIPE).strip()
-        except:
-            user = pwd.getpwuid(os.getuid())[0]
-
-        logger = logging.getLogger('root')
-        logger.setLevel(logging.INFO)
-
-        handler = logging.handlers.SysLogHandler(address='/dev/log')
-        formatter = logging.Formatter('nixops[{0}]: %(message)s'.format(os.getpid()))
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-        logger.info('User: {0}, Command: {1}'.format(user, ' '.join(sys.argv)))
-
-        # pass all stdout/stderr to the logger as well
-        nixops.util.TeeStderr()
-        nixops.util.TeeStdout()
-
+from nixops.script_defs import *
 
 # Set up the parser.
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool', prog='nixops')
@@ -740,85 +12,49 @@ parser.add_argument('--version', action='version', version='NixOps @version@')
 
 subparsers = parser.add_subparsers(help='sub-command help')
 
-def add_subparser(name, help):
-    subparser = subparsers.add_parser(name, help=help)
-    subparser.add_argument('--state', '-s', dest='state_file', metavar='FILE',
-                           default=nixops.statefile.get_default_state_file(), help='path to state file')
-    subparser.add_argument('--deployment', '-d', dest='deployment', metavar='UUID_OR_NAME',
-                           default=os.environ.get("NIXOPS_DEPLOYMENT", os.environ.get("CHARON_DEPLOYMENT", None)), help='UUID or symbolic name of the deployment')
-    subparser.add_argument('--debug', action='store_true', help='enable debug output')
-    subparser.add_argument('--confirm', action='store_true', help='confirm dangerous operations; do not ask')
-
-    # Nix options that we pass along.
-    subparser.add_argument('-I', nargs=1, action="append", dest="nix_path", metavar='PATH', help='append a directory to the Nix search path')
-    subparser.add_argument("--max-jobs", '-j', type=int, metavar='N', help='set maximum number of concurrent Nix builds')
-    subparser.add_argument("--cores", type=int, metavar='N', help='sets the value of the NIX_BUILD_CORES environment variable in the invocation of builders')
-    subparser.add_argument("--keep-going", action='store_true', help='keep going after failed builds')
-    subparser.add_argument("--keep-failed", '-K', action='store_true', help='keep temporary directories of failed builds')
-    subparser.add_argument('--show-trace', action='store_true', help='print a Nix stack trace if evaluation fails, or a python stack trace if nixops fails')
-    subparser.add_argument('--fallback', action='store_true', help='fall back on installation from source')
-    subparser.add_argument('--no-build-output', action='store_true', help='suppress output written by builders')
-    subparser.add_argument('--option', nargs=2, action="append", dest="nix_options", metavar=('NAME', 'VALUE'), help='set a Nix option')
-    subparser.add_argument('--read-only-mode', action='store_true', help='run Nix evaluations in read-only mode')
-
-    return subparser
-
-subparser = add_subparser('list', help='list all known deployments')
+subparser = add_subparser(subparsers, 'list', help='list all known deployments')
 subparser.set_defaults(op=op_list_deployments)
 
-def add_common_modify_options(subparser):
-    subparser.add_argument('nix_exprs', nargs='*', metavar='NIX-FILE', help='Nix expression(s) defining the network')
-    subparser.add_argument('--template', '-t', action="append", dest="templates", metavar='TEMPLATE', help='name of template to be used')
-
-subparser = add_subparser('create', help='create a new deployment')
+subparser = add_subparser(subparsers, 'create', help='create a new deployment')
 subparser.set_defaults(op=op_create)
 subparser.add_argument('--name', '-n', dest='name', metavar='NAME', help=argparse.SUPPRESS) # obsolete, use -d instead
 add_common_modify_options(subparser)
 
-subparser = add_subparser('modify', help='modify an existing deployment')
+subparser = add_subparser(subparsers, 'modify', help='modify an existing deployment')
 subparser.set_defaults(op=op_modify)
 subparser.add_argument('--name', '-n', dest='name', metavar='NAME', help='new symbolic name of deployment')
 add_common_modify_options(subparser)
 
-subparser = add_subparser('clone', help='clone an existing deployment')
+subparser = add_subparser(subparsers, 'clone', help='clone an existing deployment')
 subparser.set_defaults(op=op_clone)
 subparser.add_argument('--name', '-n', dest='name', metavar='NAME', help='symbolic name of the cloned deployment')
 
-subparser = add_subparser('delete', help='delete a deployment')
+subparser = add_subparser(subparsers, 'delete', help='delete a deployment')
 subparser.add_argument('--force', action='store_true', help='force deletion even if resources still exist')
 subparser.add_argument('--all', action='store_true', help='delete all deployments')
 subparser.set_defaults(op=op_delete)
 
-subparser = add_subparser('info', help='show the state of the deployment')
+subparser = add_subparser(subparsers, 'info', help='show the state of the deployment')
 subparser.set_defaults(op=op_info)
 subparser.add_argument('--all',  action='store_true', help='show all deployments')
 subparser.add_argument('--plain',  action='store_true', help='do not pretty-print the output')
 subparser.add_argument('--no-eval', action='store_true', help='do not evaluate the deployment specification')
 
-subparser = add_subparser('check', help='check the state of the machines in the network'
+subparser = add_subparser(subparsers, 'check', help='check the state of the machines in the network'
                           ' (note that this might alter the internal nixops state to consolidate with the real state of the resource)')
 subparser.set_defaults(op=op_check)
 subparser.add_argument('--all',  action='store_true', help='check all deployments')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='check only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='check all except the specified machines')
 
-subparser = add_subparser('set-args', help='persistently set arguments to the deployment specification')
+subparser = add_subparser(subparsers, 'set-args', help='persistently set arguments to the deployment specification')
 subparser.set_defaults(op=op_set_args)
 subparser.add_argument('--arg', nargs=2, action="append", dest="args", metavar=('NAME', 'VALUE'), help='pass a Nix expression value')
 subparser.add_argument('--argstr', nargs=2, action="append", dest="argstrs", metavar=('NAME', 'VALUE'), help='pass a string value')
 subparser.add_argument('--unset', nargs=1, action="append", dest="unset", metavar='NAME', help='unset previously set argument')
 
-def add_common_deployment_options(subparser):
-    subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform deployment actions on the specified machines only')
-    subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform deployment actions on the specified machines')
-    subparser.add_argument('--check', action='store_true', help='do not assume that the recorded state is correct')
-    subparser.add_argument('--allow-reboot', action='store_true', help='reboot machines if necessary')
-    subparser.add_argument('--force-reboot', action='store_true', help='reboot machines unconditionally')
-    subparser.add_argument('--max-concurrent-copy', type=int, default=5, metavar='N', help='maximum number of concurrent nix-copy-closure processes')
-    subparser.add_argument('--max-concurrent-activate', type=int, default=-1, metavar='N', help='maximum number of concurrent machine activations')
-    subparser.add_argument('--no-sync', action='store_true', help='do not flush buffers to disk')
 
-subparser = add_subparser('deploy', help='deploy the network configuration')
+subparser = add_subparser(subparsers, 'deploy', help='deploy the network configuration')
 subparser.set_defaults(op=op_deploy)
 subparser.add_argument('--kill-obsolete', '-k', action='store_true', help='kill obsolete virtual machines')
 subparser.add_argument('--dry-run', action='store_true', help='evaluate and print what would be built')
@@ -830,33 +66,32 @@ subparser.add_argument('--build-only', action='store_true', help='build only; do
 subparser.add_argument('--create-only', action='store_true', help='exit after creating missing machines')
 subparser.add_argument('--copy-only', action='store_true', help='exit after copying closures')
 subparser.add_argument('--allow-recreate', action='store_true', help='recreate resources machines that have disappeared')
-subparser.add_argument('--always-activate', action='store_true',
-                       help='activate unchanged configurations as well')
+subparser.add_argument('--always-activate', action='store_true', help='activate unchanged configurations as well')
 add_common_deployment_options(subparser)
 
-subparser = add_subparser('send-keys', help='send encryption keys')
+subparser = add_subparser(subparsers, 'send-keys', help='send encryption keys')
 subparser.set_defaults(op=op_send_keys)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='send keys to only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='send keys to all except the specified machines')
 
-subparser = add_subparser('destroy', help='destroy all resources in the specified deployment')
+subparser = add_subparser(subparsers, 'destroy', help='destroy all resources in the specified deployment')
 subparser.set_defaults(op=op_destroy)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='destroy only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='destroy all except the specified machines')
 subparser.add_argument('--wipe', action='store_true', help='securely wipe data on the machines')
 subparser.add_argument('--all', action='store_true', help='destroy all deployments')
 
-subparser = add_subparser('stop', help='stop all virtual machines in the network')
+subparser = add_subparser(subparsers, 'stop', help='stop all virtual machines in the network')
 subparser.set_defaults(op=op_stop)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='stop only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='stop all except the specified machines')
 
-subparser = add_subparser('start', help='start all virtual machines in the network')
+subparser = add_subparser(subparsers, 'start', help='start all virtual machines in the network')
 subparser.set_defaults(op=op_start)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='start only the specified machines')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='start all except the specified machines')
 
-subparser = add_subparser('reboot',
+subparser = add_subparser(subparsers, 'reboot',
                           help='reboot all virtual machines in the network')
 subparser.set_defaults(op=op_reboot)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME',
@@ -872,19 +107,19 @@ subparser.add_argument('--hard', action='store_true',
                        help='send a hard reset (power switch) to the machines'
                             ' (if available)')
 
-subparser = add_subparser('show-arguments', help='print the arguments to the network expressions')
+subparser = add_subparser(subparsers, 'show-arguments', help='print the arguments to the network expressions')
 subparser.set_defaults(op=op_show_arguments)
 
-subparser = add_subparser('show-physical', help='print the physical network expression')
+subparser = add_subparser(subparsers, 'show-physical', help='print the physical network expression')
 subparser.add_argument('--backup', dest='backupid', default=None, help='print physical network expression for given backup id')
 subparser.set_defaults(op=op_show_physical)
 
-subparser = add_subparser('ssh', help='login on the specified machine via SSH')
+subparser = add_subparser(subparsers, 'ssh', help='login on the specified machine via SSH')
 subparser.set_defaults(op=op_ssh)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
 subparser.add_argument('args', metavar="SSH_ARGS", nargs=argparse.REMAINDER, help='SSH flags and/or command')
 
-subparser = add_subparser('ssh-for-each', help='execute a command on each machine via SSH')
+subparser = add_subparser(subparsers, 'ssh-for-each', help='execute a command on each machine via SSH')
 subparser.set_defaults(op=op_ssh_for_each)
 subparser.add_argument('args', metavar="ARG", nargs='*', help='additional arguments to SSH')
 subparser.add_argument('--parallel', '-p', action='store_true', help='run in parallel')
@@ -892,7 +127,7 @@ subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='run
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='run command on all except the specified machines')
 subparser.add_argument('--all',  action='store_true', help='run ssh-for-each for all deployments')
 
-subparser = add_subparser('scp', help='copy files to or from the specified machine via scp')
+subparser = add_subparser(subparsers, 'scp', help='copy files to or from the specified machine via scp')
 subparser.set_defaults(op=op_scp)
 subparser.add_argument('--from', dest='scp_from', action='store_true', help='copy a file from specified machine')
 subparser.add_argument('--to', dest='scp_to', action='store_true', help='copy a file to specified machine')
@@ -900,18 +135,18 @@ subparser.add_argument('machine', metavar='MACHINE', help='identifier of the mac
 subparser.add_argument('source', metavar='SOURCE', help='source file location')
 subparser.add_argument('destination', metavar='DEST', help='destination file location')
 
-subparser = add_subparser('mount', help='mount a directory from the specified machine into the local filesystem')
+subparser = add_subparser(subparsers, 'mount', help='mount a directory from the specified machine into the local filesystem')
 subparser.set_defaults(op=op_mount)
 subparser.add_argument('machine', metavar='MACHINE[:PATH]', help='identifier of the machine, optionally followed by a path')
 subparser.add_argument('destination', metavar='PATH', help='local path')
 subparser.add_argument('--sshfs-option', '-o', action='append', metavar="OPTIONS", help='mount options passed to sshfs')
 
-subparser = add_subparser('rename', help='rename machine in network')
+subparser = add_subparser(subparsers, 'rename', help='rename machine in network')
 subparser.set_defaults(op=op_rename)
 subparser.add_argument('current_name', metavar='FROM', help='current identifier of the machine')
 subparser.add_argument('new_name', metavar='TO', help='new identifier of the machine')
 
-subparser = add_subparser('backup', help='make snapshots of persistent disks in network (currently EC2-only)')
+subparser = add_subparser(subparsers, 'backup', help='make snapshots of persistent disks in network (currently EC2-only)')
 subparser.set_defaults(op=op_backup)
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
@@ -919,7 +154,7 @@ subparser.add_argument('--freeze', dest='freeze_fs', action="store_true", defaul
 subparser.add_argument('--force', dest='force', action="store_true", default=False, help='start new backup even if previous is still running')
 subparser.add_argument('--devices', nargs='+', metavar='DEVICE-NAME', help='only backup the specified devices')
 
-subparser = add_subparser('backup-status', help='get status of backups')
+subparser = add_subparser(subparsers, 'backup-status', help='get status of backups')
 subparser.set_defaults(op=op_backup_status)
 subparser.add_argument('backupid', default=None, nargs='?', help='use specified backup in stead of latest')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
@@ -927,25 +162,25 @@ subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do 
 subparser.add_argument('--wait', dest='wait', action="store_true", default=False, help='wait until backup is finished')
 subparser.add_argument('--latest', dest='latest', action="store_true", default=False, help='show status of latest backup only')
 
-subparser = add_subparser('remove-backup', help='remove a given backup')
+subparser = add_subparser(subparsers, 'remove-backup', help='remove a given backup')
 subparser.set_defaults(op=op_remove_backup)
 subparser.add_argument('backupid', metavar='BACKUP-ID', help='backup ID to remove')
 subparser.add_argument('--keep-physical', dest="keep_physical", default=False, action="store_true", help='do not remove the physical backups, only remove backups from nixops state')
 
-subparser = add_subparser('clean-backups', help='remove old backups')
+subparser = add_subparser(subparsers, 'clean-backups', help='remove old backups')
 subparser.set_defaults(op=op_clean_backups)
 subparser.add_argument('--keep', dest="keep", type=int, help='number of backups to keep around')
 subparser.add_argument('--keep-days', metavar="N", dest="keep_days", type=int, help='keep backups newer than N days')
 subparser.add_argument('--keep-physical', dest="keep_physical", default=False, action="store_true", help='do not remove the physical backups, only remove backups from nixops state')
 
-subparser = add_subparser('restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
+subparser = add_subparser(subparsers, 'restore', help='restore machines based on snapshots of persistent disks in network (currently EC2-only)')
 subparser.set_defaults(op=op_restore)
 subparser.add_argument('--backup-id', default=None, help='use specified backup in stead of latest')
 subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='perform backup actions on the specified machines only')
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='do not perform backup actions on the specified machines')
 subparser.add_argument('--devices', nargs='+', metavar='DEVICE-NAME', help='only restore the specified devices')
 
-subparser = add_subparser('show-option', help='print the value of a configuration option')
+subparser = add_subparser(subparsers, 'show-option', help='print the value of a configuration option')
 subparser.set_defaults(op=op_show_option)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
 subparser.add_argument('option', metavar='OPTION', help='option name')
@@ -953,60 +188,61 @@ subparser.add_argument('--xml', action='store_true', help='print the option valu
 subparser.add_argument('--json', action='store_true', help='print the option value in JSON format')
 subparser.add_argument('--include-physical', action='store_true', help='include the physical specification in the evaluation')
 
-subparser = add_subparser('list-generations', help='list previous configurations to which you can roll back')
+subparser = add_subparser(subparsers, 'list-generations', help='list previous configurations to which you can roll back')
 subparser.set_defaults(op=op_list_generations)
 
-subparser = add_subparser('rollback', help='roll back to a previous configuration')
+subparser = add_subparser(subparsers, 'rollback', help='roll back to a previous configuration')
 subparser.set_defaults(op=op_rollback)
 subparser.add_argument('generation', type=int, metavar='GENERATION', help='number of the desired configuration (see ‘nixops list-generations’)')
 add_common_deployment_options(subparser)
 
-subparser = add_subparser('delete-generation', help='remove a previous configuration')
+subparser = add_subparser(subparsers, 'delete-generation', help='remove a previous configuration')
 subparser.set_defaults(op=op_delete_generation)
 subparser.add_argument('generation', type=int, metavar='GENERATION', help='number of the desired configuration (see ‘nixops list-generations’)')
 add_common_deployment_options(subparser)
 
-subparser = add_subparser('show-console-output', help='print the machine\'s console output on stdout')
+subparser = add_subparser(subparsers, 'show-console-output', help='print the machine\'s console output on stdout')
 subparser.set_defaults(op=op_show_console_output)
 subparser.add_argument('machine', metavar='MACHINE', help='identifier of the machine')
 add_common_deployment_options(subparser)
 
-subparser = add_subparser('dump-nix-paths', help='dump Nix paths referenced in deployments')
+subparser = add_subparser(subparsers, 'dump-nix-paths', help='dump Nix paths referenced in deployments')
 subparser.add_argument('--all',  action='store_true', help='dump Nix paths for all deployments')
 subparser.set_defaults(op=op_dump_nix_paths)
 add_common_deployment_options(subparser)
 
-subparser = add_subparser('export', help='export the state of a deployment')
+subparser = add_subparser(subparsers, 'export', help='export the state of a deployment')
 subparser.add_argument('--all',  action='store_true', help='export all deployments')
 subparser.set_defaults(op=op_export)
 
-subparser = add_subparser('import', help='import deployments into the state file')
+subparser = add_subparser(subparsers, 'import', help='import deployments into the state file')
 subparser.add_argument('--include-keys',  action='store_true', help='import public SSH hosts keys to .ssh/known_hosts')
 subparser.set_defaults(op=op_import)
 
-subparser = add_subparser('edit', help='open the deployment specification in $EDITOR')
+subparser = add_subparser(subparsers, 'edit', help='open the deployment specification in $EDITOR')
 subparser.set_defaults(op=op_edit)
 
-subparser = add_subparser('copy-closure', help='copy closure to a target machine')
+subparser = add_subparser(subparsers, 'copy-closure', help='copy closure to a target machine')
 subparser.add_argument('machine', help='identifier of the machine')
 subparser.add_argument('storepath', help='store path of the closure to be copied')
 subparser.set_defaults(op=op_copy_closure)
 
+subparser = subparsers.add_parser('list-plugins', help='list the available nixops plugins')
+subparser.set_defaults(op=op_list_plugins)
+subparser.add_argument('--verbose', '-v', action='store_true', help='Provide extra plugin information')
+subparser.add_argument('--debug', action='store_true', help='enable debug output')
+
+parser_plugin_hooks(parser, subparsers)
 
 if os.path.basename(sys.argv[0]) == "charon":
     sys.stderr.write(nixops.util.ansi_warn("warning: ‘charon’ is now called ‘nixops’") + "\n")
-
-
-# Parse the command line and execute the desired operation.
-def error(msg):
-    sys.stderr.write(nixops.util.ansi_warn("error: ") + msg + "\n")
 
 args = parser.parse_args()
 setup_logging(args)
 
 try:
     nixops.deployment.debug = args.debug
-    args.op()
+    args.op(args)
 except deployment.NixEvalError:
     error("evaluation of the deployment specification failed")
     sys.exit(1)

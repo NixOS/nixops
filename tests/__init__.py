@@ -5,6 +5,11 @@ import threading
 from os import path
 import nixops.statefile
 
+import importlib
+from nixops.plugins import get_plugin_manager
+[[importlib.import_module(mod) for mod in pluginimports]
+             for pluginimports in get_plugin_manager().hook.load()]
+
 _multiprocess_shared_ = True
 
 db_file = '%s/test.nixops' % (path.dirname(__file__))
