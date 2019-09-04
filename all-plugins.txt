@@ -6,11 +6,11 @@
 #                                                                   grep-v-expression: filter repo not matching the expression
 #  <organisation>/<repo>                                         - include only the named repository.
 
-# include all input-output-hk providers
-# input-output-hk nixops-\\(aws\\|packet\\)
+# include all nixos providers
+# nixos nixops-\\(aws\\|packet\\)
 
 # include nixops-aws
-input-output-hk/nixops-aws
+nixos/nixops-aws
 
 # include nixops-hetzner
-input-output-hk/nixops-hetzner
+nixos/nixops-hetzner
