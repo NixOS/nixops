@@ -711,7 +711,7 @@ def op_copy_closure(args):
         raise Exception("unknown machine ‘{0}’".format(machine))
     env = dict(os.environ)
     env['NIX_SSHOPTS'] = ' '.join(m.get_ssh_flags())
-    res = subprocess.call(
+    res = nixops.util.logged_exec(
         ["nix", "copy", "--to",
             "ssh://{}".format(m.get_ssh_name()), args.storepath],
         env=env)
