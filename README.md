@@ -20,17 +20,25 @@ To start developing on nixops, you can run:
 ```
 
 Where plugin1 can be any available nixops plugin, and where
-none or more than one can be specified, including local plugins.  An example is:
+none or more than one can be specified, including local plugins.
+An example is:
 
 
 ```bash
-  $ ./dev-shell --arg p "(p: [ p.aws p.packet (p.callPackage ../myplugin/release.nix {})])"
+  $ ./dev-shell --arg p "(p: [ p.aws p.hetzner (p.callPackage ../myplugin/release.nix {})])"
 ```
 
-To update the available nixops plugins, edit the
-all-plugins.txt file with any new plugin repos and
-then execute the update-all script.  This will refresh
-the data.nix file.
+Available plugins, such as "aws" and "hetzner" in the example
+above, are the plugin attribute names found in the data.nix file.
+
+To update the available nixops plugins found in github repositories,
+edit the all-plugins.txt file with any new github plugin repositories
+that are available and then execute the update-all script.  This will
+refresh the data.nix file, providing new plugin attributes to use.
+
+Local nixops plugins, such as the `callPackage ../myplugin/release.nix {}`
+example seen above, have no need to be in the all-plugins.txt
+or data.nix file.
 
 ## Building from source
 
