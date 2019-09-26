@@ -26,9 +26,4 @@ $ nix-env -i nixops
 
 </orderedlist>
 
-<!--
-<para>FIXME: VirtualBox configuration (vboxnet0 host-only networking
-interface).</para>
--->
-
 </chapter>

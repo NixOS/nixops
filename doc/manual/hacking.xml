@@ -49,25 +49,8 @@ linkend="sec-deploying-to-ec2"/>.)  To run a specific test, run
 <literal>python2 tests.py
 <replaceable>test-name</replaceable></literal>, e.g.
 
-To run all tests in <filename>./tests/functional/test_encrypted_links.py</filename>
-
-<screen>
-$ python2 tests.py tests.functional.test_encrypted_links
-</screen>
-          
-To run only one test in <filename>tests/functional/test_encrypted_links.py</filename>
-
-<screen>
-$ python2 tests.py tests.functional.test_encrypted_links:TestEncryptedLinks.test_deploy
-</screen>
-
 To filter on which backends you want to run functional tests against, you can
 filter on one or more tags.
-To run e.g. only the virtualbox tests, run:
-
-<screen>
-$ python2 tests.py tests.functional -A vbox
-</screen>
 
 
 There are also a few NixOS VM tests. These can be run as follows:
