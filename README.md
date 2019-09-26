@@ -16,37 +16,37 @@ machines in a network or cloud.
 To start developing on nixops, you can run:
 
 ```bash
-  $ ./dev-shell --arg p "(p: [ p.plugin1 ])"
+  $ nix dev-shell
 ```
-
-Where plugin1 can be any available nixops plugin, and where
-none or more than one can be specified, including local plugins.  An example is:
-
-
-```bash
-  $ ./dev-shell --arg p "(p: [ p.aws p.packet (p.callPackage ../myplugin/release.nix {})])"
-```
-
-To update the available nixops plugins, edit the
-all-plugins.txt file with any new plugin repos and
-then execute the update-all script.  This will refresh
-the data.nix file.
 
 ## Building from source
 
 The command to build NixOps depends on your platform and which plugins you choose:
 
-- `nix-build release.nix -A build.x86_64-linux --arg p "(p: [ p.plugin1 ])"` on 64 bit linux.
-- `nix-build release.nix -A build.i686-linux --arg p "(p: [ p.plugin1 ])"` on 32 bit linux.
-- `nix-build release.nix -A build.x86_64-darwin --arg p "(p: [ p.plugin1 ])"` on OSX.
+- `nix build .#hydraJobs.build.x86_64-linux` on 64 bit linux.
+- `nix-build .#hydraJobs.build.i686-linux` on 32 bit linux.
+- `nix-build .#hydraJobs.build.x86_64-darwin` on OSX.
 
-Similarly, using NixOps from another project (for instance a nix-shell) can be done using:
+NixOps can be imported into another flake as follows:
 
 ```nix
-stdenv.mkDerivation {
-  name = "my-nixops-env";
-  buildInputs = [
-    (import /path/to/nixops/release.nix { p = (p: [ p.plugin1 ]); }).build.x86_64-linux
-  ];
+{
+  edition = 201909;
+
+  inputs.nixops.uri = github:NixOS/nixops;
+
+  outputs = { self, nixpkgs, nixops }: {
+    packages.my-package =
+      let
+        pkgs = import nixpkgs {
+          system = "x86_linux";
+          overlays = [ nixops.overlay ];
+        };
+      in
+        pkgs.stdenv.mkDerivation {
+          ...
+          buildInputs = [ pkgs.nixops ];
+        };
+  };
 }
 ```

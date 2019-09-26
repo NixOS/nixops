@@ -1,6 +1,6 @@
-{ system, nixops }:
+{ system, nixpkgs, nixops }:
 
-with import <nixpkgs/nixos/lib/testing.nix> { inherit system; };
+with import (nixpkgs + "/nixos/lib/testing.nix") { inherit system; };
 with pkgs.lib;
 
 let
@@ -82,7 +82,7 @@ let
       }
     '';
 
-  env = "NIX_PATH=nixpkgs=${<nixpkgs>}";
+  env = "NIX_PATH=nixpkgs=${nixpkgs}";
 
 in
 

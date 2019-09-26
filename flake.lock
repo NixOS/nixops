@@ -1,0 +1,23 @@
+{
+    "inputs": {
+        "nixops-aws": {
+            "inputs": {},
+            "narHash": "sha256-YDXdkR2nhq1AcrXdDsFL196mA3mXMSYBPkHgg0Q1XZw=",
+            "originalUri": "github:NixOS/nixops-aws",
+            "uri": "github:NixOS/nixops-aws/922cc1ef32dba935ab1b3d9f03b46e38f531401b"
+        },
+        "nixops-hetzner": {
+            "inputs": {},
+            "narHash": "sha256-Qf2XY0S59CXy3UvjqM8OuQdX3yHNmTMRdfKxg5OOlpU=",
+            "originalUri": "github:NixOS/nixops-hetzner",
+            "uri": "github:NixOS/nixops-hetzner/ef99acaa329476beb45fc10753d9de3d2d257671"
+        },
+        "nixpkgs": {
+            "inputs": {},
+            "narHash": "sha256-qWEM8iYRYUdaVCHwTq13w69/11hAFWZplp5mqeU2qBM=",
+            "originalUri": "nixpkgs/release-19.09",
+            "uri": "github:edolstra/nixpkgs/7d9219a0adea88942b8d609f89cf4a1f86df1a9c"
+        }
+    },
+    "version": 3
+}

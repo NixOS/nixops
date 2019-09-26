@@ -2,7 +2,7 @@
 
 let
 
-  pkgs = import nixpkgs {};
+  pkgs = import nixpkgs { system = "x86_64-linux"; };
 
   systemModule = pkgs.lib.fixMergeModules [ ../../nix/options.nix ./dummy.nix ] {
                    inherit pkgs; utils = {};
