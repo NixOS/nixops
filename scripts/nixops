@@ -431,6 +431,11 @@ def op_destroy():
                                exclude=args.exclude or [],
                                wipe=args.wipe)
 
+def op_clear_state():
+    depl = open_deployment()
+    if args.confirm:
+        depl.logger.set_autoresponse("y")
+    depl.clear_state(include=args.include or [], exclude=args.exclude or [])
 
 def op_reboot():
     depl = open_deployment()
@@ -845,6 +850,12 @@ subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='des
 subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='destroy all except the specified machines')
 subparser.add_argument('--wipe', action='store_true', help='securely wipe data on the machines')
 subparser.add_argument('--all', action='store_true', help='destroy all deployments')
+
+subparser = add_subparser('clear-state', help='clear resources from state file')
+subparser.set_defaults(op=op_clear_state)
+subparser.add_argument('--include', nargs='+', metavar='MACHINE-NAME', help='clear only the specified machines')
+subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='clear all resources except the specified machines')
+
 
 subparser = add_subparser('stop', help='stop all virtual machines in the network')
 subparser.set_defaults(op=op_stop)

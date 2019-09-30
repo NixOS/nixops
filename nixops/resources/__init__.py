@@ -189,6 +189,17 @@ class ResourceState(object):
         )
         return False
 
+    def clear_state(self):
+        """clear this resource state, if possible."""
+        if not self.depl.logger.confirm("are you sure you want to clear resources state `{0}`".format(self.name)):
+            self.depl.logger.get_logger_for(self.name).warn("Not clearing state...")
+            return False
+
+        self.logger.warn(
+            "resource ‘{0}’ will be removed from NixOps state file but not actually".format(self.name)
+        )
+        return True
+
     def next_charge_time(self):
         """Return the time (in Unix epoch) when this resource will next incur
         a financial charge (or None if unknown)."""
