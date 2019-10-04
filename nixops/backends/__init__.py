@@ -106,6 +106,9 @@ class MachineState(
     cur_toplevel: Optional[str] = nixops.util.attr_property("toplevel", None)
     new_toplevel: Optional[str]
 
+    # Immutable flake URI from which this machine was built.
+    cur_flake_uri: Optional[str] = nixops.util.attr_property("curFlakeUri", None)
+
     # Time (in Unix epoch) the instance was started, if known.
     start_time: Optional[int] = nixops.util.attr_property("startTime", None, int)
 

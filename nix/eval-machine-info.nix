@@ -1,5 +1,6 @@
 { system ? builtins.currentSystem
 , networkExprs
+, flakeUri ? null
 , checkConfigurationOptions ? true
 , uuid
 , deploymentName
@@ -7,6 +8,7 @@
 , pluginNixExprs
 }:
 
+# FIXME: don't rely on <nixpkgs>.
 with import <nixpkgs> { inherit system; };
 with lib;
 
@@ -31,13 +33,24 @@ rec {
         startSet = map exprToKey networkExprs;
         operator = { key }: map exprToKey ((getNetworkFromExpr key).require or []);
       };
-    in map ({ key }: getNetworkFromExpr key) networkExprClosure;
+    in
+      map ({ key }: getNetworkFromExpr key) networkExprClosure
+      ++ optional (flakeUri != null)
+        ((call (builtins.getFlake flakeUri).outputs.nixopsConfigurations.default) // { _file = "<${flakeUri}>"; });
 
   call = x: if builtins.isFunction x then x args else x;
 
   network = zipAttrs networks;
 
   defaults = network.defaults or [];
+
+  evalConfig =
+    if flakeUri != null
+    then
+      if network ? nixpkgs
+      then (head (network.nixpkgs)).lib.nixosSystem
+      else throw "NixOps network must have a 'nixpkgs' attribute"
+    else import "<nixpkgs/nixos/lib/eval-config.nix>";
 
   # Compute the definitions of the machines.
   nodes =
@@ -52,14 +65,14 @@ rec {
           networks;
       in
       { name = machineName;
-        value = import <nixpkgs/nixos/lib/eval-config.nix> {
+        value = evalConfig {
           modules =
             modules ++
             defaults ++
             [ deploymentInfoModule ] ++
             [ { key = "nixops-stuff";
                 # Make NixOps's deployment.* options available.
-          imports = [ ./options.nix ./resource.nix pluginOptions ];
+                imports = [ ./options.nix ./resource.nix pluginOptions ];
                 # Provide a default hostname and deployment target equal
                 # to the attribute name of the machine in the model.
                 networking.hostName = mkOverride 900 machineName;
@@ -70,7 +83,7 @@ rec {
           extraArgs = { inherit nodes resources uuid deploymentName; name = machineName; };
         };
       }
-    ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "_file" ])));
+    ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "nixpkgs" "_file" ])));
 
   # Compute the definitions of the non-machine resources.
   resourcesByType = zipAttrs (network.resources or []);
