@@ -94,6 +94,7 @@ rec {
     (a: b: a // (b { inherit evalResources zipAttrs resourcesByType;}))
     {
       sshKeyPairs = evalResources ./ssh-keypair.nix (zipAttrs resourcesByType.sshKeyPairs or []);
+      commandOutput = evalResources ./command-output.nix (zipAttrs resourcesByType.commandOutput or []);
       machines = mapAttrs (n: v: v.config) nodes;
     }
     pluginResources;
