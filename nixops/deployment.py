@@ -270,7 +270,7 @@ class Deployment(object):
             out = json.loads(subprocess.check_output(
                 ["nix", "flake", "info", "--json", "--", self.flake_uri],
                 stderr=self.logger.log_file))
-            self._cur_flake_uri = out['uri']
+            self._cur_flake_uri = out['url'].replace("ref=HEAD&rev=0000000000000000000000000000000000000000&", "") # FIXME
         return self._cur_flake_uri
 
 
