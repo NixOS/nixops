@@ -145,10 +145,10 @@
         }).test;
       };
 
-      checks.build = self.hydraJobs.build.x86_64-linux;
+      checks.x86_64-linux.build = self.hydraJobs.build.x86_64-linux;
 
-      packages.nixops = pkgs.nixops;
-      defaultPackage = pkgs.nixops;
+      packages.x86_64-linux.nixops = pkgs.nixops;
+      defaultPackage.x86_64-linux = pkgs.nixops;
 
     };
 }
