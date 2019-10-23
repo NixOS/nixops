@@ -456,6 +456,11 @@ def op_reboot(args):
                          rescue=args.rescue,
                          hard=args.hard)
 
+def op_delete_resources(args):
+    depl = open_deployment(args)
+    if args.confirm:
+        depl.logger.set_autoresponse("y")
+    depl.delete_resources(include=args.include or [], exclude=args.exclude or [])
 
 def op_stop(args):
     depl = open_deployment(args)
