@@ -6,7 +6,7 @@
 
 let
   pkgs = import nixpkgs { config = {}; overlays = []; };
-  version = "1.7" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
+  version = "1.8" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
 
   allPlugins = let
     plugins = let
