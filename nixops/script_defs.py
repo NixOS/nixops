@@ -714,6 +714,7 @@ def op_copy_closure(args):
     res = nixops.util.logged_exec(
         ["nix", "copy", "--to",
             "ssh://{}".format(m.get_ssh_name()), args.storepath],
+        depl.logger,
         env=env)
     sys.exit(res)
 
