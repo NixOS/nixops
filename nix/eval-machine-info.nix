@@ -50,7 +50,7 @@ rec {
       if network ? nixpkgs
       then (head (network.nixpkgs)).lib.nixosSystem
       else throw "NixOps network must have a 'nixpkgs' attribute"
-    else import "<nixpkgs/nixos/lib/eval-config.nix>";
+    else import <nixpkgs/nixos/lib/eval-config.nix>;
 
   # Compute the definitions of the machines.
   nodes =
