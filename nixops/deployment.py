@@ -748,7 +748,7 @@ class Deployment(object):
                 if res == 100 or force_reboot or m.state == m.RESCUE:
                     if not allow_reboot and not force_reboot:
                         raise Exception("the new configuration requires a "
-                                        "reboot to take effect (hint: use "
+                                        "reboot of '{}' to take effect (hint: use "
                                         "‘--allow-reboot’)".format(m.name))
                     m.reboot_sync()
                     res = 0
