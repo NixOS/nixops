@@ -326,7 +326,7 @@ class NixMergeTest(unittest.TestCase):
     def test_merge_list(self):
         self.assert_merge(
             [[1, 2, 3], [4, 5, 6], [7, 6, 5], ["abc", "def"], ["ghi", "abc"],],
-            [1, 2, 3, 4, 5, 6, 7, "abc", "ghi", "def"],
+            [1, 2, 3, 4, 5, 6, 7, "ghi", "def", "abc"],
         )
 
     def test_merge_dict(self):
