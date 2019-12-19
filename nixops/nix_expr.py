@@ -1,3 +1,4 @@
+import functools
 import re
 import string
 
@@ -128,7 +129,7 @@ def enclose_node(node, prefix="", suffix=""):
 
 def _fold_string(value, rules):
     folder = lambda val, rule: val.replace(rule[0], rule[1])
-    return reduce(folder, rules, value)
+    return functools.reduce(folder, rules, value)
 
 
 def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
@@ -180,15 +181,15 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
         while len(nodes) == 1 and isinstance(nodes[0], list):
             nodes = nodes[0]
             pre, post = pre + " [", post + " ]"
-        return Container(pre, map(lambda n: _enc(n, inlist=True), nodes), post)
+        return Container(pre, list(map(lambda n: _enc(n, inlist=True), nodes)), post)
 
     def _enc_key(key):
-        if not isinstance(key, basestring):
+        if not isinstance(key, str):
             raise KeyError("key {0} is not a string".format(repr(key)))
         elif len(key) == 0:
             raise KeyError("key name has zero length")
 
-        if all(char in string.letters + string.digits + '_'
+        if all(char in string.ascii_letters + string.digits + '_'
                for char in key) and not key[0].isdigit():
             return key
         else:
@@ -205,7 +206,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
             # attribute, recursively merge them with a dot, like "a.b.c".
             child_key, child_value = key, value
             while isinstance(child_value, dict) and len(child_value) == 1:
-                child_key, child_value = child_value.items()[0]
+                child_key, child_value = list(child_value.items())[0]
                 encoded_key += "." + _enc_key(child_key)
 
             contents = _enc(child_value)
@@ -235,9 +236,9 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
             return RawValue("false")
         elif node is None:
             return RawValue("null")
-        elif isinstance(node, (int, long)):
+        elif isinstance(node, int):
             return _enc_int(node)
-        elif isinstance(node, basestring):
+        elif isinstance(node, str):
             return _enc_str(node)
         elif isinstance(node, list):
             return _enc_list(node)
@@ -273,7 +274,7 @@ def expand_dict(unexpanded):
     {'a': {'b': 'c', 'd': {'e': 'f'}}}
     """
     paths, strings = [], {}
-    for key, val in unexpanded.iteritems():
+    for key, val in unexpanded.items():
         if isinstance(key, tuple):
             if len(key) == 0:
                 raise KeyError("invalid key {0}".format(repr(key)))
@@ -288,7 +289,7 @@ def expand_dict(unexpanded):
             strings[key] = val
 
     return {key: (expand_dict(val) if isinstance(val, dict) else val)
-            for key, val in reduce(nixmerge, paths + [strings]).iteritems()}
+            for key, val in functools.reduce(nixmerge, paths + [strings]).items()}
 
 
 def nixmerge(expr1, expr2):

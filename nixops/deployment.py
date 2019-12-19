@@ -8,7 +8,6 @@ import string
 import tempfile
 import shutil
 import threading
-import exceptions
 import errno
 from collections import defaultdict
 from xml.etree import ElementTree
@@ -206,7 +205,7 @@ class Deployment(object):
     def _get_deployment_lock(self):
         if self._lock_file_path is None:
             lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
-            if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0700)
+            if not os.path.exists(lock_dir): os.makedirs(lock_dir, 0o700)
             self._lock_file_path = lock_dir + "/" + self.uuid
         class DeploymentLock(object):
             def __init__(self, depl):
@@ -310,7 +309,7 @@ class Deployment(object):
                 + self._eval_flags(self.nix_exprs) +
                 ["--eval-only", "--json", "--strict",
                  "-A", "nixopsArguments"], stderr=self.logger.log_file)
-            if debug: print >> sys.stderr, "JSON output of nix-instantiate:\n" + xml
+            if debug: print("JSON output of nix-instantiate:\n" + xml, file=sys.stderr)
             return json.loads(out)
         except OSError as e:
             raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
@@ -327,7 +326,7 @@ class Deployment(object):
                 ["--eval-only", "--xml", "--strict",
                  "--arg", "checkConfigurationOptions", "false",
                  "-A", attr], stderr=self.logger.log_file)
-            if debug: print >> sys.stderr, "XML output of nix-instantiate:\n" + xml
+            if debug: print("XML output of nix-instantiate:\n" + xml, file=sys.stderr)
         except OSError as e:
             raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
         except subprocess.CalledProcessError:
@@ -606,7 +605,7 @@ class Deployment(object):
     def create_profile(self):
         profile = self.get_profile()
         dir = os.path.dirname(profile)
-        if not os.path.exists(dir): os.makedirs(dir, 0755)
+        if not os.path.exists(dir): os.makedirs(dir, 0o755)
         return profile
 
 
@@ -627,7 +626,7 @@ class Deployment(object):
         phys_expr = self.tempdir + "/physical.nix"
         p = self.get_physical_spec()
         nixops.util.write_file(phys_expr, p)
-        if debug: print >> sys.stderr, "generated physical spec:\n" + p
+        if debug: print("generated physical spec:\n" + p, file=sys.stderr)
 
         selected = [m for m in self.active.itervalues() if should_do(m, include, exclude)]
 
@@ -658,7 +657,7 @@ class Deployment(object):
             os.environ['NIX_BUILD_HOOK'] = os.path.dirname(os.path.realpath(nixops.util.which("nix-build"))) + "/../libexec/nix/build-remote.pl"
 
             load_dir = "{0}/current-load".format(self.tempdir)
-            if not os.path.exists(load_dir): os.makedirs(load_dir, 0700)
+            if not os.path.exists(load_dir): os.makedirs(load_dir, 0o700)
             os.environ['NIX_CURRENT_LOAD'] = load_dir
 
         try:
@@ -827,11 +826,11 @@ class Deployment(object):
 
         if keep_days:
             cutoff = (datetime.now()- timedelta(days=keep_days)).strftime("%Y%m%d%H%M%S")
-            print cutoff
+            print(cutoff)
             tbr = [bid for bid in backup_ids if bid < cutoff]
 
         for backup_id in tbr:
-            print 'Removing backup {0}'.format(backup_id)
+            print('Removing backup {0}'.format(backup_id))
             self.remove_backup(backup_id, keep_physical)
 
     def remove_backup(self, backup_id, keep_physical = False):

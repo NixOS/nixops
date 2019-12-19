@@ -68,20 +68,17 @@ in rec {
     with import nixpkgs { inherit system; };
 
 
-    python2Packages.buildPythonApplication rec {
+    python3Packages.buildPythonApplication rec {
       name = "nixops-${version}";
 
       src = "${tarball}/tarballs/*.tar.bz2";
 
-      buildInputs = [ python2Packages.nose python2Packages.coverage ];
+      buildInputs = [ python3Packages.nose python3Packages.coverage ];
 
       nativeBuildInputs = [ pkgs.mypy ];
 
-      propagatedBuildInputs = with python2Packages;
+      propagatedBuildInputs = with python3Packages;
         [ prettytable
-          # Go back to sqlite once Python 2.7.13 is released
-          pysqlite
-          typing
           pluggy
         ] ++ pkgs.lib.traceValFn (x: "Using plugins: " + builtins.toJSON x) (map (d: d.build.${system}) (p allPlugins));
 
