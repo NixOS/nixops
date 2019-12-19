@@ -45,7 +45,7 @@ def op_list_plugins(args):
             tbl.add_row([plugin[0], plugin[1].__str__()])
         else:
             tbl.add_row([plugin[0]])
-    print tbl
+    print(tbl)
 
 
 def create_table(headers):
@@ -79,7 +79,7 @@ def op_list_deployments(args):
              depl.description, len(depl.machines),
              ", ".join(set([m.get_type() for m in depl.machines.itervalues()]))
         ])
-    print tbl
+    print(tbl)
 
 
 def open_deployment(args):
@@ -191,7 +191,7 @@ def op_info(args):
                 resource_state = r.show_state() if r else "Missing"
 
             if args.plain:
-                print "\t".join(
+                print("\t".join(
                     ([depl.uuid, depl.name or '(none)'] if args.all else []) +
                     [name,
                      resource_state.lower(),
@@ -199,7 +199,7 @@ def op_info(args):
                      r.resource_id or "" if r else "",
                      r.public_ipv4 or "" if r and hasattr(r, 'public_ipv4') else "",
                      r.private_ipv4 or "" if r and deployment.is_machine(r) else ""
-                    ])
+                    ]))
             else:
                 tbl.add_row(
                     ([depl.name or depl.uuid] if args.all else []) +
@@ -216,27 +216,27 @@ def op_info(args):
             tbl = create_table([('Deployment', 'l')] + table_headers)
         for depl in sort_deployments(sf.get_all_deployments()):
             do_eval(depl)
-            print_deployment(depl)
-        if not args.plain: print tbl
+            print(deployment(depl))
+        if not args.plain: print(tbl)
 
     else:
         depl = open_deployment(args)
         do_eval(depl)
 
         if args.plain:
-            print_deployment(depl)
+            print(deployment(depl))
         else:
-            print "Network name:", depl.name or "(none)"
-            print "Network UUID:", depl.uuid
-            print "Network description:", depl.description
-            print "Nix expressions:", " ".join(depl.nix_exprs)
-            if depl.nix_path != []: print "Nix path:", " ".join(map(lambda x: "-I " + x, depl.nix_path))
-            if depl.rollback_enabled: print "Nix profile:", depl.get_profile()
-            if depl.args != {}: print "Nix arguments:", ", ".join([n + " = " + v for n, v in depl.args.iteritems()])
-            print
+            print("Network name:", depl.name or "(none)")
+            print("Network UUID:", depl.uuid)
+            print("Network description:", depl.description)
+            print("Nix expressions:", " ".join(depl.nix_exprs))
+            if depl.nix_path != []: print("Nix path:", " ".join(map(lambda x: "-I " + x, depl.nix_path)))
+            if depl.rollback_enabled: print("Nix profile:", depl.get_profile())
+            if depl.args != {}: print("Nix arguments:", ", ".join([n + " = " + v for n, v in depl.args.iteritems()]))
+            print()
             tbl = create_table(table_headers)
-            print_deployment(depl)
-            print tbl
+            print(deployment(depl))
+            print(tbl)
 
 
 def op_check(args):
@@ -318,14 +318,14 @@ def op_check(args):
     for res in sorted(results, key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type())):
         tbl.add_row(res[2])
         status |= res[3]
-    print nixops.util.ansi_success("Machines state:")
-    print tbl
+    print(nixops.util.ansi_success("Machines state:"))
+    print(tbl)
 
     for res in  sorted(resources_results, key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type())):
         resources_tbl.add_row(res[2])
         status |= res[3]
-    print nixops.util.ansi_success("Non machines resources state:")
-    print resources_tbl
+    print(nixops.util.ansi_success("Non machines resources state:"))
+    print(resources_tbl)
 
     sys.exit(status)
 
@@ -334,7 +334,7 @@ def print_backups(depl, backups):
     tbl = prettytable.PrettyTable(["Backup ID", "Status", "Info"])
     for k, v in sorted(backups.items(), reverse=True):
         tbl.add_row([k,v['status'], "\n".join(v['info'])])
-    print tbl
+    print(tbl)
 
 
 def op_clean_backups(args):
@@ -356,7 +356,7 @@ def op_backup(args):
 
     def do_backup():
         backup_id = depl.backup(include=args.include or [], exclude=args.exclude or [], devices=args.devices or [])
-        print backup_id
+        print(backup_id)
 
     if args.force:
         do_backup()
@@ -393,7 +393,7 @@ def op_backup_status(args):
         backups_status = [b['status'] for _, b in _backups.items()]
         if "running" in backups_status:
             if args.wait:
-                print "waiting for 30 seconds..."
+                print("waiting for 30 seconds...")
                 time.sleep(30)
             else:
                 raise Exception("backup has not yet finished")
@@ -493,7 +493,7 @@ def op_show_arguments(args):
     for arg in sorted(args.keys()):
         files = sorted(args[arg])
         tbl.add_row([arg, "\n".join(files)])
-    print tbl
+    print(tbl)
 
 
 def op_show_physical(args):
@@ -534,14 +534,14 @@ def op_dump_nix_paths(args):
         paths.extend(nix_paths(depl))
 
     for p in paths:
-        print p
+        print(p)
 
 
 def op_export(args):
     res = {}
     for depl in one_or_all(args):
         res[depl.uuid] = depl.export()
-    print json.dumps(res, indent=2, sort_keys=True)
+    print(json.dumps(res, indent=2, sort_keys=True))
 
 
 def op_import(args):
@@ -609,7 +609,7 @@ def op_scp(args):
     ssh_name = m.get_ssh_name()
     from_loc = scp_loc(username, ssh_name, args.scp_from, args.source)
     to_loc = scp_loc(username, ssh_name, args.scp_to, args.destination)
-    print >> sys.stderr, "{0} -> {1}".format(from_loc, to_loc)
+    print("{0} -> {1}".format(from_loc, to_loc), file=sys.stderr)
     flags = ["scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc]
     # Map ssh's ‘-p’ to scp's ‘-P’.
     flags = ["-P" if f == "-p" else f for f in flags]
