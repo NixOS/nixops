@@ -1,6 +1,6 @@
 import threading
 import sys
-import Queue
+import queue
 import random
 import traceback
 
@@ -77,7 +77,7 @@ def run_tasks(nr_workers, tasks, worker_fun):
 
     if len(exceptions.keys()) == 1:
         excinfo = exceptions[exceptions.keys()[0]]
-        raise excinfo[0], excinfo[1], excinfo[2]
+        raise excinfo[0](excinfo[1]).with_traceback(excinfo[2])
 
     if len(exceptions.keys()) > 1:
         raise MultipleExceptions(exceptions)

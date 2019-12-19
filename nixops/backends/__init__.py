@@ -371,7 +371,7 @@ class MachineState(nixops.resources.ResourceState):
 
     def write_ssh_private_key(self, private_key):
         key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
-        with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0600), "w") as f:
+        with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0o600), "w") as f:
             f.write(private_key)
         self._ssh_private_key_file = key_file
         return key_file

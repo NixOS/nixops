@@ -3,7 +3,7 @@
 import nixops.deployment
 import os
 import os.path
-from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys
 import threading
 
@@ -57,7 +57,7 @@ def get_default_state_file():
             if os.path.exists(home + "/deployments.charon"):
                 os.rename(home + "/deployments.charon", home + "/deployments.nixops")
         else:
-            os.makedirs(home, 0700)
+            os.makedirs(home, 0o700)
     return os.environ.get(
         "NIXOPS_STATE", os.environ.get("CHARON_STATE", home + "/deployments.nixops")
     )
