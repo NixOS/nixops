@@ -16,9 +16,9 @@ import subprocess
 import logging
 import atexit
 import re
-from StringIO import StringIO
+from io import StringIO
 
-devnull = open(os.devnull, "rw")
+devnull = open(os.devnull, "r+")
 
 
 def check_wait(test, initial=10, factor=1, max_tries=60, exception=True):

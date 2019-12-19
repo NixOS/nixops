@@ -63,7 +63,7 @@ class SSHMaster(object):
             + ssh_flags
         )
 
-        res = nixops.util.logged_exec(cmd, logger, check=False, **kwargs)
+        res = nixops.util.logged_exec(cmd, logger, **kwargs)
         if res != 0:
             raise SSHConnectionFailed(
                 "unable to start SSH master connection to " "‘{0}’".format(target)
@@ -103,7 +103,7 @@ class SSHMaster(object):
         the environment variable NIXOPS_SSH_PASSWORD.
         """
         path = os.path.join(self._tempdir, "nixops-askpass-helper")
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0700)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o700)
         os.write(
             fd,
             """#!{0}

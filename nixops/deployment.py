@@ -8,7 +8,6 @@ import string
 import tempfile
 import shutil
 import threading
-import exceptions
 import errno
 from collections import defaultdict
 from xml.etree import ElementTree
@@ -234,7 +233,7 @@ class Deployment(object):
         if self._lock_file_path is None:
             lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
             if not os.path.exists(lock_dir):
-                os.makedirs(lock_dir, 0700)
+                os.makedirs(lock_dir, 0o700)
             self._lock_file_path = lock_dir + "/" + self.uuid
 
         class DeploymentLock(object):
@@ -364,7 +363,7 @@ class Deployment(object):
                 stderr=self.logger.log_file,
             )
             if debug:
-                print >> sys.stderr, "JSON output of nix-instantiate:\n" + xml
+                print("JSON output of nix-instantiate:\n" + xml, file=sys.stderr)
             return json.loads(out)
         except OSError as e:
             raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
@@ -391,7 +390,7 @@ class Deployment(object):
                 stderr=self.logger.log_file,
             )
             if debug:
-                print >> sys.stderr, "XML output of nix-instantiate:\n" + xml
+                print("XML output of nix-instantiate:\n" + xml, file=sys.stderr)
         except OSError as e:
             raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
         except subprocess.CalledProcessError:
@@ -721,7 +720,7 @@ class Deployment(object):
         profile = self.get_profile()
         dir = os.path.dirname(profile)
         if not os.path.exists(dir):
-            os.makedirs(dir, 0755)
+            os.makedirs(dir, 0o755)
         return profile
 
     def build_configs(self, include, exclude, dry_run=False, repair=False):
@@ -745,7 +744,7 @@ class Deployment(object):
         p = self.get_physical_spec()
         nixops.util.write_file(phys_expr, p)
         if debug:
-            print >> sys.stderr, "generated physical spec:\n" + p
+            print("generated physical spec:\n" + p, file=sys.stderr)
 
         selected = [
             m for m in self.active.itervalues() if should_do(m, include, exclude)
@@ -795,7 +794,7 @@ class Deployment(object):
 
             load_dir = "{0}/current-load".format(self.tempdir)
             if not os.path.exists(load_dir):
-                os.makedirs(load_dir, 0700)
+                os.makedirs(load_dir, 0o700)
             os.environ["NIX_CURRENT_LOAD"] = load_dir
 
         try:
@@ -1015,11 +1014,11 @@ class Deployment(object):
             cutoff = (datetime.now() - timedelta(days=keep_days)).strftime(
                 "%Y%m%d%H%M%S"
             )
-            print cutoff
+            print(cutoff)
             tbr = [bid for bid in backup_ids if bid < cutoff]
 
         for backup_id in tbr:
-            print "Removing backup {0}".format(backup_id)
+            print("Removing backup {0}".format(backup_id))
             self.remove_backup(backup_id, keep_physical)
 
     def remove_backup(self, backup_id, keep_physical=False):

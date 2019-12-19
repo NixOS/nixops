@@ -1,3 +1,4 @@
+import functools
 import unittest
 
 from textwrap import dedent
@@ -320,7 +321,7 @@ class Nix2PyTest(unittest.TestCase):
 
 class NixMergeTest(unittest.TestCase):
     def assert_merge(self, sources, expect):
-        self.assertEqual(reduce(nixmerge, sources), expect)
+        self.assertEqual(functools.reduce(nixmerge, sources), expect)
 
     def test_merge_list(self):
         self.assert_merge(
