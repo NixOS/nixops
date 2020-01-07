@@ -20,7 +20,7 @@
 
       officialRelease = false;
 
-      version = "1.7" + (if officialRelease then "" else "pre${builtins.substring 0 8 self.lastModified}.${self.shortRev}");
+      version = "1.8" + (if officialRelease then "" else "pre${builtins.substring 0 8 self.lastModified}.${self.shortRev}");
 
       pkgs = import nixpkgs {
         system = "x86_64-linux";
@@ -138,11 +138,13 @@
             '';
         };
 
+        /*
         tests.none_backend = (import ./tests/none-backend.nix {
           inherit nixpkgs;
           nixops = pkgs.nixops;
           system = "x86_64-linux";
         }).test;
+        */
       };
 
       checks.x86_64-linux.build = self.hydraJobs.build.x86_64-linux;

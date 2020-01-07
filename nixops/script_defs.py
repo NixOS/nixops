@@ -473,6 +473,11 @@ def op_reboot(args):
                          rescue=args.rescue,
                          hard=args.hard)
 
+def op_delete_resources(args):
+    depl = open_deployment(args)
+    if args.confirm:
+        depl.logger.set_autoresponse("y")
+    depl.delete_resources(include=args.include or [], exclude=args.exclude or [])
 
 def op_stop(args):
     depl = open_deployment(args)
@@ -723,9 +728,10 @@ def op_copy_closure(args):
         raise Exception("unknown machine ‘{0}’".format(machine))
     env = dict(os.environ)
     env['NIX_SSHOPTS'] = ' '.join(m.get_ssh_flags())
-    res = subprocess.call(
+    res = nixops.util.logged_exec(
         ["nix", "copy", "--to",
             "ssh://{}".format(m.get_ssh_name()), args.storepath],
+        depl.logger,
         env=env)
     sys.exit(res)
 

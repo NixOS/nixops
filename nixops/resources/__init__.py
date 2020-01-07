@@ -189,6 +189,20 @@ class ResourceState(object):
         )
         return False
 
+    def delete_resources(self):
+        """delete this resource state, if possible."""
+        if not self.depl.logger.confirm(
+                "are you sure you want to clear the state of {}? "
+                "this will only remove the resource from the local "
+                "NixOPS state and the resource may still exist outside "
+                "of the NixOPS database.".format(self.name)):
+            return False
+
+        self.logger.warn(
+            "removing resource {} from the local NixOPS database ...".format(self.name)
+        )
+        return True
+
     def next_charge_time(self):
         """Return the time (in Unix epoch) when this resource will next incur
         a financial charge (or None if unknown)."""

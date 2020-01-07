@@ -769,7 +769,7 @@ class Deployment(object):
                 if res == 100 or force_reboot or m.state == m.RESCUE:
                     if not allow_reboot and not force_reboot:
                         raise Exception("the new configuration requires a "
-                                        "reboot to take effect (hint: use "
+                                        "reboot of '{}' to take effect (hint: use "
                                         "‘--allow-reboot’)".format(m.name))
                     m.reboot_sync()
                     res = 0
@@ -1186,6 +1186,13 @@ class Deployment(object):
                  "--arg", "machines", py2nix(attrs, inline=True)]) != 0:
                 raise Exception("cannot update profile ‘{0}’".format(profile))
 
+    def delete_resources(self, include=[], exclude=[]):
+        """delete all resources state."""
+        def worker(m):
+            if not should_do(m, include, exclude): return
+            if m.delete_resources(): self.delete_resource(m)
+
+        nixops.parallel.run_tasks(nr_workers=-1, tasks=self.resources.values(), worker_fun=worker)
 
     def reboot_machines(self, include=[], exclude=[], wait=False,
                         rescue=False, hard=False):
