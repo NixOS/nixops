@@ -45,7 +45,7 @@ class CommandFailed(Exception):
 
 
 def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
-                stdin_string=None, env=None):
+                stdin_string=None, env=None, preexec_fn=None):
     """
     Execute a command with logging using the specified logger.
 
@@ -68,13 +68,15 @@ def logged_exec(command, logger, check=True, capture_stdout=False, stdin=None,
     if capture_stdout:
         process = subprocess.Popen(command, env=env, stdin=stdin,
                                    stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
+                                   stderr=subprocess.PIPE,
+                                   preexec_fn=preexec_fn)
         fds = [process.stdout, process.stderr]
         log_fd = process.stderr
     else:
         process = subprocess.Popen(command, env=env, stdin=stdin,
                                    stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT)
+                                   stderr=subprocess.STDOUT,
+                                   preexec_fn=preexec_fn)
         fds = [process.stdout]
         log_fd = process.stdout
 
