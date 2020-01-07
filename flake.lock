@@ -8,9 +8,9 @@
         },
         "nixops-hetzner": {
             "inputs": {},
-            "narHash": "sha256-2YDEG+84zjmLoyvDiNZAXPhhtt5yMlnwr9QB1Xu/8vo=",
-            "originalUrl": "github:NixOS/nixops-hetzner",
-            "url": "github:NixOS/nixops-hetzner/6245ca44f3682e45d6d82cee7d873f76b51ff693"
+            "narHash": "sha256-mPbMQKKwj/pNCdKAXJWgcfusAwTxqzW4XpuNPsuv3mc=",
+            "originalUrl": "github:NixOS/nixops-hetzner/zfs",
+            "url": "github:NixOS/nixops-hetzner/efbcf8790c435c0a1675413576c95a223f2a9656"
         },
         "nixpkgs": {
             "inputs": {},

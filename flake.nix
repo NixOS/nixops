@@ -11,7 +11,7 @@
   };
 
   inputs.nixops-hetzner = {
-    uri = github:NixOS/nixops-hetzner;
+    uri = github:NixOS/nixops-hetzner/zfs;
     flake = false;
   };
 
