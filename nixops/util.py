@@ -349,7 +349,10 @@ def write_file(path, contents):
 
 
 def xml_expr_to_python(node):
-    if node.tag == "attrs":
+    if node == None:
+        return None
+
+    elif node.tag == "attrs":
         res = {}
         for attr in node.findall("attr"):
             if attr.get("name") != "_module":
