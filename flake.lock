@@ -2,21 +2,21 @@
     "inputs": {
         "nixops-aws": {
             "inputs": {},
-            "narHash": "sha256-ptjXve2UWSR7K8/QMUu8J5ybzZfuuPlxp24YxZtBiCU=",
+            "narHash": "sha256-52bD9sLWFjZxP9P2/2pjeoiqnN5Bic0o6mX/5B1IDKo=",
             "originalUrl": "github:NixOS/nixops-aws",
-            "url": "github:NixOS/nixops-aws/48a97f5b4825ff136d06340306d43996ff1fac5b"
+            "url": "github:NixOS/nixops-aws/0da38bb5de82d7a118ac32ebefa7a2d5869ba5ab"
         },
         "nixops-hetzner": {
             "inputs": {},
-            "narHash": "sha256-Qf2XY0S59CXy3UvjqM8OuQdX3yHNmTMRdfKxg5OOlpU=",
+            "narHash": "sha256-2YDEG+84zjmLoyvDiNZAXPhhtt5yMlnwr9QB1Xu/8vo=",
             "originalUrl": "github:NixOS/nixops-hetzner",
-            "url": "github:NixOS/nixops-hetzner/ef99acaa329476beb45fc10753d9de3d2d257671"
+            "url": "github:NixOS/nixops-hetzner/6245ca44f3682e45d6d82cee7d873f76b51ff693"
         },
         "nixpkgs": {
             "inputs": {},
-            "narHash": "sha256-ZzR2l1dovxeZ555KXxz7SAXrC72BfaR4BeqvJzRdmwQ=",
+            "narHash": "sha256-UcPmWgmf7Xgr4Ta8YjLuuxqzLmIYSk+uL2gPy/5bqmk=",
             "originalUrl": "nixpkgs/release-19.09",
-            "url": "github:edolstra/nixpkgs/d37927a77e70a2b3408ceaa2e763b6df1f4d941a"
+            "url": "github:edolstra/nixpkgs/44603b4103dbce2c9c18e6cc0df51a74f5eb8975"
         }
     },
     "version": 3

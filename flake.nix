@@ -48,7 +48,7 @@
               pluggy
               (import (nixops-aws + "/release.nix") {
                 inherit nixpkgs;
-                src = nixops-aws;
+                nixopsSrc = nixops-aws;
               }).build.x86_64-linux
               (import (nixops-hetzner + "/release.nix") {
                 inherit nixpkgs;
