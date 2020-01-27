@@ -1,4 +1,5 @@
-{ nixopsSrc ? { outPath = ./.; revCount = 0; shortRev = "abcdef"; rev = "HEAD"; }
+{ src ? nixopsSrc
+, nixopsSrc ? { outPath = ./.; revCount = 0; shortRev = "abcdef"; rev = "HEAD"; }
 , officialRelease ? false
 , nixpkgs ? <nixpkgs>
 , p ? (p: [ ])
@@ -6,7 +7,7 @@
 
 let
   pkgs = import nixpkgs { config = {}; overlays = []; };
-  version = "1.8" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
+  version = "1.8" + (if officialRelease then "" else "pre${toString src.revCount}_${src.shortRev}");
 
   allPlugins = let
     plugins = let
@@ -27,9 +28,7 @@ in rec {
   tarball = pkgs.releaseTools.sourceTarball {
     name = "nixops-tarball";
 
-    src = nixopsSrc;
-
-    inherit version;
+    inherit version src;
 
     officialRelease = true; # hack
 
@@ -45,7 +44,7 @@ in rec {
     distPhase =
       ''
         # Generate the manual and the man page.
-        cp ${(import ./doc/manual { revision = nixopsSrc.rev; inherit nixpkgs; }).optionsDocBook} doc/manual/machine-options.xml
+        cp ${(import ./doc/manual { revision = src.rev; inherit nixpkgs; }).optionsDocBook} doc/manual/machine-options.xml
 
         for i in scripts/nixops setup.py doc/manual/manual.xml; do
           substituteInPlace $i --subst-var-by version ${version}
