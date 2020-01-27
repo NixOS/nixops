@@ -6,33 +6,19 @@
 }:
 
 let
-  pkgs = import nixpkgs { config = {}; overlays = []; };
   version = "1.8" + (if officialRelease then "" else "pre${toString src.revCount}_${src.shortRev}");
-
-  allPlugins = let
-    plugins = let
-      allPluginVers = import ./data.nix;
-      fetch = v:
-        pkgs.fetchFromGitHub {
-          inherit (v) owner repo sha256;
-          rev = "v${v.version}";
-        };
-      srcDrv = v: (fetch v) + "/release.nix";
-    in self: let
-      rawPlugins = (builtins.mapAttrs (n: v: self.callPackage (srcDrv allPluginVers.${n}) {}) allPluginVers);
-    in rawPlugins // { inherit nixpkgs; };
-  in pkgs.lib.makeScope pkgs.newScope plugins;
+  pkgs    = import nixpkgs { overlays = []; config = {}; };
 
 in rec {
 
-  tarball = pkgs.releaseTools.sourceTarball {
+  tarball = with pkgs; releaseTools.sourceTarball {
     name = "nixops-tarball";
 
     inherit version src;
 
     officialRelease = true; # hack
 
-    buildInputs = [ pkgs.git pkgs.libxslt pkgs.docbook5_xsl ];
+    buildInputs = [ git libxslt docbook5_xsl ];
 
     postUnpack = ''
       # Clean up when building from a working tree.
@@ -64,19 +50,34 @@ in rec {
   };
 
   build = pkgs.lib.genAttrs [ "x86_64-linux" "i686-linux" "x86_64-darwin" ] (system:
-    with import nixpkgs { inherit system; };
+  let
 
+    pkgs = import nixpkgs { inherit system; };
 
-    python2Packages.buildPythonApplication rec {
+    allPlugins = let
+      plugins = let
+        allPluginVers = import ./data.nix;
+        fetch = v:
+        pkgs.fetchFromGitHub {
+          inherit (v) owner repo sha256;
+          rev = "v${v.version}";
+        };
+        srcDrv = v: (fetch v) + "/release.nix";
+      in self: let
+        rawPlugins = (builtins.mapAttrs (n: v: self.callPackage (srcDrv allPluginVers.${n}) {}) allPluginVers);
+      in rawPlugins // { inherit nixpkgs; };
+    in pkgs.lib.makeScope pkgs.newScope plugins;
+
+  in pkgs.python2Packages.buildPythonApplication rec {
       name = "nixops-${version}";
 
       src = "${tarball}/tarballs/*.tar.bz2";
 
-      buildInputs = [ python2Packages.nose python2Packages.coverage ];
+      buildInputs = with pkgs.python2Packages; [ nose coverage ];
 
       nativeBuildInputs = [ pkgs.mypy ];
 
-      propagatedBuildInputs = with python2Packages;
+      propagatedBuildInputs = with pkgs.python2Packages;
         [ prettytable
           # Go back to sqlite once Python 2.7.13 is released
           pysqlite
@@ -88,7 +89,7 @@ in rec {
       # For "nix-build --run-env".
       shellHook = ''
         export PYTHONPATH=$(pwd):$PYTHONPATH
-        export PATH=$(pwd)/scripts:${openssh}/bin:$PATH
+        export PATH=$(pwd)/scripts:${pkgs.openssh}/bin:$PATH
       '';
 
       doCheck = true;
@@ -106,7 +107,7 @@ in rec {
 
       # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
       # the version of openssh is causing errors when have big networks (40+)
-      makeWrapperArgs = ["--prefix" "PATH" ":" "${openssh}/bin" "--set" "PYTHONPATH" ":"];
+      makeWrapperArgs = ["--prefix" "PATH" ":" "${pkgs.openssh}/bin" "--set" "PYTHONPATH" ":"];
 
       postInstall =
         ''
@@ -120,7 +121,7 @@ in rec {
           cp -av nix/* $out/share/nix/nixops
         '';
 
-      meta.description = "Nix package for ${stdenv.system}";
+      meta.description = "Nix package for ${pkgs.stdenv.system}";
     });
 
   /*
