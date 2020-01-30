@@ -1,15 +1,32 @@
 { region ? "us-east-1"
-, accessKeyId ? "testing"
+, accessKeyId ? "test"
+, vpcId ? "vpc-xxxxxx"
+, subnetId ? "subnet-xxxxxx"
+, securityGroup ? "Admin"
+, rootVolumeSize ? 60
+, ebsVolumeSize ? 40
 , ...
 }:
 {
+
   resources.ec2Fleet.testFleet =
     {resources, ...}:
     {
       inherit region accessKeyId;
       launchTemplateName = resources.ec2LaunchTemplate.testlaunchtemplate;
       launchTemplateVersion = resources.ec2LaunchTemplate.testlaunchtemplate;
-      launchTemplateOverrides = [];
+      launchTemplateOverrides = [{InstanceType = "r3.4xlarge"; SubnetId = "subnet-xxxxxx";}
+        {InstanceType = "r3.4xlarge"; SubnetId = "subnet-xxxxxx";}
+        {InstanceType = "r3.4xlarge"; SubnetId = "subnet-xxxxxx";}
+        {InstanceType = "r3.4xlarge"; SubnetId = "subnet-xxxxxx";}
+        {InstanceType = "r3.4xlarge"; SubnetId = "subnet-xxxxxx";}
+        {InstanceType = "r3.4xlarge"; SubnetId = "subnet-xxxxxx";}
+        {InstanceType = "r4.8xlarge"; SubnetId = "subnet-xxxxxx";}
+        {InstanceType = "r4.8xlarge"; SubnetId = "subnet-xxxxxx";}
+        {InstanceType = "r4.8xlarge"; SubnetId = "subnet-xxxxxx";}
+        {InstanceType = "r4.8xlarge"; SubnetId = "subnet-xxxxxx";}
+        {InstanceType = "r4.8xlarge"; SubnetId = "subnet-xxxxxx";}
+        {InstanceType = "r4.8xlarge"; SubnetId = "subnet-xxxxxx";}];
       terminateInstancesWithExpiration = true;
       fleetRequestType = "request";
       replaceUnhealthyInstances = false;
@@ -20,16 +37,18 @@
           minTargetCapacity = 1;
           instancePoolsToUseCount = 3;
           singleInstanceType = false;
+          allocationStrategy = "capacityOptimized";
       };
       onDemandOptions = {
         singleAvailabilityZone = false;
         minTargetCapacity = 1;
         singleInstanceType = false;
+        allocationStrategy = "lowestPrice";
       };
       targetCapacitySpecification = {
-        totalTargetCapacity = 3;
-        onDemandTargetCapacity = 1;
-        spotTargetCapacity = 1;
+        totalTargetCapacity = 20;
+        onDemandTargetCapacity = 2;
+        spotTargetCapacity = 6;
         defaultTargetCapacityType = "spot";
       };
     };
@@ -38,20 +57,20 @@
     {resources, ...}:
     {
       inherit region accessKeyId;
-      name = "lt-with-nixops";
+      templateName = "lt-with-nixops";
       description = "lt with nix";
       versionDescription = "version 1 ";
-      LTData = {
-        instanceType = "m5.large";
-        imageId = "ami-009c9c3f1af480ff3";
-        instanceProfile = resources.iamRoles.role.name;
-        subnetId = "subnet-xxxxxx";
-        keyName = resources.ec2KeyPairs.kp;
-        userData =''
-          { valid nix expressions }
-        '';
-        #securityGroupIds = [resources.ec2SecurityGroups.sg];
-      };
+      instanceType = "m5.large";
+      ami = "ami-009c9c3f1af480ff3";
+      instanceProfile = resources.iamRoles.role.name;
+      subnetId = "subnet-xxxxxx";
+      keyPair = resources.ec2KeyPairs.kp;
+      ebsInitialRootDiskSize = 30;
+      associatePublicIpAddress = true;
+      userData =''
+          valid nix expressions
+       '';
+      securityGroupIds = [ securityGroup ];
     };
 
 resources.iamRoles.role =
@@ -72,23 +91,7 @@ resources.iamRoles.role =
         ];
       };
     };
-resources.ec2SecurityGroups.sg =
-  { config, resources, ... }:
-    let
-      entry = ip:
-        {
-          fromPort = 22;
-          toPort = 22;
-          sourceIp = if builtins.isString ip then "${ip}/32" else ip;
-        } ;
-      ips = [ "22.22.22.22" ];
-    in
-      {
-        inherit region accessKeyId;
-        description = "Security group for nixos testing";
-        rules = map entry ips;
-        name = "nixos-test-ec2";
-      };
+
   resources.ec2KeyPairs.kp =
     { inherit region accessKeyId; };
 }
