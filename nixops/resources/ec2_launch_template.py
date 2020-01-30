@@ -186,18 +186,14 @@ class ec2LaunchTemplateState(nixops.resources.ResourceState, EC2CommonState):
                             InstanceInterruptionBehavior=defn.config['spotInstanceInterruptionBehavior']
                         )
                     )
-            if (defn.config['subnetId'] != "" or defn.config['networkInterfaceId'] != "") and defn.config['securityGroupIds']!=[]:
-                raise Exception("Network interfaces and an instance-level security groups may not be specified on the same request")
-            if defn.config['securityGroupIds']!=[]:
-                args['LaunchTemplateData']['SecurityGroupIds'] = self.security_groups_to_ids(defn.config['subnetId'], defn.config['securityGroupIds'])
-            else:
-                if defn.config['subnetId'] == "" and defn.config['networkInterfaceId'] == "":
-                    raise Exception("You must specify either a subnetId or a networkInterfaceId")
+            if defn.config['networkInterfaceId'] != "" or defn.config['subnetId'] != "":
 
                 args['LaunchTemplateData']['NetworkInterfaces'] = [dict(
                     DeviceIndex=0,
                     AssociatePublicIpAddress=defn.config['associatePublicIpAddress']
                 )]
+                if defn.config['securityGroupIds']!=[]:
+                    args['LaunchTemplateData']['NetworkInterfaces'][0]['Groups'] = self.security_groups_to_ids(defn.config['subnetId'], defn.config['securityGroupIds'])
                 if defn.config['networkInterfaceId'] != "":
                     if defn.config['networkInterfaceId'].startswith("res-"):
                         res = self.depl.get_typed_resource(defn.config['networkInterfaceId'][4:].split(".")[0], "vpc-network-interface")
