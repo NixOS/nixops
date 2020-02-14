@@ -51,7 +51,7 @@ class SSHMaster(object):
               + (["-C"] if compress else []) \
               + ssh_flags
 
-        res = nixops.util.logged_exec(cmd, logger, **kwargs)
+        res = nixops.util.logged_exec(cmd, logger, check=False, **kwargs)
         if res != 0:
             raise SSHConnectionFailed(
                 "unable to start SSH master connection to "
