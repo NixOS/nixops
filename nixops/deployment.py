@@ -366,7 +366,9 @@ class Deployment(object):
                 stderr=self.logger.log_file,
             )
             if debug:
-                print("JSON output of nix-instantiate:\n" + xml, file=sys.stderr)
+                print(
+                    "JSON output of nix-instantiate:\n" + xml.decode(), file=sys.stderr
+                )
             return json.loads(out)
         except OSError as e:
             raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
@@ -393,7 +395,9 @@ class Deployment(object):
                 stderr=self.logger.log_file,
             )
             if debug:
-                print("XML output of nix-instantiate:\n" + xml, file=sys.stderr)
+                print(
+                    "XML output of nix-instantiate:\n" + xml.decode(), file=sys.stderr
+                )
         except OSError as e:
             raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
         except subprocess.CalledProcessError:
@@ -488,7 +492,7 @@ class Deployment(object):
                 + (["--json"] if json else [])
                 + (["--xml"] if xml else []),
                 stderr=self.logger.log_file,
-            )
+            ).decode()
         except subprocess.CalledProcessError:
             raise NixEvalError
 
@@ -732,14 +736,23 @@ class Deployment(object):
         # Set the NixOS version suffix, if we're building from Git.
         # That way ‘nixos-version’ will show something useful on the
         # target machines.
-        nixos_path = subprocess.check_output(
-            ["nix-instantiate", "--find-file", "nixpkgs/nixos"] + self._nix_path_flags()
-        ).rstrip()
+        nixos_path = (
+            subprocess.check_output(
+                ["nix-instantiate", "--find-file", "nixpkgs/nixos"]
+                + self._nix_path_flags()
+            )
+            .rstrip()
+            .decode()
+        )
         get_version_script = nixos_path + "/modules/installer/tools/get-version-suffix"
         if os.path.exists(nixos_path + "/.git") and os.path.exists(get_version_script):
-            self.nixos_version_suffix = subprocess.check_output(
-                ["/bin/sh", get_version_script] + self._nix_path_flags()
-            ).rstrip()
+            self.nixos_version_suffix = (
+                subprocess.check_output(
+                    ["/bin/sh", get_version_script] + self._nix_path_flags()
+                )
+                .rstrip()
+                .decode()
+            )
 
         phys_expr = self.tempdir + "/physical.nix"
         p = self.get_physical_spec()
@@ -797,22 +810,26 @@ class Deployment(object):
             os.environ["NIX_CURRENT_LOAD"] = load_dir
 
         try:
-            configs_path = subprocess.check_output(
-                ["nix-build"]
-                + self._eval_flags(self.nix_exprs + [phys_expr])
-                + [
-                    "--arg",
-                    "names",
-                    py2nix(names, inline=True),
-                    "-A",
-                    "machines",
-                    "-o",
-                    self.tempdir + "/configs",
-                ]
-                + (["--dry-run"] if dry_run else [])
-                + (["--repair"] if repair else []),
-                stderr=self.logger.log_file,
-            ).rstrip()
+            configs_path = (
+                subprocess.check_output(
+                    ["nix-build"]
+                    + self._eval_flags(self.nix_exprs + [phys_expr])
+                    + [
+                        "--arg",
+                        "names",
+                        py2nix(names, inline=True),
+                        "-A",
+                        "machines",
+                        "-o",
+                        self.tempdir + "/configs",
+                    ]
+                    + (["--dry-run"] if dry_run else [])
+                    + (["--repair"] if repair else []),
+                    stderr=self.logger.log_file,
+                )
+                .rstrip()
+                .decode()
+            )
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
 
