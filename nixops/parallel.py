@@ -22,8 +22,8 @@ class MultipleExceptions(Exception):
 
 
 def run_tasks(nr_workers, tasks, worker_fun):
-    task_queue = Queue.Queue()
-    result_queue = Queue.Queue()
+    task_queue = queue.Queue()
+    result_queue = queue.Queue()
 
     nr_tasks = 0
     for t in tasks:
@@ -43,7 +43,7 @@ def run_tasks(nr_workers, tasks, worker_fun):
         while True:
             try:
                 t = task_queue.get(False)
-            except Queue.Empty:
+            except queue.Empty:
                 break
             n = n + 1
             try:
@@ -66,7 +66,7 @@ def run_tasks(nr_workers, tasks, worker_fun):
             # Use a timeout to allow keyboard interrupts to be
             # processed.  The actual timeout value doesn't matter.
             (res, excinfo, name) = result_queue.get(True, 1000)
-        except Queue.Empty:
+        except queue.Empty:
             continue
         if excinfo:
             exceptions[name] = excinfo
