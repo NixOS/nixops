@@ -68,7 +68,7 @@ class StateDict(collections.MutableMapping):
             return _keys
 
     def __iter__(self):
-        return iter(self.keys())
+        return iter(list(self.keys()))
 
     def __len__(self):
-        return len(self.keys())
+        return len(list(self.keys()))

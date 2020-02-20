@@ -90,7 +90,7 @@ def op_list_deployments(args):
                 depl.name or "(none)",
                 depl.description,
                 len(depl.machines),
-                ", ".join(set([m.get_type() for m in depl.machines.itervalues()])),
+                ", ".join(set([m.get_type() for m in depl.machines.values()])),
             ]
         )
     print(tbl)
@@ -278,7 +278,7 @@ def op_info(args):
             tbl = create_table([("Deployment", "l")] + table_headers)
         for depl in sort_deployments(sf.get_all_deployments()):
             do_eval(depl)
-            print(deployment(depl))
+            print_deployment(depl)
         if not args.plain:
             print(tbl)
 
@@ -287,24 +287,24 @@ def op_info(args):
         do_eval(depl)
 
         if args.plain:
-            print(deployment(depl))
+            print_deployment(depl)
         else:
             print("Network name:", depl.name or "(none)")
             print("Network UUID:", depl.uuid)
             print("Network description:", depl.description)
             print("Nix expressions:", " ".join(depl.nix_exprs))
             if depl.nix_path != []:
-                print("Nix path:", " ".join(map(lambda x: "-I " + x, depl.nix_path)))
+                print("Nix path:", " ".join(["-I " + x for x in depl.nix_path]))
             if depl.rollback_enabled:
                 print("Nix profile:", depl.get_profile())
             if depl.args != {}:
                 print(
                     "Nix arguments:",
-                    ", ".join([n + " = " + v for n, v in depl.args.iteritems()]),
+                    ", ".join([n + " = " + v for n, v in depl.args.items()]),
                 )
             print()
             tbl = create_table(table_headers)
-            print(deployment(depl))
+            print_deployment(depl)
             print(tbl)
 
 
@@ -341,7 +341,7 @@ def op_check(args):
     resources = []
 
     def check(depl):
-        for m in depl.active_resources.itervalues():
+        for m in depl.active_resources.values():
             if not nixops.deployment.should_do(
                 m, args.include or [], args.exclude or []
             ):
@@ -441,7 +441,7 @@ def op_check(args):
 
 def print_backups(depl, backups):
     tbl = prettytable.PrettyTable(["Backup ID", "Status", "Info"])
-    for k, v in sorted(backups.items(), reverse=True):
+    for k, v in sorted(list(backups.items()), reverse=True):
         tbl.add_row([k, v["status"], "\n".join(v["info"])])
     print(tbl)
 
@@ -479,7 +479,7 @@ def op_backup(args):
         backups = depl.get_backups(
             include=args.include or [], exclude=args.exclude or []
         )
-        backups_status = [b["status"] for _, b in backups.items()]
+        backups_status = [b["status"] for _, b in list(backups.items())]
         if "running" in backups_status:
             raise Exception(
                 "There are still backups running, use --force to run a new backup concurrently (not advised!)"
@@ -497,7 +497,7 @@ def op_backup_status(args):
         )
 
         if backupid or args.latest:
-            sorted_backups = sorted(backups.keys(), reverse=True)
+            sorted_backups = sorted(list(backups.keys()), reverse=True)
             if args.latest:
                 if len(backups) == 0:
                     raise Exception("no backups found")
@@ -511,7 +511,7 @@ def op_backup_status(args):
 
         print_backups(depl, _backups)
 
-        backups_status = [b["status"] for _, b in _backups.items()]
+        backups_status = [b["status"] for _, b in list(_backups.items())]
         if "running" in backups_status:
             if args.wait:
                 print("waiting for 30 seconds...")
@@ -622,7 +622,7 @@ def op_rename(args):
 def print_physical_backup_spec(backupid):
     depl = open_deployment(args)
     config = {}
-    for m in depl.active.itervalues():
+    for m in depl.active.values():
         config[m.name] = m.get_physical_backup_spec(backupid)
     sys.stdout.write(py2nix(config))
 
@@ -695,7 +695,7 @@ def op_import(args):
 
     dump = json.loads(sys.stdin.read())
 
-    for uuid, attrs in dump.iteritems():
+    for uuid, attrs in dump.items():
         if uuid in existing:
             raise Exception(
                 "state file already contains a deployment with UUID ‘{0}’".format(uuid)
@@ -706,7 +706,7 @@ def op_import(args):
         sys.stderr.write("added deployment ‘{0}’\n".format(uuid))
 
         if args.include_keys:
-            for m in depl.active.itervalues():
+            for m in depl.active.values():
                 if deployment.is_machine(m) and hasattr(m, "public_host_key"):
                     if m.public_ipv4:
                         nixops.known_hosts.add(m.public_ipv4, m.public_host_key)
@@ -746,7 +746,7 @@ def op_ssh_for_each(args):
 
         results = results + nixops.parallel.run_tasks(
             nr_workers=len(depl.machines) if args.parallel else 1,
-            tasks=depl.active.itervalues(),
+            tasks=iter(depl.active.values()),
             worker_fun=worker,
         )
 

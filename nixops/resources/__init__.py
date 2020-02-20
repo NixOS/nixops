@@ -69,7 +69,7 @@ class ResourceState(object):
         """Update machine attributes in the state file."""
         with self.depl._db:
             c = self.depl._db.cursor()
-            for n, v in attrs.iteritems():
+            for n, v in list(attrs.items()):
                 if v == None:
                     c.execute(
                         "delete from ResourceAttrs where machine = ? and name = ?",
@@ -121,7 +121,7 @@ class ResourceState(object):
     def import_(self, attrs):
         """Import the resource from another database"""
         with self.depl._db:
-            for k, v in attrs.iteritems():
+            for k, v in list(attrs.items()):
                 if k == "type":
                     continue
                 self._set_attr(k, v)
