@@ -263,7 +263,7 @@ class MachineState(nixops.resources.ResourceState):
             return
         if self.store_keys_on_machine:
             return
-        for k, opts in self.get_keys().items():
+        for k, opts in list(self.get_keys().items()):
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
             if "destDir" not in opts:

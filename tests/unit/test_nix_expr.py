@@ -303,16 +303,14 @@ class Py2NixTestBase(unittest.TestCase):
 
 class Nix2PyTest(unittest.TestCase):
     def test_simple(self):
-        self.assertEquals(py2nix(nix2py("{\na = b;\n}"), maxwidth=0), "{\na = b;\n}")
-        self.assertEquals(
-            py2nix(nix2py("\n{\na = b;\n}\n"), maxwidth=0), "{\na = b;\n}"
-        )
+        self.assertEqual(py2nix(nix2py("{\na = b;\n}"), maxwidth=0), "{\na = b;\n}")
+        self.assertEqual(py2nix(nix2py("\n{\na = b;\n}\n"), maxwidth=0), "{\na = b;\n}")
 
     def test_nested(self):
-        self.assertEquals(
+        self.assertEqual(
             py2nix([nix2py("a\nb\nc")], maxwidth=0), "[\n  (a\n  b\n  c)\n]"
         )
-        self.assertEquals(
+        self.assertEqual(
             py2nix({"foo": nix2py("a\nb\nc"), "bar": nix2py("d\ne\nf")}, maxwidth=0),
             # ugly, but probably won't happen in practice
             "{\n  bar = d\n  e\n  f;\n  foo = a\n  b\n  c;\n}",

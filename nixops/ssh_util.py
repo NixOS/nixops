@@ -268,7 +268,7 @@ class SSH(object):
         Helper method for run_command, which essentially prepares and properly
         escape the command. See run_command() for further description.
         """
-        if isinstance(command, basestring):
+        if isinstance(command, str):
             if allow_ssh_args:
                 return shlex.split(command)
             else:

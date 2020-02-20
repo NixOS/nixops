@@ -57,7 +57,7 @@ class Diff(object):
 
     def get_keys(self):
         # type: () -> List[str]
-        diff = [k for k in self._diff.keys() if k not in self._reserved]
+        diff = [k for k in list(self._diff.keys()) if k not in self._reserved]
         return diff
 
     def plan(self, show=False):
@@ -67,7 +67,7 @@ class Diff(object):
         the diff between definition and state then return a sorted list
         of the handlers to be called to realize the diff.
         """
-        keys = self._state.keys() + self._definition.keys()
+        keys = list(self._state.keys()) + list(self._definition.keys())
         for k in keys:
             self.eval_resource_attr_diff(k)
         for k in self.get_keys():

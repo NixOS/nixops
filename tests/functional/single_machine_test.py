@@ -47,5 +47,5 @@ class SingleMachineTest(generic_deployment_test.GenericDeploymentTest):
 
     def check_command(self, command):
         self.depl.evaluate()
-        machine = self.depl.machines.values()[0]
+        machine = list(self.depl.machines.values())[0]
         return machine.run_command(command)

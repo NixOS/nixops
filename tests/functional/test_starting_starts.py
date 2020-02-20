@@ -8,6 +8,6 @@ class TestStartingStarts(single_machine_test.SingleMachineTest):
         self.depl.deploy()
         self.depl.stop_machines()
         self.depl.start_machines()
-        m = self.depl.active.values()[0]
+        m = list(self.depl.active.values())[0]
         m.check()
         tools.assert_equal(m.state, m.UP)
