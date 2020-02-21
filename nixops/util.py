@@ -349,6 +349,9 @@ class TeeStderr(StringIO):
     def isatty(self):
         return self.stderr.isatty()
 
+    def flush(self):
+        return self.stderr.flush()
+
 
 class TeeStdout(StringIO):
     stdout: TextIO
@@ -372,6 +375,9 @@ class TeeStdout(StringIO):
 
     def isatty(self):
         return self.stdout.isatty()
+
+    def flush(self):
+        return self.stdout.flush()
 
 
 # Borrowed from http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python.
