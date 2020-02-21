@@ -25,7 +25,7 @@ so that those dependencies can be found:
 <screen>
 $ nix-shell release.nix -A build.x86_64-linux --exclude tarball
 $ echo $PYTHONPATH
-/nix/store/yzj6p5f7iyh247pwxrg97y3klm6d0cni-python-2.7.3/lib/python2.7/site-packages:<replaceable>...</replaceable>
+/nix/store/5dbidajmgrvskv7kj6bwrkza8szxkgar-python3-3.7.5/lib/python3.7/site-packages:<replaceable>...</replaceable>
 </screen>
 You can then run NixOps in your source tree as follows:
 <screen>
@@ -36,7 +36,7 @@ $ nixops
 <para>To run the tests, do
 
 <screen>
-$ python2 tests.py
+$ python3 tests.py
 </screen>
 
 Note that some of the tests involve the creation of EC2 resources and
@@ -46,7 +46,7 @@ thus cost money.  You must set the environment variable
 looked up in <filename>~/.ec2-keys</filename> or in
 <filename>~/.aws/credentials</filename>, as described in <xref
 linkend="sec-deploying-to-ec2"/>.)  To run a specific test, run
-<literal>python2 tests.py
+<literal>python3 tests.py
 <replaceable>test-name</replaceable></literal>, e.g.
 
 To filter on which backends you want to run functional tests against, you can
