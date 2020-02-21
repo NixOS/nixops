@@ -6,6 +6,7 @@ import nixops.util
 from nixops.state import StateDict
 from nixops.diff import Diff, Handler
 
+
 class ResourceDefinition(object):
     """Base class for NixOps resource definitions."""
 
@@ -41,14 +42,14 @@ class ResourceState(object):
 
     # Valid values for self.state.  Not all of these make sense for
     # all resource types.
-    UNKNOWN=0 # state unknown
-    MISSING=1 # instance destroyed or not yet created
-    STARTING=2 # boot initiated
-    UP=3 # machine is reachable
-    STOPPING=4 # shutdown initiated
-    STOPPED=5 # machine is down
-    UNREACHABLE=6 # machine should be up, but is unreachable
-    RESCUE=7 # rescue system is active for the machine
+    UNKNOWN = 0  # state unknown
+    MISSING = 1  # instance destroyed or not yet created
+    STARTING = 2  # boot initiated
+    UP = 3  # machine is reachable
+    STOPPING = 4  # shutdown initiated
+    STOPPED = 5  # machine is down
+    UNREACHABLE = 6  # machine should be up, but is unreachable
+    RESCUE = 7  # rescue system is active for the machine
 
     state = nixops.util.attr_property("state", UNKNOWN, int)
     index = nixops.util.attr_property("index", None, int)
@@ -70,10 +71,15 @@ class ResourceState(object):
             c = self.depl._db.cursor()
             for n, v in attrs.iteritems():
                 if v == None:
-                    c.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, n))
+                    c.execute(
+                        "delete from ResourceAttrs where machine = ? and name = ?",
+                        (self.id, n),
+                    )
                 else:
-                    c.execute("insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
-                              (self.id, n, v))
+                    c.execute(
+                        "insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
+                        (self.id, n, v),
+                    )
 
     def _set_attr(self, name, value):
         """Update one machine attribute in the state file."""
@@ -82,32 +88,42 @@ class ResourceState(object):
     def _del_attr(self, name):
         """Delete a machine attribute from the state file."""
         with self.depl._db:
-            self.depl._db.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, name))
+            self.depl._db.execute(
+                "delete from ResourceAttrs where machine = ? and name = ?",
+                (self.id, name),
+            )
 
     def _get_attr(self, name, default=nixops.util.undefined):
         """Get a machine attribute from the state file."""
         with self.depl._db:
             c = self.depl._db.cursor()
-            c.execute("select value from ResourceAttrs where machine = ? and name = ?", (self.id, name))
+            c.execute(
+                "select value from ResourceAttrs where machine = ? and name = ?",
+                (self.id, name),
+            )
             row = c.fetchone()
-            if row != None: return row[0]
+            if row != None:
+                return row[0]
             return nixops.util.undefined
 
     def export(self):
         """Export the resource to move between databases"""
         with self.depl._db:
             c = self.depl._db.cursor()
-            c.execute("select name, value from ResourceAttrs where machine = ?", (self.id,))
+            c.execute(
+                "select name, value from ResourceAttrs where machine = ?", (self.id,)
+            )
             rows = c.fetchall()
             res = {row[0]: row[1] for row in rows}
-            res['type'] = self.get_type()
+            res["type"] = self.get_type()
             return res
 
     def import_(self, attrs):
         """Import the resource from another database"""
         with self.depl._db:
             for k, v in attrs.iteritems():
-                if k == 'type': continue
+                if k == "type":
+                    continue
                 self._set_attr(k, v)
 
     # XXX: Deprecated, use self.logger.* instead!
@@ -125,15 +141,24 @@ class ResourceState(object):
     def show_state(self):
         """A description of the resource's current state"""
         state = self.state
-        if state == self.UNKNOWN: return "Unknown"
-        elif state == self.MISSING: return "Missing"
-        elif state == self.STARTING: return "Starting"
-        elif state == self.UP: return "Up"
-        elif state == self.STOPPING: return "Stopping"
-        elif state == self.STOPPED: return "Stopped"
-        elif state == self.UNREACHABLE: return "Unreachable"
-        elif state == self.RESCUE: return "Rescue"
-        else: raise Exception("machine is in unknown state")
+        if state == self.UNKNOWN:
+            return "Unknown"
+        elif state == self.MISSING:
+            return "Missing"
+        elif state == self.STARTING:
+            return "Starting"
+        elif state == self.UP:
+            return "Up"
+        elif state == self.STOPPING:
+            return "Stopping"
+        elif state == self.STOPPED:
+            return "Stopped"
+        elif state == self.UNREACHABLE:
+            return "Unreachable"
+        elif state == self.RESCUE:
+            return "Rescue"
+        else:
+            raise Exception("machine is in unknown state")
 
     def prefix_definiton(self, attr):
         """Prefix the resource set with a py2nixable attrpath"""
@@ -184,18 +209,17 @@ class ResourceState(object):
 
     def destroy(self, wipe=False):
         """Destroy this resource, if possible."""
-        self.logger.warn(
-            "don't know how to destroy resource ‘{0}’".format(self.name)
-        )
+        self.logger.warn("don't know how to destroy resource ‘{0}’".format(self.name))
         return False
 
     def delete_resources(self):
         """delete this resource state, if possible."""
         if not self.depl.logger.confirm(
-                "are you sure you want to clear the state of {}? "
-                "this will only remove the resource from the local "
-                "NixOPS state and the resource may still exist outside "
-                "of the NixOPS database.".format(self.name)):
+            "are you sure you want to clear the state of {}? "
+            "this will only remove the resource from the local "
+            "NixOPS state and the resource may still exist outside "
+            "of the NixOPS database.".format(self.name)
+        ):
             return False
 
         self.logger.warn(
@@ -207,6 +231,7 @@ class ResourceState(object):
         """Return the time (in Unix epoch) when this resource will next incur
         a financial charge (or None if unknown)."""
         return None
+
 
 class DiffEngineResourceState(ResourceState):
     def __init__(self, depl, name, id):
@@ -225,22 +250,32 @@ class DiffEngineResourceState(ResourceState):
             handler.handle(allow_recreate)
 
     def plan(self, defn):
-        if hasattr(self, '_state'):
+        if hasattr(self, "_state"):
             diff_engine = self.setup_diff_engine(defn.config)
             diff_engine.plan(show=True)
         else:
-            self.warn("resource type {} doesn't implement a plan operation".format(self.get_type()))
+            self.warn(
+                "resource type {} doesn't implement a plan operation".format(
+                    self.get_type()
+                )
+            )
 
     def setup_diff_engine(self, config):
-        diff_engine = Diff(depl=self.depl, logger=self.logger,
-                           config=config, state=self._state,
-                           res_type=self.get_type())
+        diff_engine = Diff(
+            depl=self.depl,
+            logger=self.logger,
+            config=config,
+            state=self._state,
+            res_type=self.get_type(),
+        )
         diff_engine.set_reserved_keys(self._reserved_keys)
         diff_engine.set_handlers(self.get_handlers())
         return diff_engine
 
     def get_handlers(self):
-        return [getattr(self,h) for h in dir(self) if isinstance(getattr(self,h), Handler)]
+        return [
+            getattr(self, h) for h in dir(self) if isinstance(getattr(self, h), Handler)
+        ]
 
     def get_defn(self):
         if self.name in self.depl.definitions:

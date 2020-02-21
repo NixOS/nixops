@@ -4,6 +4,7 @@ from StringIO import StringIO
 
 from nixops.logger import Logger
 
+
 class RootLoggerTest(unittest.TestCase):
     def setUp(self):
         self.logfile = StringIO()
@@ -29,6 +30,7 @@ class RootLoggerTest(unittest.TestCase):
         self.root_logger.log_end("xxx: ", "end1")
         self.root_logger.log_end("yyy: ", "end2")
         self.assert_log("xxx: begin1\nyyy: begin2\nxxx: end1\nyyy: end2\n")
+
 
 class MachineLoggerTest(RootLoggerTest):
     def setUp(self):
@@ -58,10 +60,12 @@ class MachineLoggerTest(RootLoggerTest):
 
         self.m1_logger.log_end("end 1.")
         self.m2_logger.log_end("end 2.")
-        self.assert_log("machine1> Begin 1...\nmachine2> Begin 2...\n"
-                        "machine1> .\nmachine2> .\nmachine1> .\nmachine2> .\n"
-                        "machine1> .\nmachine2> .\nmachine1> .\nmachine2> .\n"
-                        "machine1> .\nmachine2> .\nmachine1> .\nmachine2> .\n"
-                        "machine1> .\nmachine2> .\nmachine1> .\nmachine2> .\n"
-                        "machine1> .\nmachine2> .\nmachine1> .\nmachine2> .\n"
-                        "machine1> end 1.\nmachine2> end 2.\n")
+        self.assert_log(
+            "machine1> Begin 1...\nmachine2> Begin 2...\n"
+            "machine1> .\nmachine2> .\nmachine1> .\nmachine2> .\n"
+            "machine1> .\nmachine2> .\nmachine1> .\nmachine2> .\n"
+            "machine1> .\nmachine2> .\nmachine1> .\nmachine2> .\n"
+            "machine1> .\nmachine2> .\nmachine1> .\nmachine2> .\n"
+            "machine1> .\nmachine2> .\nmachine1> .\nmachine2> .\n"
+            "machine1> end 1.\nmachine2> end 2.\n"
+        )

@@ -7,6 +7,7 @@ import nixops.util
 from nixops.logger import MachineLogger
 from nixops.state import StateDict
 
+
 class Diff(object):
     """
     Diff engine main class which implements methods for doing diffs between
@@ -17,16 +18,17 @@ class Diff(object):
     UPDATE = 1
     UNSET = 2
 
-    def __init__(self,
-                 # FIXME: type should be 'nixops.deployment.Deployment'
-                 # however we have to upgrade to python3 in order
-                 # to solve the import cycle by forward declaration
-                 depl,
-                 logger,  # type: MachineLogger
-                 config,  # type: Dict[str, Any]
-                 state,  # type: StateDict
-                 res_type,  # type: str
-                 ):
+    def __init__(
+        self,
+        # FIXME: type should be 'nixops.deployment.Deployment'
+        # however we have to upgrade to python3 in order
+        # to solve the import cycle by forward declaration
+        depl,
+        logger,  # type: MachineLogger
+        config,  # type: Dict[str, Any]
+        state,  # type: StateDict
+        res_type,  # type: str
+    ):
         # type: (...) -> None
         self._definition = config
         self._state = state
@@ -34,8 +36,15 @@ class Diff(object):
         self._type = res_type
         self.logger = logger
         self._diff = {}  # type: Dict[str, int]
-        self._reserved = ['index', 'state', '_type', 'deployment', '_name',
-                          'name', 'creationTime']
+        self._reserved = [
+            "index",
+            "state",
+            "_type",
+            "deployment",
+            "_name",
+            "name",
+            "creationTime",
+        ]
 
     def set_reserved_keys(self, keys):
         # type: (List[str]) -> None
@@ -51,7 +60,7 @@ class Diff(object):
         diff = [k for k in self._diff.keys() if k not in self._reserved]
         return diff
 
-    def plan(self,show=False):
+    def plan(self, show=False):
         # type: (bool) -> List[Handler]
         """
         This will go through the attributes of the resource and evaluate
@@ -65,13 +74,21 @@ class Diff(object):
             definition = self.get_resource_definition(k)
             if show:
                 if self._diff[k] == self.SET:
-                    self.logger.log("will set attribute {0} to {1}".format(k, definition))
+                    self.logger.log(
+                        "will set attribute {0} to {1}".format(k, definition)
+                    )
                 elif self._diff[k] == self.UPDATE:
-                    self.logger.log("{0} will be updated from {1} to {2}".format(k, self._state[k],
-                                                                             definition))
+                    self.logger.log(
+                        "{0} will be updated from {1} to {2}".format(
+                            k, self._state[k], definition
+                        )
+                    )
                 else:
-                    self.logger.log("will unset attribute {0} with previous value {1} "
-                                    .format(k, self._state[k]))
+                    self.logger.log(
+                        "will unset attribute {0} with previous value {1} ".format(
+                            k, self._state[k]
+                        )
+                    )
         return self.get_handlers_sequence()
 
     def set_handlers(self, handlers):
@@ -86,7 +103,7 @@ class Diff(object):
         The output is a sorted sequence of handlers based on their
         dependencies.
         """
-        # TODO implement cycle detection 
+        # TODO implement cycle detection
         parent = {}  # type: Dict[Handler, Optional[Handler]]
         sequence = []  # type: List[Handler]
 
@@ -116,12 +133,16 @@ class Diff(object):
             if combinations == len(self.handlers):
                 keys_not_found = set(self.get_keys()) - set(keys)
                 if len(keys_not_found) > 0:
-                    raise Exception("Couldn't find any combination of handlers"
-                                    " that realize the change of {0} for resource type {1}".format(str(keys_not_found), self._type))
+                    raise Exception(
+                        "Couldn't find any combination of handlers"
+                        " that realize the change of {0} for resource type {1}".format(
+                            str(keys_not_found), self._type
+                        )
+                    )
             if set(self.get_keys()) <= set(keys):
                 handlers_seq = self.topological_sort(list(h_tuple))
                 return handlers_seq
-        return self.get_handlers_sequence(combinations+1)
+        return self.get_handlers_sequence(combinations + 1)
 
     def eval_resource_attr_diff(self, key):
         # type: (str) -> None
@@ -129,9 +150,9 @@ class Diff(object):
         d = self.get_resource_definition(key)
         if s == None and d != None:
             self._diff[key] = self.SET
-        elif s!=None and d == None:
+        elif s != None and d == None:
             self._diff[key] = self.UNSET
-        elif s!=None and d!=None:
+        elif s != None and d != None:
             if s != d:
                 self._diff[key] = self.UPDATE
 
@@ -144,7 +165,8 @@ class Diff(object):
                 res_type = d.split(".")[1]
                 k = d.split(".")[2] if len(d.split(".")) > 2 else key
                 res = self._depl.get_typed_resource(name, res_type)
-                if res.state != res.UP: return "computed"
+                if res.state != res.UP:
+                    return "computed"
                 try:
                     d = getattr(res, k)
                 except AttributeError:
@@ -188,6 +210,6 @@ class Handler(object):
         # type: () -> List[Handler]
         return self._dependencies
 
-    def get_keys(self,*keys):
+    def get_keys(self, *keys):
         # type: (*AnyStr) -> List[str]
         return self._keys

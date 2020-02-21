@@ -6,7 +6,7 @@ from tests.functional import generic_deployment_test
 
 parent_dir = path.dirname(__file__)
 
-output_spec = '%s/single_machine_outputs.nix' % (parent_dir)
+output_spec = "%s/single_machine_outputs.nix" % (parent_dir)
 
 
 class TestOutputCreates(generic_deployment_test.GenericDeploymentTest):
@@ -18,16 +18,20 @@ class TestOutputCreates(generic_deployment_test.GenericDeploymentTest):
 
     def test_deploy(self):
         self.depl.deploy()
-        assert "\"12345\"" == self.depl.machines["machine"].run_command(
-            "cat /etc/test.txt", capture_stdout=True), "Resource contents incorrect"
+        assert '"12345"' == self.depl.machines["machine"].run_command(
+            "cat /etc/test.txt", capture_stdout=True
+        ), "Resource contents incorrect"
 
     def test_update(self):
         self.depl.deploy()
-        assert "\"12345\"" == self.depl.machines["machine"].run_command(
-            "cat /etc/test.txt", capture_stdout=True), "Resource contents incorrect"
+        assert '"12345"' == self.depl.machines["machine"].run_command(
+            "cat /etc/test.txt", capture_stdout=True
+        ), "Resource contents incorrect"
 
-        self.depl.nix_exprs = self.depl.nix_exprs + \
-            ['%s/single_machine_outputs_mod.nix' % (parent_dir)]
+        self.depl.nix_exprs = self.depl.nix_exprs + [
+            "%s/single_machine_outputs_mod.nix" % (parent_dir)
+        ]
         self.depl.deploy()
-        assert "\"123456\"" == self.depl.machines["machine"].run_command(
-            "cat /etc/test.txt", capture_stdout=True), "Resource contents update incorrect"
+        assert '"123456"' == self.depl.machines["machine"].run_command(
+            "cat /etc/test.txt", capture_stdout=True
+        ), "Resource contents update incorrect"

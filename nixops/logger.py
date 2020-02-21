@@ -4,7 +4,7 @@ import threading
 
 from nixops.util import ansi_warn, ansi_error, ansi_success
 
-__all__ = ['Logger']
+__all__ = ["Logger"]
 
 
 class Logger(object):
@@ -68,8 +68,7 @@ class Logger(object):
         self._auto_response = response
 
     def update_log_prefixes(self):
-        max_len = max([len(ml.machine_name)
-                       for ml in self.machine_loggers] or [0])
+        max_len = max([len(ml.machine_name) for ml in self.machine_loggers] or [0])
         for ml in self.machine_loggers:
             ml.update_log_prefix(max_len)
 
@@ -85,10 +84,11 @@ class Logger(object):
                 self._log_file.write("\n")
                 self._last_log_prefix = None
             # XXX: This should be DRY!
-            self._log_file.write(ansi_warn(
-                "warning: {0} (y/N) ".format(question),
-                outfile=self._log_file
-            ))
+            self._log_file.write(
+                ansi_warn(
+                    "warning: {0} (y/N) ".format(question), outfile=self._log_file
+                )
+            )
             if self._auto_response is not None:
                 self._log_file.write("{0}\n".format(self._auto_response))
                 return self._auto_response == "y"
@@ -122,8 +122,7 @@ class MachineLogger(object):
 
     def update_log_prefix(self, length):
         self._log_prefix = "{0}{1}> ".format(
-            self.machine_name,
-            '.' * (length - len(self.machine_name))
+            self.machine_name, "." * (length - len(self.machine_name))
         )
         if self.main_logger.isatty() and self.index is not None:
             self._log_prefix = "\033[1;{0}m{1}\033[0m".format(
@@ -143,12 +142,10 @@ class MachineLogger(object):
         self.main_logger.log_end(self._log_prefix, msg)
 
     def warn(self, msg):
-        self.log(ansi_warn("warning: " + msg,
-                           outfile=self.main_logger._log_file))
+        self.log(ansi_warn("warning: " + msg, outfile=self.main_logger._log_file))
 
     def error(self, msg):
-        self.log(ansi_error("error: " + msg,
-                           outfile=self.main_logger._log_file))
+        self.log(ansi_error("error: " + msg, outfile=self.main_logger._log_file))
 
     def success(self, msg):
         self.log(ansi_success(msg, outfile=self.main_logger._log_file))

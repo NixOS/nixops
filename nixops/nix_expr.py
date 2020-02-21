@@ -3,8 +3,7 @@ import string
 
 from textwrap import dedent
 
-__all__ = ['py2nix', 'nix2py', 'nixmerge', 'expand_dict',
-           'RawValue', 'Function']
+__all__ = ["py2nix", "nix2py", "nixmerge", "expand_dict", "RawValue", "Function"]
 
 
 class RawValue(object):
@@ -38,7 +37,7 @@ class MultiLineRawValue(RawValue):
         return False
 
     def indent(self, level=0, inline=False, maxwidth=80):
-        return '\n'.join(["  " * level + value for value in self.values])
+        return "\n".join(["  " * level + value for value in self.values])
 
 
 class Function(object):
@@ -50,9 +49,11 @@ class Function(object):
         return "{0} {1}".format(self.head, self.body)
 
     def __eq__(self, other):
-        return (isinstance(other, Function)
-                and other.head == self.head
-                and other.body == self.body)
+        return (
+            isinstance(other, Function)
+            and other.head == self.head
+            and other.body == self.body
+        )
 
 
 class Call(object):
@@ -64,9 +65,9 @@ class Call(object):
         return "{0} {1}".format(self.fun, self.arg)
 
     def __eq__(self, other):
-        return (isinstance(other, App)
-                and other.fun == self.fun
-                and other.arg == self.arg)
+        return (
+            isinstance(other, App) and other.fun == self.fun and other.arg == self.arg
+        )
 
 
 class Container(object):
@@ -80,8 +81,13 @@ class Container(object):
         """
         Return the minimum length of this container and all sub-containers.
         """
-        return (len(self.prefix) + len(self.suffix) + 1 + len(self.children) +
-                sum([child.get_min_length() for child in self.children]))
+        return (
+            len(self.prefix)
+            + len(self.suffix)
+            + 1
+            + len(self.children)
+            + sum([child.get_min_length() for child in self.children])
+        )
 
     def is_inlineable(self):
         return all([child.is_inlineable() for child in self.children])
@@ -93,18 +99,23 @@ class Container(object):
             inline = True
         ind = "  " * level
         if inline and self.inline_variant is not None:
-            return self.inline_variant.indent(level=level, inline=True,
-                                              maxwidth=maxwidth)
+            return self.inline_variant.indent(
+                level=level, inline=True, maxwidth=maxwidth
+            )
         elif inline:
-            sep = ' '
-            lines = ' '.join([child.indent(level=0, inline=True)
-                              for child in self.children])
+            sep = " "
+            lines = " ".join(
+                [child.indent(level=0, inline=True) for child in self.children]
+            )
             suffix_ind = ""
         else:
-            sep = '\n'
-            lines = '\n'.join([child.indent(level + 1, inline=inline,
-                                            maxwidth=maxwidth)
-                               for child in self.children])
+            sep = "\n"
+            lines = "\n".join(
+                [
+                    child.indent(level + 1, inline=inline, maxwidth=maxwidth)
+                    for child in self.children
+                ]
+            )
             suffix_ind = ind
         return ind + self.prefix + sep + lines + sep + suffix_ind + self.suffix
 
@@ -122,8 +133,9 @@ def enclose_node(node, prefix="", suffix=""):
             new_inline = RawValue(prefix + node.inline_variant.value + suffix)
         else:
             new_inline = None
-        return Container(prefix + node.prefix, node.children,
-                         node.suffix + suffix, new_inline)
+        return Container(
+            prefix + node.prefix, node.children, node.suffix + suffix, new_inline
+        )
 
 
 def _fold_string(value, rules):
@@ -141,6 +153,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
     if you want to break on every occasion possible. If 'inline' is set to
     True, squash everything into a single line.
     """
+
     def _enc_int(node):
         if node < 0:
             return RawValue("builtins.sub 0 " + str(-node))
@@ -148,13 +161,16 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
             return RawValue(str(node))
 
     def _enc_str(node, for_attribute=False):
-        encoded = _fold_string(node, [
-            ("\\", "\\\\"),
-            ("${", "\\${"),
-            ('"', '\\"'),
-            ("\n", "\\n"),
-            ("\t", "\\t"),
-        ])
+        encoded = _fold_string(
+            node,
+            [
+                ("\\", "\\\\"),
+                ("${", "\\${"),
+                ('"', '\\"'),
+                ("\n", "\\n"),
+                ("\t", "\\t"),
+            ],
+        )
 
         inline_variant = RawValue(u'"{0}"'.format(encoded))
 
@@ -162,11 +178,9 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
             return inline_variant.value
 
         if node.endswith("\n"):
-            encoded = _fold_string(node[:-1], [
-                ("''", "'''"),
-                ("${", "''${"),
-                ("\t", "'\\t"),
-            ])
+            encoded = _fold_string(
+                node[:-1], [("''", "'''"), ("${", "''${"), ("\t", "'\\t"),]
+            )
 
             atoms = [RawValue(line) for line in encoded.splitlines()]
             return Container("''", atoms, "''", inline_variant=inline_variant)
@@ -188,8 +202,10 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
         elif len(key) == 0:
             raise KeyError("key name has zero length")
 
-        if all(char in string.letters + string.digits + '_'
-               for char in key) and not key[0].isdigit():
+        if (
+            all(char in string.letters + string.digits + "_" for char in key)
+            and not key[0].isdigit()
+        ):
             return key
         else:
             return _enc_str(key, for_attribute=True)
@@ -224,8 +240,10 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
 
     def _enc(node, inlist=False):
         if isinstance(node, RawValue):
-            if inlist and (isinstance(node, MultiLineRawValue) or
-                           any(char.isspace() for char in node.value)):
+            if inlist and (
+                isinstance(node, MultiLineRawValue)
+                or any(char.isspace() for char in node.value)
+            ):
                 return enclose_node(node, "(", ")")
             else:
                 return node
@@ -256,8 +274,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
         else:
             raise ValueError("unable to encode {0}".format(repr(node)))
 
-    return _enc(value).indent(initial_indentation, maxwidth=maxwidth,
-                              inline=inline)
+    return _enc(value).indent(initial_indentation, maxwidth=maxwidth, inline=inline)
 
 
 def expand_dict(unexpanded):
@@ -287,8 +304,10 @@ def expand_dict(unexpanded):
         else:
             strings[key] = val
 
-    return {key: (expand_dict(val) if isinstance(val, dict) else val)
-            for key, val in reduce(nixmerge, paths + [strings]).iteritems()}
+    return {
+        key: (expand_dict(val) if isinstance(val, dict) else val)
+        for key, val in reduce(nixmerge, paths + [strings]).iteritems()
+    }
 
 
 def nixmerge(expr1, expr2):
@@ -296,6 +315,7 @@ def nixmerge(expr1, expr2):
     Merge both expressions into one, merging dictionary keys and appending list
     elements if they otherwise would clash.
     """
+
     def _merge_dicts(d1, d2):
         out = {}
         for key in set(d1.keys()).union(d2.keys()):

@@ -27,20 +27,19 @@ class SSHKeyPairDefinition(nixops.resources.ResourceDefinition):
 class SSHKeyPairState(nixops.resources.ResourceState):
     """State of an SSH key pair."""
 
-    state = nixops.util.attr_property("state", nixops.resources.ResourceState.MISSING, int)
+    state = nixops.util.attr_property(
+        "state", nixops.resources.ResourceState.MISSING, int
+    )
     public_key = nixops.util.attr_property("publicKey", None)
     private_key = nixops.util.attr_property("privateKey", None)
-
 
     @classmethod
     def get_type(cls):
         return "ssh-keypair"
 
-
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._conn = None
-
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         # Generate the key pair locally.
@@ -52,11 +51,10 @@ class SSHKeyPairState(nixops.resources.ResourceState):
                 self.state = state = nixops.resources.ResourceState.UP
 
     def prefix_definition(self, attr):
-        return {('resources', 'sshKeyPairs'): attr}
+        return {("resources", "sshKeyPairs"): attr}
 
     def get_physical_spec(self):
-        return {'privateKey': self.private_key,
-                'publicKey': self.public_key}
+        return {"privateKey": self.private_key, "publicKey": self.public_key}
 
     def destroy(self, wipe=False):
         return True

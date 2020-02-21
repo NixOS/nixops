@@ -16,10 +16,13 @@ class NoneDefinition(MachineDefinition):
 
     def __init__(self, xml, config):
         MachineDefinition.__init__(self, xml, config)
-        self._target_host = xml.find("attrs/attr[@name='targetHost']/string").get("value")
+        self._target_host = xml.find("attrs/attr[@name='targetHost']/string").get(
+            "value"
+        )
 
         public_ipv4 = xml.find("attrs/attr[@name='publicIPv4']/string")
         self._public_ipv4 = None if public_ipv4 is None else public_ipv4.get("value")
+
 
 class NoneState(MachineState):
     """State of a trivial machine."""
@@ -42,10 +45,21 @@ class NoneState(MachineState):
         return self.vm_id
 
     def get_physical_spec(self):
-        return {
-            ('config', 'users', 'extraUsers', 'root', 'openssh',
-             'authorizedKeys', 'keys'): [self._ssh_public_key]
-        } if self._ssh_public_key else {}
+        return (
+            {
+                (
+                    "config",
+                    "users",
+                    "extraUsers",
+                    "root",
+                    "openssh",
+                    "authorizedKeys",
+                    "keys",
+                ): [self._ssh_public_key]
+            }
+            if self._ssh_public_key
+            else {}
+        )
 
     def create(self, defn, check, allow_reboot, allow_recreate):
         assert isinstance(defn, NoneDefinition)
@@ -56,8 +70,9 @@ class NoneState(MachineState):
         if not self.vm_id:
             self.log_start("generating new SSH keypair... ")
             key_name = "NixOps client key for {0}".format(self.name)
-            self._ssh_private_key, self._ssh_public_key = \
-                create_key_pair(key_name=key_name)
+            self._ssh_private_key, self._ssh_public_key = create_key_pair(
+                key_name=key_name
+            )
             self.log_end("done")
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
@@ -80,7 +95,12 @@ class NoneState(MachineState):
     def get_ssh_flags(self, *args, **kwargs):
         super_state_flags = super(NoneState, self).get_ssh_flags(*args, **kwargs)
         if self.vm_id and self.cur_toplevel and self._ssh_public_key_deployed:
-            return super_state_flags + ["-o", "StrictHostKeyChecking=accept-new", "-i", self.get_ssh_private_key_file()]
+            return super_state_flags + [
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                "-i",
+                self.get_ssh_private_key_file(),
+            ]
         return super_state_flags
 
     def _check(self, res):
