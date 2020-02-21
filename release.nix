@@ -8,6 +8,8 @@ let
   pkgs = import nixpkgs { config = {}; overlays = []; };
   version = "1.8" + (if officialRelease then "" else "pre${toString nixopsSrc.revCount}_${nixopsSrc.shortRev}");
 
+
+in rec {
   allPlugins = let
     plugins = let
       allPluginVers = import ./data.nix;
@@ -19,10 +21,9 @@ let
       srcDrv = v: (fetch v) + "/release.nix";
     in self: let
       rawPlugins = (builtins.mapAttrs (n: v: self.callPackage (srcDrv allPluginVers.${n}) {}) allPluginVers);
-    in rawPlugins // { inherit nixpkgs; };
+    in rawPlugins // { inherit nixpkgs; nixops = buildWithNoPlugins; };
   in pkgs.lib.makeScope pkgs.newScope plugins;
 
-in rec {
 
   tarball = pkgs.releaseTools.sourceTarball {
     name = "nixops-tarball";
@@ -64,7 +65,9 @@ in rec {
       '';
   };
 
-  build = pkgs.lib.genAttrs [ "x86_64-linux" "i686-linux" "x86_64-darwin" ] (system:
+  build = buildWithPlugins p;
+  buildWithNoPlugins = buildWithPlugins (_: []);
+  buildWithPlugins = pluginSet: pkgs.lib.genAttrs [ "x86_64-linux" "i686-linux" "x86_64-darwin" ] (system:
     with import nixpkgs { inherit system; };
 
 
@@ -80,7 +83,9 @@ in rec {
       propagatedBuildInputs = with python3Packages;
         [ prettytable
           pluggy
-        ] ++ pkgs.lib.traceValFn (x: "Using plugins: " + builtins.toJSON x) (map (d: d.build.${system}) (p allPlugins));
+        ] ++ pkgs.lib.traceValFn
+           (x: "Using plugins: " + builtins.toJSON x)
+           (map (d: d.build.${system}) (pluginSet allPlugins));
 
 
       # For "nix-build --run-env".
