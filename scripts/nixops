@@ -10,7 +10,7 @@ from nixops.script_defs import *
 parser = argparse.ArgumentParser(description='NixOS cloud deployment tool', prog='nixops')
 parser.add_argument('--version', action='version', version='NixOps @version@')
 
-subparsers = parser.add_subparsers(help='sub-command help')
+subparsers = parser.add_subparsers(help='sub-command help', metavar="operation", required=True)
 
 subparser = add_subparser(subparsers, 'list', help='list all known deployments')
 subparser.set_defaults(op=op_list_deployments)
