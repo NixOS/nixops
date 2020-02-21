@@ -24,6 +24,7 @@ class Logger(object):
         return self._log_file.isatty()
 
     def log(self, msg):
+        msg = msg if isinstance(msg, str) else msg.decode("utf-8")
         with self._log_lock:
             if self._last_log_prefix is not None:
                 self._log_file.write("\n")
@@ -32,6 +33,7 @@ class Logger(object):
             self._log_file.flush()
 
     def log_start(self, prefix, msg):
+        msg = msg if isinstance(msg, str) else msg.decode("utf-8")
         with self._log_lock:
             if self._last_log_prefix != prefix:
                 if self._last_log_prefix is not None:
@@ -42,6 +44,7 @@ class Logger(object):
             self._log_file.flush()
 
     def log_end(self, prefix, msg):
+        msg = msg if isinstance(msg, str) else msg.decode("utf-8")
         with self._log_lock:
             last = self._last_log_prefix
             self._last_log_prefix = None
@@ -76,9 +79,11 @@ class Logger(object):
             ml.update_log_prefix(max_len)
 
     def warn(self, msg):
+        msg = msg if isinstance(msg, str) else msg.decode("utf-8")
         self.log(ansi_warn("warning: " + msg, outfile=self._log_file))
 
     def error(self, msg):
+        msg = msg if isinstance(msg, str) else msg.decode("utf-8")
         self.log(ansi_error("error: " + msg, outfile=self._log_file))
 
     def confirm_once(self, question):
