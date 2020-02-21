@@ -130,7 +130,10 @@ class MachineLogger(object):
             )
 
     def log(self, msg):
-        self.main_logger.log(self._log_prefix + msg)
+        self.main_logger.log(
+            self._log_prefix
+            + (msg if isinstance(msg, str) else msg.decode('utf-8'))
+        )
 
     def log_start(self, msg):
         self.main_logger.log_start(self._log_prefix, msg)
