@@ -29,6 +29,7 @@ class Logger(object):
                 self._log_file.write("\n")
                 self._last_log_prefix = None
             self._log_file.write(msg + "\n")
+            self._log_file.flush()
 
     def log_start(self, prefix, msg):
         with self._log_lock:
@@ -38,6 +39,7 @@ class Logger(object):
                 self._log_file.write(prefix)
             self._log_file.write(msg)
             self._last_log_prefix = prefix
+            self._log_file.flush()
 
     def log_end(self, prefix, msg):
         with self._log_lock:
@@ -50,6 +52,7 @@ class Logger(object):
                     return
                 self._log_file.write(prefix)
             self._log_file.write(msg + "\n")
+            self._log_file.flush()
 
     def get_logger_for(self, machine_name):
         """
@@ -89,8 +92,10 @@ class Logger(object):
                     "warning: {0} (y/N) ".format(question), outfile=self._log_file
                 )
             )
+            self._log_file.flush()
             if self._auto_response is not None:
                 self._log_file.write("{0}\n".format(self._auto_response))
+                self._log_file.flush()
                 return self._auto_response == "y"
             response = sys.stdin.readline()
             if response == "":
@@ -131,8 +136,7 @@ class MachineLogger(object):
 
     def log(self, msg):
         self.main_logger.log(
-            self._log_prefix
-            + (msg if isinstance(msg, str) else msg.decode('utf-8'))
+            self._log_prefix + (msg if isinstance(msg, str) else msg.decode("utf-8"))
         )
 
     def log_start(self, msg):
