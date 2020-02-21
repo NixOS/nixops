@@ -10,13 +10,13 @@ class MultipleExceptions(Exception):
         self.exceptions = exceptions
 
     def __str__(self):
-        err = "Multiple exceptions (" + str(len(list(self.exceptions.keys()))) + "): \n"
+        err = "Multiple exceptions (" + str(len(self.exceptions)) + "): \n"
         for r in sorted(self.exceptions.keys()):
             err += "  * {}: {}\n".format(r, self.exceptions[r][1])
         return err
 
     def print_all_backtraces(self):
-        for k, e in list(self.exceptions.items()):
+        for k, e in self.exceptions.items():
             sys.stderr.write("-" * 30 + "\n")
             traceback.print_exception(e[0], e[1], e[2])
 
@@ -75,11 +75,11 @@ def run_tasks(nr_workers, tasks, worker_fun):
     for thr in threads:
         thr.join()
 
-    if len(list(exceptions.keys())) == 1:
-        excinfo = exceptions[list(exceptions.keys())[0]]
+    if len(exceptions) == 1:
+        excinfo = exceptions[next(iter(exceptions.keys()))]
         raise excinfo[0](excinfo[1]).with_traceback(excinfo[2])
 
-    if len(list(exceptions.keys())) > 1:
+    if len(exceptions) > 1:
         raise MultipleExceptions(exceptions)
 
     return results

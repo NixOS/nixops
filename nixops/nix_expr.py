@@ -195,7 +195,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
         while len(nodes) == 1 and isinstance(nodes[0], list):
             nodes = nodes[0]
             pre, post = pre + " [", post + " ]"
-        return Container(pre, list([_enc(n, inlist=True) for n in nodes]), post)
+        return Container(pre, [_enc(n, inlist=True) for n in nodes], post)
 
     def _enc_key(key):
         if not isinstance(key, str):
@@ -222,7 +222,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
             # attribute, recursively merge them with a dot, like "a.b.c".
             child_key, child_value = key, value
             while isinstance(child_value, dict) and len(child_value) == 1:
-                child_key, child_value = list(child_value.items())[0]
+                child_key, child_value = next(iter(child_value.items()))
                 encoded_key += "." + _enc_key(child_key)
 
             contents = _enc(child_value)
@@ -291,7 +291,7 @@ def expand_dict(unexpanded):
     {'a': {'b': 'c', 'd': {'e': 'f'}}}
     """
     paths, strings = [], {}
-    for key, val in list(unexpanded.items()):
+    for key, val in unexpanded.items():
         if isinstance(key, tuple):
             if len(key) == 0:
                 raise KeyError("invalid key {0}".format(repr(key)))
@@ -307,7 +307,7 @@ def expand_dict(unexpanded):
 
     return {
         key: (expand_dict(val) if isinstance(val, dict) else val)
-        for key, val in list(functools.reduce(nixmerge, paths + [strings]).items())
+        for key, val in functools.reduce(nixmerge, paths + [strings]).items()
     }
 
 
@@ -319,7 +319,7 @@ def nixmerge(expr1, expr2):
 
     def _merge_dicts(d1, d2):
         out = {}
-        for key in set(d1.keys()).union(list(d2.keys())):
+        for key in set(d1.keys()).union(d2.keys()):
             if key in d1 and key in d2:
                 out[key] = _merge(d1[key], d2[key])
             elif key in d1:

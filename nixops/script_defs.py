@@ -90,7 +90,7 @@ def op_list_deployments(args):
                 depl.name or "(none)",
                 depl.description,
                 len(depl.machines),
-                ", ".join(set([m.get_type() for m in depl.machines.values()])),
+                ", ".join(set(m.get_type() for m in depl.machines.values())),
             ]
         )
     print(tbl)
@@ -441,7 +441,7 @@ def op_check(args):
 
 def print_backups(depl, backups):
     tbl = prettytable.PrettyTable(["Backup ID", "Status", "Info"])
-    for k, v in sorted(list(backups.items()), reverse=True):
+    for k, v in sorted(backups.items(), reverse=True):
         tbl.add_row([k, v["status"], "\n".join(v["info"])])
     print(tbl)
 
@@ -479,7 +479,7 @@ def op_backup(args):
         backups = depl.get_backups(
             include=args.include or [], exclude=args.exclude or []
         )
-        backups_status = [b["status"] for _, b in list(backups.items())]
+        backups_status = [b["status"] for _, b in backups.items()]
         if "running" in backups_status:
             raise Exception(
                 "There are still backups running, use --force to run a new backup concurrently (not advised!)"
@@ -497,7 +497,7 @@ def op_backup_status(args):
         )
 
         if backupid or args.latest:
-            sorted_backups = sorted(list(backups.keys()), reverse=True)
+            sorted_backups = sorted(backups.keys(), reverse=True)
             if args.latest:
                 if len(backups) == 0:
                     raise Exception("no backups found")
@@ -511,7 +511,7 @@ def op_backup_status(args):
 
         print_backups(depl, _backups)
 
-        backups_status = [b["status"] for _, b in list(_backups.items())]
+        backups_status = [b["status"] for _, b in _backups.items()]
         if "running" in backups_status:
             if args.wait:
                 print("waiting for 30 seconds...")
