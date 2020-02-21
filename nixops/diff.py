@@ -57,7 +57,7 @@ class Diff(object):
 
     def get_keys(self):
         # type: () -> List[str]
-        diff = [k for k in list(self._diff.keys()) if k not in self._reserved]
+        diff = [k for k in self._diff.keys() if k not in self._reserved]
         return diff
 
     def plan(self, show=False):
