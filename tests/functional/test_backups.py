@@ -3,12 +3,13 @@ import time
 from os import path
 
 from nose import tools
-
+from nose.plugins.attrib import attr
 from tests.functional import generic_deployment_test
 
 parent_dir = path.dirname(__file__)
 
 
+@attr("ec2")
 class TestBackups(generic_deployment_test.GenericDeploymentTest):
     _multiprocess_can_split_ = True
 
@@ -65,5 +66,5 @@ class TestBackups(generic_deployment_test.GenericDeploymentTest):
 
     def check_command(self, command):
         self.depl.evaluate()
-        machine = self.depl.machines.values()[0]
+        machine = next(iter(self.depl.machines.values()))
         return machine.run_command(command)

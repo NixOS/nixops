@@ -3,7 +3,8 @@ import tempfile
 
 from nose import tools
 from nose.plugins.attrib import attr
-import boto3
+
+# import boto3
 
 from nixops.nix_expr import RawValue, Function, Call, py2nix
 import nixops.util
@@ -14,6 +15,7 @@ parent_dir = path.dirname(__file__)
 base_spec = "{}/vpc.nix".format(parent_dir)
 
 
+@attr("ec2")
 class TestVPC(generic_deployment_test.GenericDeploymentTest):
     def setup(self):
         super(TestVPC, self).setup()
