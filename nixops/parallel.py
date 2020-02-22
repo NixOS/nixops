@@ -4,19 +4,20 @@ import Queue
 import random
 import traceback
 
+
 class MultipleExceptions(Exception):
     def __init__(self, exceptions={}):
         self.exceptions = exceptions
 
     def __str__(self):
-        err = "Multiple exceptions (" + str(len(self.exceptions.keys()))+ "): \n"
+        err = "Multiple exceptions (" + str(len(self.exceptions.keys())) + "): \n"
         for r in sorted(self.exceptions.keys()):
             err += "  * {}: {}\n".format(r, self.exceptions[r][1])
         return err
 
     def print_all_backtraces(self):
         for k, e in self.exceptions.iteritems():
-            sys.stderr.write('-'*30 + '\n')
+            sys.stderr.write("-" * 30 + "\n")
             traceback.print_exception(e[0], e[1], e[2])
 
 
@@ -25,12 +26,17 @@ def run_tasks(nr_workers, tasks, worker_fun):
     result_queue = Queue.Queue()
 
     nr_tasks = 0
-    for t in tasks: task_queue.put(t); nr_tasks = nr_tasks + 1
+    for t in tasks:
+        task_queue.put(t)
+        nr_tasks = nr_tasks + 1
 
-    if nr_tasks == 0: return []
+    if nr_tasks == 0:
+        return []
 
-    if nr_workers == -1: nr_workers = nr_tasks
-    if nr_workers < 1: raise Exception("number of worker threads must be at least 1")
+    if nr_workers == -1:
+        nr_workers = nr_tasks
+    if nr_workers < 1:
+        raise Exception("number of worker threads must be at least 1")
 
     def thread_fun():
         n = 0
@@ -44,7 +50,7 @@ def run_tasks(nr_workers, tasks, worker_fun):
                 result_queue.put((worker_fun(t), None, t.name))
             except Exception as e:
                 result_queue.put((None, sys.exc_info(), t.name))
-        #sys.stderr.write("thread {0} did {1} tasks\n".format(threading.current_thread(), n))
+        # sys.stderr.write("thread {0} did {1} tasks\n".format(threading.current_thread(), n))
 
     threads = []
     for n in range(nr_workers):
@@ -63,7 +69,7 @@ def run_tasks(nr_workers, tasks, worker_fun):
         except Queue.Empty:
             continue
         if excinfo:
-            exceptions[name]=excinfo
+            exceptions[name] = excinfo
         results.append(res)
 
     for thr in threads:

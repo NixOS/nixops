@@ -13,19 +13,21 @@ parent_dir = path.dirname(__file__)
 
 base_spec = "{}/vpc.nix".format(parent_dir)
 
-class TestVPC(generic_deployment_test.GenericDeploymentTest):
 
+class TestVPC(generic_deployment_test.GenericDeploymentTest):
     def setup(self):
-        super(TestVPC,self).setup()
-        self.depl.nix_exprs = [ base_spec ]
+        super(TestVPC, self).setup()
+        self.depl.nix_exprs = [base_spec]
         self.exprs_dir = nixops.util.SelfDeletingDir(tempfile.mkdtemp("nixos-tests"))
 
     def test_deploy_vpc(self):
         self.depl.deploy()
         vpc_resource = self.depl.get_typed_resource("vpc-test", "vpc")
-        vpc = vpc_resource.get_client().describe_vpcs(VpcIds=[vpc_resource._state['vpcId']])
-        tools.ok_(len(vpc['Vpcs']) > 0, "VPC not found!")
-        tools.eq_(vpc['Vpcs'][0]['CidrBlock'], "10.0.0.0/16", "CIDR block mismatch")
+        vpc = vpc_resource.get_client().describe_vpcs(
+            VpcIds=[vpc_resource._state["vpcId"]]
+        )
+        tools.ok_(len(vpc["Vpcs"]) > 0, "VPC not found!")
+        tools.eq_(vpc["Vpcs"][0]["CidrBlock"], "10.0.0.0/16", "CIDR block mismatch")
 
     def test_deploy_vpc_machine(self):
         self.compose_expressions([CFG_SUBNET, CFG_INTERNET_ROUTE, CFG_VPC_MACHINE])
@@ -42,10 +44,15 @@ class TestVPC(generic_deployment_test.GenericDeploymentTest):
         self.depl.deploy(plan_only=True)
         self.depl.deploy()
         vpc_resource = self.depl.get_typed_resource("vpc-test", "vpc")
-        vpc = vpc_resource.get_client().describe_vpcs(VpcIds=[vpc_resource._state['vpcId']])
-        ipv6_block = vpc['Vpcs'][0]['Ipv6CidrBlockAssociationSet']
+        vpc = vpc_resource.get_client().describe_vpcs(
+            VpcIds=[vpc_resource._state["vpcId"]]
+        )
+        ipv6_block = vpc["Vpcs"][0]["Ipv6CidrBlockAssociationSet"]
         tools.ok_(len(ipv6_block) > 0, "There is no Ipv6 block")
-        tools.ok_(ipv6_block[0].get('Ipv6CidrBlock', None) != None, "No Ipv6 cidr block in the response")
+        tools.ok_(
+            ipv6_block[0].get("Ipv6CidrBlock", None) != None,
+            "No Ipv6 cidr block in the response",
+        )
 
     def test_deploy_subnets(self):
         # FIXME might need to factor out resources into separate test
@@ -54,8 +61,10 @@ class TestVPC(generic_deployment_test.GenericDeploymentTest):
         self.depl.deploy(plan_only=True)
         self.depl.deploy()
         subnet_resource = self.depl.get_typed_resource("subnet-test", "vpc-subnet")
-        subnet = subnet_resource.get_client().describe_subnets(SubnetIds=[subnet_resource._state['subnetId']])
-        tools.ok_(len(subnet['Subnets']) > 0, "VPC subnet not found!")
+        subnet = subnet_resource.get_client().describe_subnets(
+            SubnetIds=[subnet_resource._state["subnetId"]]
+        )
+        tools.ok_(len(subnet["Subnets"]) > 0, "VPC subnet not found!")
 
     def test_deploy_nat_gtw(self):
         self.compose_expressions([CFG_SUBNET, CFG_NAT_GTW])
@@ -73,7 +82,10 @@ class TestVPC(generic_deployment_test.GenericDeploymentTest):
             cfg.write(expr)
         return expr_path
 
-CFG_VPC_MACHINE = ("network.nix", """
+
+CFG_VPC_MACHINE = (
+    "network.nix",
+    """
   {
       machine =
         {config, resources, pkgs, lib, ...}:
@@ -98,9 +110,12 @@ CFG_VPC_MACHINE = ("network.nix", """
           rules = [{ toPort = 22; fromPort = 22; sourceIp = "0.0.0.0/0"; }];
         };
   }
-  """)
+  """,
+)
 
-CFG_INTERNET_ROUTE = ("igw_route.nix", """
+CFG_INTERNET_ROUTE = (
+    "igw_route.nix",
+    """
   let
     region = "us-east-1";
   in
@@ -136,17 +151,22 @@ CFG_INTERNET_ROUTE = ("igw_route.nix", """
         };
     };
   }
-  """)
+  """,
+)
 
-CFG_DNS_SUPPORT = ("enable_dns_support.nix", py2nix({
-    ('resources', 'vpc', 'vpc-test', 'enableDnsSupport'): True
-    }))
+CFG_DNS_SUPPORT = (
+    "enable_dns_support.nix",
+    py2nix({("resources", "vpc", "vpc-test", "enableDnsSupport"): True}),
+)
 
-CFG_IPV6 = ("ipv6.nix", py2nix({
-    ('resources', 'vpc', 'vpc-test', 'amazonProvidedIpv6CidrBlock'): True
-    }))
+CFG_IPV6 = (
+    "ipv6.nix",
+    py2nix({("resources", "vpc", "vpc-test", "amazonProvidedIpv6CidrBlock"): True}),
+)
 
-CFG_NAT_GTW = ("nat_gtw.nix", """
+CFG_NAT_GTW = (
+    "nat_gtw.nix",
+    """
    {
       resources.elasticIPs.nat-eip =
       {
@@ -162,9 +182,12 @@ CFG_NAT_GTW = ("nat_gtw.nix", """
           subnetId = resources.vpcSubnets.subnet-test;
         };
     }
-    """)
+    """,
+)
 
-CFG_SUBNET = ("subnet.nix", """
+CFG_SUBNET = (
+    "subnet.nix",
+    """
     {
       resources.vpcSubnets.subnet-test =
         { resources, ... }:
@@ -179,4 +202,5 @@ CFG_SUBNET = ("subnet.nix", """
           };
         };
     }
-    """)
+    """,
+)

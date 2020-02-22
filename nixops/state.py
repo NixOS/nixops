@@ -3,11 +3,13 @@ import collections
 
 import nixops.util
 
+
 class StateDict(collections.MutableMapping):
     """
        An implementation of a MutableMapping container providing
        a python dict like behavior for the NixOps state file.
     """
+
     # TODO implement __repr__ for convenience e.g debuging the structure
     def __init__(self, depl, id):
         super(StateDict, self).__init__()
@@ -18,20 +20,26 @@ class StateDict(collections.MutableMapping):
         with self._db:
             c = self._db.cursor()
             if value == None:
-                c.execute("delete from ResourceAttrs where machine = ? and name = ?",
-                          (self.id, key))
+                c.execute(
+                    "delete from ResourceAttrs where machine = ? and name = ?",
+                    (self.id, key),
+                )
             else:
                 v = value
                 if isinstance(value, list):
                     v = json.dumps(value)
-                c.execute("insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
-                          (self.id, key, v))
+                c.execute(
+                    "insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
+                    (self.id, key, v),
+                )
 
     def __getitem__(self, key):
         with self._db:
             c = self._db.cursor()
-            c.execute("select value from ResourceAttrs where machine = ? and name = ?",
-                      (self.id, key))
+            c.execute(
+                "select value from ResourceAttrs where machine = ? and name = ?",
+                (self.id, key),
+            )
             row = c.fetchone()
             if row != None:
                 try:
@@ -42,7 +50,10 @@ class StateDict(collections.MutableMapping):
 
     def __delitem__(self, key):
         with self._db:
-            c.execute("delete from ResourceAttrs where machine = ? and name = ?", (self.id, key))
+            c.execute(
+                "delete from ResourceAttrs where machine = ? and name = ?",
+                (self.id, key),
+            )
 
     def keys(self):
         # Generally the list of keys per ResourceAttrs is relatively small

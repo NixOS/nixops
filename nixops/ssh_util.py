@@ -9,7 +9,7 @@ import weakref
 from tempfile import mkdtemp
 import nixops.util
 
-__all__ = ['SSHConnectionFailed', 'SSHCommandFailed', 'SSH']
+__all__ = ["SSHConnectionFailed", "SSHCommandFailed", "SSH"]
 
 
 class SSHConnectionFailed(Exception):
@@ -33,29 +33,40 @@ class SSHMaster(object):
         if passwd is not None:
             self._askpass_helper = self._make_askpass_helper()
             newenv = dict(os.environ)
-            newenv.update({
-                'DISPLAY': ':666',
-                'SSH_ASKPASS': self._askpass_helper,
-                'NIXOPS_SSH_PASSWORD': passwd,
-            })
-            kwargs['env'] = newenv
-            kwargs['stdin'] = nixops.util.devnull
-            kwargs['preexec_fn'] = os.setsid
+            newenv.update(
+                {
+                    "DISPLAY": ":666",
+                    "SSH_ASKPASS": self._askpass_helper,
+                    "NIXOPS_SSH_PASSWORD": passwd,
+                }
+            )
+            kwargs["env"] = newenv
+            kwargs["stdin"] = nixops.util.devnull
+            kwargs["preexec_fn"] = os.setsid
             pass_prompts = 1
 
-        cmd = ["ssh", "-x", self._ssh_target, "-S",
-               self._control_socket, "-M", "-N", "-f",
-               '-oNumberOfPasswordPrompts={0}'.format(pass_prompts),
-               '-oServerAliveInterval=60',
-               '-oControlPersist=600'] \
-              + (["-C"] if compress else []) \
-              + ssh_flags
+        cmd = (
+            [
+                "ssh",
+                "-x",
+                self._ssh_target,
+                "-S",
+                self._control_socket,
+                "-M",
+                "-N",
+                "-f",
+                "-oNumberOfPasswordPrompts={0}".format(pass_prompts),
+                "-oServerAliveInterval=60",
+                "-oControlPersist=600",
+            ]
+            + (["-C"] if compress else [])
+            + ssh_flags
+        )
 
         res = nixops.util.logged_exec(cmd, logger, check=False, **kwargs)
         if res != 0:
             raise SSHConnectionFailed(
-                "unable to start SSH master connection to "
-                "‘{0}’".format(target)
+                "unable to start SSH master connection to " "‘{0}’".format(target)
             )
         self.opts = ["-oControlPath={0}".format(self._control_socket)]
 
@@ -72,10 +83,12 @@ class SSHMaster(object):
         self._running = True
 
         weakself = weakref.ref(self)
+
         def maybe_shutdown():
             realself = weakself()
             if realself is not None:
                 realself.shutdown()
+
         atexit.register(maybe_shutdown)
 
     def is_alive(self):
@@ -89,12 +102,17 @@ class SSHMaster(object):
         Create a SSH_ASKPASS helper script, which just outputs the contents of
         the environment variable NIXOPS_SSH_PASSWORD.
         """
-        path = os.path.join(self._tempdir, 'nixops-askpass-helper')
+        path = os.path.join(self._tempdir, "nixops-askpass-helper")
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0700)
-        os.write(fd, """#!{0}
+        os.write(
+            fd,
+            """#!{0}
 import sys
 import os
-sys.stdout.write(os.environ['NIXOPS_SSH_PASSWORD'])""".format(sys.executable))
+sys.stdout.write(os.environ['NIXOPS_SSH_PASSWORD'])""".format(
+                sys.executable
+            ),
+        )
         os.close(fd)
         return path
 
@@ -102,11 +120,13 @@ sys.stdout.write(os.environ['NIXOPS_SSH_PASSWORD'])""".format(sys.executable))
         """
         Shutdown master process and clean up temporary files.
         """
-        if not self._running: return
+        if not self._running:
+            return
         self._running = False
-        subprocess.call(["ssh", self._ssh_target, "-S",
-                         self._control_socket, "-O", "exit"],
-                        stderr=nixops.util.devnull)
+        subprocess.call(
+            ["ssh", self._ssh_target, "-S", self._control_socket, "-O", "exit"],
+            stderr=nixops.util.devnull,
+        )
         self._tempdir = None
 
     def __del__(self):
@@ -136,8 +156,7 @@ class SSH(object):
     def _get_target(self, user=None):
         if self._host_fun is None:
             raise AssertionError("don't know which SSH host to connect to")
-        return "{0}@{1}".format("root" if user is None else user,
-                                self._host_fun())
+        return "{0}@{1}".format("root" if user is None else user, self._host_fun())
 
     def register_flag_fun(self, flag_fun):
         """
@@ -195,10 +214,14 @@ class SSH(object):
         while True:
             try:
                 started_at = time.time()
-                self._ssh_master = SSHMaster(self._get_target(user),
-                                             self._logger, flags,
-                                             self._get_passwd(), user,
-                                             compress=self._compress)
+                self._ssh_master = SSHMaster(
+                    self._get_target(user),
+                    self._logger,
+                    flags,
+                    self._get_passwd(),
+                    user,
+                    compress=self._compress,
+                )
                 break
             except Exception:
                 tries = tries - 1
@@ -249,16 +272,28 @@ class SSH(object):
             if allow_ssh_args:
                 return shlex.split(command)
             else:
-                return ['--', command]
+                return ["--", command]
         # iterable
         elif allow_ssh_args:
             return command
         else:
-            return ['--', ' '.join(["'{0}'".format(arg.replace("'", r"'\''"))
-                                    for arg in command])]
+            return [
+                "--",
+                " ".join(
+                    ["'{0}'".format(arg.replace("'", r"'\''")) for arg in command]
+                ),
+            ]
 
-    def run_command(self, command, flags=[], timeout=None, logged=True,
-                    allow_ssh_args=False, user=None, **kwargs):
+    def run_command(
+        self,
+        command,
+        flags=[],
+        timeout=None,
+        logged=True,
+        allow_ssh_args=False,
+        user=None,
+        **kwargs
+    ):
         """
         Execute a 'command' on the current target host using SSH, passing
         'flags' as additional arguments to SSH. The command can be either a
@@ -291,7 +326,7 @@ class SSH(object):
             except nixops.util.CommandFailed as exc:
                 raise SSHCommandFailed(exc.message, exc.exitcode)
         else:
-            check = kwargs.pop('check', True)
+            check = kwargs.pop("check", True)
             res = subprocess.call(cmd, **kwargs)
             if check and res != 0:
                 msg = "command ‘{0}’ failed on host ‘{1}’"

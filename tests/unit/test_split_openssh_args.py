@@ -2,6 +2,7 @@ import unittest
 
 from nixops.ssh_util import SSH
 
+
 class SplitSSHArgs(unittest.TestCase):
     def assert_split(self, orig, expected_flags, expected_command):
         flags, command = SSH.split_openssh_args(orig)
