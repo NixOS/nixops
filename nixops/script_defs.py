@@ -749,7 +749,7 @@ def op_ssh_for_each(args):
             tasks=iter(depl.active.values()),
             worker_fun=worker,
         )
-
+    results = [result for result in results if result is not None]
     sys.exit(max(results) if results != [] else 0)
 
 
