@@ -218,11 +218,13 @@ def op_info(args):
         def name_to_key(name):
             d = definitions.get(name)
             r = depl.resources.get(name)
-            return (
-                machine_to_key(depl.uuid, name, r.get_type())
-                if r
-                else machine_to_key(depl.uuid, name, d.get_type)
-            )
+            if r:
+                key = machine_to_key(depl.uuid, name, d.get_type())
+            elif r is None:
+                key = machine_to_key(depl.uuid, name, "")
+            else:
+                key = machine_to_key(depl.uuid, name, r.get_type)
+            return key
 
         names = sorted(
             set(definitions.keys()) | set(depl.resources.keys()), key=name_to_key
