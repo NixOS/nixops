@@ -34,6 +34,7 @@ from typing import Dict, Optional, TextIO, Set, List, DefaultDict, Any, Tuple
 
 Definitions = Dict[str, nixops.backends.MachineDefinition]
 
+
 class NixEvalError(Exception):
     pass
 
@@ -556,7 +557,9 @@ class Deployment(object):
 
             defn = self.definitions[m.name]
             if defn is None:
-                raise Exception("Bug: Deployment.definitions['{}'] is None.".format(m.name))
+                raise Exception(
+                    "Bug: Deployment.definitions['{}'] is None.".format(m.name)
+                )
 
             attrs_list = attrs_per_resource[m.name]
 
@@ -907,7 +910,9 @@ class Deployment(object):
                     raise Exception("Bug: Deployment.definitions is None.")
                 defn = self.definitions[m.name]
                 if defn is None:
-                    raise Exception("Bug: Deployment.definitions['{}'] is None.".format(m.name))
+                    raise Exception(
+                        "Bug: Deployment.definitions['{}'] is None.".format(m.name)
+                    )
 
                 if always_activate or defn.always_activate:
                     m.run_command(setprof.format(m.new_toplevel))
