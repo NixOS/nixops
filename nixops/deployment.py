@@ -127,7 +127,7 @@ class Deployment(object):
         }
 
     @property
-    def active_resources(self):
+    def active_resources(self) -> Dict[str, nixops.resources.ResourceState]:
         return {n: r for n, r in self.resources.items() if not r.obsolete}
 
     def get_typed_resource(self, name, type):
