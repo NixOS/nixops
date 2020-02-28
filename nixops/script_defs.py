@@ -752,14 +752,14 @@ def op_ssh(args):
 
 
 def op_ssh_for_each(args):
-    results = []
+    results: List[Optional[int]] = []
     for depl in one_or_all(args):
 
-        def worker(m):
+        def worker(m: nixops.backends.MachineState) -> Optional[int]:
             if not nixops.deployment.should_do(
                 m, args.include or [], args.exclude or []
             ):
-                return
+                return None
             return m.ssh.run_command(args.args, allow_ssh_args=True, check=False)
 
         results = results + nixops.parallel.run_tasks(
