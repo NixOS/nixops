@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import annotations
 import sys
 import os.path
 import subprocess
@@ -61,16 +61,16 @@ class Deployment(object):
 
     default_description = "Unnamed NixOps network"
 
-    name = nixops.util.attr_property("name", None)
+    name: Optional[str] = nixops.util.attr_property("name", None)
     nix_exprs = nixops.util.attr_property("nixExprs", [], "json")
     nix_path = nixops.util.attr_property("nixPath", [], "json")
     args = nixops.util.attr_property("args", {}, "json")
     description = nixops.util.attr_property("description", default_description)
     configs_path = nixops.util.attr_property("configsPath", None)
-    rollback_enabled = nixops.util.attr_property("rollbackEnabled", False)
+    rollback_enabled: bool = nixops.util.attr_property("rollbackEnabled", False)
 
     # internal variable to mark if network attribute of network has been evaluated (separately)
-    network_attr_eval = False
+    network_attr_eval: bool = False
 
     def __init__(self, statefile, uuid, log_file=sys.stderr):
         self._statefile = statefile
@@ -82,11 +82,11 @@ class Deployment(object):
         self.extra_nix_flags = []
         self.extra_nix_eval_flags = []
         self.nixos_version_suffix = None
-        self._tempdir = None
+        self._tempdir: Optional[nixops.util.SelfDeletingDir] = None
 
         self.logger = nixops.logger.Logger(log_file)
 
-        self._lock_file_path = None
+        self._lock_file_path: Optional[str] = None
 
         self.expr_path = os.path.realpath(
             os.path.dirname(__file__) + "/../../../../share/nix/nixops"
@@ -113,7 +113,7 @@ class Deployment(object):
         self.definitions: Optional[Definitions] = None
 
     @property
-    def tempdir(self):
+    def tempdir(self) -> nixops.util.SelfDeletingDir:
         if not self._tempdir:
             self._tempdir = nixops.util.SelfDeletingDir(
                 tempfile.mkdtemp(prefix="nixops-tmp")
@@ -268,7 +268,7 @@ class Deployment(object):
                 r = self._create_resource(k, v["type"])
                 r.import_(v)
 
-    def clone(self):
+    def clone(self) -> Deployment:
         with self._db:
             new = self._statefile.create_deployment()
             self._db.execute(
@@ -287,9 +287,10 @@ class Deployment(object):
             self._lock_file_path = lock_dir + "/" + self.uuid
 
         class DeploymentLock(object):
-            def __init__(self, depl):
-                self._lock_file_path = depl._lock_file_path
-                self._logger = depl.logger
+            def __init__(self, depl: Deployment):
+                assert depl._lock_file_path is not None
+                self._lock_file_path: str = depl._lock_file_path
+                self._logger: nixops.logger.Logger = depl.logger
                 self._lock_file: Optional[TextIO] = None
 
             def __enter__(self):
@@ -333,7 +334,7 @@ class Deployment(object):
             # Delete the deployment from the database.
             self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
 
-    def _nix_path_flags(self):
+    def _nix_path_flags(self) -> List[str]:
         extraexprs = [
             path for paths in get_plugin_manager().hook.nixexprs() for path in paths
         ]
@@ -352,7 +353,7 @@ class Deployment(object):
         flags.extend(["-I", "nixops=" + self.expr_path])
         return flags
 
-    def _eval_flags(self, exprs):
+    def _eval_flags(self, exprs) -> List[str]:
         flags = self._nix_path_flags()
         args = {key: RawValue(val) for key, val in self.args.items()}
         exprs_ = [RawValue(x) if x[0] == "<" else x for x in exprs]
@@ -383,7 +384,7 @@ class Deployment(object):
         )
         return flags
 
-    def set_arg(self, name, value):
+    def set_arg(self, name: str, value: str):
         """Set a persistent argument to the deployment specification."""
         assert isinstance(name, str)
         assert isinstance(value, str)
@@ -391,12 +392,12 @@ class Deployment(object):
         args[name] = value
         self.args = args
 
-    def set_argstr(self, name, value):
+    def set_argstr(self, name: str, value: str):
         """Set a persistent argument to the deployment specification."""
         assert isinstance(value, str)
         self.set_arg(name, py2nix(value, inline=True))
 
-    def unset_arg(self, name):
+    def unset_arg(self, name: str):
         """Unset a persistent argument to the deployment specification."""
         assert isinstance(name, str)
         args = self.args
@@ -1026,7 +1027,7 @@ class Deployment(object):
                 )
             )
 
-    def _get_free_resource_index(self):
+    def _get_free_resource_index(self) -> int:
         index = 0
         for r in self.resources.values():
             if r.index != None and index <= r.index:
