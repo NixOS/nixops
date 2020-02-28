@@ -215,14 +215,17 @@ def op_info(args):
 
         # Sort machines by type, then name.  Sort numbers in machine
         # names numerically (e.g. "foo10" comes after "foo9").
-        def name_to_key(name):
+        def name_to_key(name: str) -> str:
             d = definitions.get(name)
             r = depl.resources.get(name)
-            return (
-                machine_to_key(depl.uuid, name, r.get_type())
-                if r
-                else machine_to_key(depl.uuid, name, d.get_type)
-            )
+            if r:
+                key = machine_to_key(depl.uuid, name, r.get_type())
+            elif d:
+                key = machine_to_key(depl.uuid, name, d.get_type)
+            else:
+                key = machine_to_key(depl.uuid, name, "")
+
+            return key
 
         names = sorted(
             set(definitions.keys()) | set(depl.resources.keys()), key=name_to_key
@@ -238,6 +241,13 @@ def op_info(args):
             else:
                 resource_state = r.show_state() if r else "Missing"
 
+            if r:
+                user_type = r.show_type()
+            elif d:
+                user_type = d.show_type()
+            else:
+                user_type = "unknown-type"
+
             if args.plain:
                 print(
                     "\t".join(
@@ -245,7 +255,7 @@ def op_info(args):
                         + [
                             name,
                             resource_state.lower(),
-                            r.show_type() if r else d.show_type(),
+                            user_type,
                             r.resource_id or "" if r else "",
                             r.public_ipv4 or ""
                             if r and hasattr(r, "public_ipv4")
@@ -262,7 +272,7 @@ def op_info(args):
                     + [
                         name,
                         resource_state,
-                        r.show_type() if r else d.show_type(),
+                        user_type,
                         r.resource_id or "" if r else "",
                         (hasattr(r, "public_ipv4") and r.public_ipv4)
                         or (hasattr(r, "private_ipv4") and r.private_ipv4)
