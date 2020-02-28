@@ -30,6 +30,7 @@ import time
 import importlib
 from nixops.plugins import get_plugin_manager
 from functools import reduce
+from typing import Dict, Type
 
 
 class NixEvalError(Exception):
@@ -85,7 +86,7 @@ class Deployment(object):
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
-        self.resources = {}
+        self.resources: Dict[str, Type[nixops.resources.ResourceState]] = {}
         with self._db:
             c = self._db.cursor()
             c.execute(
