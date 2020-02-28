@@ -454,7 +454,7 @@ def parse_nixos_version(s):
 def device_name_to_boto_expected(string):
     """Transfoms device name to name, that boto expects."""
     m = re.search("(.*)\/nvme(\d+)n1p?(\d+)?", string)
-    if m != None:
+    if m is not None:
         device = m.group(2)
         device_ = int(device) - 1
         device_transformed = chr(ord("f") + device_)
