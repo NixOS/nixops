@@ -3,7 +3,7 @@
 import os
 import re
 import subprocess
-
+from typing import Dict, Any
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
@@ -207,6 +207,10 @@ class MachineState(nixops.resources.ResourceState):
         self.warn(
             "don't know how to remove a backup for machine ‘{0}’".format(self.name)
         )
+
+    def get_backups(self) -> Dict[str, Dict[str, Any]]:
+        self.warn("don't know how to list backups for ‘{0}’".format(self.name))
+        return {}
 
     def backup(self, defn, backup_id):
         """Make backup of persistent disks, if possible."""
