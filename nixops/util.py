@@ -16,7 +16,7 @@ import subprocess
 import logging
 import atexit
 import re
-
+from typing import TextIO
 # the following ansi_ imports are for backwards compatability. They
 # would belong fine in this util.py, but having them in util.py
 # causes an import cycle with types.
@@ -87,6 +87,7 @@ def logged_exec(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             preexec_fn=preexec_fn,
+            text=True,
         )
         fds = [process.stdout, process.stderr]
         log_fd = process.stderr
@@ -98,6 +99,7 @@ def logged_exec(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             preexec_fn=preexec_fn,
+            text=True
         )
         fds = [process.stdout]
         log_fd = process.stdout
@@ -324,7 +326,7 @@ class SelfDeletingDir(str):
 
 
 class TeeStderr(StringIO):
-    stderr = None
+    stderr: TextIO
 
     def __init__(self):
         StringIO.__init__(self)
@@ -348,7 +350,7 @@ class TeeStderr(StringIO):
 
 
 class TeeStdout(StringIO):
-    stdout = None
+    stdout: TextIO
 
     def __init__(self):
         StringIO.__init__(self)
