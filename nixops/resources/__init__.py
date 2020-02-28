@@ -2,7 +2,7 @@
 
 import re
 import nixops.util
-
+from typing import List
 from nixops.state import StateDict
 from nixops.diff import Diff, Handler
 
@@ -234,6 +234,8 @@ class ResourceState(object):
 
 
 class DiffEngineResourceState(ResourceState):
+    _reserved_keys: List[str] = []
+
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
