@@ -682,7 +682,7 @@ def op_dump_nix_paths(args):
         else:
             return p[1]
 
-    def nix_paths(depl):
+    def nix_paths(depl) -> List[str]:
         candidates = (
             depl.nix_exprs
             + [strip_nix_path(p) for p in depl.nix_path]
@@ -691,7 +691,7 @@ def op_dump_nix_paths(args):
         candidates = [get_nix_path(p) for p in candidates]
         return [p for p in candidates if not p is None]
 
-    paths = []
+    paths: List[str] = []
 
     for depl in one_or_all(args):
         paths.extend(nix_paths(depl))
