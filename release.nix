@@ -67,7 +67,7 @@ in rec {
   build = pkgs.lib.genAttrs [ "x86_64-linux" "i686-linux" "x86_64-darwin" ] (system:
     let
       pkgs = import nixpkgs { inherit system; };
-      pythonPackages = pkgs.python38Packages;
+      pythonPackages = pkgs.python37Packages;
     in pythonPackages.buildPythonApplication rec {
       name = "nixops-${version}";
 
@@ -84,9 +84,9 @@ in rec {
         pythonPackages.black
       ];
 
-      propagatedBuildInputs = with pythonPackages:
-        [ prettytable
-          pluggy
+        propagatedBuildInputs = [
+          pythonPackages.prettytable
+          pythonPackages.pluggy
         ] ++ pkgs.lib.traceValFn (x: "Using plugins: " + builtins.toJSON x) (map (d: d.build.${system}) (p allPlugins));
 
 
