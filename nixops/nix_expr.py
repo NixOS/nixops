@@ -67,7 +67,7 @@ class Call(object):
 
     def __eq__(self, other):
         return (
-            isinstance(other, App) and other.fun == self.fun and other.arg == self.arg
+            isinstance(other, Call) and other.fun == self.fun and other.arg == self.arg
         )
 
 
