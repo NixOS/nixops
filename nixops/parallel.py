@@ -3,6 +3,12 @@ import sys
 import queue
 import random
 import traceback
+import types
+from typing import TypeVar, List, Callable, Tuple, Optional, Type, Protocol
+
+
+class Task(Protocol):
+    name: str
 
 
 class MultipleExceptions(Exception):
@@ -21,9 +27,21 @@ class MultipleExceptions(Exception):
             traceback.print_exception(e[0], e[1], e[2])
 
 
-def run_tasks(nr_workers, tasks, worker_fun):
-    task_queue = queue.Queue()
-    result_queue = queue.Queue()
+Result = TypeVar("Result")
+ExcInfo = Tuple[Type[BaseException], BaseException, types.TracebackType]
+
+WorkerResult = Tuple[
+    Optional[Result],  # Result of the execution, None if there is an Exception
+    Optional[ExcInfo],  # Optional Exception information
+    str,  # The result of `task.name`
+]
+
+
+def run_tasks(
+    nr_workers: int, tasks: List[Task], worker_fun: Callable[[Task], Result]
+) -> List[Optional[Result]]:
+    task_queue: queue.Queue[Task] = queue.Queue()
+    result_queue: queue.Queue[WorkerResult] = queue.Queue()
 
     nr_tasks = 0
     for t in tasks:
@@ -46,10 +64,21 @@ def run_tasks(nr_workers, tasks, worker_fun):
             except queue.Empty:
                 break
             n = n + 1
+            work_result: WorkerResult
             try:
-                result_queue.put((worker_fun(t), None, t.name))
+                work_result = (worker_fun(t), None, t.name)
             except Exception as e:
-                result_queue.put((None, sys.exc_info(), t.name))
+                info = sys.exc_info()
+                if info[0] is None:
+                    # impossible; would only be None if we're not
+                    # handling an exception ... and we are...
+                    # but we have to do this anyway, to avoid
+                    # propogating this bad API throughout NixOps.
+                    work_result = (None, None, t.name)
+                else:
+                    work_result = (None, info, t.name)
+
+            result_queue.put(work_result)
         # sys.stderr.write("thread {0} did {1} tasks\n".format(threading.current_thread(), n))
 
     threads = []
@@ -59,13 +88,14 @@ def run_tasks(nr_workers, tasks, worker_fun):
         thr.start()
         threads.append(thr)
 
-    results = []
+    results: List[Optional[Result]] = []
     exceptions = {}
     while len(results) < nr_tasks:
         try:
             # Use a timeout to allow keyboard interrupts to be
             # processed.  The actual timeout value doesn't matter.
-            (res, excinfo, name) = result_queue.get(True, 1000)
+            result: WorkerResult = result_queue.get(True, 1000)
+            (res, excinfo, name) = result
         except queue.Empty:
             continue
         if excinfo:
