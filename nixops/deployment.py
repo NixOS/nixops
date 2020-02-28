@@ -11,7 +11,6 @@ import threading
 import errno
 from collections import defaultdict
 from xml.etree import ElementTree
-import nixops.statefile
 import nixops.backends
 import nixops.logger
 import nixops.parallel
