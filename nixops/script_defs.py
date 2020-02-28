@@ -22,7 +22,7 @@ import logging.handlers
 import syslog
 import json
 import pipes
-from typing import Any
+from typing import Any, List, Optional
 from datetime import datetime
 from pprint import pprint
 import importlib
@@ -50,21 +50,23 @@ def op_list_plugins(args):
     print(tbl)
 
 
-def create_table(headers):
+def create_table(headers: List[str]) -> prettytable.PrettyTable:
     tbl = prettytable.PrettyTable([name for (name, align) in headers])
     for (name, align) in headers:
         tbl.align[name] = align
     return tbl
 
 
-def sort_deployments(depls):
+def sort_deployments(
+    depls: List[nixops.deployment.Deployment],
+) -> List[nixops.deployment.Deployment]:
     return sorted(depls, key=lambda depl: (depl.name, depl.uuid))
 
 
 # Handle the --all switch: if --all is given, return all deployments;
 # otherwise, return the deployment specified by -d /
 # $NIXOPS_DEPLOYMENT.
-def one_or_all(args):
+def one_or_all(args: argparse.Namespace) -> List[nixops.deployment.Deployment]:
     if args.all:
         sf = nixops.statefile.StateFile(args.state_file)
         return sf.get_all_deployments()
@@ -123,7 +125,7 @@ def open_deployment(args: argparse.Namespace) -> nixops.deployment.Deployment:
     return depl
 
 
-def set_name(depl, name):
+def set_name(depl: nixops.deployment.Deployment, name: Optional[str]):
     if not name:
         return
     if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-\.]*$", name):
@@ -131,7 +133,7 @@ def set_name(depl, name):
     depl.name = name
 
 
-def modify_deployment(args, depl):
+def modify_deployment(args, depl: nixops.deployment.Deployment):
     nix_exprs = args.nix_exprs
     templates = args.templates or []
     for i in templates:
@@ -172,7 +174,7 @@ def op_delete(args):
         depl.delete(force=args.force or False)
 
 
-def machine_to_key(depl: str, name: str, type):
+def machine_to_key(depl: str, name: str, type: Any):
     xs = [int(x) if x.isdigit() else x for x in re.split("(\d+)", name)]
     return [depl, type, xs]
 
@@ -350,7 +352,7 @@ def op_check(args):
     machines = []
     resources = []
 
-    def check(depl):
+    def check(depl: nixops.deployment.Deployment):
         for m in depl.active_resources.values():
             if not nixops.deployment.should_do(
                 m, args.include or [], args.exclude or []
