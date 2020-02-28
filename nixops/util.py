@@ -16,6 +16,11 @@ import subprocess
 import logging
 import atexit
 import re
+
+# the following ansi_ imports are for backwards compatability. They
+# would belong fine in this util.py, but having them in util.py
+# causes an import cycle with types.
+from nixops.ansi import ansi_warn, ansi_error, ansi_success, ansi_highlight
 from io import StringIO
 
 devnull = open(os.devnull, "r+")
@@ -229,22 +234,6 @@ def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
         if callback:
             callback()
     raise Exception("timed out waiting for port {0} on ‘{1}’".format(port, ip))
-
-
-def ansi_highlight(s, outfile=sys.stderr):
-    return "\033[1;35m" + s + "\033[0m" if outfile.isatty() else s
-
-
-def ansi_warn(s, outfile=sys.stderr):
-    return "\033[1;33m" + s + "\033[0m" if outfile.isatty() else s
-
-
-def ansi_error(s, outfile=sys.stderr):
-    return "\033[1;31m" + s + "\033[0m" if outfile.isatty() else s
-
-
-def ansi_success(s, outfile=sys.stderr):
-    return "\033[1;32m" + s + "\033[0m" if outfile.isatty() else s
 
 
 def _maybe_abspath(s):
