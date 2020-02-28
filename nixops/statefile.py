@@ -81,8 +81,7 @@ class StateFile(object):
             check_same_thread=False,
             factory=Connection,
             isolation_level=None,
-        )  # FIXME
-        db.db_file = db_file
+        )
 
         db.execute("pragma journal_mode = wal")
         db.execute("pragma foreign_keys = 1")
