@@ -148,6 +148,18 @@ class Deployment(object):
             raise Exception("resource ‘{0}’ is not a machine".format(name))
         return res
 
+    def _definition_for(self, name: str) -> Optional[nixops.backends.MachineDefinition]:
+        if self.definitions is None:
+            raise Exception("Bug: Deployment.definitions is None.")
+
+        return self.definitions[name]
+
+    def _definition_for_required(self, name: str) -> nixops.backends.MachineDefinition:
+        defn = self._definition_for(name)
+        if defn is None:
+            raise Exception("Bug: Deployment.definitions['{}'] is None.".format(name))
+        return defn
+
     def _set_attrs(self, attrs):
         """Update deployment attributes in the state file."""
         with self._db:
@@ -552,14 +564,7 @@ class Deployment(object):
             return "192.168.{0}.{1}".format(n, index % 256)
 
         def do_machine(m):
-            if self.definitions is None:
-                raise Exception("Bug: Deployment.definitions is None.")
-
-            defn = self.definitions[m.name]
-            if defn is None:
-                raise Exception(
-                    "Bug: Deployment.definitions['{}'] is None.".format(m.name)
-                )
+            defn = self._definition_for_required(m.name)
 
             attrs_list = attrs_per_resource[m.name]
 
@@ -906,13 +911,7 @@ class Deployment(object):
                 setprof = (
                     daemon_var + 'nix-env -p /nix/var/nix/profiles/system --set "{0}"'
                 )
-                if self.definitions is None:
-                    raise Exception("Bug: Deployment.definitions is None.")
-                defn = self.definitions[m.name]
-                if defn is None:
-                    raise Exception(
-                        "Bug: Deployment.definitions['{}'] is None.".format(m.name)
-                    )
+                defn = self._definition_for_required(m.name)
 
                 if always_activate or defn.always_activate:
                     m.run_command(setprof.format(m.new_toplevel))
