@@ -4,11 +4,7 @@ import queue
 import random
 import traceback
 import types
-from typing import TypeVar, List, Callable, Tuple, Optional, Type, Protocol
-
-
-class Task(Protocol):
-    name: str
+from typing import TypeVar, List, Callable, Tuple, Optional, Type, Any
 
 
 class MultipleExceptions(Exception):
@@ -27,6 +23,10 @@ class MultipleExceptions(Exception):
             traceback.print_exception(e[0], e[1], e[2])
 
 
+# Once we're using Python 3.8, use this instead of the Any
+# class Task(Protocol):
+#    name: st
+Task = Any
 Result = TypeVar("Result")
 ExcInfo = Tuple[Type[BaseException], BaseException, types.TracebackType]
 
