@@ -35,11 +35,12 @@ WorkerResult = Tuple[
     Optional[ExcInfo],  # Optional Exception information
     str,  # The result of `task.name`
 ]
+FinalResult = List[Optional[Result]]
 
 
 def run_tasks(
     nr_workers: int, tasks: Iterable[Task], worker_fun: Callable[[Task], Result]
-) -> List[Optional[Result]]:
+) -> FinalResult:
     task_queue: queue.Queue[Task] = queue.Queue()
     result_queue: queue.Queue[WorkerResult] = queue.Queue()
 
@@ -88,7 +89,7 @@ def run_tasks(
         thr.start()
         threads.append(thr)
 
-    results: List[Optional[Result]] = []
+    results: FinalResult = []
     exceptions = {}
     while len(results) < nr_tasks:
         try:
