@@ -638,8 +638,7 @@ def op_rename(args):
     depl.rename(args.current_name, args.new_name)
 
 
-def print_physical_backup_spec(backupid):
-    depl = open_deployment(args)
+def print_physical_backup_spec(depl, backupid):
     config = {}
     for m in depl.active.values():
         config[m.name] = m.get_physical_backup_spec(backupid)
@@ -659,7 +658,7 @@ def op_show_arguments(args):
 def op_show_physical(args):
     depl = open_deployment(args)
     if args.backupid:
-        print_physical_backup_spec(args.backupid)
+        print_physical_backup_spec(depl, args.backupid)
         return
     depl.evaluate()
     sys.stdout.write(depl.get_physical_spec())
