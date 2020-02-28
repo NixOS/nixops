@@ -16,18 +16,26 @@ import subprocess
 import logging
 import atexit
 import re
-from typing import TextIO, Any
+from typing import Callable, List, Optional, Any, IO, Union, Mapping, TextIO
 
 # the following ansi_ imports are for backwards compatability. They
 # would belong fine in this util.py, but having them in util.py
 # causes an import cycle with types.
 from nixops.ansi import ansi_warn, ansi_error, ansi_success, ansi_highlight
+from nixops.logger import MachineLogger
 from io import StringIO
+
 
 devnull = open(os.devnull, "r+")
 
 
-def check_wait(test, initial=10, factor=1, max_tries=60, exception=True):
+def check_wait(
+    test: Callable[[], bool],
+    initial: int = 10,
+    factor: int = 1,
+    max_tries: int = 60,
+    exception: bool = True,
+) -> bool:
     """Call function ‘test’ periodically until it returns True or a timeout occurs."""
     wait = initial
     tries = 0
@@ -43,7 +51,7 @@ def check_wait(test, initial=10, factor=1, max_tries=60, exception=True):
 
 
 class CommandFailed(Exception):
-    def __init__(self, message, exitcode):
+    def __init__(self, message: str, exitcode: int):
         self.message = message
         self.exitcode = exitcode
 
@@ -52,15 +60,15 @@ class CommandFailed(Exception):
 
 
 def logged_exec(
-    command,
-    logger,
-    check=True,
-    capture_stdout=False,
-    stdin=None,
-    stdin_string=None,
-    env=None,
-    preexec_fn=None,
-):
+    command: List[str],
+    logger: MachineLogger,
+    check: bool = True,
+    capture_stdout: bool = False,
+    stdin: Optional[IO[Any]] = None,
+    stdin_string: Optional[str] = None,
+    env: Optional[Mapping[str, str]] = None,
+    preexec_fn: Optional[Callable[[], Any]] = None,
+) -> Union[str, int]:
     """
     Execute a command with logging using the specified logger.
 
@@ -75,16 +83,20 @@ def logged_exec(
     function will return an integer which represents the return code of the
     program, otherwise a CommandFailed exception is thrown.
     """
+    passed_stdin: Union[int, IO[Any]]
+
     if stdin_string is not None:
-        stdin = subprocess.PIPE
-    elif stdin is None:
-        stdin = devnull
+        passed_stdin = subprocess.PIPE
+    elif stdin is not None:
+        passed_stdin = stdin
+    else:
+        passed_stdin = devnull
 
     if capture_stdout:
         process = subprocess.Popen(
             command,
             env=env,
-            stdin=stdin,
+            stdin=passed_stdin,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             preexec_fn=preexec_fn,
@@ -96,7 +108,7 @@ def logged_exec(
         process = subprocess.Popen(
             command,
             env=env,
-            stdin=stdin,
+            stdin=passed_stdin,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             preexec_fn=preexec_fn,
@@ -183,18 +195,20 @@ def logged_exec(
     return stdout if capture_stdout else res
 
 
-def generate_random_string(length=256):
+def generate_random_string(length=256) -> str:
     """Generate a base-64 encoded cryptographically strong random string."""
     s = os.urandom(length)
     assert len(s) == length
-    return base64.b64encode(s)
+    return base64.b64encode(s).decode()
 
 
-def make_non_blocking(fd):
+def make_non_blocking(fd: IO[Any]):
     fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)
 
 
-def ping_tcp_port(host, port, timeout=1, ensure_timeout=False):
+def ping_tcp_port(
+    host: str, port: int, timeout: int = 1, ensure_timeout: bool = False
+) -> bool:
     """"
     Return to True or False depending on being able to connect the specified host and port.
     Raises exceptions which are not related to opening a socket to the target host.
@@ -223,7 +237,13 @@ def ping_tcp_port(host, port, timeout=1, ensure_timeout=False):
     return False
 
 
-def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
+def wait_for_tcp_port(
+    ip: str,
+    port: int,
+    timeout: int = -1,
+    open: bool = True,
+    callback: Optional[Callable[[], Any]] = None,
+):
     """Wait until the specified TCP port is open or closed."""
     n = 0
     while True:
@@ -239,7 +259,7 @@ def wait_for_tcp_port(ip, port, timeout=-1, open=True, callback=None):
     raise Exception("timed out waiting for port {0} on ‘{1}’".format(port, ip))
 
 
-def _maybe_abspath(s):
+def _maybe_abspath(s: str) -> str:
     if (
         s.startswith("http://")
         or s.startswith("https://")
@@ -318,7 +338,7 @@ def create_key_pair(key_name="NixOps auto-generated key", type="ed25519"):
 
 
 class SelfDeletingDir(str):
-    def __init__(self, s):
+    def __init__(self, s: str):
         str.__init__(s)
         atexit.register(self._delete)
 
@@ -343,10 +363,10 @@ class TeeStderr(StringIO):
         for l in data.split("\n"):
             self.logger.warning(l)
 
-    def fileno(self):
+    def fileno(self) -> int:
         return self.stderr.fileno()
 
-    def isatty(self):
+    def isatty(self) -> bool:
         return self.stderr.isatty()
 
     def flush(self):
@@ -370,10 +390,10 @@ class TeeStdout(StringIO):
         for l in data.split("\n"):
             self.logger.info(l)
 
-    def fileno(self):
+    def fileno(self) -> int:
         return self.stdout.fileno()
 
-    def isatty(self):
+    def isatty(self) -> bool:
         return self.stdout.isatty()
 
     def flush(self):
@@ -381,10 +401,10 @@ class TeeStdout(StringIO):
 
 
 # Borrowed from http://stackoverflow.com/questions/377017/test-if-executable-exists-in-python.
-def which(program):
+def which(program: str) -> str:
     import os
 
-    def is_exe(fpath):
+    def is_exe(fpath: str) -> bool:
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
     fpath, fname = os.path.split(program)
@@ -405,7 +425,7 @@ def enum(**enums):
     return type("Enum", (), enums)
 
 
-def write_file(path, contents):
+def write_file(path: str, contents: str):
     f = open(path, "w")
     f.write(contents)
     f.close()
@@ -450,7 +470,7 @@ def xml_expr_to_python(node):
     )
 
 
-def parse_nixos_version(s):
+def parse_nixos_version(s: str) -> List[str]:
     """Split a NixOS version string into a list of components."""
     return s.split(".")
 
@@ -458,7 +478,7 @@ def parse_nixos_version(s):
 # sd -> sd
 # xvd -> sd
 # nvme -> sd
-def device_name_to_boto_expected(string):
+def device_name_to_boto_expected(string: str) -> str:
     """Transfoms device name to name, that boto expects."""
     m = re.search("(.*)\/nvme(\d+)n1p?(\d+)?", string)
     if m is not None:
@@ -476,12 +496,12 @@ def device_name_to_boto_expected(string):
 # sd -> sd
 # xvd -> sd
 # nvme -> nvme
-def device_name_user_entered_to_stored(string):
+def device_name_user_entered_to_stored(string: str) -> str:
     return string.replace("/dev/xvd", "/dev/sd")
 
 
 # sd -> xvd
 # xvd -> xvd
 # nvme -> nvme
-def device_name_stored_to_real(string):
+def device_name_stored_to_real(string: str) -> str:
     return string.replace("/dev/sd", "/dev/xvd")
