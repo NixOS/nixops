@@ -30,9 +30,19 @@ import time
 import importlib
 from nixops.plugins import get_plugin_manager
 from functools import reduce
-from typing import Dict, Optional, TextIO, Set, List, DefaultDict, Any, Tuple
+from typing import (
+    Dict,
+    Optional,
+    TextIO,
+    Set,
+    List,
+    DefaultDict,
+    Any,
+    Tuple,
+    ValuesView,
+)
 
-Definitions = Dict[str, nixops.backends.MachineDefinition]
+Definitions = Dict[str, nixops.resources.ResourceDefinition]
 
 
 class NixEvalError(Exception):
@@ -148,16 +158,32 @@ class Deployment(object):
             raise Exception("resource ‘{0}’ is not a machine".format(name))
         return res
 
-    def _definition_for(self, name: str) -> Optional[nixops.backends.MachineDefinition]:
+    def _definitions(self) -> Definitions:
         if self.definitions is None:
             raise Exception("Bug: Deployment.definitions is None.")
+        return self.definitions
 
-        return self.definitions[name]
+    def _definition_for(
+        self, name: str
+    ) -> Optional[nixops.resources.ResourceDefinition]:
+        definitions = self._definitions()
 
-    def _definition_for_required(self, name: str) -> nixops.backends.MachineDefinition:
+        return definitions[name]
+
+    def _definition_for_required(
+        self, name: str
+    ) -> nixops.resources.ResourceDefinition:
         defn = self._definition_for(name)
         if defn is None:
             raise Exception("Bug: Deployment.definitions['{}'] is None.".format(name))
+        return defn
+
+    def _machine_definition_for_required(
+        self, name: str
+    ) -> nixops.backends.MachineDefinition:
+        defn = self._definition_for_required(name)
+        if not isinstance(defn, nixops.backends.MachineDefinition):
+            raise Exception("Definition named '{}' is not a machine.".format(name))
         return defn
 
     def _set_attrs(self, attrs):
@@ -564,7 +590,7 @@ class Deployment(object):
             return "192.168.{0}.{1}".format(n, index % 256)
 
         def do_machine(m):
-            defn = self._definition_for_required(m.name)
+            defn = self._machine_definition_for_required(m.name)
 
             attrs_list = attrs_per_resource[m.name]
 
@@ -590,7 +616,8 @@ class Deployment(object):
 
                 # Don't create two tunnels between a pair of machines.
                 if (
-                    m.name in self.definitions[m2.name].encrypted_links_to
+                    m.name
+                    in self._machine_definition_for_required(m2.name).encrypted_links_to
                     and m.name >= m2.name
                 ):
                     continue
@@ -911,7 +938,7 @@ class Deployment(object):
                 setprof = (
                     daemon_var + 'nix-env -p /nix/var/nix/profiles/system --set "{0}"'
                 )
-                defn = self._definition_for_required(m.name)
+                defn = self._machine_definition_for_required(m.name)
 
                 if always_activate or defn.always_activate:
                     m.run_command(setprof.format(m.new_toplevel))
@@ -1014,8 +1041,11 @@ class Deployment(object):
                 machine_backups[m.name] = m.get_backups()
 
         # merging machine backups into network backups
-        backup_ids = [b for bs in machine_backups.values() for b in bs.keys()]
-        backups = {}
+        backup_ids = [
+            b for bs in machine_backups.values() for b in bs.keys()
+        ]
+
+        backups: Dict[str, Dict[str, Any]] = {}
         for backup_id in backup_ids:
             backups[backup_id] = {}
             backups[backup_id]["machines"] = {}
@@ -1086,7 +1116,7 @@ class Deployment(object):
                 )
                 if res != 0:
                     m.logger.log("running sync failed on {0}.".format(m.name))
-            m.backup(self.definitions[m.name], backup_id, devices)
+            m.backup(self._definition_for_required(m.name), backup_id, devices)
 
         nixops.parallel.run_tasks(
             nr_workers=5, tasks=iter(self.active.values()), worker_fun=worker
@@ -1102,7 +1132,7 @@ class Deployment(object):
             def worker(m):
                 if not should_do(m, include, exclude):
                     return
-                m.restore(self.definitions[m.name], backup_id, devices)
+                m.restore(self._definition_for_required(m.name), backup_id, devices)
 
             nixops.parallel.run_tasks(
                 nr_workers=-1, tasks=iter(self.active.values()), worker_fun=worker
@@ -1117,9 +1147,9 @@ class Deployment(object):
 
         # Create state objects for all defined resources.
         with self._db:
-            for m in self.definitions.values():
-                if m.name not in self.resources:
-                    self._create_resource(m.name, m.get_type())
+            for defn in self._definitions().values():
+                if defn.name not in self.resources:
+                    self._create_resource(defn.name, defn.get_type())
 
         self.logger.update_log_prefixes()
 
@@ -1190,7 +1220,7 @@ class Deployment(object):
         if not dry_run and not build_only:
 
             for r in self.active_resources.values():
-                defn = self.definitions[r.name]
+                defn = self._definition_for_required(r.name)
                 if r.get_type() != defn.get_type():
                     raise Exception(
                         "the type of resource ‘{0}’ changed from ‘{1}’ to ‘{2}’, which is currently unsupported".format(
@@ -1204,7 +1234,7 @@ class Deployment(object):
                 if not should_do(r, include, exclude):
                     return
                 if hasattr(r, "plan"):
-                    r.plan(self.definitions[r.name])
+                    r.plan(self._definition_for_required(r.name))
                 else:
                     r.warn(
                         "resource type {} doesn't implement a plan operation".format(
@@ -1225,7 +1255,8 @@ class Deployment(object):
                     # Sleep until all dependencies of this resource have
                     # been created.
                     deps = r.create_after(
-                        iter(self.active_resources.values()), self.definitions[r.name]
+                        iter(self.active_resources.values()),
+                        self._definition_for_required(r.name),
                     )
                     for dep in deps:
                         dep._created_event.wait()
@@ -1238,7 +1269,7 @@ class Deployment(object):
                     if not r.creation_time:
                         r.creation_time = int(time.time())
                     r.create(
-                        self.definitions[r.name],
+                        self._definition_for_required(r.name),
                         check=check,
                         allow_reboot=allow_reboot,
                         allow_recreate=allow_recreate,
@@ -1332,7 +1363,7 @@ class Deployment(object):
                 return
 
             # Now create the resource itself.
-            r.after_activation(self.definitions[r.name])
+            r.after_activation(self._definition_for_required(r.name))
 
         nixops.parallel.run_tasks(
             nr_workers=-1,
