@@ -189,9 +189,9 @@ class StateFile(object):
     def create_deployment(self, uuid=None):
         """Create a new deployment."""
         if not uuid:
-            import uuid
+            import uuid as uuidlib
 
-            uuid = str(uuid.uuid1())
+            uuid = str(uuidlib.uuid1())
         with self._db:
             self._db.execute("insert into Deployments(uuid) values (?)", (uuid,))
         return nixops.deployment.Deployment(self, uuid, sys.stderr)
