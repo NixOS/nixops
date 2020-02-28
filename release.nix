@@ -75,7 +75,10 @@ in rec {
 
       buildInputs = [ python2Packages.nose python2Packages.coverage ];
 
-      nativeBuildInputs = [ pkgs.mypy ];
+      nativeBuildInputs = [
+        python3Packages.mypy
+        python3Packages.black
+      ];
 
       propagatedBuildInputs = with python2Packages;
         [ prettytable
