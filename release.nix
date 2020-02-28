@@ -76,7 +76,11 @@ in rec {
       buildInputs = [ python2Packages.nose python2Packages.coverage ];
 
       nativeBuildInputs = [
-        python3Packages.mypy
+        (python3Packages.mypy.overrideAttrs ({ propagatedBuildInputs, ... }: {
+          propagatedBuildInputs = propagatedBuildInputs ++ [
+            python3Packages.lxml
+          ];
+        }))
         python3Packages.black
       ];
 
