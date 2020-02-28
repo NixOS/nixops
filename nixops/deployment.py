@@ -29,6 +29,7 @@ import time
 import importlib
 from nixops.plugins import get_plugin_manager
 from functools import reduce
+import typing
 
 
 class NixEvalError(Exception):

@@ -6,6 +6,8 @@ import os.path
 import sqlite3
 import sys
 import threading
+import typing
+from typing import Optional
 
 
 class Connection(sqlite3.Connection):
@@ -144,7 +146,7 @@ class StateFile(object):
                 )
         return res
 
-    def _find_deployment(self, uuid=None):
+    def _find_deployment(self, uuid=None) -> Optional[nixops.deployment.Deployment]:
         c = self._db.cursor()
         if not uuid:
             c.execute("select uuid from Deployments")
@@ -176,7 +178,7 @@ class StateFile(object):
                 )
         return nixops.deployment.Deployment(self, res[0][0], sys.stderr)
 
-    def open_deployment(self, uuid=None):
+    def open_deployment(self, uuid=None) -> nixops.deployment.Deployment:
         """Open an existing deployment."""
         deployment = self._find_deployment(uuid=uuid)
         if deployment:

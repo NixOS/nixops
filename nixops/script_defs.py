@@ -22,7 +22,7 @@ import logging.handlers
 import syslog
 import json
 import pipes
-
+from typing import Any
 from datetime import datetime
 from pprint import pprint
 import importlib
@@ -96,7 +96,7 @@ def op_list_deployments(args):
     print(tbl)
 
 
-def open_deployment(args):
+def open_deployment(args: argparse.Namespace) -> nixops.deployment.Deployment:
     sf = nixops.statefile.StateFile(args.state_file)
     depl = sf.open_deployment(uuid=args.deployment)
 
@@ -172,7 +172,7 @@ def op_delete(args):
         depl.delete(force=args.force or False)
 
 
-def machine_to_key(depl, name, type):
+def machine_to_key(depl: str, name: str, type):
     xs = [int(x) if x.isdigit() else x for x in re.split("(\d+)", name)]
     return [depl, type, xs]
 
@@ -210,20 +210,21 @@ def op_info(args):
                 )
                 depl.definitions = None
 
-    def print_deployment(depl):
+    def print_deployment(depl: nixops.deployment.Deployment) -> ():
         definitions = depl.definitions or {}
 
         # Sort machines by type, then name.  Sort numbers in machine
         # names numerically (e.g. "foo10" comes after "foo9").
-        def name_to_key(name):
+        def name_to_key(name: str) -> str:
             d = definitions.get(name)
             r = depl.resources.get(name)
             if r:
-                key = machine_to_key(depl.uuid, name, d.get_type())
-            elif r is None:
-                key = machine_to_key(depl.uuid, name, "")
+                key = machine_to_key(depl.uuid, name, r.get_type())
+            elif d:
+                key = machine_to_key(depl.uuid, name, d.get_type)
             else:
-                key = machine_to_key(depl.uuid, name, r.get_type)
+                key = machine_to_key(depl.uuid, name, "")
+
             return key
 
         names = sorted(
@@ -240,6 +241,13 @@ def op_info(args):
             else:
                 resource_state = r.show_state() if r else "Missing"
 
+            if r:
+                user_type = r.show_type()
+            elif d:
+                user_type = d.show_type()
+            else:
+                user_type = "unknown-type"
+
             if args.plain:
                 print(
                     "\t".join(
@@ -247,7 +255,7 @@ def op_info(args):
                         + [
                             name,
                             resource_state.lower(),
-                            r.show_type() if r else d.show_type(),
+                            user_type,
                             r.resource_id or "" if r else "",
                             r.public_ipv4 or ""
                             if r and hasattr(r, "public_ipv4")
@@ -264,7 +272,7 @@ def op_info(args):
                     + [
                         name,
                         resource_state,
-                        r.show_type() if r else d.show_type(),
+                        user_type,
                         r.resource_id or "" if r else "",
                         (hasattr(r, "public_ipv4") and r.public_ipv4)
                         or (hasattr(r, "private_ipv4") and r.private_ipv4)
