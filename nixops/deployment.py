@@ -1041,9 +1041,7 @@ class Deployment(object):
                 machine_backups[m.name] = m.get_backups()
 
         # merging machine backups into network backups
-        backup_ids = [
-            b for bs in machine_backups.values() for b in bs.keys()
-        ]
+        backup_ids = [b for bs in machine_backups.values() for b in bs.keys()]
 
         backups: Dict[str, Dict[str, Any]] = {}
         for backup_id in backup_ids:
@@ -1159,7 +1157,7 @@ class Deployment(object):
         # delete obsolete resources from ‘self.resources’ because they
         # contain important state that we don't want to forget about.)
         for m in self.resources.values():
-            if m.name in self.definitions:
+            if m.name in self._definitions():
                 if m.obsolete:
                     self.logger.log(
                         "resource ‘{0}’ is no longer obsolete".format(m.name)
