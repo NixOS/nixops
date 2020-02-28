@@ -364,7 +364,7 @@ class Deployment(object):
                 stderr=self.logger.log_file,
             )
             if debug:
-                print("JSON output of nix-instantiate:\n" + xml, file=sys.stderr)
+                print("JSON output of nix-instantiate:\n" + out, file=sys.stderr)
             return json.loads(out)
         except OSError as e:
             raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
