@@ -4,7 +4,7 @@ import queue
 import random
 import traceback
 import types
-from typing import TypeVar, List, Callable, Tuple, Optional, Type, Any
+from typing import TypeVar, List, Iterable, Callable, Tuple, Optional, Type, Any
 
 
 class MultipleExceptions(Exception):
@@ -38,7 +38,7 @@ WorkerResult = Tuple[
 
 
 def run_tasks(
-    nr_workers: int, tasks: List[Task], worker_fun: Callable[[Task], Result]
+    nr_workers: int, tasks: Iterable[Task], worker_fun: Callable[[Task], Result]
 ) -> List[Optional[Result]]:
     task_queue: queue.Queue[Task] = queue.Queue()
     result_queue: queue.Queue[WorkerResult] = queue.Queue()
