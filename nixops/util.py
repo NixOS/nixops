@@ -17,6 +17,7 @@ import logging
 import atexit
 import re
 from typing import TextIO, Any
+
 # the following ansi_ imports are for backwards compatability. They
 # would belong fine in this util.py, but having them in util.py
 # causes an import cycle with types.
