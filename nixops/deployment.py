@@ -30,8 +30,9 @@ import time
 import importlib
 from nixops.plugins import get_plugin_manager
 from functools import reduce
-from typing import Dict, Optional, TextIO
+from typing import Dict, Optional, TextIO, Set, List, DefaultDict, Any, Tuple
 
+Definitions = Dict[str, nixops.backends.MachineDefinition]
 
 class NixEvalError(Exception):
     pass
@@ -98,7 +99,7 @@ class Deployment(object):
                 self.resources[name] = r
         self.logger.update_log_prefixes()
 
-        self.definitions = None
+        self.definitions: Optional[Definitions] = None
 
     @property
     def tempdir(self):
@@ -515,10 +516,18 @@ class Deployment(object):
         active_machines = self.active
         active_resources = self.active_resources
 
-        attrs_per_resource = {m.name: [] for m in active_resources.values()}
-        authorized_keys = {m.name: [] for m in active_machines.values()}
-        kernel_modules = {m.name: set() for m in active_machines.values()}
-        trusted_interfaces = {m.name: set() for m in active_machines.values()}
+        attrs_per_resource: Dict[str, List[Dict[Tuple[str, ...], Any]]] = {
+            m.name: [] for m in active_resources.values()
+        }
+        authorized_keys: Dict[str, List[str]] = {
+            m.name: [] for m in active_machines.values()
+        }
+        kernel_modules: Dict[str, Set[str]] = {
+            m.name: set() for m in active_machines.values()
+        }
+        trusted_interfaces: Dict[str, Set[str]] = {
+            m.name: set() for m in active_machines.values()
+        }
 
         # Hostnames should be accumulated like this:
         #
@@ -532,7 +541,9 @@ class Deployment(object):
         # This is critical for example when using host names for access
         # control, because the canonical_hostname is returned in reverse
         # lookups.
-        hosts = defaultdict(lambda: defaultdict(list))
+        hosts: DefaultDict[str, DefaultDict[str, List[str]]] = defaultdict(
+            lambda: defaultdict(list)
+        )
 
         def index_to_private_ip(index):
             n = 105 + index / 256
@@ -540,7 +551,13 @@ class Deployment(object):
             return "192.168.{0}.{1}".format(n, index % 256)
 
         def do_machine(m):
+            if self.definitions is None:
+                raise Exception("Bug: Deployment.definitions is None.")
+
             defn = self.definitions[m.name]
+            if defn is None:
+                raise Exception("Bug: Deployment.definitions['{}'] is None.".format(m.name))
+
             attrs_list = attrs_per_resource[m.name]
 
             # Emit configuration to realise encrypted peer-to-peer links.
@@ -886,7 +903,13 @@ class Deployment(object):
                 setprof = (
                     daemon_var + 'nix-env -p /nix/var/nix/profiles/system --set "{0}"'
                 )
-                if always_activate or self.definitions[m.name].always_activate:
+                if self.definitions is None:
+                    raise Exception("Bug: Deployment.definitions is None.")
+                defn = self.definitions[m.name]
+                if defn is None:
+                    raise Exception("Bug: Deployment.definitions['{}'] is None.".format(m.name))
+
+                if always_activate or defn.always_activate:
                     m.run_command(setprof.format(m.new_toplevel))
                 else:
                     # Only activate if the profile has changed.
