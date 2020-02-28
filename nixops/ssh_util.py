@@ -8,6 +8,7 @@ import time
 import weakref
 from tempfile import mkdtemp
 import nixops.util
+from typing import Dict, Any
 
 __all__ = ["SSHConnectionFailed", "SSHCommandFailed", "SSH"]
 
@@ -28,7 +29,7 @@ class SSHMaster(object):
         self._control_socket = self._tempdir + "/master-socket"
         self._ssh_target = target
         pass_prompts = 0 if "-i" in ssh_flags and user is None else 3
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
 
         if passwd is not None:
             self._askpass_helper = self._make_askpass_helper()
