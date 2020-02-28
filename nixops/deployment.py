@@ -30,7 +30,7 @@ import time
 import importlib
 from nixops.plugins import get_plugin_manager
 from functools import reduce
-from typing import Dict
+from typing import Dict, Optional, TextIO
 
 
 class NixEvalError(Exception):
@@ -250,7 +250,7 @@ class Deployment(object):
             def __init__(self, depl):
                 self._lock_file_path = depl._lock_file_path
                 self._logger = depl.logger
-                self._lock_file = None
+                self._lock_file: Optional[TextIO] = None
 
             def __enter__(self):
                 self._lock_file = open(self._lock_file_path, "w")
@@ -262,7 +262,8 @@ class Deployment(object):
                     fcntl.flock(self._lock_file, fcntl.LOCK_EX)
 
             def __exit__(self, exception_type, exception_value, exception_traceback):
-                self._lock_file.close()
+                if self._lock_file is not None:
+                    self._lock_file.close()
 
         return DeploymentLock(self)
 
