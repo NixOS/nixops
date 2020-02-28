@@ -99,7 +99,7 @@ def logged_exec(
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             preexec_fn=preexec_fn,
-            text=True
+            text=True,
         )
         fds = [process.stdout]
         log_fd = process.stdout
