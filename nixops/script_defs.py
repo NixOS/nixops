@@ -931,7 +931,9 @@ def setup_logging(args):
     ]:
         # determine user
         try:
-            user = subprocess.check_output(["logname"], stderr=subprocess.PIPE).strip()
+            user = subprocess.check_output(
+                ["logname"], stderr=subprocess.PIPE, text=True
+            ).strip()
         except:
             user = pwd.getpwuid(os.getuid())[0]
 

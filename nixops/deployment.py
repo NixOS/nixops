@@ -362,6 +362,7 @@ class Deployment(object):
                 + self._eval_flags(self.nix_exprs)
                 + ["--eval-only", "--json", "--strict", "-A", "nixopsArguments"],
                 stderr=self.logger.log_file,
+                text=True,
             )
             if debug:
                 print("JSON output of nix-instantiate:\n" + out, file=sys.stderr)
@@ -389,6 +390,7 @@ class Deployment(object):
                     attr,
                 ],
                 stderr=self.logger.log_file,
+                text=True,
             )
             if debug:
                 print("XML output of nix-instantiate:\n" + xml, file=sys.stderr)
@@ -486,6 +488,7 @@ class Deployment(object):
                 + (["--json"] if json else [])
                 + (["--xml"] if xml else []),
                 stderr=self.logger.log_file,
+                text=True,
             )
         except subprocess.CalledProcessError:
             raise NixEvalError
@@ -731,12 +734,14 @@ class Deployment(object):
         # That way ‘nixos-version’ will show something useful on the
         # target machines.
         nixos_path = subprocess.check_output(
-            ["nix-instantiate", "--find-file", "nixpkgs/nixos"] + self._nix_path_flags()
+            ["nix-instantiate", "--find-file", "nixpkgs/nixos"]
+            + self._nix_path_flags(),
+            text=True,
         ).rstrip()
         get_version_script = nixos_path + "/modules/installer/tools/get-version-suffix"
         if os.path.exists(nixos_path + "/.git") and os.path.exists(get_version_script):
             self.nixos_version_suffix = subprocess.check_output(
-                ["/bin/sh", get_version_script] + self._nix_path_flags()
+                ["/bin/sh", get_version_script] + self._nix_path_flags(), text=True
             ).rstrip()
 
         phys_expr = self.tempdir + "/physical.nix"
@@ -810,6 +815,7 @@ class Deployment(object):
                 + (["--dry-run"] if dry_run else [])
                 + (["--repair"] if repair else []),
                 stderr=self.logger.log_file,
+                text=True,
             ).rstrip()
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
