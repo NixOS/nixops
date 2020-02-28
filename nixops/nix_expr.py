@@ -1,7 +1,7 @@
 import functools
 import re
 import string
-
+from typing import Optional
 from textwrap import dedent
 
 __all__ = ["py2nix", "nix2py", "nixmerge", "expand_dict", "RawValue", "Function"]
@@ -130,6 +130,7 @@ def enclose_node(node, prefix="", suffix=""):
     elif isinstance(node, RawValue):
         return RawValue(prefix + node.value + suffix)
     else:
+        new_inline: Optional[RawValue]
         if node.inline_variant is not None:
             new_inline = RawValue(prefix + node.inline_variant.value + suffix)
         else:
