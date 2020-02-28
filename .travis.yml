@@ -2,6 +2,7 @@ language: nix
 before_script:
   - sudo echo 'sandbox = true' | sudo tee /etc/nix/nix.conf
 script:
+  - nix-shell -p python3Packages.mypy --run "mypy nixops"
   - nix-shell -p python3Packages.black --run "black . --check --diff"
   - ./dev-shell --run "./coverage-tests.py -a '!libvirtd,!gce,!ec2,!azure' -v"
   - nix-build --quiet release.nix -A build.x86_64-linux -I nixpkgs=channel:nixos-19.03
