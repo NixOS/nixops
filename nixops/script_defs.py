@@ -22,7 +22,7 @@ import logging.handlers
 import syslog
 import json
 import pipes
-
+from typing import Tuple, List, Optional, Union
 from datetime import datetime
 from pprint import pprint
 import importlib
@@ -347,8 +347,8 @@ def op_check(args):
         ]
     )
 
-    machines = []
-    resources = []
+    machines: List[nixops.backends.MachineState] = []
+    resources: List[nixops.resources.ResourceState] = []
 
     def check(depl):
         for m in depl.active_resources.values():
@@ -364,8 +364,15 @@ def op_check(args):
     for depl in one_or_all(args):
         check(depl)
 
+    ResourceStatus = Tuple[
+        str,
+        Union[nixops.backends.MachineState, nixops.resources.ResourceState],
+        List[str],
+        int,
+    ]
+
     # Check all machines in parallel.
-    def worker(m):
+    def worker(m: nixops.backends.MachineState) -> ResourceStatus:
         res = m.check()
 
         unit_lines = []
@@ -412,7 +419,7 @@ def op_check(args):
         ([("Deployment", "l")] if args.all else []) + [("Name", "l"), ("Exists", "l")]
     )
 
-    def resource_worker(r):
+    def resource_worker(r: nixops.resources.ResourceState) -> Optional[ResourceStatus]:
         if not nixops.deployment.is_machine(r):
             r.check()
             exist = True if r.state == nixops.resources.ResourceState.UP else False
@@ -421,6 +428,7 @@ def op_check(args):
                 render_tristate(exist),
             ]
             return (r.depl.name or r.depl.uuid, r, row, 0)
+        return None
 
     results = run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
     resources_results = run_tasks(
@@ -430,7 +438,8 @@ def op_check(args):
     # Sort the rows by deployment/machine.
     status = 0
     for res in sorted(
-        results, key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type())
+        [res for res in results if res is not None],
+        key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type()),
     ):
         tbl.add_row(res[2])
         status |= res[3]
@@ -438,7 +447,7 @@ def op_check(args):
     print(tbl)
 
     for res in sorted(
-        resources_results,
+        [res for res in resources_results if res is not None],
         key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type()),
     ):
         resources_tbl.add_row(res[2])
