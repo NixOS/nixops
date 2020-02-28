@@ -109,11 +109,15 @@ class Deployment(object):
         return self._tempdir
 
     @property
-    def machines(self):
+    def machines(self) -> Dict[str, Type[nixops.backends.MachineState]]:
         return {n: r for n, r in self.resources.items() if is_machine(r)}
 
     @property
-    def active(self):  # FIXME: rename to "active_machines"
+    def active(
+        self,
+    ) -> Dict[
+        str, Type[nixops.backends.MachineState]
+    ]:  # FIXME: rename to "active_machines"
         return {
             n: r for n, r in self.resources.items() if is_machine(r) and not r.obsolete
         }
