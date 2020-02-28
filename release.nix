@@ -65,26 +65,26 @@ in rec {
   };
 
   build = pkgs.lib.genAttrs [ "x86_64-linux" "i686-linux" "x86_64-darwin" ] (system:
-    with import nixpkgs { inherit system; };
-
-
-    python3Packages.buildPythonApplication rec {
+    let
+      pkgs = import nixpkgs { inherit system; };
+      pythonPackages = pkgs.python38Packages;
+    in pythonPackages.buildPythonApplication rec {
       name = "nixops-${version}";
 
       src = "${tarball}/tarballs/*.tar.bz2";
 
-      buildInputs = [ python3Packages.nose python3Packages.coverage ];
+      buildInputs = [ pythonPackages.nose pythonPackages.coverage ];
 
       nativeBuildInputs = [
-        (python3Packages.mypy.overrideAttrs ({ propagatedBuildInputs, ... }: {
+        (pythonPackages.mypy.overrideAttrs ({ propagatedBuildInputs, ... }: {
           propagatedBuildInputs = propagatedBuildInputs ++ [
-            python3Packages.lxml
+            pythonPackages.lxml
           ];
         }))
-        python3Packages.black
+        pythonPackages.black
       ];
 
-      propagatedBuildInputs = with python3Packages;
+      propagatedBuildInputs = with pythonPackages:
         [ prettytable
           pluggy
         ] ++ pkgs.lib.traceValFn (x: "Using plugins: " + builtins.toJSON x) (map (d: d.build.${system}) (p allPlugins));
@@ -93,7 +93,7 @@ in rec {
       # For "nix-build --run-env".
       shellHook = ''
         export PYTHONPATH=$(pwd):$PYTHONPATH
-        export PATH=$(pwd)/scripts:${openssh}/bin:$PATH
+        export PATH=$(pwd)/scripts:${pkgs.openssh}/bin:$PATH
       '';
 
       doCheck = true;
@@ -108,7 +108,7 @@ in rec {
 
       # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
       # the version of openssh is causing errors when have big networks (40+)
-      makeWrapperArgs = ["--prefix" "PATH" ":" "${openssh}/bin" "--set" "PYTHONPATH" ":"];
+      makeWrapperArgs = ["--prefix" "PATH" ":" "${pkgs.openssh}/bin" "--set" "PYTHONPATH" ":"];
 
       postInstall =
         ''
@@ -122,7 +122,7 @@ in rec {
           cp -av nix/* $out/share/nix/nixops
         '';
 
-      meta.description = "Nix package for ${stdenv.system}";
+      meta.description = "Nix package for ${pkgs.stdenv.system}";
     });
 
   /*
