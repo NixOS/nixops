@@ -50,6 +50,7 @@ class StateDict(collections.MutableMapping):
 
     def __delitem__(self, key):
         with self._db:
+            c = self._db.cursor()
             c.execute(
                 "delete from ResourceAttrs where machine = ? and name = ?",
                 (self.id, key),
