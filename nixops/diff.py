@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import itertools
 
-from __future__ import annotations
 from typing import Any, AnyStr, Callable, Dict, List, Optional, Tuple
 from nixops.logger import MachineLogger
 from nixops.state import StateDict
