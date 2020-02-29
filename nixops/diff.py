@@ -30,7 +30,9 @@ class Handler:
         """
         raise NotImplementedError
 
-    def get_deps(self) -> List[Handler]:
+    # This is List[Handler], but that name doesn't exist inside the
+    # class definition.
+    def get_deps(self) -> List[Any]:
         return self._dependencies
 
     def get_keys(self, *_: AnyStr) -> List[str]:
