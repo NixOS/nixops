@@ -1,6 +1,6 @@
 import itertools
 
-from typing import Any, AnyStr, Callable, Dict, Optional, List
+from typing import Any, AnyStr, Callable, Dict, List, Optional, Tuple
 from nixops.logger import MachineLogger
 from nixops.state import StateDict
 
@@ -149,8 +149,9 @@ class Diff:
     def get_handlers_sequence(self, combinations: int = 1) -> List[Handler]:
         if len(self.get_keys()) == 0:
             return []
+        h_tuple: Tuple[Handler, ...]
         for h_tuple in itertools.combinations(self.handlers, combinations):
-            keys = []
+            keys: List[str] = []
             for item in h_tuple:
                 keys.extend(item.get_keys())
             if combinations == len(self.handlers):
