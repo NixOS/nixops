@@ -6,7 +6,42 @@ from nixops.state import StateDict
 from nixops.deployment import Deployment
 
 
-class Diff(object):
+class Handler:
+    def __init__(
+        self,
+        keys: List[str],
+        after: Optional[List] = None,
+        handle: Optional[Callable] = None,
+    ) -> None:
+        # type: (List[str], Optional[List], Optional[Callable]) -> None
+        if after is None:
+            after = []
+        if handle is None:
+            self.handle = self._default_handle
+        else:
+            self.handle = handle
+        self._keys = keys
+        self._dependencies = after
+
+    def _default_handle(self):
+        """
+        Method that should be implemented to handle the changes
+        of keys returned by get_keys()
+        This should be done currently by monkey-patching this method
+        by passing a resource state method that realizes the change.
+        """
+        raise NotImplementedError
+
+    def get_deps(self):
+        # type: () -> List[Handler]
+        return self._dependencies
+
+    def get_keys(self, *_: AnyStr) -> List[str]:
+        # type: (*AnyStr) -> List[str]
+        return self._keys
+
+
+class Diff:
     """
     Diff engine main class which implements methods for doing diffs between
     the state/config and generating a plan: sequence of handlers to be executed.
@@ -183,31 +218,3 @@ class Diff(object):
             return d
 
 
-class Handler(object):
-    def __init__(self, keys, after=None, handle=None):
-        # type: (List[str], Optional[List], Optional[Callable]) -> None
-        if after is None:
-            after = []
-        if handle is None:
-            self.handle = self._default_handle
-        else:
-            self.handle = handle
-        self._keys = keys
-        self._dependencies = after
-
-    def _default_handle(self):
-        """
-        Method that should be implemented to handle the changes
-        of keys returned by get_keys()
-        This should be done currently by monkey-patching this method
-        by passing a resource state method that realizes the change.
-        """
-        raise NotImplementedError
-
-    def get_deps(self):
-        # type: () -> List[Handler]
-        return self._dependencies
-
-    def get_keys(self, *keys):
-        # type: (*AnyStr) -> List[str]
-        return self._keys
