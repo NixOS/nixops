@@ -53,14 +53,11 @@ class Diff:
 
     def __init__(
         self,
-        # FIXME: type should be 'nixops.deployment.Deployment'
-        # however we have to upgrade to python3 in order
-        # to solve the import cycle by forward declaration
-        depl,
-        logger,  # type: MachineLogger
-        config,  # type: Dict[str, Any]
-        state,  # type: StateDict
-        res_type,  # type: str
+        depl: Deployment,
+        logger: MachineLogger,
+        config: Dict[str, Any],
+        state: StateDict,
+        res_type: str,
     ):
         # type: (...) -> None
         self._definition = config
