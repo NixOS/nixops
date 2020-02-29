@@ -50,7 +50,7 @@ class UnknownBackend(Exception):
     pass
 
 
-debug = False
+DEBUG = False
 
 
 class Deployment(object):
@@ -412,7 +412,7 @@ class Deployment(object):
                 stderr=self.logger.log_file,
                 text=True,
             )
-            if debug:
+            if DEBUG:
                 print("JSON output of nix-instantiate:\n" + out, file=sys.stderr)
             return json.loads(out)
         except OSError as e:
@@ -440,7 +440,7 @@ class Deployment(object):
                 stderr=self.logger.log_file,
                 text=True,
             )
-            if debug:
+            if DEBUG:
                 print("XML output of nix-instantiate:\n" + xml, file=sys.stderr)
         except OSError as e:
             raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
@@ -807,7 +807,7 @@ class Deployment(object):
         phys_expr = self.tempdir + "/physical.nix"
         p = self.get_physical_spec()
         nixops.util.write_file(phys_expr, p)
-        if debug:
+        if DEBUG:
             print("generated physical spec:\n" + p, file=sys.stderr)
 
         selected = [m for m in self.active.values() if should_do(m, include, exclude)]
