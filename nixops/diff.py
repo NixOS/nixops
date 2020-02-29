@@ -76,8 +76,7 @@ class Diff:
             "creationTime",
         ]
 
-    def set_reserved_keys(self, keys):
-        # type: (List[str]) -> None
+    def set_reserved_keys(self, keys: List[str]) -> None:
         """
         Reserved keys are nix options or internal state keys that we don't
         want them to trigger the diff engine so we simply ignore the diff
@@ -85,13 +84,11 @@ class Diff:
         """
         self._reserved.extend(keys)
 
-    def get_keys(self):
-        # type: () -> List[str]
-        diff = [k for k in self._diff.keys() if k not in self._reserved]
+    def get_keys(self) -> List[str]:
+        diff = [k for k in self._diff if k not in self._reserved]
         return diff
 
-    def plan(self, show=False):
-        # type: (bool) -> List[Handler]
+    def plan(self, show: bool = False) -> List[Handler]:
         """
         This will go through the attributes of the resource and evaluate
         the diff between definition and state then return a sorted list
@@ -121,12 +118,10 @@ class Diff:
                     )
         return self.get_handlers_sequence()
 
-    def set_handlers(self, handlers):
-        # type: (List[Handler]) -> None
+    def set_handlers(self, handlers: List[Handler]) -> None:
         self.handlers = handlers
 
-    def topological_sort(self, handlers):
-        # type: (List[Handler]) -> List[Handler]
+    def topological_sort(self, handlers: List[Handler]) -> List[Handler]:
         """
         Implements a topological sort of a direct acyclic graph of
         handlers using the depth first search algorithm.
@@ -137,8 +132,7 @@ class Diff:
         parent = {}  # type: Dict[Handler, Optional[Handler]]
         sequence = []  # type: List[Handler]
 
-        def visit(handler):
-            # type: (Handler) -> None
+        def visit(handler: Handler) -> None:
             for v in handler.get_deps():
                 if v not in parent:
                     parent[v] = handler
@@ -152,8 +146,7 @@ class Diff:
 
         return [h for h in sequence if h in handlers]
 
-    def get_handlers_sequence(self, combinations=1):
-        # type: (int) -> List[Handler]
+    def get_handlers_sequence(self, combinations: int = 1) -> List[Handler]:
         if len(self.get_keys()) == 0:
             return []
         for h_tuple in itertools.combinations(self.handlers, combinations):
@@ -174,8 +167,7 @@ class Diff:
                 return handlers_seq
         return self.get_handlers_sequence(combinations + 1)
 
-    def eval_resource_attr_diff(self, key):
-        # type: (str) -> None
+    def eval_resource_attr_diff(self, key: str) -> None:
         s = self._state.get(key, None)
         d = self.get_resource_definition(key)
         if s == None and d != None:
@@ -186,8 +178,7 @@ class Diff:
             if s != d:
                 self._diff[key] = self.UPDATE
 
-    def get_resource_definition(self, key):
-        # type: (str) -> Any
+    def get_resource_definition(self, key: str) -> Any:
         def retrieve_def(d):
             # type: (Any) -> Any
             if isinstance(d, str) and d.startswith("res-"):
