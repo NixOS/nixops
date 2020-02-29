@@ -27,6 +27,6 @@ setup(
     author_email="eelco.dolstra@logicblox.com",
     scripts=["scripts/nixops"],
     packages=["nixops", "nixops.plugins", "nixops.resources", "nixops.backends"],
-    package_data={"nixops": ["data/nixos-infect"]},
+    package_data={"nixops": ["py.typed", "data/nixos-infect"]},
     cmdclass={"test": TestCommand},
 )
