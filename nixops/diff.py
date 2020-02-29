@@ -202,8 +202,5 @@ class Diff:
                 item = retrieve_def(option)
                 options.append(item)
             return options
-        else:
-            d = retrieve_def(d)
-            return d
-
-
+        d = retrieve_def(d)
+        return d
