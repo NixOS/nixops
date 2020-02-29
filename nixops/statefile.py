@@ -120,7 +120,7 @@ class StateFile(object):
                     )
                 )
 
-        self._db = db
+        self._db: sqlite3.Connection = db
 
     def close(self):
         self._db.close()

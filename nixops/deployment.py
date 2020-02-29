@@ -7,6 +7,7 @@ import json
 import string
 import tempfile
 import shutil
+import sqlite3
 import threading
 import errno
 from collections import defaultdict
@@ -73,7 +74,7 @@ class Deployment(object):
 
     def __init__(self, statefile, uuid, log_file=sys.stderr):
         self._statefile = statefile
-        self._db = statefile._db
+        self._db: sqlite3.Connection = statefile._db
         self.uuid = uuid
 
         self._last_log_prefix = None
