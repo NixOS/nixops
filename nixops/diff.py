@@ -170,11 +170,11 @@ class Diff:
     def eval_resource_attr_diff(self, key: str) -> None:
         s = self._state.get(key, None)
         d = self.get_resource_definition(key)
-        if s == None and d != None:
+        if s is None and d is not None:
             self._diff[key] = self.SET
-        elif s != None and d == None:
+        elif s is not None and d is None:
             self._diff[key] = self.UNSET
-        elif s != None and d != None:
+        elif s is not None and d is None:
             if s != d:
                 self._diff[key] = self.UPDATE
 
