@@ -1,5 +1,6 @@
 import itertools
 
+from __future__ import annotations
 from typing import Any, AnyStr, Callable, Dict, List, Optional, Tuple
 from nixops.logger import MachineLogger
 from nixops.state import StateDict
@@ -30,9 +31,7 @@ class Handler:
         """
         raise NotImplementedError
 
-    # This is List[Handler], but that name doesn't exist inside the
-    # class definition.
-    def get_deps(self) -> List[Any]:
+    def get_deps(self) -> List[Handler]:
         return self._dependencies
 
     def get_keys(self, *_: AnyStr) -> List[str]:
