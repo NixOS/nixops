@@ -12,7 +12,6 @@ class Handler:
         after: Optional[List] = None,
         handle: Optional[Callable] = None,
     ) -> None:
-        # type: (List[str], Optional[List], Optional[Callable]) -> None
         if after is None:
             after = []
         if handle is None:
@@ -31,12 +30,10 @@ class Handler:
         """
         raise NotImplementedError
 
-    def get_deps(self):
-        # type: () -> List[Handler]
+    def get_deps(self) -> List[Handler]:
         return self._dependencies
 
     def get_keys(self, *_: AnyStr) -> List[str]:
-        # type: (*AnyStr) -> List[str]
         return self._keys
 
 
