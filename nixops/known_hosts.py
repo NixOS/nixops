@@ -2,12 +2,13 @@ import os
 import threading
 import fcntl
 
+from typing import Optional
 
 # Allow only one thread to rewrite known_hosts at a time.
 LOCK = threading.Lock()
 
 
-def _rewrite(ip_address, add, public_host_key):
+def _rewrite(ip_address: str, add_ip: bool, public_host_key: str) -> None:
     with LOCK:
         path = os.path.expanduser("~/.ssh/known_hosts")
 
@@ -26,15 +27,15 @@ def _rewrite(ip_address, add, public_host_key):
             contents = f.read()
             f.close()
 
-            def rewrite(l):
-                if " " not in l:
-                    return l
-                (first, rest) = l.split(" ", 1)
+            def rewrite(lst: str) -> Optional[str]:
+                if " " not in lst:
+                    return lst
+                (first, rest) = lst.split(" ", 1)
                 names = first.split(",")
                 if ip_address not in names:
-                    return l
-                if not add and public_host_key is not None and public_host_key != rest:
-                    return l
+                    return lst
+                if not add_ip and public_host_key != rest:
+                    return lst
                 new_names = [n for n in names if n != ip_address]
                 return ",".join(new_names) + " " + rest if new_names != [] else None
 
@@ -42,7 +43,7 @@ def _rewrite(ip_address, add, public_host_key):
                 l for l in [rewrite(l) for l in contents.splitlines()] if l is not None
             ]
 
-            if add:
+            if add_ip:
                 new.append(ip_address + " " + public_host_key)
 
             tmp = "{0}.tmp-{1}".format(path, os.getpid())
@@ -52,20 +53,18 @@ def _rewrite(ip_address, add, public_host_key):
             os.rename(tmp, path)
 
 
-def remove(ip_address, public_host_key):
+def remove(ip_address: str, public_host_key: str) -> None:
     """Remove a specific known host key."""
     _rewrite(ip_address, False, public_host_key)
 
 
-def add(ip_address, public_host_key):
+def add(ip_address: str, public_host_key: str) -> None:
     """Add a known host key."""
     _rewrite(ip_address, True, public_host_key)
 
 
-def update(prev_address, new_address, public_host_key):
-    assert public_host_key is not None
+def update(prev_address: str, new_address: str, public_host_key: str) -> None:
     # FIXME: this rewrites known_hosts twice.
-    if prev_address is not None and prev_address != new_address:
+    if prev_address != new_address:
         remove(prev_address, public_host_key)
-    if new_address is not None:
-        add(new_address, public_host_key)
+    add(new_address, public_host_key)
