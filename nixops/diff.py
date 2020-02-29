@@ -1,11 +1,9 @@
-import os
-import json
 import itertools
 
-from typing import Any, Callable, Optional, List, Dict, Union, AnyStr
-import nixops.util
+from typing import Any, AnyStr, Callable, Dict, Optional, List
 from nixops.logger import MachineLogger
 from nixops.state import StateDict
+from nixops.deployment import Deployment
 
 
 class Diff(object):
