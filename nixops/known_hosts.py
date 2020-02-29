@@ -4,11 +4,11 @@ import fcntl
 
 
 # Allow only one thread to rewrite known_hosts at a time.
-lock = threading.Lock()
+LOCK = threading.Lock()
 
 
 def _rewrite(ip_address, add, public_host_key):
-    with lock:
+    with LOCK:
         path = os.path.expanduser("~/.ssh/known_hosts")
 
         # If hosts file doesn't exist, create an empty file
