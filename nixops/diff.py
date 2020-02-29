@@ -60,6 +60,7 @@ class Diff:
         res_type: str,
     ):
         # type: (...) -> None
+        self.handlers = None
         self._definition = config
         self._state = state
         self._depl = depl
