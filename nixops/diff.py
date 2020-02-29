@@ -3,6 +3,7 @@ import itertools
 from typing import Any, AnyStr, Callable, Dict, List, Optional, Tuple
 from nixops.logger import MachineLogger
 from nixops.state import StateDict
+from nixops.deployment import Deployment
 
 
 class Handler:
