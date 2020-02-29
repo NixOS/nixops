@@ -4,18 +4,11 @@ import sys
 import os.path
 import subprocess
 import json
-import string
 import tempfile
-import shutil
 import sqlite3
 import threading
-import errno
 from collections import defaultdict
 from xml.etree import ElementTree
-import nixops.backends
-import nixops.logger
-import nixops.parallel
-from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
 import re
 from datetime import datetime, timedelta
 import getpass
@@ -24,11 +17,10 @@ import glob
 import fcntl
 import itertools
 import platform
-from nixops.util import ansi_success
 import inspect
 import time
 import importlib
-from nixops.plugins import get_plugin_manager
+
 from functools import reduce
 from typing import (
     Dict,
@@ -39,8 +31,13 @@ from typing import (
     DefaultDict,
     Any,
     Tuple,
-    ValuesView,
 )
+import nixops.backends
+import nixops.logger
+import nixops.parallel
+from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
+from nixops.util import ansi_success
+from nixops.plugins import get_plugin_manager
 
 Definitions = Dict[str, nixops.resources.ResourceDefinition]
 
