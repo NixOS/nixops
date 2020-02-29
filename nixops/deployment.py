@@ -53,7 +53,7 @@ class UnknownBackend(Exception):
 DEBUG = False
 
 
-class Deployment(object):
+class Deployment:
     """NixOps top-level deployment manager."""
 
     default_description = "Unnamed NixOps network"
