@@ -3,7 +3,6 @@ import itertools
 from typing import Any, AnyStr, Callable, Dict, Optional, List
 from nixops.logger import MachineLogger
 from nixops.state import StateDict
-from nixops.deployment import Deployment
 
 
 class Handler:
@@ -53,7 +52,10 @@ class Diff:
 
     def __init__(
         self,
-        depl: Deployment,
+        # FIXME: type should be 'nixops.deployment.Deployment'
+        # however we have to upgrade to python3 in order
+        # to solve the import cycle by forward declaration
+        depl: Any,
         logger: MachineLogger,
         config: Dict[str, Any],
         state: StateDict,
