@@ -145,6 +145,7 @@ class SSH(object):
         self._logger = logger
         self._ssh_master = None
         self._compress = False
+        self._env_flags = shlex.split(os.getenv("NIXOPS_SSH_OPTS", ""))
 
     def register_host_fun(self, host_fun):
         """
@@ -313,6 +314,7 @@ class SSH(object):
 
         'timeout' specifies the SSH connection timeout.
         """
+        flags = flags + self._env_flags
         master = self.get_master(flags, timeout, user)
         flags = flags + self._get_flags()
         if logged:
