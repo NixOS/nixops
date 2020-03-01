@@ -55,7 +55,7 @@ class CommandFailed(Exception):
         self.message = message
         self.exitcode = exitcode
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "{0} (exit code {1})".format(self.message, self.exitcode)
 
 
@@ -284,11 +284,11 @@ class Undefined:
 undefined = Undefined()
 
 
-def attr_property(name, default, type=str):
+def attr_property(name: str, default: Any, type: Optional[Any] = str) -> Any:
     """Define a property that corresponds to a value in the NixOps state file."""
 
-    def get(self):
-        s = self._get_attr(name, default)
+    def get(self) -> Any:
+        s: Any = self._get_attr(name, default)
         if s == undefined:
             if default != undefined:
                 return copy.deepcopy(default)
@@ -308,7 +308,7 @@ def attr_property(name, default, type=str):
         else:
             assert False
 
-    def set(self, x):
+    def set(self, x: Any) -> None:
         if x == default:
             self._del_attr(name)
         elif type is "json":

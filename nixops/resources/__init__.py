@@ -3,7 +3,7 @@
 import re
 import nixops.util
 from threading import Event
-from typing import List, Optional
+from typing import List, Optional, Dict
 from nixops.state import StateDict
 from nixops.diff import Diff, Handler
 
@@ -12,7 +12,7 @@ class ResourceDefinition(object):
     """Base class for NixOps resource definitions."""
 
     @classmethod
-    def get_type(cls):
+    def get_type(cls) -> str:
         """A resource type identifier that must match the corresponding ResourceState class"""
         raise NotImplementedError("get_type")
 
@@ -39,7 +39,7 @@ class ResourceState(object):
     name: str
 
     @classmethod
-    def get_type(cls):
+    def get_type(cls) -> str:
         """A resource type identifier that must match the corresponding ResourceDefinition classs"""
         raise NotImplementedError("get_type")
 
@@ -61,9 +61,10 @@ class ResourceState(object):
     # Time (in Unix epoch) the resource was created.
     creation_time = nixops.util.attr_property("creationTime", None, int)
 
-    _created_event: Optional[Event]
-    _destroyed_event: Optional[Event]
+    _created_event: Event
+    _destroyed_event: Event
     _errored: Optional[bool]
+    _wait_for: List["ResourceState"]
 
     def __init__(self, depl, name: str, id):
         self.depl = depl
@@ -113,7 +114,7 @@ class ResourceState(object):
                 return row[0]
             return nixops.util.undefined
 
-    def export(self):
+    def export(self) -> Dict[str, Dict[str, str]]:
         """Export the resource to move between databases"""
         with self.depl._db:
             c = self.depl._db.cursor()
@@ -167,7 +168,7 @@ class ResourceState(object):
         else:
             raise Exception("machine is in unknown state")
 
-    def prefix_definiton(self, attr):
+    def prefix_definition(self, attr):
         """Prefix the resource set with a py2nixable attrpath"""
         raise Exception("not implemented")
 

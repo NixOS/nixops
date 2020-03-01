@@ -174,9 +174,9 @@ def op_delete(args):
         depl.delete(force=args.force or False)
 
 
-def machine_to_key(depl: str, name: str, type: Any):
+def machine_to_key(depl: str, name: str, type: str) -> Tuple[str, str, List[object]]:
     xs = [int(x) if x.isdigit() else x for x in re.split("(\d+)", name)]
-    return [depl, type, xs]
+    return (depl, type, xs)
 
 
 def op_info(args):
@@ -212,18 +212,18 @@ def op_info(args):
                 )
                 depl.definitions = None
 
-    def print_deployment(depl):
+    def print_deployment(depl: nixops.deployment.Deployment) -> None:
         definitions = depl.definitions or {}
 
         # Sort machines by type, then name.  Sort numbers in machine
         # names numerically (e.g. "foo10" comes after "foo9").
-        def name_to_key(name: str) -> str:
-            d = definitions.get(name)
-            r = depl.resources.get(name)
+        def name_to_key(name: str) -> Tuple[str, str, List[object]]:
+            d: Optional[nixops.resources.ResourceDefinition] = definitions.get(name)
+            r: Optional[nixops.resources.ResourceState] = depl.resources.get(name)
             if r:
                 key = machine_to_key(depl.uuid, name, r.get_type())
             elif d:
-                key = machine_to_key(depl.uuid, name, d.get_type)
+                key = machine_to_key(depl.uuid, name, d.get_type())
             else:
                 key = machine_to_key(depl.uuid, name, "")
 
@@ -236,6 +236,7 @@ def op_info(args):
         for name in names:
             d = definitions.get(name)
             r = depl.resources.get(name)
+            assert r is not None
             if deployment.is_machine(r):
                 resource_state = "{0} / {1}".format(
                     r.show_state() if r else "Missing", state(depl, d, r)
@@ -250,6 +251,12 @@ def op_info(args):
             else:
                 user_type = "unknown-type"
 
+            public_ipv4: str = ""
+            private_ipv4: str = ""
+            if isinstance(r, nixops.backends.MachineState):
+                public_ipv4 = r.public_ipv4 or ""
+                private_ipv4 = r.private_ipv4 or ""
+
             if args.plain:
                 print(
                     "\t".join(
@@ -259,12 +266,8 @@ def op_info(args):
                             resource_state.lower(),
                             user_type,
                             r.resource_id or "" if r else "",
-                            r.public_ipv4 or ""
-                            if r and hasattr(r, "public_ipv4")
-                            else "",
-                            r.private_ipv4 or ""
-                            if r and deployment.is_machine(r)
-                            else "",
+                            public_ipv4,
+                            private_ipv4,
                         ]
                     )
                 )
@@ -276,11 +279,7 @@ def op_info(args):
                         resource_state,
                         user_type,
                         r.resource_id or "" if r else "",
-                        (hasattr(r, "public_ipv4") and r.public_ipv4)
-                        or (hasattr(r, "private_ipv4") and r.private_ipv4)
-                        or ""
-                        if r
-                        else "",
+                        public_ipv4 or private_ipv4,
                     ]
                 )
 
