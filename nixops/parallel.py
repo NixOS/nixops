@@ -4,20 +4,20 @@ import queue
 import random
 import traceback
 import types
-from typing import TypeVar, List, Iterable, Callable, Tuple, Optional, Type, Any
+from typing import Dict, TypeVar, List, Iterable, Callable, Tuple, Optional, Type, Any
 
 
 class MultipleExceptions(Exception):
-    def __init__(self, exceptions={}):
+    def __init__(self, exceptions: Dict[Any, Any] = {}) -> None:
         self.exceptions = exceptions
 
-    def __str__(self):
+    def __str__(self) -> str:
         err = "Multiple exceptions (" + str(len(self.exceptions)) + "): \n"
         for r in sorted(self.exceptions.keys()):
             err += "  * {}: {}\n".format(r, self.exceptions[r][1])
         return err
 
-    def print_all_backtraces(self):
+    def print_all_backtraces(self) -> None:
         for k, e in self.exceptions.items():
             sys.stderr.write("-" * 30 + "\n")
             traceback.print_exception(e[0], e[1], e[2])
@@ -40,9 +40,9 @@ FinalResult = List[Optional[Result]]
 
 def run_tasks(
     nr_workers: int, tasks: Iterable[Task], worker_fun: Callable[[Task], Result]
-) -> FinalResult:
+) -> FinalResult[Result]:
     task_queue: queue.Queue[Task] = queue.Queue()
-    result_queue: queue.Queue[WorkerResult] = queue.Queue()
+    result_queue: queue.Queue[WorkerResult[Result]] = queue.Queue()
 
     nr_tasks = 0
     for t in tasks:
@@ -57,7 +57,7 @@ def run_tasks(
     if nr_workers < 1:
         raise Exception("number of worker threads must be at least 1")
 
-    def thread_fun():
+    def thread_fun() -> None:
         n = 0
         while True:
             try:
@@ -65,7 +65,7 @@ def run_tasks(
             except queue.Empty:
                 break
             n = n + 1
-            work_result: WorkerResult
+            work_result: WorkerResult[Result]
             try:
                 work_result = (worker_fun(t), None, t.name)
             except Exception as e:
@@ -89,13 +89,13 @@ def run_tasks(
         thr.start()
         threads.append(thr)
 
-    results: FinalResult = []
+    results: FinalResult[Result] = []
     exceptions = {}
     while len(results) < nr_tasks:
         try:
             # Use a timeout to allow keyboard interrupts to be
             # processed.  The actual timeout value doesn't matter.
-            result: WorkerResult = result_queue.get(True, 1000)
+            result: WorkerResult[Result] = result_queue.get(True, 1000)
             (res, excinfo, name) = result
         except queue.Empty:
             continue
