@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import threading
+from typing import TextIO, List
 
 from nixops.util import ansi_warn, ansi_error, ansi_success
 
@@ -8,12 +9,12 @@ __all__ = ["Logger"]
 
 
 class Logger(object):
-    def __init__(self, log_file):
+    def __init__(self, log_file: TextIO) -> None:
         self._last_log_prefix = None  # XXX!
         self._log_lock = threading.Lock()
         self._log_file = log_file
         self._auto_response = None
-        self.machine_loggers = []
+        self.machine_loggers: List[MachineLogger] = []
 
     @property
     def log_file(self):
@@ -70,7 +71,7 @@ class Logger(object):
         """
         self._auto_response = response
 
-    def update_log_prefixes(self):
+    def update_log_prefixes(self) -> None:
         max_len = max([len(ml.machine_name) for ml in self.machine_loggers] or [0])
         for ml in self.machine_loggers:
             ml.update_log_prefix(max_len)
