@@ -41,6 +41,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
             opts = {}
             for (key, xmlType) in (
                 ("text", "string"),
+                ("keyFile", "string"),
                 ("keyFile", "path"),
                 ("destDir", "string"),
                 ("user", "string"),
