@@ -7,8 +7,10 @@ import sys
 import time
 import weakref
 from tempfile import mkdtemp
+from typing import Dict, Any, Optional, Callable, List, Union, Iterable, Tuple
+
 import nixops.util
-from typing import Dict, Any, Optional, Callable, List
+from nixops.logger import MachineLogger
 
 __all__ = ["SSHConnectionFailed", "SSHCommandFailed", "SSH"]
 
@@ -22,13 +24,23 @@ class SSHCommandFailed(nixops.util.CommandFailed):
 
 
 class SSHMaster(object):
-    def __init__(self, target, logger, ssh_flags, passwd, user, compress=False):
-        self._running = False
-        self._tempdir = nixops.util.SelfDeletingDir(mkdtemp(prefix="nixops-ssh-tmp"))
-        self._askpass_helper = None
-        self._control_socket = self._tempdir + "/master-socket"
-        self._ssh_target = target
-        pass_prompts = 0 if "-i" in ssh_flags and user is None else 3
+    def __init__(
+        self,
+        target: str,
+        logger: MachineLogger,
+        ssh_flags: List[str] = [],
+        passwd: Optional[str] = None,
+        user: Optional[str] = None,
+        compress: bool = False,
+    ) -> None:
+        self._running: bool = False
+        self._tempdir: nixops.util.SelfDeletingDir = nixops.util.SelfDeletingDir(
+            mkdtemp(prefix="nixops-ssh-tmp")
+        )
+        self._askpass_helper: Optional[str] = None
+        self._control_socket: str = self._tempdir + "/master-socket"
+        self._ssh_target: str = target
+        pass_prompts: int = 0 if "-i" in ssh_flags and user is None else 3
         kwargs: Dict[str, Any] = {}
 
         if passwd is not None:
@@ -85,20 +97,20 @@ class SSHMaster(object):
 
         weakself = weakref.ref(self)
 
-        def maybe_shutdown():
+        def maybe_shutdown() -> None:
             realself = weakself()
             if realself is not None:
                 realself.shutdown()
 
         atexit.register(maybe_shutdown)
 
-    def is_alive(self):
+    def is_alive(self) -> bool:
         """
         Check whether the control socket is still existing.
         """
         return os.path.exists(self._control_socket)
 
-    def _make_askpass_helper(self):
+    def _make_askpass_helper(self) -> str:
         """
         Create a SSH_ASKPASS helper script, which just outputs the contents of
         the environment variable NIXOPS_SSH_PASSWORD.
@@ -117,7 +129,7 @@ sys.stdout.write(os.environ['NIXOPS_SSH_PASSWORD'])""".format(
         os.close(fd)
         return path
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """
         Shutdown master process and clean up temporary files.
         """
@@ -129,12 +141,15 @@ sys.stdout.write(os.environ['NIXOPS_SSH_PASSWORD'])""".format(
             stderr=nixops.util.devnull,
         )
 
-    def __del__(self):
+    def __del__(self) -> None:
         self.shutdown()
 
 
+Command = Union[str, Iterable[str]]
+
+
 class SSH(object):
-    def __init__(self, logger):
+    def __init__(self, logger: MachineLogger):
         """
         Initialize a SSH object with the specified Logger instance, which will
         be used to write SSH output to.
@@ -146,19 +161,19 @@ class SSH(object):
         self._ssh_master: Optional[SSHMaster] = None
         self._compress = False
 
-    def register_host_fun(self, host_fun: Callable[[], str]):
+    def register_host_fun(self, host_fun: Callable[[], str]) -> None:
         """
         Register a function which returns the hostname or IP to connect to. The
         function has to require no arguments.
         """
         self._host_fun = host_fun
 
-    def _get_target(self, user=None):
+    def _get_target(self, user: Optional[str] = None) -> str:
         if self._host_fun is None:
             raise AssertionError("don't know which SSH host to connect to")
         return "{0}@{1}".format("root" if user is None else user, self._host_fun())
 
-    def register_flag_fun(self, flag_fun: Callable[[], List[str]]):
+    def register_flag_fun(self, flag_fun: Callable[[], List[str]]) -> None:
         """
         Register a function that is used for obtaining additional SSH flags.
         The function has to require no arguments and should return a list of
@@ -166,10 +181,10 @@ class SSH(object):
         """
         self._flag_fun = flag_fun
 
-    def _get_flags(self):
+    def _get_flags(self) -> List[str]:
         return self._flag_fun()
 
-    def register_passwd_fun(self, passwd_fun: Callable[[], Optional[str]]):
+    def register_passwd_fun(self, passwd_fun: Callable[[], Optional[str]]) -> None:
         """
         Register a function that returns either a string or None and requires
         no arguments. If the return value is a string, the returned string is
@@ -178,10 +193,10 @@ class SSH(object):
         """
         self._passwd_fun = passwd_fun
 
-    def _get_passwd(self):
+    def _get_passwd(self) -> Optional[str]:
         return self._passwd_fun()
 
-    def reset(self):
+    def reset(self) -> None:
         """
         Reset SSH master connection.
         """
@@ -189,7 +204,12 @@ class SSH(object):
             self._ssh_master.shutdown()
             self._ssh_master = None
 
-    def get_master(self, flags=[], timeout=None, user=None):
+    def get_master(
+        self,
+        flags: List[str] = [],
+        timeout: Optional[int] = None,
+        user: Optional[str] = None,
+    ) -> SSHMaster:
         """
         Start (if necessary) an SSH master connection to speed up subsequent
         SSH sessions. Returns the SSHMaster instance on success.
@@ -238,7 +258,7 @@ class SSH(object):
         return weakref.proxy(self._ssh_master)
 
     @classmethod
-    def split_openssh_args(self, args):
+    def split_openssh_args(self, args: Iterable[str]) -> Tuple[List[str], Command]:
         """
         Splits the specified list of arguments into a tuple consisting of the
         list of flags and a list of strings for the actual command.
@@ -265,7 +285,9 @@ class SSH(object):
                 break
         return (flags, command)
 
-    def _sanitize_command(self, command, allow_ssh_args):
+    def _sanitize_command(
+        self, command: Command, allow_ssh_args: bool
+    ) -> Iterable[str]:
         """
         Helper method for run_command, which essentially prepares and properly
         escape the command. See run_command() for further description.
@@ -288,14 +310,14 @@ class SSH(object):
 
     def run_command(
         self,
-        command,
-        flags=[],
-        timeout=None,
-        logged=True,
-        allow_ssh_args=False,
-        user=None,
-        **kwargs
-    ):
+        command: Command,
+        flags: List[str] = [],
+        timeout: Optional[int] = None,
+        logged: bool = True,
+        allow_ssh_args: bool = False,
+        user: Optional[str] = None,
+        **kwargs: Any
+    ) -> Union[str, int]:
         """
         Execute a 'command' on the current target host using SSH, passing
         'flags' as additional arguments to SSH. The command can be either a
@@ -337,5 +359,5 @@ class SSH(object):
             else:
                 return res
 
-    def enable_compression(self):
+    def enable_compression(self) -> None:
         self._compress = True
