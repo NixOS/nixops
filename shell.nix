@@ -1,4 +1,22 @@
-{ ... } @ args:
+{ pkgs ? import <nixpkgs> {} }:
+
 let
-  nixops = (import ./release.nix args).build."${builtins.currentSystem}";
-in nixops
+
+  overrides = import ./overrides.nix { inherit pkgs; };
+
+in pkgs.mkShell {
+
+  buildInputs = [
+    (pkgs.poetry2nix.mkPoetryEnv {
+      projectDir = ./.;
+      overrides = pkgs.poetry2nix.overrides.withDefaults(overrides);
+    })
+    pkgs.openssh
+    pkgs.poetry
+  ];
+
+  shellHook = ''
+    export PATH=${builtins.toString ./scripts}:$PATH
+  '';
+
+}
