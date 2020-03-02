@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import re
-import nixops.util
 from threading import Event
-from typing import List, Optional, Dict
-from nixops.state import StateDict
+from typing import Any, Dict, List, Optional, Iterable, Set, Tuple, Union
+from xml.etree import ElementTree
+
+from nixops import deployment
 from nixops.diff import Diff, Handler
+from nixops.state import StateDict
+import nixops.util
 
 
 class ResourceDefinition(object):
@@ -17,18 +20,21 @@ class ResourceDefinition(object):
         raise NotImplementedError("get_type")
 
     @classmethod
-    def get_resource_type(cls):
+    def get_resource_type(cls) -> str:
         """A resource type identifier corresponding to the resources.<type> attribute in the Nix expression"""
         return cls.get_type()
 
-    def __init__(self, xml, config={}):
+    def __init__(self, xml: ElementTree.Element, config: Dict[str, Any] = {}) -> None:
         self.config = config
-        self.name = xml.get("name")
-        assert self.name
+
+        _name = xml.get("name")
+        assert _name
+        self.name: str = _name
+
         if not re.match("^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*$", self.name):
             raise Exception("invalid resource name ‘{0}’".format(self.name))
 
-    def show_type(self):
+    def show_type(self) -> str:
         """A short description of the type of resource this is"""
         return self.get_type()
 
@@ -37,6 +43,9 @@ class ResourceState(object):
     """Base class for NixOps resource state objects."""
 
     name: str
+
+    # used by deployments to track reverse dependencies
+    _wait_for: Optional[List[ResourceState]]
 
     @classmethod
     def get_type(cls) -> str:
@@ -64,16 +73,15 @@ class ResourceState(object):
     _created_event: Event
     _destroyed_event: Event
     _errored: Optional[bool]
-    _wait_for: List["ResourceState"]
 
-    def __init__(self, depl, name: str, id):
+    def __init__(self, depl: nixops.deployment.Deployment, name: str, id: str) -> None:
         self.depl = depl
         self.name = name
         self.id = id
         self.logger = depl.logger.get_logger_for(name)
         self.logger.register_index(self.index)
 
-    def _set_attrs(self, attrs):
+    def _set_attrs(self, attrs: Dict[str, Any]) -> None:
         """Update machine attributes in the state file."""
         with self.depl._db:
             c = self.depl._db.cursor()
@@ -89,11 +97,11 @@ class ResourceState(object):
                         (self.id, n, v),
                     )
 
-    def _set_attr(self, name, value):
+    def _set_attr(self, name: str, value: Any) -> None:
         """Update one machine attribute in the state file."""
         self._set_attrs({name: value})
 
-    def _del_attr(self, name):
+    def _del_attr(self, name: str) -> None:
         """Delete a machine attribute from the state file."""
         with self.depl._db:
             self.depl._db.execute(
@@ -101,7 +109,7 @@ class ResourceState(object):
                 (self.id, name),
             )
 
-    def _get_attr(self, name, default=nixops.util.undefined):
+    def _get_attr(self, name: str, default: Any = nixops.util.undefined) -> Any:
         """Get a machine attribute from the state file."""
         with self.depl._db:
             c = self.depl._db.cursor()
@@ -126,7 +134,7 @@ class ResourceState(object):
             res["type"] = self.get_type()
             return res
 
-    def import_(self, attrs):
+    def import_(self, attrs: Dict[str, Any]) -> None:
         """Import the resource from another database"""
         with self.depl._db:
             for k, v in attrs.items():
@@ -142,11 +150,11 @@ class ResourceState(object):
     warn = lambda s, m: s.logger.warn(m)
     success = lambda s, m: s.logger.success(m)
 
-    def show_type(self):
+    def show_type(self) -> str:
         """A short description of the type of resource this is"""
         return self.get_type()
 
-    def show_state(self):
+    def show_state(self) -> str:
         """A description of the resource's current state"""
         state = self.state
         if state == self.UNKNOWN:
@@ -168,59 +176,71 @@ class ResourceState(object):
         else:
             raise Exception("machine is in unknown state")
 
-    def prefix_definition(self, attr):
+    def prefix_definition(self, attr: Dict[Any, Any]) -> Dict[Any, Any]:
         """Prefix the resource set with a py2nixable attrpath"""
         raise Exception("not implemented")
 
-    def get_physical_spec(self):
+    def get_physical_spec(self) -> Dict[Union[Tuple[str, ...], str], Any]:
         """py2nixable physical specification of the resource to be fed back into the network"""
         return {}
 
-    def get_physical_backup_spec(self, backupid):
+    def get_physical_backup_spec(self, backupid: str) -> List[str]:
         """py2nixable physical specification of the specified backup"""
         return []
 
     @property
-    def resource_id(self):
+    def resource_id(self) -> Optional[str]:
         """A unique ID to display for this resource"""
         return None
 
     @property
-    def public_ipv4(self):
+    def public_ipv4(self) -> Optional[str]:
         return None
 
-    def create_after(self, resources, defn):
+    def create_after(
+        self,
+        resources: Iterable[nixops.resources.ResourceState],
+        defn: Optional[nixops.resources.ResourceDefinition],
+    ) -> Set[ResourceState]:
         """Return a set of resources that should be created before this one."""
-        return {}
+        return set({})
 
-    def destroy_before(self, resources):
+    def destroy_before(
+        self, resources: Iterable[nixops.resources.ResourceState]
+    ) -> Set[ResourceState]:
         """Return a set of resources that should be destroyed after this one."""
         return self.create_after(resources, None)
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
+    def create(
+        self,
+        defn: nixops.resources.ResourceDefinition,
+        check: bool,
+        allow_reboot: bool,
+        allow_recreate: bool,
+    ) -> None:
         """Create or update the resource defined by ‘defn’."""
         raise NotImplementedError("create")
 
-    def check(self):
+    def check(self) -> None:
         """
         Reconcile the state file with the real world infrastructure state.
         This should not do any provisionning but just sync the state.
         """
         self._check()
 
-    def _check(self):
+    def _check(self) -> bool:
         return True
 
-    def after_activation(self, defn):
+    def after_activation(self, defn: nixops.resources.ResourceDefinition) -> None:
         """Actions to be performed after the network is activated"""
         return
 
-    def destroy(self, wipe=False):
+    def destroy(self, wipe: bool = False) -> bool:
         """Destroy this resource, if possible."""
         self.logger.warn("don't know how to destroy resource ‘{0}’".format(self.name))
         return False
 
-    def delete_resources(self):
+    def delete_resources(self) -> bool:
         """delete this resource state, if possible."""
         if not self.depl.logger.confirm(
             "are you sure you want to clear the state of {}? "
@@ -235,7 +255,7 @@ class ResourceState(object):
         )
         return True
 
-    def next_charge_time(self):
+    def next_charge_time(self) -> Optional[float]:
         """Return the time (in Unix epoch) when this resource will next incur
         a financial charge (or None if unknown)."""
         return None
@@ -244,11 +264,17 @@ class ResourceState(object):
 class DiffEngineResourceState(ResourceState):
     _reserved_keys: List[str] = []
 
-    def __init__(self, depl, name, id):
+    def __init__(self, depl: nixops.deployment.Deployment, name: str, id: str) -> None:
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
+    def create(
+        self,
+        defn: nixops.resources.ResourceDefinition,
+        check: bool,
+        allow_reboot: bool,
+        allow_recreate: bool,
+    ) -> None:
         # if --check is true check against the api and update the state
         # before firing up the diff engine in order to get the needed
         # handlers calls
@@ -259,18 +285,18 @@ class DiffEngineResourceState(ResourceState):
         for handler in diff_engine.plan():
             handler.handle(allow_recreate)
 
-    def plan(self, defn):
+    def plan(self, defn: nixops.resources.ResourceDefinition) -> None:
         if hasattr(self, "_state"):
             diff_engine = self.setup_diff_engine(defn.config)
             diff_engine.plan(show=True)
         else:
-            self.warn(
+            self.logger.warn(
                 "resource type {} doesn't implement a plan operation".format(
                     self.get_type()
                 )
             )
 
-    def setup_diff_engine(self, config):
+    def setup_diff_engine(self, config: Dict[str, Any]) -> Diff:
         diff_engine = Diff(
             depl=self.depl,
             logger=self.logger,
@@ -282,13 +308,13 @@ class DiffEngineResourceState(ResourceState):
         diff_engine.set_handlers(self.get_handlers())
         return diff_engine
 
-    def get_handlers(self):
+    def get_handlers(self) -> List[Handler]:
         return [
             getattr(self, h) for h in dir(self) if isinstance(getattr(self, h), Handler)
         ]
 
-    def get_defn(self):
-        if self.name in self.depl.definitions:
+    def get_defn(self) -> Dict[str, Any]:
+        if self.depl.definitions and self.name in self.depl.definitions:
             return self.depl.definitions[self.name].config
         else:
             return {}

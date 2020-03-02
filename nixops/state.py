@@ -2,17 +2,24 @@ import json
 import collections
 import sqlite3
 import nixops.util
-from typing import Any, List, Iterator, AbstractSet, Tuple
+from typing import Any, List, Iterator, AbstractSet, Tuple, TYPE_CHECKING
+
+import nixops.deployment
+
+if TYPE_CHECKING:
+    StateBase = collections.MutableMapping[str, Any]
+else:
+    StateBase = collections.MutableMapping
 
 
-class StateDict(collections.MutableMapping):
+class StateDict(StateBase):
     """
        An implementation of a MutableMapping container providing
        a python dict like behavior for the NixOps state file.
     """
 
     # TODO implement __repr__ for convenience e.g debuging the structure
-    def __init__(self, depl, id: str):
+    def __init__(self, depl: nixops.deployment.Deployment, id: str) -> None:
         super(StateDict, self).__init__()
         self._db: sqlite3.Connection = depl._db
         self.id = id

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# type: ignore
 
 from nixops import deployment
 from nixops.nix_expr import py2nix
@@ -1119,7 +1120,7 @@ def add_common_deployment_options(subparser):
     )
 
 
-def error(msg):
+def error(msg: str) -> None:
     sys.stderr.write(nixops.util.ansi_warn("error: ") + msg + "\n")
 
 

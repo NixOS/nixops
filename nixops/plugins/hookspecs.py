@@ -1,5 +1,6 @@
-import pluggy
+# type: ignore
 
+import pluggy
 
 hookspec = pluggy.HookspecMarker("nixops")
 

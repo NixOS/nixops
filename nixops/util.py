@@ -16,7 +16,24 @@ import subprocess
 import logging
 import atexit
 import re
-from typing import Callable, List, Optional, Any, IO, Union, Mapping, TextIO
+from typing import (
+    Callable,
+    List,
+    Optional,
+    Any,
+    IO,
+    Union,
+    Mapping,
+    TextIO,
+    Tuple,
+    overload,
+)
+import xml.etree.ElementTree as ET
+
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 # the following ansi_ imports are for backwards compatability. They
 # would belong fine in this util.py, but having them in util.py
@@ -51,7 +68,7 @@ def check_wait(
 
 
 class CommandFailed(Exception):
-    def __init__(self, message: str, exitcode: int):
+    def __init__(self, message: str, exitcode: int) -> None:
         self.message = message
         self.exitcode = exitcode
 
@@ -59,11 +76,57 @@ class CommandFailed(Exception):
         return "{0} (exit code {1})".format(self.message, self.exitcode)
 
 
+@overload
 def logged_exec(
     command: List[str],
     logger: MachineLogger,
-    check: bool = True,
+    *,
+    capture_stdout: Literal[False],
+    check: bool = ...,
+    stdin: Optional[IO[Any]] = ...,
+    stdin_string: Optional[str] = ...,
+    env: Optional[Mapping[str, str]] = ...,
+    preexec_fn: Optional[Callable[[], Any]] = ...,
+) -> int:
+    ...
+
+
+@overload
+def logged_exec(
+    command: List[str],
+    logger: MachineLogger,
+    *,
+    capture_stdout: Literal[True],
+    check: bool = ...,
+    stdin: Optional[IO[Any]] = ...,
+    stdin_string: Optional[str] = ...,
+    env: Optional[Mapping[str, str]] = ...,
+    preexec_fn: Optional[Callable[[], Any]] = ...,
+) -> int:
+    ...
+
+
+@overload
+def logged_exec(
+    command: List[str],
+    logger: MachineLogger,
+    *,
     capture_stdout: bool = False,
+    check: bool = True,
+    stdin: Optional[IO[Any]] = None,
+    stdin_string: Optional[str] = None,
+    env: Optional[Mapping[str, str]] = None,
+    preexec_fn: Optional[Callable[[], Any]] = None,
+) -> Union[str, int]:
+    ...
+
+
+def logged_exec(
+    command: List[str],
+    logger: MachineLogger,
+    *,
+    capture_stdout: bool = False,
+    check: bool = True,
     stdin: Optional[IO[Any]] = None,
     stdin_string: Optional[str] = None,
     env: Optional[Mapping[str, str]] = None,
@@ -195,14 +258,14 @@ def logged_exec(
     return stdout if capture_stdout else res
 
 
-def generate_random_string(length=256) -> str:
+def generate_random_string(length: int = 256) -> str:
     """Generate a base-64 encoded cryptographically strong random string."""
     s = os.urandom(length)
     assert len(s) == length
     return base64.b64encode(s).decode()
 
 
-def make_non_blocking(fd: IO[Any]):
+def make_non_blocking(fd: IO[Any]) -> None:
     fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)
 
 
@@ -243,7 +306,7 @@ def wait_for_tcp_port(
     timeout: int = -1,
     open: bool = True,
     callback: Optional[Callable[[], Any]] = None,
-):
+) -> Literal[True]:
     """Wait until the specified TCP port is open or closed."""
     n = 0
     while True:
@@ -270,7 +333,7 @@ def _maybe_abspath(s: str) -> str:
     return os.path.abspath(s)
 
 
-def abs_nix_path(x):
+def abs_nix_path(x: str) -> str:
     xs = x.split("=", 1)
     if len(xs) == 1:
         return _maybe_abspath(x)
@@ -284,10 +347,12 @@ class Undefined:
 undefined = Undefined()
 
 
+# TODO: should this actually return property?
 def attr_property(name: str, default: Any, type: Optional[Any] = str) -> Any:
     """Define a property that corresponds to a value in the NixOps state file."""
 
-    def get(self) -> Any:
+    # TODO: how to type self here?
+    def get(self) -> Any:  # type: ignore
         s: Any = self._get_attr(name, default)
         if s == undefined:
             if default != undefined:
@@ -308,7 +373,8 @@ def attr_property(name: str, default: Any, type: Optional[Any] = str) -> Any:
         else:
             assert False
 
-    def set(self, x: Any) -> None:
+    # TODO: how to type self here?
+    def set(self, x: Any) -> None:  # type: ignore
         if x == default:
             self._del_attr(name)
         elif type is "json":
@@ -319,7 +385,9 @@ def attr_property(name: str, default: Any, type: Optional[Any] = str) -> Any:
     return property(get, set)
 
 
-def create_key_pair(key_name="NixOps auto-generated key", type="ed25519"):
+def create_key_pair(
+    key_name: str = "NixOps auto-generated key", type: str = "ed25519"
+) -> Tuple[str, str]:
     key_dir = tempfile.mkdtemp(prefix="nixops-key-tmp")
     res = subprocess.call(
         ["ssh-keygen", "-t", type, "-f", key_dir + "/key", "-N", "", "-C", key_name],
@@ -338,30 +406,33 @@ def create_key_pair(key_name="NixOps auto-generated key", type="ed25519"):
 
 
 class SelfDeletingDir(str):
-    def __init__(self, s: str):
+    def __init__(self, s: str) -> None:
         str.__init__(s)
         atexit.register(self._delete)
 
-    def _delete(self):
+    def _delete(self) -> None:
         shutil.rmtree(self)
 
 
 class TeeStderr(StringIO):
     stderr: TextIO
 
-    def __init__(self):
+    def __init__(self) -> None:
         StringIO.__init__(self)
         self.stderr = sys.stderr
         self.logger = logging.getLogger("root")
         sys.stderr = self
 
-    def __del__(self):
+    def __del__(self) -> None:
         sys.stderr = self.stderr
 
-    def write(self, data):
-        self.stderr.write(data)
+    def write(self, data: str) -> int:
+        ret = self.stderr.write(data)
+
         for l in data.split("\n"):
             self.logger.warning(l)
+
+        return ret
 
     def fileno(self) -> int:
         return self.stderr.fileno()
@@ -369,26 +440,29 @@ class TeeStderr(StringIO):
     def isatty(self) -> bool:
         return self.stderr.isatty()
 
-    def flush(self):
+    def flush(self) -> None:
         return self.stderr.flush()
 
 
 class TeeStdout(StringIO):
     stdout: TextIO
 
-    def __init__(self):
+    def __init__(self) -> None:
         StringIO.__init__(self)
         self.stdout = sys.stdout
         self.logger = logging.getLogger("root")
         sys.stdout = self
 
-    def __del__(self):
+    def __del__(self) -> None:
         sys.stdout = self.stdout
 
-    def write(self, data):
-        self.stdout.write(data)
+    def write(self, data: str) -> int:
+        ret = self.stdout.write(data)
+
         for l in data.split("\n"):
             self.logger.info(l)
+
+        return ret
 
     def fileno(self) -> int:
         return self.stdout.fileno()
@@ -396,7 +470,7 @@ class TeeStdout(StringIO):
     def isatty(self) -> bool:
         return self.stdout.isatty()
 
-    def flush(self):
+    def flush(self) -> None:
         return self.stdout.flush()
 
 
@@ -421,18 +495,23 @@ def which(program: str) -> str:
     raise Exception("program ‘{0}’ not found in \$PATH".format(program))
 
 
-def enum(**enums):
+def enum(**enums):  # type: ignore
     return type("Enum", (), enums)
 
 
-def write_file(path: str, contents: str):
+def write_file(path: str, contents: str) -> None:
     f = open(path, "w")
     f.write(contents)
     f.close()
 
 
-def xml_expr_to_python(node):
+# TODO: Union[List[Any], {}, str, bool, int, None, {drvPath, outPath}]
+def xml_expr_to_python(node: Optional[ET.Element]) -> Optional[Any]:
     res: Any
+
+    if node is None:
+        return None
+
     if node.tag == "attrs":
         res = {}
         for attr in node.findall("attr"):
@@ -456,7 +535,12 @@ def xml_expr_to_python(node):
         return node.get("value") == "true"
 
     elif node.tag == "int":
-        return int(node.get("value"))
+        val = node.get("value")
+
+        if val is None:
+            return None
+
+        return int(val)
 
     elif node.tag == "null":
         return None
@@ -505,3 +589,12 @@ def device_name_user_entered_to_stored(string: str) -> str:
 # nvme -> nvme
 def device_name_stored_to_real(string: str) -> str:
     return string.replace("/dev/sd", "/dev/xvd")
+
+
+def xml_find_get(xml: ET.Element, find: str, get: str = "value") -> Optional[str]:
+    x = xml.find(find)
+
+    if x is not None:
+        return x.get("value")
+
+    return None

@@ -24,32 +24,27 @@ import importlib
 
 from functools import reduce
 from typing import (
-    Callable,
-    Dict,
-    Optional,
-    TextIO,
-    Set,
-    List,
-    DefaultDict,
     Any,
+    Callable,
+    DefaultDict,
+    Dict,
+    List,
+    Optional,
+    Set,
+    TextIO,
     Tuple,
-    ValuesView,
+    Type,
+    TypeVar,
     Union,
-    cast,
 )
-import nixops.backends
-import nixops.logger
-import nixops.parallel
-from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
-from nixops.util import ansi_success
-from nixops.plugins import get_plugin_manager
 
+from nixops.ansi import ansi_success
 import nixops.backends
 import nixops.logger
-import nixops.parallel
 from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
-from nixops.util import ansi_success, Undefined
+import nixops.parallel
 from nixops.plugins import get_plugin_manager
+import nixops.statefile
 
 Definitions = Dict[str, nixops.resources.ResourceDefinition]
 
@@ -74,21 +69,24 @@ class Deployment:
     nix_exprs = nixops.util.attr_property("nixExprs", [], "json")
     nix_path = nixops.util.attr_property("nixPath", [], "json")
     args = nixops.util.attr_property("args", {}, "json")
-    description = nixops.util.attr_property("description", default_description)
-    configs_path = nixops.util.attr_property("configsPath", None)
+    description: str = nixops.util.attr_property("description", default_description)
+    configs_path: Optional[str] = nixops.util.attr_property("configsPath", None)
     rollback_enabled: bool = nixops.util.attr_property("rollbackEnabled", False)
 
     # internal variable to mark if network attribute of network has been evaluated (separately)
     network_attr_eval: bool = False
 
     def __init__(
-        self, statefile, uuid: str, log_file: TextIO = sys.stderr,
-    ):
+        self,
+        statefile: nixops.statefile.StateFile,
+        uuid: str,
+        log_file: TextIO = sys.stderr,
+    ) -> None:
         self._statefile = statefile
         self._db: sqlite3.Connection = statefile._db
         self.uuid = uuid
 
-        self._last_log_prefix = None
+        self._last_log_prefix: Optional[str] = None
         self.extra_nix_path: List[str] = []
         self.extra_nix_flags: List[str] = []
         self.extra_nix_eval_flags: List[str] = []
@@ -163,11 +161,11 @@ class Deployment:
             raise Exception("resource ‘{0}’ is not of type ‘{1}’".format(name, type))
         return res
 
-    def get_machine(self, name: str) -> nixops.resources.ResourceState:
+    def get_machine(self, name: str) -> nixops.backends.MachineState:
         res = self.active_resources.get(name, None)
         if not res:
             raise Exception("machine ‘{0}’ does not exist".format(name))
-        if not is_machine(res):
+        if not isinstance(res, nixops.backends.MachineState):
             raise Exception("resource ‘{0}’ is not a machine".format(name))
         return res
 
@@ -294,38 +292,16 @@ class Deployment:
             new.configs_path = None
             return new
 
-    def _get_deployment_lock(
-        self,
-    ) -> Any:  # FIXME: DeploymentLock is defined inside the function
+    def _get_deployment_lock(self) -> "DeploymentLock":
         if self._lock_file_path is None:
             lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
             if not os.path.exists(lock_dir):
                 os.makedirs(lock_dir, 0o700)
             self._lock_file_path = lock_dir + "/" + self.uuid
 
-        class DeploymentLock(object):
-            def __init__(self, depl: Deployment):
-                assert depl._lock_file_path is not None
-                self._lock_file_path: str = depl._lock_file_path
-                self._logger: nixops.logger.Logger = depl.logger
-                self._lock_file: Optional[TextIO] = None
-
-            def __enter__(self) -> None:
-                self._lock_file = open(self._lock_file_path, "w")
-                fcntl.fcntl(self._lock_file, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
-                try:
-                    fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except IOError:
-                    self._logger.log("waiting for exclusive deployment lock...")
-                    fcntl.flock(self._lock_file, fcntl.LOCK_EX)
-
-            def __exit__(self, exception_type, exception_value, exception_traceback):
-                if self._lock_file is not None:
-                    self._lock_file.close()
-
         return DeploymentLock(self)
 
-    def delete_resource(self, m: nixops.resources.ResourceState) -> None:
+    def delete_resource(self, m: nixops.backends.MachineState) -> None:
         del self.resources[m.name]
         with self._db:
             self._db.execute(
@@ -440,7 +416,7 @@ class Deployment:
         except subprocess.CalledProcessError:
             raise NixEvalError
 
-    def evaluate_config(self, attr):
+    def evaluate_config(self, attr: str) -> Tuple[ElementTree.Element, Any]:
         try:
             # FIXME: use --json
             xml = subprocess.check_output(
@@ -499,6 +475,8 @@ class Deployment:
         # Extract machine information.
         for x in tree.findall("attrs/attr[@name='machines']/attrs/attr"):
             name = x.get("name")
+            assert name is not None
+
             cfg = config["machines"][name]
             if cfg["targetEnv"] == "azure":
                 self.logger.warn(
@@ -513,8 +491,12 @@ class Deployment:
         # Extract info about other kinds of resources.
         for x in tree.findall("attrs/attr[@name='resources']/attrs/attr"):
             res_type = x.get("name")
+            assert res_type is not None
+
             for y in x.findall("attrs/attr"):
                 name = y.get("name")
+                assert name is not None
+
                 if "azure" in res_type:
                     self.logger.warn(
                         "skipping Azure resource {} of type {}: the azure backend is now broken on nixops".format(
@@ -572,7 +554,7 @@ class Deployment:
         except Exception as e:
             raise Exception("Could not determine arguments to NixOps deployment.")
 
-    def get_physical_spec(self) -> Any:
+    def get_physical_spec(self) -> str:
         """Compute the contents of the Nix expression specifying the computed physical deployment attributes"""
 
         active_machines = self.active
@@ -714,10 +696,10 @@ class Deployment:
         for m in active_machines.values():
             do_machine(m)
 
-        def emit_resource(r: nixops.resources.ResourceState) -> Any:
+        def emit_resource(r: nixops.resources.ResourceState) -> Dict[Any, Any]:
             config = []
             config.extend(attrs_per_resource[r.name])
-            if is_machine(r):
+            if isinstance(r, nixops.backends.MachineState):
                 # Sort the hosts by its canonical host names.
                 sorted_hosts = sorted(
                     hosts[r.name].items(), key=lambda item: item[1][0]
@@ -991,7 +973,7 @@ class Deployment:
 
                     ret = m.run_command(new_profile_cmd, check=False)
                     if ret == 111:
-                        m.log("configuration already up to date")
+                        m.logger.log("configuration already up to date")
                         return None
                     elif ret != 0:
                         raise Exception("unable to set new system profile")
@@ -1032,7 +1014,7 @@ class Deployment:
                     # failed to start after the reboot.
 
                 if res == 0:
-                    m.success("activation finished successfully")
+                    m.logger.success("activation finished successfully")
 
                 # Record that we switched this machine to the new
                 # configuration.
@@ -1108,7 +1090,7 @@ class Deployment:
         return backups
 
     def clean_backups(
-        self, keep: bool, keep_days: int, keep_physical: bool = False
+        self, keep: int, keep_days: int, keep_physical: bool = False
     ) -> None:
         _backups = self.get_backups()
         backup_ids = sorted(_backups.keys())
@@ -1141,7 +1123,10 @@ class Deployment:
             )
 
     def backup(
-        self, include: List[str] = [], exclude: List[str] = [], devices: List[str] = []
+        self,
+        include: List[str] = [],
+        exclude: List[str] = [],
+        devices: List[Dict[str, Any]] = [],
     ) -> str:
         self.evaluate_active(include, exclude)
         backup_id = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -1169,7 +1154,7 @@ class Deployment:
         include: List[str] = [],
         exclude: List[str] = [],
         backup_id: Optional[str] = None,
-        devices: List[str] = [],
+        devices: List[Dict[str, Any]] = [],
     ) -> None:
         with self._get_deployment_lock():
 
@@ -1281,17 +1266,26 @@ class Deployment:
                 r._created_event = threading.Event()
                 r._errored = False
 
-            def plan_worker(r: nixops.resources.DiffEngineResourceState) -> None:
+            def plan_worker(r: nixops.resources.ResourceState) -> None:
                 if not should_do(r, include, exclude):
                     return
-                r.plan(self._definition_for_required(r.name))
+
+                # TODO: just assert isinstance nixops.resources.ResourceState?
+                if hasattr(r, "plan"):
+                    r.plan(self._definition_for_required(r.name))  # type: ignore
+                else:
+                    r.logger.warn(
+                        "resource type {} doesn't implement a plan operation".format(
+                            r.get_type()
+                        )
+                    )
 
             if plan_only:
                 for r in self.active_resources.values():
                     if isinstance(r, nixops.resources.DiffEngineResourceState):
                         plan_worker(r)
                     else:
-                        r.warn(
+                        r.logger.warn(
                             "resource type {} doesn't implement a plan operation".format(
                                 r.get_type()
                             )
@@ -1299,7 +1293,9 @@ class Deployment:
 
                 return
 
-            def worker(r: nixops.resources.ResourceState):
+            def worker(m: nixops.backends.MachineState) -> None:
+                assert r._created_event is not None
+
                 try:
                     if not should_do(r, include, exclude):
                         return
@@ -1311,6 +1307,7 @@ class Deployment:
                         self._definition_for_required(r.name),
                     )
                     for dep in deps:
+                        assert dep._created_event is not None
                         dep._created_event.wait()
                         # !!! Should we print a message here?
                         if dep._errored:
@@ -1327,10 +1324,7 @@ class Deployment:
                         allow_recreate=allow_recreate,
                     )
 
-                    if is_machine(r):
-                        # NOTE: unfortunate mypy doesn't check that
-                        # is_machine calls an isinstance() function
-                        m = cast(nixops.backends.MachineState, r)
+                    if isinstance(r, nixops.backends.MachineState):
                         # The first time the machine is created,
                         # record the state version. We get it from
                         # /etc/os-release, rather than from the
@@ -1346,13 +1340,13 @@ class Deployment:
                             )
                             if match:
                                 m.state_version = match.group(1)
-                                m.log(
+                                m.logger.log(
                                     "setting state version to {0}".format(
                                         m.state_version
                                     )
                                 )
                             else:
-                                m.warn("cannot determine NixOS version")
+                                m.logger.warn("cannot determine NixOS version")
 
                         m.wait_for_ssh(check=check)
                         m.generate_vpn_key()
@@ -1413,7 +1407,7 @@ class Deployment:
 
         # Trigger cleanup of resources, e.g. disks that need to be detached etc. Needs to be
         # done after activation to make sure they are not in use anymore.
-        def cleanup_worker(r: nixops.resources.ResourceState) -> None:
+        def cleanup_worker(r: nixops.backends.MachineState) -> None:
             if not should_do(r, include, exclude):
                 return
 
@@ -1547,24 +1541,30 @@ class Deployment:
             r._destroyed_event = threading.Event()
             r._errored = False
             for rev_dep in r.destroy_before(iter(self.resources.values())):
-                try:
-                    rev_dep._wait_for.append(r)
-                except AttributeError:
-                    rev_dep._wait_for = [r]
+                if not rev_dep._wait_for:
+                    rev_dep._wait_for = []
 
-        def worker(m: nixops.resources.ResourceState) -> None:
+                rev_dep._wait_for.append(r)
+
+        def worker(m: nixops.backends.MachineState) -> None:
+            assert m._destroyed_event is not None
+
             try:
                 if not should_do(m, include, exclude):
                     return
-                try:
-                    for dep in m._wait_for:
-                        dep._destroyed_event.wait()
-                        # !!! Should we print a message here?
-                        if dep._errored:
-                            m._errored = True
-                            return
-                except AttributeError:
-                    pass
+
+                if m._wait_for is not None:
+                    try:
+                        for dep in m._wait_for:
+                            assert dep._destroyed_event is not None
+                            dep._destroyed_event.wait()
+                            # !!! Should we print a message here?
+                            if dep._errored:
+                                m._errored = True
+                                return
+                    except AttributeError:
+                        pass
+
                 if m.destroy(wipe=wipe):
                     self.delete_resource(m)
             except:
@@ -1624,7 +1624,7 @@ class Deployment:
     ) -> None:
         """delete all resources state."""
 
-        def worker(m: nixops.resources.ResourceState) -> None:
+        def worker(m: nixops.backends.MachineState) -> None:
             if not should_do(m, include, exclude):
                 return
             if m.delete_resources():
@@ -1718,6 +1718,31 @@ class Deployment:
         )
 
 
+class DeploymentLock(object):
+    def __init__(self, depl: Deployment) -> None:
+        assert depl._lock_file_path is not None
+        self._lock_file_path: str = depl._lock_file_path
+        self._logger: nixops.logger.Logger = depl.logger
+        self._lock_file: Optional[TextIO] = None
+
+    def __enter__(self) -> "DeploymentLock":
+        self._lock_file = open(self._lock_file_path, "w")
+        fcntl.fcntl(self._lock_file, fcntl.F_SETFD, fcntl.FD_CLOEXEC)
+        try:
+            fcntl.flock(self._lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except IOError:
+            self._logger.log("waiting for exclusive deployment lock...")
+            fcntl.flock(self._lock_file, fcntl.LOCK_EX)
+
+        return self
+
+    def __exit__(
+        self, exception_type: Any, exception_value: Any, exception_traceback: Any
+    ) -> None:
+        if self._lock_file is not None:
+            self._lock_file.close()
+
+
 def should_do(
     m: nixops.resources.ResourceState, include: List[str], exclude: List[str]
 ) -> bool:
@@ -1732,6 +1757,9 @@ def should_do_n(name: str, include: List[str], exclude: List[str]) -> bool:
     return name in include
 
 
+# Until mypy understands type refinement, still have to make isinstance calls
+# directly to treat `r` as `MachineState` after
+# https://github.com/python/mypy/issues/5206
 def is_machine(r: nixops.resources.ResourceState) -> bool:
     return isinstance(r, nixops.backends.MachineState)
 
@@ -1740,12 +1768,17 @@ def is_machine_defn(r: nixops.resources.ResourceState) -> bool:
     return isinstance(r, nixops.backends.MachineDefinition)
 
 
-def _subclasses(cls: Any) -> List[Any]:
+_T = TypeVar("_T")
+
+
+def _subclasses(cls: Type[_T]) -> List[Type[_T]]:
     sub = cls.__subclasses__()
     return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
 
 
-def _create_definition(xml: Any, config: Dict[str, Any], type_name: str) -> Any:
+def _create_definition(
+    xml: ElementTree.Element, config: Dict[str, Any], type_name: str
+) -> nixops.resources.ResourceDefinition:
     """Create a resource definition object from the given XML representation of the machine's attributes."""
 
     for cls in _subclasses(nixops.resources.ResourceDefinition):
@@ -1761,7 +1794,9 @@ def _create_definition(xml: Any, config: Dict[str, Any], type_name: str) -> Any:
     )
 
 
-def _create_state(depl: Deployment, type: str, name: str, id: int) -> Any:
+def _create_state(
+    depl: Deployment, type: str, name: str, id: str
+) -> nixops.resources.ResourceState:
     """Create a resource state object of the desired type."""
 
     for cls in _subclasses(nixops.resources.ResourceState):

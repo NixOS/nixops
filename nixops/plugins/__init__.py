@@ -5,7 +5,7 @@ hookimpl = pluggy.HookimplMarker("nixops")
 """Marker to be imported and used in plugins (and for own implementations)"""
 
 
-def get_plugin_manager():
+def get_plugin_manager() -> pluggy.PluginManager:
     pm = pluggy.PluginManager("nixops")
     pm.add_hookspecs(hookspecs)
     pm.load_setuptools_entrypoints("nixops")

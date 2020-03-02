@@ -13,7 +13,7 @@ else:
 
 __all__ = ["py2nix", "nix2py", "nixmerge", "expand_dict", "RawValue", "Function"]
 
-Node = Union[MultiLineRawValue, RawValue, Container]
+Node = Union["MultiLineRawValue", "RawValue", "Container"]
 
 
 class RawValue(object):
@@ -51,7 +51,7 @@ class MultiLineRawValue(RawValue):
 
 
 class Function(object):
-    def __init__(self, head: str, body: str) -> None:
+    def __init__(self, head: str, body: Union[str, Dict[Any, Any]]) -> None:
         self.head = head
         self.body = body
 
@@ -136,11 +136,7 @@ class Container(object):
         return ind + self.prefix + sep + lines + sep + suffix_ind + self.suffix
 
 
-def enclose_node(
-    node: Union[MultiLineRawValue, RawValue, Container],
-    prefix: str = "",
-    suffix: str = "",
-) -> Union[MultiLineRawValue, RawValue, Container]:
+def enclose_node(node: Node, prefix: str = "", suffix: str = "",) -> Node:
     if isinstance(node, MultiLineRawValue):
         new_values = list(node.values)
         new_values[0] = prefix + new_values[0]

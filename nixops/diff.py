@@ -6,24 +6,27 @@ from typing import Any, AnyStr, Callable, Dict, List, Optional, Tuple
 from nixops.logger import MachineLogger
 from nixops.state import StateDict
 
+# (allow_recreate: bool) -> None
+HandlerFn = Callable[[bool], None]
+
 
 class Handler:
     def __init__(
         self,
         keys: List[str],
-        after: Optional[List] = None,
-        handle: Optional[Callable] = None,
+        after: Optional[List[Any]] = None,
+        handle: Optional[HandlerFn] = None,
     ) -> None:
         if after is None:
             after = []
-        if handle is None:
-            self.handle = self._default_handle
-        else:
+        if handle is not None:
             self.handle = handle
+        else:
+            self.handle = self._default_handle
         self._keys = keys
         self._dependencies = after
 
-    def _default_handle(self):
+    def _default_handle(self, allow_recreate: bool) -> None:
         """
         Method that should be implemented to handle the changes
         of keys returned by get_keys()

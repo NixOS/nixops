@@ -7,7 +7,12 @@ import sys
 import time
 import weakref
 from tempfile import mkdtemp
-from typing import Dict, Any, Optional, Callable, List, Union, Iterable, Tuple
+from typing import Dict, Any, Optional, Callable, List, Union, Iterable, Tuple, overload
+
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 import nixops.util
 from nixops.logger import MachineLogger
@@ -305,6 +310,49 @@ class SSH(object):
                     ["'{0}'".format(arg.replace("'", r"'\''")) for arg in command]
                 ),
             ]
+
+    @overload
+    def run_command(
+        self,
+        command: Command,
+        flags: List[str] = ...,
+        timeout: Optional[int] = ...,
+        logged: bool = ...,
+        allow_ssh_args: bool = ...,
+        user: Optional[str] = ...,
+        *,
+        capture_stdout: Literal[False],
+        **kwargs: Any
+    ) -> int:
+        ...
+
+    @overload
+    def run_command(
+        self,
+        command: Command,
+        flags: List[str] = ...,
+        timeout: Optional[int] = ...,
+        logged: bool = ...,
+        allow_ssh_args: bool = ...,
+        user: Optional[str] = ...,
+        *,
+        capture_stdout: Literal[True],
+        **kwargs: Any
+    ) -> str:
+        ...
+
+    @overload
+    def run_command(
+        self,
+        command: Command,
+        flags: List[str] = [],
+        timeout: Optional[int] = None,
+        logged: bool = True,
+        allow_ssh_args: bool = False,
+        user: Optional[str] = None,
+        **kwargs: Any
+    ) -> Union[str, int]:
+        ...
 
     def run_command(
         self,

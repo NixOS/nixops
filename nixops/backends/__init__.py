@@ -3,7 +3,17 @@
 import os
 import re
 import subprocess
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional, Union, overload, Set, cast
+from xml.etree import ElementTree
+
+import sys
+
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
+
+from nixops import deployment
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
@@ -12,32 +22,39 @@ import nixops.ssh_util
 class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
 
-    def __init__(self, xml, config={}):
+    def __init__(self, xml: ElementTree.Element, config: Dict[str, Any] = {}) -> None:
         nixops.resources.ResourceDefinition.__init__(self, xml, config)
-        self.encrypted_links_to = set(
+        self.encrypted_links_to: Set[str] = set(
             [
-                e.get("value")
+                cast(str, e.get("value"))
                 for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")
+                if e.get("value")
             ]
         )
-        self.store_keys_on_machine = (
-            xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value")
-            == "true"
-        )
-        self.ssh_port = int(xml.find("attrs/attr[@name='targetPort']/int").get("value"))
-        self.always_activate = (
-            xml.find("attrs/attr[@name='alwaysActivate']/bool").get("value") == "true"
-        )
-        self.owners = [
-            e.get("value")
-            for e in xml.findall("attrs/attr[@name='owners']/list/string")
-        ]
-        self.has_fast_connection = (
-            xml.find("attrs/attr[@name='hasFastConnection']/bool").get("value")
+        self.store_keys_on_machine: bool = (
+            nixops.util.xml_find_get(xml, "attrs/attr[@name='storeKeysOnMachine']/bool")
             == "true"
         )
 
-        def _extract_key_options(x):
+        _ssh_port = nixops.util.xml_find_get(xml, "attrs/attr[@name='targetPort']/int")
+        assert _ssh_port is not None
+        self.ssh_port = int(_ssh_port)
+
+        self.always_activate: bool = (
+            nixops.util.xml_find_get(xml, "attrs/attr[@name='alwaysActivate']/bool")
+            == "true"
+        )
+        self.owners: List[str] = [
+            cast(str, e.get("value"))
+            for e in xml.findall("attrs/attr[@name='owners']/list/string")
+            if e.get("value")
+        ]
+        self.has_fast_connection: bool = (
+            nixops.util.xml_find_get(xml, "attrs/attr[@name='hasFastConnection']/bool")
+            == "true"
+        )
+
+        def _extract_key_options(x: ElementTree.Element) -> Dict[str, Any]:
             opts = {}
             for (key, xmlType) in (
                 ("text", "string"),
@@ -52,9 +69,10 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
                     opts[key] = elem.get("value")
             return opts
 
-        self.keys = {
-            k.get("name"): _extract_key_options(k)
+        self.keys: Dict[str, Any] = {
+            cast(str, k.get("name")): _extract_key_options(k)
             for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")
+            if k.get("name")
         }
 
 
@@ -90,7 +108,10 @@ class MachineState(nixops.resources.ResourceState):
     # machine was created.
     state_version: Optional[str] = nixops.util.attr_property("stateVersion", None, str)
 
-    def __init__(self, depl, name: str, id: int):
+    # Used in deployments
+    new_toplevel: Optional[str] = None
+
+    def __init__(self, depl: nixops.deployment.Deployment, name: str, id: str) -> None:
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
         self.ssh = nixops.ssh_util.SSH(self.logger)
@@ -98,17 +119,16 @@ class MachineState(nixops.resources.ResourceState):
         self.ssh.register_host_fun(self.get_ssh_name)
         self.ssh.register_passwd_fun(self.get_ssh_password)
         self._ssh_private_key_file: Optional[str] = None
-        self.new_toplevel: Optional[str] = None
 
-    def prefix_definition(self, attr):
+    def prefix_definition(self, attr: Dict[Any, Any]) -> Dict[Any, Any]:
         return attr
 
     @property
-    def started(self):
+    def started(self) -> bool:
         state = self.state
         return state == self.STARTING or state == self.UP
 
-    def set_common_state(self, defn):
+    def set_common_state(self, defn: MachineDefinition) -> None:
         self.store_keys_on_machine = defn.store_keys_on_machine
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
@@ -116,15 +136,15 @@ class MachineState(nixops.resources.ResourceState):
         if not self.has_fast_connection:
             self.ssh.enable_compression()
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop this machine, if possible."""
-        self.warn("don't know how to stop machine ‘{0}’".format(self.name))
+        self.logger.warn("don't know how to stop machine ‘{0}’".format(self.name))
 
-    def start(self):
+    def start(self) -> None:
         """Start this machine, if possible."""
         pass
 
-    def get_load_avg(self):
+    def get_load_avg(self) -> Optional[List[str]]:
         """Get the load averages on the machine."""
         try:
             res = (
@@ -141,13 +161,16 @@ class MachineState(nixops.resources.ResourceState):
 
     # FIXME: Move this to ResourceState so that other kinds of
     # resources can be checked.
-    def check(self):
+    #
+    # Make ResourceState accept argument for type of check object?
+    def check(self) -> CheckResult:  # type: ignore
         """Check machine state."""
         res = CheckResult()
         self._check(res)
         return res
 
-    def _check(self, res):
+    # FIXME: resolve type difference with base class, see above
+    def _check(self, res: CheckResult) -> None:  # type: ignore
         avg = self.get_load_avg()
         if avg == None:
             if self.state == self.UP:
@@ -199,33 +222,43 @@ class MachineState(nixops.resources.ResourceState):
                         continue
                     res.failed_units.append(match.group(1))
 
-    def restore(self, defn, backup_id, devices=[]):
+    def restore(
+        self,
+        defn: nixops.resources.ResourceDefinition,
+        backup_id: Optional[str] = None,
+        devices: List[Dict[str, Any]] = [],
+    ) -> None:
         """Restore persistent disks to a given backup, if possible."""
-        self.warn(
+        self.logger.warn(
             "don't know how to restore disks from backup for machine ‘{0}’".format(
                 self.name
             )
         )
 
-    def remove_backup(self, backup_id, keep_physical=False):
+    def remove_backup(self, backup_id: str, keep_physical: bool = False) -> None:
         """Remove a given backup of persistent disks, if possible."""
-        self.warn(
+        self.logger.warn(
             "don't know how to remove a backup for machine ‘{0}’".format(self.name)
         )
 
     def get_backups(self) -> Dict[str, Dict[str, Any]]:
-        self.warn("don't know how to list backups for ‘{0}’".format(self.name))
+        self.logger.warn("don't know how to list backups for ‘{0}’".format(self.name))
         return {}
 
-    def backup(self, defn, backup_id: str, devices: List[str] = []) -> None:
+    def backup(
+        self,
+        defn: nixops.resources.ResourceDefinition,
+        backup_id: str,
+        devices: List[Dict[str, Any]] = [],
+    ) -> None:
         """Make backup of persistent disks, if possible."""
-        self.warn(
+        self.logger.warn(
             "don't know how to make backup of disks for machine ‘{0}’".format(self.name)
         )
 
-    def reboot(self, hard=False):
+    def reboot(self, hard: bool = False) -> None:
         """Reboot this machine."""
-        self.log("rebooting...")
+        self.logger.log("rebooting...")
         if self.state == self.RESCUE:
             # We're on non-NixOS here, so systemd might not be available.
             # The sleep is to prevent the reboot from causing the SSH
@@ -237,33 +270,37 @@ class MachineState(nixops.resources.ResourceState):
         self.state = self.STARTING
         self.ssh.reset()
 
-    def reboot_sync(self, hard=False):
+    def reboot_sync(self, hard: bool = False) -> None:
         """Reboot this machine and wait until it's up again."""
         self.reboot(hard=hard)
-        self.log_start("waiting for the machine to finish rebooting...")
+        self.logger.log_start("waiting for the machine to finish rebooting...")
         nixops.util.wait_for_tcp_port(
             self.get_ssh_name(),
             self.ssh_port,
             open=False,
-            callback=lambda: self.log_continue("."),
+            callback=lambda: self.logger.log_continue("."),
         )
-        self.log_continue("[down]")
+        self.logger.log_continue("[down]")
         nixops.util.wait_for_tcp_port(
-            self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue(".")
+            self.get_ssh_name(),
+            self.ssh_port,
+            callback=lambda: self.logger.log_continue("."),
         )
-        self.log_end("[up]")
+        self.logger.log_end("[up]")
         self.state = self.UP
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True
         self.send_keys()
 
-    def reboot_rescue(self, hard=False):
+    def reboot_rescue(self, hard: bool = False) -> None:
         """
         Reboot machine into rescue system and wait until it is active.
         """
-        self.warn("machine ‘{0}’ doesn't have a rescue" " system.".format(self.name))
+        self.logger.warn(
+            "machine ‘{0}’ doesn't have a rescue" " system.".format(self.name)
+        )
 
-    def send_keys(self):
+    def send_keys(self) -> None:
         if self.state == self.RESCUE:
             # Don't send keys when in RESCUE state, because we're most likely
             # bootstrapping plus we probably don't have /run mounted properly
@@ -273,7 +310,7 @@ class MachineState(nixops.resources.ResourceState):
         if self.store_keys_on_machine:
             return
         for k, opts in self.get_keys().items():
-            self.log("uploading key ‘{0}’...".format(k))
+            self.logger.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
             if "destDir" not in opts:
                 raise Exception("Key '{}' has no 'destDir' specified.".format(k))
@@ -334,64 +371,108 @@ class MachineState(nixops.resources.ResourceState):
             "touch /run/keys/done"
         )
 
-    def get_keys(self):
+    def get_keys(self) -> Dict[str, Any]:
         return self.keys
 
-    def get_ssh_name(self):
+    def get_ssh_name(self) -> str:
         assert False
 
-    def get_ssh_flags(self, scp=False):
+    def get_ssh_flags(self, scp: bool = False) -> List[str]:
         if scp:
             return ["-P", str(self.ssh_port)]
         else:
             return ["-p", str(self.ssh_port)]
 
-    def get_ssh_password(self):
+    def get_ssh_password(self) -> Optional[str]:
         return None
 
-    def get_ssh_for_copy_closure(self):
+    def get_ssh_for_copy_closure(self) -> nixops.ssh_util.SSH:
         return self.ssh
 
     @property
-    def public_host_key(self):
+    def public_host_key(self) -> Optional[str]:
         return None
 
     @property
-    def private_ipv4(self):
+    def private_ipv4(self) -> Optional[str]:
         return None
 
-    def address_to(self, r):
+    def address_to(self, r: nixops.resources.ResourceState) -> Optional[str]:
         """Return the IP address to be used to access resource "r" from this machine."""
         return r.public_ipv4
 
-    def wait_for_ssh(self, check=False):
+    def wait_for_ssh(self, check: bool = False) -> None:
         """Wait until the SSH port is open on this machine."""
         if self.ssh_pinged and (not check or self._ssh_pinged_this_time):
             return
-        self.log_start("waiting for SSH...")
+        self.logger.log_start("waiting for SSH...")
         nixops.util.wait_for_tcp_port(
-            self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue(".")
+            self.get_ssh_name(),
+            self.ssh_port,
+            callback=lambda: self.logger.log_continue("."),
         )
-        self.log_end("")
+        self.logger.log_end("")
         if self.state != self.RESCUE:
             self.state = self.UP
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True
 
-    def write_ssh_private_key(self, private_key):
+    def write_ssh_private_key(self, private_key: str) -> str:
         key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
         with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0o600), "w") as f:
             f.write(private_key)
         self._ssh_private_key_file = key_file
         return key_file
 
-    def get_ssh_private_key_file(self):
+    def get_ssh_private_key_file(self) -> Optional[str]:
         return None
 
-    def _logged_exec(self, command, **kwargs):
-        return nixops.util.logged_exec(command, self.logger, **kwargs)
+    @overload
+    def _logged_exec(
+        self, command: List[str], *, capture_stdout: Literal[False], **kwargs: Any
+    ) -> int:
+        ...
 
-    def run_command(self, command, **kwargs):
+    @overload
+    def _logged_exec(
+        self, command: List[str], *, capture_stdout: Literal[True], **kwargs: Any
+    ) -> str:
+        ...
+
+    @overload
+    def _logged_exec(
+        self, command: List[str], *, capture_stdout: bool = False, **kwargs: Any
+    ) -> Union[str, int]:
+        ...
+
+    def _logged_exec(
+        self, command: List[str], *, capture_stdout: bool = False, **kwargs: Any
+    ) -> Union[str, int]:
+        return nixops.util.logged_exec(
+            command, self.logger, capture_stdout=capture_stdout, **kwargs
+        )
+
+    @overload
+    def run_command(
+        self, command: str, *, capture_stdout: Literal[False], **kwargs: Any
+    ) -> int:
+        ...
+
+    @overload
+    def run_command(
+        self, command: str, *, capture_stdout: Literal[True], **kwargs: Any
+    ) -> str:
+        ...
+
+    @overload
+    def run_command(
+        self, command: str, *, capture_stdout: bool = False, **kwargs: Any
+    ) -> Union[str, int]:
+        ...
+
+    def run_command(
+        self, command: str, *, capture_stdout: bool = False, **kwargs: Any
+    ) -> Union[str, int]:
         """
         Execute a command on the machine via SSH.
 
@@ -402,9 +483,13 @@ class MachineState(nixops.resources.ResourceState):
         # mainly operating in a chroot environment.
         if self.state == self.RESCUE:
             command = "export LANG= LC_ALL= LC_TIME=; " + command
-        return self.ssh.run_command(command, self.get_ssh_flags(), **kwargs)
+        return self.ssh.run_command(
+            command, self.get_ssh_flags(), capture_stdout=capture_stdout, **kwargs
+        )
 
-    def switch_to_configuration(self, method, sync, command=None):
+    def switch_to_configuration(
+        self, method: str, sync: bool, command: Optional[str] = None
+    ) -> int:
         """
         Execute the script to switch to new configuration.
         This function has to return an integer, which is the return value of the
@@ -416,9 +501,9 @@ class MachineState(nixops.resources.ResourceState):
         else:
             cmd += command
         cmd += " " + method
-        return self.run_command(cmd, check=False)
+        return self.run_command(cmd, check=False, capture_stdout=False)
 
-    def copy_closure_to(self, path):
+    def copy_closure_to(self, path: str) -> None:
         """Copy a closure to this machine."""
 
         # !!! Implement copying between cloud machines, as in the Perl
@@ -435,7 +520,7 @@ class MachineState(nixops.resources.ResourceState):
             env=env,
         )
 
-    def generate_vpn_key(self):
+    def generate_vpn_key(self) -> None:
         key_missing = False
         try:
             self.run_command("test -f /root/.ssh/id_charon_vpn")
@@ -455,65 +540,66 @@ class MachineState(nixops.resources.ResourceState):
             "umask 077 && mkdir -p /root/.ssh &&" " cat > /root/.ssh/id_charon_vpn",
             check=False,
             stdin=f,
+            capture_stdout=False,
         )
         if res != 0:
             raise Exception("unable to upload VPN key to ‘{0}’".format(self.name))
         self.public_vpn_key = public
 
-    def get_scp_name(self):
+    def get_scp_name(self) -> str:
         ssh_name = self.get_ssh_name()
         # ipv6 addresses have to be wrapped in brackets for scp
         if ":" in ssh_name:
             return "[%s]" % (ssh_name)
         return ssh_name
 
-    def upload_file(self, source, target, recursive=False):
+    def upload_file(self, source: str, target: str, recursive: bool = False) -> int:
         master = self.ssh.get_master()
         cmdline = ["scp"] + self.get_ssh_flags(True) + master.opts
         if recursive:
             cmdline += ["-r"]
         cmdline += [source, "root@" + self.get_scp_name() + ":" + target]
-        return self._logged_exec(cmdline)
+        return self._logged_exec(cmdline, capture_stdout=False)
 
-    def download_file(self, source, target, recursive=False):
+    def download_file(self, source: str, target: str, recursive: bool = False) -> int:
         master = self.ssh.get_master()
         cmdline = ["scp"] + self.get_ssh_flags(True) + master.opts
         if recursive:
             cmdline += ["-r"]
         cmdline += ["root@" + self.get_scp_name() + ":" + source, target]
-        return self._logged_exec(cmdline)
+        return self._logged_exec(cmdline, capture_stdout=False)
 
-    def get_console_output(self):
+    def get_console_output(self) -> str:
         return "(not available for this machine type)\n"
 
 
 class CheckResult(object):
-    def __init__(self):
+    def __init__(self) -> None:
         # Whether the resource exists.
-        self.exists = None
+        self.exists: Optional[bool] = None
 
         # Whether the resource is "up".  Generally only meaningful for
         # machines.
-        self.is_up = None
+        self.is_up: Optional[bool] = None
 
         # Whether the resource is reachable via SSH.
-        self.is_reachable = None
+        self.is_reachable: Optional[bool] = None
 
         # Whether the disks that should be attached to a machine are
         # in fact properly attached.
-        self.disks_ok = None
+        self.disks_ok: Optional[bool] = None
 
         # List of systemd units that are in a failed state.
-        self.failed_units = None
+        self.failed_units: Optional[List[str]] = None
 
         # List of systemd units that are in progress.
-        self.in_progress_units = None
+        self.in_progress_units: Optional[List[str]] = None
 
         # Load average on the machine.
-        self.load = None
+        self.load: Optional[List[str]] = None
 
         # Error messages.
-        self.messages = []
+        self.messages: List[str] = []
 
         # FIXME: add a check whether the active NixOS config on the
         # machine is correct.
