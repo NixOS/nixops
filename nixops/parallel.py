@@ -6,9 +6,13 @@ import traceback
 import types
 from typing import Dict, TypeVar, List, Iterable, Callable, Tuple, Optional, Type, Any
 
+ExcInfo = Tuple[Type[BaseException], BaseException, types.TracebackType]
+
 
 class MultipleExceptions(Exception):
-    def __init__(self, exceptions: Dict[Any, Any] = {}) -> None:
+    exceptions: Dict[str, ExcInfo]
+
+    def __init__(self, exceptions: Dict[str, ExcInfo] = {}) -> None:
         self.exceptions = exceptions
 
     def __str__(self) -> str:
@@ -28,19 +32,17 @@ class MultipleExceptions(Exception):
 #    name: st
 Task = Any
 Result = TypeVar("Result")
-ExcInfo = Tuple[Type[BaseException], BaseException, types.TracebackType]
 
 WorkerResult = Tuple[
     Optional[Result],  # Result of the execution, None if there is an Exception
     Optional[ExcInfo],  # Optional Exception information
     str,  # The result of `task.name`
 ]
-FinalResult = List[Optional[Result]]
 
 
 def run_tasks(
     nr_workers: int, tasks: Iterable[Task], worker_fun: Callable[[Task], Result]
-) -> FinalResult[Result]:
+) -> List[Result]:
     task_queue: queue.Queue[Task] = queue.Queue()
     result_queue: queue.Queue[WorkerResult[Result]] = queue.Queue()
 
@@ -89,19 +91,23 @@ def run_tasks(
         thr.start()
         threads.append(thr)
 
-    results: FinalResult[Result] = []
+    results: List[Result] = []
     exceptions = {}
-    while len(results) < nr_tasks:
+    found_results: int = 0
+    while found_results < nr_tasks:
         try:
             # Use a timeout to allow keyboard interrupts to be
             # processed.  The actual timeout value doesn't matter.
             result: WorkerResult[Result] = result_queue.get(True, 1000)
+            found_results += 1
             (res, excinfo, name) = result
         except queue.Empty:
             continue
+
         if excinfo:
             exceptions[name] = excinfo
-        results.append(res)
+        if res:
+            results.append(res)
 
     for thr in threads:
         thr.join()
