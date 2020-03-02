@@ -761,7 +761,9 @@ def op_ssh_for_each(args):
                 m, args.include or [], args.exclude or []
             ):
                 return None
-            return m.ssh.run_command(args.args, allow_ssh_args=True, check=False)
+            return m.ssh.run_command_get_status(
+                args.args, allow_ssh_args=True, check=False
+            )
 
         results = results + nixops.parallel.run_tasks(
             nr_workers=len(depl.machines) if args.parallel else 1,

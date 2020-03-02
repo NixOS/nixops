@@ -7,7 +7,7 @@ import sys
 import time
 import weakref
 from tempfile import mkdtemp
-from typing import Dict, Any, Optional, Callable, List, Union, Iterable, Tuple
+from typing import Dict, Any, Optional, Callable, List, Union, Iterable, Tuple, cast
 
 import nixops.util
 from nixops.logger import MachineLogger
@@ -358,6 +358,45 @@ class SSH(object):
                 raise SSHCommandFailed(err, res)
             else:
                 return res
+
+    def run_command_get_stdout(
+        self,
+        command: Command,
+        flags: List[str] = [],
+        timeout: Optional[int] = None,
+        logged: bool = True,
+        allow_ssh_args: bool = False,
+        user: Optional[str] = None,
+        **kwargs: Any
+    ) -> str:
+
+        assert kwargs.get("capture_stdout", True) == True
+        kwargs["capture_stdout"] = True
+        return cast(
+            str,
+            self.run_command(
+                command, flags, timeout, logged, allow_ssh_args, user, **kwargs
+            ),
+        )
+
+    def run_command_get_status(
+        self,
+        command: Command,
+        flags: List[str] = [],
+        timeout: Optional[int] = None,
+        logged: bool = True,
+        allow_ssh_args: bool = False,
+        user: Optional[str] = None,
+        **kwargs: Any
+    ) -> int:
+        assert kwargs.get("capture_stdout", False) == False
+        kwargs["capture_stdout"] = False
+        return cast(
+            int,
+            self.run_command(
+                command, flags, timeout, logged, allow_ssh_args, user, **kwargs
+            ),
+        )
 
     def enable_compression(self) -> None:
         self._compress = True
