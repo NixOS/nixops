@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
 import sys
 import threading
 from typing import List, Optional, TextIO
@@ -55,7 +57,7 @@ class Logger(object):
             self._log_file.write(msg + "\n")
             self._log_file.flush()
 
-    def get_logger_for(self, machine_name: str) -> "MachineLogger":
+    def get_logger_for(self, machine_name: str) -> MachineLogger:
         """
         Returns a logger instance for a specific machine name.
         """
