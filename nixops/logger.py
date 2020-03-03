@@ -13,8 +13,8 @@ __all__ = ["Logger"]
 class Logger(object):
     def __init__(self, log_file: TextIO) -> None:
         self._last_log_prefix: Optional[str] = None  # XXX!
-        self._log_lock = threading.Lock()
-        self._log_file = log_file
+        self._log_lock: threading.Lock = threading.Lock()
+        self._log_file: TextIO = log_file
         self._auto_response: Optional[str] = None
         self.machine_loggers: List[MachineLogger] = []
 
@@ -110,18 +110,17 @@ class Logger(object):
                 return False
         return None
 
-    def confirm(self, question: str) -> Optional[bool]:
-        ret = None
+    def confirm(self, question: str) -> bool:
+        ret: Optional[bool] = None
         while ret is None:
             ret = self.confirm_once(question)
-        # mypy thinks this will never return, so ignore for now
-        return ret  # type: ignore
+        return ret
 
 
 class MachineLogger(object):
     def __init__(self, main_logger: Logger, machine_name: str) -> None:
-        self.main_logger = main_logger
-        self.machine_name = machine_name
+        self.main_logger: Logger = main_logger
+        self.machine_name: str = machine_name
         self.index: Optional[int] = None
         self.update_log_prefix(0)
 

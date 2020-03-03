@@ -38,12 +38,14 @@ class SSHMaster(object):
         user: Optional[str] = None,
         compress: bool = False,
     ) -> None:
-        self._running = False
-        self._tempdir = nixops.util.SelfDeletingDir(mkdtemp(prefix="nixops-ssh-tmp"))
-        self._askpass_helper = None
-        self._control_socket = self._tempdir + "/master-socket"
-        self._ssh_target = target
-        pass_prompts = 0 if "-i" in ssh_flags and user is None else 3
+        self._running: bool = False
+        self._tempdir: nixops.util.SelfDeletingDir = nixops.util.SelfDeletingDir(
+            mkdtemp(prefix="nixops-ssh-tmp")
+        )
+        self._askpass_helper: Optional[str] = None
+        self._control_socket: str = self._tempdir + "/master-socket"
+        self._ssh_target: str = target
+        pass_prompts: int = 0 if "-i" in ssh_flags and user is None else 3
         kwargs: Dict[str, Any] = {}
 
         if passwd is not None:
