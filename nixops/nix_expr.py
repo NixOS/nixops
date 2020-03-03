@@ -353,7 +353,7 @@ def expand_dict(unexpanded: Dict[Any, Any]) -> Dict[Any, Any]:
     }
 
 
-ExprT = TypeVar("ExprT", Dict[Any, Any], List[Any])
+ExprT = TypeVar("ExprT")
 
 
 def nixmerge(expr1: ExprT, expr2: ExprT) -> ExprT:
@@ -362,27 +362,27 @@ def nixmerge(expr1: ExprT, expr2: ExprT) -> ExprT:
     elements if they otherwise would clash.
     """
 
-    return _merge(expr1, expr2)
+    def _merge_dicts(d1: Dict[Any, Any], d2: Dict[Any, Any]) -> Dict[Any, Any]:
+        out = {}
+        for key in set(d1.keys()).union(d2.keys()):
+            if key in d1 and key in d2:
+                out[key] = _merge(d1[key], d2[key])
+            elif key in d1:
+                out[key] = d1[key]
+            else:
+                out[key] = d2[key]
+        return out
 
-
-def _merge(e1: ExprT, e2: ExprT) -> ExprT:
-    if isinstance(e1, dict):
-        return _merge_dicts(e1, e2)
-
-    if isinstance(e1, list):
-        return list(set(e1).union(e2))
-
-
-def _merge_dicts(d1: Dict[Any, Any], d2: Dict[Any, Any]) -> Dict[Any, Any]:
-    out = {}
-    for key in set(d1.keys()).union(d2.keys()):
-        if key in d1 and key in d2:
-            out[key] = _merge(d1[key], d2[key])
-        elif key in d1:
-            out[key] = d1[key]
+    def _merge(e1: Any, e2: Any) -> Any:
+        if isinstance(e1, dict) and isinstance(e2, dict):
+            return _merge_dicts(e1, e2)
+        elif isinstance(e1, list) and isinstance(e2, list):
+            return list(set(e1).union(e2))
         else:
-            out[key] = d2[key]
-    return out
+            err = "unable to merge {0} with {1}".format(type(e1), type(e2))
+            raise ValueError(err)
+
+    return _merge(expr1, expr2)
 
 
 def nix2py(source: str) -> MultiLineRawValue:
