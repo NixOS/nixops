@@ -22,7 +22,7 @@ import logging.handlers
 import syslog
 import json
 import pipes
-
+from typing import Tuple, List, Optional, Union, Any
 from datetime import datetime
 from pprint import pprint
 import importlib
@@ -47,24 +47,26 @@ def op_list_plugins(args):
             tbl.add_row([plugin[0], plugin[1].__str__()])
         else:
             tbl.add_row([plugin[0]])
-    print tbl
+    print(tbl)
 
 
-def create_table(headers):
+def create_table(headers: List[Tuple[str, str]]) -> prettytable.PrettyTable:
     tbl = prettytable.PrettyTable([name for (name, align) in headers])
     for (name, align) in headers:
         tbl.align[name] = align
     return tbl
 
 
-def sort_deployments(depls):
+def sort_deployments(
+    depls: List[nixops.deployment.Deployment],
+) -> List[nixops.deployment.Deployment]:
     return sorted(depls, key=lambda depl: (depl.name, depl.uuid))
 
 
 # Handle the --all switch: if --all is given, return all deployments;
 # otherwise, return the deployment specified by -d /
 # $NIXOPS_DEPLOYMENT.
-def one_or_all(args):
+def one_or_all(args: argparse.Namespace) -> List[nixops.deployment.Deployment]:
     if args.all:
         sf = nixops.statefile.StateFile(args.state_file)
         return sf.get_all_deployments()
@@ -90,10 +92,10 @@ def op_list_deployments(args):
                 depl.name or "(none)",
                 depl.description,
                 len(depl.machines),
-                ", ".join(set([m.get_type() for m in depl.machines.itervalues()])),
+                ", ".join(set(m.get_type() for m in depl.machines.values())),
             ]
         )
-    print tbl
+    print(tbl)
 
 
 def open_deployment(args):
@@ -123,7 +125,7 @@ def open_deployment(args):
     return depl
 
 
-def set_name(depl, name):
+def set_name(depl: nixops.deployment.Deployment, name: Optional[str]):
     if not name:
         return
     if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-\.]*$", name):
@@ -131,7 +133,7 @@ def set_name(depl, name):
     depl.name = name
 
 
-def modify_deployment(args, depl):
+def modify_deployment(args, depl: nixops.deployment.Deployment):
     nix_exprs = args.nix_exprs
     templates = args.templates or []
     for i in templates:
@@ -172,9 +174,9 @@ def op_delete(args):
         depl.delete(force=args.force or False)
 
 
-def machine_to_key(depl, name, type):
+def machine_to_key(depl: str, name: str, type: str) -> Tuple[str, str, List[object]]:
     xs = [int(x) if x.isdigit() else x for x in re.split("(\d+)", name)]
-    return [depl, type, xs]
+    return (depl, type, xs)
 
 
 def op_info(args):
@@ -210,19 +212,22 @@ def op_info(args):
                 )
                 depl.definitions = None
 
-    def print_deployment(depl):
+    def print_deployment(depl: nixops.deployment.Deployment) -> None:
         definitions = depl.definitions or {}
 
         # Sort machines by type, then name.  Sort numbers in machine
         # names numerically (e.g. "foo10" comes after "foo9").
-        def name_to_key(name):
-            d = definitions.get(name)
-            r = depl.resources.get(name)
-            return (
-                machine_to_key(depl.uuid, name, r.get_type())
-                if r
-                else machine_to_key(depl.uuid, name, d.get_type)
-            )
+        def name_to_key(name: str) -> Tuple[str, str, List[object]]:
+            d: Optional[nixops.resources.ResourceDefinition] = definitions.get(name)
+            r: Optional[nixops.resources.ResourceState] = depl.resources.get(name)
+            if r:
+                key = machine_to_key(depl.uuid, name, r.get_type())
+            elif d:
+                key = machine_to_key(depl.uuid, name, d.get_type())
+            else:
+                key = machine_to_key(depl.uuid, name, "")
+
+            return key
 
         names = sorted(
             set(definitions.keys()) | set(depl.resources.keys()), key=name_to_key
@@ -231,6 +236,7 @@ def op_info(args):
         for name in names:
             d = definitions.get(name)
             r = depl.resources.get(name)
+            assert r is not None
             if deployment.is_machine(r):
                 resource_state = "{0} / {1}".format(
                     r.show_state() if r else "Missing", state(depl, d, r)
@@ -238,17 +244,32 @@ def op_info(args):
             else:
                 resource_state = r.show_state() if r else "Missing"
 
+            if r:
+                user_type = r.show_type()
+            elif d:
+                user_type = d.show_type()
+            else:
+                user_type = "unknown-type"
+
+            public_ipv4: str = ""
+            private_ipv4: str = ""
+            if isinstance(r, nixops.backends.MachineState):
+                public_ipv4 = r.public_ipv4 or ""
+                private_ipv4 = r.private_ipv4 or ""
+
             if args.plain:
-                print "\t".join(
-                    ([depl.uuid, depl.name or "(none)"] if args.all else [])
-                    + [
-                        name,
-                        resource_state.lower(),
-                        r.show_type() if r else d.show_type(),
-                        r.resource_id or "" if r else "",
-                        r.public_ipv4 or "" if r and hasattr(r, "public_ipv4") else "",
-                        r.private_ipv4 or "" if r and deployment.is_machine(r) else "",
-                    ]
+                print(
+                    "\t".join(
+                        ([depl.uuid, depl.name or "(none)"] if args.all else [])
+                        + [
+                            name,
+                            resource_state.lower(),
+                            user_type,
+                            r.resource_id or "" if r else "",
+                            public_ipv4,
+                            private_ipv4,
+                        ]
+                    )
                 )
             else:
                 tbl.add_row(
@@ -256,13 +277,9 @@ def op_info(args):
                     + [
                         name,
                         resource_state,
-                        r.show_type() if r else d.show_type(),
+                        user_type,
                         r.resource_id or "" if r else "",
-                        (hasattr(r, "public_ipv4") and r.public_ipv4)
-                        or (hasattr(r, "private_ipv4") and r.private_ipv4)
-                        or ""
-                        if r
-                        else "",
+                        public_ipv4 or private_ipv4,
                     ]
                 )
 
@@ -274,7 +291,7 @@ def op_info(args):
             do_eval(depl)
             print_deployment(depl)
         if not args.plain:
-            print tbl
+            print(tbl)
 
     else:
         depl = open_deployment(args)
@@ -283,22 +300,23 @@ def op_info(args):
         if args.plain:
             print_deployment(depl)
         else:
-            print "Network name:", depl.name or "(none)"
-            print "Network UUID:", depl.uuid
-            print "Network description:", depl.description
-            print "Nix expressions:", " ".join(depl.nix_exprs)
+            print("Network name:", depl.name or "(none)")
+            print("Network UUID:", depl.uuid)
+            print("Network description:", depl.description)
+            print("Nix expressions:", " ".join(depl.nix_exprs))
             if depl.nix_path != []:
-                print "Nix path:", " ".join(map(lambda x: "-I " + x, depl.nix_path))
+                print("Nix path:", " ".join(["-I " + x for x in depl.nix_path]))
             if depl.rollback_enabled:
-                print "Nix profile:", depl.get_profile()
+                print("Nix profile:", depl.get_profile())
             if depl.args != {}:
-                print "Nix arguments:", ", ".join(
-                    [n + " = " + v for n, v in depl.args.iteritems()]
+                print(
+                    "Nix arguments:",
+                    ", ".join([n + " = " + v for n, v in depl.args.items()]),
                 )
-            print
+            print()
             tbl = create_table(table_headers)
             print_deployment(depl)
-            print tbl
+            print(tbl)
 
 
 def op_check(args):
@@ -330,16 +348,16 @@ def op_check(args):
         ]
     )
 
-    machines = []
-    resources = []
+    machines: List[nixops.backends.MachineState] = []
+    resources: List[nixops.resources.ResourceState] = []
 
-    def check(depl):
-        for m in depl.active_resources.itervalues():
+    def check(depl: nixops.deployment.Deployment):
+        for m in depl.active_resources.values():
             if not nixops.deployment.should_do(
                 m, args.include or [], args.exclude or []
             ):
                 continue
-            if nixops.deployment.is_machine(m):
+            if isinstance(m, nixops.backends.MachineState):
                 machines.append(m)
             else:
                 resources.append(m)
@@ -347,8 +365,15 @@ def op_check(args):
     for depl in one_or_all(args):
         check(depl)
 
+    ResourceStatus = Tuple[
+        str,
+        Union[nixops.backends.MachineState, nixops.resources.ResourceState],
+        List[str],
+        int,
+    ]
+
     # Check all machines in parallel.
-    def worker(m):
+    def worker(m: nixops.backends.MachineState) -> ResourceStatus:
         res = m.check()
 
         unit_lines = []
@@ -395,7 +420,7 @@ def op_check(args):
         ([("Deployment", "l")] if args.all else []) + [("Name", "l"), ("Exists", "l")]
     )
 
-    def resource_worker(r):
+    def resource_worker(r: nixops.resources.ResourceState) -> Optional[ResourceStatus]:
         if not nixops.deployment.is_machine(r):
             r.check()
             exist = True if r.state == nixops.resources.ResourceState.UP else False
@@ -404,6 +429,7 @@ def op_check(args):
                 render_tristate(exist),
             ]
             return (r.depl.name or r.depl.uuid, r, row, 0)
+        return None
 
     results = run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
     resources_results = run_tasks(
@@ -413,21 +439,22 @@ def op_check(args):
     # Sort the rows by deployment/machine.
     status = 0
     for res in sorted(
-        results, key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type())
+        [res for res in results if res is not None],
+        key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type()),
     ):
         tbl.add_row(res[2])
         status |= res[3]
-    print nixops.util.ansi_success("Machines state:")
-    print tbl
+    print(nixops.util.ansi_success("Machines state:"))
+    print(tbl)
 
     for res in sorted(
-        resources_results,
+        [res for res in resources_results if res is not None],
         key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type()),
     ):
         resources_tbl.add_row(res[2])
         status |= res[3]
-    print nixops.util.ansi_success("Non machines resources state:")
-    print resources_tbl
+    print(nixops.util.ansi_success("Non machines resources state:"))
+    print(resources_tbl)
 
     sys.exit(status)
 
@@ -436,7 +463,7 @@ def print_backups(depl, backups):
     tbl = prettytable.PrettyTable(["Backup ID", "Status", "Info"])
     for k, v in sorted(backups.items(), reverse=True):
         tbl.add_row([k, v["status"], "\n".join(v["info"])])
-    print tbl
+    print(tbl)
 
 
 def op_clean_backups(args):
@@ -464,7 +491,7 @@ def op_backup(args):
             exclude=args.exclude or [],
             devices=args.devices or [],
         )
-        print backup_id
+        print(backup_id)
 
     if args.force:
         do_backup()
@@ -507,7 +534,7 @@ def op_backup_status(args):
         backups_status = [b["status"] for _, b in _backups.items()]
         if "running" in backups_status:
             if args.wait:
-                print "waiting for 30 seconds..."
+                print("waiting for 30 seconds...")
                 time.sleep(30)
             else:
                 raise Exception("backup has not yet finished")
@@ -612,10 +639,9 @@ def op_rename(args):
     depl.rename(args.current_name, args.new_name)
 
 
-def print_physical_backup_spec(backupid):
-    depl = open_deployment(args)
+def print_physical_backup_spec(depl, backupid):
     config = {}
-    for m in depl.active.itervalues():
+    for m in depl.active.values():
         config[m.name] = m.get_physical_backup_spec(backupid)
     sys.stdout.write(py2nix(config))
 
@@ -627,13 +653,13 @@ def op_show_arguments(args):
     for arg in sorted(args.keys()):
         files = sorted(args[arg])
         tbl.add_row([arg, "\n".join(files)])
-    print tbl
+    print(tbl)
 
 
 def op_show_physical(args):
     depl = open_deployment(args)
     if args.backupid:
-        print_physical_backup_spec(args.backupid)
+        print_physical_backup_spec(depl, args.backupid)
         return
     depl.evaluate()
     sys.stdout.write(depl.get_physical_spec())
@@ -657,7 +683,7 @@ def op_dump_nix_paths(args):
         else:
             return p[1]
 
-    def nix_paths(depl):
+    def nix_paths(depl) -> List[str]:
         candidates = (
             depl.nix_exprs
             + [strip_nix_path(p) for p in depl.nix_path]
@@ -666,20 +692,20 @@ def op_dump_nix_paths(args):
         candidates = [get_nix_path(p) for p in candidates]
         return [p for p in candidates if not p is None]
 
-    paths = []
+    paths: List[str] = []
 
     for depl in one_or_all(args):
         paths.extend(nix_paths(depl))
 
     for p in paths:
-        print p
+        print(p)
 
 
 def op_export(args):
     res = {}
     for depl in one_or_all(args):
         res[depl.uuid] = depl.export()
-    print json.dumps(res, indent=2, sort_keys=True)
+    print(json.dumps(res, indent=2, sort_keys=True))
 
 
 def op_import(args):
@@ -688,7 +714,7 @@ def op_import(args):
 
     dump = json.loads(sys.stdin.read())
 
-    for uuid, attrs in dump.iteritems():
+    for uuid, attrs in dump.items():
         if uuid in existing:
             raise Exception(
                 "state file already contains a deployment with UUID ‘{0}’".format(uuid)
@@ -699,7 +725,7 @@ def op_import(args):
         sys.stderr.write("added deployment ‘{0}’\n".format(uuid))
 
         if args.include_keys:
-            for m in depl.active.itervalues():
+            for m in depl.active.values():
                 if deployment.is_machine(m) and hasattr(m, "public_host_key"):
                     if m.public_ipv4:
                         nixops.known_hosts.add(m.public_ipv4, m.public_host_key)
@@ -727,19 +753,21 @@ def op_ssh(args):
 
 
 def op_ssh_for_each(args):
-    results = []
+    results: List[Optional[int]] = []
     for depl in one_or_all(args):
 
-        def worker(m):
+        def worker(m: nixops.backends.MachineState) -> Optional[int]:
             if not nixops.deployment.should_do(
                 m, args.include or [], args.exclude or []
             ):
-                return
-            return m.ssh.run_command(args.args, allow_ssh_args=True, check=False)
+                return None
+            return m.ssh.run_command_get_status(
+                args.args, allow_ssh_args=True, check=False
+            )
 
         results = results + nixops.parallel.run_tasks(
             nr_workers=len(depl.machines) if args.parallel else 1,
-            tasks=depl.active.itervalues(),
+            tasks=iter(depl.active.values()),
             worker_fun=worker,
         )
 
@@ -761,7 +789,7 @@ def op_scp(args):
     ssh_name = m.get_ssh_name()
     from_loc = scp_loc(username, ssh_name, args.scp_from, args.source)
     to_loc = scp_loc(username, ssh_name, args.scp_to, args.destination)
-    print >> sys.stderr, "{0} -> {1}".format(from_loc, to_loc)
+    print("{0} -> {1}".format(from_loc, to_loc), file=sys.stderr)
     flags = ["scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc]
     # Map ssh's ‘-p’ to scp's ‘-P’.
     flags = ["-P" if f == "-p" else f for f in flags]
@@ -924,7 +952,9 @@ def setup_logging(args):
     ]:
         # determine user
         try:
-            user = subprocess.check_output(["logname"], stderr=subprocess.PIPE).strip()
+            user = subprocess.check_output(
+                ["logname"], stderr=subprocess.PIPE, text=True
+            ).strip()
         except:
             user = pwd.getpwuid(os.getuid())[0]
 

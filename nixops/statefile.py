@@ -3,9 +3,11 @@
 import nixops.deployment
 import os
 import os.path
-from pysqlite2 import dbapi2 as sqlite3
+import sqlite3
 import sys
 import threading
+import typing
+from typing import Optional, List
 
 
 class Connection(sqlite3.Connection):
@@ -57,7 +59,7 @@ def get_default_state_file():
             if os.path.exists(home + "/deployments.charon"):
                 os.rename(home + "/deployments.charon", home + "/deployments.nixops")
         else:
-            os.makedirs(home, 0700)
+            os.makedirs(home, 0o700)
     return os.environ.get(
         "NIXOPS_STATE", os.environ.get("CHARON_STATE", home + "/deployments.nixops")
     )
@@ -81,8 +83,7 @@ class StateFile(object):
             check_same_thread=False,
             factory=Connection,
             isolation_level=None,
-        )  # FIXME
-        db.db_file = db_file
+        )
 
         db.execute("pragma journal_mode = wal")
         db.execute("pragma foreign_keys = 1")
@@ -119,7 +120,7 @@ class StateFile(object):
                     )
                 )
 
-        self._db = db
+        self._db: sqlite3.Connection = db
 
     def close(self):
         self._db.close()
@@ -131,7 +132,7 @@ class StateFile(object):
         res = c.fetchall()
         return [x[0] for x in res]
 
-    def get_all_deployments(self):
+    def get_all_deployments(self) -> List[nixops.deployment.Deployment]:
         """Return Deployment objects for every deployment in the database."""
         uuids = self.query_deployments()
         res = []
@@ -187,17 +188,17 @@ class StateFile(object):
             )
         )
 
-    def create_deployment(self, uuid=None):
+    def create_deployment(self, uuid=None) -> nixops.deployment.Deployment:
         """Create a new deployment."""
         if not uuid:
-            import uuid
+            import uuid as uuidlib
 
-            uuid = str(uuid.uuid1())
+            uuid = str(uuidlib.uuid1())
         with self._db:
             self._db.execute("insert into Deployments(uuid) values (?)", (uuid,))
         return nixops.deployment.Deployment(self, uuid, sys.stderr)
 
-    def _table_exists(self, c, table):
+    def _table_exists(self, c, table) -> bool:
         c.execute(
             "select 1 from sqlite_master where name = ? and type='table'", (table,)
         )

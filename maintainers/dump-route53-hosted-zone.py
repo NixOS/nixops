@@ -19,13 +19,11 @@ records = client.list_resource_record_sets(HostedZoneId=zone_id)["ResourceRecord
 by_hostname = {}
 for record in records:
     name = record["Name"]
-    if not name in by_hostname:
+    if name not in by_hostname:
         by_hostname[name] = []
     by_hostname[name].append(record)
 
-count = {
-    k: len(filter(lambda x: x["Type"] == "A", v)) for (k, v) in by_hostname.items()
-}
+count = {k: sum(1 for x in v if x["Type"] == "A") for (k, v) in by_hostname.items()}
 
 
 def print_record(record):
@@ -40,41 +38,46 @@ def print_record(record):
     if res == "":
         res = record["Type"] + "-record"
 
-    print('    "{0}" = {{ resources, ... }}: {{'.format(res))
+    print(('    "{0}" = {{ resources, ... }}: {{'.format(res)))
     print("      zoneId = resources.route53HostedZones.hs;")
     print("      inherit accessKeyId;")
-    print('      routingPolicy = "{}";'.format("multivalue" if mv else "simple"))
-    print('      domainName = "{}";'.format(record["Name"]))
+    print(('      routingPolicy = "{}";'.format("multivalue" if mv else "simple")))
+    print(('      domainName = "{}";'.format(record["Name"])))
     if "SetIdentifier" in record:
-        print('      setIdentifier = "{}";'.format(record["SetIdentifier"]))
+        print(('      setIdentifier = "{}";'.format(record["SetIdentifier"])))
     if "TTL" in record:
-        print("      ttl = {};".format(record["TTL"]))
+        print(("      ttl = {};".format(record["TTL"])))
 
     if "ResourceRecords" in record:
         print("      recordValues = [")
         for v in record["ResourceRecords"]:
-            print('        "{}"'.format(v["Value"]))
+            print(('        "{}"'.format(v["Value"])))
         print("      ];")
 
     if "AliasTarget" in record:
-        print('      aliasDNSName = "{}";'.format(record["AliasTarget"]["DNSName"]))
+        print(('      aliasDNSName = "{}";'.format(record["AliasTarget"]["DNSName"])))
         print(
-            "      aliasEvaluateTargetHealth = {};".format(
-                record["AliasTarget"]["EvaluateTargetHealth"]
+            (
+                "      aliasEvaluateTargetHealth = {};".format(
+                    record["AliasTarget"]["EvaluateTargetHealth"]
+                )
             )
         )
         print(
-            '      aliasHostedZoneId = "{}";'.format(
-                record["AliasTarget"]["HostedZoneId"]
+            (
+                '      aliasHostedZoneId = "{}";'.format(
+                    record["AliasTarget"]["HostedZoneId"]
+                )
             )
         )
 
-    print('      recordType = "{}";'.format(record["Type"]))
+    print(('      recordType = "{}";'.format(record["Type"])))
     print("    };")
 
 
 print(
-    """
+    (
+        """
 {{ accessKeyId ? "nixos-tests" }}:
 {{
   resources.route53HostedZones.hs =
@@ -83,10 +86,12 @@ print(
       inherit accessKeyId;
     }};
 """.format(
-        domain
+            domain
+        )
     )
 )
 print("  resources.route53RecordSets = {")
-map(print_record, records)
+for record in records:
+    print_record(record)
 print("  };")
 print("}")

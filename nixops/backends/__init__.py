@@ -3,7 +3,7 @@
 import os
 import re
 import subprocess
-
+from typing import Dict, Any, List, Optional
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
@@ -61,39 +61,44 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
 class MachineState(nixops.resources.ResourceState):
     """Base class for NixOps machine state objects."""
 
-    vm_id = nixops.util.attr_property("vmId", None)
-    has_fast_connection = nixops.util.attr_property("hasFastConnection", False, bool)
-    ssh_pinged = nixops.util.attr_property("sshPinged", False, bool)
-    ssh_port = nixops.util.attr_property("targetPort", 22, int)
-    public_vpn_key = nixops.util.attr_property("publicVpnKey", None)
-    store_keys_on_machine = nixops.util.attr_property("storeKeysOnMachine", False, bool)
-    keys = nixops.util.attr_property("keys", {}, "json")
-    owners = nixops.util.attr_property("owners", [], "json")
+    vm_id: Optional[str] = nixops.util.attr_property("vmId", None)
+    has_fast_connection: bool = nixops.util.attr_property(
+        "hasFastConnection", False, bool
+    )
+    ssh_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
+    ssh_port: int = nixops.util.attr_property("targetPort", 22, int)
+    public_vpn_key: Optional[str] = nixops.util.attr_property("publicVpnKey", None)
+    store_keys_on_machine: bool = nixops.util.attr_property(
+        "storeKeysOnMachine", False, bool
+    )
+    keys: Dict[str, str] = nixops.util.attr_property("keys", {}, "json")
+    owners: List[str] = nixops.util.attr_property("owners", [], "json")
 
     # Nix store path of the last global configuration deployed to this
     # machine.  Used to check whether this machine is up to date with
     # respect to the global configuration.
-    cur_configs_path = nixops.util.attr_property("configsPath", None)
+    cur_configs_path: Optional[str] = nixops.util.attr_property("configsPath", None)
 
     # Nix store path of the last machine configuration deployed to
     # this machine.
-    cur_toplevel = nixops.util.attr_property("toplevel", None)
+    cur_toplevel: Optional[str] = nixops.util.attr_property("toplevel", None)
 
     # Time (in Unix epoch) the instance was started, if known.
-    start_time = nixops.util.attr_property("startTime", None, int)
+    start_time: Optional[int] = nixops.util.attr_property("startTime", None, int)
 
     # The value of the ‘system.stateVersion’ attribute at the time the
     # machine was created.
-    state_version = nixops.util.attr_property("stateVersion", None, str)
+    state_version: Optional[str] = nixops.util.attr_property("stateVersion", None, str)
 
-    def __init__(self, depl, name, id):
+    def __init__(self, depl, name: str, id: int):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
         self.ssh = nixops.ssh_util.SSH(self.logger)
         self.ssh.register_flag_fun(self.get_ssh_flags)
         self.ssh.register_host_fun(self.get_ssh_name)
         self.ssh.register_passwd_fun(self.get_ssh_password)
-        self._ssh_private_key_file = None
+        self._ssh_private_key_file: Optional[str] = None
+        self.new_toplevel: Optional[str] = None
 
     def prefix_definition(self, attr):
         return attr
@@ -208,7 +213,11 @@ class MachineState(nixops.resources.ResourceState):
             "don't know how to remove a backup for machine ‘{0}’".format(self.name)
         )
 
-    def backup(self, defn, backup_id):
+    def get_backups(self) -> Dict[str, Dict[str, Any]]:
+        self.warn("don't know how to list backups for ‘{0}’".format(self.name))
+        return {}
+
+    def backup(self, defn, backup_id: str, devices: List[str] = []) -> None:
         """Make backup of persistent disks, if possible."""
         self.warn(
             "don't know how to make backup of disks for machine ‘{0}’".format(self.name)
@@ -371,7 +380,7 @@ class MachineState(nixops.resources.ResourceState):
 
     def write_ssh_private_key(self, private_key):
         key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
-        with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0600), "w") as f:
+        with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0o600), "w") as f:
             f.write(private_key)
         self._ssh_private_key_file = key_file
         return key_file

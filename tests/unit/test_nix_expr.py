@@ -1,3 +1,4 @@
+import functools
 import unittest
 
 from textwrap import dedent
@@ -302,16 +303,14 @@ class Py2NixTestBase(unittest.TestCase):
 
 class Nix2PyTest(unittest.TestCase):
     def test_simple(self):
-        self.assertEquals(py2nix(nix2py("{\na = b;\n}"), maxwidth=0), "{\na = b;\n}")
-        self.assertEquals(
-            py2nix(nix2py("\n{\na = b;\n}\n"), maxwidth=0), "{\na = b;\n}"
-        )
+        self.assertEqual(py2nix(nix2py("{\na = b;\n}"), maxwidth=0), "{\na = b;\n}")
+        self.assertEqual(py2nix(nix2py("\n{\na = b;\n}\n"), maxwidth=0), "{\na = b;\n}")
 
     def test_nested(self):
-        self.assertEquals(
+        self.assertEqual(
             py2nix([nix2py("a\nb\nc")], maxwidth=0), "[\n  (a\n  b\n  c)\n]"
         )
-        self.assertEquals(
+        self.assertEqual(
             py2nix({"foo": nix2py("a\nb\nc"), "bar": nix2py("d\ne\nf")}, maxwidth=0),
             # ugly, but probably won't happen in practice
             "{\n  bar = d\n  e\n  f;\n  foo = a\n  b\n  c;\n}",
@@ -320,12 +319,12 @@ class Nix2PyTest(unittest.TestCase):
 
 class NixMergeTest(unittest.TestCase):
     def assert_merge(self, sources, expect):
-        self.assertEqual(reduce(nixmerge, sources), expect)
+        self.assertEqual(functools.reduce(nixmerge, sources), expect)
 
     def test_merge_list(self):
         self.assert_merge(
             [[1, 2, 3], [4, 5, 6], [7, 6, 5], ["abc", "def"], ["ghi", "abc"],],
-            [1, 2, 3, 4, 5, 6, 7, "abc", "ghi", "def"],
+            [1, 2, 3, 4, 5, 6, 7, "ghi", "def", "abc"],
         )
 
     def test_merge_dict(self):
