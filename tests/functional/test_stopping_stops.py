@@ -1,5 +1,7 @@
 from nose import tools
 
+import nixops.deployment
+
 from tests.functional import single_machine_test
 
 

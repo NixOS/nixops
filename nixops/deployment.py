@@ -44,6 +44,7 @@ import nixops.logger
 from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
 import nixops.parallel
 from nixops.plugins import get_plugin_manager
+import nixops.resources
 import nixops.statefile
 
 Definitions = Dict[str, nixops.resources.ResourceDefinition]

@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
+
 import os
 import sys
 from typing import Any, Optional, List, Dict, Tuple, Union
