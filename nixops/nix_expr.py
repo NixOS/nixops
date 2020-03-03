@@ -36,8 +36,9 @@ class RawValue(object):
         return isinstance(other, RawValue) and other.value == self.value
 
 
+# TODO: why does MultiLineRawValue inherit RawValue but not use self.value?
 class MultiLineRawValue(RawValue):
-    def __init__(self, values: Any) -> None:
+    def __init__(self, values: List[Any]) -> None:
         self.values = values
 
     def get_min_length(self) -> int:
@@ -48,6 +49,13 @@ class MultiLineRawValue(RawValue):
 
     def indent(self, level: int = 0, inline: bool = False, maxwidth: int = 80) -> str:
         return "\n".join(["  " * level + value for value in self.values])
+
+    # TODO: is this correct?
+    def __repr__(self) -> str:
+        return str(self.values)
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, MultiLineRawValue) and other.values == self.values
 
 
 class Function(object):
