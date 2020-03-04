@@ -960,6 +960,7 @@ class Deployment:
         sync: bool,
         always_activate: bool,
         dry_activate: bool,
+        test: bool,
         max_concurrent_activate: int,
     ) -> None:
         """Activate the new configuration on a machine."""
@@ -997,7 +998,8 @@ class Deployment:
                         raise Exception("unable to set new system profile")
 
             try:
-                set_profile()
+                if not test:
+                    set_profile()
 
                 m.send_keys()
 
@@ -1005,12 +1007,18 @@ class Deployment:
                     switch_method = "boot"
                 elif dry_activate:
                     switch_method = "dry-activate"
+                elif test:
+                    switch_method = "test"
                 else:
                     switch_method = "switch"
 
                 # Run the switch script.  This will also update the
                 # GRUB boot loader.
-                res = m.switch_to_configuration(switch_method, sync)
+                res = m.switch_to_configuration(
+                    switch_method,
+                    sync,
+                    command=f"{m.new_toplevel}/bin/switch-to-configuration",
+                )
 
                 if dry_activate:
                     return None
@@ -1234,6 +1242,7 @@ class Deployment:
     def _deploy(
         self,
         dry_run: bool = False,
+        test: bool = False,
         plan_only: bool = False,
         build_only: bool = False,
         create_only: bool = False,
@@ -1408,6 +1417,7 @@ class Deployment:
             sync=sync,
             always_activate=always_activate,
             dry_activate=dry_activate,
+            test=test,
             max_concurrent_activate=max_concurrent_activate,
         )
 
@@ -1535,6 +1545,7 @@ class Deployment:
             sync=sync,
             always_activate=True,
             dry_activate=False,
+            test=False,
             max_concurrent_activate=max_concurrent_activate,
         )
 
