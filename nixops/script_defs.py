@@ -560,6 +560,7 @@ def op_deploy(args):
         raise Exception("--evaluate-only was removed as it's the same as --dry-run")
     depl.deploy(
         dry_run=args.dry_run,
+        test=args.test,
         build_only=args.build_only,
         plan_only=args.plan_only,
         create_only=args.create_only,
