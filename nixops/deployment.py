@@ -968,7 +968,7 @@ class Deployment:
             if not should_do(m, include, exclude):
                 return None
 
-            try:
+            def set_profile():
                 # Set the system profile to the new configuration.
                 daemon_var = "" if m.state == m.RESCUE else "env NIX_REMOTE=daemon "
                 setprof = (
@@ -995,6 +995,9 @@ class Deployment:
                         return None
                     elif ret != 0:
                         raise Exception("unable to set new system profile")
+
+            try:
+                set_profile()
 
                 m.send_keys()
 
