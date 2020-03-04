@@ -404,7 +404,9 @@ class MachineState(nixops.resources.ResourceState):
             command = "export LANG= LC_ALL= LC_TIME=; " + command
         return self.ssh.run_command(command, self.get_ssh_flags(), **kwargs)
 
-    def switch_to_configuration(self, method, sync, command=None):
+    def switch_to_configuration(
+        self, method: str, sync: bool, command: Optional[str] = None
+    ) -> int:
         """
         Execute the script to switch to new configuration.
         This function has to return an integer, which is the return value of the
