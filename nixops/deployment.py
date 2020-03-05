@@ -1012,6 +1012,14 @@ class Deployment:
                 else:
                     switch_method = "switch"
 
+                if not dry_activate:
+                    m.log("starting deploy-prepare.target")
+                    if not m.is_okay_to_deploy():
+                        m.warn("refused to go to deploy-prepare.target")
+                        raise Exception(
+                            f"Failed to prepare {m.name} for deployment (deploy-prepare.target failed)"
+                        )
+
                 # Run the switch script.  This will also update the
                 # GRUB boot loader.
                 res = m.switch_to_configuration(
@@ -1045,6 +1053,11 @@ class Deployment:
                 if res == 0:
                     m.success("activation finished successfully")
 
+                m.log("starting deploy-healthy.target")
+                if not m.mark_deploy_healthy():
+                    m.warn("refused to go to deploy-healthy.target")
+                    raise Exception(f"{m.name} refused to go to deploy-healthy.target")
+
                 # Record that we switched this machine to the new
                 # configuration.
                 m.cur_configs_path = configs_path
@@ -1067,6 +1080,31 @@ class Deployment:
         if failed != []:
             raise Exception(
                 "activation of {0} of {1} machines failed (namely on {2})".format(
+                    len(failed),
+                    len(res),
+                    ", ".join(["‘{0}’".format(x) for x in failed]),
+                )
+            )
+
+        # start deploy-complete.target on each machine
+        def worker_deploy_completed(m: nixops.backends.MachineState) -> None:
+            if not should_do(m, include, exclude):
+                return None
+
+            m.log("starting deploy-completed.target")
+            if not m.mark_deploy_complete():
+                m.warn("refused to go to deploy-completed.target")
+                raise Exception(f"{m.name} refused to go to deploy-completed.target")
+
+        completed_res = nixops.parallel.run_tasks(
+            nr_workers=max_concurrent_activate,
+            tasks=iter(self.active.values()),
+            worker_fun=worker_deploy_completed,
+        )
+        completed_failed = [x for x in completed_res if x != None]
+        if completed_failed != []:
+            raise Exception(
+                "deploy-completion of {0} of {1} machines failed (namely on {2})".format(
                     len(failed),
                     len(res),
                     ", ".join(["‘{0}’".format(x) for x in failed]),

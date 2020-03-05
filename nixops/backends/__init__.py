@@ -404,6 +404,25 @@ class MachineState(nixops.resources.ResourceState):
             command = "export LANG= LC_ALL= LC_TIME=; " + command
         return self.ssh.run_command(command, self.get_ssh_flags(), **kwargs)
 
+    def is_okay_to_deploy(self) -> bool:
+        """
+        Starts the target "deploy-prepare.target".
+
+        If the return code is 0: deploy-prepare.target is started
+        If the return code is 5: deploy-prepare.target doesn't exist (success)
+        otherwise: don't deploy
+        """
+
+        code: int = self.run_command(
+            "systemctl start deploy-prepare.target", check=False
+        )
+        if code == 0:
+            return True
+        elif code == 5:
+            return True
+        else:
+            return False
+
     def switch_to_configuration(
         self, method: str, sync: bool, command: Optional[str] = None
     ) -> int:
@@ -412,6 +431,7 @@ class MachineState(nixops.resources.ResourceState):
         This function has to return an integer, which is the return value of the
         actual script.
         """
+
         cmd = "NIXOS_NO_SYNC=1 " if not sync else ""
         if command is None:
             cmd += "/nix/var/nix/profiles/system/bin/switch-to-configuration"
@@ -419,6 +439,47 @@ class MachineState(nixops.resources.ResourceState):
             cmd += command
         cmd += " " + method
         return self.run_command(cmd, check=False)
+
+    def mark_deploy_healthy(self) -> bool:
+        """
+        Starts the target "deploy-healthy.target".
+
+        If the return code is 0: deploy-healthy.target is started
+        If the return code is 5: deploy-healthy.target doesn't exist (success)
+        otherwise: don't deploy
+        """
+
+        # Force a reconnection to make sure the network is healthy
+        self.ssh.reset()
+
+        code: int = self.run_command(
+            "systemctl start deploy-healthy.target", check=False
+        )
+        if code == 0:
+            return True
+        elif code == 5:
+            return True
+        else:
+            return False
+
+    def mark_deploy_complete(self) -> bool:
+        """
+        Starts the target "deploy-complete.target".
+
+        If the return code is 0: deploy-complete.target is started
+        If the return code is 5: deploy-complete.target doesn't exist (success)
+        otherwise: don't deploy
+        """
+
+        code: int = self.run_command(
+            "systemctl start deploy-complete.target", check=False
+        )
+        if code == 0:
+            return True
+        elif code == 5:
+            return True
+        else:
+            return False
 
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
