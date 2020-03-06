@@ -188,7 +188,7 @@ def op_info(args):
         ("IP address", "l"),
     ]
 
-    def state(depl, d, m):
+    def state(depl, d, m) -> str:
         if not d and (depl.definitions != None or m.obsolete):
             return "Obsolete"
         if d and m and m.obsolete:
@@ -199,6 +199,8 @@ def op_info(args):
             return "Outdated"
         if deployment.is_machine(m):
             return "Up-to-date"
+
+        raise ValueError("Unknown state")
 
     def do_eval(depl):
         if not args.no_eval:
@@ -236,20 +238,20 @@ def op_info(args):
         for name in names:
             d = definitions.get(name)
             r = depl.resources.get(name)
-            assert r is not None
-            if deployment.is_machine(r):
+
+            resource_state: str = "Missing"
+            if r is not None and deployment.is_machine(r):
                 resource_state = "{0} / {1}".format(
                     r.show_state() if r else "Missing", state(depl, d, r)
                 )
-            else:
-                resource_state = r.show_state() if r else "Missing"
+            elif r:
+                resource_state = r.show_state()
 
+            user_type: str = "unknown-type"
             if r:
                 user_type = r.show_type()
             elif d:
                 user_type = d.show_type()
-            else:
-                user_type = "unknown-type"
 
             public_ipv4: str = ""
             private_ipv4: str = ""
