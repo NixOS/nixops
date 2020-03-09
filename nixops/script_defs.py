@@ -241,9 +241,7 @@ def op_info(args):
 
             resource_state: str = "Missing"
             if isinstance(r, nixops.backends.MachineState):
-                resource_state = "{0} / {1}".format(
-                    r.show_state() if r else "Missing", state(depl, d, r)
-                )
+                resource_state = "{0} / {1}".format(r.show_state(), state(depl, d, r))
             elif r:
                 resource_state = r.show_state()
 
