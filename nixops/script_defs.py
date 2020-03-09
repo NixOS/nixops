@@ -193,18 +193,14 @@ def op_info(args):
         d: Optional[nixops.resources.ResourceDefinition],
         m: nixops.backends.MachineState,
     ) -> str:
-        if not d and (depl.definitions != None or m.obsolete):
-            return "Obsolete"
-        if d and m and m.obsolete:
+        if d and m.obsolete:
             return "Revived"
-        if not m:
-            return "New"
-        if deployment.is_machine(m) and depl.configs_path != m.cur_configs_path:
+        if d is None and m.obsolete:
+            return "Obsolete"
+        if depl.configs_path != m.cur_configs_path:
             return "Outdated"
-        if deployment.is_machine(m):
-            return "Up-to-date"
 
-        raise ValueError("Unknown state")
+        return "Up-to-date"
 
     def do_eval(depl):
         if not args.no_eval:
