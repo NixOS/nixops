@@ -188,7 +188,11 @@ def op_info(args):
         ("IP address", "l"),
     ]
 
-    def state(depl, d, m) -> str:
+    def state(
+        depl: nixops.deployment.Deployment,
+        d: Optional[nixops.resources.ResourceDefinition],
+        m: nixops.backends.MachineState,
+    ) -> str:
         if not d and (depl.definitions != None or m.obsolete):
             return "Obsolete"
         if d and m and m.obsolete:
