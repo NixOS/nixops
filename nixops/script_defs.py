@@ -240,7 +240,7 @@ def op_info(args):
             r = depl.resources.get(name)
 
             resource_state: str = "Missing"
-            if r is not None and deployment.is_machine(r):
+            if isinstance(r, nixops.backends.MachineState):
                 resource_state = "{0} / {1}".format(
                     r.show_state() if r else "Missing", state(depl, d, r)
                 )
