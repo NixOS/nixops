@@ -188,17 +188,19 @@ def op_info(args):
         ("IP address", "l"),
     ]
 
-    def state(depl, d, m):
-        if not d and (depl.definitions != None or m.obsolete):
-            return "Obsolete"
-        if d and m and m.obsolete:
+    def state(
+        depl: nixops.deployment.Deployment,
+        d: Optional[nixops.resources.ResourceDefinition],
+        m: nixops.backends.MachineState,
+    ) -> str:
+        if d and m.obsolete:
             return "Revived"
-        if not m:
-            return "New"
-        if deployment.is_machine(m) and depl.configs_path != m.cur_configs_path:
+        if d is None and m.obsolete:
+            return "Obsolete"
+        if depl.configs_path != m.cur_configs_path:
             return "Outdated"
-        if deployment.is_machine(m):
-            return "Up-to-date"
+
+        return "Up-to-date"
 
     def do_eval(depl):
         if not args.no_eval:
@@ -236,20 +238,18 @@ def op_info(args):
         for name in names:
             d = definitions.get(name)
             r = depl.resources.get(name)
-            assert r is not None
-            if deployment.is_machine(r):
-                resource_state = "{0} / {1}".format(
-                    r.show_state() if r else "Missing", state(depl, d, r)
-                )
-            else:
-                resource_state = r.show_state() if r else "Missing"
 
+            resource_state: str = "Missing"
+            if isinstance(r, nixops.backends.MachineState):
+                resource_state = "{0} / {1}".format(r.show_state(), state(depl, d, r))
+            elif r:
+                resource_state = r.show_state()
+
+            user_type: str = "unknown-type"
             if r:
                 user_type = r.show_type()
             elif d:
                 user_type = d.show_type()
-            else:
-                user_type = "unknown-type"
 
             public_ipv4: str = ""
             private_ipv4: str = ""

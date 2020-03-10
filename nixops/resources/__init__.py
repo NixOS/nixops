@@ -28,7 +28,7 @@ class ResourceDefinition(object):
         if not re.match("^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*$", self.name):
             raise Exception("invalid resource name ‘{0}’".format(self.name))
 
-    def show_type(self):
+    def show_type(self) -> str:
         """A short description of the type of resource this is"""
         return self.get_type()
 
@@ -142,11 +142,11 @@ class ResourceState(object):
     warn = lambda s, m: s.logger.warn(m)
     success = lambda s, m: s.logger.success(m)
 
-    def show_type(self):
+    def show_type(self) -> str:
         """A short description of the type of resource this is"""
         return self.get_type()
 
-    def show_state(self):
+    def show_state(self) -> str:
         """A description of the resource's current state"""
         state = self.state
         if state == self.UNKNOWN:
