@@ -32,10 +32,11 @@ class NoneState(MachineState):
     def get_type(cls):
         return "none"
 
+    provison_ssh_key: bool = nixops.util.attr_property("provisionSSHKey", True, bool)
     target_host = nixops.util.attr_property("targetHost", None)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
-    _ssh_private_key = attr_property("none.sshPrivateKey", None)
-    _ssh_public_key = attr_property("none.sshPublicKey", None)
+    _ssh_private_key: Optional[str] = attr_property("none.sshPrivateKey", None)
+    _ssh_public_key: Optional[str] = attr_property("none.sshPublicKey", None)
     _ssh_public_key_deployed = attr_property("none.sshPublicKeyDeployed", False, bool)
 
     def __init__(self, depl, name, id):
@@ -69,11 +70,13 @@ class NoneState(MachineState):
         self.public_ipv4 = defn._public_ipv4
 
         if not self.vm_id:
-            self.log_start("generating new SSH keypair... ")
-            key_name = "NixOps client key for {0}".format(self.name)
-            self._ssh_private_key, self._ssh_public_key = create_key_pair(
-                key_name=key_name
-            )
+            if self.provison_ssh_key:
+                self.log_start("generating new SSH keypair... ")
+                key_name = "NixOps client key for {0}".format(self.name)
+                self._ssh_private_key, self._ssh_public_key = create_key_pair(
+                    key_name=key_name
+                )
+
             self.log_end("done")
             self.vm_id = "nixops-{0}-{1}".format(self.depl.uuid, self.name)
 
@@ -90,18 +93,21 @@ class NoneState(MachineState):
     def get_ssh_private_key_file(self):
         if self._ssh_private_key_file:
             return self._ssh_private_key_file
-        else:
+        elif self._ssh_private_key:
             return self.write_ssh_private_key(self._ssh_private_key)
 
     def get_ssh_flags(self, *args, **kwargs):
         super_state_flags = super(NoneState, self).get_ssh_flags(*args, **kwargs)
         if self.vm_id and self.cur_toplevel and self._ssh_public_key_deployed:
-            return super_state_flags + [
+            key_file = self.get_ssh_private_key_file()
+            flags = super_state_flags + [
                 "-o",
                 "StrictHostKeyChecking=accept-new",
-                "-i",
-                self.get_ssh_private_key_file(),
             ]
+            if key_file:
+                flags = flags + ["-i", key_file]
+            return flags
+
         return super_state_flags
 
     def _check(self, res):

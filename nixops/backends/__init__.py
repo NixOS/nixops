@@ -42,6 +42,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
     ssh_user: str
     ssh_options: List[str]
     privilege_escalation_command: List[str]
+    provision_ssh_key: bool
 
     def __init__(self, name: str, config: nixops.resources.ResourceEval):
         super().__init__(name, config)
@@ -55,6 +56,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.ssh_user = config["targetUser"]
 
         self.privilege_escalation_command = config["privilegeEscalationCommand"]
+        self.provision_ssh_key = config["provisionSSHKey"]
 
 
 class MachineState(nixops.resources.ResourceState):
@@ -116,6 +118,7 @@ class MachineState(nixops.resources.ResourceState):
         self.ssh_user = defn.ssh_user
         self.ssh_options = defn.ssh_options
         self.has_fast_connection = defn.has_fast_connection
+        self.provison_ssh_key = defn.provision_ssh_key
         if not self.has_fast_connection:
             self.ssh.enable_compression()
 
