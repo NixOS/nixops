@@ -18,11 +18,25 @@ let
   };
   ci = {
     on.push.branches = [ "*" ];
+    on.pull_request.branches = [ "*" ];
+
     name = "CI";
     jobs = {
+
+      mypy-ratchet = mkJob [
+        {
+          name = "setup-shell";
+          run = ''nix-shell --run "true"'';
+        }
+        {
+          name = "mypy-ratchet";
+          run = "./ci/mypy-ratchet.sh";
+        }
+      ];
+
       parsing = mkJob [{
-          name = "Parsing";
-          run = "find . -name \"*.nix\" -exec nix-instantiate --parse --quiet {} >/dev/null +";
+        name = "Parsing";
+        run = "find . -name \"*.nix\" -exec nix-instantiate --parse --quiet {} >/dev/null +";
       }];
       mypy = mkJob [{
         name = "MyPy";
