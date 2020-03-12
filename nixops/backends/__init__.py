@@ -3,7 +3,7 @@
 import os
 import re
 import subprocess
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
@@ -12,14 +12,12 @@ import nixops.ssh_util
 class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
 
-    def __init__(self, xml, config={}):
+    def __init__(self, xml, config={}) -> None:
         nixops.resources.ResourceDefinition.__init__(self, xml, config)
-        self.encrypted_links_to = set(
-            [
-                e.get("value")
-                for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")
-            ]
-        )
+        self.encrypted_links_to = {
+            e.get("value")
+            for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")
+        }
         self.store_keys_on_machine = (
             xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value")
             == "true"
@@ -37,7 +35,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
             == "true"
         )
 
-        def _extract_key_options(x):
+        def _extract_key_options(x) -> Dict[str, Any]:
             opts = {}
             for (key, xmlType) in (
                 ("text", "string"),
@@ -90,7 +88,7 @@ class MachineState(nixops.resources.ResourceState):
     # machine was created.
     state_version: Optional[str] = nixops.util.attr_property("stateVersion", None, str)
 
-    def __init__(self, depl, name: str, id: int):
+    def __init__(self, depl, name: str, id: int) -> None:
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
         self.ssh = nixops.ssh_util.SSH(self.logger)
@@ -100,15 +98,15 @@ class MachineState(nixops.resources.ResourceState):
         self._ssh_private_key_file: Optional[str] = None
         self.new_toplevel: Optional[str] = None
 
-    def prefix_definition(self, attr):
+    def prefix_definition(self, attr) -> None:
         return attr
 
     @property
-    def started(self):
+    def started(self) -> bool:
         state = self.state
         return state == self.STARTING or state == self.UP
 
-    def set_common_state(self, defn):
+    def set_common_state(self, defn) -> None:
         self.store_keys_on_machine = defn.store_keys_on_machine
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
@@ -116,15 +114,15 @@ class MachineState(nixops.resources.ResourceState):
         if not self.has_fast_connection:
             self.ssh.enable_compression()
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop this machine, if possible."""
         self.warn("don't know how to stop machine ‘{0}’".format(self.name))
 
-    def start(self):
+    def start(self) -> None:
         """Start this machine, if possible."""
         pass
 
-    def get_load_avg(self):
+    def get_load_avg(self) -> Union[List[str], None]:
         """Get the load averages on the machine."""
         try:
             res = (
@@ -141,13 +139,13 @@ class MachineState(nixops.resources.ResourceState):
 
     # FIXME: Move this to ResourceState so that other kinds of
     # resources can be checked.
-    def check(self):
+    def check(self):# TODO -> CheckResult, but supertype ResourceState -> True
         """Check machine state."""
         res = CheckResult()
         self._check(res)
         return res
 
-    def _check(self, res):
+    def _check(self, res): # TODO -> None but supertype ResourceState -> True
         avg = self.get_load_avg()
         if avg == None:
             if self.state == self.UP:
@@ -199,7 +197,7 @@ class MachineState(nixops.resources.ResourceState):
                         continue
                     res.failed_units.append(match.group(1))
 
-    def restore(self, defn, backup_id, devices=[]):
+    def restore(self, defn, backup_id, devices: List=[]):
         """Restore persistent disks to a given backup, if possible."""
         self.warn(
             "don't know how to restore disks from backup for machine ‘{0}’".format(
@@ -223,7 +221,7 @@ class MachineState(nixops.resources.ResourceState):
             "don't know how to make backup of disks for machine ‘{0}’".format(self.name)
         )
 
-    def reboot(self, hard=False):
+    def reboot(self, hard: bool=False) -> None:
         """Reboot this machine."""
         self.log("rebooting...")
         if self.state == self.RESCUE:
@@ -237,7 +235,7 @@ class MachineState(nixops.resources.ResourceState):
         self.state = self.STARTING
         self.ssh.reset()
 
-    def reboot_sync(self, hard=False):
+    def reboot_sync(self, hard: bool=False) -> None:
         """Reboot this machine and wait until it's up again."""
         self.reboot(hard=hard)
         self.log_start("waiting for the machine to finish rebooting...")
@@ -257,13 +255,13 @@ class MachineState(nixops.resources.ResourceState):
         self._ssh_pinged_this_time = True
         self.send_keys()
 
-    def reboot_rescue(self, hard=False):
+    def reboot_rescue(self, hard: bool=False) -> None:
         """
         Reboot machine into rescue system and wait until it is active.
         """
         self.warn("machine ‘{0}’ doesn't have a rescue" " system.".format(self.name))
 
-    def send_keys(self):
+    def send_keys(self) -> None:
         if self.state == self.RESCUE:
             # Don't send keys when in RESCUE state, because we're most likely
             # bootstrapping plus we probably don't have /run mounted properly
@@ -488,7 +486,7 @@ class MachineState(nixops.resources.ResourceState):
 
 
 class CheckResult(object):
-    def __init__(self):
+    def __init__(self) -> None:
         # Whether the resource exists.
         self.exists = None
 
@@ -513,7 +511,7 @@ class CheckResult(object):
         self.load = None
 
         # Error messages.
-        self.messages = []
+        self.messages: List[str] = []
 
         # FIXME: add a check whether the active NixOS config on the
         # machine is correct.
