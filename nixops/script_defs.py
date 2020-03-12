@@ -26,8 +26,10 @@ from typing import Tuple, List, Optional, Union, Any
 from datetime import datetime
 from pprint import pprint
 import importlib
+from functools import lru_cache
 
 from nixops.plugins import get_plugin_manager
+from nixops.evaluation import eval_network
 
 
 pm = get_plugin_manager()
@@ -35,6 +37,11 @@ pm = get_plugin_manager()
     [importlib.import_module(mod) for mod in pluginimports]
     for pluginimports in pm.hook.load()
 ]
+
+
+@lru_cache()
+def _create_state(state_file: str) -> nixops.statefile.StateFile:
+    return nixops.statefile.StateFile(state_file)
 
 
 def op_list_plugins(args):
@@ -68,14 +75,14 @@ def sort_deployments(
 # $NIXOPS_DEPLOYMENT.
 def one_or_all(args: Namespace) -> List[nixops.deployment.Deployment]:
     if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
+        sf = _create_state(args.state_file)
         return sf.get_all_deployments()
     else:
         return [open_deployment(args)]
 
 
 def op_list_deployments(args):
-    sf = nixops.statefile.StateFile(args.state_file)
+    sf = _create_state(args.state_file)
     tbl = create_table(
         [
             ("UUID", "l"),
@@ -99,7 +106,7 @@ def op_list_deployments(args):
 
 
 def open_deployment(args):
-    sf = nixops.statefile.StateFile(args.state_file)
+    sf = _create_state(args.state_file)
     depl = sf.open_deployment(uuid=args.deployment)
 
     depl.extra_nix_path = sum(args.nix_path or [], [])
@@ -145,12 +152,19 @@ def modify_deployment(args, depl: nixops.deployment.Deployment):
 
 
 def op_create(args):
-    sf = nixops.statefile.StateFile(args.state_file)
+    sf = _create_state(args.state_file)
     depl = sf.create_deployment()
     sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
     modify_deployment(args, depl)
-    if args.name or args.deployment:
-        set_name(depl, args.name or args.deployment)
+
+    # When deployment is created without state "name" does not exist
+    name = args.deployment
+    if "name" in args:
+        name = args.name or args.deployment
+
+    if name:
+        set_name(depl, name)
+
     sys.stdout.write(depl.uuid + "\n")
 
 
@@ -284,7 +298,7 @@ def op_info(args):
                 )
 
     if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
+        sf = _create_state(args.state_file)
         if not args.plain:
             tbl = create_table([("Deployment", "l")] + table_headers)
         for depl in sort_deployments(sf.get_all_deployments()):
@@ -553,7 +567,18 @@ def op_restore(args):
 
 
 def op_deploy(args):
+
+    # If nix expressions are passed evaluate the network first so we can figure
+    # out if we need to create state or not
+    if args.nix_exprs:
+        network = eval_network(args.nix_exprs)
+        # If state is not enabled we need to create the deployment first in the in-memory sqlite db
+        if not network.enableState:
+            args.state_file = ":memory:"
+            op_create(args)
+
     depl = open_deployment(args)
+
     if args.confirm:
         depl.logger.set_autoresponse("y")
     if args.evaluate_only:
@@ -710,7 +735,7 @@ def op_export(args):
 
 
 def op_import(args):
-    sf = nixops.statefile.StateFile(args.state_file)
+    sf = _create_state(args.state_file)
     existing = set(sf.query_deployments())
 
     dump = json.loads(sys.stdin.read())

@@ -164,6 +164,7 @@ subparser.add_argument(
     help="activate unchanged configurations as well",
 )
 add_common_deployment_options(subparser)
+add_common_modify_options(subparser)
 
 subparser = add_subparser(subparsers, "send-keys", help="send encryption keys")
 subparser.set_defaults(op=op_send_keys)

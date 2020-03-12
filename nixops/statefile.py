@@ -82,7 +82,10 @@ class StateFile(object):
     def __init__(self, db_file: str) -> None:
         self.db_file: str = db_file
 
-        if os.path.splitext(db_file)[1] not in [".nixops", ".charon"]:
+        if db_file != ":memory:" and os.path.splitext(db_file)[1] not in [
+            ".nixops",
+            ".charon",
+        ]:
             raise Exception(
                 "state file ‘{0}’ should have extension ‘.nixops’".format(db_file)
             )
