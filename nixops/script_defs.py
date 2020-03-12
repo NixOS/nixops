@@ -26,6 +26,7 @@ import nixops.ansi
 from nixops.plugins.manager import PluginManager
 
 from nixops.plugins import get_plugin_manager
+from nixops.evaluation import eval_network
 
 
 PluginManager.load()
@@ -168,8 +169,15 @@ def op_create(args):
         depl = sf.create_deployment()
         sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
         modify_deployment(args, depl)
-        if args.name or args.deployment:
-            set_name(depl, args.name or args.deployment)
+
+        # When deployment is created without state "name" does not exist
+        name = args.deployment
+        if "name" in args:
+            name = args.name or args.deployment
+
+        if name:
+            set_name(depl, name)
+
         sys.stdout.write(depl.uuid + "\n")
 
 
