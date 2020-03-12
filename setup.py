@@ -25,7 +25,7 @@ setup(
     url="https://github.com/NixOS/nixops",
     author="Eelco Dolstra",
     author_email="eelco.dolstra@logicblox.com",
-    scripts=["scripts/nixops"],
+    entry_points={"console_scripts": ["nixops = nixops.__main__:main"]},
     packages=["nixops", "nixops.plugins", "nixops.resources", "nixops.backends"],
     package_data={"nixops": ["data/nixos-infect"]},
     cmdclass={"test": TestCommand},
