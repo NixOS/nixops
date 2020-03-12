@@ -10,7 +10,7 @@ __all__ = ["Logger"]
 
 
 class Logger(object):
-    def __init__(self, log_file):
+    def __init__(self, log_file: TextIO) -> None:
         self._last_log_prefix: Optional[str] = None  # XXX!
         self._log_lock: threading.Lock = threading.Lock()
         self._log_file: TextIO = log_file
