@@ -76,7 +76,7 @@ def create_table(headers: List[Tuple[str, str]]) -> prettytable.PrettyTable:
 def sort_deployments(
     depls: List[nixops.deployment.Deployment],
 ) -> List[nixops.deployment.Deployment]:
-    return sorted(depls, key=lambda depl: (depl.name, depl.uuid))
+    return sorted(depls, key=lambda depl: (depl.name or depl.uuid, depl.uuid))
 
 
 # Handle the --all switch: if --all is given, return all deployments;
