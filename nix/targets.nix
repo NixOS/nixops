@@ -1,15 +1,7 @@
 {
   systemd.targets = {
-    deploy-prepare = {
-      description = "Started immediately before switch-to-configuration.";
-      unitConfig = {
-        Conflicts = [ "deploy-healthy.target" "deploy-complete.target" "deploy-failed.target" ];
-        X-StopOnReconfiguration = true;
-      };
-    };
-
-    deploy-healthy = {
-      description = "Started after confirming switch-to-configuration was successful.";
+    deploy-machine-commit = {
+      description = "Healthy Deployment";
       unitConfig = {
         OnFailure = [ "deploy-failed.target" ];
         Conflicts = [ "deploy-prepare.target" "deploy-failed.target" ];
@@ -17,21 +9,32 @@
       };
     };
 
-    deploy-failed = {
-      description = "Started when deploy-healthy fails.";
+    deploy-machine-abort = {
+      description = "Failed Deployment";
       unitConfig = {
         Conflicts = [ "deploy-prepare.target" ];
         X-StopOnReconfiguration = true;
       };
     };
 
-    deploy-complete = {
-      description = "Started after confirming switch-to-configuration was successful on the entire deployment.";
+    deploy-network-commit = {
+      description = "Deployment Complete Across All Machines";
       unitConfig = {
         Conflicts = [ "deploy-prepare.target" ];
         X-StopOnReconfiguration = true;
       };
     };
 
+    #                      Why is this last?
+    #
+    # When deploy-machine-request runs, it is at the _end_ of the
+    # lifecycle of the previously deployed system.
+    deploy-machine-request = {
+      description = "Deployment Requested";
+      unitConfig = {
+        Conflicts = [ "deploy-healthy.target" "deploy-complete.target" "deploy-failed.target" ];
+        X-StopOnReconfiguration = true;
+      };
+    };
   };
 }
