@@ -3,7 +3,7 @@
 import os
 import re
 import subprocess
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional, Union, Set
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
@@ -14,7 +14,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
 
     def __init__(self, xml, config={}) -> None:
         nixops.resources.ResourceDefinition.__init__(self, xml, config)
-        self.encrypted_links_to = {
+        self.encrypted_links_to: Set[str] = {
             e.get("value")
             for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")
         }
