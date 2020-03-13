@@ -12,9 +12,6 @@
         <firstname>Eelco</firstname>
         <surname>Dolstra</surname>
       </personname>
-      <affiliation>
-        <orgname>LogicBlox</orgname>
-      </affiliation>
       <contrib>Author</contrib>
     </author>
 
@@ -23,9 +20,6 @@
         <firstname>Rob</firstname>
         <surname>Vermaas</surname>
       </personname>
-      <affiliation>
-        <orgname>LogicBlox</orgname>
-      </affiliation>
       <contrib>Author</contrib>
     </author>
 
