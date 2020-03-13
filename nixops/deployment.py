@@ -1055,6 +1055,12 @@ class Deployment:
                 if res == 0:
                     m.success("activation finished successfully")
 
+                if not m.verify_current_system(m.new_toplevel):
+                    m.warn("did not switch to the new system; possible rollback")
+                    raise Exception(
+                        f"{m.name} did not switch to the new system; possible rollback"
+                    )
+
                 m.log("starting deploy-healthy.target")
                 if not m.mark_deploy_healthy():
                     m.warn("refused to go to deploy-healthy.target")

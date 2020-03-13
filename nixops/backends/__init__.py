@@ -440,6 +440,12 @@ class MachineState(nixops.resources.ResourceState):
         cmd += " " + method
         return self.run_command(cmd, check=False)
 
+    def verify_current_system(self, expected: str) -> str:
+        ret = self.run_command(
+            f'test "$(readlink -f /run/current-system)" == "{expected}"', check=False
+        )
+        return ret == 0
+
     def mark_deploy_healthy(self) -> bool:
         """
         Starts the target "deploy-healthy.target".
