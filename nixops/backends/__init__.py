@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional, Union, Set
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
-
+import xml.etree.ElementTree as ET
 
 class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
@@ -35,7 +35,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
             == "true"
         )
 
-        def _extract_key_options(x) -> Dict[str, str]:
+        def _extract_key_options(x: ET.Element) -> Dict[str, str]:
             opts = {}
             for (key, xmlType) in (
                 ("text", "string"),
@@ -47,7 +47,9 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
             ):
                 elem = x.find("attrs/attr[@name='{0}']/{1}".format(key, xmlType))
                 if elem is not None:
-                    opts[key] = elem.get("value")
+                    value = elem.get("value")
+                    if value is not None:
+                        opts[key] = value
             return opts
 
         self.keys = {
