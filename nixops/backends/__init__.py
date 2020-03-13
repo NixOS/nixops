@@ -9,6 +9,7 @@ import nixops.resources
 import nixops.ssh_util
 import xml.etree.ElementTree as ET
 
+
 class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
 

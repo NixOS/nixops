@@ -202,7 +202,7 @@ class ResourceState(object):
         raise NotImplementedError("create")
 
     def check(
-        self
+        self,
     ):  # TODO this return type is inconsistent with child class MachineState
         """
         Reconcile the state file with the real world infrastructure state.
