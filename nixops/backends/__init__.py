@@ -35,7 +35,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
             == "true"
         )
 
-        def _extract_key_options(x) -> Dict[str, Any]:
+        def _extract_key_options(x) -> Dict[str, str]:
             opts = {}
             for (key, xmlType) in (
                 ("text", "string"),
@@ -98,7 +98,7 @@ class MachineState(nixops.resources.ResourceState):
         self._ssh_private_key_file: Optional[str] = None
         self.new_toplevel: Optional[str] = None
 
-    def prefix_definition(self, attr) -> None:
+    def prefix_definition(self, attr):
         return attr
 
     @property
