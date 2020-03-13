@@ -270,7 +270,7 @@ def _maybe_abspath(s: str) -> str:
     return os.path.abspath(s)
 
 
-def abs_nix_path(x) -> str:
+def abs_nix_path(x: str) -> str:
     xs = x.split("=", 1)
     if len(xs) == 1:
         return _maybe_abspath(x)
