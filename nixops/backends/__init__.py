@@ -197,7 +197,7 @@ class MachineState(nixops.resources.ResourceState):
                         continue
                     res.failed_units.append(match.group(1))
 
-    def restore(self, defn, backup_id: str, devices: List[str]=[]):
+    def restore(self, defn, backup_id: Optional[str], devices: List[str]=[]):
         """Restore persistent disks to a given backup, if possible."""
         self.warn(
             "don't know how to restore disks from backup for machine ‘{0}’".format(
