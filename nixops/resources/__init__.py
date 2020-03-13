@@ -93,7 +93,7 @@ class ResourceState(object):
         """Update one machine attribute in the state file."""
         self._set_attrs({name: value})
 
-    def _del_attr(self, name) -> None:
+    def _del_attr(self, name: str) -> None:
         """Delete a machine attribute from the state file."""
         with self.depl._db:
             self.depl._db.execute(
