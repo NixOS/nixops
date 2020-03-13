@@ -139,13 +139,13 @@ class MachineState(nixops.resources.ResourceState):
 
     # FIXME: Move this to ResourceState so that other kinds of
     # resources can be checked.
-    def check(self):# TODO -> CheckResult, but supertype ResourceState -> True
+    def check(self):  # TODO -> CheckResult, but supertype ResourceState -> True
         """Check machine state."""
         res = CheckResult()
         self._check(res)
         return res
 
-    def _check(self, res): # TODO -> None but supertype ResourceState -> True
+    def _check(self, res):  # TODO -> None but supertype ResourceState -> True
         avg = self.get_load_avg()
         if avg == None:
             if self.state == self.UP:
@@ -197,7 +197,7 @@ class MachineState(nixops.resources.ResourceState):
                         continue
                     res.failed_units.append(match.group(1))
 
-    def restore(self, defn, backup_id: Optional[str], devices: List[str]=[]):
+    def restore(self, defn, backup_id: Optional[str], devices: List[str] = []):
         """Restore persistent disks to a given backup, if possible."""
         self.warn(
             "don't know how to restore disks from backup for machine ‘{0}’".format(
@@ -221,7 +221,7 @@ class MachineState(nixops.resources.ResourceState):
             "don't know how to make backup of disks for machine ‘{0}’".format(self.name)
         )
 
-    def reboot(self, hard: bool=False) -> None:
+    def reboot(self, hard: bool = False) -> None:
         """Reboot this machine."""
         self.log("rebooting...")
         if self.state == self.RESCUE:
@@ -235,7 +235,7 @@ class MachineState(nixops.resources.ResourceState):
         self.state = self.STARTING
         self.ssh.reset()
 
-    def reboot_sync(self, hard: bool=False) -> None:
+    def reboot_sync(self, hard: bool = False) -> None:
         """Reboot this machine and wait until it's up again."""
         self.reboot(hard=hard)
         self.log_start("waiting for the machine to finish rebooting...")
@@ -255,7 +255,7 @@ class MachineState(nixops.resources.ResourceState):
         self._ssh_pinged_this_time = True
         self.send_keys()
 
-    def reboot_rescue(self, hard: bool=False) -> None:
+    def reboot_rescue(self, hard: bool = False) -> None:
         """
         Reboot machine into rescue system and wait until it is active.
         """

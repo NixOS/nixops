@@ -201,7 +201,9 @@ class ResourceState(object):
         """Create or update the resource defined by ‘defn’."""
         raise NotImplementedError("create")
 
-    def check(self): # TODO this return type is inconsistent with child class MachineState
+    def check(
+        self
+    ):  # TODO this return type is inconsistent with child class MachineState
         """
         Reconcile the state file with the real world infrastructure state.
         This should not do any provisionning but just sync the state.
