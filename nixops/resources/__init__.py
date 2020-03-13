@@ -101,7 +101,7 @@ class ResourceState(object):
                 (self.id, name),
             )
 
-    def _get_attr(self, name, default=nixops.util.undefined) -> Any:
+    def _get_attr(self, name: str, default=nixops.util.undefined) -> Any:
         """Get a machine attribute from the state file."""
         with self.depl._db:
             c = self.depl._db.cursor()
