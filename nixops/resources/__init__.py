@@ -89,7 +89,7 @@ class ResourceState(object):
                         (self.id, n, v),
                     )
 
-    def _set_attr(self, name, value) -> None:
+    def _set_attr(self, name: str, value: Any) -> None:
         """Update one machine attribute in the state file."""
         self._set_attrs({name: value})
 
