@@ -998,6 +998,14 @@ class Deployment:
                         raise Exception("unable to set new system profile")
 
             try:
+                if not dry_activate:
+                    m.log("starting deploy-prepare.target")
+                    if not m.is_okay_to_deploy():
+                        m.warn("refused to go to deploy-prepare.target")
+                        raise Exception(
+                            f"Failed to prepare {m.name} for deployment (deploy-prepare.target failed)"
+                        )
+
                 if not test:
                     set_profile()
 
@@ -1011,14 +1019,6 @@ class Deployment:
                     switch_method = "test"
                 else:
                     switch_method = "switch"
-
-                if not dry_activate:
-                    m.log("starting deploy-prepare.target")
-                    if not m.is_okay_to_deploy():
-                        m.warn("refused to go to deploy-prepare.target")
-                        raise Exception(
-                            f"Failed to prepare {m.name} for deployment (deploy-prepare.target failed)"
-                        )
 
                 # Run the switch script.  This will also update the
                 # GRUB boot loader.
