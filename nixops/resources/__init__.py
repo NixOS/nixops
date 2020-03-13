@@ -3,7 +3,7 @@
 import re
 import nixops.util
 from threading import Event
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from nixops.state import StateDict
 from nixops.diff import Diff, Handler
 
@@ -73,7 +73,7 @@ class ResourceState(object):
         self.logger = depl.logger.get_logger_for(name)
         self.logger.register_index(self.index)
 
-    def _set_attrs(self, attrs):
+    def _set_attrs(self, attrs: Dict[str, Any]) -> None:
         """Update machine attributes in the state file."""
         with self.depl._db:
             c = self.depl._db.cursor()
@@ -89,11 +89,11 @@ class ResourceState(object):
                         (self.id, n, v),
                     )
 
-    def _set_attr(self, name, value):
+    def _set_attr(self, name: str, value: Any) -> None:
         """Update one machine attribute in the state file."""
         self._set_attrs({name: value})
 
-    def _del_attr(self, name):
+    def _del_attr(self, name: str) -> None:
         """Delete a machine attribute from the state file."""
         with self.depl._db:
             self.depl._db.execute(
@@ -101,7 +101,7 @@ class ResourceState(object):
                 (self.id, name),
             )
 
-    def _get_attr(self, name, default=nixops.util.undefined):
+    def _get_attr(self, name: str, default=nixops.util.undefined) -> Any:
         """Get a machine attribute from the state file."""
         with self.depl._db:
             c = self.depl._db.cursor()
@@ -201,7 +201,9 @@ class ResourceState(object):
         """Create or update the resource defined by ‘defn’."""
         raise NotImplementedError("create")
 
-    def check(self):
+    def check(
+        self,
+    ):  # TODO this return type is inconsistent with child class MachineState
         """
         Reconcile the state file with the real world infrastructure state.
         This should not do any provisionning but just sync the state.
