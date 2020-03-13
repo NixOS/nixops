@@ -73,7 +73,7 @@ class ResourceState(object):
         self.logger = depl.logger.get_logger_for(name)
         self.logger.register_index(self.index)
 
-    def _set_attrs(self, attrs) -> None:
+    def _set_attrs(self, attrs: Dict[str, Any]) -> None:
         """Update machine attributes in the state file."""
         with self.depl._db:
             c = self.depl._db.cursor()
