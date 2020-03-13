@@ -997,6 +997,8 @@ class Deployment:
                     elif ret != 0:
                         raise Exception("unable to set new system profile")
 
+            assert m.new_toplevel is not None
+
             try:
                 if not dry_activate:
                     m.log("starting deploy-prepare.target")
