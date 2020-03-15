@@ -42,26 +42,25 @@ in rec {
       fi
     '';
 
-    distPhase =
-      ''
-        # Generate the manual and the man page.
-        cp ${(import ./doc/manual { revision = nixopsSrc.rev; inherit nixpkgs; }).optionsDocBook} doc/manual/machine-options.xml
+    distPhase = ''
+      # Generate the manual and the man page.
+      cp ${(import ./doc/manual { revision = nixopsSrc.rev; inherit nixpkgs; }).optionsDocBook} doc/manual/machine-options.xml
 
-        for i in nixops/__main__.py setup.py doc/manual/manual.xml; do
-          substituteInPlace $i --subst-var-by version ${version}
-        done
+      for i in nixops/__main__.py setup.py doc/manual/manual.xml; do
+        substituteInPlace $i --subst-var-by version ${version}
+      done
 
-        make -C doc/manual install docdir=$out/manual mandir=$TMPDIR/man
+      make -C doc/manual install docdir=$out/manual mandir=$TMPDIR/man
 
-        releaseName=nixops-$VERSION
-        mkdir ../$releaseName
-        cp -prd . ../$releaseName
-        rm -rf ../$releaseName/.git
-        mkdir $out/tarballs
-        tar  cvfj $out/tarballs/$releaseName.tar.bz2 -C .. $releaseName
+      releaseName=nixops-$VERSION
+      mkdir ../$releaseName
+      cp -prd . ../$releaseName
+      rm -rf ../$releaseName/.git
+      mkdir $out/tarballs
+      tar  cvfj $out/tarballs/$releaseName.tar.bz2 -C .. $releaseName
 
-        echo "doc manual $out/manual manual.html" >> $out/nix-support/hydra-build-products
-      '';
+      echo "doc manual $out/manual manual.html" >> $out/nix-support/hydra-build-products
+    '';
   };
 
   build = buildWithPlugins p;
@@ -113,17 +112,16 @@ in rec {
       # the version of openssh is causing errors when have big networks (40+)
       makeWrapperArgs = ["--prefix" "PATH" ":" "${pkgs.openssh}/bin" "--set" "PYTHONPATH" ":"];
 
-      postInstall =
-        ''
-          # Backward compatibility symlink.
-          ln -s nixops $out/bin/charon
+      postInstall = ''
+        # Backward compatibility symlink.
+        ln -s nixops $out/bin/charon
 
-          make -C doc/manual install \
-            docdir=$out/share/doc/nixops mandir=$out/share/man
+        make -C doc/manual install \
+          docdir=$out/share/doc/nixops mandir=$out/share/man
 
-          mkdir -p $out/share/nix/nixops
-          cp -av nix/* $out/share/nix/nixops
-        '';
+        mkdir -p $out/share/nix/nixops
+        cp -av nix/* $out/share/nix/nixops
+      '';
 
       meta.description = "Nix package for ${pkgs.stdenv.system}";
     });
