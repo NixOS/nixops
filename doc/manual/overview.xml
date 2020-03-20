@@ -30,7 +30,7 @@ See <xref linkend="ex-physical-nixos.nix" />.
 
 <section><title>Accessing machines</title>
 
-<para>We have seen above that you can login to individual machines by
+<para>You can login to individual machines by
 doing <literal>nixops ssh <replaceable>name</replaceable></literal>,
 where <replaceable>name</replaceable> is the name of the
 machine.</para>
@@ -172,7 +172,7 @@ command. For example, if we want to set the <code>maintenance</code>
 argument to <code>true</code> in the previous example, you can run:
 
 <screen>
-  $ nixops set-args --arg maintenance true -d &lt;name&gt;
+  $ nixops set-args --arg maintenance true -d argtest
 </screen>
 
 The arguments that have been set will show up:
