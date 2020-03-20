@@ -1185,7 +1185,7 @@ load average statistics.</para>
 <para>For a running VirtualBox instance, NixOps will print something
 like:
 <screen>
-$ nixops status
+$ nixops check
 machine> VM state is ‘running’
 machine> pinging SSH... up [1.03 0.34 0.12]</screen>
 </para>
