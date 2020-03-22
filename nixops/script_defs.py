@@ -7,7 +7,7 @@ import pluggy
 
 import nixops.statefile
 import prettytable
-from argparse import Namespace
+from argparse import ArgumentParser, _SubParsersAction, Namespace
 import os
 import pwd
 import re
@@ -974,7 +974,9 @@ def setup_logging(args):
         nixops.util.TeeStdout()
 
 
-def add_subparser(subparsers, name, help):
+def add_subparser(
+    subparsers: _SubParsersAction, name: str, help: str
+) -> ArgumentParser:
     subparser = subparsers.add_parser(name, help=help)
     subparser.add_argument(
         "--state",
@@ -1062,7 +1064,7 @@ def add_subparser(subparsers, name, help):
     return subparser
 
 
-def add_common_modify_options(subparser):
+def add_common_modify_options(subparser: ArgumentParser):
     subparser.add_argument(
         "nix_exprs",
         nargs="*",
@@ -1079,7 +1081,7 @@ def add_common_modify_options(subparser):
     )
 
 
-def add_common_deployment_options(subparser):
+def add_common_deployment_options(subparser: ArgumentParser):
     subparser.add_argument(
         "--include",
         nargs="+",
