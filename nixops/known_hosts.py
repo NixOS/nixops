@@ -23,9 +23,8 @@ def _rewrite(ip_address: str, add_ip: bool, public_host_key: str) -> None:
             fcntl.flock(
                 lockfile, fcntl.LOCK_EX
             )  # unlock is implicit at the end of the with
-            f = open(path, "r")
-            contents = f.read()
-            f.close()
+            with open(path, "r") as f:
+                contents = f.read()
 
             def rewrite(lst: str) -> Optional[str]:
                 if " " not in lst:
