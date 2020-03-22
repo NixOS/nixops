@@ -7,7 +7,7 @@ import pluggy
 
 import nixops.statefile
 import prettytable
-import argparse
+from argparse import Namespace
 import os
 import pwd
 import re
@@ -66,7 +66,7 @@ def sort_deployments(
 # Handle the --all switch: if --all is given, return all deployments;
 # otherwise, return the deployment specified by -d /
 # $NIXOPS_DEPLOYMENT.
-def one_or_all(args: argparse.Namespace) -> List[nixops.deployment.Deployment]:
+def one_or_all(args: Namespace) -> List[nixops.deployment.Deployment]:
     if args.all:
         sf = nixops.statefile.StateFile(args.state_file)
         return sf.get_all_deployments()
