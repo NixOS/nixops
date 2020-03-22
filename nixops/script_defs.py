@@ -1089,7 +1089,7 @@ def add_subparser(
     return subparser
 
 
-def add_common_modify_options(subparser: ArgumentParser):
+def add_common_modify_options(subparser: ArgumentParser) -> None:
     subparser.add_argument(
         "nix_exprs",
         nargs="*",
@@ -1106,7 +1106,7 @@ def add_common_modify_options(subparser: ArgumentParser):
     )
 
 
-def add_common_deployment_options(subparser: ArgumentParser):
+def add_common_deployment_options(subparser: ArgumentParser) -> None:
     subparser.add_argument(
         "--include",
         nargs="+",
