@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from nixops import deployment
-from argparse import ArgumentParser, SUPPRESS, REMAINDER
+from argparse import ArgumentParser, _SubParsersAction, SUPPRESS, REMAINDER
 import os
 from nixops.script_defs import *
 
@@ -10,7 +10,7 @@ from nixops.script_defs import *
 parser = ArgumentParser(description="NixOS cloud deployment tool", prog="nixops")
 parser.add_argument("--version", action="version", version="NixOps @version@")
 
-subparsers = parser.add_subparsers(
+subparsers: _SubParsersAction = parser.add_subparsers(
     help="sub-command help", metavar="operation", required=True
 )
 
