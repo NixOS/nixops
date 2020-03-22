@@ -2,14 +2,12 @@
 # -*- coding: utf-8 -*-
 
 from nixops import deployment
-import argparse
+from argparse import ArgumentParser, SUPPRESS, REMAINDER
 import os
 from nixops.script_defs import *
 
 # Set up the parser.
-parser = argparse.ArgumentParser(
-    description="NixOS cloud deployment tool", prog="nixops"
-)
+parser = ArgumentParser(description="NixOS cloud deployment tool", prog="nixops")
 parser.add_argument("--version", action="version", version="NixOps @version@")
 
 subparsers = parser.add_subparsers(
@@ -22,7 +20,7 @@ subparser.set_defaults(op=op_list_deployments)
 subparser = add_subparser(subparsers, "create", help="create a new deployment")
 subparser.set_defaults(op=op_create)
 subparser.add_argument(
-    "--name", "-n", dest="name", metavar="NAME", help=argparse.SUPPRESS
+    "--name", "-n", dest="name", metavar="NAME", help=SUPPRESS
 )  # obsolete, use -d instead
 add_common_modify_options(subparser)
 
@@ -308,10 +306,7 @@ subparser = add_subparser(
 subparser.set_defaults(op=op_ssh)
 subparser.add_argument("machine", metavar="MACHINE", help="identifier of the machine")
 subparser.add_argument(
-    "args",
-    metavar="SSH_ARGS",
-    nargs=argparse.REMAINDER,
-    help="SSH flags and/or command",
+    "args", metavar="SSH_ARGS", nargs=REMAINDER, help="SSH flags and/or command",
 )
 
 subparser = add_subparser(
