@@ -183,11 +183,11 @@ def op_modify(args):
 
 
 def op_clone(args):
-    depl = open_deployment(args)
-    depl2 = depl.clone()
-    sys.stderr.write("created deployment ‘{0}’\n".format(depl2.uuid))
-    set_name(depl2, args.name)
-    sys.stdout.write(depl2.uuid + "\n")
+    with deployment(args) as depl:
+        depl2 = depl.clone()
+        sys.stderr.write("created deployment ‘{0}’\n".format(depl2.uuid))
+        set_name(depl2, args.name)
+        sys.stdout.write(depl2.uuid + "\n")
 
 
 def op_delete(args):
