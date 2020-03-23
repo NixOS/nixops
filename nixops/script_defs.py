@@ -812,20 +812,20 @@ def scp_loc(user, ssh_name, remote, loc):
 def op_scp(args):
     if args.scp_from == args.scp_to:
         raise Exception("exactly one of ‘--from’ and ‘--to’ must be specified")
-    depl = open_deployment(args)
-    (username, machine) = parse_machine(args.machine)
-    m = depl.machines.get(machine)
-    if not m:
-        raise Exception("unknown machine ‘{0}’".format(machine))
-    ssh_name = m.get_ssh_name()
-    from_loc = scp_loc(username, ssh_name, args.scp_from, args.source)
-    to_loc = scp_loc(username, ssh_name, args.scp_to, args.destination)
-    print("{0} -> {1}".format(from_loc, to_loc), file=sys.stderr)
-    flags = ["scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc]
-    # Map ssh's ‘-p’ to scp's ‘-P’.
-    flags = ["-P" if f == "-p" else f for f in flags]
-    res = subprocess.call(flags)
-    sys.exit(res)
+    with deployment(args) as depl:
+        (username, machine) = parse_machine(args.machine)
+        m = depl.machines.get(machine)
+        if not m:
+            raise Exception("unknown machine ‘{0}’".format(machine))
+        ssh_name = m.get_ssh_name()
+        from_loc = scp_loc(username, ssh_name, args.scp_from, args.source)
+        to_loc = scp_loc(username, ssh_name, args.scp_to, args.destination)
+        print("{0} -> {1}".format(from_loc, to_loc), file=sys.stderr)
+        flags = ["scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc]
+        # Map ssh's ‘-p’ to scp's ‘-P’.
+        flags = ["-P" if f == "-p" else f for f in flags]
+        res = subprocess.call(flags)
+        sys.exit(res)
 
 
 def op_mount(args):
