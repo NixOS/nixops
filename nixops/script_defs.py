@@ -948,11 +948,11 @@ def op_show_console_output(args):
 
 
 def op_edit(args):
-    depl = open_deployment(args)
-    editor = os.environ.get("EDITOR")
-    if not editor:
-        raise Exception("the $EDITOR environment variable is not set")
-    os.system("$EDITOR " + " ".join([pipes.quote(x) for x in depl.nix_exprs]))
+    with deployment(args) as depl:
+        editor = os.environ.get("EDITOR")
+        if not editor:
+            raise Exception("the $EDITOR environment variable is not set")
+        os.system("$EDITOR " + " ".join([pipes.quote(x) for x in depl.nix_exprs]))
 
 
 def op_copy_closure(args):
