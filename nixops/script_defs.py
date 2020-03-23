@@ -655,8 +655,8 @@ def op_stop(args):
 
 
 def op_start(args):
-    depl = open_deployment(args)
-    depl.start_machines(include=args.include or [], exclude=args.exclude or [])
+    with deployment(args) as depl:
+        depl.start_machines(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_rename(args):
