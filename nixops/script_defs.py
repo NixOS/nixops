@@ -26,7 +26,6 @@ import nixops.ansi
 from nixops.plugins.manager import PluginManager
 
 from nixops.plugins import get_plugin_manager
-from nixops.evaluation import eval_network
 
 
 PluginManager.load()

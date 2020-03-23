@@ -11,4 +11,3 @@ def plugin() -> Plugin:
     """
     Register a plugin base class
     """
-    pass

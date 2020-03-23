@@ -3,6 +3,7 @@ from __future__ import annotations
 from nixops.backends import MachineState
 from typing import List, Dict, Optional, Union, Tuple
 
+from nixops.storage import BackendRegistration
 from functools import lru_cache
 from typing import Generator
 import pluggy
@@ -93,3 +94,9 @@ class Plugin:
         :return a list of tuples (plugin_name, doc_path)
         """
         return []
+
+    def storage_backends(self) -> BackendRegistration:
+        """ Extend the core nixops cli parser
+        :return a set of plugin parser extensions
+        """
+        return {}
