@@ -729,8 +729,10 @@ def op_dump_nix_paths(args):
 
 def op_export(args):
     res = {}
-    for depl in one_or_all(args):
-        res[depl.uuid] = depl.export()
+
+    with one_or_all(args) as depls:
+        for depl in depls:
+            res[depl.uuid] = depl.export()
     print(json.dumps(res, indent=2, sort_keys=True))
 
 
