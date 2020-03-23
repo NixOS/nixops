@@ -605,8 +605,8 @@ def op_deploy(args):
 
 
 def op_send_keys(args):
-    depl = open_deployment(args)
-    depl.send_keys(include=args.include or [], exclude=args.exclude or [])
+    with deployment(args) as depl:
+        depl.send_keys(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_set_args(args):
