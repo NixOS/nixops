@@ -716,8 +716,9 @@ def op_dump_nix_paths(args):
 
     paths: List[str] = []
 
-    for depl in one_or_all(args):
-        paths.extend(nix_paths(depl))
+    with one_or_all(args) as depls:
+        for depl in depls:
+            paths.extend(nix_paths(depl))
 
     for p in paths:
         print(p)
