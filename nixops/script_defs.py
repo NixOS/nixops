@@ -787,22 +787,23 @@ def op_ssh(args):
 
 def op_ssh_for_each(args):
     results: List[Optional[int]] = []
-    for depl in one_or_all(args):
+    with one_or_all(args) as depls:
+        for depl in depls:
 
-        def worker(m: nixops.backends.MachineState) -> Optional[int]:
-            if not nixops.deployment.should_do(
-                m, args.include or [], args.exclude or []
-            ):
-                return None
-            return m.ssh.run_command_get_status(
-                args.args, allow_ssh_args=True, check=False
+            def worker(m: nixops.backends.MachineState) -> Optional[int]:
+                if not nixops.deployment.should_do(
+                    m, args.include or [], args.exclude or []
+                ):
+                    return None
+                return m.ssh.run_command_get_status(
+                    args.args, allow_ssh_args=True, check=False
+                )
+
+            results = results + nixops.parallel.run_tasks(
+                nr_workers=len(depl.machines) if args.parallel else 1,
+                tasks=iter(depl.active.values()),
+                worker_fun=worker,
             )
-
-        results = results + nixops.parallel.run_tasks(
-            nr_workers=len(depl.machines) if args.parallel else 1,
-            tasks=iter(depl.active.values()),
-            worker_fun=worker,
-        )
 
     sys.exit(max(results) if results != [] else 0)
 
