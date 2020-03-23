@@ -188,8 +188,9 @@ def op_clone(args):
 
 
 def op_delete(args):
-    for depl in one_or_all(args):
-        depl.delete(force=args.force or False)
+    with one_or_all(args) as depls:
+        for depl in depls:
+            depl.delete(force=args.force or False)
 
 
 def machine_to_key(depl: str, name: str, type: str) -> Tuple[str, str, List[object]]:
