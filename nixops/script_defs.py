@@ -166,13 +166,13 @@ def modify_deployment(args, depl: nixops.deployment.Deployment):
 
 
 def op_create(args):
-    sf = nixops.statefile.StateFile(args.state_file)
-    depl = sf.create_deployment()
-    sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
-    modify_deployment(args, depl)
-    if args.name or args.deployment:
-        set_name(depl, args.name or args.deployment)
-    sys.stdout.write(depl.uuid + "\n")
+    with network_state(args) as sf:
+        depl = sf.create_deployment()
+        sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
+        modify_deployment(args, depl)
+        if args.name or args.deployment:
+            set_name(depl, args.name or args.deployment)
+        sys.stdout.write(depl.uuid + "\n")
 
 
 def op_modify(args):
