@@ -381,8 +381,9 @@ def op_check(args):
             else:
                 resources.append(m)
 
-    for depl in one_or_all(args):
-        check(depl)
+    with one_or_all(args) as depls:
+        for depl in depls:
+            check(depl)
 
     ResourceStatus = Tuple[
         str,
