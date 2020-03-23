@@ -493,8 +493,8 @@ def op_clean_backups(args):
         )
     if not (args.keep or args.keep_days):
         raise Exception("Please specify at least --keep or --keep-days arguments.")
-    depl = open_deployment(args)
-    depl.clean_backups(args.keep, args.keep_days, args.keep_physical)
+    with deployment(args) as depl:
+        depl.clean_backups(args.keep, args.keep_days, args.keep_physical)
 
 
 def op_remove_backup(args):
