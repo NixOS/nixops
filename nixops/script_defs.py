@@ -679,12 +679,12 @@ def op_show_arguments(args):
 
 
 def op_show_physical(args):
-    depl = open_deployment(args)
-    if args.backupid:
-        print_physical_backup_spec(depl, args.backupid)
-        return
-    depl.evaluate()
-    sys.stdout.write(depl.get_physical_spec())
+    with deployment(args) as depl:
+        if args.backupid:
+            print_physical_backup_spec(depl, args.backupid)
+            return
+        depl.evaluate()
+        sys.stdout.write(depl.get_physical_spec())
 
 
 def op_dump_nix_paths(args):
