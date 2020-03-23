@@ -529,37 +529,37 @@ def op_backup(args):
 
 
 def op_backup_status(args):
-    depl = open_deployment(args)
-    backupid = args.backupid
-    while True:
-        backups = depl.get_backups(
-            include=args.include or [], exclude=args.exclude or []
-        )
+    with deployment(args) as depl:
+        backupid = args.backupid
+        while True:
+            backups = depl.get_backups(
+                include=args.include or [], exclude=args.exclude or []
+            )
 
-        if backupid or args.latest:
-            sorted_backups = sorted(backups.keys(), reverse=True)
-            if args.latest:
-                if len(backups) == 0:
-                    raise Exception("no backups found")
-                backupid = sorted_backups[0]
-            if backupid not in backups:
-                raise Exception("backup ID ‘{0}’ does not exist".format(backupid))
-            _backups = {}
-            _backups[backupid] = backups[backupid]
-        else:
-            _backups = backups
-
-        print_backups(depl, _backups)
-
-        backups_status = [b["status"] for _, b in _backups.items()]
-        if "running" in backups_status:
-            if args.wait:
-                print("waiting for 30 seconds...")
-                time.sleep(30)
+            if backupid or args.latest:
+                sorted_backups = sorted(backups.keys(), reverse=True)
+                if args.latest:
+                    if len(backups) == 0:
+                        raise Exception("no backups found")
+                    backupid = sorted_backups[0]
+                if backupid not in backups:
+                    raise Exception("backup ID ‘{0}’ does not exist".format(backupid))
+                _backups = {}
+                _backups[backupid] = backups[backupid]
             else:
-                raise Exception("backup has not yet finished")
-        else:
-            return
+                _backups = backups
+
+            print_backups(depl, _backups)
+
+            backups_status = [b["status"] for _, b in _backups.items()]
+            if "running" in backups_status:
+                if args.wait:
+                    print("waiting for 30 seconds...")
+                    time.sleep(30)
+                else:
+                    raise Exception("backup has not yet finished")
+            else:
+                return
 
 
 def op_restore(args):
