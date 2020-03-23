@@ -737,28 +737,31 @@ def op_export(args):
 
 
 def op_import(args):
-    sf = nixops.statefile.StateFile(args.state_file)
-    existing = set(sf.query_deployments())
+    with network_state(args) as sf:
+        existing = set(sf.query_deployments())
 
-    dump = json.loads(sys.stdin.read())
+        dump = json.loads(sys.stdin.read())
+        for uuid, attrs in dump.items():
+            if uuid in existing:
+                raise Exception(
+                    "state file already contains a deployment with UUID ‘{0}’".format(
+                        uuid
+                    )
+                )
+            with sf._db:
+                depl = sf.create_deployment(uuid=uuid)
+                depl.import_(attrs)
+            sys.stderr.write("added deployment ‘{0}’\n".format(uuid))
 
-    for uuid, attrs in dump.items():
-        if uuid in existing:
-            raise Exception(
-                "state file already contains a deployment with UUID ‘{0}’".format(uuid)
-            )
-        with sf._db:
-            depl = sf.create_deployment(uuid=uuid)
-            depl.import_(attrs)
-        sys.stderr.write("added deployment ‘{0}’\n".format(uuid))
-
-        if args.include_keys:
-            for m in depl.active.values():
-                if nixops.deployment.is_machine(m) and hasattr(m, "public_host_key"):
-                    if m.public_ipv4:
-                        nixops.known_hosts.add(m.public_ipv4, m.public_host_key)
-                    if m.private_ipv4:
-                        nixops.known_hosts.add(m.private_ipv4, m.public_host_key)
+            if args.include_keys:
+                for m in depl.active.values():
+                    if nixops.deployment.is_machine(m) and hasattr(
+                        m, "public_host_key"
+                    ):
+                        if m.public_ipv4:
+                            nixops.known_hosts.add(m.public_ipv4, m.public_host_key)
+                        if m.private_ipv4:
+                            nixops.known_hosts.add(m.private_ipv4, m.public_host_key)
 
 
 def parse_machine(name):
