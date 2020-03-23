@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from nixops.backends import MachineState
-from typing import List, Dict, Generator, Tuple, Any, Set
+from typing import List, Dict, Generator, Tuple, Any, Set, Type
 import importlib
 
+from nixops.storage import StorageBackend
 from . import get_plugins, MachineHooks, DeploymentHooks
+import nixops.ansi
 import nixops
+import sys
 
 
 NixosConfigurationType = List[Dict[Tuple[str, ...], Any]]
@@ -76,3 +79,17 @@ class PluginManager:
     def docs() -> Generator[Tuple[str, str], None, None]:
         for plugin in get_plugins():
             yield from plugin.docs()
+
+    @staticmethod
+    def storage_backends():
+        storage_backends: Dict[str, Type[StorageBackend]] = {}
+        for plugin in get_plugins():
+            for name, backend in plugin.storage_backends().items():
+                if name not in storage_backends:
+                    storage_backends[name] = backend
+                else:
+                    sys.stderr.write(
+                        nixops.ansi.ansi_warn(
+                            f"Two plugins tried to provide the '{name}' storage backend."
+                        )
+                    )
