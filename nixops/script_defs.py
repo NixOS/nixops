@@ -563,13 +563,13 @@ def op_backup_status(args):
 
 
 def op_restore(args):
-    depl = open_deployment(args)
-    depl.restore(
-        include=args.include or [],
-        exclude=args.exclude or [],
-        backup_id=args.backup_id,
-        devices=args.devices or [],
-    )
+    with deployment(args) as depl:
+        depl.restore(
+            include=args.include or [],
+            exclude=args.exclude or [],
+            backup_id=args.backup_id,
+            devices=args.devices or [],
+        )
 
 
 def op_deploy(args):
