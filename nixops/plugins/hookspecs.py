@@ -1,5 +1,5 @@
 import pluggy
-
+from nixops.storage import BackendRegistration
 
 hookspec = pluggy.HookspecMarker("nixops")
 
@@ -20,6 +20,13 @@ def nixexprs():
 
 @hookspec
 def parser(parser, subparsers):
+    """ Extend the core nixops cli parser
+    :return a set of plugin parser extensions
+    """
+
+
+@hookspec
+def register_backends() -> BackendRegistration:
     """ Extend the core nixops cli parser
     :return a set of plugin parser extensions
     """
