@@ -657,8 +657,8 @@ def op_start(args):
 
 
 def op_rename(args):
-    depl = open_deployment(args)
-    depl.rename(args.current_name, args.new_name)
+    with deployment(args) as depl:
+        depl.rename(args.current_name, args.new_name)
 
 
 def print_physical_backup_spec(depl, backupid):
