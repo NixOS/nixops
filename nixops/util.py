@@ -329,12 +329,10 @@ def create_key_pair(
     )
     if res != 0:
         raise Exception("unable to generate an SSH key")
-    f = open(key_dir + "/key")
-    private = f.read()
-    f.close()
-    f = open(key_dir + "/key.pub")
-    public = f.read().rstrip()
-    f.close()
+    with open(key_dir + "/key") as f:
+        private = f.read()
+    with open(key_dir + "/key.pub") as f:
+        public = f.read().rstrip()
     shutil.rmtree(key_dir)
     return (private, public)
 
@@ -430,9 +428,8 @@ def enum(**enums):
 
 
 def write_file(path: str, contents: str) -> None:
-    f = open(path, "w")
-    f.write(contents)
-    f.close()
+    with open(path, "w") as f:
+        f.write(contents)
 
 
 def xml_expr_to_python(node):
