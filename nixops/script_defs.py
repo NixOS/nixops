@@ -176,10 +176,10 @@ def op_create(args):
 
 
 def op_modify(args):
-    depl = open_deployment(args)
-    modify_deployment(args, depl)
-    if args.name:
-        set_name(depl, args.name)
+    with deployment(args) as depl:
+        modify_deployment(args, depl)
+        if args.name:
+            set_name(depl, args.name)
 
 
 def op_clone(args):
