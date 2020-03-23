@@ -645,10 +645,10 @@ def op_delete_resources(args):
 
 
 def op_stop(args):
-    depl = open_deployment(args)
-    if args.confirm:
-        depl.logger.set_autoresponse("y")
-    depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
+    with deployment(args) as depl:
+        if args.confirm:
+            depl.logger.set_autoresponse("y")
+        depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_start(args):
