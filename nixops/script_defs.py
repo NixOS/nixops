@@ -641,10 +641,10 @@ def op_reboot(args):
 
 
 def op_delete_resources(args):
-    depl = open_deployment(args)
-    if args.confirm:
-        depl.logger.set_autoresponse("y")
-    depl.delete_resources(include=args.include or [], exclude=args.exclude or [])
+    with deployment(args) as depl:
+        if args.confirm:
+            depl.logger.set_autoresponse("y")
+        depl.delete_resources(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_stop(args):
