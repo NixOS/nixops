@@ -607,13 +607,13 @@ def op_send_keys(args):
 
 
 def op_set_args(args):
-    depl = open_deployment(args)
-    for [n, v] in args.args or []:
-        depl.set_arg(n, v)
-    for [n, v] in args.argstrs or []:
-        depl.set_argstr(n, v)
-    for [n] in args.unset or []:
-        depl.unset_arg(n)
+    with deployment(args) as depl:
+        for [n, v] in args.args or []:
+            depl.set_arg(n, v)
+        for [n, v] in args.argstrs or []:
+            depl.set_argstr(n, v)
+        for [n] in args.unset or []:
+            depl.unset_arg(n)
 
 
 def op_destroy(args):
