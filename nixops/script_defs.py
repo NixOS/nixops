@@ -573,32 +573,32 @@ def op_restore(args):
 
 
 def op_deploy(args):
-    depl = open_deployment(args)
-    if args.confirm:
-        depl.logger.set_autoresponse("y")
-    if args.evaluate_only:
-        raise Exception("--evaluate-only was removed as it's the same as --dry-run")
-    depl.deploy(
-        dry_run=args.dry_run,
-        test=args.test,
-        build_only=args.build_only,
-        plan_only=args.plan_only,
-        create_only=args.create_only,
-        copy_only=args.copy_only,
-        include=args.include or [],
-        exclude=args.exclude or [],
-        check=args.check,
-        kill_obsolete=args.kill_obsolete,
-        allow_reboot=args.allow_reboot,
-        allow_recreate=args.allow_recreate,
-        force_reboot=args.force_reboot,
-        max_concurrent_copy=args.max_concurrent_copy,
-        sync=not args.no_sync,
-        always_activate=args.always_activate,
-        repair=args.repair,
-        dry_activate=args.dry_activate,
-        max_concurrent_activate=args.max_concurrent_activate,
-    )
+    with deployment(args) as depl:
+        if args.confirm:
+            depl.logger.set_autoresponse("y")
+        if args.evaluate_only:
+            raise Exception("--evaluate-only was removed as it's the same as --dry-run")
+        depl.deploy(
+            dry_run=args.dry_run,
+            test=args.test,
+            build_only=args.build_only,
+            plan_only=args.plan_only,
+            create_only=args.create_only,
+            copy_only=args.copy_only,
+            include=args.include or [],
+            exclude=args.exclude or [],
+            check=args.check,
+            kill_obsolete=args.kill_obsolete,
+            allow_reboot=args.allow_reboot,
+            allow_recreate=args.allow_recreate,
+            force_reboot=args.force_reboot,
+            max_concurrent_copy=args.max_concurrent_copy,
+            sync=not args.no_sync,
+            always_activate=args.always_activate,
+            repair=args.repair,
+            dry_activate=args.dry_activate,
+            max_concurrent_activate=args.max_concurrent_activate,
+        )
 
 
 def op_send_keys(args):
