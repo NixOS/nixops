@@ -922,18 +922,18 @@ def op_delete_generation(args):
 
 
 def op_rollback(args):
-    depl = check_rollback_enabled(args)
-    depl.rollback(
-        generation=args.generation,
-        include=args.include or [],
-        exclude=args.exclude or [],
-        check=args.check,
-        allow_reboot=args.allow_reboot,
-        force_reboot=args.force_reboot,
-        max_concurrent_copy=args.max_concurrent_copy,
-        max_concurrent_activate=args.max_concurrent_activate,
-        sync=not args.no_sync,
-    )
+    with deployment_with_rollback(args) as depl:
+        depl.rollback(
+            generation=args.generation,
+            include=args.include or [],
+            exclude=args.exclude or [],
+            check=args.check,
+            allow_reboot=args.allow_reboot,
+            force_reboot=args.force_reboot,
+            max_concurrent_copy=args.max_concurrent_copy,
+            max_concurrent_activate=args.max_concurrent_activate,
+            sync=not args.no_sync,
+        )
 
 
 def op_show_console_output(args):
