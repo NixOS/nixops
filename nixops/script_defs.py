@@ -498,8 +498,8 @@ def op_clean_backups(args):
 
 
 def op_remove_backup(args):
-    depl = open_deployment(args)
-    depl.remove_backup(args.backupid, args.keep_physical)
+    with deployment(args) as depl:
+        depl.remove_backup(args.backupid, args.keep_physical)
 
 
 def op_backup(args):
