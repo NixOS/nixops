@@ -766,18 +766,23 @@ def parse_machine(name):
 
 
 def op_ssh(args):
-    depl = open_deployment(args)
-    (username, machine) = parse_machine(args.machine)
-    m = depl.machines.get(machine)
-    if not m:
-        raise Exception("unknown machine ‘{0}’".format(machine))
-    flags, command = m.ssh.split_openssh_args(args.args)
-    user = None if username == "root" else username
-    sys.exit(
-        m.ssh.run_command(
-            command, flags, check=False, logged=False, allow_ssh_args=True, user=user
+    with deployment(args) as depl:
+        (username, machine) = parse_machine(args.machine)
+        m = depl.machines.get(machine)
+        if not m:
+            raise Exception("unknown machine ‘{0}’".format(machine))
+        flags, command = m.ssh.split_openssh_args(args.args)
+        user = None if username == "root" else username
+        sys.exit(
+            m.ssh.run_command(
+                command,
+                flags,
+                check=False,
+                logged=False,
+                allow_ssh_args=True,
+                user=user,
+            )
         )
-    )
 
 
 def op_ssh_for_each(args):
