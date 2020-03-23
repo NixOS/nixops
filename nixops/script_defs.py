@@ -82,12 +82,15 @@ def sort_deployments(
 # Handle the --all switch: if --all is given, return all deployments;
 # otherwise, return the deployment specified by -d /
 # $NIXOPS_DEPLOYMENT.
-def one_or_all(args: Namespace) -> List[nixops.deployment.Deployment]:
-    if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
-        return sf.get_all_deployments()
-    else:
-        return [open_deployment(sf, args)]
+@contextlib.contextmanager
+def one_or_all(
+    args: Namespace,
+) -> Generator[List[nixops.deployment.Deployment], None, None]:
+    with network_state(args) as sf:
+        if args.all:
+            yield sf.get_all_deployments()
+        else:
+            yield [open_deployment(sf, args)]
 
 
 def op_list_deployments(args):
