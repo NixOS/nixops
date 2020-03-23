@@ -1047,12 +1047,11 @@ def add_subparser(
 ) -> ArgumentParser:
     subparser = subparsers.add_parser(name, help=help)
     subparser.add_argument(
-        "--state",
-        "-s",
-        dest="state_file",
+        "--network",
+        dest="network_file",
         metavar="FILE",
-        default=nixops.statefile.get_default_state_file(),
-        help="path to state file",
+        default=f"{os.getcwd()}/network.nix",
+        help="path to a network.nix",
     )
     subparser.add_argument(
         "--deployment",
