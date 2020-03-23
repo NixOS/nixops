@@ -937,11 +937,11 @@ def op_rollback(args):
 
 
 def op_show_console_output(args):
-    depl = open_deployment(args)
-    m = depl.machines.get(args.machine)
-    if not m:
-        raise Exception("unknown machine ‘{0}’".format(args.machine))
-    sys.stdout.write(m.get_console_output())
+    with deployment(args) as depl:
+        m = depl.machines.get(args.machine)
+        if not m:
+            raise Exception("unknown machine ‘{0}’".format(args.machine))
+        sys.stdout.write(m.get_console_output())
 
 
 def op_edit(args):
