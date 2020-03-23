@@ -630,14 +630,14 @@ def op_destroy(args):
 
 
 def op_reboot(args):
-    depl = open_deployment(args)
-    depl.reboot_machines(
-        include=args.include or [],
-        exclude=args.exclude or [],
-        wait=(not args.no_wait),
-        rescue=args.rescue,
-        hard=args.hard,
-    )
+    with deployment(args) as depl:
+        depl.reboot_machines(
+            include=args.include or [],
+            exclude=args.exclude or [],
+            wait=(not args.no_wait),
+            rescue=args.rescue,
+            hard=args.hard,
+        )
 
 
 def op_delete_resources(args):
