@@ -874,18 +874,18 @@ def op_mount(args):
 
 
 def op_show_option(args):
-    depl = open_deployment(args)
-    if args.include_physical:
-        depl.evaluate()
-    sys.stdout.write(
-        depl.evaluate_option_value(
-            args.machine,
-            args.option,
-            json=args.json,
-            xml=args.xml,
-            include_physical=args.include_physical,
+    with deployment(args) as depl:
+        if args.include_physical:
+            depl.evaluate()
+        sys.stdout.write(
+            depl.evaluate_option_value(
+                args.machine,
+                args.option,
+                json=args.json,
+                xml=args.xml,
+                include_physical=args.include_physical,
+            )
         )
-    )
 
 
 @contextlib.contextmanager
