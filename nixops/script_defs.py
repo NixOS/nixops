@@ -506,29 +506,29 @@ def op_remove_backup(args):
 
 
 def op_backup(args):
-    depl = open_deployment(args)
+    with deployment(args) as depl:
 
-    def do_backup():
-        backup_id = depl.backup(
-            include=args.include or [],
-            exclude=args.exclude or [],
-            devices=args.devices or [],
-        )
-        print(backup_id)
-
-    if args.force:
-        do_backup()
-    else:
-        backups = depl.get_backups(
-            include=args.include or [], exclude=args.exclude or []
-        )
-        backups_status = [b["status"] for _, b in backups.items()]
-        if "running" in backups_status:
-            raise Exception(
-                "There are still backups running, use --force to run a new backup concurrently (not advised!)"
+        def do_backup():
+            backup_id = depl.backup(
+                include=args.include or [],
+                exclude=args.exclude or [],
+                devices=args.devices or [],
             )
-        else:
+            print(backup_id)
+
+        if args.force:
             do_backup()
+        else:
+            backups = depl.get_backups(
+                include=args.include or [], exclude=args.exclude or []
+            )
+            backups_status = [b["status"] for _, b in backups.items()]
+            if "running" in backups_status:
+                raise Exception(
+                    "There are still backups running, use --force to run a new backup concurrently (not advised!)"
+                )
+            else:
+                do_backup()
 
 
 def op_backup_status(args):
