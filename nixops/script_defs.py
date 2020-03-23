@@ -303,39 +303,39 @@ def op_info(args):
                 )
 
     if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
-        if not args.plain:
-            tbl = create_table([("Deployment", "l")] + table_headers)
-        for depl in sort_deployments(sf.get_all_deployments()):
-            do_eval(depl)
-            print_deployment(depl)
-        if not args.plain:
-            print(tbl)
+        with network_state(args) as sf:
+            if not args.plain:
+                tbl = create_table([("Deployment", "l")] + table_headers)
+            for depl in sort_deployments(sf.get_all_deployments()):
+                do_eval(depl)
+                print_deployment(depl)
+            if not args.plain:
+                print(tbl)
 
     else:
-        depl = open_deployment(args)
-        do_eval(depl)
+        with deployment(args) as depl:
+            do_eval(depl)
 
-        if args.plain:
-            print_deployment(depl)
-        else:
-            print("Network name:", depl.name or "(none)")
-            print("Network UUID:", depl.uuid)
-            print("Network description:", depl.description)
-            print("Nix expressions:", " ".join(depl.nix_exprs))
-            if depl.nix_path != []:
-                print("Nix path:", " ".join(["-I " + x for x in depl.nix_path]))
-            if depl.rollback_enabled:
-                print("Nix profile:", depl.get_profile())
-            if depl.args != {}:
-                print(
-                    "Nix arguments:",
-                    ", ".join([n + " = " + v for n, v in depl.args.items()]),
-                )
-            print()
-            tbl = create_table(table_headers)
-            print_deployment(depl)
-            print(tbl)
+            if args.plain:
+                print_deployment(depl)
+            else:
+                print("Network name:", depl.name or "(none)")
+                print("Network UUID:", depl.uuid)
+                print("Network description:", depl.description)
+                print("Nix expressions:", " ".join(depl.nix_exprs))
+                if depl.nix_path != []:
+                    print("Nix path:", " ".join(["-I " + x for x in depl.nix_path]))
+                if depl.rollback_enabled:
+                    print("Nix profile:", depl.get_profile())
+                if depl.args != {}:
+                    print(
+                        "Nix arguments:",
+                        ", ".join([n + " = " + v for n, v in depl.args.items()]),
+                    )
+                print()
+                tbl = create_table(table_headers)
+                print_deployment(depl)
+                print(tbl)
 
 
 def op_check(args):
