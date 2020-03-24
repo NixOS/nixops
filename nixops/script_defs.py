@@ -899,12 +899,12 @@ def deployment_with_rollback(args):
 
 
 def op_list_generations(args):
-    depl = check_rollback_enabled(args)
-    if (
-        subprocess.call(["nix-env", "-p", depl.get_profile(), "--list-generations"])
-        != 0
-    ):
-        raise Exception("nix-env --list-generations failed")
+    with deployment_with_rollback(args) as depl:
+        if (
+            subprocess.call(["nix-env", "-p", depl.get_profile(), "--list-generations"])
+            != 0
+        ):
+            raise Exception("nix-env --list-generations failed")
 
 
 def op_delete_generation(args):
