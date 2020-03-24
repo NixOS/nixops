@@ -611,7 +611,7 @@ subparser.add_argument("--debug", action="store_true", help="enable debug output
 parser_plugin_hooks(parser, subparsers)
 
 
-def main():
+def main() -> None:
 
     if os.path.basename(sys.argv[0]) == "charon":
         sys.stderr.write(
