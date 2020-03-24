@@ -58,6 +58,7 @@ for backends in pm.hook.register_backends():
 def deployment(args: Namespace) -> Generator[nixops.deployment.Deployment, None, None]:
     with network_state(args) as sf:
         depl = open_deployment(sf, args)
+        depl.nix_exprs = [os.path.abspath(args.network_file)]
         yield depl
 
 
