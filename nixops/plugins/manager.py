@@ -4,7 +4,7 @@ from nixops.backends import MachineState
 from typing import List, Dict, Generator, Tuple, Any, Set, Type
 import importlib
 
-from nixops.storage import StorageBackend
+from nixops.storage import StorageBackend, storage_backends
 from . import get_plugins, MachineHooks, DeploymentHooks
 import nixops.ansi
 import nixops
@@ -82,7 +82,6 @@ class PluginManager:
 
     @staticmethod
     def storage_backends():
-        storage_backends: Dict[str, Type[StorageBackend]] = {}
         for plugin in get_plugins():
             for name, backend in plugin.storage_backends().items():
                 if name not in storage_backends:

@@ -47,3 +47,6 @@ class StorageBackend(Protocol):
 
 
 BackendRegistration = Dict[str, Type[StorageBackend]]
+
+
+storage_backends: Dict[str, Type[StorageBackend]] = {}
