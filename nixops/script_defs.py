@@ -5,6 +5,7 @@ from nixops.nix_expr import py2nix
 from nixops.parallel import MultipleExceptions, run_tasks
 import pluggy
 
+import contextlib
 import nixops.statefile
 import prettytable
 from argparse import ArgumentParser, _SubParsersAction, Namespace
@@ -22,7 +23,7 @@ import logging.handlers
 import syslog
 import json
 import pipes
-from typing import Tuple, List, Optional, Union, Any
+from typing import Tuple, List, Optional, Union, Any, Generator
 from datetime import datetime
 from pprint import pprint
 import importlib
@@ -35,6 +36,15 @@ pm = get_plugin_manager()
     [importlib.import_module(mod) for mod in pluginimports]
     for pluginimports in pm.hook.load()
 ]
+
+
+@contextlib.contextmanager
+def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None, None]:
+    state = nixops.statefile.StateFile(args.state_file)
+    try:
+        yield state
+    finally:
+        state.close()
 
 
 def op_list_plugins(args):
