@@ -21,12 +21,14 @@ import logging.handlers
 import json
 from tempfile import TemporaryDirectory
 import pipes
-from typing import Tuple, List, Optional, Union, Generator
+from typing import Tuple, List, Optional, Union, Generator, Type
 import nixops.ansi
 
 from nixops.plugins.manager import PluginManager
 
 from nixops.plugins import get_plugin_manager
+from nixops.evaluation import eval_network
+from nixops.storage import StorageBackend, storage_backends
 
 
 PluginManager.load()
@@ -49,7 +51,7 @@ def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None
     )
     if storage_class is None:
         sys.stderr.write(
-            nixops.util.ansi_warn(
+            nixops.ansi.ansi_warn(
                 f"The network requires the '{network.storage.provider}' state provider, "
                 "but no plugin provides it.\n"
             )
@@ -61,7 +63,6 @@ def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None
     with TemporaryDirectory("nixops") as statedir:
         statefile = statedir + "/state.nixops"
         storage.fetchToFile(statefile)
-
         state = nixops.statefile.StateFile(statefile)
         try:
             storage.onOpen(state)
