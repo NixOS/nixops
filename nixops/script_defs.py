@@ -971,7 +971,7 @@ def op_copy_closure(args):
                 "ssh://{}".format(m.get_ssh_name()),
                 args.storepath,
             ],
-            depl.logger,
+            m.logger,
             env=env,
         )
         sys.exit(res)
