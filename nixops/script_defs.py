@@ -22,6 +22,7 @@ import logging
 import logging.handlers
 import syslog
 import json
+from tempfile import TemporaryDirectory
 import pipes
 from typing import Tuple, List, Optional, Union, Any, Generator, Dict, Type
 from datetime import datetime
@@ -62,14 +63,36 @@ def deployment(args: Namespace) -> Generator[nixops.deployment.Deployment, None,
 
 @contextlib.contextmanager
 def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None, None]:
-    try:
-        state = nixops.statefile.StateFile(args.state_file)
+    network_file: str = args.network_file
+    network = eval_network([network_file])
+    storage_class: Optional[Type[StorageBackend]] = storage_backends.get(
+        network.storage.provider
+    )
+    if storage_class is None:
+        sys.stderr.write(
+            nixops.util.ansi_warn(
+                f"The network requires the '{network.storage.provider}' state provider, "
+                "but no plugin provides it.\n"
+            )
+        )
+        raise Exception("Missing storage provider plugin.")
 
-        yield state
-    except Exception:
-        pass
-    finally:
-        state.close()
+    storage: StorageBackend = storage_class(network.storage.configuration)
+
+    with TemporaryDirectory("nixops") as statedir:
+        statefile = statedir + "/state.nixops"
+        storage.fetchToFile(statefile)
+
+        try:
+            state = nixops.statefile.StateFile(statefile)
+            storage.onOpen(state)
+
+            yield state
+        except Exception:
+            pass
+        finally:
+            state.close()
+            storage.uploadFromFile(statefile)
 
 
 def op_list_plugins(args):
