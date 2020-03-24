@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from nixops.backends import MachineState
-from typing import List, Dict, Generator, Tuple, Any, Set, Type
+from typing import List, Dict, Generator, Tuple, Any, Set
 import importlib
 
-from nixops.storage import StorageBackend, storage_backends
+from nixops.storage import storage_backends
 from . import get_plugins, MachineHooks, DeploymentHooks
 import nixops.ansi
 import nixops
@@ -54,14 +54,16 @@ class PluginManager:
                 continue
             yield machine_hooks
 
-    @staticmethod
-    def load():
+    @classmethod
+    def load(cls):
         seen: Set[str] = set()
         for plugin in get_plugins():
             for mod in plugin.load():
                 if mod not in seen:
                     importlib.import_module(mod)
                 seen.add(mod)
+
+        cls.storage_backends()
 
     @staticmethod
     def nixexprs() -> List[str]:
