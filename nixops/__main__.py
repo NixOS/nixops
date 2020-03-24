@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from nixops import deployment
 from argparse import ArgumentParser, _SubParsersAction, SUPPRESS, REMAINDER
 import os
 from nixops.script_defs import *
@@ -625,7 +624,7 @@ def main():
     try:
         nixops.deployment.DEBUG = args.debug
         args.op(args)
-    except deployment.NixEvalError:
+    except nixops.deployment.NixEvalError:
         error("evaluation of the deployment specification failed")
         sys.exit(1)
     except KeyboardInterrupt:

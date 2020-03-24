@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from nixops import deployment
 from nixops.nix_expr import py2nix
 from nixops.parallel import MultipleExceptions, run_tasks
 import pluggy
@@ -36,6 +35,13 @@ pm = get_plugin_manager()
     [importlib.import_module(mod) for mod in pluginimports]
     for pluginimports in pm.hook.load()
 ]
+
+
+@contextlib.contextmanager
+def deployment(args: Namespace) -> Generator[nixops.deployment.Deployment, None, None]:
+    with network_state(args) as sf:
+        depl = open_deployment(sf, args)
+        yield depl
 
 
 @contextlib.contextmanager
@@ -81,7 +87,7 @@ def one_or_all(args: Namespace) -> List[nixops.deployment.Deployment]:
         sf = nixops.statefile.StateFile(args.state_file)
         return sf.get_all_deployments()
     else:
-        return [open_deployment(args)]
+        return [open_deployment(sf, args)]
 
 
 def op_list_deployments(args):
@@ -108,8 +114,7 @@ def op_list_deployments(args):
     print(tbl)
 
 
-def open_deployment(args):
-    sf = nixops.statefile.StateFile(args.state_file)
+def open_deployment(sf: nixops.statefile.StateFile, args: Namespace):
     depl = sf.open_deployment(uuid=args.deployment)
 
     depl.extra_nix_path = sum(args.nix_path or [], [])
@@ -737,7 +742,7 @@ def op_import(args):
 
         if args.include_keys:
             for m in depl.active.values():
-                if deployment.is_machine(m) and hasattr(m, "public_host_key"):
+                if nixops.deployment.is_machine(m) and hasattr(m, "public_host_key"):
                     if m.public_ipv4:
                         nixops.known_hosts.add(m.public_ipv4, m.public_host_key)
                     if m.private_ipv4:
