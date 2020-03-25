@@ -83,9 +83,10 @@ def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None
     with TemporaryDirectory("nixops") as statedir:
         statefile = statedir + "/state.nixops"
         storage.fetchToFile(statefile)
+        state = nixops.statefile.StateFile(statefile)
 
         try:
-            state = nixops.statefile.StateFile(statefile)
+
             storage.onOpen(state)
 
             yield state

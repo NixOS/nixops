@@ -2,7 +2,7 @@ from nixops.storage import StorageArgDescriptions, StorageArgValues
 import nixops.statefile
 import sys
 import os
-
+import os.path
 
 class LegacyBackend:
     @staticmethod
@@ -17,7 +17,7 @@ class LegacyBackend:
     # Making it part of the type definition allows adding new
     # arguments later.
     def fetchToFile(self, path: str, **kwargs) -> None:
-        os.symlink(self.state_location(), path)
+        os.symlink(os.path.abspath(self.state_location()), path)
 
     def onOpen(self, sf: nixops.statefile.StateFile, **kwargs) -> None:
         pass
