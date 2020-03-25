@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "nixops"
+version = "1.8.0"
+description = "NixOS cloud provisioning and deployment tool"
+authors = ["Eelco Dolstra <eelco.dolstra@logicblox.com>"]
+license = "LGPL-3.0-only"
+include = ["nixops/py.typed"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+PrettyTable = "^0.7.2"
+pluggy = "^0.13.1"
+
+[tool.poetry.dev-dependencies]
+nose = "^1.3.7"
+mypy = "^0.770"
+
+[tool.poetry.scripts]
+nixops = 'nixops.__main__:main'
+charon = 'nixops.__main__:main'
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
