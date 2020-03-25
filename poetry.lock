@@ -1,5 +1,43 @@
 [[package]]
 category = "main"
+description = "The AWS SDK for Python"
+name = "boto3"
+optional = false
+python-versions = "*"
+version = "1.12.28"
+
+[package.dependencies]
+botocore = ">=1.15.28,<1.16.0"
+jmespath = ">=0.7.1,<1.0.0"
+s3transfer = ">=0.3.0,<0.4.0"
+
+[[package]]
+category = "main"
+description = "Low-level, data-driven core of boto 3."
+name = "botocore"
+optional = false
+python-versions = "*"
+version = "1.15.28"
+
+[package.dependencies]
+docutils = ">=0.10,<0.16"
+jmespath = ">=0.7.1,<1.0.0"
+python-dateutil = ">=2.1,<3.0.0"
+
+[package.dependencies.urllib3]
+python = "<3.4.0 || >=3.5.0"
+version = ">=1.20,<1.26"
+
+[[package]]
+category = "main"
+description = "Docutils -- Python Documentation Utilities"
+name = "docutils"
+optional = false
+python-versions = ">=2.6, !=3.0.*, !=3.1.*, !=3.2.*"
+version = "0.15.2"
+
+[[package]]
+category = "main"
 description = "Read metadata from Python packages"
 marker = "python_version < \"3.8\""
 name = "importlib-metadata"
@@ -13,6 +51,14 @@ zipp = ">=0.5"
 [package.extras]
 docs = ["sphinx", "rst.linker"]
 testing = ["packaging", "importlib-resources"]
+
+[[package]]
+category = "main"
+description = "JSON Matching Expressions"
+name = "jmespath"
+optional = false
+python-versions = "*"
+version = "0.9.5"
 
 [[package]]
 category = "dev"
@@ -71,6 +117,36 @@ python-versions = "*"
 version = "0.7.2"
 
 [[package]]
+category = "main"
+description = "Extensions to the standard Python datetime module"
+name = "python-dateutil"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
+version = "2.8.1"
+
+[package.dependencies]
+six = ">=1.5"
+
+[[package]]
+category = "main"
+description = "An Amazon S3 Transfer Manager"
+name = "s3transfer"
+optional = false
+python-versions = "*"
+version = "0.3.3"
+
+[package.dependencies]
+botocore = ">=1.12.36,<2.0a.0"
+
+[[package]]
+category = "main"
+description = "Python 2 and 3 compatibility utilities"
+name = "six"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
+version = "1.14.0"
+
+[[package]]
 category = "dev"
 description = "a fork of Python 2 and 3 ast modules with type comment support"
 name = "typed-ast"
@@ -79,12 +155,26 @@ python-versions = "*"
 version = "1.4.1"
 
 [[package]]
-category = "dev"
+category = "main"
 description = "Backported and Experimental Type Hints for Python 3.5+"
 name = "typing-extensions"
 optional = false
 python-versions = "*"
 version = "3.7.4.1"
+
+[[package]]
+category = "main"
+description = "HTTP library with thread-safe connection pooling, file post, and more."
+marker = "python_version != \"3.4\""
+name = "urllib3"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, <4"
+version = "1.25.8"
+
+[package.extras]
+brotli = ["brotlipy (>=0.6.0)"]
+secure = ["pyOpenSSL (>=0.14)", "cryptography (>=1.3.4)", "idna (>=2.0.0)", "certifi", "ipaddress"]
+socks = ["PySocks (>=1.5.6,<1.5.7 || >1.5.7,<2.0)"]
 
 [[package]]
 category = "main"
@@ -100,13 +190,30 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "d1ca0b3a029dc9dae00e3c0a08f4cdd7f8ece0fbd847c3afacf5413f44461786"
+content-hash = "8a4640113ff20be86ca6d9256d72e6ed0d10f0e303021824be4b2b2aa48ccee7"
 python-versions = "^3.7"
 
 [metadata.files]
+boto3 = [
+    {file = "boto3-1.12.28-py2.py3-none-any.whl", hash = "sha256:af09a4f3254fcf6a781ad1a700f702ce15526a25ebe96a14f5cd2ec46e9d924c"},
+    {file = "boto3-1.12.28.tar.gz", hash = "sha256:6f113f02f3098b3e37d24caa726a8e81fbc16f6d5cafbf61b7d285b9f7e104e9"},
+]
+botocore = [
+    {file = "botocore-1.15.28-py2.py3-none-any.whl", hash = "sha256:74f81aca90cdbe084bcfa19589bd2c6470bb47dd1fd9635bf5484ecf7577fd61"},
+    {file = "botocore-1.15.28.tar.gz", hash = "sha256:21674f491f6bdc886179de644d00dec05276fac292117f86685513006d83fe0a"},
+]
+docutils = [
+    {file = "docutils-0.15.2-py2-none-any.whl", hash = "sha256:9e4d7ecfc600058e07ba661411a2b7de2fd0fafa17d1a7f7361cd47b1175c827"},
+    {file = "docutils-0.15.2-py3-none-any.whl", hash = "sha256:6c4f696463b79f1fb8ba0c594b63840ebd41f059e92b31957c46b74a4599b6d0"},
+    {file = "docutils-0.15.2.tar.gz", hash = "sha256:a2aeea129088da402665e92e0b25b04b073c04b2dce4ab65caaa38b7ce2e1a99"},
+]
 importlib-metadata = [
     {file = "importlib_metadata-1.5.0-py2.py3-none-any.whl", hash = "sha256:b97607a1a18a5100839aec1dc26a1ea17ee0d93b20b0f008d80a5a050afb200b"},
     {file = "importlib_metadata-1.5.0.tar.gz", hash = "sha256:06f5b3a99029c7134207dd882428a66992a9de2bef7c2b699b5641f9886c3302"},
+]
+jmespath = [
+    {file = "jmespath-0.9.5-py2.py3-none-any.whl", hash = "sha256:695cb76fa78a10663425d5b73ddc5714eb711157e52704d69be03b1a02ba4fec"},
+    {file = "jmespath-0.9.5.tar.gz", hash = "sha256:cca55c8d153173e21baa59983015ad0daf603f9cb799904ff057bfb8ff8dc2d9"},
 ]
 mypy = [
     {file = "mypy-0.770-cp35-cp35m-macosx_10_6_x86_64.whl", hash = "sha256:a34b577cdf6313bf24755f7a0e3f3c326d5c1f4fe7422d1d06498eb25ad0c600"},
@@ -142,6 +249,18 @@ prettytable = [
     {file = "prettytable-0.7.2.tar.gz", hash = "sha256:2d5460dc9db74a32bcc8f9f67de68b2c4f4d2f01fa3bd518764c69156d9cacd9"},
     {file = "prettytable-0.7.2.zip", hash = "sha256:a53da3b43d7a5c229b5e3ca2892ef982c46b7923b51e98f0db49956531211c4f"},
 ]
+python-dateutil = [
+    {file = "python-dateutil-2.8.1.tar.gz", hash = "sha256:73ebfe9dbf22e832286dafa60473e4cd239f8592f699aa5adaf10050e6e1823c"},
+    {file = "python_dateutil-2.8.1-py2.py3-none-any.whl", hash = "sha256:75bb3f31ea686f1197762692a9ee6a7550b59fc6ca3a1f4b5d7e32fb98e2da2a"},
+]
+s3transfer = [
+    {file = "s3transfer-0.3.3-py2.py3-none-any.whl", hash = "sha256:2482b4259524933a022d59da830f51bd746db62f047d6eb213f2f8855dcb8a13"},
+    {file = "s3transfer-0.3.3.tar.gz", hash = "sha256:921a37e2aefc64145e7b73d50c71bb4f26f46e4c9f414dc648c6245ff92cf7db"},
+]
+six = [
+    {file = "six-1.14.0-py2.py3-none-any.whl", hash = "sha256:8f3cd2e254d8f793e7f3d6d9df77b92252b52637291d0f0da013c76ea2724b6c"},
+    {file = "six-1.14.0.tar.gz", hash = "sha256:236bdbdce46e6e6a3d61a337c0f8b763ca1e8717c03b369e87a7ec7ce1319c0a"},
+]
 typed-ast = [
     {file = "typed_ast-1.4.1-cp35-cp35m-manylinux1_i686.whl", hash = "sha256:73d785a950fc82dd2a25897d525d003f6378d1cb23ab305578394694202a58c3"},
     {file = "typed_ast-1.4.1-cp35-cp35m-manylinux1_x86_64.whl", hash = "sha256:aaee9905aee35ba5905cfb3c62f3e83b3bec7b39413f0a7f19be4e547ea01ebb"},
@@ -169,6 +288,10 @@ typing-extensions = [
     {file = "typing_extensions-3.7.4.1-py2-none-any.whl", hash = "sha256:910f4656f54de5993ad9304959ce9bb903f90aadc7c67a0bef07e678014e892d"},
     {file = "typing_extensions-3.7.4.1-py3-none-any.whl", hash = "sha256:cf8b63fedea4d89bab840ecbb93e75578af28f76f66c35889bd7065f5af88575"},
     {file = "typing_extensions-3.7.4.1.tar.gz", hash = "sha256:091ecc894d5e908ac75209f10d5b4f118fbdb2eb1ede6a63544054bb1edb41f2"},
+]
+urllib3 = [
+    {file = "urllib3-1.25.8-py2.py3-none-any.whl", hash = "sha256:2f3db8b19923a873b3e5256dc9c2dedfa883e33d87c690d9c7913e1f40673cdc"},
+    {file = "urllib3-1.25.8.tar.gz", hash = "sha256:87716c2d2a7121198ebcb7ce7cccf6ce5e9ba539041cfbaeecfb641dc0bf6acc"},
 ]
 zipp = [
     {file = "zipp-3.1.0-py3-none-any.whl", hash = "sha256:aa36550ff0c0b7ef7fa639055d797116ee891440eac1a56f378e2d3179e0320b"},
