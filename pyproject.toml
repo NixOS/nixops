@@ -4,7 +4,7 @@ version = "1.8.0"
 description = "NixOS cloud provisioning and deployment tool"
 authors = ["Eelco Dolstra <eelco.dolstra@logicblox.com>"]
 license = "LGPL-3.0-only"
-include = ["nixops/py.typed"]
+include = ["nix/*.nix", "nixops/py.typed" ]
 
 [tool.poetry.dependencies]
 python = "^3.7"
