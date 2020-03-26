@@ -275,7 +275,8 @@ class MachineState(nixops.resources.ResourceState):
             return
         if self.store_keys_on_machine:
             return
-
+        # preflight the connection
+        self.run_command("true")
         def worker(task: nixops.parallel.Task) -> None:
             k = task.key
             opts = task.opts
