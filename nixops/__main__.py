@@ -1,7 +1,6 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from nixops import deployment
 from argparse import ArgumentParser, _SubParsersAction, SUPPRESS, REMAINDER
 import os
 from nixops.script_defs import *
@@ -612,7 +611,7 @@ subparser.add_argument("--debug", action="store_true", help="enable debug output
 parser_plugin_hooks(parser, subparsers)
 
 
-def main():
+def main() -> None:
 
     if os.path.basename(sys.argv[0]) == "charon":
         sys.stderr.write(
@@ -625,7 +624,7 @@ def main():
     try:
         nixops.deployment.DEBUG = args.debug
         args.op(args)
-    except deployment.NixEvalError:
+    except nixops.deployment.NixEvalError:
         error("evaluation of the deployment specification failed")
         sys.exit(1)
     except KeyboardInterrupt:

@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from nixops import deployment
 from nixops.nix_expr import py2nix
 from nixops.parallel import MultipleExceptions, run_tasks
 import pluggy
 
+import contextlib
 import nixops.statefile
 import prettytable
 from argparse import ArgumentParser, _SubParsersAction, Namespace
@@ -22,7 +22,7 @@ import logging.handlers
 import syslog
 import json
 import pipes
-from typing import Tuple, List, Optional, Union, Any
+from typing import Tuple, List, Optional, Union, Any, Generator
 from datetime import datetime
 from pprint import pprint
 import importlib
@@ -35,6 +35,22 @@ pm = get_plugin_manager()
     [importlib.import_module(mod) for mod in pluginimports]
     for pluginimports in pm.hook.load()
 ]
+
+
+@contextlib.contextmanager
+def deployment(args: Namespace) -> Generator[nixops.deployment.Deployment, None, None]:
+    with network_state(args) as sf:
+        depl = open_deployment(sf, args)
+        yield depl
+
+
+@contextlib.contextmanager
+def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None, None]:
+    state = nixops.statefile.StateFile(args.state_file)
+    try:
+        yield state
+    finally:
+        state.close()
 
 
 def op_list_plugins(args):
@@ -66,40 +82,42 @@ def sort_deployments(
 # Handle the --all switch: if --all is given, return all deployments;
 # otherwise, return the deployment specified by -d /
 # $NIXOPS_DEPLOYMENT.
-def one_or_all(args: Namespace) -> List[nixops.deployment.Deployment]:
-    if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
-        return sf.get_all_deployments()
-    else:
-        return [open_deployment(args)]
+@contextlib.contextmanager
+def one_or_all(
+    args: Namespace,
+) -> Generator[List[nixops.deployment.Deployment], None, None]:
+    with network_state(args) as sf:
+        if args.all:
+            yield sf.get_all_deployments()
+        else:
+            yield [open_deployment(sf, args)]
 
 
 def op_list_deployments(args):
-    sf = nixops.statefile.StateFile(args.state_file)
-    tbl = create_table(
-        [
-            ("UUID", "l"),
-            ("Name", "l"),
-            ("Description", "l"),
-            ("# Machines", "r"),
-            ("Type", "c"),
-        ]
-    )
-    for depl in sort_deployments(sf.get_all_deployments()):
-        tbl.add_row(
+    with network_state(args) as sf:
+        tbl = create_table(
             [
-                depl.uuid,
-                depl.name or "(none)",
-                depl.description,
-                len(depl.machines),
-                ", ".join(set(m.get_type() for m in depl.machines.values())),
+                ("UUID", "l"),
+                ("Name", "l"),
+                ("Description", "l"),
+                ("# Machines", "r"),
+                ("Type", "c"),
             ]
         )
-    print(tbl)
+        for depl in sort_deployments(sf.get_all_deployments()):
+            tbl.add_row(
+                [
+                    depl.uuid,
+                    depl.name or "(none)",
+                    depl.description,
+                    len(depl.machines),
+                    ", ".join(set(m.get_type() for m in depl.machines.values())),
+                ]
+            )
+        print(tbl)
 
 
-def open_deployment(args):
-    sf = nixops.statefile.StateFile(args.state_file)
+def open_deployment(sf: nixops.statefile.StateFile, args: Namespace):
     depl = sf.open_deployment(uuid=args.deployment)
 
     depl.extra_nix_path = sum(args.nix_path or [], [])
@@ -145,33 +163,34 @@ def modify_deployment(args, depl: nixops.deployment.Deployment):
 
 
 def op_create(args):
-    sf = nixops.statefile.StateFile(args.state_file)
-    depl = sf.create_deployment()
-    sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
-    modify_deployment(args, depl)
-    if args.name or args.deployment:
-        set_name(depl, args.name or args.deployment)
-    sys.stdout.write(depl.uuid + "\n")
+    with network_state(args) as sf:
+        depl = sf.create_deployment()
+        sys.stderr.write("created deployment ‘{0}’\n".format(depl.uuid))
+        modify_deployment(args, depl)
+        if args.name or args.deployment:
+            set_name(depl, args.name or args.deployment)
+        sys.stdout.write(depl.uuid + "\n")
 
 
 def op_modify(args):
-    depl = open_deployment(args)
-    modify_deployment(args, depl)
-    if args.name:
-        set_name(depl, args.name)
+    with deployment(args) as depl:
+        modify_deployment(args, depl)
+        if args.name:
+            set_name(depl, args.name)
 
 
 def op_clone(args):
-    depl = open_deployment(args)
-    depl2 = depl.clone()
-    sys.stderr.write("created deployment ‘{0}’\n".format(depl2.uuid))
-    set_name(depl2, args.name)
-    sys.stdout.write(depl2.uuid + "\n")
+    with deployment(args) as depl:
+        depl2 = depl.clone()
+        sys.stderr.write("created deployment ‘{0}’\n".format(depl2.uuid))
+        set_name(depl2, args.name)
+        sys.stdout.write(depl2.uuid + "\n")
 
 
 def op_delete(args):
-    for depl in one_or_all(args):
-        depl.delete(force=args.force or False)
+    with one_or_all(args) as depls:
+        for depl in depls:
+            depl.delete(force=args.force or False)
 
 
 def machine_to_key(depl: str, name: str, type: str) -> Tuple[str, str, List[object]]:
@@ -284,39 +303,39 @@ def op_info(args):
                 )
 
     if args.all:
-        sf = nixops.statefile.StateFile(args.state_file)
-        if not args.plain:
-            tbl = create_table([("Deployment", "l")] + table_headers)
-        for depl in sort_deployments(sf.get_all_deployments()):
-            do_eval(depl)
-            print_deployment(depl)
-        if not args.plain:
-            print(tbl)
+        with network_state(args) as sf:
+            if not args.plain:
+                tbl = create_table([("Deployment", "l")] + table_headers)
+            for depl in sort_deployments(sf.get_all_deployments()):
+                do_eval(depl)
+                print_deployment(depl)
+            if not args.plain:
+                print(tbl)
 
     else:
-        depl = open_deployment(args)
-        do_eval(depl)
+        with deployment(args) as depl:
+            do_eval(depl)
 
-        if args.plain:
-            print_deployment(depl)
-        else:
-            print("Network name:", depl.name or "(none)")
-            print("Network UUID:", depl.uuid)
-            print("Network description:", depl.description)
-            print("Nix expressions:", " ".join(depl.nix_exprs))
-            if depl.nix_path != []:
-                print("Nix path:", " ".join(["-I " + x for x in depl.nix_path]))
-            if depl.rollback_enabled:
-                print("Nix profile:", depl.get_profile())
-            if depl.args != {}:
-                print(
-                    "Nix arguments:",
-                    ", ".join([n + " = " + v for n, v in depl.args.items()]),
-                )
-            print()
-            tbl = create_table(table_headers)
-            print_deployment(depl)
-            print(tbl)
+            if args.plain:
+                print_deployment(depl)
+            else:
+                print("Network name:", depl.name or "(none)")
+                print("Network UUID:", depl.uuid)
+                print("Network description:", depl.description)
+                print("Nix expressions:", " ".join(depl.nix_exprs))
+                if depl.nix_path != []:
+                    print("Nix path:", " ".join(["-I " + x for x in depl.nix_path]))
+                if depl.rollback_enabled:
+                    print("Nix profile:", depl.get_profile())
+                if depl.args != {}:
+                    print(
+                        "Nix arguments:",
+                        ", ".join([n + " = " + v for n, v in depl.args.items()]),
+                    )
+                print()
+                tbl = create_table(table_headers)
+                print_deployment(depl)
+                print(tbl)
 
 
 def op_check(args):
@@ -362,8 +381,9 @@ def op_check(args):
             else:
                 resources.append(m)
 
-    for depl in one_or_all(args):
-        check(depl)
+    with one_or_all(args) as depls:
+        for depl in depls:
+            check(depl)
 
     ResourceStatus = Tuple[
         str,
@@ -473,171 +493,172 @@ def op_clean_backups(args):
         )
     if not (args.keep or args.keep_days):
         raise Exception("Please specify at least --keep or --keep-days arguments.")
-    depl = open_deployment(args)
-    depl.clean_backups(args.keep, args.keep_days, args.keep_physical)
+    with deployment(args) as depl:
+        depl.clean_backups(args.keep, args.keep_days, args.keep_physical)
 
 
 def op_remove_backup(args):
-    depl = open_deployment(args)
-    depl.remove_backup(args.backupid, args.keep_physical)
+    with deployment(args) as depl:
+        depl.remove_backup(args.backupid, args.keep_physical)
 
 
 def op_backup(args):
-    depl = open_deployment(args)
+    with deployment(args) as depl:
 
-    def do_backup():
-        backup_id = depl.backup(
-            include=args.include or [],
-            exclude=args.exclude or [],
-            devices=args.devices or [],
-        )
-        print(backup_id)
-
-    if args.force:
-        do_backup()
-    else:
-        backups = depl.get_backups(
-            include=args.include or [], exclude=args.exclude or []
-        )
-        backups_status = [b["status"] for _, b in backups.items()]
-        if "running" in backups_status:
-            raise Exception(
-                "There are still backups running, use --force to run a new backup concurrently (not advised!)"
+        def do_backup():
+            backup_id = depl.backup(
+                include=args.include or [],
+                exclude=args.exclude or [],
+                devices=args.devices or [],
             )
-        else:
+            print(backup_id)
+
+        if args.force:
             do_backup()
+        else:
+            backups = depl.get_backups(
+                include=args.include or [], exclude=args.exclude or []
+            )
+            backups_status = [b["status"] for _, b in backups.items()]
+            if "running" in backups_status:
+                raise Exception(
+                    "There are still backups running, use --force to run a new backup concurrently (not advised!)"
+                )
+            else:
+                do_backup()
 
 
 def op_backup_status(args):
-    depl = open_deployment(args)
-    backupid = args.backupid
-    while True:
-        backups = depl.get_backups(
-            include=args.include or [], exclude=args.exclude or []
-        )
+    with deployment(args) as depl:
+        backupid = args.backupid
+        while True:
+            backups = depl.get_backups(
+                include=args.include or [], exclude=args.exclude or []
+            )
 
-        if backupid or args.latest:
-            sorted_backups = sorted(backups.keys(), reverse=True)
-            if args.latest:
-                if len(backups) == 0:
-                    raise Exception("no backups found")
-                backupid = sorted_backups[0]
-            if backupid not in backups:
-                raise Exception("backup ID ‘{0}’ does not exist".format(backupid))
-            _backups = {}
-            _backups[backupid] = backups[backupid]
-        else:
-            _backups = backups
-
-        print_backups(depl, _backups)
-
-        backups_status = [b["status"] for _, b in _backups.items()]
-        if "running" in backups_status:
-            if args.wait:
-                print("waiting for 30 seconds...")
-                time.sleep(30)
+            if backupid or args.latest:
+                sorted_backups = sorted(backups.keys(), reverse=True)
+                if args.latest:
+                    if len(backups) == 0:
+                        raise Exception("no backups found")
+                    backupid = sorted_backups[0]
+                if backupid not in backups:
+                    raise Exception("backup ID ‘{0}’ does not exist".format(backupid))
+                _backups = {}
+                _backups[backupid] = backups[backupid]
             else:
-                raise Exception("backup has not yet finished")
-        else:
-            return
+                _backups = backups
+
+            print_backups(depl, _backups)
+
+            backups_status = [b["status"] for _, b in _backups.items()]
+            if "running" in backups_status:
+                if args.wait:
+                    print("waiting for 30 seconds...")
+                    time.sleep(30)
+                else:
+                    raise Exception("backup has not yet finished")
+            else:
+                return
 
 
 def op_restore(args):
-    depl = open_deployment(args)
-    depl.restore(
-        include=args.include or [],
-        exclude=args.exclude or [],
-        backup_id=args.backup_id,
-        devices=args.devices or [],
-    )
-
-
-def op_deploy(args):
-    depl = open_deployment(args)
-    if args.confirm:
-        depl.logger.set_autoresponse("y")
-    if args.evaluate_only:
-        raise Exception("--evaluate-only was removed as it's the same as --dry-run")
-    depl.deploy(
-        dry_run=args.dry_run,
-        test=args.test,
-        build_only=args.build_only,
-        plan_only=args.plan_only,
-        create_only=args.create_only,
-        copy_only=args.copy_only,
-        include=args.include or [],
-        exclude=args.exclude or [],
-        check=args.check,
-        kill_obsolete=args.kill_obsolete,
-        allow_reboot=args.allow_reboot,
-        allow_recreate=args.allow_recreate,
-        force_reboot=args.force_reboot,
-        max_concurrent_copy=args.max_concurrent_copy,
-        sync=not args.no_sync,
-        always_activate=args.always_activate,
-        repair=args.repair,
-        dry_activate=args.dry_activate,
-        max_concurrent_activate=args.max_concurrent_activate,
-    )
-
-
-def op_send_keys(args):
-    depl = open_deployment(args)
-    depl.send_keys(include=args.include or [], exclude=args.exclude or [])
-
-
-def op_set_args(args):
-    depl = open_deployment(args)
-    for [n, v] in args.args or []:
-        depl.set_arg(n, v)
-    for [n, v] in args.argstrs or []:
-        depl.set_argstr(n, v)
-    for [n] in args.unset or []:
-        depl.unset_arg(n)
-
-
-def op_destroy(args):
-    for depl in one_or_all(args):
-        if args.confirm:
-            depl.logger.set_autoresponse("y")
-        depl.destroy_resources(
-            include=args.include or [], exclude=args.exclude or [], wipe=args.wipe
+    with deployment(args) as depl:
+        depl.restore(
+            include=args.include or [],
+            exclude=args.exclude or [],
+            backup_id=args.backup_id,
+            devices=args.devices or [],
         )
 
 
+def op_deploy(args):
+    with deployment(args) as depl:
+        if args.confirm:
+            depl.logger.set_autoresponse("y")
+        if args.evaluate_only:
+            raise Exception("--evaluate-only was removed as it's the same as --dry-run")
+        depl.deploy(
+            dry_run=args.dry_run,
+            test=args.test,
+            build_only=args.build_only,
+            plan_only=args.plan_only,
+            create_only=args.create_only,
+            copy_only=args.copy_only,
+            include=args.include or [],
+            exclude=args.exclude or [],
+            check=args.check,
+            kill_obsolete=args.kill_obsolete,
+            allow_reboot=args.allow_reboot,
+            allow_recreate=args.allow_recreate,
+            force_reboot=args.force_reboot,
+            max_concurrent_copy=args.max_concurrent_copy,
+            sync=not args.no_sync,
+            always_activate=args.always_activate,
+            repair=args.repair,
+            dry_activate=args.dry_activate,
+            max_concurrent_activate=args.max_concurrent_activate,
+        )
+
+
+def op_send_keys(args):
+    with deployment(args) as depl:
+        depl.send_keys(include=args.include or [], exclude=args.exclude or [])
+
+
+def op_set_args(args):
+    with deployment(args) as depl:
+        for [n, v] in args.args or []:
+            depl.set_arg(n, v)
+        for [n, v] in args.argstrs or []:
+            depl.set_argstr(n, v)
+        for [n] in args.unset or []:
+            depl.unset_arg(n)
+
+
+def op_destroy(args):
+    with one_or_all(args) as depls:
+        for depl in depls:
+            if args.confirm:
+                depl.logger.set_autoresponse("y")
+            depl.destroy_resources(
+                include=args.include or [], exclude=args.exclude or [], wipe=args.wipe
+            )
+
+
 def op_reboot(args):
-    depl = open_deployment(args)
-    depl.reboot_machines(
-        include=args.include or [],
-        exclude=args.exclude or [],
-        wait=(not args.no_wait),
-        rescue=args.rescue,
-        hard=args.hard,
-    )
+    with deployment(args) as depl:
+        depl.reboot_machines(
+            include=args.include or [],
+            exclude=args.exclude or [],
+            wait=(not args.no_wait),
+            rescue=args.rescue,
+            hard=args.hard,
+        )
 
 
 def op_delete_resources(args):
-    depl = open_deployment(args)
-    if args.confirm:
-        depl.logger.set_autoresponse("y")
-    depl.delete_resources(include=args.include or [], exclude=args.exclude or [])
+    with deployment(args) as depl:
+        if args.confirm:
+            depl.logger.set_autoresponse("y")
+        depl.delete_resources(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_stop(args):
-    depl = open_deployment(args)
-    if args.confirm:
-        depl.logger.set_autoresponse("y")
-    depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
+    with deployment(args) as depl:
+        if args.confirm:
+            depl.logger.set_autoresponse("y")
+        depl.stop_machines(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_start(args):
-    depl = open_deployment(args)
-    depl.start_machines(include=args.include or [], exclude=args.exclude or [])
+    with deployment(args) as depl:
+        depl.start_machines(include=args.include or [], exclude=args.exclude or [])
 
 
 def op_rename(args):
-    depl = open_deployment(args)
-    depl.rename(args.current_name, args.new_name)
+    with deployment(args) as depl:
+        depl.rename(args.current_name, args.new_name)
 
 
 def print_physical_backup_spec(depl, backupid):
@@ -648,22 +669,22 @@ def print_physical_backup_spec(depl, backupid):
 
 
 def op_show_arguments(args):
-    depl = open_deployment(args)
-    tbl = create_table([("Name", "l"), ("Location", "l")])
-    args = depl.get_arguments()
-    for arg in sorted(args.keys()):
-        files = sorted(args[arg])
-        tbl.add_row([arg, "\n".join(files)])
-    print(tbl)
+    with deployment(args) as depl:
+        tbl = create_table([("Name", "l"), ("Location", "l")])
+        args = depl.get_arguments()
+        for arg in sorted(args.keys()):
+            files = sorted(args[arg])
+            tbl.add_row([arg, "\n".join(files)])
+        print(tbl)
 
 
 def op_show_physical(args):
-    depl = open_deployment(args)
-    if args.backupid:
-        print_physical_backup_spec(depl, args.backupid)
-        return
-    depl.evaluate()
-    sys.stdout.write(depl.get_physical_spec())
+    with deployment(args) as depl:
+        if args.backupid:
+            print_physical_backup_spec(depl, args.backupid)
+            return
+        depl.evaluate()
+        sys.stdout.write(depl.get_physical_spec())
 
 
 def op_dump_nix_paths(args):
@@ -695,8 +716,9 @@ def op_dump_nix_paths(args):
 
     paths: List[str] = []
 
-    for depl in one_or_all(args):
-        paths.extend(nix_paths(depl))
+    with one_or_all(args) as depls:
+        for depl in depls:
+            paths.extend(nix_paths(depl))
 
     for p in paths:
         print(p)
@@ -704,34 +726,39 @@ def op_dump_nix_paths(args):
 
 def op_export(args):
     res = {}
-    for depl in one_or_all(args):
-        res[depl.uuid] = depl.export()
+
+    with one_or_all(args) as depls:
+        for depl in depls:
+            res[depl.uuid] = depl.export()
     print(json.dumps(res, indent=2, sort_keys=True))
 
 
 def op_import(args):
-    sf = nixops.statefile.StateFile(args.state_file)
-    existing = set(sf.query_deployments())
+    with network_state(args) as sf:
+        existing = set(sf.query_deployments())
 
-    dump = json.loads(sys.stdin.read())
+        dump = json.loads(sys.stdin.read())
+        for uuid, attrs in dump.items():
+            if uuid in existing:
+                raise Exception(
+                    "state file already contains a deployment with UUID ‘{0}’".format(
+                        uuid
+                    )
+                )
+            with sf._db:
+                depl = sf.create_deployment(uuid=uuid)
+                depl.import_(attrs)
+            sys.stderr.write("added deployment ‘{0}’\n".format(uuid))
 
-    for uuid, attrs in dump.items():
-        if uuid in existing:
-            raise Exception(
-                "state file already contains a deployment with UUID ‘{0}’".format(uuid)
-            )
-        with sf._db:
-            depl = sf.create_deployment(uuid=uuid)
-            depl.import_(attrs)
-        sys.stderr.write("added deployment ‘{0}’\n".format(uuid))
-
-        if args.include_keys:
-            for m in depl.active.values():
-                if deployment.is_machine(m) and hasattr(m, "public_host_key"):
-                    if m.public_ipv4:
-                        nixops.known_hosts.add(m.public_ipv4, m.public_host_key)
-                    if m.private_ipv4:
-                        nixops.known_hosts.add(m.private_ipv4, m.public_host_key)
+            if args.include_keys:
+                for m in depl.active.values():
+                    if nixops.deployment.is_machine(m) and hasattr(
+                        m, "public_host_key"
+                    ):
+                        if m.public_ipv4:
+                            nixops.known_hosts.add(m.public_ipv4, m.public_host_key)
+                        if m.private_ipv4:
+                            nixops.known_hosts.add(m.private_ipv4, m.public_host_key)
 
 
 def parse_machine(name):
@@ -739,38 +766,44 @@ def parse_machine(name):
 
 
 def op_ssh(args):
-    depl = open_deployment(args)
-    (username, machine) = parse_machine(args.machine)
-    m = depl.machines.get(machine)
-    if not m:
-        raise Exception("unknown machine ‘{0}’".format(machine))
-    flags, command = m.ssh.split_openssh_args(args.args)
-    user = None if username == "root" else username
-    sys.exit(
-        m.ssh.run_command(
-            command, flags, check=False, logged=False, allow_ssh_args=True, user=user
+    with deployment(args) as depl:
+        (username, machine) = parse_machine(args.machine)
+        m = depl.machines.get(machine)
+        if not m:
+            raise Exception("unknown machine ‘{0}’".format(machine))
+        flags, command = m.ssh.split_openssh_args(args.args)
+        user = None if username == "root" else username
+        sys.exit(
+            m.ssh.run_command(
+                command,
+                flags,
+                check=False,
+                logged=False,
+                allow_ssh_args=True,
+                user=user,
+            )
         )
-    )
 
 
 def op_ssh_for_each(args):
     results: List[Optional[int]] = []
-    for depl in one_or_all(args):
+    with one_or_all(args) as depls:
+        for depl in depls:
 
-        def worker(m: nixops.backends.MachineState) -> Optional[int]:
-            if not nixops.deployment.should_do(
-                m, args.include or [], args.exclude or []
-            ):
-                return None
-            return m.ssh.run_command_get_status(
-                args.args, allow_ssh_args=True, check=False
+            def worker(m: nixops.backends.MachineState) -> Optional[int]:
+                if not nixops.deployment.should_do(
+                    m, args.include or [], args.exclude or []
+                ):
+                    return None
+                return m.ssh.run_command_get_status(
+                    args.args, allow_ssh_args=True, check=False
+                )
+
+            results = results + nixops.parallel.run_tasks(
+                nr_workers=len(depl.machines) if args.parallel else 1,
+                tasks=iter(depl.active.values()),
+                worker_fun=worker,
             )
-
-        results = results + nixops.parallel.run_tasks(
-            nr_workers=len(depl.machines) if args.parallel else 1,
-            tasks=iter(depl.active.values()),
-            worker_fun=worker,
-        )
 
     sys.exit(max(results) if results != [] else 0)
 
@@ -782,157 +815,166 @@ def scp_loc(user, ssh_name, remote, loc):
 def op_scp(args):
     if args.scp_from == args.scp_to:
         raise Exception("exactly one of ‘--from’ and ‘--to’ must be specified")
-    depl = open_deployment(args)
-    (username, machine) = parse_machine(args.machine)
-    m = depl.machines.get(machine)
-    if not m:
-        raise Exception("unknown machine ‘{0}’".format(machine))
-    ssh_name = m.get_ssh_name()
-    from_loc = scp_loc(username, ssh_name, args.scp_from, args.source)
-    to_loc = scp_loc(username, ssh_name, args.scp_to, args.destination)
-    print("{0} -> {1}".format(from_loc, to_loc), file=sys.stderr)
-    flags = ["scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc]
-    # Map ssh's ‘-p’ to scp's ‘-P’.
-    flags = ["-P" if f == "-p" else f for f in flags]
-    res = subprocess.call(flags)
-    sys.exit(res)
+    with deployment(args) as depl:
+        (username, machine) = parse_machine(args.machine)
+        m = depl.machines.get(machine)
+        if not m:
+            raise Exception("unknown machine ‘{0}’".format(machine))
+        ssh_name = m.get_ssh_name()
+        from_loc = scp_loc(username, ssh_name, args.scp_from, args.source)
+        to_loc = scp_loc(username, ssh_name, args.scp_to, args.destination)
+        print("{0} -> {1}".format(from_loc, to_loc), file=sys.stderr)
+        flags = ["scp", "-r"] + m.get_ssh_flags() + [from_loc, to_loc]
+        # Map ssh's ‘-p’ to scp's ‘-P’.
+        flags = ["-P" if f == "-p" else f for f in flags]
+        res = subprocess.call(flags)
+        sys.exit(res)
 
 
 def op_mount(args):
-    depl = open_deployment(args)
-    (username, rest) = parse_machine(args.machine)
-    (machine, remote_path) = (rest, "/") if rest.find(":") == -1 else rest.split(":", 1)
-    m = depl.machines.get(machine)
-    if not m:
-        raise Exception("unknown machine ‘{0}’".format(machine))
-    ssh_name = m.get_ssh_name()
+    with deployment(args) as depl:
+        (username, rest) = parse_machine(args.machine)
+        (machine, remote_path) = (
+            (rest, "/") if rest.find(":") == -1 else rest.split(":", 1)
+        )
+        m = depl.machines.get(machine)
+        if not m:
+            raise Exception("unknown machine ‘{0}’".format(machine))
+        ssh_name = m.get_ssh_name()
 
-    flags = m.get_ssh_flags()
-    new_flags = []
-    n = 0
-    while n < len(flags):
-        if flags[n] == "-i":
-            new_flags.extend(["-o", "IdentityFile=" + flags[n + 1]])
-            n = n + 2
-        elif flags[n] == "-p":
-            new_flags.extend(["-p", flags[n + 1]])
-            n = n + 2
-        elif flags[n] == "-o":
-            new_flags.extend(["-o", flags[n + 1]])
-            n = n + 2
-        else:
-            raise Exception(
-                "don't know how to pass SSH flag ‘{0}’ to sshfs".format(flags[n])
-            )
+        flags = m.get_ssh_flags()
+        new_flags = []
+        n = 0
+        while n < len(flags):
+            if flags[n] == "-i":
+                new_flags.extend(["-o", "IdentityFile=" + flags[n + 1]])
+                n = n + 2
+            elif flags[n] == "-p":
+                new_flags.extend(["-p", flags[n + 1]])
+                n = n + 2
+            elif flags[n] == "-o":
+                new_flags.extend(["-o", flags[n + 1]])
+                n = n + 2
+            else:
+                raise Exception(
+                    "don't know how to pass SSH flag ‘{0}’ to sshfs".format(flags[n])
+                )
 
-    for o in args.sshfs_option or []:
-        new_flags.extend(["-o", o])
+        for o in args.sshfs_option or []:
+            new_flags.extend(["-o", o])
 
-    # Note: sshfs will go into the background when it has finished
-    # setting up, so we can safely delete the SSH identity file
-    # afterwards.
-    res = subprocess.call(
-        ["sshfs", username + "@" + ssh_name + ":" + remote_path, args.destination]
-        + new_flags
-    )
-    sys.exit(res)
+        # Note: sshfs will go into the background when it has finished
+        # setting up, so we can safely delete the SSH identity file
+        # afterwards.
+        res = subprocess.call(
+            ["sshfs", username + "@" + ssh_name + ":" + remote_path, args.destination]
+            + new_flags
+        )
+        sys.exit(res)
 
 
 def op_show_option(args):
-    depl = open_deployment(args)
-    if args.include_physical:
-        depl.evaluate()
-    sys.stdout.write(
-        depl.evaluate_option_value(
-            args.machine,
-            args.option,
-            json=args.json,
-            xml=args.xml,
-            include_physical=args.include_physical,
+    with deployment(args) as depl:
+        if args.include_physical:
+            depl.evaluate()
+        sys.stdout.write(
+            depl.evaluate_option_value(
+                args.machine,
+                args.option,
+                json=args.json,
+                xml=args.xml,
+                include_physical=args.include_physical,
+            )
         )
-    )
 
 
-def check_rollback_enabled(args):
-    depl = open_deployment(args)
-    if not depl.rollback_enabled:
-        raise Exception(
-            "rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy"
-        )
-    return depl
+@contextlib.contextmanager
+def deployment_with_rollback(args):
+    with deployment(args) as depl:
+        if not depl.rollback_enabled:
+            raise Exception(
+                "rollback is not enabled for this network; please set ‘network.enableRollback’ to ‘true’ and redeploy"
+            )
+        yield depl
 
 
 def op_list_generations(args):
-    depl = check_rollback_enabled(args)
-    if (
-        subprocess.call(["nix-env", "-p", depl.get_profile(), "--list-generations"])
-        != 0
-    ):
-        raise Exception("nix-env --list-generations failed")
+    with deployment_with_rollback(args) as depl:
+        if (
+            subprocess.call(["nix-env", "-p", depl.get_profile(), "--list-generations"])
+            != 0
+        ):
+            raise Exception("nix-env --list-generations failed")
 
 
 def op_delete_generation(args):
-    depl = check_rollback_enabled(args)
-    if (
-        subprocess.call(
-            [
-                "nix-env",
-                "-p",
-                depl.get_profile(),
-                "--delete-generations",
-                str(args.generation),
-            ]
-        )
-        != 0
-    ):
-        raise Exception("nix-env --delete-generations failed")
+    with deployment_with_rollback(args) as depl:
+        if (
+            subprocess.call(
+                [
+                    "nix-env",
+                    "-p",
+                    depl.get_profile(),
+                    "--delete-generations",
+                    str(args.generation),
+                ]
+            )
+            != 0
+        ):
+            raise Exception("nix-env --delete-generations failed")
 
 
 def op_rollback(args):
-    depl = check_rollback_enabled(args)
-    depl.rollback(
-        generation=args.generation,
-        include=args.include or [],
-        exclude=args.exclude or [],
-        check=args.check,
-        allow_reboot=args.allow_reboot,
-        force_reboot=args.force_reboot,
-        max_concurrent_copy=args.max_concurrent_copy,
-        max_concurrent_activate=args.max_concurrent_activate,
-        sync=not args.no_sync,
-    )
+    with deployment_with_rollback(args) as depl:
+        depl.rollback(
+            generation=args.generation,
+            include=args.include or [],
+            exclude=args.exclude or [],
+            check=args.check,
+            allow_reboot=args.allow_reboot,
+            force_reboot=args.force_reboot,
+            max_concurrent_copy=args.max_concurrent_copy,
+            max_concurrent_activate=args.max_concurrent_activate,
+            sync=not args.no_sync,
+        )
 
 
 def op_show_console_output(args):
-    depl = open_deployment(args)
-    m = depl.machines.get(args.machine)
-    if not m:
-        raise Exception("unknown machine ‘{0}’".format(args.machine))
-    sys.stdout.write(m.get_console_output())
+    with deployment(args) as depl:
+        m = depl.machines.get(args.machine)
+        if not m:
+            raise Exception("unknown machine ‘{0}’".format(args.machine))
+        sys.stdout.write(m.get_console_output())
 
 
 def op_edit(args):
-    depl = open_deployment(args)
-    editor = os.environ.get("EDITOR")
-    if not editor:
-        raise Exception("the $EDITOR environment variable is not set")
-    os.system("$EDITOR " + " ".join([pipes.quote(x) for x in depl.nix_exprs]))
+    with deployment(args) as depl:
+        editor = os.environ.get("EDITOR")
+        if not editor:
+            raise Exception("the $EDITOR environment variable is not set")
+        os.system("$EDITOR " + " ".join([pipes.quote(x) for x in depl.nix_exprs]))
 
 
 def op_copy_closure(args):
-    depl = open_deployment(args)
-    (username, machine) = parse_machine(args.machine)
-    m = depl.machines.get(machine)
-    if not m:
-        raise Exception("unknown machine ‘{0}’".format(machine))
-    env = dict(os.environ)
-    env["NIX_SSHOPTS"] = " ".join(m.get_ssh_flags())
-    res = nixops.util.logged_exec(
-        ["nix", "copy", "--to", "ssh://{}".format(m.get_ssh_name()), args.storepath],
-        depl.logger,
-        env=env,
-    )
-    sys.exit(res)
+    with deployment(args) as depl:
+        (username, machine) = parse_machine(args.machine)
+        m = depl.machines.get(machine)
+        if not m:
+            raise Exception("unknown machine ‘{0}’".format(machine))
+        env = dict(os.environ)
+        env["NIX_SSHOPTS"] = " ".join(m.get_ssh_flags())
+        res = nixops.util.logged_exec(
+            [
+                "nix",
+                "copy",
+                "--to",
+                "ssh://{}".format(m.get_ssh_name()),
+                args.storepath,
+            ],
+            m.logger,
+            env=env,
+        )
+        sys.exit(res)
 
 
 # Set up logging of all commands and output
