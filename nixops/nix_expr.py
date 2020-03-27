@@ -1,7 +1,7 @@
 import functools
 import re
 import string
-from typing import Optional, Any
+from typing import Optional, Any, List
 from textwrap import dedent
 
 __all__ = ["py2nix", "nix2py", "nixmerge", "expand_dict", "RawValue", "Function"]
@@ -28,16 +28,16 @@ class RawValue:
 
 
 class MultiLineRawValue(RawValue):
-    def __init__(self, values):
-        self.values = values
+    def __init__(self, values: List[str]):
+        self.values: List[str] = values
 
-    def get_min_length(self):
+    def get_min_length(self) -> None:
         return None
 
-    def is_inlineable(self):
+    def is_inlineable(self) -> bool:
         return False
 
-    def indent(self, level=0, inline=False, maxwidth=80):
+    def indent(self, level: int = 0, inline: bool = False, maxwidth: int = 80):
         return "\n".join(["  " * level + value for value in self.values])
 
 
