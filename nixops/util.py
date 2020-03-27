@@ -92,6 +92,7 @@ def logged_exec(
     else:
         passed_stdin = devnull
 
+    fds: List[IO[str]] = []
     if capture_stdout:
         process = subprocess.Popen(
             command,
@@ -102,8 +103,8 @@ def logged_exec(
             preexec_fn=preexec_fn,
             text=True,
         )
-        fds = [process.stdout, process.stderr]
-        log_fd = process.stderr
+        fds = [fd for fd in [process.stdout, process.stderr] if fd]
+        log_fd_opt = process.stderr
     else:
         process = subprocess.Popen(
             command,
@@ -114,8 +115,21 @@ def logged_exec(
             preexec_fn=preexec_fn,
             text=True,
         )
-        fds = [process.stdout]
-        log_fd = process.stdout
+        if process.stdout:
+            fds = [process.stdout]
+        log_fd_opt = process.stdout
+
+    if process.stdin is None:
+        raise ValueError("process.stdin was None")
+    process_stdin: IO[str] = process.stdin
+
+    if process.stdout is None:
+        raise ValueError("process.stdout was None")
+    process_stdout: IO[str] = process.stdout
+
+    if log_fd_opt is None:
+        raise ValueError("log_fd was None")
+    log_fd: IO[str] = log_fd_opt
 
     # FIXME: this can deadlock if stdin_string doesn't fit in the
     # kernel pipe buffer.
