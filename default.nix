@@ -5,12 +5,22 @@ let
   overrides = import ./overrides.nix { inherit pkgs; };
 
 in pkgs.poetry2nix.mkPoetryApplication {
-  projectDir = ./.;
+  # Once the latest poetry2nix release has reached 20.03 use projectDir instead of:
+  # - src
+  # - pyproject
+  # - poetrylock
+
+  src = pkgs.lib.cleanSource ./.;
+  pyproject = ./pyproject.toml;
+  poetrylock = ./poetry.lock;
 
   propagatedBuildInputs = [
     pkgs.openssh
   ];
 
-  overrides = pkgs.poetry2nix.overrides.withDefaults(overrides);
+  overrides = [
+    pkgs.poetry2nix.defaultPoetryOverrides
+    overrides
+  ];
 
 }

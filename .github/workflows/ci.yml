@@ -22,7 +22,7 @@ jobs:
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Build
-        run: 'nix-build --quiet release.nix -A build.x86_64-linux -I nixpkgs=channel:19.09'
+        run: 'nix-build --quiet release.nix -A nixops.x86_64-linux -I nixpkgs=channel:nixos-20.03'
   black:
     runs-on: ubuntu-latest
     steps:
