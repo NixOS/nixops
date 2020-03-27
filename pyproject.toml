@@ -14,6 +14,7 @@ pluggy = "^0.13.1"
 [tool.poetry.dev-dependencies]
 nose = "^1.3.7"
 mypy = "^0.770"
+black = "^19.10b0"
 
 [tool.poetry.scripts]
 nixops = 'nixops.__main__:main'
