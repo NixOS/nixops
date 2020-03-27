@@ -1,29 +1,29 @@
 import functools
 import re
 import string
-from typing import Optional
+from typing import Optional, Any
 from textwrap import dedent
 
 __all__ = ["py2nix", "nix2py", "nixmerge", "expand_dict", "RawValue", "Function"]
 
 
-class RawValue(object):
-    def __init__(self, value):
-        self.value = value
+class RawValue:
+    def __init__(self, value: str) -> None:
+        self.value: str = value
 
-    def get_min_length(self):
+    def get_min_length(self) -> Optional[int]:
         return len(self.value)
 
-    def is_inlineable(self):
+    def is_inlineable(self) -> bool:
         return True
 
-    def indent(self, level=0, inline=False, maxwidth=80):
+    def indent(self, level: int = 0, inline: bool = False, maxwidth: int = 80) -> str:
         return "  " * level + self.value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.value
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return isinstance(other, RawValue) and other.value == self.value
 
 
