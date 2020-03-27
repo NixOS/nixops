@@ -78,7 +78,7 @@ class Container(object):
         self.suffix = suffix
         self.inline_variant = inline_variant
 
-    def get_min_length(self):
+    def get_min_length(self) -> Optional[int]:
         """
         Return the minimum length of this container and all sub-containers.
         """
@@ -90,10 +90,10 @@ class Container(object):
             + sum([child.get_min_length() for child in self.children])
         )
 
-    def is_inlineable(self):
+    def is_inlineable(self) -> bool:
         return all([child.is_inlineable() for child in self.children])
 
-    def indent(self, level=0, inline=False, maxwidth=80):
+    def indent(self, level=0, inline=False, maxwidth=80) -> str:
         if not self.is_inlineable():
             inline = False
         elif level * 2 + self.get_min_length() < maxwidth:
