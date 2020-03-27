@@ -333,7 +333,13 @@ def nixmerge(expr1, expr2):
         if isinstance(e1, dict) and isinstance(e2, dict):
             return _merge_dicts(e1, e2)
         elif isinstance(e1, list) and isinstance(e2, list):
-            return list(set(e1).union(e2))
+            l = []
+            seen = set()
+            for x in e1 + e2:
+                if x not in seen:
+                    seen.add(x)
+                    l.append(x)
+            return l
         else:
             err = "unable to merge {0} with {1}".format(type(e1), type(e2))
             raise ValueError(err)
