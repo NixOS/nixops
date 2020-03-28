@@ -4,9 +4,7 @@ import os
 import re
 import subprocess
 from typing import Dict, Any, List, Optional, Union, Set
-import types
 import nixops.util
-import nixops.parallel
 import nixops.resources
 import nixops.ssh_util
 import xml.etree.ElementTree as ET
@@ -275,20 +273,12 @@ class MachineState(nixops.resources.ResourceState):
             return
         if self.store_keys_on_machine:
             return
-        # preflight the connection
-        self.run_command("true")
-
-        def worker(task: nixops.parallel.Task) -> None:
-            k = task.key
-            opts = task.opts
+        for k, opts in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
-
+            tmp = self.depl.tempdir + "/key-" + self.name
             if "destDir" not in opts:
                 raise Exception("Key '{}' has no 'destDir' specified.".format(k))
 
-            tmp = "{dir}/key-{name}-{key}".format(
-                dir=self.depl.tempdir, name=self.name, key=k,
-            )
             destDir = opts["destDir"].rstrip("/")
             self.run_command(
                 (
@@ -339,20 +329,6 @@ class MachineState(nixops.resources.ResourceState):
             )
             self.run_command("mv " + tmp_outfile_esc + " " + outfile_esc)
             os.remove(tmp)
-
-        def make_task(key: str, opts: Dict[str, Any]) -> nixops.parallel.Task:
-            task = types.SimpleNamespace()
-            task.name = self.name
-            task.key = key
-            task.opts = opts
-            return task
-
-        nixops.parallel.run_tasks(
-            # by default ssh allows 10 sessions per connection via MaxSessions setting
-            nr_workers=8,
-            tasks=[make_task(key, item) for (key, item) in self.get_keys().items()],
-            worker_fun=worker,
-        )
         self.run_command(
             "mkdir -m 0750 -p /run/keys && "
             "chown root:keys  /run/keys && "
