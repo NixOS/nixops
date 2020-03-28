@@ -1,23 +1,65 @@
 {
-    "inputs": {
-        "nixops-aws": {
-            "inputs": {},
-            "narHash": "sha256-52bD9sLWFjZxP9P2/2pjeoiqnN5Bic0o6mX/5B1IDKo=",
-            "originalUrl": "github:NixOS/nixops-aws",
-            "url": "github:NixOS/nixops-aws/0da38bb5de82d7a118ac32ebefa7a2d5869ba5ab"
-        },
-        "nixops-hetzner": {
-            "inputs": {},
-            "narHash": "sha256-4UVLwdLw17YHs1ZJR3eJGINgv1TdZytJIRrh+w6TtN4=",
-            "originalUrl": "github:NixOS/nixops-hetzner/zfs",
-            "url": "github:NixOS/nixops-hetzner/33256100466e9624af21312d2ae0da8b0b80354a"
-        },
-        "nixpkgs": {
-            "inputs": {},
-            "narHash": "sha256-UcPmWgmf7Xgr4Ta8YjLuuxqzLmIYSk+uL2gPy/5bqmk=",
-            "originalUrl": "nixpkgs/release-19.09",
-            "url": "github:edolstra/nixpkgs/44603b4103dbce2c9c18e6cc0df51a74f5eb8975"
-        }
+  "nodes": {
+    "nixops-aws": {
+      "flake": false,
+      "info": {
+        "narHash": "sha256-52bD9sLWFjZxP9P2/2pjeoiqnN5Bic0o6mX/5B1IDKo="
+      },
+      "locked": {
+        "owner": "NixOS",
+        "repo": "nixops-aws",
+        "rev": "0da38bb5de82d7a118ac32ebefa7a2d5869ba5ab",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixops-aws",
+        "type": "github"
+      }
     },
-    "version": 3
+    "nixops-hetzner": {
+      "flake": false,
+      "info": {
+        "narHash": "sha256-4UVLwdLw17YHs1ZJR3eJGINgv1TdZytJIRrh+w6TtN4="
+      },
+      "locked": {
+        "owner": "NixOS",
+        "repo": "nixops-hetzner",
+        "rev": "33256100466e9624af21312d2ae0da8b0b80354a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "zfs",
+        "repo": "nixops-hetzner",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "info": {
+        "lastModified": 1583402222,
+        "narHash": "sha256-j7WJlbJD7AO8mhtAMvsqvAFxCprYzg234H8QPaQEWgE="
+      },
+      "locked": {
+        "owner": "edolstra",
+        "repo": "nixpkgs",
+        "rev": "54a27fb2fc5fbd8927f9f6dc77fe1de1faa05266",
+        "type": "github"
+      },
+      "original": {
+        "id": "nixpkgs",
+        "ref": "release-19.09",
+        "type": "indirect"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixops-aws": "nixops-aws",
+        "nixops-hetzner": "nixops-hetzner",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 5
 }
