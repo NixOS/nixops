@@ -119,10 +119,6 @@ def logged_exec(
             fds = [process.stdout]
         log_fd_opt = process.stdout
 
-    if process.stdin is None:
-        raise ValueError("process.stdin was None")
-    process_stdin: IO[str] = process.stdin
-
     if process.stdout is None:
         raise ValueError("process.stdout was None")
     process_stdout: IO[str] = process.stdout
@@ -134,6 +130,10 @@ def logged_exec(
     # FIXME: this can deadlock if stdin_string doesn't fit in the
     # kernel pipe buffer.
     if stdin_string is not None:
+        if process.stdin is None:
+            raise ValueError("process.stdin was None")
+        process_stdin: IO[str] = process.stdin
+
         # PIPE_BUF is not the size of the kernel pipe buffer (see
         # https://unix.stackexchange.com/questions/11946/how-big-is-the-pipe-buffer)
         # but if something fits in PIPE_BUF, it'll fit in the kernel pipe
@@ -151,8 +151,8 @@ def logged_exec(
                 ).format(select.PIPE_BUF, len(stdin_string))
             )
 
-        process.stdin.write(stdin_string)
-        process.stdin.close()
+        process_stdin.write(stdin_string)
+        process_stdin.close()
 
     for fd in fds:
         make_non_blocking(fd)
