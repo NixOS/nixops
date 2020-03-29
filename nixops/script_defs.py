@@ -785,7 +785,7 @@ def op_ssh(args):
         sys.exit(
             m.ssh.run_command(
                 command,
-                flags,
+                flags=flags,
                 check=False,
                 logged=False,
                 allow_ssh_args=True,
@@ -804,8 +804,9 @@ def op_ssh_for_each(args):
                     m, args.include or [], args.exclude or []
                 ):
                     return None
+
                 return m.ssh.run_command_get_status(
-                    args.args, allow_ssh_args=True, check=False
+                    args.args, allow_ssh_args=True, check=False, user=m.ssh_user
                 )
 
             results = results + nixops.parallel.run_tasks(

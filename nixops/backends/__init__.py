@@ -26,7 +26,9 @@ class MachineOptions(nixops.resources.ResourceOptions):
     hasFastConnection: bool
     keys: Mapping[str, KeyOptions]
     nixosRelease: str
-    targetUser: str
+    targetUser: Optional[str]
+    sshOptions: Sequence[str]
+    privilegeEscalationCommand: Sequence[str]
 
 
 class MachineDefinition(nixops.resources.ResourceDefinition):
@@ -395,7 +397,7 @@ class MachineState(nixops.resources.ResourceState):
         if self.state == self.RESCUE:
             command = "export LANG= LC_ALL= LC_TIME=; " + command
         return self.ssh.run_command(
-            command, self.get_ssh_flags(), user=self.ssh_user, **kwargs
+            command, flags=self.get_ssh_flags(), user=self.ssh_user, **kwargs
         )
 
     def switch_to_configuration(
@@ -441,10 +443,21 @@ class MachineState(nixops.resources.ResourceState):
         return ssh_name
 
     def _fmt_rsync_command(self, *args: str, recursive: bool = False) -> List[str]:
-        master = self.ssh.get_master()
+        master = self.ssh.get_master(user=self.ssh_user)
 
         ssh_cmdline: List[str] = ["ssh"] + self.get_ssh_flags() + master.opts
         cmdline = ["rsync", "-e", nixops.util.shlex_join(ssh_cmdline)]
+
+        if self.ssh_user != "root":
+            cmdline.extend(
+                [
+                    "--rsync-path",
+                    nixops.util.shlex_join(
+                        self.ssh.privilege_escalation_command + ["rsync"]
+                    ),
+                ]
+            )
+
         if recursive:
             cmdline += ["-r"]
 
@@ -454,13 +467,17 @@ class MachineState(nixops.resources.ResourceState):
 
     def upload_file(self, source: str, target: str, recursive: bool = False):
         cmdline = self._fmt_rsync_command(
-            source, "root@" + self._get_scp_name() + ":" + target, recursive=recursive,
+            source,
+            self.ssh_user + "@" + self._get_scp_name() + ":" + target,
+            recursive=recursive,
         )
         return self._logged_exec(cmdline)
 
     def download_file(self, source: str, target: str, recursive: bool = False):
         cmdline = self._fmt_rsync_command(
-            "root@" + self._get_scp_name() + ":" + source, target, recursive=recursive,
+            self.ssh_user + "@" + self._get_scp_name() + ":" + source,
+            target,
+            recursive=recursive,
         )
         return self._logged_exec(cmdline)
 
