@@ -30,6 +30,16 @@ in
       '';
     };
 
+    deployment.targetUser = mkOption {
+      type = types.nullOr types.str;
+      default = "root";
+      description = ''
+        This option specifies the username to be used by
+        NixOps on the remote system to execute deployment
+        operations.
+      '';
+    };
+
     deployment.targetHost = mkOption {
       type = types.str;
       description = ''

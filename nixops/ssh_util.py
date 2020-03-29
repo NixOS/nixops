@@ -169,6 +169,9 @@ class SSH(object):
         self._host_fun = host_fun
 
     def _get_target(self, user: Optional[str] = None) -> str:
+        if user is None:
+            raise ValueError(user)
+
         if self._host_fun is None:
             raise AssertionError("don't know which SSH host to connect to")
         return "{0}@{1}".format("root" if user is None else user, self._host_fun())
@@ -286,27 +289,33 @@ class SSH(object):
         return (flags, command)
 
     def _sanitize_command(
-        self, command: Command, allow_ssh_args: bool
+        self, command: Command, allow_ssh_args: bool, user: Optional[str] = "root"
     ) -> Iterable[str]:
         """
         Helper method for run_command, which essentially prepares and properly
         escape the command. See run_command() for further description.
         """
+
+        # Dont make assumptions about remote login shell
+        cmd: List[str] = ["bash", "-c"]
+
         if isinstance(command, str):
             if allow_ssh_args:
                 return shlex.split(command)
             else:
-                return ["--", command]
+                cmd.append(command)
         # iterable
         elif allow_ssh_args:
             return command
         else:
-            return [
-                "--",
-                " ".join(
-                    ["'{0}'".format(arg.replace("'", r"'\''")) for arg in command]
-                ),
-            ]
+            cmd.append(
+                " ".join(["'{0}'".format(arg.replace("'", r"'\''")) for arg in command])
+            )
+
+        if user and user != "root":
+            cmd.insert(0, "sudo")
+
+        return ["--", nixops.util.shlex_join(cmd)]
 
     def run_command(
         self,
@@ -343,7 +352,8 @@ class SSH(object):
             flags.append("-x")
         cmd = ["ssh"] + master.opts + flags
         cmd.append(self._get_target(user))
-        cmd += self._sanitize_command(command, allow_ssh_args)
+
+        cmd += self._sanitize_command(command, allow_ssh_args, user=user)
         if logged:
             try:
                 return nixops.util.logged_exec(cmd, self._logger, **kwargs)

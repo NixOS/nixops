@@ -7,6 +7,7 @@ from typing import Mapping, Any, List, Optional, Union, Set, Sequence
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
+import getpass
 
 
 class KeyOptions(nixops.resources.ResourceOptions):
@@ -25,6 +26,7 @@ class MachineOptions(nixops.resources.ResourceOptions):
     hasFastConnection: bool
     keys: Mapping[str, KeyOptions]
     nixosRelease: str
+    targetUser: str
 
 
 class MachineDefinition(nixops.resources.ResourceDefinition):
@@ -37,6 +39,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
     owners: List[str]
     has_fast_connection: bool
     keys: Mapping[str, KeyOptions]
+    ssh_user: str
 
     def __init__(self, name: str, config: nixops.resources.ResourceEval):
         super().__init__(name, config)
@@ -45,6 +48,11 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.owners = config["owners"]
         self.has_fast_connection = config["hasFastConnection"]
         self.keys = {k: KeyOptions(**v) for k, v in config["keys"].items()}
+
+        self.ssh_user = getpass.getuser()
+        ssh_user = config["targetUser"]
+        if ssh_user is not None and ssh_user:
+            self.ssh_user = ssh_user
 
 
 class MachineState(nixops.resources.ResourceState):
@@ -56,6 +64,7 @@ class MachineState(nixops.resources.ResourceState):
     )
     ssh_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
     ssh_port: int = nixops.util.attr_property("targetPort", 22, int)
+    ssh_user: str = nixops.util.attr_property("targetUser", "root", str)
     public_vpn_key: Optional[str] = nixops.util.attr_property("publicVpnKey", None)
     keys: Mapping[str, str] = nixops.util.attr_property("keys", {}, "json")
     owners: List[str] = nixops.util.attr_property("owners", [], "json")
@@ -97,6 +106,7 @@ class MachineState(nixops.resources.ResourceState):
     def set_common_state(self, defn) -> None:
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
+        self.ssh_user = defn.ssh_user
         self.has_fast_connection = defn.has_fast_connection
         if not self.has_fast_connection:
             self.ssh.enable_compression()
@@ -384,7 +394,9 @@ class MachineState(nixops.resources.ResourceState):
         # mainly operating in a chroot environment.
         if self.state == self.RESCUE:
             command = "export LANG= LC_ALL= LC_TIME=; " + command
-        return self.ssh.run_command(command, self.get_ssh_flags(), **kwargs)
+        return self.ssh.run_command(
+            command, self.get_ssh_flags(), user=self.ssh_user, **kwargs
+        )
 
     def switch_to_configuration(
         self, method: str, sync: bool, command: Optional[str] = None
@@ -412,9 +424,11 @@ class MachineState(nixops.resources.ResourceState):
 
         # Any remaining paths are copied from the local machine.
         env = dict(os.environ)
-        env["NIX_SSHOPTS"] = " ".join(ssh._get_flags() + ssh.get_master().opts)
+        env["NIX_SSHOPTS"] = " ".join(
+            ssh._get_flags() + ssh.get_master(user=self.ssh_user).opts
+        )
         self._logged_exec(
-            ["nix-copy-closure", "--to", ssh._get_target(), path]
+            ["nix-copy-closure", "--to", ssh._get_target(user=self.ssh_user), path]
             + ([] if self.has_fast_connection else ["--use-substitutes"]),
             env=env,
         )

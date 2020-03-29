@@ -782,7 +782,6 @@ def op_ssh(args):
         if not m:
             raise Exception("unknown machine ‘{0}’".format(machine))
         flags, command = m.ssh.split_openssh_args(args.args)
-        user = None if username == "root" else username
         sys.exit(
             m.ssh.run_command(
                 command,
@@ -790,7 +789,7 @@ def op_ssh(args):
                 check=False,
                 logged=False,
                 allow_ssh_args=True,
-                user=user,
+                user=username,
             )
         )
 
