@@ -56,6 +56,14 @@ in
       '';
     };
 
+    deployment.sshOptions = mkOption {
+      type = types.listOf types.str;
+      default = [];
+      description = ''
+        Extra options passed to the OpenSSH client verbatim, and are not executed by a shell.
+      '';
+    };
+
     deployment.alwaysActivate = mkOption {
       type = types.bool;
       default = true;

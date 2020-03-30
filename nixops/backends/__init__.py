@@ -42,6 +42,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
     has_fast_connection: bool
     keys: Mapping[str, KeyOptions]
     ssh_user: str
+    ssh_options: List[str]
 
     def __init__(self, name: str, config: nixops.resources.ResourceEval):
         super().__init__(name, config)
@@ -50,6 +51,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.owners = config["owners"]
         self.has_fast_connection = config["hasFastConnection"]
         self.keys = {k: KeyOptions(**v) for k, v in config["keys"].items()}
+        self.ssh_options = config["sshOptions"]
 
         self.ssh_user = getpass.getuser()
         ssh_user = config["targetUser"]
@@ -67,6 +69,7 @@ class MachineState(nixops.resources.ResourceState):
     ssh_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
     ssh_port: int = nixops.util.attr_property("targetPort", 22, int)
     ssh_user: str = nixops.util.attr_property("targetUser", "root", str)
+    ssh_options: List[str] = nixops.util.attr_property("sshOptions", [], "json")
     public_vpn_key: Optional[str] = nixops.util.attr_property("publicVpnKey", None)
     keys: Mapping[str, str] = nixops.util.attr_property("keys", {}, "json")
     owners: List[str] = nixops.util.attr_property("owners", [], "json")
@@ -109,6 +112,7 @@ class MachineState(nixops.resources.ResourceState):
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
         self.ssh_user = defn.ssh_user
+        self.ssh_options = defn.ssh_options
         self.has_fast_connection = defn.has_fast_connection
         if not self.has_fast_connection:
             self.ssh.enable_compression()
@@ -334,11 +338,11 @@ class MachineState(nixops.resources.ResourceState):
     def get_ssh_name(self):
         assert False
 
-    def get_ssh_flags(self, scp=False):
+    def get_ssh_flags(self, scp=False) -> List[str]:
         if scp:
             return ["-P", str(self.ssh_port)]
         else:
-            return ["-p", str(self.ssh_port)]
+            return list(self.ssh_options) + ["-p", str(self.ssh_port)]
 
     def get_ssh_password(self):
         return None
