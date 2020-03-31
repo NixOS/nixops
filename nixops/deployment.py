@@ -617,72 +617,6 @@ class Deployment:
 
             attrs_list = attrs_per_resource[m.name]
 
-            # Emit configuration to realise encrypted peer-to-peer links.
-            for m2 in active_resources.values():
-                ip = m.address_to(m2)
-                if ip:
-                    hosts[m.name][ip] += [m2.name, m2.name + "-unencrypted"]
-
-            # Always use the encrypted/unencrypted suffixes for aliases rather
-            # than for the canonical name!
-            hosts[m.name]["127.0.0.1"].append(m.name + "-encrypted")
-
-            for m2_name in defn.encrypted_links_to:
-
-                if m2_name not in active_machines:
-                    raise Exception(
-                        "‘deployment.encryptedLinksTo’ in machine ‘{0}’ refers to an unknown machine ‘{1}’".format(
-                            m.name, m2_name
-                        )
-                    )
-                m2 = active_machines[m2_name]
-
-                # Don't create two tunnels between a pair of machines.
-                if (
-                    m.name
-                    in self._machine_definition_for_required(m2.name).encrypted_links_to
-                    and m.name >= m2.name
-                ):
-                    continue
-                local_ipv4 = index_to_private_ip(m.index)
-                remote_ipv4 = index_to_private_ip(m2.index)
-                local_tunnel = 10000 + m2.index
-                remote_tunnel = 10000 + m.index
-                attrs_list.append(
-                    {
-                        ("networking", "p2pTunnels", "ssh", m2.name): {
-                            "target": "{0}-unencrypted".format(m2.name),
-                            "targetPort": m2.ssh_port,
-                            "localTunnel": local_tunnel,
-                            "remoteTunnel": remote_tunnel,
-                            "localIPv4": local_ipv4,
-                            "remoteIPv4": remote_ipv4,
-                            "privateKey": "/root/.ssh/id_charon_vpn",
-                        }
-                    }
-                )
-
-                # FIXME: set up the authorized_key file such that ‘m’
-                # can do nothing more than create a tunnel.
-                if m.public_vpn_key:
-                    authorized_keys[m2.name].append(m.public_vpn_key)
-                kernel_modules[m.name].add("tun")
-                kernel_modules[m2.name].add("tun")
-                hosts[m.name][remote_ipv4] += [m2.name, m2.name + "-encrypted"]
-                hosts[m2.name][local_ipv4] += [m.name, m.name + "-encrypted"]
-                trusted_interfaces[m.name].add("tun" + str(local_tunnel))
-                trusted_interfaces[m2.name].add("tun" + str(remote_tunnel))
-
-            private_ipv4 = m.private_ipv4
-            if private_ipv4:
-                attrs_list.append({("networking", "privateIPv4"): private_ipv4})
-            public_ipv4 = m.public_ipv4
-            if public_ipv4:
-                attrs_list.append({("networking", "publicIPv4"): public_ipv4})
-            public_vpn_key = m.public_vpn_key
-            if public_vpn_key:
-                attrs_list.append({("networking", "vpnPublicKey"): public_vpn_key})
-
             # Set system.stateVersion if the Nixpkgs version supports it.
             nixos_version = nixops.util.parse_nixos_version(defn.config["nixosRelease"])
             if nixos_version >= ["15", "09"]:
@@ -762,11 +696,7 @@ class Deployment:
                         config.append(
                             {
                                 ("services", "openssh", "knownHosts", m2.name): {
-                                    "hostNames": [
-                                        m2.name + "-unencrypted",
-                                        m2.name + "-encrypted",
-                                        m2.name,
-                                    ],
+                                    "hostNames": [m2.name,],
                                     "publicKey": m2.public_host_key,
                                 }
                             }
@@ -1367,7 +1297,6 @@ class Deployment:
                                 m.warn("cannot determine NixOS version")
 
                         m.wait_for_ssh(check=check)
-                        m.generate_vpn_key()
 
                 except:
                     r._errored = True

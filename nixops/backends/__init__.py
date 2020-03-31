@@ -15,10 +15,6 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
 
     def __init__(self, xml, config={}) -> None:
         nixops.resources.ResourceDefinition.__init__(self, xml, config)
-        self.encrypted_links_to: Set[str] = {
-            e.get("value")
-            for e in xml.findall("attrs/attr[@name='encryptedLinksTo']/list/string")
-        }
         self.store_keys_on_machine = (
             xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value")
             == "true"
@@ -437,31 +433,6 @@ class MachineState(nixops.resources.ResourceState):
             + ([] if self.has_fast_connection else ["--use-substitutes"]),
             env=env,
         )
-
-    def generate_vpn_key(self):
-        key_missing = False
-        try:
-            self.run_command("test -f /root/.ssh/id_charon_vpn")
-        except nixops.ssh_util.SSHCommandFailed:
-            key_missing = True
-
-        if self.public_vpn_key and not key_missing:
-            return
-
-        (private, public) = nixops.util.create_key_pair(
-            key_name="NixOps VPN key of {0}".format(self.name)
-        )
-        f = open(self.depl.tempdir + "/id_vpn-" + self.name, "w+")
-        f.write(private)
-        f.seek(0)
-        res = self.run_command(
-            "umask 077 && mkdir -p /root/.ssh &&" " cat > /root/.ssh/id_charon_vpn",
-            check=False,
-            stdin=f,
-        )
-        if res != 0:
-            raise Exception("unable to upload VPN key to ‘{0}’".format(self.name))
-        self.public_vpn_key = public
 
     def get_scp_name(self):
         ssh_name = self.get_ssh_name()
