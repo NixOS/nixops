@@ -8,7 +8,11 @@ from nixops.state import StateDict
 from nixops.diff import Diff, Handler
 
 
-class ResourceDefinition(object):
+class ResourceOptions(dict):
+    pass
+
+
+class ResourceDefinition:
     """Base class for NixOps resource definitions."""
 
     @classmethod
@@ -21,10 +25,10 @@ class ResourceDefinition(object):
         """A resource type identifier corresponding to the resources.<type> attribute in the Nix expression"""
         return cls.get_type()
 
-    def __init__(self, xml, config={}):
+    def __init__(self, name: str, config: ResourceOptions):
         self.config = config
-        self.name = xml.get("name")
-        assert self.name
+        self.name = name
+
         if not re.match("^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*$", self.name):
             raise Exception("invalid resource name ‘{0}’".format(self.name))
 

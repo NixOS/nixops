@@ -14,7 +14,6 @@ import hashlib
 
 # For typing
 from nixops.deployment import Deployment
-from xml.etree.ElementTree import Element
 from nixops.nix_expr import Function
 from typing import Optional, List, Dict, Tuple
 

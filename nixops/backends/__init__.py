@@ -7,48 +7,24 @@ from typing import Dict, Any, List, Optional, Union, Set
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
-import xml.etree.ElementTree as ET
 
 
 class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
 
-    def __init__(self, xml, config={}) -> None:
-        nixops.resources.ResourceDefinition.__init__(self, xml, config)
-        self.ssh_port = int(xml.find("attrs/attr[@name='targetPort']/int").get("value"))
-        self.always_activate = (
-            xml.find("attrs/attr[@name='alwaysActivate']/bool").get("value") == "true"
-        )
-        self.owners = [
-            e.get("value")
-            for e in xml.findall("attrs/attr[@name='owners']/list/string")
-        ]
-        self.has_fast_connection = (
-            xml.find("attrs/attr[@name='hasFastConnection']/bool").get("value")
-            == "true"
-        )
+    ssh_port: int
+    always_activate: bool
+    owners: List[str]
+    has_fast_connection: bool
+    keys: Dict[str, Dict]
 
-        def _extract_key_options(x: ET.Element) -> Dict[str, str]:
-            opts = {}
-            for (key, xmlType) in (
-                ("text", "string"),
-                ("keyFile", "path"),
-                ("destDir", "string"),
-                ("user", "string"),
-                ("group", "string"),
-                ("permissions", "string"),
-            ):
-                elem = x.find("attrs/attr[@name='{0}']/{1}".format(key, xmlType))
-                if elem is not None:
-                    value = elem.get("value")
-                    if value is not None:
-                        opts[key] = value
-            return opts
-
-        self.keys = {
-            k.get("name"): _extract_key_options(k)
-            for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")
-        }
+    def __init__(self, name: str, config: nixops.resources.ResourceOptions):
+        super().__init__(name, config)
+        self.ssh_port = config["targetPort"]
+        self.always_activate = config["alwaysActivate"]
+        self.owners = config["owners"]
+        self.has_fast_connection = config["hasFastConnection"]
+        self.keys = config["keys"]
 
 
 class MachineState(nixops.resources.ResourceState):
