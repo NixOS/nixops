@@ -500,13 +500,6 @@ class Deployment:
         for x in tree.findall("attrs/attr[@name='machines']/attrs/attr"):
             name = x.get("name")
             cfg = config["machines"][name]
-            if cfg["targetEnv"] == "azure":
-                self.logger.warn(
-                    "skipping Azure machine {}: the azure backend is now broken on nixops".format(
-                        name
-                    )
-                )
-                continue
             defn = _create_definition(x, cfg, cfg["targetEnv"])
             self.definitions[name] = defn
 
@@ -515,13 +508,6 @@ class Deployment:
             res_type = x.get("name")
             for y in x.findall("attrs/attr"):
                 name = y.get("name")
-                if "azure" in res_type:
-                    self.logger.warn(
-                        "skipping Azure resource {} of type {}: the azure backend is now broken on nixops".format(
-                            name, res_type
-                        )
-                    )
-                    continue
                 defn = _create_definition(
                     y, config["resources"][res_type][name], res_type
                 )
@@ -1720,7 +1706,7 @@ def _create_state(depl: Deployment, type: str, name: str, id: int) -> Any:
 # Automatically load all resource types.
 def _load_modules_from(dir: str) -> None:
     for module in os.listdir(os.path.dirname(__file__) + "/" + dir):
-        if module[-3:] != ".py" or module == "__init__.py" or "azure" in module:
+        if module[-3:] != ".py" or module == "__init__.py":
             continue
         importlib.import_module("nixops." + dir + "." + module[:-3])
 

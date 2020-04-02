@@ -141,7 +141,7 @@ rec {
 
       resource_used = res_set: resource:
           resource_referenced
-              ((flatten_resources res_set) ++ (attrValues azure_machines))
+              (flatten_resources res_set)
               (value: value == resource )
               true;
 
