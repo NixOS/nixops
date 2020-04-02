@@ -262,29 +262,6 @@ cloud.</para>
 
   </varlistentry>
 
-  <varlistentry><term><envar>AZURE_SUBSCRIPTION_ID</envar></term>
-    <term><envar>AZURE_AUTHORITY_URL</envar></term>
-    <term><envar>AZURE_USER</envar></term>
-    <term><envar>AZURE_SERVICE_PRINCIPAL</envar></term>
-    <term><envar>AZURE_PASSWORD</envar></term>
-
-    <listitem><para>Azure subscription ID, authority URL, user,
-    service principal and password.
-    Used if not set in an Azure machine deployment configuration via
-    <varname>deployment.azure.subscriptionId</varname>,
-    <varname>deployment.azure.authority</varname>,
-    <varname>deployment.azure.user</varname>,
-    <varname>deployment.azure.servicePrincipal</varname>
-    and <varname>deployment.azure.password</varname>,
-    and if not set in an Azure resource specification via
-    <varname>resources.$TYPE.$NAME.subscriptionId</varname>,
-    <varname>resources.$TYPE.$NAME.authority</varname>,
-    <varname>resources.$TYPE.$NAME.user</varname>,
-    <varname>resources.$TYPE.$NAME.servicePrincipal</varname>
-    and <varname>resources.$TYPE.$NAME.password</varname>.
-    </para></listitem>
-  </varlistentry>
-
 </variablelist>
 
 
