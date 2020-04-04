@@ -45,6 +45,10 @@ confusing build errors. Only use a ``pyproject.toml``::
   python = "^3.7"
   nixops = {git = "https://github.com/NixOS/nixops.git", rev = "master"}
 
+  [tool.poetry.dev-dependencies]
+  mypy = "^0.770"
+  black = "^19.10b0"
+
   [tool.poetry.plugins."nixops"]
   neatcloud = "nixops_neatcloud.plugin"
 
