@@ -1,43 +1,43 @@
 import functools
 import re
 import string
-from typing import Optional
+from typing import Optional, Any, List
 from textwrap import dedent
 
 __all__ = ["py2nix", "nix2py", "nixmerge", "expand_dict", "RawValue", "Function"]
 
 
-class RawValue(object):
-    def __init__(self, value):
-        self.value = value
+class RawValue:
+    def __init__(self, value: str) -> None:
+        self.value: str = value
 
-    def get_min_length(self):
+    def get_min_length(self) -> Optional[int]:
         return len(self.value)
 
-    def is_inlineable(self):
+    def is_inlineable(self) -> bool:
         return True
 
-    def indent(self, level=0, inline=False, maxwidth=80):
+    def indent(self, level: int = 0, inline: bool = False, maxwidth: int = 80) -> str:
         return "  " * level + self.value
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.value
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return isinstance(other, RawValue) and other.value == self.value
 
 
 class MultiLineRawValue(RawValue):
-    def __init__(self, values):
-        self.values = values
+    def __init__(self, values: List[str]):
+        self.values: List[str] = values
 
-    def get_min_length(self):
+    def get_min_length(self) -> None:
         return None
 
-    def is_inlineable(self):
+    def is_inlineable(self) -> bool:
         return False
 
-    def indent(self, level=0, inline=False, maxwidth=80):
+    def indent(self, level: int = 0, inline: bool = False, maxwidth: int = 80):
         return "\n".join(["  " * level + value for value in self.values])
 
 
@@ -78,7 +78,7 @@ class Container(object):
         self.suffix = suffix
         self.inline_variant = inline_variant
 
-    def get_min_length(self):
+    def get_min_length(self) -> Optional[int]:
         """
         Return the minimum length of this container and all sub-containers.
         """
@@ -90,10 +90,10 @@ class Container(object):
             + sum([child.get_min_length() for child in self.children])
         )
 
-    def is_inlineable(self):
+    def is_inlineable(self) -> bool:
         return all([child.is_inlineable() for child in self.children])
 
-    def indent(self, level=0, inline=False, maxwidth=80):
+    def indent(self, level=0, inline=False, maxwidth=80) -> str:
         if not self.is_inlineable():
             inline = False
         elif level * 2 + self.get_min_length() < maxwidth:
@@ -333,7 +333,13 @@ def nixmerge(expr1, expr2):
         if isinstance(e1, dict) and isinstance(e2, dict):
             return _merge_dicts(e1, e2)
         elif isinstance(e1, list) and isinstance(e2, list):
-            return list(set(e1).union(e2))
+            l = []
+            seen = set()
+            for x in e1 + e2:
+                if x not in seen:
+                    seen.add(x)
+                    l.append(x)
+            return l
         else:
             err = "unable to merge {0} with {1}".format(type(e1), type(e2))
             raise ValueError(err)
