@@ -66,24 +66,26 @@ Important Notes
    rename it to ``nixops_neatcloud``.
 4. Older style plugins used to store the Nix expressions in a directory
    named ``nix`` next to the python plugin directory, like this::
-    .
-    ├── nix
-    │   └── default.nix
-    └── nixops_neatcloud
-        ├── __init__.py
-        └── plugin.py
+   
+     .
+     ├── nix
+     │   └── default.nix
+     └── nixops_neatcloud
+         ├── __init__.py
+         └── plugin.py
 
    plugins must now put the nix expressions underneat the plugin's
    python directory::
-    .
-    └── nixops_neatcloud
-        ├── nix
-        │   └── default.nix
-        ├── __init__.py
-        └── plugin.py
-
+   
+     .
+     └── nixops_neatcloud
+         ├── nix
+         │   └── default.nix
+         ├── __init__.py
+         └── plugin.py
 
    and the nixexprs hook function which looked like this::
+   
      @nixops.plugins.hookimpl
      def nixexprs():
          expr_path = os.path.realpath(os.path.dirname(__file__) + "/../../../../share/nix/nixops-vbox")
@@ -97,6 +99,7 @@ Important Notes
          ]
 
    can now look like this::
+   
      @nixops.plugins.hookimpl
      def nixexprs():
          return [
