@@ -30,8 +30,9 @@ configuration.
 
 First, create a ``pyproject.toml`` (see `PEP-0517
 <https://www.python.org/dev/peps/pep-0517/>`_ to describe your
-project. This is instead of a ``setup.py``, and using both may cause
-confusing build errors. Only use a ``pyproject.toml``:
+project. We do not use setup.py, and trying to use both a ``setup.py``
+and ``pyproject.toml`` may cause confusing build errors. Only use a
+``pyproject.toml``:
 
 .. code-block:: toml
 
