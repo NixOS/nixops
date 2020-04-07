@@ -68,7 +68,7 @@ Important Notes
    rename it to ``nixops_neatcloud``.
 4. Older style plugins used to store the Nix expressions in a directory
    named ``nix`` next to the python plugin directory, like this::
-   
+
      .
      ├── nix
      │   └── default.nix
@@ -78,18 +78,18 @@ Important Notes
 
    plugins must now put the nix expressions underneat the plugin's
    python directory::
-   
+
      .
      └── nixops_neatcloud
          ├── nix
          │   └── default.nix
          ├── __init__.py
          └── plugin.py
-   
+
    and the nixexprs hook function which looked like this:
-   
+
    .. code-block:: python
-   
+
      @nixops.plugins.hookimpl
      def nixexprs():
          expr_path = os.path.realpath(os.path.dirname(__file__) + "/../../../../share/nix/nixops-vbox")
@@ -103,9 +103,9 @@ Important Notes
          ]
 
    can now look like this:
-   
+
    .. code-block:: python
-   
+
      @nixops.plugins.hookimpl
      def nixexprs():
          return [
@@ -127,7 +127,9 @@ Now create your first ``poetry.lock`` file with ``poetry lock``::
 
 Exit the Nix shell, and create the supporting Nix files.
 
-Create a ``default.nix``::
+Create a ``default.nix``:
+
+.. code-block:: nix
 
   { pkgs ? import <nixpkgs> {} }:
   let
@@ -137,7 +139,9 @@ Create a ``default.nix``::
     overrides = pkgs.poetry2nix.overrides.withDefaults overrides;
   }
 
-And a minimal ``overrides.nix``::
+And a minimal ``overrides.nix``:
+
+.. code-block:: nix
 
   { pkgs }:
 
@@ -148,7 +152,9 @@ And a minimal ``overrides.nix``::
     });
   }
 
-and finally, a ``shell.nix``::
+and finally, a ``shell.nix``:
+
+.. code-block:: nix
 
   { pkgs ? import <nixpkgs> {} }:
   let
@@ -193,7 +199,9 @@ Plug-in Loading
 
 NixOps uses `Pluggy <https://pluggy.readthedocs.io/en/latest/>`_ to
 discover and load plugins. The glue which hooks things together is in
-``pyproject.toml``::
+``pyproject.toml``:
+
+.. code-block:: toml
 
   [tool.poetry.plugins."nixops"]
   neatcloud = "nixops_neatcloud.plugin"
@@ -206,7 +214,9 @@ Developing NixOps and a plugin at the same time
 
 In this case you want a mutable copy of NixOps and your plugin. Since
 we are developing the plugin like any other Python program, we can
-specify a relative path to NixOps's source in the pyproject.toml::
+specify a relative path to NixOps's source in the pyproject.toml:
+
+.. code-block:: toml
 
   nixops = { path = "../nixops" }
 
