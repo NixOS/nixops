@@ -30,8 +30,11 @@ configuration.
 
 First, create a ``pyproject.toml`` (see `PEP-0517
 <https://www.python.org/dev/peps/pep-0517/>`_ to describe your
-project. This is intsead of a ``setup.py``, and using both may cause
-confusing build errors. Only use a ``pyproject.toml``::
+project. We do not use setup.py, and trying to use both a ``setup.py``
+and ``pyproject.toml`` may cause confusing build errors. Only use a
+``pyproject.toml``:
+
+.. code-block:: toml
 
   [tool.poetry]
   name = "nixops_neatcloud"
@@ -45,12 +48,73 @@ confusing build errors. Only use a ``pyproject.toml``::
   python = "^3.7"
   nixops = {git = "https://github.com/NixOS/nixops.git", rev = "master"}
 
+  [tool.poetry.dev-dependencies]
+  mypy = "^0.770"
+  black = "^19.10b0"
+
   [tool.poetry.plugins."nixops"]
   neatcloud = "nixops_neatcloud.plugin"
 
   [build-system]
   requires = ["poetry>=0.12"]
   build-backend = "poetry.masonry.api"
+
+Important Notes
+----
+
+1. If you have a ``setup.py``, delete it now.
+2. If your plugin is named ``nixops_neatcloud``, the source directory
+   must be named ``nixops_neatcloud``.
+3. If your source directory was named ``nixopsneatcloud``, please
+   rename it to ``nixops_neatcloud``.
+4. Older style plugins used to store the Nix expressions in a directory
+   named ``nix`` next to the python plugin directory, like this::
+
+     .
+     ├── nix
+     │   └── default.nix
+     └── nixops_neatcloud
+         ├── __init__.py
+         └── plugin.py
+
+   plugins must now put the nix expressions underneat the plugin's
+   python directory::
+
+     .
+     └── nixops_neatcloud
+         ├── nix
+         │   └── default.nix
+         ├── __init__.py
+         └── plugin.py
+
+   and the nixexprs hook function which looked like this:
+
+   .. code-block:: python
+
+     @nixops.plugins.hookimpl
+     def nixexprs():
+         expr_path = os.path.realpath(os.path.dirname(__file__) + "/../../../../share/nix/nixops-vbox")
+         if not os.path.exists(expr_path):
+             expr_path = os.path.realpath(os.path.dirname(__file__) + "/../../../../../share/nix/nixops-vbox")
+         if not os.path.exists(expr_path):
+             expr_path = os.path.dirname(__file__) + "/../nix"
+
+         return [
+             expr_path
+         ]
+
+   can now look like this:
+
+   .. code-block:: python
+
+     @nixops.plugins.hookimpl
+     def nixexprs():
+         return [
+             os.path.dirname(os.path.abspath(__file__)) + "/nix"
+         ]
+
+On with Poetry
+----
 
 Now create your first ``poetry.lock`` file with ``poetry lock``::
 
@@ -64,7 +128,9 @@ Now create your first ``poetry.lock`` file with ``poetry lock``::
 
 Exit the Nix shell, and create the supporting Nix files.
 
-Create a ``default.nix``::
+Create a ``default.nix``:
+
+.. code-block:: nix
 
   { pkgs ? import <nixpkgs> {} }:
   let
@@ -74,7 +140,9 @@ Create a ``default.nix``::
     overrides = pkgs.poetry2nix.overrides.withDefaults overrides;
   }
 
-And a minimal ``overrides.nix``::
+And a minimal ``overrides.nix``:
+
+.. code-block:: nix
 
   { pkgs }:
 
@@ -85,7 +153,9 @@ And a minimal ``overrides.nix``::
     });
   }
 
-and finally, a ``shell.nix``::
+and finally, a ``shell.nix``:
+
+.. code-block:: nix
 
   { pkgs ? import <nixpkgs> {} }:
   let
@@ -130,7 +200,9 @@ Plug-in Loading
 
 NixOps uses `Pluggy <https://pluggy.readthedocs.io/en/latest/>`_ to
 discover and load plugins. The glue which hooks things together is in
-``pyproject.toml``::
+``pyproject.toml``:
+
+.. code-block:: toml
 
   [tool.poetry.plugins."nixops"]
   neatcloud = "nixops_neatcloud.plugin"
@@ -143,7 +215,9 @@ Developing NixOps and a plugin at the same time
 
 In this case you want a mutable copy of NixOps and your plugin. Since
 we are developing the plugin like any other Python program, we can
-specify a relative path to NixOps's source in the pyproject.toml::
+specify a relative path to NixOps's source in the pyproject.toml:
+
+.. code-block:: toml
 
   nixops = { path = "../nixops" }
 
@@ -186,7 +260,9 @@ If a dependency is missing, add the dependency to your
 Zipp can't find toml
 ----
 
-Add zipp to your ``overrides.nix``, providing toml explicitly::
+Add zipp to your ``overrides.nix``, providing toml explicitly:
+
+.. code-block:: nix
 
   { pkgs }:
 
@@ -203,7 +279,9 @@ FileNotFoundError: [Errno 2] No such file or directory: 'setup.py'
 
 This dependency needs to be built in the ``pyproject`` format, which
 means it will also need poetry as a dependency. Add this to your
-``overrides.nix``::
+``overrides.nix``:
+
+.. code-block:: nix
 
     package-name = super.package-name.overridePythonAttrs({ nativeBuildInputs ? [], ... }: {
       format = "pyproject";
