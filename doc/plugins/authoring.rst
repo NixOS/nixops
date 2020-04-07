@@ -259,7 +259,7 @@ If a dependency is missing, add the dependency to your
 Zipp can't find toml
 ----
 
-Add zipp to your ``overrides.nix``, providing toml explicitly
+Add zipp to your ``overrides.nix``, providing toml explicitly:
 
 .. code-block:: nix
 
