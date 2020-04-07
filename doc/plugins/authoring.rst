@@ -249,7 +249,9 @@ If a dependency is missing, add the dependency to your
 Zipp can't find toml
 ----
 
-Add zipp to your ``overrides.nix``, providing toml explicitly::
+Add zipp to your ``overrides.nix``, providing toml explicitly
+
+.. code-block:: nix
 
   { pkgs }:
 
@@ -266,7 +268,9 @@ FileNotFoundError: [Errno 2] No such file or directory: 'setup.py'
 
 This dependency needs to be built in the ``pyproject`` format, which
 means it will also need poetry as a dependency. Add this to your
-``overrides.nix``::
+``overrides.nix``:
+
+.. code-block:: nix
 
     package-name = super.package-name.overridePythonAttrs({ nativeBuildInputs ? [], ... }: {
       format = "pyproject";
