@@ -31,7 +31,9 @@ configuration.
 First, create a ``pyproject.toml`` (see `PEP-0517
 <https://www.python.org/dev/peps/pep-0517/>`_ to describe your
 project. This is instead of a ``setup.py``, and using both may cause
-confusing build errors. Only use a ``pyproject.toml``::
+confusing build errors. Only use a ``pyproject.toml``:
+
+.. code-block:: toml
 
   [tool.poetry]
   name = "nixops_neatcloud"
@@ -83,8 +85,10 @@ Important Notes
          │   └── default.nix
          ├── __init__.py
          └── plugin.py
-
-   and the nixexprs hook function which looked like this::
+   
+   and the nixexprs hook function which looked like this:
+   
+   .. code-block:: python
    
      @nixops.plugins.hookimpl
      def nixexprs():
@@ -98,7 +102,9 @@ Important Notes
              expr_path
          ]
 
-   can now look like this::
+   can now look like this:
+   
+   .. code-block:: python
    
      @nixops.plugins.hookimpl
      def nixexprs():
