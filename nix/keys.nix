@@ -23,6 +23,7 @@ let
     options.keyFile = mkOption {
       default = null;
       type = types.nullOr types.path;
+      apply = toString;
       description = ''
         When non-null, contents of the specified file will be deployed to the
         specified key on the target machine.  If the key name is
