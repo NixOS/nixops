@@ -6,7 +6,7 @@
   inputs.nixpkgs.url = "nixpkgs/nixos-20.03";
 
   inputs.nixops-aws = {
-    url = github:NixOS/nixops-aws;
+    url = github:NixOS/nixops-aws/flake;
     flake = false;
   };
 
