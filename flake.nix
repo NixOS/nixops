@@ -20,7 +20,7 @@
 
       officialRelease = false;
 
-      version = "1.8" + (if officialRelease then "" else "pre${builtins.substring 0 8 self.lastModifiedDate}.${self.shortRev}");
+      version = "1.8" + (if officialRelease then "" else "pre${builtins.substring 0 8 self.lastModifiedDate}.${self.shortRev or "dirty"}");
 
       pkgs = import nixpkgs {
         system = "x86_64-linux";
@@ -38,7 +38,7 @@
 
           buildInputs = [ python2Packages.nose python2Packages.coverage ];
 
-          nativeBuildInputs = [ pkgs.mypy ];
+          nativeBuildInputs = [ mypy ];
 
           propagatedBuildInputs = with python2Packages;
             [ prettytable
@@ -73,7 +73,7 @@
           '';
 
           # Needed by libcloud during tests.
-          SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+          SSL_CERT_FILE = "${cacert}/etc/ssl/certs/ca-bundle.crt";
 
           # Add openssh to nixops' PATH. On some platforms, e.g. CentOS and RHEL
           # the version of openssh is causing errors with big networks (40+).
@@ -119,7 +119,7 @@
           distPhase =
             ''
               # Generate the manual and the man page.
-              cp ${(import ./doc/manual { revision = self.rev; inherit nixpkgs; }).optionsDocBook} doc/manual/machine-options.xml
+              cp ${(import ./doc/manual { revision = self.rev or "dirty"; inherit nixpkgs; }).optionsDocBook} doc/manual/machine-options.xml
 
               for i in scripts/nixops setup.py doc/manual/manual.xml; do
                 substituteInPlace $i --subst-var-by version ${version}
