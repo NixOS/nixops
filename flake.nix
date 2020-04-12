@@ -3,15 +3,15 @@
 
   edition = 201909;
 
-  inputs.nixpkgs.uri = "nixpkgs/release-19.09";
+  inputs.nixpkgs.url = "nixpkgs/nixos-20.03";
 
   inputs.nixops-aws = {
-    uri = github:NixOS/nixops-aws;
+    url = github:NixOS/nixops-aws;
     flake = false;
   };
 
   inputs.nixops-hetzner = {
-    uri = github:NixOS/nixops-hetzner/zfs;
+    url = github:NixOS/nixops-hetzner/zfs;
     flake = false;
   };
 
@@ -20,7 +20,7 @@
 
       officialRelease = false;
 
-      version = "1.8" + (if officialRelease then "" else "pre${builtins.substring 0 8 self.lastModified}.${self.shortRev}");
+      version = "1.8" + (if officialRelease then "" else "pre${builtins.substring 0 8 self.lastModifiedDate}.${self.shortRev}");
 
       pkgs = import nixpkgs {
         system = "x86_64-linux";

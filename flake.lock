@@ -37,18 +37,18 @@
     },
     "nixpkgs": {
       "info": {
-        "lastModified": 1583402222,
-        "narHash": "sha256-j7WJlbJD7AO8mhtAMvsqvAFxCprYzg234H8QPaQEWgE="
+        "lastModified": 1586219474,
+        "narHash": "sha256-fvfrMnEA2lDnXvH/eInGV5i0sO/EGLVHa4pOek8VG78="
       },
       "locked": {
-        "owner": "edolstra",
+        "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "54a27fb2fc5fbd8927f9f6dc77fe1de1faa05266",
+        "rev": "29eddfc36d720dcc4822581175217543b387b1e8",
         "type": "github"
       },
       "original": {
         "id": "nixpkgs",
-        "ref": "release-19.09",
+        "ref": "nixos-20.03",
         "type": "indirect"
       }
     },
