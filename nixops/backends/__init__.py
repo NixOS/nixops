@@ -11,6 +11,7 @@ import nixops.ssh_util
 class KeyOptions(nixops.resources.ResourceOptions):
     text: Optional[str]
     keyFile: Optional[str]
+    keyCmd: Optional[str]
     destDir: str
     user: str
     group: str
@@ -290,11 +291,14 @@ class MachineState(nixops.resources.ResourceState):
                 ).format(destDir)
             )
 
-            if opts["text"] is not None:
+            if opts.get("text") is not None:
                 with open(tmp, "w+") as f:
                     f.write(opts["text"])
-            elif opts["keyFile"] is not None:
+            elif opts.get("keyFile") is not None:
                 self._logged_exec(["cp", opts["keyFile"], tmp])
+            elif opts.get("keyCmd") is not None:
+                with open(tmp, "w+") as f:
+                    subprocess.Popen(opts["keyCmd"], stdout=f, shell=True)
             else:
                 raise Exception(
                     "Neither 'text' or 'keyFile' options were set for key '{0}'.".format(
