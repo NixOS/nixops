@@ -3,12 +3,13 @@
 import re
 import nixops.util
 from threading import Event
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Iterator
 from nixops.state import StateDict
 from nixops.diff import Diff, Handler
+from nixops.util import ImmutableMapping
 
 
-class ResourceOptions(dict):
+class ResourceOptions(ImmutableMapping[Any, Any]):
     pass
 
 

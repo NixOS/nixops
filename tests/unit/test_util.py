@@ -28,3 +28,35 @@ class TestUtilTest(unittest.TestCase):
         )
 
         self.assertEqual(ret.strip(), msg)
+
+    def test_immutable_dict(self):
+        d = {
+            "foo": "bar",
+            "list": [1, 2, 3],
+            "nested": {"x": "y",},
+            "nested_in_list": [{"x": "y",}],
+        }
+
+        # Assert that the shape of the immutable dict is the same as the input dict
+
+        i = util.ImmutableMapping(d)
+        self.assertEqual(d["foo"], i["foo"])
+
+        tup = i["list"]
+        self.assertTrue(isinstance(tup, tuple))
+        self.assertEqual(list(tup), d["list"])
+
+        dic = i["nested"]
+        self.assertTrue(isinstance(dic, util.ImmutableMapping))
+        self.assertEqual(
+            dic["x"], d["nested"]["x"],
+        )
+
+        dic_l = i["nested_in_list"][0]
+        self.assertTrue(isinstance(dic_l, util.ImmutableMapping))
+
+        # Assert immutability
+        def _assign():
+            i["z"] = 1
+
+        self.assertRaises(TypeError, _assign)

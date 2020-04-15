@@ -16,7 +16,22 @@ import subprocess
 import logging
 import atexit
 import re
-from typing import Callable, List, Optional, Any, IO, Union, Mapping, TextIO, Tuple
+from typing import (
+    Callable,
+    List,
+    Optional,
+    Any,
+    IO,
+    Union,
+    Mapping,
+    TextIO,
+    Tuple,
+    Dict,
+    Iterator,
+    Hashable,
+    TypeVar,
+    Generic,
+)
 
 # the following ansi_ imports are for backwards compatability. They
 # would belong fine in this util.py, but having them in util.py
@@ -57,6 +72,45 @@ class CommandFailed(Exception):
 
     def __str__(self) -> str:
         return "{0} (exit code {1})".format(self.message, self.exitcode)
+
+
+K = TypeVar("K")
+V = TypeVar("V")
+
+
+class ImmutableMapping(Generic[K, V], Mapping[K, V]):
+    """
+    An immutable wrapper around dict's that also turns lists to tuples
+    """
+
+    def __init__(self, base_dict: Dict):
+        def _transform_value(value: Any) -> Any:
+            if isinstance(value, list):
+                return tuple(_transform_value(i) for i in value)
+            elif isinstance(value, dict):
+                return self.__class__(value)
+            else:
+                return value
+
+        self._dict: Dict[K, V] = {k: _transform_value(v) for k, v in base_dict.items()}
+
+    def __getitem__(self, key: K) -> V:
+        return self._dict[key]
+
+    def __iter__(self) -> Iterator[K]:
+        return iter(self._dict)
+
+    def __len__(self) -> int:
+        return len(self._dict)
+
+    def __contains__(self, key: Any) -> bool:
+        return key in self._dict
+
+    def __getattr__(self, key: Any) -> V:
+        return self[key]
+
+    def __repr__(self) -> str:
+        return "<{} {}>".format(self.__class__.__name__, self._dict)
 
 
 def logged_exec(
