@@ -2,13 +2,14 @@
 from __future__ import annotations
 import os
 import re
-from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar
+from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar, Callable
 from nixops.monkey import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
 from nixops.state import RecordId
 import subprocess
+import threading
 
 
 class KeyOptions(nixops.resources.ResourceOptions):
@@ -265,20 +266,57 @@ class MachineState(
         self.state = self.STARTING
         self.ssh.reset()
 
+    def ping(self) -> bool:
+        event = threading.Event()
+
+        def _worker():
+            try:
+                self.ssh.run_command(
+                    ["true"], user=self.ssh_user, logged=False, connection_tries=1
+                )
+            except Exception:
+                pass
+            else:
+                event.set()
+
+        t = threading.Thread(target=_worker)
+        t.start()
+
+        return event.wait(timeout=1)
+
+    def _ping(self) -> None:
+        """Wrap ping() so we can check for success via exceptions"""
+        if not self.ping():
+            raise ValueError("Did not return True")
+
+    def wait_for_up(
+        self,
+        timeout: Optional[int] = None,
+        callback: Optional[Callable[[], Any]] = None,
+    ) -> None:
+        nixops.util.wait_for_success(self._ping, timeout=timeout, callback=callback)
+
+    def wait_for_down(
+        self,
+        timeout: Optional[int] = None,
+        callback: Optional[Callable[[], Any]] = None,
+    ) -> None:
+        nixops.util.wait_for_fail(self._ping, timeout=timeout, callback=callback)
+
     def reboot_sync(self, hard: bool = False) -> None:
         """Reboot this machine and wait until it's up again."""
         self.reboot(hard=hard)
         self.log_start("waiting for the machine to finish rebooting...")
-        nixops.util.wait_for_tcp_port(
-            self.get_ssh_name(),
-            self.ssh_port,
-            open=False,
-            callback=lambda: self.log_continue("."),
-        )
+
+        def progress_cb() -> None:
+            self.log_continue(".")
+
+        self.wait_for_down(callback=progress_cb)
+
         self.log_continue("[down]")
-        nixops.util.wait_for_tcp_port(
-            self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue(".")
-        )
+
+        self.wait_for_up(callback=progress_cb)
+
         self.log_end("[up]")
         self.state = self.UP
         self.ssh_pinged = True
@@ -401,9 +439,9 @@ class MachineState(
         if self.ssh_pinged and (not check or self._ssh_pinged_this_time):
             return
         self.log_start("waiting for SSH...")
-        nixops.util.wait_for_tcp_port(
-            self.get_ssh_name(), self.ssh_port, callback=lambda: self.log_continue(".")
-        )
+
+        self.wait_for_up(callback=lambda: self.log_continue("."))
+
         self.log_end("")
         if self.state != self.RESCUE:
             self.state = self.UP
