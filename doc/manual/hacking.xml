@@ -60,7 +60,7 @@ $ nix-build release.nix -A tests.none_backend
 </screen>
 
 </para>
-          
+
 <para>Some useful snippets to debug nixops:
 
 Logging
@@ -80,6 +80,13 @@ To set breakpoint use
 <screen>
 import sys; import pdb; pdb.Pdb(stdout=sys.__stdout__).set_trace()
 </screen>
+
+You can also avoid setting a breakpoint and enter pdb in post-mortem mode on the first exception
+
+<screen>
+$ nixops --pdb
+</screen>
+
 
 </para>
 

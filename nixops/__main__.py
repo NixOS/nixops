@@ -8,6 +8,9 @@ from nixops.script_defs import *
 # Set up the parser.
 parser = ArgumentParser(description="NixOS cloud deployment tool", prog="nixops")
 parser.add_argument("--version", action="version", version="NixOps @version@")
+parser.add_argument(
+    "--pdb", action="store_true", help="Invoke pdb on unhandled exception"
+)
 
 subparsers: _SubParsersAction = parser.add_subparsers(
     help="sub-command help", metavar="operation", required=True
@@ -620,6 +623,7 @@ def main() -> None:
 
     args = parser.parse_args()
     setup_logging(args)
+    setup_debugger(args)
 
     try:
         nixops.deployment.DEBUG = args.debug
