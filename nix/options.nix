@@ -64,6 +64,17 @@ in
       '';
     };
 
+    deployment.privilegeEscalationCommand = mkOption {
+      type = types.listOf types.str;
+      default = [ "sudo" "-H" ];
+      description = ''
+        A command to escalate to root privileges when using SSH as a non-root user.
+        This option is ignored if the <literal>targetUser</literal> option is set to <literal>root</literal>.
+
+        The program and its options are executed verbatim without shell.
+      '';
+    };
+
     deployment.alwaysActivate = mkOption {
       type = types.bool;
       default = true;

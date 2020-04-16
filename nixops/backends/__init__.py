@@ -43,6 +43,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
     keys: Mapping[str, KeyOptions]
     ssh_user: str
     ssh_options: List[str]
+    privilege_escalation_command: List[str]
 
     def __init__(self, name: str, config: nixops.resources.ResourceEval):
         super().__init__(name, config)
@@ -57,6 +58,8 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         ssh_user = config["targetUser"]
         if ssh_user is not None and ssh_user:
             self.ssh_user = ssh_user
+
+        self.privilege_escalation_command = config["privilegeEscalationCommand"]
 
 
 class MachineState(nixops.resources.ResourceState):
@@ -116,6 +119,8 @@ class MachineState(nixops.resources.ResourceState):
         self.has_fast_connection = defn.has_fast_connection
         if not self.has_fast_connection:
             self.ssh.enable_compression()
+
+        self.ssh.privilege_escalation_command = list(defn.privilege_escalation_command)
 
     def stop(self) -> None:
         """Stop this machine, if possible."""

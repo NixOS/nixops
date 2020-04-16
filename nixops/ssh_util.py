@@ -160,6 +160,7 @@ class SSH(object):
         self._logger = logger
         self._ssh_master: Optional[SSHMaster] = None
         self._compress = False
+        self.privilege_escalation_command: List[str] = []
 
     def register_host_fun(self, host_fun: Callable[[], str]) -> None:
         """
@@ -307,7 +308,7 @@ class SSH(object):
             )
 
         if user and user != "root":
-            cmd.insert(0, "sudo")
+            cmd = self.privilege_escalation_command + cmd
 
         return ["--", nixops.util.shlex_join(cmd)]
 
