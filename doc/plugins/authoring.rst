@@ -113,6 +113,34 @@ Important Notes
              os.path.dirname(os.path.abspath(__file__)) + "/nix"
          ]
 
+5. Resource subclasses must now work with Python objects instead of XML
+
+   This old-style ResourceDefinition subclass:
+
+   .. code-block:: python
+
+     class MachineDefinition(nixops.resources.ResourceDefinition):
+
+         def __init__(self, xml):
+             super().__init__(xml)
+             self.store_keys_on_machine = (
+                 xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value")
+                 == "true"
+             )
+
+   Should now look like:
+
+   .. code-block:: python
+
+     class MachineDefinition(nixops.resources.ResourceDefinition):
+
+         store_keys_on_machine: bool
+
+         def __init__(self, name: str, config: nixops.resources.ResourceOptions):
+             super().__init__(name, config)
+             self.store_keys_on_machine = config["storeKeysOnMachine"]
+
+
 On with Poetry
 ----
 
