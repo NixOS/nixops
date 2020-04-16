@@ -136,7 +136,7 @@ Important Notes
 
          store_keys_on_machine: bool
 
-         def __init__(self, name: str, config: nixops.resources.ResourceOptions):
+         def __init__(self, name: str, config: nixops.resources.ResourceEval):
              super().__init__(name, config)
              self.store_keys_on_machine = config["storeKeysOnMachine"]
 

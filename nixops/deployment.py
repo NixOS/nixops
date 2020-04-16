@@ -594,13 +594,13 @@ class Deployment:
             attrs_list = attrs_per_resource[m.name]
 
             # Set system.stateVersion if the Nixpkgs version supports it.
-            nixos_version = nixops.util.parse_nixos_version(defn.config["nixosRelease"])
+            nixos_version = nixops.util.parse_nixos_version(defn.config.nixosRelease)
             if nixos_version >= ["15", "09"]:
                 attrs_list.append(
                     {
                         ("system", "stateVersion"): Call(
                             RawValue("lib.mkDefault"),
-                            m.state_version or defn.config["nixosRelease"],
+                            m.state_version or defn.config.nixosRelease,
                         )
                     }
                 )
@@ -1671,7 +1671,7 @@ def _create_definition(
 
     for cls in _subclasses(nixops.resources.ResourceDefinition):
         if type_name == cls.get_resource_type():
-            return cls(name, nixops.resources.ResourceOptions(config))
+            return cls(name, nixops.resources.ResourceEval(config))
 
     raise nixops.deployment.UnknownBackend(
         "unknown resource type ‘{0}’".format(type_name)

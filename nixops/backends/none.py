@@ -4,7 +4,7 @@ import os
 import sys
 import nixops.util
 
-from nixops.backends import MachineDefinition, MachineState
+from nixops.backends import MachineDefinition, MachineState, MachineOptions
 from nixops.util import attr_property, create_key_pair
 import nixops.resources
 
@@ -15,11 +15,13 @@ class NoneDefinition(MachineDefinition):
     _target_host: str
     _public_ipv4: Optional[str]
 
+    config: MachineOptions
+
     @classmethod
     def get_type(cls):
         return "none"
 
-    def __init__(self, name: str, config: nixops.resources.ResourceOptions):
+    def __init__(self, name: str, config: nixops.resources.ResourceEval):
         super().__init__(name, config)
         self._target_host = config["targetHost"]
         self._public_ipv4 = config.get("publicIPv4", None)

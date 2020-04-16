@@ -136,7 +136,7 @@ class ImmutableValidatedObject:
                 return value
 
             if inspect.isclass(ann) and issubclass(ann, ImmutableValidatedObject):
-                return ann(**value)
+                value = ann(**value)
 
             typeguard.check_type(key, value, ann)
 

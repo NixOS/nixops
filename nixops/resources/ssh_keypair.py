@@ -18,7 +18,7 @@ class SSHKeyPairDefinition(nixops.resources.ResourceDefinition):
     def get_resource_type(cls):
         return "sshKeyPairs"
 
-    def __init__(self, name: str, config: nixops.resources.ResourceOptions):
+    def __init__(self, name: str, config: nixops.resources.ResourceEval):
         super().__init__(name, config)
 
     def show_type(self):

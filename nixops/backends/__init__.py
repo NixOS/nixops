@@ -3,22 +3,33 @@
 import os
 import re
 import subprocess
-from typing import Dict, Any, List, Optional, Union, Set
+from typing import Mapping, Any, List, Optional, Union, Set, Sequence
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
 
 
+class MachineOptions(nixops.resources.ResourceOptions):
+    targetPort: int
+    alwaysActivate: bool
+    owners: Sequence[str]
+    hasFastConnection: bool
+    keys: Mapping[str, Mapping]
+    nixosRelease: str
+
+
 class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
+
+    config: MachineOptions
 
     ssh_port: int
     always_activate: bool
     owners: List[str]
     has_fast_connection: bool
-    keys: Dict[str, Dict]
+    keys: Mapping[str, Mapping]
 
-    def __init__(self, name: str, config: nixops.resources.ResourceOptions):
+    def __init__(self, name: str, config: nixops.resources.ResourceEval):
         super().__init__(name, config)
         self.ssh_port = config["targetPort"]
         self.always_activate = config["alwaysActivate"]
@@ -37,7 +48,7 @@ class MachineState(nixops.resources.ResourceState):
     ssh_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
     ssh_port: int = nixops.util.attr_property("targetPort", 22, int)
     public_vpn_key: Optional[str] = nixops.util.attr_property("publicVpnKey", None)
-    keys: Dict[str, str] = nixops.util.attr_property("keys", {}, "json")
+    keys: Mapping[str, str] = nixops.util.attr_property("keys", {}, "json")
     owners: List[str] = nixops.util.attr_property("owners", [], "json")
 
     # Nix store path of the last global configuration deployed to this
@@ -178,7 +189,7 @@ class MachineState(nixops.resources.ResourceState):
             "don't know how to remove a backup for machine ‘{0}’".format(self.name)
         )
 
-    def get_backups(self) -> Dict[str, Dict[str, Any]]:
+    def get_backups(self) -> Mapping[str, Mapping[str, Any]]:
         self.warn("don't know how to list backups for ‘{0}’".format(self.name))
         return {}
 
