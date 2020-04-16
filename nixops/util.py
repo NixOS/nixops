@@ -500,45 +500,6 @@ def write_file(path: str, contents: str) -> None:
         f.write(contents)
 
 
-def xml_expr_to_python(node):
-    res: Any
-    if node.tag == "attrs":
-        res = {}
-        for attr in node.findall("attr"):
-            if attr.get("name") != "_module":
-                res[attr.get("name")] = xml_expr_to_python(attr.find("*"))
-        return res
-
-    elif node.tag == "list":
-        res = []
-        for elem in node.findall("*"):
-            res.append(xml_expr_to_python(elem))
-        return res
-
-    elif node.tag == "string":
-        return node.get("value")
-
-    elif node.tag == "path":
-        return node.get("value")
-
-    elif node.tag == "bool":
-        return node.get("value") == "true"
-
-    elif node.tag == "int":
-        return int(node.get("value"))
-
-    elif node.tag == "null":
-        return None
-
-    elif node.tag == "derivation":
-        return {"drvPath": node.get("drvPath/"), "outPath": node.get("outPath")}
-
-    raise Exception(
-        "cannot convert XML output of nix-instantiate to Python: Unknown tag "
-        + node.tag
-    )
-
-
 def parse_nixos_version(s: str) -> List[str]:
     """Split a NixOS version string into a list of components."""
     return s.split(".")
