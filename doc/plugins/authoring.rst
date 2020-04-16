@@ -132,13 +132,25 @@ Important Notes
 
    .. code-block:: python
 
+     class MachineOptions(nixops.resources.ResourceOptions):
+         storeKeysOnMachine: bool
+
      class MachineDefinition(nixops.resources.ResourceDefinition):
+
+         config: MachineOptions
 
          store_keys_on_machine: bool
 
          def __init__(self, name: str, config: nixops.resources.ResourceEval):
              super().__init__(name, config)
-             self.store_keys_on_machine = config["storeKeysOnMachine"]
+             self.store_keys_on_machine = config.storeKeysOnMachine
+
+   ``ResourceEval`` is an immutable ``typing.Mapping`` implementation.
+   Also note that ``ResourceEval`` has turned Nix lists into Python tuples, dictionaries into ResourceEval objects and so on.
+   ``typing.Tuple`` cannot be used as it's fixed-size, use ``typing.Sequence`` instead.
+
+   ``ResourceOptions`` is an immutable object that provides type validation both with ``mypy`` _and_ at runtime.
+   Any attributes which are not explicitly typed are passed through as-is.
 
 
 On with Poetry
