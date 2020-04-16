@@ -60,3 +60,22 @@ class TestUtilTest(unittest.TestCase):
             i["z"] = 1
 
         self.assertRaises(TypeError, _assign)
+
+    def test_immutable_object(self):
+        class SubResource(util.ImmutableValidatedObject):
+            x: int
+
+        class HasSubResource(util.ImmutableValidatedObject):
+            sub: SubResource
+
+        r = HasSubResource(sub={"x": 1})
+        self.assertTrue(isinstance(r.sub.x, int))
+        self.assertEqual(r.sub.x, 1)
+
+        self.assertRaises(TypeError, lambda: SubResource(x="a string"))
+
+        def _assign():
+            r = SubResource(x=1)
+            r.x = 2
+
+        self.assertRaises(AttributeError, _assign)

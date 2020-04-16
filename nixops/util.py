@@ -16,6 +16,8 @@ import subprocess
 import logging
 import atexit
 import re
+import typeguard
+import inspect
 from typing import (
     Callable,
     List,
@@ -111,6 +113,63 @@ class ImmutableMapping(Generic[K, V], Mapping[K, V]):
 
     def __repr__(self) -> str:
         return "<{} {}>".format(self.__class__.__name__, self._dict)
+
+
+class ImmutableValidatedObject:
+    """
+    An immutable object that validates input types
+
+    It also converts nested dictonaries into new ImmutableValidatedObject
+    instances (or the annotated subclass).
+    """
+
+    _frozen: bool
+
+    def __init__(self, **kwargs):
+        anno: Dict = self.__annotations__
+
+        def _transform_value(key: Any, value: Any) -> Any:
+            ann = anno.get(key)
+
+            # Untyped, pass through
+            if not ann:
+                return value
+
+            if inspect.isclass(ann) and issubclass(ann, ImmutableValidatedObject):
+                return ann(**value)
+
+            typeguard.check_type(key, value, ann)
+
+            return value
+
+        for key, value in kwargs.items():
+            setattr(self, key, _transform_value(key, value))
+
+        self._frozen = True
+
+    def __setattr__(self, name, value) -> None:
+        if hasattr(self, "_frozen") and self._frozen:
+            raise AttributeError(f"{self.__class__.__name__} is immutable")
+        super().__setattr__(name, value)
+
+    def __repr__(self) -> str:
+        anno: Dict = self.__annotations__
+
+        attrs: List[str] = []
+        for attr, value in self.__dict__.items():
+            if attr == "_frozen":
+                continue
+
+            ann: str = ""
+            a = anno.get(attr)
+            if a and hasattr(a, "__name__"):
+                ann = f": {a.__name__}"
+            elif a is not None:
+                ann = f": {a}"
+
+            attrs.append(f"{attr}{ann} = {value}")
+
+        return "{}({})".format(self.__class__.__name__, ", ".join(attrs))
 
 
 def logged_exec(
