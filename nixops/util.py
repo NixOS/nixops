@@ -172,6 +172,13 @@ class ImmutableValidatedObject:
         return "{}({})".format(self.__class__.__name__, ", ".join(attrs))
 
 
+class NixopsEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, ImmutableMapping):
+            return dict(obj)
+        return json.JSONEncoder.default(self, obj)
+
+
 def logged_exec(
     command: List[str],
     logger: MachineLogger,
@@ -439,7 +446,7 @@ def attr_property(name: str, default: Any, type: Optional[Any] = str) -> Any:
         if x == default:
             self._del_attr(name)
         elif type is "json":
-            self._set_attr(name, json.dumps(x))
+            self._set_attr(name, json.dumps(x, cls=NixopsEncoder))
         else:
             self._set_attr(name, x)
 

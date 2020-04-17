@@ -1,3 +1,4 @@
+import json
 from nixops.logger import Logger
 from io import StringIO
 import unittest
@@ -45,6 +46,9 @@ class TestUtilTest(unittest.TestCase):
         tup = i["list"]
         self.assertTrue(isinstance(tup, tuple))
         self.assertEqual(list(tup), d["list"])
+
+        # Ensure our encoder round-trips okay
+        self.assertEqual(json.dumps(i, cls=util.NixopsEncoder), json.dumps(d))
 
         dic = i["nested"]
         self.assertTrue(isinstance(dic, util.ImmutableMapping))

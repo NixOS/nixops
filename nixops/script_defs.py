@@ -735,7 +735,7 @@ def op_export(args):
     with one_or_all(args) as depls:
         for depl in depls:
             res[depl.uuid] = depl.export()
-    print(json.dumps(res, indent=2, sort_keys=True))
+    print(json.dumps(res, indent=2, sort_keys=True, cls=nixops.util.NixopsEncoder))
 
 
 def op_import(args):
