@@ -1,38 +1,67 @@
 # NixOps
 
-NixOps (formerly known as Charon) is a tool for deploying NixOS
-machines in a network or cloud.
+[![Test](https://github.com/NixOS/nixops/workflows/CI/badge.svg)](https://github.com/NixOS/nixops/actions)
 
-* [Manual](https://hydra.nixos.org/job/nixops/master/tarball/latest/download-by-type/doc/manual)
-* [Installation](https://nixos.org/nixops/manual/#chap-installation) / [Hacking](https://hydra.nixos.org/job/nixops/master/tarball/latest/download-by-type/doc/manual#chap-hacking)
-* [Continuous build](http://hydra.nixos.org/jobset/nixops/master#tabs-jobs)
-* [Issue Tracker](https://github.com/NixOS/nixops/issues)
-* [Mailing list / Google group](https://groups.google.com/forum/#!forum/nixops-users)
-* [IRC - #nixos on freenode.net](irc://irc.freenode.net/#nixos)
+_NixOps_ is a tool for deploying [NixOS](https://nixos.org) machines in a network or cloud. Key features include:
 
-## Developing
+- **Declarative**: NixOps determines and carries out actions necessary to realise a deployment configuration.
+- **Testable**: Try your deployments on [VirtualBox](https://github.com/nix-community/nixops-vbox) or [libvirtd](https://github.com/nix-community/nixops-libvirtd).
+- **Multi Cloud Support**: Currently supports deployments to [AWS](https://github.com/NixOS/nixops-aws), [Hetzner](https://github.com/NixOS/nixops-hetzner) and [GCE](https://github.com/AmineChikhaoui/nixops-gce)
+- **Separation of Concerns**: Deployment descriptions are divided into _logical_ and _physical_ aspects. This makes it easy to separate parts that say _what_ a machine should do from _where_ they should do it.
+- **Extensible**: _NixOps_ is extensible through a plugin infrastructure which can be used to provide additional backends.
 
-To start developing on nixops, you can run:
+For more information please refer to the [NixOps manual](https://nixos.org/nixos/manual/).
 
-```bash
-  $ ./dev-shell
+### Installing
+
+_NixOps_ is included in nixpkgs and can be installed from your respective channel:
+
+```
+$ nix-env -i nixops
 ```
 
-## Building from source
+You can also install _NixOps_ directly from master:
 
-The command to build NixOps depends on your platform you choose:
-
-- `nix-build release.nix -A build.x86_64-linux on 64 bit linux.
-- `nix-build release.nix -A build.i686-linux on 32 bit linux.
-- `nix-build release.nix -A build.x86_64-darwin on OSX.
-
-Similarly, using NixOps from another project (for instance a nix-shell) can be done using:
-
-```nix
-stdenv.mkDerivation {
-  name = "my-nixops-env";
-  buildInputs = [
-    (import /path/to/nixops/release.nix { }).nixops.x86_64-linux
-  ];
-}
 ```
+$ nix-env -if https://github.com/NixOs/nixops/tarball/master
+```
+
+### Building And Developing
+
+#### Building The Nix Package
+
+You can build the nix package by simply invoking `nix-build` on the project root:
+
+```
+$ nix-build
+```
+
+#### Development Shell
+
+`shell.nix` provides an environment with all dependencies required for working on _NixOps_. You can use `nix-shell` to
+enter a shell suitable for working on _NixOps_ which will contain all Python dependencies specified in [pyproject.toml](./pyproject.toml)
+
+```
+$ nix-shell
+```
+
+#### Executing Tests
+
+Inside the development shell the tests can be executed as follows:
+
+```
+$ ./coverage-tests.py -a '!libvirtd,!gce,!ec2,!azure' -v
+```
+
+### Contributing
+
+Contributions to the project are welcome in the form of GitHub PRs. Please consider the following guidelines before creating PRs:
+
+- Please make sure to format your code using [black](https://github.com/psf/black).
+- Please add type signatures using [mypy](http://mypy-lang.org/).
+- If you are planning to make any considerable changes, you should first present your plans in a GitHub issue so it can be discussed.
+- If you are adding features please add also add reasonable tests.
+
+### License
+
+Licensed under [LGPL-3.0](./COPYING).
