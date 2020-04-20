@@ -9,3 +9,4 @@ result
 *.sw[a-z]
 tags
 tests/test.nixops*
+.mypy_cache/
