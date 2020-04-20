@@ -156,8 +156,8 @@ in
   config = {
 
     assertions = flip mapAttrsToList config.deployment.keys (key: opts: {
-      assertion = (opts.text == null && opts.keyFile != null) ||
-                  (opts.text != null && opts.keyFile == null);
+      assertion = (opts.text == null && opts.keyFile != "") ||
+                  (opts.text != null && opts.keyFile == "");
       message = "Deployment key '${key}' must have either a 'text' or a 'keyFile' specified.";
     });
 
