@@ -20,7 +20,7 @@ _NixOps_ is included in nixpkgs and can be installed from your respective channe
 $ nix-env -i nixops
 ```
 
-You can also install _NixOps_ directly from master:
+**Note**: Currently channels only provide _NixOps_ <= 1.7. In order to install _NixOps_ directly from master you can use the following:
 
 ```
 $ nix-env -if https://github.com/NixOs/nixops/tarball/master
