@@ -119,20 +119,6 @@ in
 
   options = {
 
-    deployment.storeKeysOnMachine = mkOption {
-      default = false;
-      type = types.bool;
-      description = ''
-        If true, secret information such as LUKS encryption
-        keys or SSL private keys is stored on the root disk of the
-        machine, allowing the machine to do unattended reboots.  If
-        false, secrets are not stored; NixOps supplies them to the
-        machine at mount time.  This means that a reboot will not
-        complete entirely until you run <command>nixops
-        deploy</command> or <command>nixops send-keys</command>.
-      '';
-    };
-
     deployment.keys = mkOption {
       default = {};
       example = { password.text = "foobar"; };
@@ -168,14 +154,6 @@ in
 
   config = {
 
-    warnings = mkIf config.deployment.storeKeysOnMachine [(
-      "The use of `deployment.storeKeysOnMachine' imposes a security risk " +
-      "because all keys will be put in the Nix store and thus are world-" +
-      "readable. Also, this will have an impact on services like OpenSSH, " +
-      "which require strict permissions to be set on key files, so expect " +
-      "things to break."
-    )];
-
     assertions = flip mapAttrsToList config.deployment.keys (key: opts: {
       assertion = (opts.text == null && opts.keyFile != null) ||
                   (opts.text != null && opts.keyFile == null);
@@ -188,40 +166,13 @@ in
           mkdir -p /run/keys -m 0750
           chown root:keys /run/keys
 
-          ${optionalString config.deployment.storeKeysOnMachine
-              (concatStrings (mapAttrsToList
-                              (name: value: let
-                                              # FIXME: The key file should be marked as private once
-                                              # https://github.com/NixOS/nix/issues/8 is fixed.
-                                              keyFile = pkgs.writeText name
-                                                        (if !isNull value.keyFile
-                                                         then builtins.readFile value.keyFile
-                                                         else value.text);
-                                              destDir = toString value.destDir;
-                                            in
-                                            ''
-                                                 if test ! -d ${destDir}
-                                                 then
-                                                     mkdir -p ${destDir} -m 0750
-                                                     chown root:keys ${destDir}
-                                                 fi
-                                                 ln -sfn ${keyFile} ${destDir}/${name}
-                                            '')
-                             config.deployment.keys)
-              + ''
-                # FIXME: delete obsolete keys?
-                touch /run/keys/done
-              '')
-          }
-
-          ${optionalString (!config.deployment.storeKeysOnMachine)
-            (concatStringsSep "\n" (flip mapAttrsToList config.deployment.keys (name: value:
+          ${concatStringsSep "\n" (flip mapAttrsToList config.deployment.keys (name: value:
               # Make sure each key has correct ownership, since the configured owning
               # user or group may not have existed when first uploaded.
               ''
                 [[ -f "${value.path}" ]] && chown '${value.user}:${value.group}' "${value.path}"
               ''
-          )))}
+          ))}
         '';
         in stringAfter [ "users" "groups" ] "source ${pkgs.writeText "setup-keys.sh" script}";
 
