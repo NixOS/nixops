@@ -119,7 +119,7 @@ Important Notes
 
    .. code-block:: python
 
-     class MachineDefinition(nixops.resources.ResourceDefinition):
+     class NeatCloudMachineDefinition(nixops.resources.ResourceDefinition):
 
          def __init__(self, xml):
              super().__init__(xml)
@@ -132,10 +132,10 @@ Important Notes
 
    .. code-block:: python
 
-     class MachineOptions(nixops.resources.ResourceOptions):
+     class NeatCloudMachineOptions(nixops.resources.ResourceOptions):
          storeKeysOnMachine: bool
 
-     class MachineDefinition(nixops.resources.ResourceDefinition):
+     class NeatCloudMachineDefinition(nixops.resources.ResourceDefinition):
 
          config: MachineOptions
 
