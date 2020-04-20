@@ -13,7 +13,7 @@ jobs:
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Parsing
-        run: 'find . -name "*.nix" -exec nix-instantiate --parse --quiet {} >/dev/null +'
+        run: './ci/check-nix-files.sh'
   build:
     runs-on: ubuntu-latest
     steps:
@@ -31,7 +31,7 @@ jobs:
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Black
-        run: 'nix-shell --run "black . --check --diff"'
+        run: './ci/check-formatting.sh'
   mypy:
     runs-on: ubuntu-latest
     steps:
@@ -40,7 +40,7 @@ jobs:
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Mypy
-        run: 'nix-shell --run "mypy nixops"'
+        run: './ci/check-mypy.sh'
   mypy-ratchet:
     runs-on: ubuntu-latest
     steps:
@@ -58,5 +58,4 @@ jobs:
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Coverage
-        run: |
-          nix-shell --run "./coverage-tests.py -a '!libvirtd,!gce,!ec2,!azure' -v"
+        run: './ci/check-tests.sh'
