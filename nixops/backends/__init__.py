@@ -15,10 +15,6 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
 
     def __init__(self, xml, config={}) -> None:
         nixops.resources.ResourceDefinition.__init__(self, xml, config)
-        self.store_keys_on_machine = (
-            xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value")
-            == "true"
-        )
         self.ssh_port = int(xml.find("attrs/attr[@name='targetPort']/int").get("value"))
         self.always_activate = (
             xml.find("attrs/attr[@name='alwaysActivate']/bool").get("value") == "true"
@@ -65,9 +61,6 @@ class MachineState(nixops.resources.ResourceState):
     ssh_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
     ssh_port: int = nixops.util.attr_property("targetPort", 22, int)
     public_vpn_key: Optional[str] = nixops.util.attr_property("publicVpnKey", None)
-    store_keys_on_machine: bool = nixops.util.attr_property(
-        "storeKeysOnMachine", False, bool
-    )
     keys: Dict[str, str] = nixops.util.attr_property("keys", {}, "json")
     owners: List[str] = nixops.util.attr_property("owners", [], "json")
 
@@ -106,7 +99,6 @@ class MachineState(nixops.resources.ResourceState):
         return state == self.STARTING or state == self.UP
 
     def set_common_state(self, defn) -> None:
-        self.store_keys_on_machine = defn.store_keys_on_machine
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
         self.has_fast_connection = defn.has_fast_connection
@@ -266,8 +258,6 @@ class MachineState(nixops.resources.ResourceState):
             # bootstrapping plus we probably don't have /run mounted properly
             # so keys will probably end up being written to DISK instead of
             # into memory.
-            return
-        if self.store_keys_on_machine:
             return
         for k, opts in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))

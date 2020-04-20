@@ -48,12 +48,7 @@ with utils;
               the volume.  If left empty, a passphrase is generated
               automatically; this passphrase is lost when you destroy the
               machine or underlying device, unless you copy it from
-              NixOps's state file.  Note that unless
-              <option>deployment.storeKeysOnMachine</option> is set to
-              <literal>false</literal>, the passphrase is stored in the
-              Nix store of the instance, so an attacker who gains access
-              to the disk containing the store can subsequently decrypt
-              the encrypted volume.
+              NixOps's state file.
             '';
           };
 
