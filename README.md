@@ -20,10 +20,15 @@ _NixOps_ is included in nixpkgs and can be executed in a shell as follows:
 $ nix-shell -p nixops
 ```
 
-**Note**: Currently channels only provide _NixOps_ <= 1.7. In order to run the _NixOps_ version from master you can use the following:
+**Note**: Currently channels only provide _NixOps_ <= 1.7. In order to run the _NixOps_ version from master you can clone this
+repository and execute `nix-shell`:
 
 ```
-$ nix-shell https://github.com/NixOs/nixops/tarball/master
+$ git clone https://github.com/NixOS/nixops
+$ nix-shell
+$ nix --version
+NixOps @version@
+
 ```
 
 ### Building And Developing
