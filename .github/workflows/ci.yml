@@ -59,4 +59,4 @@ jobs:
         uses: cachix/install-nix-action@v8
       - name: Coverage
         run: |
-          nix-shell --exclude tarball --run "./coverage-tests.py -a '!libvirtd,!gce,!ec2,!azure' -v"
+          nix-shell --run "./coverage-tests.py -a '!libvirtd,!gce,!ec2,!azure' -v"

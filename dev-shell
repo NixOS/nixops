@@ -1,2 +1,0 @@
-#! /bin/sh -e
-exec nix-shell shell.nix --exclude tarball "$@"
