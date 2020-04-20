@@ -30,7 +30,7 @@ $ nix-env -if https://github.com/NixOs/nixops/tarball/master
 
 #### Building The Nix Package
 
-You can build the nix package by simply invoking `nix-build` on the project root:
+You can build the Nix package by simply invoking `nix-build` on the project root:
 
 ```
 $ nix-build
