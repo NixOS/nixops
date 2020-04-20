@@ -26,7 +26,7 @@ repository and execute `nix-shell`:
 ```
 $ git clone https://github.com/NixOS/nixops
 $ nix-shell
-$ nix --version
+$ nixops --version
 NixOps @version@
 
 ```
