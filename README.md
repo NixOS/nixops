@@ -12,18 +12,18 @@ _NixOps_ is a tool for deploying [NixOS](https://nixos.org) machines in a networ
 
 For more information please refer to the [NixOps manual](https://nixos.org/nixos/manual/).
 
-### Installing
+### Running
 
-_NixOps_ is included in nixpkgs and can be installed from your respective channel:
-
-```
-$ nix-env -i nixops
-```
-
-**Note**: Currently channels only provide _NixOps_ <= 1.7. In order to install _NixOps_ directly from master you can use the following:
+_NixOps_ is included in nixpkgs and can be executed in a shell as follows:
 
 ```
-$ nix-env -if https://github.com/NixOs/nixops/tarball/master
+$ nix-shell -p nixops
+```
+
+**Note**: Currently channels only provide _NixOps_ <= 1.7. In order to run the _NixOps_ version from master you can use the following:
+
+```
+$ nix-shell https://github.com/NixOs/nixops/tarball/master
 ```
 
 ### Building And Developing
