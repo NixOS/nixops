@@ -12,7 +12,6 @@ in
 
   imports =
     [
-      ./auto-luks.nix
       ./keys.nix
     ];
 
