@@ -9,12 +9,21 @@ import nixops.resources
 import nixops.ssh_util
 
 
+class KeyOptions(nixops.resources.ResourceOptions):
+    text: Optional[str]
+    keyFile: Optional[str]
+    destDir: str
+    user: str
+    group: str
+    permissions: str
+
+
 class MachineOptions(nixops.resources.ResourceOptions):
     targetPort: int
     alwaysActivate: bool
     owners: Sequence[str]
     hasFastConnection: bool
-    keys: Mapping[str, Mapping]
+    keys: Mapping[str, KeyOptions]
     nixosRelease: str
 
 
@@ -27,7 +36,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
     always_activate: bool
     owners: List[str]
     has_fast_connection: bool
-    keys: Mapping[str, Mapping]
+    keys: Mapping[str, KeyOptions]
 
     def __init__(self, name: str, config: nixops.resources.ResourceEval):
         super().__init__(name, config)
@@ -35,7 +44,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.always_activate = config["alwaysActivate"]
         self.owners = config["owners"]
         self.has_fast_connection = config["hasFastConnection"]
-        self.keys = config["keys"]
+        self.keys = {k: KeyOptions(**v) for k, v in config["keys"].items()}
 
 
 class MachineState(nixops.resources.ResourceState):
@@ -246,11 +255,10 @@ class MachineState(nixops.resources.ResourceState):
             # so keys will probably end up being written to DISK instead of
             # into memory.
             return
+
         for k, opts in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
-            if "destDir" not in opts:
-                raise Exception("Key '{}' has no 'destDir' specified.".format(k))
 
             destDir = opts["destDir"].rstrip("/")
             self.run_command(
@@ -261,10 +269,10 @@ class MachineState(nixops.resources.ResourceState):
                 ).format(destDir)
             )
 
-            if "text" in opts:
+            if opts["text"] is not None:
                 with open(tmp, "w+") as f:
                     f.write(opts["text"])
-            elif "keyFile" in opts:
+            elif opts["keyFile"] is not None:
                 self._logged_exec(["cp", opts["keyFile"], tmp])
             else:
                 raise Exception(

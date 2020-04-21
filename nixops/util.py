@@ -142,7 +142,8 @@ class ImmutableValidatedObject:
 
             return value
 
-        for key, value in kwargs.items():
+        for key in set(list(anno.keys()) + list(kwargs.keys())):
+            value = kwargs.get(key)
             setattr(self, key, _transform_value(key, value))
 
         self._frozen = True
@@ -151,6 +152,12 @@ class ImmutableValidatedObject:
         if hasattr(self, "_frozen") and self._frozen:
             raise AttributeError(f"{self.__class__.__name__} is immutable")
         super().__setattr__(name, value)
+
+    def __iter__(self):
+        for attr, value in self.__dict__.items():
+            if attr == "_frozen":
+                continue
+            yield attr, value
 
     def __repr__(self) -> str:
         anno: Dict = self.__annotations__
@@ -174,7 +181,7 @@ class ImmutableValidatedObject:
 
 class NixopsEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, ImmutableMapping):
+        if isinstance(obj, (ImmutableMapping, ImmutableValidatedObject)):
             return dict(obj)
         return json.JSONEncoder.default(self, obj)
 
