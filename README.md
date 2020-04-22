@@ -2,15 +2,15 @@
 
 [![Test](https://github.com/NixOS/nixops/workflows/CI/badge.svg)](https://github.com/NixOS/nixops/actions)
 
-_NixOps_ is a tool for deploying [NixOS](https://nixos.org) machines in a network or cloud. Key features include:
+_NixOps_ is a tool for deploying to [NixOS](https://nixos.org) machines in a network or the cloud. Key features include:
 
 - **Declarative**: NixOps determines and carries out actions necessary to realise a deployment configuration.
 - **Testable**: Try your deployments on [VirtualBox](https://github.com/nix-community/nixops-vbox) or [libvirtd](https://github.com/nix-community/nixops-libvirtd).
-- **Multi Cloud Support**: Currently supports deployments to [AWS](https://github.com/NixOS/nixops-aws), [Hetzner](https://github.com/NixOS/nixops-hetzner) and [GCE](https://github.com/AmineChikhaoui/nixops-gce)
+- **Multi Cloud Support**: Currently supports deployments to [AWS](https://github.com/NixOS/nixops-aws), [Hetzner](https://github.com/NixOS/nixops-hetzner), and [GCE](https://github.com/AmineChikhaoui/nixops-gce)
 - **Separation of Concerns**: Deployment descriptions are divided into _logical_ and _physical_ aspects. This makes it easy to separate parts that say _what_ a machine should do from _where_ they should do it.
 - **Extensible**: _NixOps_ is extensible through a plugin infrastructure which can be used to provide additional backends.
 
-For more information please refer to the [NixOps manual](https://nixos.org/nixos/manual/).
+For more information, please refer to the [NixOps manual](https://nixos.org/nixops/manual/).
 
 ### Running
 
@@ -28,7 +28,6 @@ $ git clone https://github.com/NixOS/nixops
 $ nix-shell
 $ nixops --version
 NixOps @version@
-
 ```
 
 ### Building And Developing
@@ -65,7 +64,7 @@ Contributions to the project are welcome in the form of GitHub PRs. Please consi
 - Please make sure to format your code using [black](https://github.com/psf/black).
 - Please add type signatures using [mypy](http://mypy-lang.org/).
 - If you are planning to make any considerable changes, you should first present your plans in a GitHub issue so it can be discussed.
-- If you are adding features please add also add reasonable tests.
+- If you are adding features, please also add reasonable tests.
 
 ### License
 
