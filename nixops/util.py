@@ -16,7 +16,24 @@ import subprocess
 import logging
 import atexit
 import re
-from typing import Callable, List, Optional, Any, IO, Union, Mapping, TextIO, Tuple
+import typeguard
+import inspect
+from typing import (
+    Callable,
+    List,
+    Optional,
+    Any,
+    IO,
+    Union,
+    Mapping,
+    TextIO,
+    Tuple,
+    Dict,
+    Iterator,
+    Hashable,
+    TypeVar,
+    Generic,
+)
 
 # the following ansi_ imports are for backwards compatability. They
 # would belong fine in this util.py, but having them in util.py
@@ -57,6 +74,116 @@ class CommandFailed(Exception):
 
     def __str__(self) -> str:
         return "{0} (exit code {1})".format(self.message, self.exitcode)
+
+
+K = TypeVar("K")
+V = TypeVar("V")
+
+
+class ImmutableMapping(Generic[K, V], Mapping[K, V]):
+    """
+    An immutable wrapper around dict's that also turns lists to tuples
+    """
+
+    def __init__(self, base_dict: Dict):
+        def _transform_value(value: Any) -> Any:
+            if isinstance(value, list):
+                return tuple(_transform_value(i) for i in value)
+            elif isinstance(value, dict):
+                return self.__class__(value)
+            else:
+                return value
+
+        self._dict: Dict[K, V] = {k: _transform_value(v) for k, v in base_dict.items()}
+
+    def __getitem__(self, key: K) -> V:
+        return self._dict[key]
+
+    def __iter__(self) -> Iterator[K]:
+        return iter(self._dict)
+
+    def __len__(self) -> int:
+        return len(self._dict)
+
+    def __contains__(self, key: Any) -> bool:
+        return key in self._dict
+
+    def __getattr__(self, key: Any) -> V:
+        return self[key]
+
+    def __repr__(self) -> str:
+        return "<{} {}>".format(self.__class__.__name__, self._dict)
+
+
+class ImmutableValidatedObject:
+    """
+    An immutable object that validates input types
+
+    It also converts nested dictonaries into new ImmutableValidatedObject
+    instances (or the annotated subclass).
+    """
+
+    _frozen: bool
+
+    def __init__(self, **kwargs):
+        anno: Dict = self.__annotations__
+
+        def _transform_value(key: Any, value: Any) -> Any:
+            ann = anno.get(key)
+
+            # Untyped, pass through
+            if not ann:
+                return value
+
+            if inspect.isclass(ann) and issubclass(ann, ImmutableValidatedObject):
+                value = ann(**value)
+
+            typeguard.check_type(key, value, ann)
+
+            return value
+
+        for key in set(list(anno.keys()) + list(kwargs.keys())):
+            value = kwargs.get(key)
+            setattr(self, key, _transform_value(key, value))
+
+        self._frozen = True
+
+    def __setattr__(self, name, value) -> None:
+        if hasattr(self, "_frozen") and self._frozen:
+            raise AttributeError(f"{self.__class__.__name__} is immutable")
+        super().__setattr__(name, value)
+
+    def __iter__(self):
+        for attr, value in self.__dict__.items():
+            if attr == "_frozen":
+                continue
+            yield attr, value
+
+    def __repr__(self) -> str:
+        anno: Dict = self.__annotations__
+
+        attrs: List[str] = []
+        for attr, value in self.__dict__.items():
+            if attr == "_frozen":
+                continue
+
+            ann: str = ""
+            a = anno.get(attr)
+            if a and hasattr(a, "__name__"):
+                ann = f": {a.__name__}"
+            elif a is not None:
+                ann = f": {a}"
+
+            attrs.append(f"{attr}{ann} = {value}")
+
+        return "{}({})".format(self.__class__.__name__, ", ".join(attrs))
+
+
+class NixopsEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (ImmutableMapping, ImmutableValidatedObject)):
+            return dict(obj)
+        return json.JSONEncoder.default(self, obj)
 
 
 def logged_exec(
@@ -326,7 +453,7 @@ def attr_property(name: str, default: Any, type: Optional[Any] = str) -> Any:
         if x == default:
             self._del_attr(name)
         elif type is "json":
-            self._set_attr(name, json.dumps(x))
+            self._set_attr(name, json.dumps(x, cls=NixopsEncoder))
         else:
             self._set_attr(name, x)
 
@@ -444,45 +571,6 @@ def enum(**enums):
 def write_file(path: str, contents: str) -> None:
     with open(path, "w") as f:
         f.write(contents)
-
-
-def xml_expr_to_python(node):
-    res: Any
-    if node.tag == "attrs":
-        res = {}
-        for attr in node.findall("attr"):
-            if attr.get("name") != "_module":
-                res[attr.get("name")] = xml_expr_to_python(attr.find("*"))
-        return res
-
-    elif node.tag == "list":
-        res = []
-        for elem in node.findall("*"):
-            res.append(xml_expr_to_python(elem))
-        return res
-
-    elif node.tag == "string":
-        return node.get("value")
-
-    elif node.tag == "path":
-        return node.get("value")
-
-    elif node.tag == "bool":
-        return node.get("value") == "true"
-
-    elif node.tag == "int":
-        return int(node.get("value"))
-
-    elif node.tag == "null":
-        return None
-
-    elif node.tag == "derivation":
-        return {"drvPath": node.get("drvPath/"), "outPath": node.get("outPath")}
-
-    raise Exception(
-        "cannot convert XML output of nix-instantiate to Python: Unknown tag "
-        + node.tag
-    )
 
 
 def parse_nixos_version(s: str) -> List[str]:

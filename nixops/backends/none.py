@@ -1,27 +1,30 @@
 # -*- coding: utf-8 -*-
+from typing import Dict, Optional
 import os
 import sys
 import nixops.util
 
-from nixops.backends import MachineDefinition, MachineState
+from nixops.backends import MachineDefinition, MachineState, MachineOptions
 from nixops.util import attr_property, create_key_pair
+import nixops.resources
 
 
 class NoneDefinition(MachineDefinition):
     """Definition of a trivial machine."""
 
+    _target_host: str
+    _public_ipv4: Optional[str]
+
+    config: MachineOptions
+
     @classmethod
     def get_type(cls):
         return "none"
 
-    def __init__(self, xml, config):
-        MachineDefinition.__init__(self, xml, config)
-        self._target_host = xml.find("attrs/attr[@name='targetHost']/string").get(
-            "value"
-        )
-
-        public_ipv4 = xml.find("attrs/attr[@name='publicIPv4']/string")
-        self._public_ipv4 = None if public_ipv4 is None else public_ipv4.get("value")
+    def __init__(self, name: str, config: nixops.resources.ResourceEval):
+        super().__init__(name, config)
+        self._target_host = config["targetHost"]
+        self._public_ipv4 = config.get("publicIPv4", None)
 
 
 class NoneState(MachineState):

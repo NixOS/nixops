@@ -23,6 +23,7 @@ let
     options.keyFile = mkOption {
       default = null;
       type = types.nullOr types.path;
+      apply = toString;
       description = ''
         When non-null, contents of the specified file will be deployed to the
         specified key on the target machine.  If the key name is
@@ -155,8 +156,8 @@ in
   config = {
 
     assertions = flip mapAttrsToList config.deployment.keys (key: opts: {
-      assertion = (opts.text == null && opts.keyFile != null) ||
-                  (opts.text != null && opts.keyFile == null);
+      assertion = (opts.text == null && opts.keyFile != "") ||
+                  (opts.text != null && opts.keyFile == "");
       message = "Deployment key '${key}' must have either a 'text' or a 'keyFile' specified.";
     });
 

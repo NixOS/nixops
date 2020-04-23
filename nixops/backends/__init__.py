@@ -3,52 +3,48 @@
 import os
 import re
 import subprocess
-from typing import Dict, Any, List, Optional, Union, Set
+from typing import Mapping, Any, List, Optional, Union, Set, Sequence
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
-import xml.etree.ElementTree as ET
+
+
+class KeyOptions(nixops.resources.ResourceOptions):
+    text: Optional[str]
+    keyFile: Optional[str]
+    destDir: str
+    user: str
+    group: str
+    permissions: str
+
+
+class MachineOptions(nixops.resources.ResourceOptions):
+    targetPort: int
+    alwaysActivate: bool
+    owners: Sequence[str]
+    hasFastConnection: bool
+    keys: Mapping[str, KeyOptions]
+    nixosRelease: str
 
 
 class MachineDefinition(nixops.resources.ResourceDefinition):
     """Base class for NixOps machine definitions."""
 
-    def __init__(self, xml, config={}) -> None:
-        nixops.resources.ResourceDefinition.__init__(self, xml, config)
-        self.ssh_port = int(xml.find("attrs/attr[@name='targetPort']/int").get("value"))
-        self.always_activate = (
-            xml.find("attrs/attr[@name='alwaysActivate']/bool").get("value") == "true"
-        )
-        self.owners = [
-            e.get("value")
-            for e in xml.findall("attrs/attr[@name='owners']/list/string")
-        ]
-        self.has_fast_connection = (
-            xml.find("attrs/attr[@name='hasFastConnection']/bool").get("value")
-            == "true"
-        )
+    config: MachineOptions
 
-        def _extract_key_options(x: ET.Element) -> Dict[str, str]:
-            opts = {}
-            for (key, xmlType) in (
-                ("text", "string"),
-                ("keyFile", "path"),
-                ("destDir", "string"),
-                ("user", "string"),
-                ("group", "string"),
-                ("permissions", "string"),
-            ):
-                elem = x.find("attrs/attr[@name='{0}']/{1}".format(key, xmlType))
-                if elem is not None:
-                    value = elem.get("value")
-                    if value is not None:
-                        opts[key] = value
-            return opts
+    ssh_port: int
+    always_activate: bool
+    owners: List[str]
+    has_fast_connection: bool
+    keys: Mapping[str, KeyOptions]
 
-        self.keys = {
-            k.get("name"): _extract_key_options(k)
-            for k in xml.findall("attrs/attr[@name='keys']/attrs/attr")
-        }
+    def __init__(self, name: str, config: nixops.resources.ResourceEval):
+        super().__init__(name, config)
+        self.ssh_port = config["targetPort"]
+        self.always_activate = config["alwaysActivate"]
+        self.owners = config["owners"]
+        self.has_fast_connection = config["hasFastConnection"]
+        self.keys = {k: KeyOptions(**v) for k, v in config["keys"].items()}
 
 
 class MachineState(nixops.resources.ResourceState):
@@ -61,7 +57,7 @@ class MachineState(nixops.resources.ResourceState):
     ssh_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
     ssh_port: int = nixops.util.attr_property("targetPort", 22, int)
     public_vpn_key: Optional[str] = nixops.util.attr_property("publicVpnKey", None)
-    keys: Dict[str, str] = nixops.util.attr_property("keys", {}, "json")
+    keys: Mapping[str, str] = nixops.util.attr_property("keys", {}, "json")
     owners: List[str] = nixops.util.attr_property("owners", [], "json")
 
     # Nix store path of the last global configuration deployed to this
@@ -202,7 +198,7 @@ class MachineState(nixops.resources.ResourceState):
             "don't know how to remove a backup for machine ‘{0}’".format(self.name)
         )
 
-    def get_backups(self) -> Dict[str, Dict[str, Any]]:
+    def get_backups(self) -> Mapping[str, Mapping[str, Any]]:
         self.warn("don't know how to list backups for ‘{0}’".format(self.name))
         return {}
 
@@ -259,11 +255,10 @@ class MachineState(nixops.resources.ResourceState):
             # so keys will probably end up being written to DISK instead of
             # into memory.
             return
+
         for k, opts in self.get_keys().items():
             self.log("uploading key ‘{0}’...".format(k))
             tmp = self.depl.tempdir + "/key-" + self.name
-            if "destDir" not in opts:
-                raise Exception("Key '{}' has no 'destDir' specified.".format(k))
 
             destDir = opts["destDir"].rstrip("/")
             self.run_command(
@@ -274,10 +269,10 @@ class MachineState(nixops.resources.ResourceState):
                 ).format(destDir)
             )
 
-            if "text" in opts:
+            if opts["text"] is not None:
                 with open(tmp, "w+") as f:
                     f.write(opts["text"])
-            elif "keyFile" in opts:
+            elif opts["keyFile"] is not None:
                 self._logged_exec(["cp", opts["keyFile"], tmp])
             else:
                 raise Exception(

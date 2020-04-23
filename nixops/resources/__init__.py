@@ -3,13 +3,24 @@
 import re
 import nixops.util
 from threading import Event
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Iterator
 from nixops.state import StateDict
 from nixops.diff import Diff, Handler
+from nixops.util import ImmutableMapping, ImmutableValidatedObject
 
 
-class ResourceDefinition(object):
+class ResourceEval(ImmutableMapping[Any, Any]):
+    pass
+
+
+class ResourceOptions(ImmutableValidatedObject):
+    pass
+
+
+class ResourceDefinition:
     """Base class for NixOps resource definitions."""
+
+    config: ResourceOptions
 
     @classmethod
     def get_type(cls) -> str:
@@ -21,10 +32,16 @@ class ResourceDefinition(object):
         """A resource type identifier corresponding to the resources.<type> attribute in the Nix expression"""
         return cls.get_type()
 
-    def __init__(self, xml, config={}):
-        self.config = config
-        self.name = xml.get("name")
-        assert self.name
+    def __init__(self, name: str, config: ResourceEval):
+        config_type = self.__annotations__.get("config", ResourceOptions)
+        if not issubclass(config_type, ResourceOptions):
+            raise TypeError(
+                '"config" type annotation must be a ResourceOptions subclass'
+            )
+
+        self.config = config_type(**config)
+        self.name = name
+
         if not re.match("^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*$", self.name):
             raise Exception("invalid resource name ‘{0}’".format(self.name))
 

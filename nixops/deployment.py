@@ -9,7 +9,6 @@ import tempfile
 import sqlite3
 import threading
 from collections import defaultdict
-from xml.etree import ElementTree
 import re
 from datetime import datetime, timedelta
 import getpass
@@ -440,16 +439,15 @@ class Deployment:
         except subprocess.CalledProcessError:
             raise NixEvalError
 
-    def evaluate_config(self, attr):
+    def evaluate_config(self, attr) -> Dict:
         try:
-            # FIXME: use --json
-            xml = subprocess.check_output(
+            _json = subprocess.check_output(
                 ["nix-instantiate"]
                 + self.extra_nix_eval_flags
                 + self._eval_flags(self.nix_exprs)
                 + [
                     "--eval-only",
-                    "--xml",
+                    "--json",
                     "--strict",
                     "--arg",
                     "checkConfigurationOptions",
@@ -461,25 +459,19 @@ class Deployment:
                 text=True,
             )
             if DEBUG:
-                print("XML output of nix-instantiate:\n" + xml, file=sys.stderr)
+                print("JSON output of nix-instantiate:\n" + _json, file=sys.stderr)
         except OSError as e:
             raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
         except subprocess.CalledProcessError:
             raise NixEvalError
 
-        tree = ElementTree.fromstring(xml)
-
-        # Convert the XML to a more Pythonic representation. This is
-        # in fact the same as what json.loads() on the output of
-        # "nix-instantiate --json" would yield.
-        config = nixops.util.xml_expr_to_python(tree.find("*"))
-        return (tree, config)
+        return json.loads(_json)
 
     def evaluate_network(self, action: str = "") -> None:
         if not self.network_attr_eval:
             # Extract global deployment attributes.
             try:
-                (_, config) = self.evaluate_config("info.network")
+                config = self.evaluate_config("info.network")
             except Exception as e:
                 if action not in ("destroy", "delete"):
                     raise e
@@ -494,22 +486,20 @@ class Deployment:
         self.definitions = {}
         self.evaluate_network()
 
-        (tree, config) = self.evaluate_config("info")
+        config = self.evaluate_config("info")
+
+        tree = None
 
         # Extract machine information.
-        for x in tree.findall("attrs/attr[@name='machines']/attrs/attr"):
-            name = x.get("name")
-            cfg = config["machines"][name]
-            defn = _create_definition(x, cfg, cfg["targetEnv"])
+        for name, cfg in config["machines"].items():
+            defn = _create_definition(name, cfg, cfg["targetEnv"])
             self.definitions[name] = defn
 
         # Extract info about other kinds of resources.
-        for x in tree.findall("attrs/attr[@name='resources']/attrs/attr"):
-            res_type = x.get("name")
-            for y in x.findall("attrs/attr"):
-                name = y.get("name")
+        for res_type, cfg in config["resources"].items():
+            for name, y in cfg.items():
                 defn = _create_definition(
-                    y, config["resources"][res_type][name], res_type
+                    name, config["resources"][res_type][name], res_type
                 )
                 self.definitions[name] = defn
 
@@ -604,13 +594,13 @@ class Deployment:
             attrs_list = attrs_per_resource[m.name]
 
             # Set system.stateVersion if the Nixpkgs version supports it.
-            nixos_version = nixops.util.parse_nixos_version(defn.config["nixosRelease"])
+            nixos_version = nixops.util.parse_nixos_version(defn.config.nixosRelease)
             if nixos_version >= ["15", "09"]:
                 attrs_list.append(
                     {
                         ("system", "stateVersion"): Call(
                             RawValue("lib.mkDefault"),
-                            m.state_version or defn.config["nixosRelease"],
+                            m.state_version or defn.config.nixosRelease,
                         )
                     }
                 )
@@ -1674,16 +1664,14 @@ def _subclasses(cls: Any) -> List[Any]:
     return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
 
 
-def _create_definition(xml: Any, config: Dict[str, Any], type_name: str) -> Any:
+def _create_definition(
+    name: str, config: Dict[str, Any], type_name: str
+) -> nixops.resources.ResourceDefinition:
     """Create a resource definition object from the given XML representation of the machine's attributes."""
 
     for cls in _subclasses(nixops.resources.ResourceDefinition):
         if type_name == cls.get_resource_type():
-            # FIXME: backward compatibility hack
-            if len(inspect.getargspec(cls.__init__).args) == 2:
-                return cls(xml)
-            else:
-                return cls(xml, config)
+            return cls(name, nixops.resources.ResourceEval(config))
 
     raise nixops.deployment.UnknownBackend(
         "unknown resource type ‘{0}’".format(type_name)

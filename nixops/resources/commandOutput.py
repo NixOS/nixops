@@ -14,13 +14,20 @@ import hashlib
 
 # For typing
 from nixops.deployment import Deployment
-from xml.etree.ElementTree import Element
 from nixops.nix_expr import Function
+from nixops.resources import ResourceOptions
 from typing import Optional, List, Dict, Tuple
+
+
+class CommandOutputOptions(ResourceOptions):
+    script: str
+    name: str
 
 
 class CommandOutputDefinition(nixops.resources.ResourceDefinition):
     """Definition of a Command Output."""
+
+    config: CommandOutputOptions
 
     @classmethod
     def get_type(cls):
@@ -66,8 +73,8 @@ class CommandOutputState(nixops.resources.ResourceState):
     def create(self, defn, check, allow_reboot, allow_recreate):
         # type: (CommandOutputDefinition,bool,bool,bool) -> None
         if (
-            (defn.config["script"] is not None)
-            and (self.script != defn.config["script"])
+            (defn.config.script is not None)
+            and (self.script != defn.config.script)
             or self.value is None
         ):
             self.commandName = defn.name
@@ -81,12 +88,12 @@ class CommandOutputState(nixops.resources.ResourceState):
                 env.update(os.environ)
                 env.update({"out": output_dir})
                 res = subprocess.check_output(
-                    [defn.config["script"]], env=env, shell=True, text=True
+                    [defn.config.script], env=env, shell=True, text=True
                 )
                 with self.depl._db:
                     self.value = res
                     self.state = self.UP
-                    self.script = defn.config["script"]
+                    self.script = defn.config.script
             except Exception as e:
                 self.log("Creation failed for output ‘{0}’...".format(defn.name))
                 raise

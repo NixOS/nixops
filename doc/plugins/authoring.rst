@@ -113,6 +113,46 @@ Important Notes
              os.path.dirname(os.path.abspath(__file__)) + "/nix"
          ]
 
+5. Resource subclasses must now work with Python objects instead of XML
+
+   This old-style ResourceDefinition subclass:
+
+   .. code-block:: python
+
+     class NeatCloudMachineDefinition(nixops.resources.ResourceDefinition):
+
+         def __init__(self, xml):
+             super().__init__(xml)
+             self.store_keys_on_machine = (
+                 xml.find("attrs/attr[@name='storeKeysOnMachine']/bool").get("value")
+                 == "true"
+             )
+
+   Should now look like:
+
+   .. code-block:: python
+
+     class NeatCloudMachineOptions(nixops.resources.ResourceOptions):
+         storeKeysOnMachine: bool
+
+     class NeatCloudMachineDefinition(nixops.resources.ResourceDefinition):
+
+         config: MachineOptions
+
+         store_keys_on_machine: bool
+
+         def __init__(self, name: str, config: nixops.resources.ResourceEval):
+             super().__init__(name, config)
+             self.store_keys_on_machine = config.storeKeysOnMachine
+
+   ``ResourceEval`` is an immutable ``typing.Mapping`` implementation.
+   Also note that ``ResourceEval`` has turned Nix lists into Python tuples, dictionaries into ResourceEval objects and so on.
+   ``typing.Tuple`` cannot be used as it's fixed-size, use ``typing.Sequence`` instead.
+
+   ``ResourceOptions`` is an immutable object that provides type validation both with ``mypy`` _and_ at runtime.
+   Any attributes which are not explicitly typed are passed through as-is.
+
+
 On with Poetry
 ----
 

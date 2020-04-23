@@ -2,6 +2,7 @@
 
 # Automatic provisioning of SSH key pairs.
 
+from typing import Dict
 import nixops.util
 import nixops.resources
 
@@ -17,8 +18,8 @@ class SSHKeyPairDefinition(nixops.resources.ResourceDefinition):
     def get_resource_type(cls):
         return "sshKeyPairs"
 
-    def __init__(self, xml):
-        nixops.resources.ResourceDefinition.__init__(self, xml)
+    def __init__(self, name: str, config: nixops.resources.ResourceEval):
+        super().__init__(name, config)
 
     def show_type(self):
         return "{0}".format(self.get_type())
