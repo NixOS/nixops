@@ -83,3 +83,9 @@ class TestUtilTest(unittest.TestCase):
             r.x = 2
 
         self.assertRaises(AttributeError, _assign)
+
+        # Fuzz not passed, should raise TypeError
+        class MustRaise(util.ImmutableValidatedObject):
+            fuzz: str
+
+        self.assertRaises(TypeError, lambda: MustRaise())
