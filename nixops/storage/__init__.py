@@ -6,22 +6,10 @@ if TYPE_CHECKING:
     import nixops.statefile
 
 
-class ArgumentDescription(TypedDict):
-    optional: bool
-    required: bool
-    default: Any
-    description: str
-
-
-StorageArgDescriptions = Dict[str, ArgumentDescription]
 StorageArgValues = Mapping[str, Any]
 
 
 class StorageBackend(Protocol):
-    @staticmethod
-    def arguments() -> StorageArgDescriptions:
-        raise NotImplementedError
-
     def __init__(self, args: StorageArgValues) -> None:
         raise NotImplementedError
 
