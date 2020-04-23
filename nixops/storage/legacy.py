@@ -1,4 +1,4 @@
-from nixops.storage import StorageArgDescriptions, StorageArgValues
+from nixops.storage import StorageArgValues
 import nixops.statefile
 import sys
 import os
@@ -6,10 +6,6 @@ import os.path
 
 
 class LegacyBackend:
-    @staticmethod
-    def arguments() -> StorageArgDescriptions:
-        raise NotImplementedError
-
     def __init__(self, args: StorageArgValues) -> None:
         pass
 

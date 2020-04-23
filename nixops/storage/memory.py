@@ -1,12 +1,8 @@
 import nixops.statefile
-from nixops.storage import StorageArgDescriptions, StorageArgValues
+from nixops.storage import StorageArgValues
 
 
 class MemoryBackend:
-    @staticmethod
-    def arguments() -> StorageArgDescriptions:
-        raise NotImplementedError
-
     def __init__(self, args: StorageArgValues) -> None:
         pass
 
