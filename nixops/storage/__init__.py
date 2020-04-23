@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Dict, Any, Type, TYPE_CHECKING
+from typing import Mapping, Dict, Any, Type, TYPE_CHECKING
 from typing_extensions import Protocol, TypedDict
 
 if TYPE_CHECKING:
@@ -14,7 +14,7 @@ class ArgumentDescription(TypedDict):
 
 
 StorageArgDescriptions = Dict[str, ArgumentDescription]
-StorageArgValues = Dict[str, Any]
+StorageArgValues = Mapping[str, Any]
 
 
 class StorageBackend(Protocol):
