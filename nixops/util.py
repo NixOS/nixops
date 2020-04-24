@@ -18,6 +18,7 @@ import atexit
 import re
 import typeguard
 import inspect
+import shlex
 from typing import (
     Callable,
     List,
@@ -33,6 +34,7 @@ from typing import (
     Hashable,
     TypeVar,
     Generic,
+    Iterable,
 )
 
 # the following ansi_ imports are for backwards compatability. They
@@ -41,6 +43,11 @@ from typing import (
 from nixops.ansi import ansi_warn, ansi_error, ansi_success, ansi_highlight
 from nixops.logger import MachineLogger
 from io import StringIO
+
+
+def shlex_join(split_command: Iterable[str]) -> str:
+    """Backport of shlex.join from python 3.8"""
+    return " ".join(shlex.quote(arg) for arg in split_command)
 
 
 devnull = open(os.devnull, "r+")

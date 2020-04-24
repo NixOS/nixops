@@ -18,6 +18,7 @@ in pkgs.poetry2nix.mkPoetryApplication {
 
   propagatedBuildInputs = [
     pkgs.openssh
+    pkgs.rsync
   ];
 
   nativeBuildInputs = [

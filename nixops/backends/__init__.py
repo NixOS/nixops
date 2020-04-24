@@ -419,27 +419,35 @@ class MachineState(nixops.resources.ResourceState):
             env=env,
         )
 
-    def get_scp_name(self):
+    def _get_scp_name(self) -> str:
         ssh_name = self.get_ssh_name()
         # ipv6 addresses have to be wrapped in brackets for scp
         if ":" in ssh_name:
             return "[%s]" % (ssh_name)
         return ssh_name
 
-    def upload_file(self, source, target, recursive=False):
+    def _fmt_rsync_command(self, *args: str, recursive: bool = False) -> List[str]:
         master = self.ssh.get_master()
-        cmdline = ["scp"] + self.get_ssh_flags(True) + master.opts
+
+        ssh_cmdline: List[str] = ["ssh"] + self.get_ssh_flags() + master.opts
+        cmdline = ["rsync", "-e", nixops.util.shlex_join(ssh_cmdline)]
         if recursive:
             cmdline += ["-r"]
-        cmdline += [source, "root@" + self.get_scp_name() + ":" + target]
+
+        cmdline.extend(args)
+
+        return cmdline
+
+    def upload_file(self, source: str, target: str, recursive: bool = False):
+        cmdline = self._fmt_rsync_command(
+            source, "root@" + self._get_scp_name() + ":" + target, recursive=recursive,
+        )
         return self._logged_exec(cmdline)
 
-    def download_file(self, source, target, recursive=False):
-        master = self.ssh.get_master()
-        cmdline = ["scp"] + self.get_ssh_flags(True) + master.opts
-        if recursive:
-            cmdline += ["-r"]
-        cmdline += ["root@" + self.get_scp_name() + ":" + source, target]
+    def download_file(self, source: str, target: str, recursive: bool = False):
+        cmdline = self._fmt_rsync_command(
+            "root@" + self._get_scp_name() + ":" + source, target, recursive=recursive,
+        )
         return self._logged_exec(cmdline)
 
     def get_console_output(self):
