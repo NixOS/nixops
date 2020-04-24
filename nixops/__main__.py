@@ -528,6 +528,16 @@ subparser.add_argument(
 )
 
 subparser = add_subparser(
+    subparsers, "eval", help="eval the given file is nix code in the network expression"
+)
+subparser.set_defaults(op=op_eval)
+subparser.add_argument("code", metavar="CODE", help="code")
+subparser.add_argument(
+    "--json", action="store_true", help="print the option value in JSON format"
+)
+subparser.add_argument("--strict", action="store_true", help="enable strict evaluation")
+
+subparser = add_subparser(
     subparsers,
     "list-generations",
     help="list previous configurations to which you can roll back",

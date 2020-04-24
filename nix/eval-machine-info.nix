@@ -5,13 +5,15 @@
 , deploymentName
 , args
 , pluginNixExprs
+, evalFile ? null
 }:
 
 with import <nixpkgs> { inherit system; };
 with lib;
 
-
-rec {
+let
+  evaluator = if evalFile != null then (import evalFile) else id;
+in evaluator (rec {
 
   importedPluginNixExprs = map
     (expr: import expr)
@@ -200,4 +202,4 @@ rec {
   getNixOpsArgs = fs: lib.zipAttrs (lib.unique (lib.concatMap fileToArgs (getNixOpsExprs fs)));
 
   nixopsArguments = getNixOpsArgs networkExprs;
-}
+})
