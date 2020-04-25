@@ -390,98 +390,98 @@ def op_check(args):
         for depl in depls:
             check(depl)
 
-    ResourceStatus = Tuple[
-        str,
-        Union[nixops.backends.MachineState, nixops.resources.ResourceState],
-        List[str],
-        int,
-    ]
-
-    # Check all machines in parallel.
-    def worker(m: nixops.backends.MachineState) -> ResourceStatus:
-        res = m.check()
-
-        unit_lines = []
-        if res.failed_units:
-            unit_lines.append(
-                "\n".join([warn("{0} [failed]".format(x)) for x in res.failed_units])
-            )
-        if res.in_progress_units:
-            unit_lines.append(
-                "\n".join(
-                    [
-                        highlight("{0} [running]".format(x))
-                        for x in res.in_progress_units
-                    ]
-                )
-            )
-
-        row = ([m.depl.name or m.depl.uuid] if args.all else []) + [
-            m.name,
-            render_tristate(res.exists),
-            render_tristate(res.is_up),
-            render_tristate(res.is_reachable),
-            render_tristate(res.disks_ok),
-            "{0} {1} {2}".format(res.load[0], res.load[1], res.load[2])
-            if res.load != None
-            else "",
-            "\n".join(unit_lines),
-            "\n".join([warn(x) for x in res.messages]),
+        ResourceStatus = Tuple[
+            str,
+            Union[nixops.backends.MachineState, nixops.resources.ResourceState],
+            List[str],
+            int,
         ]
-        status = 0
-        if res.exists == False:
-            status |= 1
-        if res.is_up == False:
-            status |= 2
-        if res.is_reachable == False:
-            status |= 4
-        if res.disks_ok == False:
-            status |= 8
-        if res.failed_units != None and res.failed_units != []:
-            status |= 16
-        return (m.depl.name or m.depl.uuid, m, row, status)
 
-    resources_tbl = create_table(
-        ([("Deployment", "l")] if args.all else []) + [("Name", "l"), ("Exists", "l")]
-    )
+        # Check all machines in parallel.
+        def worker(m: nixops.backends.MachineState) -> ResourceStatus:
+            res = m.check()
 
-    def resource_worker(r: nixops.resources.ResourceState) -> Optional[ResourceStatus]:
-        if not nixops.deployment.is_machine(r):
-            r.check()
-            exist = True if r.state == nixops.resources.ResourceState.UP else False
-            row = ([r.depl.name or r.depl.uuid] if args.all else []) + [
-                r.name,
-                render_tristate(exist),
+            unit_lines = []
+            if res.failed_units:
+                unit_lines.append(
+                    "\n".join([warn("{0} [failed]".format(x)) for x in res.failed_units])
+                )
+            if res.in_progress_units:
+                unit_lines.append(
+                    "\n".join(
+                        [
+                            highlight("{0} [running]".format(x))
+                            for x in res.in_progress_units
+                        ]
+                    )
+                )
+
+            row = ([m.depl.name or m.depl.uuid] if args.all else []) + [
+                m.name,
+                render_tristate(res.exists),
+                render_tristate(res.is_up),
+                render_tristate(res.is_reachable),
+                render_tristate(res.disks_ok),
+                "{0} {1} {2}".format(res.load[0], res.load[1], res.load[2])
+                if res.load != None
+                else "",
+                "\n".join(unit_lines),
+                "\n".join([warn(x) for x in res.messages]),
             ]
-            return (r.depl.name or r.depl.uuid, r, row, 0)
-        return None
+            status = 0
+            if res.exists == False:
+                status |= 1
+            if res.is_up == False:
+                status |= 2
+            if res.is_reachable == False:
+                status |= 4
+            if res.disks_ok == False:
+                status |= 8
+            if res.failed_units != None and res.failed_units != []:
+                status |= 16
+            return (m.depl.name or m.depl.uuid, m, row, status)
 
-    results = run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
-    resources_results = run_tasks(
-        nr_workers=len(resources), tasks=resources, worker_fun=resource_worker
-    )
+        resources_tbl = create_table(
+            ([("Deployment", "l")] if args.all else []) + [("Name", "l"), ("Exists", "l")]
+        )
 
-    # Sort the rows by deployment/machine.
-    status = 0
-    for res in sorted(
-        [res for res in results if res is not None],
-        key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type()),
-    ):
-        tbl.add_row(res[2])
-        status |= res[3]
-    print(nixops.util.ansi_success("Machines state:"))
-    print(tbl)
+        def resource_worker(r: nixops.resources.ResourceState) -> Optional[ResourceStatus]:
+            if not nixops.deployment.is_machine(r):
+                r.check()
+                exist = True if r.state == nixops.resources.ResourceState.UP else False
+                row = ([r.depl.name or r.depl.uuid] if args.all else []) + [
+                    r.name,
+                    render_tristate(exist),
+                ]
+                return (r.depl.name or r.depl.uuid, r, row, 0)
+            return None
 
-    for res in sorted(
-        [res for res in resources_results if res is not None],
-        key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type()),
-    ):
-        resources_tbl.add_row(res[2])
-        status |= res[3]
-    print(nixops.util.ansi_success("Non machines resources state:"))
-    print(resources_tbl)
+        results = run_tasks(nr_workers=len(machines), tasks=machines, worker_fun=worker)
+        resources_results = run_tasks(
+            nr_workers=len(resources), tasks=resources, worker_fun=resource_worker
+        )
 
-    sys.exit(status)
+        # Sort the rows by deployment/machine.
+        status = 0
+        for res in sorted(
+            [res for res in results if res is not None],
+            key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type()),
+        ):
+            tbl.add_row(res[2])
+            status |= res[3]
+        print(nixops.util.ansi_success("Machines state:"))
+        print(tbl)
+
+        for res in sorted(
+            [res for res in resources_results if res is not None],
+            key=lambda res: machine_to_key(res[0], res[1].name, res[1].get_type()),
+        ):
+            resources_tbl.add_row(res[2])
+            status |= res[3]
+        print(nixops.util.ansi_success("Non machines resources state:"))
+        print(resources_tbl)
+
+        sys.exit(status)
 
 
 def print_backups(depl, backups):
