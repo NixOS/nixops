@@ -20,6 +20,8 @@
     "9.9.9.9"
   ];
 
+  boot.kernelParams = [ "systemd.journald.forward_to_console" ];
+
   # We are using a local Nix daemon
   environment.variables.NIX_REMOTE = lib.mkForce "";
 
