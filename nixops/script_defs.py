@@ -897,7 +897,7 @@ def op_eval(args):
     with deployment(args) as depl:
         depl.evaluate()
         sys.stdout.write(
-            depl.evaluate_code(args.code, json=args.json, strict=args.strict)
+            depl.evaluate_code(args.file, json=args.json, strict=args.strict)
         )
 
 

@@ -528,14 +528,20 @@ subparser.add_argument(
 )
 
 subparser = add_subparser(
-    subparsers, "eval", help="eval the given file is nix code in the network expression"
+    subparsers,
+    "eval",
+    help="evaluate a Nix expression with the NixOps network as arguments",
 )
 subparser.set_defaults(op=op_eval)
-subparser.add_argument("code", metavar="CODE", help="code")
+subparser.add_argument("file", metavar="FILE", help="file containing a Nix expression")
 subparser.add_argument(
-    "--json", action="store_true", help="print the option value in JSON format"
+    "--json", action="store_true", help="convert and print the return value as JSON"
 )
-subparser.add_argument("--strict", action="store_true", help="enable strict evaluation")
+subparser.add_argument(
+    "--strict",
+    action="store_true",
+    help="enable strict evaluation, (use with --json if value is more than a level deep)",
+)
 
 subparser = add_subparser(
     subparsers,

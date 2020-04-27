@@ -503,7 +503,7 @@ class Deployment:
                 )
                 self.definitions[name] = defn
 
-    def evaluate_code(self, code: str, json: bool = False, strict: bool = False) -> str:
+    def evaluate_code(self, file: str, json: bool = False, strict: bool = False) -> str:
         """Evaluate nix code in the deployment specification."""
 
         exprs = self.nix_exprs
@@ -524,7 +524,7 @@ class Deployment:
                     "false",
                     "--arg",
                     "evalFile",
-                    code,
+                    file,
                 ]
                 + (["--strict"] if strict else [])
                 + (["--json"] if json else []),
