@@ -14,23 +14,42 @@ import stat
 import os
 
 
-IMAGE_NAME = "nixops-test-container"
 CWD = os.path.dirname(os.path.abspath(__file__))
 
 
-@lru_cache(maxsize=1)
+@lru_cache()
 def get_container_image() -> str:
+    image_name: str = json.loads(
+        subprocess.check_output(
+            [
+                "nix-instantiate",
+                "--strict",
+                os.path.join(CWD, "container"),
+                "--eval",
+                "--json",
+                "-A",
+                "image",
+            ]
+        )
+    )
+
     image_id = (
-        subprocess.check_output(["docker", "images", "-q", IMAGE_NAME]).decode().strip()
+        subprocess.check_output(["docker", "images", "-q", image_name]).decode().strip()
     )
     if image_id:
         return image_id
 
     warnings.warn("Building NixOS container, this may take some time.")
 
-    # subprocess.check_output(['nix-build', (os.path.join(PWD, 'container'))], check=True)
     store_path: str = subprocess.run(
-        ["nix-build", "--show-trace", "--no-out-link", os.path.join(CWD, "container")],
+        [
+            "nix-build",
+            "--show-trace",
+            "--no-out-link",
+            os.path.join(CWD, "container"),
+            "-A",
+            "tarball",
+        ],
         check=True,
         stdout=subprocess.PIPE,
     ).stdout.decode().strip()
@@ -40,7 +59,7 @@ def get_container_image() -> str:
     )[0]
 
     return (
-        subprocess.check_output(["docker", "import", image_file, IMAGE_NAME,])
+        subprocess.check_output(["docker", "import", image_file, image_name])
         .decode()
         .strip()
     )
