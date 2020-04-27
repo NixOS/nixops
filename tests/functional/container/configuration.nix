@@ -33,8 +33,8 @@
   # security.audit.enable = lib.mkForce false;
   # is not sufficient as it's explicitly _disabled_ rather than just a no-op
   systemd.services.audit.serviceConfig = {
-    ExecStart = lib.mkForce "@${pkgs.coreutils}/bin/true";
-    ExecStop = lib.mkForce "@${pkgs.coreutils}/bin/true";
+    ExecStart = lib.mkForce "${pkgs.coreutils}/bin/true";
+    ExecStop = lib.mkForce "${pkgs.coreutils}/bin/true";
   };
 
   systemd.suppressedSystemUnits = [
