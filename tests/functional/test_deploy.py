@@ -1,8 +1,9 @@
-from typing import Generator, Optional, Dict, List
+from typing import Generator, Optional, Dict, List, Union
 from functools import lru_cache
 import subprocess
 import tempfile
 import warnings
+import textwrap
 import os.path
 import signal
 import shutil
@@ -183,7 +184,7 @@ class Deployment:
         """Run a command within the Deployment environment"""
         kwargs["env"] = self._env
         kwargs["check"] = check
-        return subprocess.run(*args, **kwargs)  # type: ignore
+        return subprocess.run(*args, **kwargs)
 
     def stop_ssh_agent(self):
         if self._agent_pid:
@@ -211,10 +212,57 @@ class Deployment:
             c.destroy()
 
 
-def test_simple():
-    with Deployment(
-        deployment_file=os.path.join(CWD, "deployment/deployment.nix"),
-        # TODO: Containers should be infered from deployment file
-        containers=[Container(name="myhost", ssh_port=2024)],
-    ) as d:
-        d.run_command(["nixops", "deploy"])
+class TestContainerNetwork:
+
+    # EVAL_EXPR = textwrap.dedent("""
+    # (file: let
+    #   f = (import file).network.__test;
+    #   pkgs = import <nixpkgs> {};
+    #   jobs = f { inherit pkgs; };
+    # in pkgs.writeText "manifest.json" (builtins.toJSON jobs))
+    # """).replace('\n', ' ')
+    EVAL_EXPR = textwrap.dedent(
+        """
+    (file: let
+      jobs = (import file).network.__test;
+    in (import <nixpkgs> {}).writeText "manifest.json" (builtins.toJSON jobs))
+    """
+    ).replace("\n", " ")
+
+    def eval(self, network_file):
+        p = subprocess.run(
+            ["nix-build", "--no-out-link", "-E", self.EVAL_EXPR + f" {network_file}",],
+            check=True,
+            stdout=subprocess.PIPE,
+        )
+
+        with open(p.stdout.decode().strip()) as f:
+            return json.load(f)
+
+    def execute(self, name: str, network_path: str, data: Dict):
+        with Deployment(
+            deployment_file=network_path,
+            # TODO: Containers should be infered from deployment file
+            containers=[Container(name="myhost", ssh_port=2024)],
+        ) as d:
+            for cmd in data["commands"]:
+                if len(cmd.keys()) > 1:
+                    raise ValueError("Multiple commands in one attrset not allowed")
+                elif "nixops" in cmd:
+                    c: Union[List[str], str] = cmd["nixops"]
+                    args: List[str] = ["nixops"]
+                    if isinstance(c, list):
+                        args.extend(c)
+                    else:
+                        args.append(c)
+                    d.run_command(args)
+                else:
+                    raise ValueError("Unhandled cmd ", cmd)
+
+    def test_networks(self):
+        network_dir = os.path.join(CWD, "networks")
+        for network in os.listdir(network_dir):
+            network_path = os.path.join(network_dir, network, "network.nix")
+            test_json = self.eval(network_path)
+            for test, attrs in test_json.items():
+                yield self.execute, network, network_path, attrs
