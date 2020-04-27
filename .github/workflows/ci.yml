@@ -59,3 +59,12 @@ jobs:
         uses: cachix/install-nix-action@v8
       - name: Coverage
         run: './ci/check-tests.sh'
+  functional:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Nix
+        uses: cachix/install-nix-action@v8
+      - name: Functional
+        run: './ci/run-functional.sh'
