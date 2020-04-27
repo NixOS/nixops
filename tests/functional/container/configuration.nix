@@ -30,6 +30,7 @@
     chown -R root:root /etc/ssh
   '';
 
+  security.audit.enable = lib.mkForce false;
   systemd.suppressedSystemUnits = [
     "sys-kernel-config.mount"
     "sys-kernel-debug.mount"
