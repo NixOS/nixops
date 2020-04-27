@@ -74,10 +74,10 @@ class Container:
     hostname: str
     env: Dict[str, str]
 
-    def __init__(self, name: str, ssh_port: int):
+    def __init__(self, name: str, ssh_port: int, image_id: str):
         self.name = name
         self.container_id = None
-        self.image_id = get_container_image()
+        self.image_id = image_id
         self._process = None
         self.ssh_port = ssh_port
         self.hostname = "127.0.0.1"
@@ -142,20 +142,46 @@ class Container:
 
 
 class Deployment:
-    def __init__(self, deployment_file: str, containers: List[Container]):
+    def __init__(self, deployment_file: str):
         self._env: Dict[str, str] = dict(os.environ)
 
-        self._containers: Dict[str, Container] = {}
-        for c in containers:
-            if c.name in self._containers:
-                raise ValueError(f"{c.name} already in deployment")
-            c.env = self._env
-            self._containers[c.name] = c
+        hosts = set(
+            json.loads(
+                subprocess.check_output(
+                    [
+                        "nix-instantiate",
+                        "--json",
+                        "--eval",
+                        "--expr",
+                        f"builtins.attrNames (import {deployment_file})",
+                    ]
+                )
+            )
+        )
+        hosts.remove("network")
 
         self._agent_pid: Optional[int] = None
         self.temp_path = tempfile.TemporaryDirectory()
 
         self._deployment_file: str = deployment_file
+
+        self.setup_nixops_env()
+
+        self.setup_fake_ssh()
+        self.start_ssh_agent()
+
+        self._containers: Dict[str, Container] = {}
+        image_id = get_container_image()
+        for host in hosts:
+            ssh_port = int(
+                self.run_command(
+                    ["nixops", "show-option", host, "deployment.targetPort"],
+                    stdout=subprocess.PIPE,
+                ).stdout
+            )
+            c = Container(name=host, ssh_port=ssh_port, image_id=image_id)
+            c.env = self._env
+            self._containers[c.name] = c
 
     def start_ssh_agent(self):
         if self._agent_pid:
@@ -178,9 +204,9 @@ class Deployment:
     def setup_nixops_env(self):
         tmpdir = self.temp_path.name
         self._env["NIXOPS_STATE"] = os.path.join(tmpdir, "nixops_state.nixops")
+        self.run_command(["nixops", "create", self._deployment_file])
 
     def setup_fake_ssh(self):
-
         tmpdir = self.temp_path.name
 
         known_hosts = os.path.join(tmpdir, "known_hosts")
@@ -210,12 +236,6 @@ class Deployment:
             os.killpg(os.getpgid(self._agent_pid), signal.SIGTERM)
 
     def __enter__(self):
-        self.setup_nixops_env()
-        self.setup_fake_ssh()
-        self.start_ssh_agent()
-
-        self.run_command(["nixops", "create", self._deployment_file])
-
         for c in self._containers.values():
             c.run()
 
@@ -248,6 +268,9 @@ class TestContainerNetwork:
     """
     ).replace("\n", " ")
 
+    def __init__(self):
+        get_container_image()
+
     def eval(self, network_file):
         p = subprocess.run(
             ["nix-build", "--no-out-link", "-E", self.EVAL_EXPR + f" {network_file}",],
@@ -259,11 +282,7 @@ class TestContainerNetwork:
             return json.load(f)
 
     def execute(self, name: str, network_path: str, data: Dict):
-        with Deployment(
-            deployment_file=network_path,
-            # TODO: Containers should be infered from deployment file
-            containers=[Container(name="myhost", ssh_port=2024)],
-        ) as d:
+        with Deployment(deployment_file=network_path,) as d:
             for cmd in data["commands"]:
                 if len(cmd.keys()) > 1:
                     raise ValueError("Multiple commands in one attrset not allowed")
