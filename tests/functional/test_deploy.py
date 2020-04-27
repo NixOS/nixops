@@ -221,36 +221,37 @@ class TestContainerNetwork:
     #   jobs = f { inherit pkgs; };
     # in pkgs.writeText "manifest.json" (builtins.toJSON jobs))
     # """).replace('\n', ' ')
-    EVAL_EXPR = textwrap.dedent("""
+    EVAL_EXPR = textwrap.dedent(
+        """
     (file: let
       jobs = (import file).network.__test;
     in (import <nixpkgs> {}).writeText "manifest.json" (builtins.toJSON jobs))
-    """).replace('\n', ' ')
+    """
+    ).replace("\n", " ")
 
     def eval(self, network_file):
-        p = subprocess.run([
-            "nix-build",
-            "--no-out-link",
-            "-E",
-            self.EVAL_EXPR + f" {network_file}",
-        ], check=True, stdout=subprocess.PIPE)
+        p = subprocess.run(
+            ["nix-build", "--no-out-link", "-E", self.EVAL_EXPR + f" {network_file}",],
+            check=True,
+            stdout=subprocess.PIPE,
+        )
 
         with open(p.stdout.decode().strip()) as f:
             return json.load(f)
 
     def execute(self, name: str, network_path: str, data: Dict):
         with Deployment(
-                deployment_file=network_path,
-                # TODO: Containers should be infered from deployment file
-                containers=[Container(name="myhost", ssh_port=2024)],
+            deployment_file=network_path,
+            # TODO: Containers should be infered from deployment file
+            containers=[Container(name="myhost", ssh_port=2024)],
         ) as d:
             for cmd in data["commands"]:
                 if len(cmd.keys()) > 1:
                     raise ValueError("Multiple commands in one attrset not allowed")
-                elif 'nixops' in cmd:
-                    c: Union[List[str], str] = cmd['nixops']
-                    args: List[str] = ['nixops']
-                    if isinstance (c, list):
+                elif "nixops" in cmd:
+                    c: Union[List[str], str] = cmd["nixops"]
+                    args: List[str] = ["nixops"]
+                    if isinstance(c, list):
                         args.extend(c)
                     else:
                         args.append(c)
