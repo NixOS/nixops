@@ -705,6 +705,8 @@ def main() -> None:
     args = parser.parse_args()
     setup_logging(args)
 
+    from nixops.exceptions import NixError
+
     try:
         nixops.deployment.DEBUG = args.debug
         args.op(args)
@@ -718,6 +720,10 @@ def main() -> None:
         error(str(e))
         if args.debug or args.show_trace or str(e) == "":
             e.print_all_backtraces()
+        sys.exit(1)
+    except NixError as e:
+        sys.stderr.write(str(e))
+        sys.stderr.flush()
         sys.exit(1)
 
 
