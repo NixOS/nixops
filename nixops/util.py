@@ -171,6 +171,9 @@ class ImmutableValidatedObject:
             return value
 
         for key in set(list(anno.keys()) + list(kwargs.keys())):
+            if key == "_frozen":
+                continue
+
             # If a default value:
             # class SomeSubClass(ImmutableValidatedObject):
             #   x: int = 1
