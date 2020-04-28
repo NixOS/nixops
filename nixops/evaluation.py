@@ -1,20 +1,25 @@
-from dataclasses import dataclass
 import subprocess
 import typing
+from typing import Optional, Mapping, Any
 import json
+from nixops.util import ImmutableValidatedObject
 
 
-@dataclass
-class GenericStorageConfig:
+class GenericStorageConfig(ImmutableValidatedObject):
     provider: str
-    configuration: typing.Dict[typing.Any, typing.Any]
+    configuration: typing.Mapping[typing.Any, typing.Any]
 
 
-@dataclass
-class NetworkEval:
+class NetworkEval(ImmutableValidatedObject):
     storage: GenericStorageConfig
     description: str = "Unnamed NixOps network"
     enableRollback: bool = False
+
+
+class RawNetworkEval(ImmutableValidatedObject):
+    storage: Mapping[str, Any]
+    description: Optional[str]
+    enableRollback: Optional[bool]
 
 
 def _eval_attr(
@@ -45,22 +50,23 @@ def _eval_attr(
 
 
 def eval_network(nix_exprs: typing.List[str]) -> NetworkEval:
-    result = _eval_attr("network", nix_exprs)
+    raw_eval = RawNetworkEval(**_eval_attr("network", nix_exprs))
 
-    storage = result.get("storage")
-    if storage is None:
-        raise Exception("Missing property: network.storage must be configured.")
-    if len(storage.keys()) > 1:
+    if len(raw_eval.storage) > 1:
         raise Exception(
             "Invalid property: network.storage can only have one defined storage backend."
         )
 
-    key = list(storage.keys()).pop()
-    if key is None:
+    try:
+        key = list(raw_eval.storage.keys()).pop()
+        value = raw_eval.storage[key]
+    except KeyError:
         raise Exception(
             "Missing property: network.storage has no defined storage backend."
         )
 
-    result["storage"] = GenericStorageConfig(provider=key, configuration=storage[key])
-
-    return NetworkEval(**result)
+    return NetworkEval(
+        enableRollback=raw_eval.enableRollback or False,
+        description=raw_eval.description or "Unnamed NixOps network",
+        storage={"provider": key, "configuration": value},
+    )

@@ -1,9 +1,18 @@
 import nixops.statefile
-from nixops.storage import StorageArgValues
+from nixops.util import ImmutableValidatedObject
+from typing import Type
+
+
+class MemoryBackendOptions(ImmutableValidatedObject):
+    pass
 
 
 class MemoryBackend:
-    def __init__(self, args: StorageArgValues) -> None:
+    @staticmethod
+    def options() -> Type[MemoryBackendOptions]:
+        return MemoryBackendOptions
+
+    def __init__(self, args: MemoryBackendOptions) -> None:
         pass
 
     # fetchToFile: acquire a lock and download the state file to

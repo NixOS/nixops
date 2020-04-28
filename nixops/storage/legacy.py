@@ -1,12 +1,21 @@
-from nixops.storage import StorageArgValues
 import nixops.statefile
 import sys
 import os
 import os.path
+from nixops.util import ImmutableValidatedObject
+from typing import Type
+
+
+class LegacyBackendOptions(ImmutableValidatedObject):
+    pass
 
 
 class LegacyBackend:
-    def __init__(self, args: StorageArgValues) -> None:
+    @staticmethod
+    def options() -> Type[LegacyBackendOptions]:
+        return LegacyBackendOptions
+
+    def __init__(self, args: LegacyBackendOptions) -> None:
         pass
 
     # fetchToFile: acquire a lock and download the state file to
