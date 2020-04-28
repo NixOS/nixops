@@ -3,6 +3,11 @@ import typing
 from typing import Optional, Mapping, Any
 import json
 from nixops.util import ImmutableValidatedObject
+from nixops.exceptions import NixError
+
+
+class MalformedNetworkError(NixError):
+    pass
 
 
 class GenericStorageConfig(ImmutableValidatedObject):
@@ -22,9 +27,12 @@ class RawNetworkEval(ImmutableValidatedObject):
     enableRollback: Optional[bool]
 
 
-def _eval_attr(
-    attr, nix_exprs: typing.List[str]
-) -> typing.Dict[typing.Any, typing.Any]:
+class EvalResult(ImmutableValidatedObject):
+    exists: bool
+    value: Any
+
+
+def _eval_attr(attr, nix_expr: str) -> EvalResult:
     p = subprocess.run(
         [
             "nix-instantiate",
@@ -36,21 +44,57 @@ def _eval_attr(
             "checkConfigurationOptions",
             "false",
             # Attr
-            "-A",
+            "--argstr",
+            "attr",
             attr,
-        ]
-        + nix_exprs,
+            "--arg",
+            "nix_expr",
+            nix_expr,
+            "--expr",
+            """
+              { nix_expr, attr }:
+              let
+                ret = (import nix_expr);
+              in {
+                exists = ret ? "${attr}";
+                value = ret."${attr}" or null;
+              }
+            """,
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
     if p.returncode != 0:
         raise RuntimeError(p.stderr.decode())
 
-    return json.loads(p.stdout)
+    return EvalResult(**json.loads(p.stdout))
 
 
-def eval_network(nix_exprs: typing.List[str]) -> NetworkEval:
-    raw_eval = RawNetworkEval(**_eval_attr("network", nix_exprs))
+def eval_network(nix_expr: str) -> NetworkEval:
+    result = _eval_attr("network", nix_expr)
+    if not result.exists:
+        raise MalformedNetworkError(
+            """
+TODO: improve this error to be less specific about conversion. link to
+docs?
+
+
+WARNING: NixOps 1.0 -> 2.0 conversion step required
+
+NixOps 2.0 added support for multiple storage backends.
+
+Upgrade steps:
+1. Open %s
+2. Add:
+    network.storage.legacy = {
+      databasefile = "~/.nixops/deployments.nixops"
+    }
+3. Rerun
+"""
+            % nix_expr
+        )
+
+    raw_eval = RawNetworkEval(**result.value)
 
     if len(raw_eval.storage) > 1:
         raise Exception(

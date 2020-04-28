@@ -45,7 +45,7 @@ def deployment(args: Namespace) -> Generator[nixops.deployment.Deployment, None,
 @contextlib.contextmanager
 def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None, None]:
     network_file: str = args.network_file
-    network = eval_network([network_file])
+    network = eval_network(network_file)
     storage_class: Optional[Type[StorageBackend]] = storage_backends.get(
         network.storage.provider
     )
