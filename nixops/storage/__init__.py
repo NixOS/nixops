@@ -1,16 +1,22 @@
 from __future__ import annotations
-from typing import Mapping, Dict, Any, Type, TYPE_CHECKING
-from typing_extensions import Protocol, TypedDict
+from typing import Mapping, Dict, Any, Type, TypeVar, TYPE_CHECKING, Protocol, Callable
+
+# from typing_extensions import Protocol, TypedDict
 
 if TYPE_CHECKING:
     import nixops.statefile
 
 
+T = TypeVar("T", covariant=True)
 StorageArgValues = Mapping[str, Any]
 
 
-class StorageBackend(Protocol):
-    def __init__(self, args: StorageArgValues) -> None:
+class StorageBackend(Protocol[T]):
+    @staticmethod
+    def options() -> Callable[..., T]:
+        pass
+
+    def __init__(self, args: T) -> None:
         raise NotImplementedError
 
     # fetchToFile: acquire a lock and download the state file to
