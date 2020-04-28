@@ -143,7 +143,13 @@ class ImmutableValidatedObject:
             return value
 
         for key in set(list(anno.keys()) + list(kwargs.keys())):
-            value = kwargs.get(key)
+            # If a default value:
+            # class SomeSubClass(ImmutableValidatedObject):
+            #   x: int = 1
+            #
+            # is set this attribute is set on self before __init__ is called
+            default = getattr(self, key) if hasattr(self, key) else None
+            value = kwargs.get(key, default)
             setattr(self, key, _transform_value(key, value))
 
         self._frozen = True

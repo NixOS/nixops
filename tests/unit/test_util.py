@@ -89,3 +89,8 @@ class TestUtilTest(unittest.TestCase):
             fuzz: str
 
         self.assertRaises(TypeError, lambda: MustRaise())
+
+        class WithDefaults(util.ImmutableValidatedObject):
+            x: int = 1
+
+        self.assertEqual(WithDefaults().x, 1)
