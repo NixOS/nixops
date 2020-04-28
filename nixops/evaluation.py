@@ -94,6 +94,24 @@ Upgrade steps:
             % nix_expr
         )
 
+    if not isinstance(result.value, dict):
+        raise MalformedNetworkError(
+            """
+TODO: improve this error
+
+The network.nix has a `network` attribute set, but it is of the wrong
+type. A valid network attribute looks like this:
+
+  {
+    network = {
+      storage = {
+        /* storage driver details */
+      };
+    };
+  }
+"""
+        )
+
     raw_eval = RawNetworkEval(**result.value)
 
     if len(raw_eval.storage) > 1:
