@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from nixops.backends import MachineState
-from typing import List, Dict, Optional, Union, Tuple
+from typing import List, Dict, Optional, Union, Tuple, Type
 
 from nixops.storage import BackendRegistration
+from nixops.locks import LockDriver
 from functools import lru_cache
 from typing import Generator
 import pluggy
@@ -94,6 +95,9 @@ class Plugin:
         :return a list of tuples (plugin_name, doc_path)
         """
         return []
+
+    def lock_drivers(self) -> Dict[str, Type[LockDriver]]:
+        return {}
 
     def storage_backends(self) -> BackendRegistration:
         """ Extend the core nixops cli parser
