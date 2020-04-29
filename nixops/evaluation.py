@@ -28,7 +28,7 @@ class NetworkEval(ImmutableValidatedObject):
 
 
 class RawNetworkEval(ImmutableValidatedObject):
-    storage: Mapping[str, Any]
+    storage: Optional[Mapping[str, Any]]
     lock: Optional[Mapping[str, Any]]
     description: Optional[str]
     enableRollback: Optional[bool]
@@ -82,8 +82,9 @@ def eval_network(nix_expr: str) -> NetworkEval:
     if not result.exists:
         raise MalformedNetworkError(
             """
-TODO: improve this error to be less specific about conversion. link to
-docs?
+TODO: improve this error to be less specific about conversion, and less
+about storage backends, and more about the construction of a network
+attribute value. link to docs about storage drivers and lock drivers.
 
 
 WARNING: NixOps 1.0 -> 2.0 conversion step required
@@ -104,7 +105,9 @@ Upgrade steps:
     if not isinstance(result.value, dict):
         raise MalformedNetworkError(
             """
-TODO: improve this error
+TODO: improve this error to be less specific about conversion, and less
+about storage backends, and more about the construction of a network
+attribute value. link to docs about storage drivers and lock drivers.
 
 The network.nix has a `network` attribute set, but it is of the wrong
 type. A valid network attribute looks like this:
@@ -121,16 +124,18 @@ type. A valid network attribute looks like this:
 
     raw_eval = RawNetworkEval(**result.value)
 
-    if len(raw_eval.storage) > 1:
-        raise Exception(
+    storage: Mapping[str, Any] = raw_eval.storage or {}
+    if len(storage) > 1:
+        raise MalformedNetworkError(
             "Invalid property: network.storage can only have one defined storage backend."
         )
-
+    storage_config: Optional[Mapping[str, Any]]
     try:
-        key = list(raw_eval.storage.keys()).pop()
-        value = raw_eval.storage[key]
-    except KeyError:
-        raise Exception(
+        storage_key = list(storage.keys()).pop()
+        storage_value = storage[storage_key]
+        storage_config = {"provider": storage_key, "configuration": storage_value}
+    except IndexError:
+        raise MalformedNetworkError(
             "Missing property: network.storage has no defined storage backend."
         )
 
@@ -156,6 +161,6 @@ type. A valid network attribute looks like this:
     return NetworkEval(
         enableRollback=raw_eval.enableRollback or False,
         description=raw_eval.description or "Unnamed NixOps network",
-        storage={"provider": key, "configuration": value},
+        storage=storage_config,
         lock=lock_config,
     )
