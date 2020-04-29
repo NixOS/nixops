@@ -15,14 +15,21 @@ class GenericStorageConfig(ImmutableValidatedObject):
     configuration: typing.Mapping[typing.Any, typing.Any]
 
 
+class GenericLockConfig(ImmutableValidatedObject):
+    provider: str
+    configuration: typing.Mapping[typing.Any, typing.Any]
+
+
 class NetworkEval(ImmutableValidatedObject):
     storage: GenericStorageConfig
+    lock: GenericLockConfig
     description: str = "Unnamed NixOps network"
     enableRollback: bool = False
 
 
 class RawNetworkEval(ImmutableValidatedObject):
     storage: Mapping[str, Any]
+    lock: Optional[Mapping[str, Any]]
     description: Optional[str]
     enableRollback: Optional[bool]
 
@@ -127,8 +134,28 @@ type. A valid network attribute looks like this:
             "Missing property: network.storage has no defined storage backend."
         )
 
+    lock: Mapping[str, Any] = raw_eval.lock or {}
+    if len(lock) > 1:
+        raise MalformedNetworkError(
+            "Invalid property: network.lock can only have one defined lock backend."
+        )
+
+    lock_config: Optional[Mapping[str, Any]]
+    try:
+        lock_key = list(lock.keys()).pop()
+        lock_config = {
+            "provider": lock_key,
+            "configuration": lock[lock_key],
+        }
+    except IndexError:
+        lock_config = {
+            "provider": "noop",
+            "configuration": {},
+        }
+
     return NetworkEval(
         enableRollback=raw_eval.enableRollback or False,
         description=raw_eval.description or "Unnamed NixOps network",
         storage={"provider": key, "configuration": value},
+        lock=lock_config,
     )
