@@ -1,18 +1,21 @@
+from nixops.storage import StorageBackend
 import nixops.statefile
 import sys
 import os
 import os.path
 from nixops.util import ImmutableValidatedObject
-from typing import Type
+from typing import Callable
 
 
 class LegacyBackendOptions(ImmutableValidatedObject):
     pass
 
 
-class LegacyBackend:
+class LegacyBackend(StorageBackend[LegacyBackendOptions]):
+    __options = LegacyBackendOptions
+
     @staticmethod
-    def options() -> Type[LegacyBackendOptions]:
+    def options() -> Callable[..., LegacyBackendOptions]:
         return LegacyBackendOptions
 
     def __init__(self, args: LegacyBackendOptions) -> None:

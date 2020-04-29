@@ -1,15 +1,18 @@
 import nixops.statefile
+from nixops.storage import StorageBackend
 from nixops.util import ImmutableValidatedObject
-from typing import Type
+from typing import Callable
 
 
 class MemoryBackendOptions(ImmutableValidatedObject):
     pass
 
 
-class MemoryBackend:
+class MemoryBackend(StorageBackend[MemoryBackendOptions]):
+    __options = MemoryBackendOptions
+
     @staticmethod
-    def options() -> Type[MemoryBackendOptions]:
+    def options() -> Callable[..., MemoryBackendOptions]:
         return MemoryBackendOptions
 
     def __init__(self, args: MemoryBackendOptions) -> None:
