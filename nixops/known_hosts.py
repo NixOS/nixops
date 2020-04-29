@@ -66,4 +66,5 @@ def update(prev_address: str, new_address: str, public_host_key: str) -> None:
     # FIXME: this rewrites known_hosts twice.
     if prev_address != new_address:
         remove(prev_address, public_host_key)
-    add(new_address, public_host_key)
+    if new_address is not None:
+        add(new_address, public_host_key)
