@@ -1,17 +1,31 @@
 from __future__ import annotations
-from typing import Mapping, Dict, Any, Type, TypeVar, TYPE_CHECKING, Protocol, Callable
+from typing import Mapping, Dict, Any, Type, TypeVar, TYPE_CHECKING, Callable
 
-# from typing_extensions import Protocol, TypedDict
+from typing_extensions import Protocol
 
 if TYPE_CHECKING:
     import nixops.statefile
 
 
-T = TypeVar("T", covariant=True)
+T = TypeVar("T")
 StorageArgValues = Mapping[str, Any]
 
 
 class StorageBackend(Protocol[T]):
+    # Hack: Make T a mypy invariant. According to PEP-0544, a
+    # Protocol[T] whose T is only used in function arguments and
+    # returns is "de-facto covariant".
+    #
+    # However, a Protocol[T] which requires an attribute of type T is
+    # invariant, "since it has a mutable attribute".
+    #
+    # I don't really get it, to be honest. That said, since it is
+    # defined by the type, please set it ... even though mypy doesn't
+    # force you to. What even.
+    #
+    # See: https://www.python.org/dev/peps/pep-0544/#generic-protocols
+    __options: Type[T]
+
     @staticmethod
     def options() -> Callable[..., T]:
         pass
