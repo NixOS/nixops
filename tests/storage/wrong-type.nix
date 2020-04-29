@@ -1,7 +1,7 @@
 /*
-Expect a reasonable error message when the `network` attribute
+Expect a reasonable error message when the `network.storage` attribute
 has a value of the wrong type
 */
 {
-  network = "meh";
+  network.storage = "meh";
 }
