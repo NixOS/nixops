@@ -152,6 +152,13 @@ class ImmutableValidatedObject:
 
             if inspect.isclass(ann) and issubclass(ann, ImmutableValidatedObject):
                 value = ann(**value)
+            elif hasattr(ann, "__origin__") and ann.__origin__ == Union:
+                for arg in ann.__args__:
+                    if inspect.isclass(arg) and issubclass(
+                        arg, ImmutableValidatedObject
+                    ):
+                        value = arg(**value)
+                        break
 
             # Support Sequence[ImmutableValidatedObject]
             if isinstance(value, tuple) and not isinstance(ann, str):
