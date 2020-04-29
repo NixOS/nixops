@@ -4,7 +4,6 @@ import sys
 import os
 import os.path
 from nixops.util import ImmutableValidatedObject
-from typing import Callable
 
 
 class LegacyBackendOptions(ImmutableValidatedObject):

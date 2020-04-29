@@ -1,4 +1,4 @@
-from typing import TypeVar, Type
+from typing import TypeVar, Type, Dict
 from typing_extensions import Protocol
 
 
@@ -38,3 +38,6 @@ class LockDriver(Protocol[LockOptions]):
     # the type definition allows adding new arguments later.
     def unlock(self, **kwargs) -> None:
         raise NotImplementedError
+
+
+lock_drivers: Dict[str, Type[LockDriver]] = {}

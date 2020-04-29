@@ -1,7 +1,6 @@
 import nixops.statefile
 from nixops.storage import StorageBackend
 from nixops.util import ImmutableValidatedObject
-from typing import Callable
 
 
 class MemoryBackendOptions(ImmutableValidatedObject):
