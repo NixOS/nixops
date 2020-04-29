@@ -27,7 +27,7 @@ class StorageBackend(Protocol[T]):
     __options: Type[T]
 
     @staticmethod
-    def options() -> Callable[..., T]:
+    def options(**kwargs) -> T:
         pass
 
     def __init__(self, args: T) -> None:

@@ -15,8 +15,8 @@ class LegacyBackend(StorageBackend[LegacyBackendOptions]):
     __options = LegacyBackendOptions
 
     @staticmethod
-    def options() -> Callable[..., LegacyBackendOptions]:
-        return LegacyBackendOptions
+    def options(**kwargs) -> LegacyBackendOptions:
+        return LegacyBackendOptions(**kwargs)
 
     def __init__(self, args: LegacyBackendOptions) -> None:
         pass
