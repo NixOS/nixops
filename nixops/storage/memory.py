@@ -12,8 +12,8 @@ class MemoryBackend(StorageBackend[MemoryBackendOptions]):
     __options = MemoryBackendOptions
 
     @staticmethod
-    def options() -> Callable[..., MemoryBackendOptions]:
-        return MemoryBackendOptions
+    def options(**kwargs) -> MemoryBackendOptions:
+        return MemoryBackendOptions(**kwargs)
 
     def __init__(self, args: MemoryBackendOptions) -> None:
         pass
