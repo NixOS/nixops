@@ -34,7 +34,7 @@ def get_container_image() -> str:
     )
 
     image_id = (
-        subprocess.check_output(["docker", "images", "-q", image_name]).decode().strip()
+        subprocess.check_output(["podman", "images", "-q", image_name]).decode().strip()
     )
     if image_id:
         return image_id
@@ -59,7 +59,7 @@ def get_container_image() -> str:
     )[0]
 
     return (
-        subprocess.check_output(["docker", "import", image_file, image_name])
+        subprocess.check_output(["podman", "import", image_file, image_name])
         .decode()
         .strip()
     )
@@ -91,7 +91,7 @@ class Container:
     def run(self):
         process = subprocess.run(
             [
-                "docker",
+                "podman",
                 "run",
                 "--privileged",
                 f"--publish={self.ssh_port}:22",
@@ -105,7 +105,7 @@ class Container:
         )
         self.container_id = process.stdout.decode().strip()
 
-        subprocess.run(f"docker logs -f {self.container_id} &", shell=True)
+        subprocess.run(f"podman logs -f {self.container_id} &", shell=True)
 
     def wait_for_ssh(self, timeout=60):
         timeout = timeout * 10
@@ -134,13 +134,13 @@ class Container:
     def stop(self):
         if not self.container_id:
             return
-        subprocess.run(["docker", "kill", self.container_id])
+        subprocess.run(["podman", "kill", self.container_id])
 
     def destroy(self):
         if not self.container_id:
             return
         self.stop()
-        subprocess.run(["docker", "rm", "-f", self.container_id])
+        subprocess.run(["podman", "rm", "-f", self.container_id])
 
 
 class Deployment:
