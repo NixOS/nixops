@@ -20,6 +20,11 @@
     "9.9.9.9"
   ];
 
+  # These dont work nicely in containers
+  # TODO: Upstream into nixos/modules/virtualisation/docker-image.nix
+  services.nscd.enable = lib.mkForce false;
+  networking.dhcpcd.enable = lib.mkForce false;
+
   services.journald.console = "/dev/console";
 
   # We are using a local Nix daemon
