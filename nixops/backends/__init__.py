@@ -56,7 +56,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
 
         self.ssh_user = getpass.getuser()
         ssh_user = config["targetUser"]
-        if ssh_user is not None and ssh_user:
+        if ssh_user is not None:
             self.ssh_user = ssh_user
 
         self.privilege_escalation_command = config["privilegeEscalationCommand"]
