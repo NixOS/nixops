@@ -31,16 +31,16 @@ in
     };
 
     deployment.targetUser = mkOption {
-      type = types.nullOr types.str;
+      # type = types.nullOr types.str;
+      type = types.str;
       default = "root";
       description = ''
         The username to be used by NixOps by SSH when connecting to the
         remote system.
-
-        If <literal>targetUser<literal> is set to <literal>null<literal>
-        the username is set to the username of the user invoking
-        <literal>nixops<literal>.
       '';
+      # If <literal>targetUser</literal> is set to <literal>null</literal>
+      # the username is set to the username of the user invoking
+      # </literal>nixops</literal>.
     };
 
     deployment.targetHost = mkOption {

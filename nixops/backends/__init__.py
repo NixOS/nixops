@@ -54,10 +54,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.keys = {k: KeyOptions(**v) for k, v in config["keys"].items()}
         self.ssh_options = config["sshOptions"]
 
-        self.ssh_user = getpass.getuser()
-        ssh_user = config["targetUser"]
-        if ssh_user is not None:
-            self.ssh_user = ssh_user
+        self.ssh_user = config["targetUser"]
 
         self.privilege_escalation_command = config["privilegeEscalationCommand"]
 
