@@ -404,7 +404,9 @@ def op_check(args):
             unit_lines = []
             if res.failed_units:
                 unit_lines.append(
-                    "\n".join([warn("{0} [failed]".format(x)) for x in res.failed_units])
+                    "\n".join(
+                        [warn("{0} [failed]".format(x)) for x in res.failed_units]
+                    )
                 )
             if res.in_progress_units:
                 unit_lines.append(
@@ -442,10 +444,13 @@ def op_check(args):
             return (m.depl.name or m.depl.uuid, m, row, status)
 
         resources_tbl = create_table(
-            ([("Deployment", "l")] if args.all else []) + [("Name", "l"), ("Exists", "l")]
+            ([("Deployment", "l")] if args.all else [])
+            + [("Name", "l"), ("Exists", "l")]
         )
 
-        def resource_worker(r: nixops.resources.ResourceState) -> Optional[ResourceStatus]:
+        def resource_worker(
+            r: nixops.resources.ResourceState,
+        ) -> Optional[ResourceStatus]:
             if not nixops.deployment.is_machine(r):
                 r.check()
                 exist = True if r.state == nixops.resources.ResourceState.UP else False
