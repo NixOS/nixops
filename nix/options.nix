@@ -34,9 +34,12 @@ in
       type = types.nullOr types.str;
       default = "root";
       description = ''
-        This option specifies the username to be used by
-        NixOps on the remote system to execute deployment
-        operations.
+        The username to be used by NixOps by SSH when connecting to the
+        remote system.
+
+        If <literal>targetUser<literal> is set to <literal>null<literal>
+        the username is set to the username of the user invoking
+        <literal>nixops<literal>.
       '';
     };
 
