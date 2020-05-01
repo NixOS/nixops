@@ -13,6 +13,7 @@ in pkgs.mkShell {
     })
     pkgs.openssh
     pkgs.poetry
+    pkgs.rsync  # Included by default on NixOS
   ];
 
   shellHook = ''
