@@ -772,7 +772,13 @@ def op_import(args):
 
 
 def parse_machine(name, depl):
-    username, machine_name = (None, name) if name.find("@") == -1 else name.split("@", 1)
+    username, machine_name = (
+        (None, name) if name.find("@") == -1 else name.split("@", 1)
+    )
+
+    # For nixops mount, split path element
+    machine_name = machine_name.split(":")[0]
+
     m = depl.machines.get(machine_name)
 
     if not m:
@@ -850,32 +856,16 @@ def op_scp(args):
 def op_mount(args):
     # TODO: Fixme
     with deployment(args) as depl:
-        (username, rest, m) = parse_machine(args.machine)
-        (machine, remote_path) = (
-            (rest, "/") if rest.find(":") == -1 else rest.split(":", 1)
-        )
-        m = depl.machines.get(machine)
-        if not m:
-            raise Exception("unknown machine ‘{0}’".format(machine))
+        (username, rest, m) = parse_machine(args.machine, depl)
+        try:
+            remote_path = args.machine.split(":")[1]
+        except IndexError:
+            remote_path = "/"
+
         ssh_name = m.get_ssh_name()
 
-        flags = m.get_ssh_flags()
-        new_flags = []
-        n = 0
-        while n < len(flags):
-            if flags[n] == "-i":
-                new_flags.extend(["-o", "IdentityFile=" + flags[n + 1]])
-                n = n + 2
-            elif flags[n] == "-p":
-                new_flags.extend(["-p", flags[n + 1]])
-                n = n + 2
-            elif flags[n] == "-o":
-                new_flags.extend(["-o", flags[n + 1]])
-                n = n + 2
-            else:
-                raise Exception(
-                    "don't know how to pass SSH flag ‘{0}’ to sshfs".format(flags[n])
-                )
+        ssh_flags = nixops.util.shlex_join(["ssh"] + m.get_ssh_flags())
+        new_flags = ["-o" f"ssh_command={ssh_flags}"]
 
         for o in args.sshfs_option or []:
             new_flags.extend(["-o", o])
