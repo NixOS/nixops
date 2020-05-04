@@ -1197,7 +1197,8 @@ machine> instance state is ‘stopped’</screen>
 
 <para>This command opens an SSH connection to the specified machine
 and executes the specified command.  If no command is specified, an
-interactive shell is started.</para>
+interactive shell is started. If no user is specified, the machines
+<literal>deployment.targetUser</literal> is used.</para>
 
 </refsection>
 
@@ -1344,8 +1345,8 @@ local file system. If
 <literal>:<replaceable>remote</replaceable></literal> is omitted, the
 entire remote file system is mounted. If you specify an empty path
 (i.e. <literal>:</literal>), then the home directory of the specified
-user is mounted. If no user is specified, <literal>root</literal> is
-assumed.</para>
+user is mounted. If no user is specified, the machines
+<literal>deployment.targetUser</literal> is used.</para>
 
 <para>This command is implemented using <command>sshfs</command>, so
 you must have <command>sshfs</command> installed and the
