@@ -771,8 +771,20 @@ def op_import(args):
                             nixops.known_hosts.add(m.private_ipv4, m.public_host_key)
 
 
-def parse_machine(name):
-    return ("root", name) if name.find("@") == -1 else name.split("@", 1)
+def parse_machine(name, depl):
+    username, machine_name = (None, name) if name.find("@") == -1 else name.split("@", 1)
+    m = depl.machines.get(machine_name)
+
+    if not m:
+        raise Exception("unknown machine ‘{0}’".format(machine_name))
+
+    if not username and m.ssh_user:
+        username = m.ssh_user
+
+    if username is None:
+        username = "root"
+
+    return username, machine_name
 
 
 def op_ssh(args):
