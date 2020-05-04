@@ -784,15 +784,12 @@ def parse_machine(name, depl):
     if username is None:
         username = "root"
 
-    return username, machine_name
+    return username, machine_name, m
 
 
 def op_ssh(args):
     with deployment(args) as depl:
-        (username, machine) = parse_machine(args.machine)
-        m = depl.machines.get(machine)
-        if not m:
-            raise Exception("unknown machine ‘{0}’".format(machine))
+        (username, _, m) = parse_machine(args.machine, depl)
         flags, command = m.ssh.split_openssh_args(args.args)
         sys.exit(
             m.ssh.run_command(
@@ -838,10 +835,7 @@ def op_scp(args):
     if args.scp_from == args.scp_to:
         raise Exception("exactly one of ‘--from’ and ‘--to’ must be specified")
     with deployment(args) as depl:
-        (username, machine) = parse_machine(args.machine)
-        m = depl.machines.get(machine)
-        if not m:
-            raise Exception("unknown machine ‘{0}’".format(machine))
+        (username, machine, m) = parse_machine(args.machine, depl)
         ssh_name = m.get_ssh_name()
         from_loc = scp_loc(username, ssh_name, args.scp_from, args.source)
         to_loc = scp_loc(username, ssh_name, args.scp_to, args.destination)
@@ -854,8 +848,9 @@ def op_scp(args):
 
 
 def op_mount(args):
+    # TODO: Fixme
     with deployment(args) as depl:
-        (username, rest) = parse_machine(args.machine)
+        (username, rest, m) = parse_machine(args.machine)
         (machine, remote_path) = (
             (rest, "/") if rest.find(":") == -1 else rest.split(":", 1)
         )
@@ -979,10 +974,7 @@ def op_edit(args):
 
 def op_copy_closure(args):
     with deployment(args) as depl:
-        (username, machine) = parse_machine(args.machine)
-        m = depl.machines.get(machine)
-        if not m:
-            raise Exception("unknown machine ‘{0}’".format(machine))
+        (username, machine, m) = parse_machine(args.machine, depl)
         env = dict(os.environ)
         env["NIX_SSHOPTS"] = " ".join(m.get_ssh_flags())
         res = nixops.util.logged_exec(
