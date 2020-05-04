@@ -70,6 +70,9 @@ class MachineState(nixops.resources.ResourceState):
     ssh_port: int = nixops.util.attr_property("targetPort", 22, int)
     ssh_user: str = nixops.util.attr_property("targetUser", "root", str)
     ssh_options: List[str] = nixops.util.attr_property("sshOptions", [], "json")
+    privilege_escalation_command: List[str] = nixops.util.attr_property(
+        "privilegeEscalationCommand", [], "json"
+    )
     public_vpn_key: Optional[str] = nixops.util.attr_property("publicVpnKey", None)
     keys: Mapping[str, str] = nixops.util.attr_property("keys", {}, "json")
     owners: List[str] = nixops.util.attr_property("owners", [], "json")
@@ -99,6 +102,7 @@ class MachineState(nixops.resources.ResourceState):
         self.ssh.register_passwd_fun(self.get_ssh_password)
         self._ssh_private_key_file: Optional[str] = None
         self.new_toplevel: Optional[str] = None
+        self.ssh.privilege_escalation_command = self.privilege_escalation_command
 
     def prefix_definition(self, attr):
         return attr
@@ -118,6 +122,7 @@ class MachineState(nixops.resources.ResourceState):
             self.ssh.enable_compression()
 
         self.ssh.privilege_escalation_command = list(defn.privilege_escalation_command)
+        self.privilege_escalation_command = list(defn.privilege_escalation_command)
 
     def stop(self) -> None:
         """Stop this machine, if possible."""
