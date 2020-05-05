@@ -118,7 +118,7 @@ rec {
     machines =
       flip mapAttrs nodes (n: v': let v = scrubOptionValue v'; in
       foldr (a: b: a // b)
-        { inherit (v.config.deployment) targetEnv targetPort targetHost alwaysActivate owners keys hasFastConnection;
+        { inherit (v.config.deployment) targetEnv targetPort targetHost targetUser sshOptions privilegeEscalationCommand alwaysActivate owners keys hasFastConnection;
           nixosRelease = v.config.system.nixos.release or v.config.system.nixosRelease or (removeSuffix v.config.system.nixosVersionSuffix v.config.system.nixosVersion);
           publicIPv4 = v.config.networking.publicIPv4;
         }

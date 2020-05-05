@@ -771,26 +771,40 @@ def op_import(args):
                             nixops.known_hosts.add(m.private_ipv4, m.public_host_key)
 
 
-def parse_machine(name):
-    return ("root", name) if name.find("@") == -1 else name.split("@", 1)
+def parse_machine(name, depl):
+    username, machine_name = (
+        (None, name) if name.find("@") == -1 else name.split("@", 1)
+    )
+
+    # For nixops mount, split path element
+    machine_name = machine_name.split(":")[0]
+
+    m = depl.machines.get(machine_name)
+
+    if not m:
+        raise Exception("unknown machine ‘{0}’".format(machine_name))
+
+    if not username and m.ssh_user:
+        username = m.ssh_user
+
+    if username is None:
+        username = "root"
+
+    return username, machine_name, m
 
 
 def op_ssh(args):
     with deployment(args) as depl:
-        (username, machine) = parse_machine(args.machine)
-        m = depl.machines.get(machine)
-        if not m:
-            raise Exception("unknown machine ‘{0}’".format(machine))
+        (username, _, m) = parse_machine(args.machine, depl)
         flags, command = m.ssh.split_openssh_args(args.args)
-        user = None if username == "root" else username
         sys.exit(
             m.ssh.run_command(
                 command,
-                flags,
+                flags=flags,
                 check=False,
                 logged=False,
                 allow_ssh_args=True,
-                user=user,
+                user=username,
             )
         )
 
@@ -805,8 +819,9 @@ def op_ssh_for_each(args):
                     m, args.include or [], args.exclude or []
                 ):
                     return None
+
                 return m.ssh.run_command_get_status(
-                    args.args, allow_ssh_args=True, check=False
+                    args.args, allow_ssh_args=True, check=False, user=m.ssh_user
                 )
 
             results = results + nixops.parallel.run_tasks(
@@ -826,10 +841,7 @@ def op_scp(args):
     if args.scp_from == args.scp_to:
         raise Exception("exactly one of ‘--from’ and ‘--to’ must be specified")
     with deployment(args) as depl:
-        (username, machine) = parse_machine(args.machine)
-        m = depl.machines.get(machine)
-        if not m:
-            raise Exception("unknown machine ‘{0}’".format(machine))
+        (username, machine, m) = parse_machine(args.machine, depl)
         ssh_name = m.get_ssh_name()
         from_loc = scp_loc(username, ssh_name, args.scp_from, args.source)
         to_loc = scp_loc(username, ssh_name, args.scp_to, args.destination)
@@ -842,33 +854,18 @@ def op_scp(args):
 
 
 def op_mount(args):
+    # TODO: Fixme
     with deployment(args) as depl:
-        (username, rest) = parse_machine(args.machine)
-        (machine, remote_path) = (
-            (rest, "/") if rest.find(":") == -1 else rest.split(":", 1)
-        )
-        m = depl.machines.get(machine)
-        if not m:
-            raise Exception("unknown machine ‘{0}’".format(machine))
+        (username, rest, m) = parse_machine(args.machine, depl)
+        try:
+            remote_path = args.machine.split(":")[1]
+        except IndexError:
+            remote_path = "/"
+
         ssh_name = m.get_ssh_name()
 
-        flags = m.get_ssh_flags()
-        new_flags = []
-        n = 0
-        while n < len(flags):
-            if flags[n] == "-i":
-                new_flags.extend(["-o", "IdentityFile=" + flags[n + 1]])
-                n = n + 2
-            elif flags[n] == "-p":
-                new_flags.extend(["-p", flags[n + 1]])
-                n = n + 2
-            elif flags[n] == "-o":
-                new_flags.extend(["-o", flags[n + 1]])
-                n = n + 2
-            else:
-                raise Exception(
-                    "don't know how to pass SSH flag ‘{0}’ to sshfs".format(flags[n])
-                )
+        ssh_flags = nixops.util.shlex_join(["ssh"] + m.get_ssh_flags())
+        new_flags = ["-o" f"ssh_command={ssh_flags}"]
 
         for o in args.sshfs_option or []:
             new_flags.extend(["-o", o])
@@ -967,10 +964,7 @@ def op_edit(args):
 
 def op_copy_closure(args):
     with deployment(args) as depl:
-        (username, machine) = parse_machine(args.machine)
-        m = depl.machines.get(machine)
-        if not m:
-            raise Exception("unknown machine ‘{0}’".format(machine))
+        (username, machine, m) = parse_machine(args.machine, depl)
         env = dict(os.environ)
         env["NIX_SSHOPTS"] = " ".join(m.get_ssh_flags())
         res = nixops.util.logged_exec(

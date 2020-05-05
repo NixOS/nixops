@@ -30,6 +30,19 @@ in
       '';
     };
 
+    deployment.targetUser = mkOption {
+      # type = types.nullOr types.str;
+      type = types.str;
+      default = "root";
+      description = ''
+        The username to be used by NixOps by SSH when connecting to the
+        remote system.
+      '';
+      # If <literal>targetUser</literal> is set to <literal>null</literal>
+      # the username is set to the username of the user invoking
+      # </literal>nixops</literal>.
+    };
+
     deployment.targetHost = mkOption {
       type = types.str;
       description = ''
@@ -43,6 +56,28 @@ in
       description = ''
         This option specifies the SSH port to be used by
         NixOps to execute remote deployment operations.
+      '';
+    };
+
+    deployment.sshOptions = mkOption {
+      type = types.listOf types.str;
+      default = [];
+      description = ''
+        Extra options passed to the OpenSSH client verbatim, and are not executed by a shell.
+      '';
+    };
+
+    deployment.privilegeEscalationCommand = mkOption {
+      type = types.listOf types.str;
+      default = [ "sudo" "-H" "--" ];
+      description = ''
+        A command to escalate to root privileges when using SSH as a non-root user.
+        This option is ignored if the <literal>targetUser</literal> option is set to <literal>root</literal>.
+
+        The program and its options are executed verbatim without shell.
+
+        It's good practice to end with "--" to indicate that the privilege escalation command
+        should stop processing command line arguments.
       '';
     };
 

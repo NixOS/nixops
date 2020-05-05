@@ -160,6 +160,7 @@ class SSH(object):
         self._logger = logger
         self._ssh_master: Optional[SSHMaster] = None
         self._compress = False
+        self.privilege_escalation_command: List[str] = []
 
     def register_host_fun(self, host_fun: Callable[[], str]) -> None:
         """
@@ -168,10 +169,10 @@ class SSH(object):
         """
         self._host_fun = host_fun
 
-    def _get_target(self, user: Optional[str] = None) -> str:
+    def _get_target(self, user: str) -> str:
         if self._host_fun is None:
             raise AssertionError("don't know which SSH host to connect to")
-        return "{0}@{1}".format("root" if user is None else user, self._host_fun())
+        return "{0}@{1}".format(user, self._host_fun())
 
     def register_flag_fun(self, flag_fun: Callable[[], List[str]]) -> None:
         """
@@ -205,10 +206,7 @@ class SSH(object):
             self._ssh_master = None
 
     def get_master(
-        self,
-        flags: List[str] = [],
-        timeout: Optional[int] = None,
-        user: Optional[str] = None,
+        self, user: str, flags: List[str] = [], timeout: Optional[int] = None,
     ) -> SSHMaster:
         """
         Start (if necessary) an SSH master connection to speed up subsequent
@@ -285,37 +283,43 @@ class SSH(object):
                 break
         return (flags, command)
 
-    def _sanitize_command(
-        self, command: Command, allow_ssh_args: bool
+    def _format_command(
+        self, command: Command, user: str, allow_ssh_args: bool,
     ) -> Iterable[str]:
         """
         Helper method for run_command, which essentially prepares and properly
         escape the command. See run_command() for further description.
         """
+
+        # Dont make assumptions about remote login shell
+        cmd: List[str] = ["bash", "-c"]
+
         if isinstance(command, str):
             if allow_ssh_args:
                 return shlex.split(command)
             else:
-                return ["--", command]
+                cmd.append(command)
         # iterable
         elif allow_ssh_args:
             return command
         else:
-            return [
-                "--",
-                " ".join(
-                    ["'{0}'".format(arg.replace("'", r"'\''")) for arg in command]
-                ),
-            ]
+            cmd.append(
+                " ".join(["'{0}'".format(arg.replace("'", r"'\''")) for arg in command])
+            )
+
+        if user and user != "root":
+            cmd = self.privilege_escalation_command + cmd
+
+        return ["--", nixops.util.shlex_join(cmd)]
 
     def run_command(
         self,
         command: Command,
+        user: str,
         flags: List[str] = [],
         timeout: Optional[int] = None,
         logged: bool = True,
         allow_ssh_args: bool = False,
-        user: Optional[str] = None,
         **kwargs: Any
     ) -> Union[str, int]:
         """
@@ -337,13 +341,14 @@ class SSH(object):
 
         'timeout' specifies the SSH connection timeout.
         """
-        master = self.get_master(flags, timeout, user)
+        master = self.get_master(flags=flags, timeout=timeout, user=user)
         flags = flags + self._get_flags()
         if logged:
             flags.append("-x")
         cmd = ["ssh"] + master.opts + flags
         cmd.append(self._get_target(user))
-        cmd += self._sanitize_command(command, allow_ssh_args)
+
+        cmd += self._format_command(command, user=user, allow_ssh_args=allow_ssh_args)
         if logged:
             try:
                 return nixops.util.logged_exec(cmd, self._logger, **kwargs)
@@ -362,11 +367,11 @@ class SSH(object):
     def run_command_get_stdout(
         self,
         command: Command,
+        user: str,
         flags: List[str] = [],
         timeout: Optional[int] = None,
         logged: bool = True,
         allow_ssh_args: bool = False,
-        user: Optional[str] = None,
         **kwargs: Any
     ) -> str:
 
@@ -375,18 +380,24 @@ class SSH(object):
         return cast(
             str,
             self.run_command(
-                command, flags, timeout, logged, allow_ssh_args, user, **kwargs
+                command=command,
+                flags=flags,
+                timeout=timeout,
+                logged=logged,
+                allow_ssh_args=allow_ssh_args,
+                user=user,
+                **kwargs
             ),
         )
 
     def run_command_get_status(
         self,
         command: Command,
+        user: str,
         flags: List[str] = [],
         timeout: Optional[int] = None,
         logged: bool = True,
         allow_ssh_args: bool = False,
-        user: Optional[str] = None,
         **kwargs: Any
     ) -> int:
         assert kwargs.get("capture_stdout", False) == False
@@ -394,7 +405,13 @@ class SSH(object):
         return cast(
             int,
             self.run_command(
-                command, flags, timeout, logged, allow_ssh_args, user, **kwargs
+                command=command,
+                flags=flags,
+                timeout=timeout,
+                logged=logged,
+                allow_ssh_args=allow_ssh_args,
+                user=user,
+                **kwargs
             ),
         )
 
