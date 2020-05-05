@@ -203,7 +203,7 @@ class ResourceState(object):
         return None
 
     @property
-    def public_ipv4(self):
+    def public_ipv4(self) -> Optional[str]:
         return None
 
     def create_after(self, resources, defn):

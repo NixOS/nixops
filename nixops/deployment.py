@@ -593,6 +593,14 @@ class Deployment:
 
             attrs_list = attrs_per_resource[m.name]
 
+            private_ipv4: Optional[str] = m.private_ipv4
+            if private_ipv4:
+                attrs_list.append({("networking", "privateIPv4"): private_ipv4})
+
+            public_ipv4: Optional[str] = m.public_ipv4
+            if public_ipv4:
+                attrs_list.append({("networking", "publicIPv4"): public_ipv4})
+
             # Set system.stateVersion if the Nixpkgs version supports it.
             nixos_version = nixops.util.parse_nixos_version(defn.config.nixosRelease)
             if nixos_version >= ["15", "09"]:

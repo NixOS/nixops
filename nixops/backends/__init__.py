@@ -362,7 +362,7 @@ class MachineState(nixops.resources.ResourceState):
         return None
 
     @property
-    def private_ipv4(self):
+    def private_ipv4(self) -> Optional[str]:
         return None
 
     def address_to(self, r):
