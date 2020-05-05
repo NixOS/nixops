@@ -93,10 +93,12 @@ class Container:
             [
                 "podman",
                 "run",
+                "--rm",
                 "--privileged",
                 f"--publish={self.ssh_port}:22",
-                "-it",
-                "--detach",
+                "-t",
+                "--attach",
+                "STDERR,STDOUT",
                 self.image_id,
                 "/init",
             ],
@@ -104,8 +106,6 @@ class Container:
             stdout=subprocess.PIPE,
         )
         self.container_id = process.stdout.decode().strip()
-
-        subprocess.run(f"podman logs -f {self.container_id} &", shell=True)
 
     def wait_for_ssh(self, timeout=60):
         timeout = timeout * 10
