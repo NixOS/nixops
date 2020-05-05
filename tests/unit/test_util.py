@@ -94,3 +94,15 @@ class TestUtilTest(unittest.TestCase):
             x: int = 1
 
         self.assertEqual(WithDefaults().x, 1)
+
+        # Extensible
+        class A(util.ImmutableValidatedObject):
+            x: int
+
+        class B(A):
+            y: int
+
+        a = A(x=1)
+        b = B(a, y=1)
+        self.assertEqual(a.x, b.x)
+        self.assertEqual(b.x, 1)

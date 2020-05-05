@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 
 import os
 import sys
@@ -132,8 +133,21 @@ class ImmutableValidatedObject:
 
     _frozen: bool
 
-    def __init__(self, **kwargs):
-        anno: Dict = self.__annotations__
+    def __init__(self, *args: ImmutableValidatedObject, **kwargs):
+
+        kw = {}
+        for arg in args:
+            if not isinstance(arg, ImmutableValidatedObject):
+                raise TypeError("Arg not a Immutablevalidatedobject instance")
+            kw.update(dict(arg))
+        kw.update(kwargs)
+
+        # Support inheritance
+        anno: Dict = {}
+        for x in reversed(self.__class__.mro()):
+            if not hasattr(x, "__annotations__"):
+                continue
+            anno.update(x.__annotations__)
 
         def _transform_value(key: Any, value: Any) -> Any:
             ann = anno.get(key)
@@ -156,7 +170,7 @@ class ImmutableValidatedObject:
             #
             # is set this attribute is set on self before __init__ is called
             default = getattr(self, key) if hasattr(self, key) else None
-            value = kwargs.get(key, default)
+            value = kw.get(key, default)
             setattr(self, key, _transform_value(key, value))
 
         self._frozen = True
