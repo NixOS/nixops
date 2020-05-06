@@ -16,7 +16,7 @@ This guide is light on the details, and intends to describe just the
 supported hooks and integration process.
 
 Packaging with Poetry and poetry2nix
-====================================
+------------------------------------
 
 NixOps and its plugins are packaged as standard Python applications.
 Most packages will use `Poetry <https://python-poetry.org>`_ and
@@ -60,7 +60,7 @@ and ``pyproject.toml`` may cause confusing build errors. Only use a
   build-backend = "poetry.masonry.api"
 
 Important Notes
----------------
+***************
 
 1. If you have a ``setup.py``, delete it now.
 2. If your plugin is named ``nixops_neatcloud``, the source directory
@@ -154,7 +154,7 @@ Important Notes
 
 
 On with Poetry
---------------
+**************
 
 Now create your first ``poetry.lock`` file with ``poetry lock``::
 
@@ -236,7 +236,7 @@ At this point, you can develop your plugin from within this shell,
 running ``nixops`` and ``mypy nixops_neatcloud``./
 
 Plug-in Loading
-===============
+---------------
 
 NixOps uses `Pluggy <https://pluggy.readthedocs.io/en/latest/>`_ to
 discover and load plugins. The glue which hooks things together is in
@@ -251,7 +251,7 @@ NixOps implements a handful of hooks which your plugin can integrate
 with. See ``nixops/plugins/hookspec.py`` for a complete list.
 
 Developing NixOps and a plugin at the same time
-===============================================
+-----------------------------------------------
 
 In this case you want a mutable copy of NixOps and your plugin. Since
 we are developing the plugin like any other Python program, we can
@@ -264,7 +264,7 @@ specify a relative path to NixOps's source in the pyproject.toml:
 Then run `poetry lock; poetry install; poetry shell` like normal.
 
 Troubleshooting
-===============
+---------------
 
 If you run in to trouble, you might try deleting some things::
 
@@ -298,7 +298,7 @@ If a dependency is missing, add the dependency to your
 ``pyproject.toml``, and add an override like the Toml example for Zipp.
 
 Zipp can't find toml
---------------------
+********************
 
 Add zipp to your ``overrides.nix``, providing toml explicitly:
 
@@ -315,7 +315,7 @@ Add zipp to your ``overrides.nix``, providing toml explicitly:
   }
 
 FileNotFoundError: [Errno 2] No such file or directory: 'setup.py'
-------------------------------------------------------------------
+******************************************************************
 
 This dependency needs to be built in the ``pyproject`` format, which
 means it will also need poetry as a dependency. Add this to your

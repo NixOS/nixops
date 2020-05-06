@@ -7,8 +7,22 @@ Welcome to NixOps's documentation!
 ==================================
 
 .. toctree::
+   :maxdepth: 1
+   :caption: User Guides:
+
+   guides/deploy-without-root
+
+.. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Plugins:
+
+   plugins/authoring
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Developing NixOps:
+
+   dev/writing-documentation
 
 
 
