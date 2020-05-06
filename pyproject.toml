@@ -19,6 +19,10 @@ black = "^19.10b0"
 # For mypy txt report
 lxml = "^4.5.0"
 
+# docs
+livereload = "^2.6.1"
+sphinx = "^3.0.3"
+
 [tool.poetry.scripts]
 nixops = 'nixops.__main__:main'
 charon = 'nixops.__main__:main'
