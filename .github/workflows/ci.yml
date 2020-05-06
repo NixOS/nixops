@@ -12,6 +12,8 @@ jobs:
         uses: actions/checkout@v2
       - name: Nix
         uses: cachix/install-nix-action@v8
+      - name: Prefetch shell.nix
+        run: 'nix-shell --run true'
       - name: Parsing
         run: './ci/check-nix-files.sh'
   build:
@@ -21,6 +23,8 @@ jobs:
         uses: actions/checkout@v2
       - name: Nix
         uses: cachix/install-nix-action@v8
+      - name: Prefetch shell.nix
+        run: 'nix-shell --run true'
       - name: Build
         run: 'nix-build --quiet release.nix -A nixops.x86_64-linux -I nixpkgs=channel:nixos-20.03'
   black:
@@ -30,6 +34,8 @@ jobs:
         uses: actions/checkout@v2
       - name: Nix
         uses: cachix/install-nix-action@v8
+      - name: Prefetch shell.nix
+        run: 'nix-shell --run true'
       - name: Black
         run: './ci/check-formatting.sh'
   mypy:
@@ -39,6 +45,8 @@ jobs:
         uses: actions/checkout@v2
       - name: Nix
         uses: cachix/install-nix-action@v8
+      - name: Prefetch shell.nix
+        run: 'nix-shell --run true'
       - name: Mypy
         run: './ci/check-mypy.sh'
   mypy-ratchet:
@@ -48,6 +56,8 @@ jobs:
         uses: actions/checkout@v2
       - name: Nix
         uses: cachix/install-nix-action@v8
+      - name: Prefetch shell.nix
+        run: 'nix-shell --run true'
       - name: Mypy Ratchet
         run: './ci/mypy-ratchet.sh'
   coverage:
@@ -57,6 +67,8 @@ jobs:
         uses: actions/checkout@v2
       - name: Nix
         uses: cachix/install-nix-action@v8
+      - name: Prefetch shell.nix
+        run: 'nix-shell --run true'
       - name: Coverage
         run: './ci/check-tests.sh'
   docs:
@@ -66,5 +78,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Nix
         uses: cachix/install-nix-action@v8
+      - name: Prefetch shell.nix
+        run: 'nix-shell --run true'
       - name: Restructured Text Lint
         run: './ci/lint-docs.sh'
