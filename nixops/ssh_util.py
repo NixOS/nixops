@@ -291,7 +291,7 @@ class SSH(object):
         escape the command. See run_command() for further description.
         """
 
-        # Dont make assumptions about remote login shell
+        # Don't make assumptions about remote login shell
         cmd: List[str] = ["bash", "-c"]
 
         if isinstance(command, str):

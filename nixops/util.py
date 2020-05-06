@@ -38,7 +38,7 @@ from typing import (
     Iterable,
 )
 
-# the following ansi_ imports are for backwards compatability. They
+# the following ansi_ imports are for backwards compatibility. They
 # would belong fine in this util.py, but having them in util.py
 # causes an import cycle with types.
 from nixops.ansi import ansi_warn, ansi_error, ansi_success, ansi_highlight

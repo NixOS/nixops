@@ -327,7 +327,7 @@ deploy the new configuration.
     Moving the port number to a different value is now without the risk of an inconsistent deployment.
   </para>
   <para>
-    Aditional module inputs are
+    Additional module inputs are
   </para>
   <itemizedlist> 
     <listitem><para><literal>name</literal>: The name of the machine.</para></listitem>
