@@ -57,6 +57,22 @@ Inside the development shell the tests can be executed as follows:
 $ ./coverage-tests.py -a '!libvirtd,!gce,!ec2,!azure' -v
 ```
 
+#### Documentation
+
+NixOps' documentation uses reStructuredText. When editing the docs,
+get a live-reloading, rendered version of the docs:
+
+```
+nixops$ ./live-docs.py
+Serving on http://127.0.0.1:5500
+```
+
+and verify its lints before committing:
+
+```
+nixops$ ./ci/lint-docs.sh
+```
+
 ### Contributing
 
 Contributions to the project are welcome in the form of GitHub PRs. Please consider the following guidelines before creating PRs:
