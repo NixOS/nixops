@@ -5,6 +5,11 @@ from livereload import Server, shell
 
 server = Server()
 
-server.watch("doc/*.rst", shell("make html", cwd="doc"))
-server.watch("doc/**/*.rst", shell("make html", cwd="doc"))
+build_docs = shell("make html", cwd="doc")
+
+print("Doing an initial build of the docs...")
+build_docs()
+
+server.watch("doc/*.rst", build_docs)
+server.watch("doc/**/*.rst", build_docs)
 server.serve(root="doc/_build/html")
