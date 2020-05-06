@@ -1,8 +1,8 @@
 Deploying without Root
-====
+======================
 
 Requirements
-----
+------------
 
 NixOps 2.0 allows for deploying as users other than root, as long
 as the deploying user meets two requirements:
@@ -19,7 +19,7 @@ We assume:
 3. The target machine is already managed by NixOps.
 
 Steps
-----
+-----
 
 1. Configure the target machine according to the listed requirements.
 2. Update the NixOps network to use our alternative user.
@@ -27,7 +27,7 @@ Steps
 
 
 Configuring the Target Machine
-****
+******************************
 
 First, mark the deploying user as trusted:
 
@@ -59,7 +59,7 @@ Now use NixOps to deploy these changes to the server before taking
 the next step.
 
 Configuring the NixOps Network
-****
+******************************
 
 Edit your network.nix to specify the machine's
 ``deployment.targetUser``:
@@ -78,7 +78,7 @@ Edit your network.nix to specify the machine's
 
 
 Testing our Changes
-****
+*******************
 
 Then, run ``nixops deploy`` to update the NixOps database. This deploy
 will use your "deployer" user instead of root.
@@ -87,7 +87,7 @@ Try running ``nixops ssh``, and see that you are logged in as
 "deployer".
 
 Notes
-----
+-----
 
 * NixOps caches the target user and related variables in its state
   file, and commands like ``nixops send-keys`` and ``ssh`` use the
