@@ -1,0 +1,32 @@
+NixOps 2.0
+==========
+
+Removed NixOS Options
+---------------------
+
+* ``deployment.autoLuks.*`` - moved to `nixos-modules-contrib`_.
+* ``deployment.autoRaid0.*`` - moved to `nixos-modules-contrib`_.
+
+
+Notable Files Removed
+---------------------
+
+* ``nix/adhoc-cloud-vm.nix`` (`#1303`_, `#1312`_) - the included behavior was
+  not targeted to any specific use case or generic to support all
+  cloud VMs.
+* ``nix/auto-luks.nix`` (`#1297`_, `#1312`_) - the module is now
+  nixos-modules-contrib_, since its behavior was not specific to
+  NixOps, and outside of the core feature set of NixOps.
+* ``nix/auto-raid0.nix`` (`#1299`_, `#1312`_) - the module is now
+  nixos-modules-contrib_, since its behavior was not specific to
+  NixOps, and outside of the core feature set of NixOps.
+* ``nixops/data/nixos-infect`` (`#1305`_, `#1312`_) - plugins needing
+  nixos-infect should include it themselves.
+
+
+.. _nixos-modules-contrib: https://github.com/nix-community/nixos-modules-contrib
+.. _#1297: https://github.com/NixOS/nixops/pull/1297
+.. _#1299: https://github.com/NixOS/nixops/pull/1299
+.. _#1303: https://github.com/NixOS/nixops/pull/1303
+.. _#1305: https://github.com/NixOS/nixops/pull/1305
+.. _#1312: https://github.com/NixOS/nixops/pull/1312

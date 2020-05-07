@@ -19,6 +19,11 @@ NixOps
 
    dev/writing-documentation
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Release Notes
+
+   release-notes/2.0
 
 
 Indices and tables

@@ -1633,7 +1633,7 @@ class Deployment:
             )
 
     def send_keys(self, include: List[str] = [], exclude: List[str] = []) -> None:
-        """Send LUKS encryption keys to machines."""
+        """Send encryption keys to machines."""
 
         def worker(m: nixops.backends.MachineState) -> None:
             if not should_do(m, include, exclude):

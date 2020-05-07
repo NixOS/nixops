@@ -12,8 +12,6 @@ in
 
   imports =
     [
-      ./auto-raid0.nix
-      ./auto-luks.nix
       ./keys.nix
     ];
 
