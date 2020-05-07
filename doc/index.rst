@@ -24,6 +24,7 @@ NixOps
    :caption: Release Notes
 
    release-notes/2.0
+   release-notes/1.x
 
 
 Indices and tables
