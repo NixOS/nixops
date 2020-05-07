@@ -82,3 +82,14 @@ jobs:
         run: 'nix-shell --run true'
       - name: Restructured Text Lint
         run: './ci/lint-docs.sh'
+  poetry-up-to-date:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Nix
+        uses: cachix/install-nix-action@v8
+      - name: Prefetch shell.nix
+        run: 'nix-shell --run true'
+      - name: Poetry Locks Consistent
+        run: './ci/check-poetry.sh'
