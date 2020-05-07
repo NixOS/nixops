@@ -11,7 +11,7 @@ class StateDict(collections.MutableMapping):
        a python dict like behavior for the NixOps state file.
     """
 
-    # TODO implement __repr__ for convenience e.g debuging the structure
+    # TODO implement __repr__ for convenience e.g debugging the structure
     def __init__(self, depl, id: str):
         super(StateDict, self).__init__()
         self._db: sqlite3.Connection = depl._db

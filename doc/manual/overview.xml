@@ -298,7 +298,7 @@ deploy the new configuration.
 
   gollum =
     { config, pkgs, ... }:
-    { 
+    {
       services.gollum = {
         enable = true;
         port = 40273;
@@ -311,7 +311,7 @@ deploy the new configuration.
     let
       gollumPort = nodes.gollum.config.services.gollum.port;
     in
-    { 
+    {
       services.nginx = {
         enable = true;
         virtualHosts."wiki.example.net".locations."/" = {
@@ -327,13 +327,13 @@ deploy the new configuration.
     Moving the port number to a different value is now without the risk of an inconsistent deployment.
   </para>
   <para>
-    Aditional module inputs are
+    Additional module inputs are
   </para>
-  <itemizedlist> 
+  <itemizedlist>
     <listitem><para><literal>name</literal>: The name of the machine.</para></listitem>
     <listitem><para><literal>uuid</literal>: The NixOps UUID of the deployment.</para></listitem>
     <listitem><para><literal>resources</literal>: NixOps resources associated with the deployment.</para></listitem>
-  </itemizedlist> 
+  </itemizedlist>
 </section>
 
 <!--

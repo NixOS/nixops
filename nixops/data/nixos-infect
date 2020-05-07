@@ -23,7 +23,7 @@
 #  - Deploy the droplet indicated at the top of the file, enable ipv6, add your ssh key
 #  - cat customConfig.optional nixos-infect | ssh root@targethost
 #
-# Alternatively, use the user data mechamism by supplying the following lines (without >)
+# Alternatively, use the user data mechanism by supplying the following lines (without >)
 # in the Digital Ocean Web UI (or HTTP API):
 #
 # > #cloud-config
@@ -42,7 +42,7 @@
 # complex than this (although it supported more platforms): it didn't install
 # to root (/nixos instead), left dregs of the old filesystem (almost always
 # unnecessary since starting from a fresh deployment), and most importantly,
-# simply didn't work for me! (old system was being because grub wasnt properly
+# simply didn't work for me! (old system was being because grub wasn't properly
 # reinstalled)
 
 set -ex

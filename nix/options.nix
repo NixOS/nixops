@@ -111,7 +111,7 @@ in
         If set to <literal>true</literal>, whole closure will be copied using just `nix-copy-closure`.
 
         If set to <literal>false</literal>, closure will be copied first using binary substitution.
-        Addtionally, any missing derivations copied with `nix-copy-closure` will be done
+        Additionally, any missing derivations copied with `nix-copy-closure` will be done
         using <literal>--gzip</literal> flag.
 
         Some backends set this value to <literal>true</literal>.

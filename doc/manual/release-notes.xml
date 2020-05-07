@@ -841,7 +841,7 @@
   disks.</para></listitem>
 
   <listitem><para>Propagate the instance tags to the EBS volumes
-  (except for Name tag, which is overriden with a detailed description
+  (except for Name tag, which is overridden with a detailed description
   of the volume and its use).</para></listitem>
 
 </itemizedlist>
