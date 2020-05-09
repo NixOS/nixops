@@ -65,7 +65,7 @@ class CommandOutputState(nixops.resources.ResourceState):
         if self.value is not None:
             # Avoid printing any potential secret information
             return "{0}-{1}".format(
-                self.commandName, hashlib.sha256(self.value).hexdigest()[:32]
+                self.commandName, hashlib.sha256(self.value.encode()).hexdigest()[:32]
             )
         else:
             return None
