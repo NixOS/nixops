@@ -1,7 +1,9 @@
-{ pkgs ? import <nixpkgs> {} }:
+{
+  sources ? import ./nix/sources.nix
+  , pkgs ? import sources.nixpkgs { }
+}:
 
 let
-
   overrides = import ./overrides.nix { inherit pkgs; };
 
 in pkgs.mkShell {
@@ -15,6 +17,7 @@ in pkgs.mkShell {
     pkgs.poetry
     pkgs.rsync  # Included by default on NixOS
     pkgs.codespell
+    pkgs.niv
   ];
 
   shellHook = ''
