@@ -39,7 +39,9 @@ def _rewrite(ip_address: str, add_ip: bool, public_host_key: str) -> None:
                 return ",".join(new_names) + " " + rest if new_names != [] else None
 
             new = [
-                l for l in [rewrite(l) for l in contents.splitlines()] if l is not None
+                line
+                for line in [rewrite(line) for line in contents.splitlines()]
+                if line is not None
             ]
 
             if add_ip:
