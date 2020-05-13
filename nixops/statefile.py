@@ -5,7 +5,6 @@ import os.path
 import sqlite3
 import sys
 import threading
-import typing
 from typing import Any, Optional, List, Type
 from types import TracebackType
 
@@ -217,7 +216,7 @@ class StateFile(object):
         c.execute(
             "select 1 from sqlite_master where name = ? and type='table'", (table,)
         )
-        return c.fetchone() != None
+        return c.fetchone() is not None
 
     def _create_schemaversion(self, c: sqlite3.Cursor) -> None:
         c.execute(
