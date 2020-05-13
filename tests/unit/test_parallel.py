@@ -1,4 +1,3 @@
-import functools
 import unittest
 from typing import Callable, Any
 
@@ -34,7 +33,7 @@ class ParallelTest(unittest.TestCase):
         self.assertEqual(
             run_tasks(
                 1,
-                [ExampleTask("foo", lambda: "ok"), ExampleTask("bar", lambda: "ok"),],
+                [ExampleTask("foo", lambda: "ok"), ExampleTask("bar", lambda: "ok")],
                 lambda task: task.todo(),
             ),
             ["ok", "ok"],
@@ -69,7 +68,7 @@ class ParallelTest(unittest.TestCase):
             ComplexException,
             run_tasks,
             1,
-            [ExampleTask("foo", lambda: complex_err("uh", "oh")),],
+            [ExampleTask("foo", lambda: complex_err("uh", "oh"))],
             lambda task: task.todo(),
         )
 
