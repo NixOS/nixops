@@ -1,5 +1,4 @@
 import functools
-import re
 import string
 from typing import Optional, Any, List
 from textwrap import dedent
@@ -141,11 +140,13 @@ def enclose_node(node, prefix="", suffix=""):
 
 
 def _fold_string(value, rules):
-    folder = lambda val, rule: val.replace(rule[0], rule[1])
+    def folder(val, rule):
+        return val.replace(rule[0], rule[1])
+
     return functools.reduce(folder, rules, value)
 
 
-def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
+def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):  # noqa: C901
     """
     Return the given value as a Nix expression string.
 
@@ -181,7 +182,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):
 
         if node.endswith("\n"):
             encoded = _fold_string(
-                node[:-1], [("''", "'''"), ("${", "''${"), ("\t", "'\\t"),]
+                node[:-1], [("''", "'''"), ("${", "''${"), ("\t", "'\\t")]
             )
 
             atoms = [RawValue(line) for line in encoded.splitlines()]
@@ -333,13 +334,13 @@ def nixmerge(expr1, expr2):
         if isinstance(e1, dict) and isinstance(e2, dict):
             return _merge_dicts(e1, e2)
         elif isinstance(e1, list) and isinstance(e2, list):
-            l = []
+            merged = []
             seen = set()
             for x in e1 + e2:
                 if x not in seen:
                     seen.add(x)
-                    l.append(x)
-            return l
+                    merged.append(x)
+            return merged
         else:
             err = "unable to merge {0} with {1}".format(type(e1), type(e2))
             raise ValueError(err)
