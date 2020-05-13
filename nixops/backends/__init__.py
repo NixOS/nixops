@@ -2,12 +2,10 @@
 
 import os
 import re
-import subprocess
-from typing import Mapping, Any, List, Optional, Union, Set, Sequence
+from typing import Mapping, Any, List, Optional, Union, Sequence
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
-import getpass
 
 
 class KeyOptions(nixops.resources.ResourceOptions):
@@ -157,7 +155,7 @@ class MachineState(nixops.resources.ResourceState):
 
     def _check(self, res):  # TODO -> None but supertype ResourceState -> True
         avg = self.get_load_avg()
-        if avg == None:
+        if avg is None:
             if self.state == self.UP:
                 self.state = self.UNREACHABLE
             res.is_reachable = False
@@ -174,13 +172,13 @@ class MachineState(nixops.resources.ResourceState):
             ).split("\n")
             res.failed_units = []
             res.in_progress_units = []
-            for l in out:
-                match = re.match("^([^ ]+) .* failed .*$", l)
+            for line in out:
+                match = re.match("^([^ ]+) .* failed .*$", line)
                 if match:
                     res.failed_units.append(match.group(1))
 
                 # services that are in progress
-                match = re.match("^([^ ]+) .* activating .*$", l)
+                match = re.match("^([^ ]+) .* activating .*$", line)
                 if match:
                     res.in_progress_units.append(match.group(1))
 
@@ -189,7 +187,7 @@ class MachineState(nixops.resources.ResourceState):
                 # that.  Hack: ignore special filesystems like
                 # /sys/kernel/config and /tmp. Systemd tries to mount these
                 # even when they don't exist.
-                match = re.match("^([^\.]+\.mount) .* inactive .*$", l)
+                match = re.match("^([^\.]+\.mount) .* inactive .*$", line)  # noqa: W605
                 if (
                     match
                     and not match.group(1).startswith("sys-")
@@ -203,7 +201,7 @@ class MachineState(nixops.resources.ResourceState):
                         self.run_command(
                             "cat /etc/fstab | cut -d' ' -f 2 | grep '^/tmp$' &> /dev/null"
                         )
-                    except:
+                    except Exception:
                         continue
                     res.failed_units.append(match.group(1))
 
