@@ -7,16 +7,14 @@ import nixops.util
 import nixops.resources
 
 import tempfile
-import shutil
 import subprocess
 import hashlib
 
 
 # For typing
-from nixops.deployment import Deployment
 from nixops.nix_expr import Function
 from nixops.resources import ResourceOptions
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, Dict, Tuple
 
 
 class CommandOutputOptions(ResourceOptions):
@@ -94,7 +92,7 @@ class CommandOutputState(nixops.resources.ResourceState):
                     self.value = res
                     self.state = self.UP
                     self.script = defn.config.script
-            except Exception as e:
+            except Exception:
                 self.log("Creation failed for output ‘{0}’...".format(defn.name))
                 raise
 
