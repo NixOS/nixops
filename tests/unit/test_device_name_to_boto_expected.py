@@ -1,7 +1,5 @@
 import unittest
 
-from textwrap import dedent
-
 from nixops.util import device_name_to_boto_expected
 
 
