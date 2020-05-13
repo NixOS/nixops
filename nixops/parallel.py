@@ -1,10 +1,8 @@
 import threading
 import sys
 import queue
-import random
 import traceback
-import types
-from typing import Dict, TypeVar, List, Iterable, Callable, Tuple, Optional, Type, Any
+from typing import Dict, TypeVar, List, Iterable, Callable, Tuple, Optional, Any
 
 
 class MultipleExceptions(Exception):
@@ -22,8 +20,8 @@ class MultipleExceptions(Exception):
     def print_all_backtraces(self) -> None:
         for k, e in self.exceptions.items():
             sys.stderr.write("-" * 30 + "\n")
-            for l in traceback.format_exception(type(e), e, e.__traceback__):
-                sys.stderr.write(l)
+            for line in traceback.format_exception(type(e), e, e.__traceback__):
+                sys.stderr.write(line)
             sys.stderr.flush()
 
 
@@ -40,7 +38,7 @@ WorkerResult = Tuple[
 ]
 
 
-def run_tasks(
+def run_tasks(  # noqa: C901
     nr_workers: int, tasks: Iterable[Task], worker_fun: Callable[[Task], Result]
 ) -> List[Result]:
     task_queue: queue.Queue[Task] = queue.Queue()
