@@ -17,7 +17,6 @@ import glob
 import fcntl
 import itertools
 import platform
-import inspect
 import time
 import importlib
 
@@ -32,7 +31,6 @@ from typing import (
     DefaultDict,
     Any,
     Tuple,
-    ValuesView,
     Union,
     cast,
 )
@@ -40,14 +38,7 @@ import nixops.backends
 import nixops.logger
 import nixops.parallel
 from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
-from nixops.util import ansi_success
-from nixops.plugins import get_plugin_manager
-
-import nixops.backends
-import nixops.logger
-import nixops.parallel
-from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
-from nixops.util import ansi_success, Undefined
+from nixops.ansi import ansi_success
 from nixops.plugins import get_plugin_manager
 
 Definitions = Dict[str, nixops.resources.ResourceDefinition]
@@ -203,7 +194,7 @@ class Deployment:
         with self._db:
             c = self._db.cursor()
             for n, v in attrs.items():
-                if v == None:
+                if v is None:
                     c.execute(
                         "delete from DeploymentAttrs where deployment = ? and name = ?",
                         (self.uuid, n),
@@ -235,7 +226,7 @@ class Deployment:
                 (self.uuid, name),
             )
             row: List[Optional[Any]] = c.fetchone()
-            if row != None:
+            if row is not None:
                 return row[0]
             return nixops.util.undefined
 
@@ -488,8 +479,6 @@ class Deployment:
 
         config = self.evaluate_config("info")
 
-        tree = None
-
         # Extract machine information.
         for name, cfg in config["machines"].items():
             defn = _create_definition(name, cfg, cfg["targetEnv"])
@@ -545,7 +534,7 @@ class Deployment:
     def get_arguments(self) -> Any:
         try:
             return self.evaluate_args()
-        except Exception as e:
+        except Exception:
             raise Exception("Could not determine arguments to NixOps deployment.")
 
     def get_physical_spec(self) -> Any:
@@ -680,7 +669,7 @@ class Deployment:
                         config.append(
                             {
                                 ("services", "openssh", "knownHosts", m2.name): {
-                                    "hostNames": [m2.name,],
+                                    "hostNames": [m2.name],
                                     "publicKey": m2.public_host_key,
                                 }
                             }
@@ -696,7 +685,7 @@ class Deployment:
                     {
                         r.name: Function(
                             "{ config, lib, pkgs, ... }",
-                            {"config": merged, "imports": [physical],},
+                            {"config": merged, "imports": [physical]},
                         )
                     }
                 )
@@ -764,7 +753,7 @@ class Deployment:
         # target machines.  FIXME: Also enable this if we're on 32-bit
         # and want to deploy to 64-bit.
         if platform.system() != "Linux" and os.environ.get("NIX_REMOTE") != "daemon":
-            if os.environ.get("NIX_REMOTE_SYSTEMS") == None:
+            if os.environ.get("NIX_REMOTE_SYSTEMS") is None:
                 remote_machines = []
                 for m in sorted(selected, key=lambda m: m.index):
                     key_file = m.get_ssh_private_key_file()
@@ -863,7 +852,7 @@ class Deployment:
             )
         )
 
-    def activate_configs(
+    def activate_configs(  # noqa: C901
         self,
         configs_path: str,
         include: List[str],
@@ -964,7 +953,7 @@ class Deployment:
                 m.cur_configs_path = configs_path
                 m.cur_toplevel = m.new_toplevel
 
-            except Exception as e:
+            except Exception:
                 # This thread shouldn't throw an exception because
                 # that will cause NixOps to exit and interrupt
                 # activation on the other machines.
@@ -977,7 +966,7 @@ class Deployment:
             tasks=iter(self.active.values()),
             worker_fun=worker,
         )
-        failed = [x for x in res if x != None]
+        failed = [x for x in res if x is not None]
         if failed != []:
             raise Exception(
                 "activation of {0} of {1} machines failed (namely on {2})".format(
@@ -990,7 +979,7 @@ class Deployment:
     def _get_free_resource_index(self) -> int:
         index = 0
         for r in self.resources.values():
-            if r.index != None and index <= r.index:
+            if r.index is not None and index <= r.index:
                 index = r.index + 1
         return index
 
@@ -1153,7 +1142,7 @@ class Deployment:
         if to_destroy:
             self._destroy_resources(include=to_destroy)
 
-    def _deploy(
+    def _deploy(  # noqa: C901
         self,
         dry_run: bool = False,
         test: bool = False,
@@ -1181,7 +1170,7 @@ class Deployment:
 
         # Assign each resource an index if it doesn't have one.
         for r in self.active_resources.values():
-            if r.index == None:
+            if r.index is None:
                 r.index = self._get_free_resource_index()
                 # FIXME: Logger should be able to do coloring without the need
                 #        for an index maybe?
@@ -1268,7 +1257,8 @@ class Deployment:
                                 "cat /etc/os-release", capture_stdout=True
                             )
                             match = re.search(
-                                'VERSION_ID="([0-9]+\.[0-9]+).*"', os_release
+                                'VERSION_ID="([0-9]+\.[0-9]+).*"',  # noqa: W605
+                                os_release,
                             )
                             if match:
                                 m.state_version = match.group(1)
@@ -1282,7 +1272,7 @@ class Deployment:
 
                         m.wait_for_ssh(check=check)
 
-                except:
+                except Exception:
                     r._errored = True
                     raise
                 finally:
@@ -1494,7 +1484,7 @@ class Deployment:
                     pass
                 if m.destroy(wipe=wipe):
                     self.delete_resource(m)
-            except:
+            except Exception:
                 m._errored = True
                 raise
             finally:
@@ -1610,11 +1600,11 @@ class Deployment:
         )
 
     def is_valid_resource_name(self, name: str) -> bool:
-        p = re.compile("^[\w-]+$")
+        p = re.compile("^[\w-]+$")  # noqa: W605
         return not p.match(name) is None
 
     def rename(self, name: str, new_name: str) -> None:
-        if not name in self.resources:
+        if name not in self.resources:
             raise Exception("resource ‘{0}’ not found".format(name))
         if new_name in self.resources:
             raise Exception("resource with name ‘{0}’ already exists".format(new_name))
