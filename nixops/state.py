@@ -20,7 +20,7 @@ class StateDict(collections.MutableMapping):
     def __setitem__(self, key: str, value: Any) -> None:
         with self._db:
             c = self._db.cursor()
-            if value == None:
+            if value is None:
                 c.execute(
                     "delete from ResourceAttrs where machine = ? and name = ?",
                     (self.id, key),
@@ -42,7 +42,7 @@ class StateDict(collections.MutableMapping):
                 (self.id, key),
             )
             row: Tuple[str] = c.fetchone()
-            if row != None:
+            if row is not None:
                 try:
                     return json.loads(row[0])
                 except ValueError:
