@@ -3,7 +3,57 @@
 
 from argparse import ArgumentParser, _SubParsersAction, SUPPRESS, REMAINDER
 import os
-from nixops.script_defs import *
+from nixops.parallel import MultipleExceptions
+from nixops.script_defs import (
+    add_subparser,
+    op_list_deployments,
+    op_create,
+    add_common_modify_options,
+    op_modify,
+    op_clone,
+    op_delete,
+    op_info,
+    op_check,
+    op_set_args,
+    op_deploy,
+    add_common_deployment_options,
+    op_send_keys,
+    op_destroy,
+    op_delete_resources,
+    op_stop,
+    op_start,
+    op_reboot,
+    op_show_arguments,
+    op_show_physical,
+    op_ssh,
+    op_ssh_for_each,
+    op_scp,
+    op_mount,
+    op_rename,
+    op_backup,
+    op_backup_status,
+    op_remove_backup,
+    op_clean_backups,
+    op_restore,
+    op_show_option,
+    op_list_generations,
+    op_rollback,
+    op_delete_generation,
+    op_show_console_output,
+    op_dump_nix_paths,
+    op_export,
+    op_import,
+    op_edit,
+    op_copy_closure,
+    op_list_plugins,
+    parser_plugin_hooks,
+    setup_logging,
+    setup_debugger,
+    error,
+)
+import sys
+import nixops
+import nixops.ansi
 
 # Set up the parser.
 parser = ArgumentParser(description="NixOS cloud deployment tool", prog="nixops")
@@ -618,7 +668,7 @@ def main() -> None:
 
     if os.path.basename(sys.argv[0]) == "charon":
         sys.stderr.write(
-            nixops.util.ansi_warn("warning: ‘charon’ is now called ‘nixops’") + "\n"
+            nixops.ansi.ansi_warn("warning: ‘charon’ is now called ‘nixops’") + "\n"
         )
 
     args = parser.parse_args()
