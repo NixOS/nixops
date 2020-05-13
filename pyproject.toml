@@ -22,6 +22,7 @@ lxml = "^4.5.0"
 # docs
 livereload = "^2.6.1"
 sphinx = "^3.0.3"
+flake8 = "^3.8.1"
 
 [tool.poetry.scripts]
 nixops = 'nixops.__main__:main'
