@@ -27,6 +27,8 @@ class TestUtilTest(unittest.TestCase):
         ret = util.logged_exec(
             command=["echo", msg], logger=self.logger, capture_stdout=True,
         )
+        if not isinstance(ret, str):
+            raise ValueError("Wrong return type!")
 
         self.assertEqual(ret.strip(), msg)
 
@@ -34,8 +36,8 @@ class TestUtilTest(unittest.TestCase):
         d = {
             "foo": "bar",
             "list": [1, 2, 3],
-            "nested": {"x": "y",},
-            "nested_in_list": [{"x": "y",}],
+            "nested": {"x": "y"},
+            "nested_in_list": [{"x": "y"}],
         }
 
         # Assert that the shape of the immutable dict is the same as the input dict
