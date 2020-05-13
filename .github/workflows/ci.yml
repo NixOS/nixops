@@ -49,6 +49,17 @@ jobs:
         run: 'nix-shell --run true'
       - name: Mypy
         run: './ci/check-mypy.sh'
+  flake8:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Nix
+        uses: cachix/install-nix-action@v8
+      - name: Prefetch shell.nix
+        run: 'nix-shell --run true'
+      - name: Mypy
+        run: './ci/check-flake8.sh'
   mypy-ratchet:
     runs-on: ubuntu-latest
     steps:
