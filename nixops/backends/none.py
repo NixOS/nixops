@@ -90,11 +90,12 @@ class NoneState(MachineState):
         assert self.target_host
         return self.target_host
 
-    def get_ssh_private_key_file(self):
+    def get_ssh_private_key_file(self) -> Optional[str]:
         if self._ssh_private_key_file:
             return self._ssh_private_key_file
         elif self._ssh_private_key:
             return self.write_ssh_private_key(self._ssh_private_key)
+        return None
 
     def get_ssh_flags(self, *args, **kwargs):
         super_state_flags = super(NoneState, self).get_ssh_flags(*args, **kwargs)

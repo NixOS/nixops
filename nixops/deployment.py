@@ -756,7 +756,7 @@ class Deployment:
             if os.environ.get("NIX_REMOTE_SYSTEMS") is None:
                 remote_machines = []
                 for m in sorted(selected, key=lambda m: m.index):
-                    key_file = m.get_ssh_private_key_file()
+                    key_file: Optional[str] = m.get_ssh_private_key_file()
                     if not key_file:
                         raise Exception(
                             "do not know private SSH key for machine ‘{0}’".format(

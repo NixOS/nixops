@@ -384,14 +384,14 @@ class MachineState(nixops.resources.ResourceState):
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True
 
-    def write_ssh_private_key(self, private_key):
+    def write_ssh_private_key(self, private_key) -> str:
         key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
         with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0o600), "w") as f:
             f.write(private_key)
         self._ssh_private_key_file = key_file
         return key_file
 
-    def get_ssh_private_key_file(self):
+    def get_ssh_private_key_file(self) -> Optional[str]:
         return None
 
     def _logged_exec(self, command, **kwargs):
