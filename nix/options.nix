@@ -49,6 +49,21 @@ in
       '';
     };
 
+    deployment.provisionSSHKey = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        This option specifies whether to let NixOps provision SSH deployment keys.
+
+        NixOps will by default generate an SSH key, store the private key in its state file,
+        and add the public key to the remote host.
+
+        Setting this option to <literal>false</literal> will disable this behaviour
+        and rely on you to manage your own SSH keys by yourself and to ensure
+        that <command>ssh</command> has access to any keys it requires.
+      '';
+    };
+
     deployment.targetPort = mkOption {
       type = types.int;
       description = ''
