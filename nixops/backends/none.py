@@ -32,7 +32,7 @@ class NoneState(MachineState):
     def get_type(cls):
         return "none"
 
-    provison_ssh_key: bool = nixops.util.attr_property("provisionSSHKey", True, bool)
+    provision_ssh_key: bool = nixops.util.attr_property("provisionSSHKey", True, bool)
     target_host = nixops.util.attr_property("targetHost", None)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     _ssh_private_key: Optional[str] = attr_property("none.sshPrivateKey", None)
@@ -70,7 +70,7 @@ class NoneState(MachineState):
         self.public_ipv4 = defn._public_ipv4
 
         if not self.vm_id:
-            if self.provison_ssh_key:
+            if self.provision_ssh_key:
                 self.log_start("generating new SSH keypair... ")
                 key_name = "NixOps client key for {0}".format(self.name)
                 self._ssh_private_key, self._ssh_public_key = create_key_pair(

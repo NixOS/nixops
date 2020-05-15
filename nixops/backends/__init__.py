@@ -120,7 +120,7 @@ class MachineState(nixops.resources.ResourceState):
         self.ssh_user = defn.ssh_user
         self.ssh_options = defn.ssh_options
         self.has_fast_connection = defn.has_fast_connection
-        self.provison_ssh_key = defn.provision_ssh_key
+        self.provision_ssh_key = defn.provision_ssh_key
         if not self.has_fast_connection:
             self.ssh.enable_compression()
 
