@@ -298,8 +298,12 @@ class MachineState(nixops.resources.ResourceState):
             elif opts.get("keyFile") is not None:
                 self._logged_exec(["cp", opts["keyFile"], tmp])
             elif opts.get("keyCommand") is not None:
-                with open(tmp, "w+") as f:
-                    subprocess.run(opts["keyCommand"], stdout=f, check=True)
+                try:
+                    with open(tmp, "w+") as f:
+                        subprocess.run(opts["keyCommand"], stdout=f, check=True)
+                except subprocess.CalledProcessError:
+                    self.warn(f"Running command to generate key '{k}' failed:")
+                    raise
             else:
                 raise Exception(
                     "Neither 'text', 'keyFile', nor 'keyCommand' options were set for key '{0}'.".format(
