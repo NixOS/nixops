@@ -3,7 +3,7 @@
 import re
 import nixops.util
 from threading import Event
-from typing import List, Optional, Dict, Any, Iterator
+from typing import List, Optional, Dict, Any
 from nixops.state import StateDict
 from nixops.diff import Diff, Handler
 from nixops.util import ImmutableMapping, ImmutableValidatedObject
@@ -42,7 +42,7 @@ class ResourceDefinition:
         self.config = config_type(**config)
         self.name = name
 
-        if not re.match("^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*$", self.name):
+        if not re.match("^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*$", self.name):  # noqa: W605
             raise Exception("invalid resource name ‘{0}’".format(self.name))
 
     def show_type(self) -> str:
@@ -95,7 +95,7 @@ class ResourceState(object):
         with self.depl._db:
             c = self.depl._db.cursor()
             for n, v in attrs.items():
-                if v == None:
+                if v is None:
                     c.execute(
                         "delete from ResourceAttrs where machine = ? and name = ?",
                         (self.id, n),
@@ -127,7 +127,7 @@ class ResourceState(object):
                 (self.id, name),
             )
             row = c.fetchone()
-            if row != None:
+            if row is not None:
                 return row[0]
             return nixops.util.undefined
 
@@ -152,12 +152,25 @@ class ResourceState(object):
                 self._set_attr(k, v)
 
     # XXX: Deprecated, use self.logger.* instead!
-    log = lambda s, m: s.logger.log(m)
-    log_start = lambda s, m: s.logger.log_start(m)
-    log_continue = lambda s, m: s.logger.log_continue(m)
-    log_end = lambda s, m: s.logger.log_end(m)
-    warn = lambda s, m: s.logger.warn(m)
-    success = lambda s, m: s.logger.success(m)
+    def log(self, *args, **kwargs):
+        return self.logger.log(*args, **kwargs)
+
+    def log_end(self, *args, **kwargs):
+        return self.logger.log_end(*args, **kwargs)
+
+    def log_start(self, *args, **kwargs):
+        return self.logger.log_start(*args, **kwargs)
+
+    def log_continue(self, *args, **kwargs):
+        return self.logger.log_continue(*args, **kwargs)
+
+    def warn(self, *args, **kwargs):
+        return self.logger.warn(*args, **kwargs)
+
+    def success(self, *args, **kwargs):
+        return self.logger.success(*args, **kwargs)
+
+    # XXX: End deprecated methods
 
     def show_type(self) -> str:
         """A short description of the type of resource this is"""

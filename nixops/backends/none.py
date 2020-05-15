@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import Dict, Optional
-import os
-import sys
+from typing import Optional
 import nixops.util
 
 from nixops.backends import MachineDefinition, MachineState, MachineOptions

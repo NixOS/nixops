@@ -32,16 +32,11 @@ from typing import (
     Tuple,
     Dict,
     Iterator,
-    Hashable,
     TypeVar,
     Generic,
     Iterable,
 )
 
-# the following ansi_ imports are for backwards compatibility. They
-# would belong fine in this util.py, but having them in util.py
-# causes an import cycle with types.
-from nixops.ansi import ansi_warn, ansi_error, ansi_success, ansi_highlight
 from nixops.logger import MachineLogger
 from io import StringIO
 
@@ -213,7 +208,7 @@ class NixopsEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
-def logged_exec(
+def logged_exec(  # noqa: C901
     command: List[str],
     logger: MachineLogger,
     check: bool = True,
@@ -323,10 +318,10 @@ def logged_exec(
         (r, w, x) = select.select(fds, [], [], 1)
         if len(r) == 0 and process.poll() is not None:
             break
-        if capture_stdout and process.stdout in r:
-            data = process.stdout.read()
+        if capture_stdout and process_stdout in r:
+            data = process_stdout.read()
             if data == "":
-                fds.remove(process.stdout)
+                fds.remove(process_stdout)
             else:
                 stdout += data
         if log_fd in r:
@@ -397,8 +392,6 @@ def ping_tcp_port(
                 time.sleep(timeout)
             # continue with the next address
             continue
-        except:
-            raise
         else:
             s.shutdown(socket.SHUT_RDWR)
             return True
@@ -463,7 +456,7 @@ def attr_property(name: str, default: Any, type: Optional[Any] = str) -> Any:
             raise Exception(
                 "deployment attribute ‘{0}’ missing from state file".format(name)
             )
-        if s == None:
+        if s is None:
             return None
         elif type is str:
             return s
@@ -471,7 +464,7 @@ def attr_property(name: str, default: Any, type: Optional[Any] = str) -> Any:
             return int(s)
         elif type is bool:
             return True if s == "1" else False
-        elif type is "json":
+        elif type == "json":
             return json.loads(s)
         else:
             assert False
@@ -479,7 +472,7 @@ def attr_property(name: str, default: Any, type: Optional[Any] = str) -> Any:
     def set(self, x: Any) -> None:
         if x == default:
             self._del_attr(name)
-        elif type is "json":
+        elif type == "json":
             self._set_attr(name, json.dumps(x, cls=NixopsEncoder))
         else:
             self._set_attr(name, x)
@@ -528,8 +521,8 @@ class TeeStderr(StringIO):
 
     def write(self, data) -> int:
         ret = self.stderr.write(data)
-        for l in data.split("\n"):
-            self.logger.warning(l)
+        for line in data.split("\n"):
+            self.logger.warning(line)
         return ret
 
     def fileno(self) -> int:
@@ -556,8 +549,8 @@ class TeeStdout(StringIO):
 
     def write(self, data) -> int:
         ret = self.stdout.write(data)
-        for l in data.split("\n"):
-            self.logger.info(l)
+        for line in data.split("\n"):
+            self.logger.info(line)
         return ret
 
     def fileno(self) -> int:
@@ -588,7 +581,7 @@ def which(program: str) -> str:
             if is_exe(exe_file):
                 return exe_file
 
-    raise Exception("program ‘{0}’ not found in \$PATH".format(program))
+    raise Exception("program ‘{0}’ not found in \$PATH".format(program))  # noqa: W605
 
 
 def enum(**enums):
@@ -610,7 +603,7 @@ def parse_nixos_version(s: str) -> List[str]:
 # nvme -> sd
 def device_name_to_boto_expected(string: str) -> str:
     """Transfoms device name to name, that boto expects."""
-    m = re.search("(.*)\/nvme(\d+)n1p?(\d+)?", string)
+    m = re.search("(.*)\/nvme(\d+)n1p?(\d+)?", string)  # noqa: W605
     if m is not None:
         device = m.group(2)
         device_ = int(device) - 1

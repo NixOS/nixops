@@ -2,7 +2,6 @@
 
 # Automatic provisioning of SSH key pairs.
 
-from typing import Dict
 import nixops.util
 import nixops.resources
 
@@ -49,7 +48,7 @@ class SSHKeyPairState(nixops.resources.ResourceState):
             with self.depl._db:
                 self.public_key = public
                 self.private_key = private
-                self.state = state = nixops.resources.ResourceState.UP
+                self.state = nixops.resources.ResourceState.UP
 
     def prefix_definition(self, attr):
         return {("resources", "sshKeyPairs"): attr}

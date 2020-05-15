@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from nixops.nix_expr import py2nix
-from nixops.parallel import MultipleExceptions, run_tasks
-import pluggy
+from nixops.parallel import run_tasks
 
 import contextlib
 import nixops.statefile
@@ -19,18 +18,15 @@ import nixops.known_hosts
 import time
 import logging
 import logging.handlers
-import syslog
 import json
 import pipes
-from typing import Tuple, List, Optional, Union, Any, Generator
-from datetime import datetime
-from pprint import pprint
+from typing import Tuple, List, Optional, Union, Generator
 import importlib
 import traceback
 import pdb
-from argparse import Namespace
 from types import TracebackType
 from typing import Type
+import nixops.ansi
 
 from nixops.plugins import get_plugin_manager
 
@@ -128,9 +124,9 @@ def open_deployment(sf: nixops.statefile.StateFile, args: Namespace):
     depl.extra_nix_path = sum(args.nix_path or [], [])
     for (n, v) in args.nix_options or []:
         depl.extra_nix_flags.extend(["--option", n, v])
-    if args.max_jobs != None:
+    if args.max_jobs is not None:
         depl.extra_nix_flags.extend(["--max-jobs", str(args.max_jobs)])
-    if args.cores != None:
+    if args.cores is not None:
         depl.extra_nix_flags.extend(["--cores", str(args.cores)])
     if args.keep_going:
         depl.extra_nix_flags.append("--keep-going")
@@ -151,7 +147,7 @@ def open_deployment(sf: nixops.statefile.StateFile, args: Namespace):
 def set_name(depl: nixops.deployment.Deployment, name: Optional[str]):
     if not name:
         return
-    if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-\.]*$", name):
+    if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-\.]*$", name):  # noqa: W605
         raise Exception("invalid deployment name ‘{0}’".format(name))
     depl.name = name
 
@@ -199,11 +195,11 @@ def op_delete(args):
 
 
 def machine_to_key(depl: str, name: str, type: str) -> Tuple[str, str, List[object]]:
-    xs = [int(x) if x.isdigit() else x for x in re.split("(\d+)", name)]
+    xs = [int(x) if x.isdigit() else x for x in re.split("(\d+)", name)]  # noqa: W605
     return (depl, type, xs)
 
 
-def op_info(args):
+def op_info(args):  # noqa: C901
     table_headers = [
         ("Name", "l"),
         ("Status", "c"),
@@ -232,7 +228,7 @@ def op_info(args):
                 depl.evaluate()
             except nixops.deployment.NixEvalError:
                 sys.stderr.write(
-                    nixops.util.ansi_warn(
+                    nixops.ansi.ansi_warn(
                         "warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"
                     )
                 )
@@ -343,18 +339,18 @@ def op_info(args):
                 print(tbl)
 
 
-def op_check(args):
+def op_check(args):  # noqa: C901
     def highlight(s):
-        return nixops.util.ansi_highlight(s, outfile=sys.stdout)
+        return nixops.ansi.ansi_highlight(s, outfile=sys.stdout)
 
     def warn(s):
-        return nixops.util.ansi_warn(s, outfile=sys.stdout)
+        return nixops.ansi.ansi_warn(s, outfile=sys.stdout)
 
     def render_tristate(x):
-        if x == None:
+        if x is None:
             return "N/A"
         elif x:
-            return nixops.util.ansi_success("Yes", outfile=sys.stdout)
+            return nixops.ansi.ansi_success("Yes", outfile=sys.stdout)
         else:
             return warn("No")
 
@@ -425,21 +421,21 @@ def op_check(args):
                 render_tristate(res.is_reachable),
                 render_tristate(res.disks_ok),
                 "{0} {1} {2}".format(res.load[0], res.load[1], res.load[2])
-                if res.load != None
+                if res.load is not None
                 else "",
                 "\n".join(unit_lines),
                 "\n".join([warn(x) for x in res.messages]),
             ]
             status = 0
-            if res.exists == False:
+            if res.exists is False:
                 status |= 1
-            if res.is_up == False:
+            if res.is_up is False:
                 status |= 2
-            if res.is_reachable == False:
+            if res.is_reachable is False:
                 status |= 4
-            if res.disks_ok == False:
+            if res.disks_ok is False:
                 status |= 8
-            if res.failed_units != None and res.failed_units != []:
+            if res.failed_units is not None and res.failed_units != []:
                 status |= 16
             return (m.depl.name or m.depl.uuid, m, row, status)
 
@@ -474,7 +470,7 @@ def op_check(args):
         ):
             tbl.add_row(res[2])
             status |= res[3]
-        print(nixops.util.ansi_success("Machines state:"))
+        print(nixops.ansi.ansi_success("Machines state:"))
         print(tbl)
 
         for res in sorted(
@@ -483,7 +479,7 @@ def op_check(args):
         ):
             resources_tbl.add_row(res[2])
             status |= res[3]
-        print(nixops.util.ansi_success("Non machines resources state:"))
+        print(nixops.ansi.ansi_success("Non machines resources state:"))
         print(resources_tbl)
 
         sys.exit(status)
@@ -722,7 +718,7 @@ def op_dump_nix_paths(args):
             + [depl.configs_path]
         )
         candidates = [get_nix_path(p) for p in candidates]
-        return [p for p in candidates if not p is None]
+        return [p for p in candidates if p is not None]
 
     paths: List[str] = []
 
@@ -995,7 +991,7 @@ def setup_debugger(args: Namespace) -> None:
 
 # Set up logging of all commands and output
 def setup_logging(args):
-    if os.path.exists("/dev/log") and not args.op in [
+    if os.path.exists("/dev/log") and args.op not in [
         op_ssh,
         op_ssh_for_each,
         op_scp,
@@ -1014,7 +1010,7 @@ def setup_logging(args):
             user = subprocess.check_output(
                 ["logname"], stderr=subprocess.PIPE, text=True
             ).strip()
-        except:
+        except Exception:
             user = pwd.getpwuid(os.getuid())[0]
 
         logger = logging.getLogger("root")
@@ -1183,7 +1179,7 @@ def add_common_deployment_options(subparser: ArgumentParser):
 
 
 def error(msg):
-    sys.stderr.write(nixops.util.ansi_warn("error: ") + msg + "\n")
+    sys.stderr.write(nixops.ansi.ansi_warn("error: ") + msg + "\n")
 
 
 def parser_plugin_hooks(parser, subparsers):

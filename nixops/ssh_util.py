@@ -233,7 +233,6 @@ class SSH(object):
         sleep_time = 1
         while True:
             try:
-                started_at = time.time()
                 self._ssh_master = SSHMaster(
                     self._get_target(user),
                     self._logger,
@@ -375,7 +374,7 @@ class SSH(object):
         **kwargs: Any
     ) -> str:
 
-        assert kwargs.get("capture_stdout", True) == True
+        assert kwargs.get("capture_stdout", True) is True
         kwargs["capture_stdout"] = True
         return cast(
             str,
@@ -400,7 +399,7 @@ class SSH(object):
         allow_ssh_args: bool = False,
         **kwargs: Any
     ) -> int:
-        assert kwargs.get("capture_stdout", False) == False
+        assert kwargs.get("capture_stdout", False) is False
         kwargs["capture_stdout"] = False
         return cast(
             int,

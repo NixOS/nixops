@@ -6,7 +6,7 @@ from textwrap import dedent
 from nixops.nix_expr import py2nix, nix2py, nixmerge
 from nixops.nix_expr import RawValue, Function, Call
 
-__all__ = ["Py2NixTest", "Nix2PyTest", "NixMergeTest"]
+__all__ = ["Nix2PyTest", "NixMergeTest"]
 
 
 class Py2NixTestBase(unittest.TestCase):
@@ -157,9 +157,9 @@ class Py2NixTestBase(unittest.TestCase):
 
         self.assert_nix(
             {
-                "aaa": {"bbb": {"ccc": 123,}, "cCc": 456,},
+                "aaa": {"bbb": {"ccc": 123}, "cCc": 456},
                 "xxx": [1, 2, 3],
-                "yyy": {"y1": {"y2": {"y3": ["a", "b", {"c": "d"}]}},},
+                "yyy": {"y1": {"y2": {"y3": ["a", "b", {"c": "d"}]}}},
             },
             match,
             maxwidth=0,
@@ -323,7 +323,7 @@ class NixMergeTest(unittest.TestCase):
 
     def test_merge_list(self):
         self.assert_merge(
-            [[1, 2, 3], [4, 5, 6], [7, 6, 5], ["abc", "def"], ["ghi", "abc"],],
+            [[1, 2, 3], [4, 5, 6], [7, 6, 5], ["abc", "def"], ["ghi", "abc"]],
             [1, 2, 3, 4, 5, 6, 7, "abc", "def", "ghi"],
         )
 
