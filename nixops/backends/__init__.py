@@ -6,11 +6,13 @@ from typing import Mapping, Any, List, Optional, Union, Sequence
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
+import subprocess
 
 
 class KeyOptions(nixops.resources.ResourceOptions):
     text: Optional[str]
     keyFile: Optional[str]
+    keyCommand: Optional[Sequence[str]]
     destDir: str
     user: str
     group: str
@@ -290,14 +292,21 @@ class MachineState(nixops.resources.ResourceState):
                 ).format(destDir)
             )
 
-            if opts["text"] is not None:
+            if opts.get("text") is not None:
                 with open(tmp, "w+") as f:
                     f.write(opts["text"])
-            elif opts["keyFile"] is not None:
+            elif opts.get("keyFile") is not None:
                 self._logged_exec(["cp", opts["keyFile"], tmp])
+            elif opts.get("keyCommand") is not None:
+                try:
+                    with open(tmp, "w+") as f:
+                        subprocess.run(opts["keyCommand"], stdout=f, check=True)
+                except subprocess.CalledProcessError:
+                    self.warn(f"Running command to generate key '{k}' failed:")
+                    raise
             else:
                 raise Exception(
-                    "Neither 'text' or 'keyFile' options were set for key '{0}'.".format(
+                    "Neither 'text', 'keyFile', nor 'keyCommand' options were set for key '{0}'.".format(
                         k
                     )
                 )
