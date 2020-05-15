@@ -15,15 +15,15 @@ let
         <filename><replaceable>destDir</replaceable>/<replaceable>password</replaceable></filename>
         will be <literal>foobar</literal>.
 
-        NOTE: Either <literal>text</literal>, <literal>keyCmd</literal> or
+        NOTE: Either <literal>text</literal>, <literal>keyCommand</literal> or
         <literal>keyFile</literal> have to be set.
       '';
     };
 
-    options.keyCmd = mkOption {
+    options.keyCommand = mkOption {
       default = null;
-      example = "pass show secrettoken";
-      type = types.nullOr types.str;
+      example = [ "pass" "show" "secrettoken" ];
+      type = types.nullOr (types.listOf types.str);
       description = ''
         When non-null, output of this command run on local machine will be
         deployed to the specified key on the target machine.  If the key name
@@ -38,14 +38,14 @@ let
         encrypted file. Consider using nixpkgs.password-store as storage for
         such sensitive secrets.
 
-        NOTE: Either <literal>text</literal>, <literal>keyCmd</literal> or
+        NOTE: Either <literal>text</literal>, <literal>keyCommand</literal> or
         <literal>keyFile</literal> have to be set.
       '';
     };
     options.keyFile = mkOption {
       default = null;
       type = types.nullOr types.path;
-      apply = toString;
+      apply = value: if value == null then null else toString value;
       description = ''
         When non-null, contents of the specified file will be deployed to the
         specified key on the target machine.  If the key name is
@@ -58,7 +58,7 @@ let
         are no limits on that content: null bytes, invalid Unicode,
         <literal>/dev/random</literal> output -- anything goes.
 
-        NOTE: Either <literal>text</literal>, <literal>keyCmd</literal> or
+        NOTE: Either <literal>text</literal>, <literal>keyCommand</literal> or
         <literal>keyFile</literal> have to be set.
       '';
     };
@@ -178,10 +178,10 @@ in
   config = {
 
     assertions = (flip mapAttrsToList config.deployment.keys (key: opts: {
-      assertion = (opts.text == null && opts.keyFile != "" && opts.keyCmd == null) ||
-                  (opts.text != null && opts.keyFile == "" && opts.keyCmd == null) ||
-                  (opts.text == null && opts.keyFile == "" && opts.keyCmd != null);
-      message = "Deployment key '${key}' must have either a 'text', 'keyCmd' or a 'keyFile' specified.";
+      assertion = (opts.text == null && opts.keyFile != null && opts.keyCommand == null) ||
+                  (opts.text != null && opts.keyFile == null && opts.keyCommand == null) ||
+                  (opts.text == null && opts.keyFile == null && opts.keyCommand != null);
+      message = "Deployment key '${key}' must have either a 'text', 'keyCommand' or a 'keyFile' specified.";
     }));
 
     system.activationScripts.nixops-keys =

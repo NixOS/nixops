@@ -6,12 +6,13 @@ from typing import Mapping, Any, List, Optional, Union, Sequence
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
+import subprocess
 
 
 class KeyOptions(nixops.resources.ResourceOptions):
     text: Optional[str]
     keyFile: Optional[str]
-    keyCmd: Optional[str]
+    keyCommand: Optional[Sequence[str]]
     destDir: str
     user: str
     group: str
@@ -296,12 +297,12 @@ class MachineState(nixops.resources.ResourceState):
                     f.write(opts["text"])
             elif opts.get("keyFile") is not None:
                 self._logged_exec(["cp", opts["keyFile"], tmp])
-            elif opts.get("keyCmd") is not None:
+            elif opts.get("keyCommand") is not None:
                 with open(tmp, "w+") as f:
-                    subprocess.Popen(opts["keyCmd"], stdout=f, shell=True)
+                    subprocess.run(opts["keyCommand"], stdout=f, check=True)
             else:
                 raise Exception(
-                    "Neither 'text' or 'keyFile' options were set for key '{0}'.".format(
+                    "Neither 'text', 'keyFile', nor 'keyCommand' options were set for key '{0}'.".format(
                         k
                     )
                 )
