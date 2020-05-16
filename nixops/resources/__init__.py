@@ -87,11 +87,11 @@ class ResourceState(Protocol[ResourceDefinitionType]):
         Literal[6],
         Literal[7],
     ] = nixops.util.attr_property("state", UNKNOWN, int)
-    index = nixops.util.attr_property("index", None, int)
-    obsolete = nixops.util.attr_property("obsolete", False, bool)
+    index: Optional[int] = nixops.util.attr_property("index", None, int)
+    obsolete: bool = nixops.util.attr_property("obsolete", False, bool)
 
     # Time (in Unix epoch) the resource was created.
-    creation_time = nixops.util.attr_property("creationTime", None, int)
+    creation_time: Optional[int] = nixops.util.attr_property("creationTime", None, int)
 
     _created_event: Optional[Event] = None
     _destroyed_event: Optional[Event] = None
@@ -103,7 +103,8 @@ class ResourceState(Protocol[ResourceDefinitionType]):
         self.name = name
         self.id = id
         self.logger = depl.logger.get_logger_for(name)
-        self.logger.register_index(self.index)
+        if self.index is not None:
+            self.logger.register_index(self.index)
 
     def _set_attrs(self, attrs: Dict[str, Any]) -> None:
         """Update machine attributes in the state file."""
