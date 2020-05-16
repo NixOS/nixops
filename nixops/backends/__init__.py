@@ -2,7 +2,8 @@
 
 import os
 import re
-from typing import Mapping, Any, List, Optional, Union, Sequence
+from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar
+from typing_extensions import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
@@ -62,7 +63,16 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.provision_ssh_key = config["provisionSSHKey"]
 
 
-class MachineState(nixops.resources.ResourceState):
+MachineDefinitionType = TypeVar(
+    "MachineDefinitionType", bound="MachineDefinition", contravariant=True
+)
+
+
+@runtime_checkable
+class MachineState(
+    nixops.resources.ResourceState[MachineDefinitionType],
+    Protocol[MachineDefinitionType],
+):
     """Base class for NixOps machine state objects."""
 
     vm_id: Optional[str] = nixops.util.attr_property("vmId", None)
