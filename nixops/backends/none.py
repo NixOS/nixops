@@ -32,7 +32,6 @@ class NoneState(MachineState):
     def get_type(cls):
         return "none"
 
-    provision_ssh_key: bool = nixops.util.attr_property("provisionSSHKey", True, bool)
     target_host = nixops.util.attr_property("targetHost", None)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     _ssh_private_key: Optional[str] = attr_property("none.sshPrivateKey", None)
