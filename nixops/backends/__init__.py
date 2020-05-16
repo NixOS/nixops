@@ -92,7 +92,7 @@ class MachineState(
     _ssh_private_key_file: Optional[str]
     provision_ssh_key: bool = nixops.util.attr_property("provisionSSHKey", True, bool)
     public_vpn_key: Optional[str] = nixops.util.attr_property("publicVpnKey", None)
-    keys: Mapping[str, str] = nixops.util.attr_property("keys", {}, "json")
+    keys: Mapping[str, KeyOptions] = nixops.util.attr_property("keys", {}, "json")
     owners: List[str] = nixops.util.attr_property("owners", [], "json")
 
     # Nix store path of the last global configuration deployed to this
@@ -131,7 +131,7 @@ class MachineState(
         state = self.state
         return state == self.STARTING or state == self.UP
 
-    def set_common_state(self, defn) -> None:
+    def set_common_state(self, defn: MachineDefinitionType) -> None:
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
         self.ssh_user = defn.ssh_user
