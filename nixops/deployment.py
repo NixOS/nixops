@@ -1070,7 +1070,7 @@ class Deployment:
                 )
                 if res != 0:
                     m.logger.log("running sync failed on {0}.".format(m.name))
-            m.backup(self._definition_for_required(m.name), backup_id, devices)
+            m.backup(self._machine_definition_for_required(m.name), backup_id, devices)
 
         nixops.parallel.run_tasks(
             nr_workers=5, tasks=iter(self.active.values()), worker_fun=worker
@@ -1092,7 +1092,9 @@ class Deployment:
             def worker(m: nixops.backends.MachineState) -> None:
                 if not should_do(m, include, exclude):
                     return
-                m.restore(self._definition_for_required(m.name), backup_id, devices)
+                m.restore(
+                    self._machine_definition_for_required(m.name), backup_id, devices
+                )
 
             nixops.parallel.run_tasks(
                 nr_workers=-1, tasks=iter(self.active.values()), worker_fun=worker
