@@ -103,6 +103,7 @@ class MachineState(
     # Nix store path of the last machine configuration deployed to
     # this machine.
     cur_toplevel: Optional[str] = nixops.util.attr_property("toplevel", None)
+    new_toplevel: Optional[str]
 
     # Time (in Unix epoch) the instance was started, if known.
     start_time: Optional[int] = nixops.util.attr_property("startTime", None, int)
