@@ -9,6 +9,7 @@ from typing_extensions import Protocol, Literal
 from nixops.state import StateDict, RecordId
 from nixops.diff import Diff, Handler
 from nixops.util import ImmutableMapping, ImmutableValidatedObject
+from nixops.logger import MachineLogger
 
 if TYPE_CHECKING:
     import nixops.deployment
@@ -104,6 +105,7 @@ class ResourceState(Protocol[ResourceDefinitionType]):
 
     depl: nixops.deployment.Deployment
     id: RecordId
+    logger: MachineLogger
 
     def __init__(self, depl: nixops.deployment.Deployment, name: str, id: RecordId):
         self.depl = depl
