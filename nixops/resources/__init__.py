@@ -1,13 +1,17 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 
 import re
 import nixops.util
 from threading import Event
-from typing import List, Optional, Dict, Any, TypeVar, Union
+from typing import List, Optional, Dict, Any, TypeVar, Union, TYPE_CHECKING
 from typing_extensions import Protocol, Literal
 from nixops.state import StateDict
 from nixops.diff import Diff, Handler
 from nixops.util import ImmutableMapping, ImmutableValidatedObject
+
+if TYPE_CHECKING:
+    import nixops.deployment
 
 
 class ResourceEval(ImmutableMapping[Any, Any]):
@@ -98,7 +102,9 @@ class ResourceState(Protocol[ResourceDefinitionType]):
     _errored: Optional[bool] = None
     _wait_for: List["ResourceState"] = []
 
-    def __init__(self, depl, name: str, id):
+    depl: nixops.deployment.Deployment
+
+    def __init__(self, depl: nixops.deployment.Deployment, name: str, id):
         self.depl = depl
         self.name = name
         self.id = id
