@@ -6,11 +6,11 @@ import os.path
 import subprocess
 import json
 import tempfile
-import sqlite3
 import threading
 from collections import defaultdict
 import re
 from datetime import datetime, timedelta
+import nixops.statefile
 import getpass
 import traceback
 import glob
@@ -75,7 +75,7 @@ class Deployment:
         self, statefile, uuid: str, log_file: TextIO = sys.stderr,
     ):
         self._statefile = statefile
-        self._db: sqlite3.Connection = statefile._db
+        self._db: nixops.statefile.Connection = statefile._db
         self.uuid = uuid
 
         self._last_log_prefix = None
