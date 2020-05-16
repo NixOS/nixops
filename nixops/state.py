@@ -2,7 +2,9 @@ import json
 import collections
 import sqlite3
 import nixops.util
-from typing import Any, List, Iterator, AbstractSet, Tuple
+from typing import Any, List, Iterator, AbstractSet, Tuple, NewType
+
+RecordId = NewType("RecordId", str)
 
 
 class StateDict(collections.MutableMapping):
@@ -12,7 +14,7 @@ class StateDict(collections.MutableMapping):
     """
 
     # TODO implement __repr__ for convenience e.g debugging the structure
-    def __init__(self, depl, id: str):
+    def __init__(self, depl, id: RecordId):
         super(StateDict, self).__init__()
         self._db: sqlite3.Connection = depl._db
         self.id = id

@@ -6,7 +6,7 @@ import nixops.util
 from threading import Event
 from typing import List, Optional, Dict, Any, TypeVar, Union, TYPE_CHECKING
 from typing_extensions import Protocol, Literal
-from nixops.state import StateDict
+from nixops.state import StateDict, RecordId
 from nixops.diff import Diff, Handler
 from nixops.util import ImmutableMapping, ImmutableValidatedObject
 
@@ -103,8 +103,9 @@ class ResourceState(Protocol[ResourceDefinitionType]):
     _wait_for: List["ResourceState"] = []
 
     depl: nixops.deployment.Deployment
+    id: RecordId
 
-    def __init__(self, depl: nixops.deployment.Deployment, name: str, id):
+    def __init__(self, depl: nixops.deployment.Deployment, name: str, id: RecordId):
         self.depl = depl
         self.name = name
         self.id = id

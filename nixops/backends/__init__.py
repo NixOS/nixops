@@ -6,6 +6,7 @@ from typing import Mapping, Any, List, Optional, Union, Sequence
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
+from nixops.state import RecordId
 import subprocess
 
 
@@ -95,7 +96,7 @@ class MachineState(nixops.resources.ResourceState):
     # machine was created.
     state_version: Optional[str] = nixops.util.attr_property("stateVersion", None, str)
 
-    def __init__(self, depl, name: str, id: int) -> None:
+    def __init__(self, depl, name: str, id: RecordId) -> None:
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._ssh_pinged_this_time = False
         self.ssh = nixops.ssh_util.SSH(self.logger)
