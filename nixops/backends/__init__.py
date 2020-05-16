@@ -89,6 +89,7 @@ class MachineState(
     privilege_escalation_command: List[str] = nixops.util.attr_property(
         "privilegeEscalationCommand", [], "json"
     )
+    _ssh_private_key_file: Optional[str]
     public_vpn_key: Optional[str] = nixops.util.attr_property("publicVpnKey", None)
     keys: Mapping[str, str] = nixops.util.attr_property("keys", {}, "json")
     owners: List[str] = nixops.util.attr_property("owners", [], "json")
