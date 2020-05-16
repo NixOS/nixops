@@ -351,7 +351,7 @@ class DiffEngineResourceState(ResourceState):
         ]
 
     def get_defn(self):
-        if self.name in self.depl.definitions:
+        if self.depl.definitions is not None and self.name in self.depl.definitions:
             return self.depl.definitions[self.name].config
         else:
             return {}
