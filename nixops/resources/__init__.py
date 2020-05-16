@@ -3,8 +3,8 @@
 import re
 import nixops.util
 from threading import Event
-from typing import List, Optional, Dict, Any, TypeVar
-from typing_extensions import Protocol
+from typing import List, Optional, Dict, Any, TypeVar, Union
+from typing_extensions import Protocol, Literal
 from nixops.state import StateDict
 from nixops.diff import Diff, Handler
 from nixops.util import ImmutableMapping, ImmutableValidatedObject
@@ -68,16 +68,25 @@ class ResourceState(Protocol[ResourceDefinitionType]):
 
     # Valid values for self.state.  Not all of these make sense for
     # all resource types.
-    UNKNOWN = 0  # state unknown
-    MISSING = 1  # instance destroyed or not yet created
-    STARTING = 2  # boot initiated
-    UP = 3  # machine is reachable
-    STOPPING = 4  # shutdown initiated
-    STOPPED = 5  # machine is down
-    UNREACHABLE = 6  # machine should be up, but is unreachable
-    RESCUE = 7  # rescue system is active for the machine
+    UNKNOWN: Literal[0] = 0  # state unknown
+    MISSING: Literal[1] = 1  # instance destroyed or not yet created
+    STARTING: Literal[2] = 2  # boot initiated
+    UP: Literal[3] = 3  # machine is reachable
+    STOPPING: Literal[4] = 4  # shutdown initiated
+    STOPPED: Literal[5] = 5  # machine is down
+    UNREACHABLE: Literal[6] = 6  # machine should be up, but is unreachable
+    RESCUE: Literal[7] = 7  # rescue system is active for the machine
 
-    state = nixops.util.attr_property("state", UNKNOWN, int)
+    state: Union[
+        Literal[0],
+        Literal[1],
+        Literal[2],
+        Literal[3],
+        Literal[4],
+        Literal[5],
+        Literal[6],
+        Literal[7],
+    ] = nixops.util.attr_property("state", UNKNOWN, int)
     index = nixops.util.attr_property("index", None, int)
     obsolete = nixops.util.attr_property("obsolete", False, bool)
 
