@@ -1228,7 +1228,8 @@ class Deployment:
                         self._definition_for_required(r.name),
                     )
                     for dep in deps:
-                        dep._created_event.wait()
+                        if dep._created_event is not None:
+                            dep._created_event.wait()
                         # !!! Should we print a message here?
                         if dep._errored:
                             r._errored = True
@@ -1278,7 +1279,8 @@ class Deployment:
                     r._errored = True
                     raise
                 finally:
-                    r._created_event.set()
+                    if r._created_event is not None:
+                        r._created_event.set()
 
             nixops.parallel.run_tasks(
                 nr_workers=-1,
@@ -1477,7 +1479,8 @@ class Deployment:
                     return
                 try:
                     for dep in m._wait_for:
-                        dep._destroyed_event.wait()
+                        if dep._created_event is not None:
+                            dep._created_event.wait()
                         # !!! Should we print a message here?
                         if dep._errored:
                             m._errored = True
@@ -1490,7 +1493,8 @@ class Deployment:
                 m._errored = True
                 raise
             finally:
-                m._destroyed_event.set()
+                if dep._destroyed_event is not None:
+                    dep._destroyed_event.set()
 
         nixops.parallel.run_tasks(
             nr_workers=-1, tasks=list(self.resources.values()), worker_fun=worker

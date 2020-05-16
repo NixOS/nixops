@@ -78,10 +78,10 @@ class ResourceState(object):
     # Time (in Unix epoch) the resource was created.
     creation_time = nixops.util.attr_property("creationTime", None, int)
 
-    _created_event: Event
-    _destroyed_event: Event
-    _errored: Optional[bool]
-    _wait_for: List["ResourceState"]
+    _created_event: Optional[Event] = None
+    _destroyed_event: Optional[Event] = None
+    _errored: Optional[bool] = None
+    _wait_for: List["ResourceState"] = []
 
     def __init__(self, depl, name: str, id):
         self.depl = depl
