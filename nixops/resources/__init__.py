@@ -355,3 +355,6 @@ class DiffEngineResourceState(ResourceState):
             return self.depl.definitions[self.name].config
         else:
             return {}
+
+
+GenericResourceState = ResourceState[ResourceDefinition]

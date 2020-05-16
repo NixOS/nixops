@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import annotations
 import os
 import re
 from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar
@@ -553,3 +553,6 @@ class CheckResult(object):
 
         # FIXME: add a check whether the active NixOS config on the
         # machine is correct.
+
+
+GenericMachineState = MachineState[MachineDefinition]

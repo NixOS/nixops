@@ -211,7 +211,7 @@ def op_info(args):  # noqa: C901
     def state(
         depl: nixops.deployment.Deployment,
         d: Optional[nixops.resources.ResourceDefinition],
-        m: nixops.backends.MachineState,
+        m: nixops.backends.GenericMachineState,
     ) -> str:
         if d and m.obsolete:
             return "Revived"
@@ -241,7 +241,9 @@ def op_info(args):  # noqa: C901
         # names numerically (e.g. "foo10" comes after "foo9").
         def name_to_key(name: str) -> Tuple[str, str, List[object]]:
             d: Optional[nixops.resources.ResourceDefinition] = definitions.get(name)
-            r: Optional[nixops.resources.ResourceState] = depl.resources.get(name)
+            r: Optional[nixops.resources.GenericResourceState] = depl.resources.get(
+                name
+            )
             if r:
                 key = machine_to_key(depl.uuid, name, r.get_type())
             elif d:
@@ -368,8 +370,8 @@ def op_check(args):  # noqa: C901
         ]
     )
 
-    machines: List[nixops.backends.MachineState] = []
-    resources: List[nixops.resources.ResourceState] = []
+    machines: List[nixops.backends.GenericMachineState] = []
+    resources: List[nixops.resources.GenericResourceState] = []
 
     def check(depl: nixops.deployment.Deployment):
         for m in depl.active_resources.values():
@@ -388,13 +390,16 @@ def op_check(args):  # noqa: C901
 
         ResourceStatus = Tuple[
             str,
-            Union[nixops.backends.MachineState, nixops.resources.ResourceState],
+            Union[
+                nixops.backends.GenericMachineState,
+                nixops.resources.GenericResourceState,
+            ],
             List[str],
             int,
         ]
 
         # Check all machines in parallel.
-        def worker(m: nixops.backends.MachineState) -> ResourceStatus:
+        def worker(m: nixops.backends.GenericMachineState) -> ResourceStatus:
             res = m.check()
 
             unit_lines = []
@@ -445,7 +450,7 @@ def op_check(args):  # noqa: C901
         )
 
         def resource_worker(
-            r: nixops.resources.ResourceState,
+            r: nixops.resources.GenericResourceState,
         ) -> Optional[ResourceStatus]:
             if not nixops.deployment.is_machine(r):
                 r.check()
@@ -810,7 +815,7 @@ def op_ssh_for_each(args):
     with one_or_all(args) as depls:
         for depl in depls:
 
-            def worker(m: nixops.backends.MachineState) -> Optional[int]:
+            def worker(m: nixops.backends.GenericMachineState) -> Optional[int]:
                 if not nixops.deployment.should_do(
                     m, args.include or [], args.exclude or []
                 ):
