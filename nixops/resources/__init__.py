@@ -3,7 +3,8 @@
 import re
 import nixops.util
 from threading import Event
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TypeVar
+from typing_extensions import Protocol
 from nixops.state import StateDict
 from nixops.diff import Diff, Handler
 from nixops.util import ImmutableMapping, ImmutableValidatedObject
@@ -50,7 +51,12 @@ class ResourceDefinition:
         return self.get_type()
 
 
-class ResourceState(object):
+ResourceDefinitionType = TypeVar(
+    "ResourceDefinitionType", bound="ResourceDefinition", contravariant=True
+)
+
+
+class ResourceState(Protocol[ResourceDefinitionType]):
     """Base class for NixOps resource state objects."""
 
     name: str
@@ -227,7 +233,13 @@ class ResourceState(object):
         """Return a set of resources that should be destroyed after this one."""
         return self.create_after(resources, None)
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
+    def create(
+        self,
+        defn: ResourceDefinitionType,
+        check: bool,
+        allow_reboot: bool,
+        allow_recreate: bool,
+    ):
         """Create or update the resource defined by ‘defn’."""
         raise NotImplementedError("create")
 
