@@ -79,7 +79,10 @@ class MachineState(
     has_fast_connection: bool = nixops.util.attr_property(
         "hasFastConnection", False, bool
     )
+
+    ssh: nixops.ssh_util.SSH
     ssh_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
+    _ssh_pinged_this_time: bool = False
     ssh_port: int = nixops.util.attr_property("targetPort", 22, int)
     ssh_user: str = nixops.util.attr_property("targetUser", "root", str)
     ssh_options: List[str] = nixops.util.attr_property("sshOptions", [], "json")
