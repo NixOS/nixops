@@ -5,11 +5,13 @@ import re
 import nixops.util
 from threading import Event
 from typing import List, Optional, Dict, Any, TypeVar, Union, TYPE_CHECKING
-from typing_extensions import Protocol, Literal
+from nixops.monkey import Protocol
 from nixops.state import StateDict, RecordId
 from nixops.diff import Diff, Handler
 from nixops.util import ImmutableMapping, ImmutableValidatedObject
 from nixops.logger import MachineLogger
+from typing_extensions import Literal
+
 
 if TYPE_CHECKING:
     import nixops.deployment

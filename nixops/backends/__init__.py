@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import re
 from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar
-from typing_extensions import Protocol, runtime_checkable
+from nixops.monkey import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
@@ -113,7 +113,7 @@ class MachineState(
     state_version: Optional[str] = nixops.util.attr_property("stateVersion", None, str)
 
     def __init__(self, depl, name: str, id: RecordId) -> None:
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
+        super().__init__(depl, name, id)
         self._ssh_pinged_this_time = False
         self.ssh = nixops.ssh_util.SSH(self.logger)
         self.ssh.register_flag_fun(self.get_ssh_flags)

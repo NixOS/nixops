@@ -123,11 +123,7 @@ class Deployment:
 
     @property
     def machines(self) -> Dict[str, nixops.backends.GenericMachineState]:
-        return {
-            n: r
-            for n, r in self.resources.items()
-            if isinstance(r, nixops.backends.GenericMachineState)
-        }
+        return _filter_machines(self.resources)
 
     @property
     def active(
@@ -135,11 +131,7 @@ class Deployment:
     ) -> Dict[
         str, nixops.backends.GenericMachineState
     ]:  # FIXME: rename to "active_machines"
-        return {
-            n: r
-            for n, r in self.active_resources.items()
-            if isinstance(r, nixops.backends.GenericMachineState)
-        }
+        return _filter_machines(self.active_resources)
 
     @property
     def active_resources(self) -> Dict[str, nixops.resources.GenericResourceState]:
@@ -1666,7 +1658,19 @@ def should_do_n(name: str, include: List[str], exclude: List[str]) -> bool:
 def is_machine(
     r: Union[nixops.resources.GenericResourceState, nixops.backends.GenericMachineState]
 ) -> bool:
-    return isinstance(r, nixops.backends.GenericMachineState)
+    # Hack around isinstance checks not working on subscripted generics
+    # See ./monkey.py
+    return nixops.backends.MachineState in r.__class__.mro()
+
+
+def _filter_machines(
+    resources: Dict[str, nixops.resources.GenericResourceState]
+) -> Dict[str, nixops.backends.GenericMachineState]:
+    return {
+        n: r  # type: ignore
+        for n, r in resources.items()
+        if is_machine(r)
+    }
 
 
 def is_machine_defn(r: nixops.resources.GenericResourceState) -> bool:
