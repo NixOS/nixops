@@ -1695,7 +1695,7 @@ def _create_definition(
 def _create_state(depl: Deployment, type: str, name: str, id: int) -> Any:
     """Create a resource state object of the desired type."""
 
-    for cls in _subclasses(nixops.resources.GenericResourceState):
+    for cls in _subclasses(nixops.resources.ResourceState):
         try:
             if type == cls.get_type():
                 return cls(depl, name, id)
