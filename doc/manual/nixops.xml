@@ -1377,6 +1377,7 @@ $ nixops ssh-for-each -p reboot</screen>
 
   </varlistentry>
 </variablelist>
+</refsection>
 
 <refsection><title>Examples</title>
 
