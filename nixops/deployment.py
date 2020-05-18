@@ -6,11 +6,11 @@ import os.path
 import subprocess
 import json
 import tempfile
-import sqlite3
 import threading
 from collections import defaultdict
 import re
 from datetime import datetime, timedelta
+import nixops.statefile
 import getpass
 import traceback
 import glob
@@ -75,7 +75,7 @@ class Deployment:
         self, statefile, uuid: str, log_file: TextIO = sys.stderr,
     ):
         self._statefile = statefile
-        self._db: sqlite3.Connection = statefile._db
+        self._db: nixops.statefile.Connection = statefile._db
         self.uuid = uuid
 
         self._last_log_prefix = None
@@ -99,7 +99,7 @@ class Deployment:
         if not os.path.exists(self.expr_path):
             self.expr_path = os.path.dirname(__file__) + "/../nix"
 
-        self.resources: Dict[str, nixops.resources.ResourceState] = {}
+        self.resources: Dict[str, nixops.resources.GenericResourceState] = {}
         with self._db:
             c = self._db.cursor()
             c.execute(
@@ -122,30 +122,24 @@ class Deployment:
         return self._tempdir
 
     @property
-    def machines(self) -> Dict[str, nixops.backends.MachineState]:
-        return {
-            n: r
-            for n, r in self.resources.items()
-            if isinstance(r, nixops.backends.MachineState)
-        }
+    def machines(self) -> Dict[str, nixops.backends.GenericMachineState]:
+        return _filter_machines(self.resources)
 
     @property
     def active(
         self,
-    ) -> Dict[str, nixops.backends.MachineState]:  # FIXME: rename to "active_machines"
-        return {
-            n: r
-            for n, r in self.resources.items()
-            if isinstance(r, nixops.backends.MachineState) and not r.obsolete
-        }
+    ) -> Dict[
+        str, nixops.backends.GenericMachineState
+    ]:  # FIXME: rename to "active_machines"
+        return _filter_machines(self.active_resources)
 
     @property
-    def active_resources(self) -> Dict[str, nixops.resources.ResourceState]:
+    def active_resources(self) -> Dict[str, nixops.resources.GenericResourceState]:
         return {n: r for n, r in self.resources.items() if not r.obsolete}
 
     def get_typed_resource(
         self, name: str, type: str
-    ) -> nixops.resources.ResourceState:
+    ) -> nixops.resources.GenericResourceState:
         res = self.active_resources.get(name, None)
         if not res:
             raise Exception("resource ‘{0}’ does not exist".format(name))
@@ -153,7 +147,7 @@ class Deployment:
             raise Exception("resource ‘{0}’ is not of type ‘{1}’".format(name, type))
         return res
 
-    def get_machine(self, name: str) -> nixops.resources.ResourceState:
+    def get_machine(self, name: str) -> nixops.resources.GenericResourceState:
         res = self.active_resources.get(name, None)
         if not res:
             raise Exception("machine ‘{0}’ does not exist".format(name))
@@ -230,7 +224,9 @@ class Deployment:
                 return row[0]
             return nixops.util.undefined
 
-    def _create_resource(self, name: str, type: str) -> nixops.resources.ResourceState:
+    def _create_resource(
+        self, name: str, type: str
+    ) -> nixops.resources.GenericResourceState:
         c = self._db.cursor()
         c.execute(
             "select 1 from Resources where deployment = ? and name = ?",
@@ -315,7 +311,7 @@ class Deployment:
 
         return DeploymentLock(self)
 
-    def delete_resource(self, m: nixops.resources.ResourceState) -> None:
+    def delete_resource(self, m: nixops.resources.GenericResourceState) -> None:
         del self.resources[m.name]
         with self._db:
             self._db.execute(
@@ -577,7 +573,7 @@ class Deployment:
             assert n <= 255
             return "192.168.{0}.{1}".format(n, index % 256)
 
-        def do_machine(m: nixops.backends.MachineState) -> None:
+        def do_machine(m: nixops.backends.GenericMachineState) -> None:
             defn = self._machine_definition_for_required(m.name)
 
             attrs_list = attrs_per_resource[m.name]
@@ -621,7 +617,7 @@ class Deployment:
         for m in active_machines.values():
             do_machine(m)
 
-        def emit_resource(r: nixops.resources.ResourceState) -> Any:
+        def emit_resource(r: nixops.resources.GenericResourceState) -> Any:
             config = []
             config.extend(attrs_per_resource[r.name])
             if is_machine(r):
@@ -831,7 +827,7 @@ class Deployment:
     ) -> None:
         """Copy the closure of each machine configuration to the corresponding machine."""
 
-        def worker(m: nixops.backends.MachineState) -> None:
+        def worker(m: nixops.backends.GenericMachineState) -> None:
             if not should_do(m, include, exclude):
                 return
             m.logger.log("copying closure...")
@@ -868,7 +864,7 @@ class Deployment:
     ) -> None:
         """Activate the new configuration on a machine."""
 
-        def worker(m: nixops.backends.MachineState) -> Optional[str]:
+        def worker(m: nixops.backends.GenericMachineState) -> Optional[str]:
             if not should_do(m, include, exclude):
                 return None
 
@@ -1045,7 +1041,7 @@ class Deployment:
     def remove_backup(self, backup_id: str, keep_physical: bool = False) -> None:
         with self._get_deployment_lock():
 
-            def worker(m: nixops.backends.MachineState) -> None:
+            def worker(m: nixops.backends.GenericMachineState) -> None:
                 m.remove_backup(backup_id, keep_physical)
 
             nixops.parallel.run_tasks(
@@ -1060,7 +1056,7 @@ class Deployment:
         self.evaluate_active(include, exclude)
         backup_id = datetime.now().strftime("%Y%m%d%H%M%S")
 
-        def worker(m: nixops.backends.MachineState) -> None:
+        def worker(m: nixops.backends.GenericMachineState) -> None:
             if not should_do(m, include, exclude):
                 return
             if m.state != m.STOPPED:
@@ -1070,7 +1066,7 @@ class Deployment:
                 )
                 if res != 0:
                     m.logger.log("running sync failed on {0}.".format(m.name))
-            m.backup(self._definition_for_required(m.name), backup_id, devices)
+            m.backup(self._machine_definition_for_required(m.name), backup_id, devices)
 
         nixops.parallel.run_tasks(
             nr_workers=5, tasks=iter(self.active.values()), worker_fun=worker
@@ -1089,10 +1085,12 @@ class Deployment:
 
             self.evaluate_active(include, exclude)
 
-            def worker(m: nixops.backends.MachineState) -> None:
+            def worker(m: nixops.backends.GenericMachineState) -> None:
                 if not should_do(m, include, exclude):
                     return
-                m.restore(self._definition_for_required(m.name), backup_id, devices)
+                m.restore(
+                    self._machine_definition_for_required(m.name), backup_id, devices
+                )
 
             nixops.parallel.run_tasks(
                 nr_workers=-1, tasks=iter(self.active.values()), worker_fun=worker
@@ -1214,7 +1212,7 @@ class Deployment:
 
                 return
 
-            def worker(r: nixops.resources.ResourceState):
+            def worker(r: nixops.resources.GenericResourceState):
                 try:
                     if not should_do(r, include, exclude):
                         return
@@ -1226,7 +1224,8 @@ class Deployment:
                         self._definition_for_required(r.name),
                     )
                     for dep in deps:
-                        dep._created_event.wait()
+                        if dep._created_event is not None:
+                            dep._created_event.wait()
                         # !!! Should we print a message here?
                         if dep._errored:
                             r._errored = True
@@ -1245,7 +1244,7 @@ class Deployment:
                     if is_machine(r):
                         # NOTE: unfortunate mypy doesn't check that
                         # is_machine calls an isinstance() function
-                        m = cast(nixops.backends.MachineState, r)
+                        m = cast(nixops.backends.GenericMachineState, r)
                         # The first time the machine is created,
                         # record the state version. We get it from
                         # /etc/os-release, rather than from the
@@ -1276,7 +1275,8 @@ class Deployment:
                     r._errored = True
                     raise
                 finally:
-                    r._created_event.set()
+                    if r._created_event is not None:
+                        r._created_event.set()
 
             nixops.parallel.run_tasks(
                 nr_workers=-1,
@@ -1329,7 +1329,7 @@ class Deployment:
 
         # Trigger cleanup of resources, e.g. disks that need to be detached etc. Needs to be
         # done after activation to make sure they are not in use anymore.
-        def cleanup_worker(r: nixops.resources.ResourceState) -> None:
+        def cleanup_worker(r: nixops.resources.GenericResourceState) -> None:
             if not should_do(r, include, exclude):
                 return
 
@@ -1469,13 +1469,14 @@ class Deployment:
                 except AttributeError:
                     rev_dep._wait_for = [r]
 
-        def worker(m: nixops.resources.ResourceState) -> None:
+        def worker(m: nixops.resources.GenericResourceState) -> None:
             try:
                 if not should_do(m, include, exclude):
                     return
                 try:
                     for dep in m._wait_for:
-                        dep._destroyed_event.wait()
+                        if dep._created_event is not None:
+                            dep._created_event.wait()
                         # !!! Should we print a message here?
                         if dep._errored:
                             m._errored = True
@@ -1488,7 +1489,8 @@ class Deployment:
                 m._errored = True
                 raise
             finally:
-                m._destroyed_event.set()
+                if dep._destroyed_event is not None:
+                    dep._destroyed_event.set()
 
         nixops.parallel.run_tasks(
             nr_workers=-1, tasks=list(self.resources.values()), worker_fun=worker
@@ -1541,7 +1543,7 @@ class Deployment:
     ) -> None:
         """delete all resources state."""
 
-        def worker(m: nixops.resources.ResourceState) -> None:
+        def worker(m: nixops.resources.GenericResourceState) -> None:
             if not should_do(m, include, exclude):
                 return
             if m.delete_resources():
@@ -1561,7 +1563,7 @@ class Deployment:
     ) -> None:
         """Reboot all active machines."""
 
-        def worker(m: nixops.backends.MachineState) -> None:
+        def worker(m: nixops.backends.GenericMachineState) -> None:
             if not should_do(m, include, exclude):
                 return
             if rescue:
@@ -1578,7 +1580,7 @@ class Deployment:
     def stop_machines(self, include: List[str] = [], exclude: List[str] = []) -> None:
         """Stop all active machines."""
 
-        def worker(m: nixops.backends.MachineState) -> None:
+        def worker(m: nixops.backends.GenericMachineState) -> None:
             if not should_do(m, include, exclude):
                 return
             m.stop()
@@ -1590,7 +1592,7 @@ class Deployment:
     def start_machines(self, include: List[str] = [], exclude: List[str] = []) -> None:
         """Start all active machines."""
 
-        def worker(m: nixops.backends.MachineState) -> None:
+        def worker(m: nixops.backends.GenericMachineState) -> None:
             if not should_do(m, include, exclude):
                 return
             m.start()
@@ -1625,7 +1627,7 @@ class Deployment:
     def send_keys(self, include: List[str] = [], exclude: List[str] = []) -> None:
         """Send encryption keys to machines."""
 
-        def worker(m: nixops.backends.MachineState) -> None:
+        def worker(m: nixops.backends.GenericMachineState) -> None:
             if not should_do(m, include, exclude):
                 return
             m.send_keys()
@@ -1636,7 +1638,11 @@ class Deployment:
 
 
 def should_do(
-    m: nixops.resources.ResourceState, include: List[str], exclude: List[str]
+    m: Union[
+        nixops.resources.GenericResourceState, nixops.backends.GenericMachineState
+    ],
+    include: List[str],
+    exclude: List[str],
 ) -> bool:
     return should_do_n(m.name, include, exclude)
 
@@ -1649,11 +1655,25 @@ def should_do_n(name: str, include: List[str], exclude: List[str]) -> bool:
     return name in include
 
 
-def is_machine(r: nixops.resources.ResourceState) -> bool:
-    return isinstance(r, nixops.backends.MachineState)
+def is_machine(
+    r: Union[nixops.resources.GenericResourceState, nixops.backends.GenericMachineState]
+) -> bool:
+    # Hack around isinstance checks not working on subscripted generics
+    # See ./monkey.py
+    return nixops.backends.MachineState in r.__class__.mro()
 
 
-def is_machine_defn(r: nixops.resources.ResourceState) -> bool:
+def _filter_machines(
+    resources: Dict[str, nixops.resources.GenericResourceState]
+) -> Dict[str, nixops.backends.GenericMachineState]:
+    return {
+        n: r  # type: ignore
+        for n, r in resources.items()
+        if is_machine(r)
+    }
+
+
+def is_machine_defn(r: nixops.resources.GenericResourceState) -> bool:
     return isinstance(r, nixops.backends.MachineDefinition)
 
 

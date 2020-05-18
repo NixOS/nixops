@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import annotations
 import os
 import re
-from typing import Mapping, Any, List, Optional, Union, Sequence
+from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar
+from nixops.monkey import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
 import nixops.ssh_util
+from nixops.state import RecordId
 import subprocess
 
 
@@ -61,22 +63,36 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.provision_ssh_key = config["provisionSSHKey"]
 
 
-class MachineState(nixops.resources.ResourceState):
+MachineDefinitionType = TypeVar(
+    "MachineDefinitionType", bound="MachineDefinition", contravariant=True
+)
+
+
+@runtime_checkable
+class MachineState(
+    nixops.resources.ResourceState[MachineDefinitionType],
+    Protocol[MachineDefinitionType],
+):
     """Base class for NixOps machine state objects."""
 
     vm_id: Optional[str] = nixops.util.attr_property("vmId", None)
     has_fast_connection: bool = nixops.util.attr_property(
         "hasFastConnection", False, bool
     )
+
+    ssh: nixops.ssh_util.SSH
     ssh_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
+    _ssh_pinged_this_time: bool = False
     ssh_port: int = nixops.util.attr_property("targetPort", 22, int)
     ssh_user: str = nixops.util.attr_property("targetUser", "root", str)
     ssh_options: List[str] = nixops.util.attr_property("sshOptions", [], "json")
     privilege_escalation_command: List[str] = nixops.util.attr_property(
         "privilegeEscalationCommand", [], "json"
     )
+    _ssh_private_key_file: Optional[str]
+    provision_ssh_key: bool = nixops.util.attr_property("provisionSSHKey", True, bool)
     public_vpn_key: Optional[str] = nixops.util.attr_property("publicVpnKey", None)
-    keys: Mapping[str, str] = nixops.util.attr_property("keys", {}, "json")
+    keys: Mapping[str, KeyOptions] = nixops.util.attr_property("keys", {}, "json")
     owners: List[str] = nixops.util.attr_property("owners", [], "json")
 
     # Nix store path of the last global configuration deployed to this
@@ -87,6 +103,7 @@ class MachineState(nixops.resources.ResourceState):
     # Nix store path of the last machine configuration deployed to
     # this machine.
     cur_toplevel: Optional[str] = nixops.util.attr_property("toplevel", None)
+    new_toplevel: Optional[str]
 
     # Time (in Unix epoch) the instance was started, if known.
     start_time: Optional[int] = nixops.util.attr_property("startTime", None, int)
@@ -95,8 +112,8 @@ class MachineState(nixops.resources.ResourceState):
     # machine was created.
     state_version: Optional[str] = nixops.util.attr_property("stateVersion", None, str)
 
-    def __init__(self, depl, name: str, id: int) -> None:
-        nixops.resources.ResourceState.__init__(self, depl, name, id)
+    def __init__(self, depl, name: str, id: RecordId) -> None:
+        super().__init__(depl, name, id)
         self._ssh_pinged_this_time = False
         self.ssh = nixops.ssh_util.SSH(self.logger)
         self.ssh.register_flag_fun(self.get_ssh_flags)
@@ -114,7 +131,7 @@ class MachineState(nixops.resources.ResourceState):
         state = self.state
         return state == self.STARTING or state == self.UP
 
-    def set_common_state(self, defn) -> None:
+    def set_common_state(self, defn: MachineDefinitionType) -> None:
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
         self.ssh_user = defn.ssh_user
@@ -536,3 +553,6 @@ class CheckResult(object):
 
         # FIXME: add a check whether the active NixOS config on the
         # machine is correct.
+
+
+GenericMachineState = MachineState[MachineDefinition]

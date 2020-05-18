@@ -25,14 +25,13 @@ class NoneDefinition(MachineDefinition):
         self._public_ipv4 = config.get("publicIPv4", None)
 
 
-class NoneState(MachineState):
+class NoneState(MachineState[NoneDefinition]):
     """State of a trivial machine."""
 
     @classmethod
     def get_type(cls):
         return "none"
 
-    provision_ssh_key: bool = nixops.util.attr_property("provisionSSHKey", True, bool)
     target_host = nixops.util.attr_property("targetHost", None)
     public_ipv4 = nixops.util.attr_property("publicIpv4", None)
     _ssh_private_key: Optional[str] = attr_property("none.sshPrivateKey", None)
@@ -63,7 +62,13 @@ class NoneState(MachineState):
             else {}
         )
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
+    def create(
+        self,
+        defn: NoneDefinition,
+        check: bool,
+        allow_reboot: bool,
+        allow_recreate: bool,
+    ):
         assert isinstance(defn, NoneDefinition)
         self.set_common_state(defn)
         self.target_host = defn._target_host
@@ -118,7 +123,7 @@ class NoneState(MachineState):
         res.exists = True
         res.is_up = nixops.util.ping_tcp_port(self.target_host, self.ssh_port)
         if res.is_up:
-            MachineState._check(self, res)
+            super()._check(res)
 
     def destroy(self, wipe=False):
         # No-op; just forget about the machine.

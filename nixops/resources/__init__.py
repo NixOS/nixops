@@ -1,12 +1,20 @@
 # -*- coding: utf-8 -*-
+from __future__ import annotations
 
 import re
 import nixops.util
 from threading import Event
-from typing import List, Optional, Dict, Any
-from nixops.state import StateDict
+from typing import List, Optional, Dict, Any, TypeVar, Union, TYPE_CHECKING
+from nixops.monkey import Protocol
+from nixops.state import StateDict, RecordId
 from nixops.diff import Diff, Handler
 from nixops.util import ImmutableMapping, ImmutableValidatedObject
+from nixops.logger import MachineLogger
+from typing_extensions import Literal
+
+
+if TYPE_CHECKING:
+    import nixops.deployment
 
 
 class ResourceEval(ImmutableMapping[Any, Any]):
@@ -50,7 +58,12 @@ class ResourceDefinition:
         return self.get_type()
 
 
-class ResourceState(object):
+ResourceDefinitionType = TypeVar(
+    "ResourceDefinitionType", bound="ResourceDefinition", contravariant=True
+)
+
+
+class ResourceState(Protocol[ResourceDefinitionType]):
     """Base class for NixOps resource state objects."""
 
     name: str
@@ -62,33 +75,47 @@ class ResourceState(object):
 
     # Valid values for self.state.  Not all of these make sense for
     # all resource types.
-    UNKNOWN = 0  # state unknown
-    MISSING = 1  # instance destroyed or not yet created
-    STARTING = 2  # boot initiated
-    UP = 3  # machine is reachable
-    STOPPING = 4  # shutdown initiated
-    STOPPED = 5  # machine is down
-    UNREACHABLE = 6  # machine should be up, but is unreachable
-    RESCUE = 7  # rescue system is active for the machine
+    UNKNOWN: Literal[0] = 0  # state unknown
+    MISSING: Literal[1] = 1  # instance destroyed or not yet created
+    STARTING: Literal[2] = 2  # boot initiated
+    UP: Literal[3] = 3  # machine is reachable
+    STOPPING: Literal[4] = 4  # shutdown initiated
+    STOPPED: Literal[5] = 5  # machine is down
+    UNREACHABLE: Literal[6] = 6  # machine should be up, but is unreachable
+    RESCUE: Literal[7] = 7  # rescue system is active for the machine
 
-    state = nixops.util.attr_property("state", UNKNOWN, int)
-    index = nixops.util.attr_property("index", None, int)
-    obsolete = nixops.util.attr_property("obsolete", False, bool)
+    state: Union[
+        Literal[0],
+        Literal[1],
+        Literal[2],
+        Literal[3],
+        Literal[4],
+        Literal[5],
+        Literal[6],
+        Literal[7],
+    ] = nixops.util.attr_property("state", UNKNOWN, int)
+    index: Optional[int] = nixops.util.attr_property("index", None, int)
+    obsolete: bool = nixops.util.attr_property("obsolete", False, bool)
 
     # Time (in Unix epoch) the resource was created.
-    creation_time = nixops.util.attr_property("creationTime", None, int)
+    creation_time: Optional[int] = nixops.util.attr_property("creationTime", None, int)
 
-    _created_event: Event
-    _destroyed_event: Event
-    _errored: Optional[bool]
-    _wait_for: List["ResourceState"]
+    _created_event: Optional[Event] = None
+    _destroyed_event: Optional[Event] = None
+    _errored: Optional[bool] = None
+    _wait_for: List["ResourceState"] = []
 
-    def __init__(self, depl, name: str, id):
+    depl: nixops.deployment.Deployment
+    id: RecordId
+    logger: MachineLogger
+
+    def __init__(self, depl: nixops.deployment.Deployment, name: str, id: RecordId):
         self.depl = depl
         self.name = name
         self.id = id
         self.logger = depl.logger.get_logger_for(name)
-        self.logger.register_index(self.index)
+        if self.index is not None:
+            self.logger.register_index(self.index)
 
     def _set_attrs(self, attrs: Dict[str, Any]) -> None:
         """Update machine attributes in the state file."""
@@ -227,7 +254,13 @@ class ResourceState(object):
         """Return a set of resources that should be destroyed after this one."""
         return self.create_after(resources, None)
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
+    def create(
+        self,
+        defn: ResourceDefinitionType,
+        check: bool,
+        allow_reboot: bool,
+        allow_recreate: bool,
+    ):
         """Create or update the resource defined by ‘defn’."""
         raise NotImplementedError("create")
 
@@ -320,7 +353,10 @@ class DiffEngineResourceState(ResourceState):
         ]
 
     def get_defn(self):
-        if self.name in self.depl.definitions:
+        if self.depl.definitions is not None and self.name in self.depl.definitions:
             return self.depl.definitions[self.name].config
         else:
             return {}
+
+
+GenericResourceState = ResourceState[ResourceDefinition]

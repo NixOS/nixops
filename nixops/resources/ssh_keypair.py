@@ -24,7 +24,7 @@ class SSHKeyPairDefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class SSHKeyPairState(nixops.resources.ResourceState):
+class SSHKeyPairState(nixops.resources.ResourceState[SSHKeyPairDefinition]):
     """State of an SSH key pair."""
 
     state = nixops.util.attr_property(
@@ -41,7 +41,13 @@ class SSHKeyPairState(nixops.resources.ResourceState):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._conn = None
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
+    def create(
+        self,
+        defn: SSHKeyPairDefinition,
+        check: bool,
+        allow_reboot: bool,
+        allow_recreate: bool,
+    ):
         # Generate the key pair locally.
         if not self.public_key:
             (private, public) = nixops.util.create_key_pair(type="ed25519")

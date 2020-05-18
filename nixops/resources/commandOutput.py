@@ -42,7 +42,7 @@ class CommandOutputDefinition(nixops.resources.ResourceDefinition):
         return "{0}".format(self.get_type())
 
 
-class CommandOutputState(nixops.resources.ResourceState):
+class CommandOutputState(nixops.resources.ResourceState[CommandOutputDefinition]):
     """State of a Command Output."""
 
     state = nixops.util.attr_property(
@@ -68,8 +68,13 @@ class CommandOutputState(nixops.resources.ResourceState):
         else:
             return None
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
-        # type: (CommandOutputDefinition,bool,bool,bool) -> None
+    def create(
+        self,
+        defn: CommandOutputDefinition,
+        check: bool,
+        allow_reboot: bool,
+        allow_recreate: bool,
+    ) -> None:
         if (
             (defn.config.script is not None)
             and (self.script != defn.config.script)
