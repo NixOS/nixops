@@ -1,5 +1,32 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
+import sys
+
+
+def setup_debugger() -> None:
+    """
+    """
+    import traceback
+    import pdb
+    from types import TracebackType
+    from typing import Type
+
+    def hook(_type: Type[BaseException], value: BaseException, tb: TracebackType):
+        if hasattr(sys, "ps1") or not sys.stderr.isatty():
+            sys.__excepthook__(_type, value, tb)
+        else:
+            traceback.print_exception(_type, value, tb)
+            pdb.post_mortem(tb)
+
+    sys.excepthook = hook
+
+
+# Run check for --pdb as early as possible so it kicks in _before_ plugin loading
+# and other dynamic startup happens
+if __name__ == "__main__":
+    if "--pdb" in sys.argv:
+        setup_debugger()
+
 
 from argparse import ArgumentParser, _SubParsersAction, SUPPRESS, REMAINDER
 import os
@@ -48,7 +75,6 @@ from nixops.script_defs import (
     op_list_plugins,
     parser_plugin_hooks,
     setup_logging,
-    setup_debugger,
     error,
 )
 import sys
@@ -673,7 +699,6 @@ def main() -> None:
 
     args = parser.parse_args()
     setup_logging(args)
-    setup_debugger(args)
 
     try:
         nixops.deployment.DEBUG = args.debug
