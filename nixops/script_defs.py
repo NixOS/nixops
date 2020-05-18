@@ -22,10 +22,6 @@ import json
 import pipes
 from typing import Tuple, List, Optional, Union, Generator
 import importlib
-import traceback
-import pdb
-from types import TracebackType
-from typing import Type
 import nixops.ansi
 
 from nixops.plugins import get_plugin_manager
@@ -980,18 +976,6 @@ def op_copy_closure(args):
             env=env,
         )
         sys.exit(res)
-
-
-def setup_debugger(args: Namespace) -> None:
-    def hook(_type: Type[BaseException], value: BaseException, tb: TracebackType):
-        if hasattr(sys, "ps1") or not sys.stderr.isatty():
-            sys.__excepthook__(_type, value, tb)
-        else:
-            traceback.print_exception(_type, value, tb)
-            pdb.post_mortem(tb)
-
-    if args.pdb:
-        sys.excepthook = hook
 
 
 # Set up logging of all commands and output
