@@ -12,7 +12,6 @@ from nixops.util import ImmutableMapping, ImmutableValidatedObject
 from nixops.logger import MachineLogger
 from typing_extensions import Literal
 
-
 if TYPE_CHECKING:
     import nixops.deployment
 
@@ -308,6 +307,7 @@ class ResourceState(Protocol[ResourceDefinitionType]):
 
 class DiffEngineResourceState(ResourceState):
     _reserved_keys: List[str] = []
+    _state: StateDict
 
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
