@@ -33,6 +33,8 @@ from typing import (
     Tuple,
     Union,
     cast,
+    TypeVar,
+    Type,
 )
 import nixops.backends
 import nixops.logger
@@ -53,6 +55,9 @@ class UnknownBackend(Exception):
 
 
 DEBUG = False
+
+
+TypedResource = TypeVar("TypedResource")
 
 
 class Deployment:
@@ -164,14 +169,24 @@ class Deployment:
     def active_resources(self) -> Dict[str, nixops.resources.GenericResourceState]:
         return {n: r for n, r in self.resources.items() if not r.obsolete}
 
-    def get_typed_resource(
-        self, name: str, type: str
+    def get_generic_resource(
+        self, name: str, type_name: str
     ) -> nixops.resources.GenericResourceState:
         res = self.active_resources.get(name, None)
         if not res:
             raise Exception("resource ‘{0}’ does not exist".format(name))
-        if res.get_type() != type:
-            raise Exception("resource ‘{0}’ is not of type ‘{1}’".format(name, type))
+        if res.get_type() != type_name:
+            raise Exception(
+                "resource ‘{0}’ is not of type ‘{1}’".format(name, type_name)
+            )
+        return res
+
+    def get_typed_resource(
+        self, name: str, type_name: str, type: Type[TypedResource]
+    ) -> TypedResource:
+        res = self.get_generic_resource(name, type_name)
+        if not isinstance(res, type):
+            raise ValueError(f"{res} not of type {type}")
         return res
 
     def get_machine(self, name: str) -> nixops.resources.GenericResourceState:

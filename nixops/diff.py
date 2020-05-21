@@ -188,7 +188,7 @@ class Diff:
                 name = d[4:].split(".")[0]
                 res_type = d.split(".")[1]
                 k = d.split(".")[2] if len(d.split(".")) > 2 else key
-                res = self._depl.get_typed_resource(name, res_type)
+                res = self._depl.get_generic_resource(name, res_type)
                 if res.state != res.UP:
                     return "computed"
                 try:
