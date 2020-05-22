@@ -189,7 +189,13 @@ class Deployment:
             raise ValueError(f"{res} not of type {type}")
         return res
 
-    def get_machine(self, name: str) -> nixops.resources.GenericResourceState:
+    def get_machine(self, name: str, type: Type[TypedResource]) -> TypedResource:
+        m = self.get_generic_machine(name)
+        if not isinstance(m, type):
+            raise ValueError(f"{m} not of type {type}")
+        return m
+
+    def get_generic_machine(self, name: str) -> nixops.resources.GenericResourceState:
         res = self.active_resources.get(name, None)
         if not res:
             raise Exception("machine ‘{0}’ does not exist".format(name))
