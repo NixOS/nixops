@@ -6,7 +6,7 @@ import sys
 import time
 import weakref
 from tempfile import mkdtemp
-from typing import Dict, Any, Optional, Callable, List, Union, Iterable, Tuple
+from typing import Dict, Any, Optional, Callable, List, Iterable, Tuple
 
 import nixops.util
 from nixops.logger import MachineLogger

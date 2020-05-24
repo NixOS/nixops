@@ -23,7 +23,6 @@ import pipes
 from typing import Tuple, List, Optional, Union, Generator
 import importlib
 import nixops.ansi
-from typing import cast
 
 from nixops.plugins import get_plugin_manager
 
@@ -818,12 +817,9 @@ def op_ssh_for_each(args):
                 ):
                     return None
 
-                return cast(
-                    int,
-                    m._transport.run_command(
-                        args.args, allow_ssh_args=True, check=False, user=m.ssh_user,
-                    ),
-                )
+                return m.run_command(
+                    args.args, allow_ssh_args=True, check=False, user=m.ssh_user,
+                ).returncode
 
             results = results + nixops.parallel.run_tasks(
                 nr_workers=len(depl.machines) if args.parallel else 1,
