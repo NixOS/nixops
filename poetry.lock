@@ -503,7 +503,7 @@ doc = ["sphinx-rtd-theme", "sphinx-autodoc-typehints (>=1.2.0)"]
 test = ["pytest", "pytest-cov", "typing-extensions"]
 
 [[package]]
-category = "dev"
+category = "main"
 description = "Backported and Experimental Type Hints for Python 3.5+"
 name = "typing-extensions"
 optional = false
@@ -537,7 +537,7 @@ docs = ["sphinx", "jaraco.packaging (>=3.2)", "rst.linker (>=1.9)"]
 testing = ["jaraco.itertools", "func-timeout"]
 
 [metadata]
-content-hash = "02e4cb84b43496785ee19fea46af7f908eaefc3df2b3681d914f3c6446607367"
+content-hash = "86b74229da1ae94e8322e5c8c9e77b195133cc2cffea6e415e4458b9ffd6bf3a"
 python-versions = "^3.7"
 
 [metadata.files]
