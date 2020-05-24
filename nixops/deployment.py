@@ -1254,7 +1254,7 @@ class Deployment:
                         if not m.state_version:
                             os_release = m.run_command(
                                 "cat /etc/os-release", capture_stdout=True
-                            )
+                            ).stdout
                             match = re.search(
                                 'VERSION_ID="([0-9]+\.[0-9]+).*"',  # noqa: W605
                                 os_release,

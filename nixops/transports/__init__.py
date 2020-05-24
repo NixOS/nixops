@@ -3,7 +3,7 @@ import nixops.util
 import os
 from .exceptions import ConnectionFailed, CommandFailed
 from .ssh import SSH
-from typing import Iterable, Union, cast
+from typing import Iterable, Union
 import shlex
 
 
@@ -96,25 +96,25 @@ class Transport:
 
         return cmdline
 
-    def upload_file(self, source: str, target: str, recursive: bool = False):
+    def upload_file(self, source: str, target: str, recursive: bool = False) -> None:
         cmdline = self._fmt_rsync_command(
             source,
             self._machine.ssh_user + "@" + self._get_scp_name() + ":" + target,
             recursive=recursive,
         )
-        return self._machine._logged_exec(cmdline)
+        self._machine._logged_exec(cmdline)
 
-    def download_file(self, source: str, target: str, recursive: bool = False):
+    def download_file(self, source: str, target: str, recursive: bool = False) -> None:
         cmdline = self._fmt_rsync_command(
             self._machine.ssh_user + "@" + self._get_scp_name() + ":" + source,
             target,
             recursive=recursive,
         )
-        return self._machine._logged_exec(cmdline)
+        self._machine._logged_exec(cmdline)
 
     def run_command(
         self, command, allow_ssh_args: bool = False, **kwargs
-    ) -> Union[str, int]:
+    ) -> nixops.util.ProcessResult:
         if "flags" not in kwargs:
             kwargs["flags"] = self._machine.get_ssh_flags()
 

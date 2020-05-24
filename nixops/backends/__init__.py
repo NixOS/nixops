@@ -162,7 +162,7 @@ class MachineState(
         """Get the load averages on the machine."""
         try:
             res = (
-                self.run_command("cat /proc/loadavg", capture_stdout=True, timeout=15)
+                self.run_command("cat /proc/loadavg", capture_stdout=True, timeout=15).stdout
                 .rstrip()
                 .split(" ")
             )
@@ -197,7 +197,7 @@ class MachineState(
             # Get the systemd units that are in a failed state or in progress.
             out = self.run_command(
                 "systemctl --all --full --no-legend", capture_stdout=True
-            ).split("\n")
+            ).stdout.split("\n")
             res.failed_units = []
             res.in_progress_units = []
             for line in out:
@@ -423,10 +423,10 @@ class MachineState(
     def get_ssh_private_key_file(self) -> Optional[str]:
         return None
 
-    def _logged_exec(self, command, **kwargs):
+    def _logged_exec(self, command, **kwargs) -> nixops.util.ProcessResult:
         return nixops.util.logged_exec(command, self.logger, **kwargs)
 
-    def run_command(self, command, **kwargs):
+    def run_command(self, command, **kwargs) -> nixops.util.ProcessResult:
         """
         Execute a command on the machine via SSH.
 
@@ -454,7 +454,7 @@ class MachineState(
         else:
             cmd += command
         cmd += " " + method
-        return self.run_command(cmd, check=False)
+        return self.run_command(cmd, check=False).returncode
 
     def upload_file(self, source: str, target: str, recursive: bool = False):
         return self._transport.upload_file(source, target, recursive)

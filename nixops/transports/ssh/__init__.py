@@ -80,7 +80,7 @@ class SSHMaster(object):
             + ssh_flags
         )
 
-        res = nixops.util.logged_exec(cmd, logger, **kwargs)
+        res = nixops.util.logged_exec(cmd, logger, **kwargs).returncode
         if res != 0:
             raise SSHConnectionFailed(
                 "unable to start SSH master connection to " "‘{0}’".format(target)
@@ -291,7 +291,7 @@ class SSH(object):
         timeout: Optional[int] = None,
         logged: bool = True,
         **kwargs: Any
-    ) -> Union[str, int]:
+    ) -> nixops.util.ProcessResult:
         """
         Execute a 'command' on the current target host using SSH, passing
         'flags' as additional arguments to SSH. The command can be either a
@@ -330,7 +330,7 @@ class SSH(object):
                 err = msg.format(cmd, self._get_target(user))
                 raise SSHCommandFailed(err, res)
             else:
-                return res
+                return nixops.util.ProcessResult(returncode=res, stdout="")
 
     def enable_compression(self) -> None:
         self._compress = True

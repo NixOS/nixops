@@ -978,7 +978,7 @@ def op_copy_closure(args):
             ],
             m.logger,
             env=env,
-        )
+        ).returncode
         sys.exit(res)
 
 

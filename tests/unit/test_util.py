@@ -17,7 +17,7 @@ class TestUtilTest(unittest.TestCase):
 
         ret = util.logged_exec(
             command=["cat"], logger=self.logger, stdin_string=msg, capture_stdout=True,
-        )
+        ).stdout
 
         self.assertEqual(ret, msg)
 
@@ -26,7 +26,7 @@ class TestUtilTest(unittest.TestCase):
 
         ret = util.logged_exec(
             command=["echo", msg], logger=self.logger, capture_stdout=True,
-        )
+        ).stdout
         if not isinstance(ret, str):
             raise ValueError("Wrong return type!")
 

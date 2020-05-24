@@ -36,6 +36,7 @@ from typing import (
     Generic,
     Iterable,
 )
+from dataclasses import dataclass
 
 from nixops.logger import MachineLogger
 from io import StringIO
@@ -47,6 +48,12 @@ def shlex_join(split_command: Iterable[str]) -> str:
 
 
 devnull = open(os.devnull, "r+")
+
+
+@dataclass
+class ProcessResult:
+    returncode: int
+    stdout: str
 
 
 def check_wait(
@@ -217,7 +224,7 @@ def logged_exec(  # noqa: C901
     stdin_string: Optional[str] = None,
     env: Optional[Mapping[str, str]] = None,
     preexec_fn: Optional[Callable[[], Any]] = None,
-) -> Union[str, int]:
+) -> ProcessResult:
     """
     Execute a command with logging using the specified logger.
 
@@ -355,7 +362,7 @@ def logged_exec(  # noqa: C901
         err = msg.format(command, logger.machine_name)
         raise CommandFailed(err, res)
 
-    return stdout if capture_stdout else res
+    return ProcessResult(returncode=res, stdout=stdout)
 
 
 def generate_random_string(length=256) -> str:
