@@ -12,6 +12,7 @@ from typing import Dict, Any, Optional, Callable, List, Union, Iterable, Tuple, 
 import nixops.util
 from nixops.logger import MachineLogger
 from nixops.transports.exceptions import ConnectionFailed, CommandFailed
+import nixops.transports.types
 
 
 __all__ = ["SSHConnectionFailed", "SSHCommandFailed", "SSH"]
@@ -147,9 +148,6 @@ sys.stdout.write(os.environ['NIXOPS_SSH_PASSWORD'])""".format(
         self.shutdown()
 
 
-Command = Union[str, Iterable[str]]
-
-
 class SSH(object):
     def __init__(self, logger: MachineLogger):
         """
@@ -257,7 +255,7 @@ class SSH(object):
         return weakref.proxy(self._ssh_master)
 
     @classmethod
-    def split_openssh_args(self, args: Iterable[str]) -> Tuple[List[str], Command]:
+    def split_openssh_args(self, args: Iterable[str]) -> Tuple[List[str], nixops.transports.types.Command]:
         """
         Splits the specified list of arguments into a tuple consisting of the
         list of flags and a list of strings for the actual command.
@@ -285,7 +283,7 @@ class SSH(object):
         return (flags, command)
 
     def _format_command(
-        self, command: Command, user: str, allow_ssh_args: bool,
+        self, command: nixops.transports.types.Command, user: str, allow_ssh_args: bool,
     ) -> Iterable[str]:
         """
         Helper method for run_command, which essentially prepares and properly
@@ -315,7 +313,7 @@ class SSH(object):
 
     def run_command(
         self,
-        command: Command,
+        command: nixops.transports.types.Command,
         user: str,
         flags: List[str] = [],
         timeout: Optional[int] = None,
@@ -367,7 +365,7 @@ class SSH(object):
 
     def run_command_get_stdout(
         self,
-        command: Command,
+        command: nixops.transports.types.Command,
         user: str,
         flags: List[str] = [],
         timeout: Optional[int] = None,
@@ -393,7 +391,7 @@ class SSH(object):
 
     def run_command_get_status(
         self,
-        command: Command,
+        command: nixops.transports.types.Command,
         user: str,
         flags: List[str] = [],
         timeout: Optional[int] = None,
