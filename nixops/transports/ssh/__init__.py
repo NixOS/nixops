@@ -363,32 +363,6 @@ class SSH(object):
             else:
                 return res
 
-    def run_command_get_stdout(
-        self,
-        command: nixops.transports.types.Command,
-        user: str,
-        flags: List[str] = [],
-        timeout: Optional[int] = None,
-        logged: bool = True,
-        allow_ssh_args: bool = False,
-        **kwargs: Any
-    ) -> str:
-
-        assert kwargs.get("capture_stdout", True) is True
-        kwargs["capture_stdout"] = True
-        return cast(
-            str,
-            self.run_command(
-                command=command,
-                flags=flags,
-                timeout=timeout,
-                logged=logged,
-                allow_ssh_args=allow_ssh_args,
-                user=user,
-                **kwargs
-            ),
-        )
-
     def run_command_get_status(
         self,
         command: nixops.transports.types.Command,
