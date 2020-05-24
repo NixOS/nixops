@@ -6,7 +6,8 @@ from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar
 from nixops.monkey import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
-import nixops.ssh_util
+from nixops.transports.ssh import SSH
+import nixops.transports
 from nixops.state import RecordId
 import subprocess
 from nixops.transports import Transport
@@ -120,7 +121,7 @@ class MachineState(
         super().__init__(depl, name, id)
         self._machine_pinged_this_time = False
 
-        ssh = nixops.ssh_util.SSH(self.logger)
+        ssh = SSH(self.logger)
         ssh.register_flag_fun(self.get_ssh_flags)
         ssh.register_host_fun(self.get_ssh_name)
         ssh.register_passwd_fun(self.get_ssh_password)
@@ -172,9 +173,9 @@ class MachineState(
             )
             assert len(res) >= 3
             return res
-        except nixops.ssh_util.SSHConnectionFailed:
+        except nixops.transports.ConnectionFailed:
             return None
-        except nixops.ssh_util.SSHCommandFailed:
+        except nixops.transports.CommandFailed:
             return None
 
     # FIXME: Move this to ResourceState so that other kinds of

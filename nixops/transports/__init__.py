@@ -1,6 +1,14 @@
 from typing import List
 import nixops.util
 import os
+from .exceptions import ConnectionFailed, CommandFailed
+
+
+__all__ = (
+    "ConnectionFailed",
+    "CommandFailed",
+    "Transport",
+)
 
 
 class Transport:

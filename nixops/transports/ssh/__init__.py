@@ -11,15 +11,17 @@ from typing import Dict, Any, Optional, Callable, List, Union, Iterable, Tuple, 
 
 import nixops.util
 from nixops.logger import MachineLogger
+from nixops.transports.exceptions import ConnectionFailed, CommandFailed
+
 
 __all__ = ["SSHConnectionFailed", "SSHCommandFailed", "SSH"]
 
 
-class SSHConnectionFailed(Exception):
+class SSHConnectionFailed(ConnectionFailed):
     pass
 
 
-class SSHCommandFailed(nixops.util.CommandFailed):
+class SSHCommandFailed(CommandFailed):
     pass
 
 
