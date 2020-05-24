@@ -81,8 +81,11 @@ class MachineState(
     )
 
     ssh: nixops.ssh_util.SSH
-    ssh_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
-    _ssh_pinged_this_time: bool = False
+
+    # The attr_proporty name is sshPinged for legacy reasons
+    machine_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
+    _machine_pinged_this_time: bool = False
+
     ssh_port: int = nixops.util.attr_property("targetPort", 22, int)
     ssh_user: str = nixops.util.attr_property("targetUser", "root", str)
     ssh_options: List[str] = nixops.util.attr_property("sshOptions", [], "json")
@@ -114,7 +117,7 @@ class MachineState(
 
     def __init__(self, depl, name: str, id: RecordId) -> None:
         super().__init__(depl, name, id)
-        self._ssh_pinged_this_time = False
+        self._machine_pinged_this_time = False
         self.ssh = nixops.ssh_util.SSH(self.logger)
         self.ssh.register_flag_fun(self.get_ssh_flags)
         self.ssh.register_host_fun(self.get_ssh_name)
@@ -183,8 +186,8 @@ class MachineState(
             res.is_reachable = False
         else:
             self.state = self.UP
-            self.ssh_pinged = True
-            self._ssh_pinged_this_time = True
+            self.machine_pinged = True
+            self._machine_pinged_this_time = True
             res.is_reachable = True
             res.load = avg
 
@@ -281,8 +284,8 @@ class MachineState(
         )
         self.log_end("[up]")
         self.state = self.UP
-        self.ssh_pinged = True
-        self._ssh_pinged_this_time = True
+        self.machine_pinged = True
+        self._machine_pinged_this_time = True
         self.send_keys()
 
     def reboot_rescue(self, hard: bool = False) -> None:
@@ -398,7 +401,7 @@ class MachineState(
 
     def wait_for_ssh(self, check=False):
         """Wait until the SSH port is open on this machine."""
-        if self.ssh_pinged and (not check or self._ssh_pinged_this_time):
+        if self.machine_pinged and (not check or self._machine_pinged_this_time):
             return
         self.log_start("waiting for SSH...")
         nixops.util.wait_for_tcp_port(
@@ -407,8 +410,8 @@ class MachineState(
         self.log_end("")
         if self.state != self.RESCUE:
             self.state = self.UP
-        self.ssh_pinged = True
-        self._ssh_pinged_this_time = True
+        self.machine_pinged = True
+        self._machine_pinged_this_time = True
 
     def write_ssh_private_key(self, private_key) -> str:
         key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
