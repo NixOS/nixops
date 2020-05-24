@@ -1,6 +1,6 @@
 import unittest
 
-from nixops.ssh_util import SSH
+from nixops.transports.ssh import SSH
 
 
 class SplitSSHArgs(unittest.TestCase):
