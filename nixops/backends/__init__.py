@@ -9,6 +9,7 @@ import nixops.resources
 import nixops.ssh_util
 from nixops.state import RecordId
 import subprocess
+from nixops.transports import Transport
 
 
 class KeyOptions(nixops.resources.ResourceOptions):
@@ -80,7 +81,7 @@ class MachineState(
         "hasFastConnection", False, bool
     )
 
-    ssh: nixops.ssh_util.SSH
+    _transport: Transport
 
     # The attr_proporty name is sshPinged for legacy reasons
     machine_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
@@ -118,13 +119,17 @@ class MachineState(
     def __init__(self, depl, name: str, id: RecordId) -> None:
         super().__init__(depl, name, id)
         self._machine_pinged_this_time = False
-        self.ssh = nixops.ssh_util.SSH(self.logger)
-        self.ssh.register_flag_fun(self.get_ssh_flags)
-        self.ssh.register_host_fun(self.get_ssh_name)
-        self.ssh.register_passwd_fun(self.get_ssh_password)
+
+        ssh = nixops.ssh_util.SSH(self.logger)
+        ssh.register_flag_fun(self.get_ssh_flags)
+        ssh.register_host_fun(self.get_ssh_name)
+        ssh.register_passwd_fun(self.get_ssh_password)
+        ssh.privilege_escalation_command = self.privilege_escalation_command
+
+        self._transport = Transport(self, ssh, "root")
+
         self._ssh_private_key_file: Optional[str] = None
         self.new_toplevel: Optional[str] = None
-        self.ssh.privilege_escalation_command = self.privilege_escalation_command
 
     def prefix_definition(self, attr):
         return attr
@@ -141,10 +146,12 @@ class MachineState(
         self.ssh_options = defn.ssh_options
         self.has_fast_connection = defn.has_fast_connection
         self.provision_ssh_key = defn.provision_ssh_key
-        if not self.has_fast_connection:
-            self.ssh.enable_compression()
 
-        self.ssh.privilege_escalation_command = list(defn.privilege_escalation_command)
+        # TODO: Reimplement with pluggable transport
+        # if not self.has_fast_connection:
+        #     self.ssh.enable_compression()
+
+        self._transport.privilege_escalation_command = list(defn.privilege_escalation_command)
         self.privilege_escalation_command = list(defn.privilege_escalation_command)
 
     def stop(self) -> None:
@@ -266,7 +273,7 @@ class MachineState(
             reboot_command = "systemctl reboot"
         self.run_command(reboot_command, check=False)
         self.state = self.STARTING
-        self.ssh.reset()
+        self._transport.reset()
 
     def reboot_sync(self, hard: bool = False) -> None:
         """Reboot this machine and wait until it's up again."""
@@ -384,9 +391,6 @@ class MachineState(
     def get_ssh_password(self):
         return None
 
-    def get_ssh_for_copy_closure(self):
-        return self.ssh
-
     @property
     def public_host_key(self):
         return None
@@ -437,9 +441,8 @@ class MachineState(
         # mainly operating in a chroot environment.
         if self.state == self.RESCUE:
             command = "export LANG= LC_ALL= LC_TIME=; " + command
-        return self.ssh.run_command(
-            command, flags=self.get_ssh_flags(), user=self.ssh_user, **kwargs
-        )
+
+        return self._transport.run_command(command, **kwargs)
 
     def switch_to_configuration(
         self, method: str, sync: bool, command: Optional[str] = None
@@ -457,70 +460,11 @@ class MachineState(
         cmd += " " + method
         return self.run_command(cmd, check=False)
 
-    def copy_closure_to(self, path):
-        """Copy a closure to this machine."""
-
-        # !!! Implement copying between cloud machines, as in the Perl
-        # version.
-
-        ssh = self.get_ssh_for_copy_closure()
-
-        # Any remaining paths are copied from the local machine.
-        env = dict(os.environ)
-        env["NIX_SSHOPTS"] = " ".join(
-            ssh._get_flags() + ssh.get_master(user=self.ssh_user).opts
-        )
-        self._logged_exec(
-            ["nix-copy-closure", "--to", ssh._get_target(user=self.ssh_user), path]
-            + ([] if self.has_fast_connection else ["--use-substitutes"]),
-            env=env,
-        )
-
-    def _get_scp_name(self) -> str:
-        ssh_name = self.get_ssh_name()
-        # ipv6 addresses have to be wrapped in brackets for scp
-        if ":" in ssh_name:
-            return "[%s]" % (ssh_name)
-        return ssh_name
-
-    def _fmt_rsync_command(self, *args: str, recursive: bool = False) -> List[str]:
-        master = self.ssh.get_master(user=self.ssh_user)
-
-        ssh_cmdline: List[str] = ["ssh"] + self.get_ssh_flags() + master.opts
-        cmdline = ["rsync", "-e", nixops.util.shlex_join(ssh_cmdline)]
-
-        if self.ssh_user != "root":
-            cmdline.extend(
-                [
-                    "--rsync-path",
-                    nixops.util.shlex_join(
-                        self.ssh.privilege_escalation_command + ["rsync"]
-                    ),
-                ]
-            )
-
-        if recursive:
-            cmdline += ["-r"]
-
-        cmdline.extend(args)
-
-        return cmdline
-
     def upload_file(self, source: str, target: str, recursive: bool = False):
-        cmdline = self._fmt_rsync_command(
-            source,
-            self.ssh_user + "@" + self._get_scp_name() + ":" + target,
-            recursive=recursive,
-        )
-        return self._logged_exec(cmdline)
+        return self._transport.upload_file(source, target, recursive)
 
     def download_file(self, source: str, target: str, recursive: bool = False):
-        cmdline = self._fmt_rsync_command(
-            self.ssh_user + "@" + self._get_scp_name() + ":" + source,
-            target,
-            recursive=recursive,
-        )
-        return self._logged_exec(cmdline)
+        return self._transport.download_file(source, target, recursive)
 
     def get_console_output(self):
         return "(not available for this machine type)\n"
