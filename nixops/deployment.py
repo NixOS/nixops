@@ -382,7 +382,7 @@ class Deployment:
                 "--arg",
                 "pluginNixExprs",
                 py2nix(extraexprs),
-                "<nixops/eval-machine-info.nix>",
+                self.expr_path + "/eval-machine-info.nix",
             ]
         )
         return flags
@@ -487,6 +487,37 @@ class Deployment:
                     name, config["resources"][res_type][name], res_type
                 )
                 self.definitions[name] = defn
+
+    def evaluate_code(self, file: str, json: bool = False, strict: bool = False) -> str:
+        """Evaluate nix code in the deployment specification."""
+
+        exprs = self.nix_exprs
+        phys_expr = self.tempdir + "/physical.nix"
+        with open(phys_expr, "w") as f:
+            f.write(self.get_physical_spec())
+        exprs.append(phys_expr)
+
+        try:
+            return subprocess.check_output(
+                ["nix-instantiate"]
+                + self.extra_nix_eval_flags
+                + self._eval_flags(exprs)
+                + [
+                    "--eval-only",
+                    "--arg",
+                    "checkConfigurationOptions",
+                    "false",
+                    "--arg",
+                    "evalFile",
+                    file,
+                ]
+                + (["--strict"] if strict else [])
+                + (["--json"] if json else []),
+                stderr=self.logger.log_file,
+                text=True,
+            )
+        except subprocess.CalledProcessError:
+            raise NixEvalError
 
     def evaluate_option_value(
         self,
