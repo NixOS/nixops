@@ -290,7 +290,6 @@ class SSH(object):
         flags: List[str] = [],
         timeout: Optional[int] = None,
         logged: bool = True,
-        allow_ssh_args: bool = False,
         **kwargs: Any
     ) -> Union[str, int]:
         """
@@ -298,9 +297,6 @@ class SSH(object):
         'flags' as additional arguments to SSH. The command can be either a
         string or an iterable of strings, whereby if it's the latter, it will
         be joined with spaces and properly shell-escaped.
-
-        If 'allow_ssh_args' is set to True, the specified command may contain
-        SSH flags.
 
         The 'user' argument specifies the remote user to connect as. If unset
         or None, the default is "root".
