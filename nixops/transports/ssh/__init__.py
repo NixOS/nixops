@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 import atexit
 import os
-import shlex
 import subprocess
 import sys
 import time
 import weakref
 from tempfile import mkdtemp
-from typing import Dict, Any, Optional, Callable, List, Union, Iterable, Tuple, cast
+from typing import Dict, Any, Optional, Callable, List, Union, Iterable, Tuple
 
 import nixops.util
 from nixops.logger import MachineLogger
 from nixops.transports.exceptions import ConnectionFailed, CommandFailed
-import nixops.transports.types
+
+
+Command = Iterable[str]
 
 
 __all__ = ["SSHConnectionFailed", "SSHCommandFailed", "SSH"]
@@ -255,7 +256,7 @@ class SSH(object):
         return weakref.proxy(self._ssh_master)
 
     @classmethod
-    def split_openssh_args(self, args: Iterable[str]) -> Tuple[List[str], nixops.transports.types.Command]:
+    def split_openssh_args(self, args: Iterable[str]) -> Tuple[List[str], Command]:
         """
         Splits the specified list of arguments into a tuple consisting of the
         list of flags and a list of strings for the actual command.
@@ -282,38 +283,9 @@ class SSH(object):
                 break
         return (flags, command)
 
-    def _format_command(
-        self, command: nixops.transports.types.Command, user: str, allow_ssh_args: bool,
-    ) -> Iterable[str]:
-        """
-        Helper method for run_command, which essentially prepares and properly
-        escape the command. See run_command() for further description.
-        """
-
-        # Don't make assumptions about remote login shell
-        cmd: List[str] = ["bash", "-c"]
-
-        if isinstance(command, str):
-            if allow_ssh_args:
-                return shlex.split(command)
-            else:
-                cmd.append(command)
-        # iterable
-        elif allow_ssh_args:
-            return command
-        else:
-            cmd.append(
-                " ".join(["'{0}'".format(arg.replace("'", r"'\''")) for arg in command])
-            )
-
-        if user and user != "root":
-            cmd = self.privilege_escalation_command + cmd
-
-        return ["--", nixops.util.shlex_join(cmd)]
-
     def run_command(
         self,
-        command: nixops.transports.types.Command,
+        command: Command,
         user: str,
         flags: List[str] = [],
         timeout: Optional[int] = None,
@@ -347,7 +319,8 @@ class SSH(object):
         cmd = ["ssh"] + master.opts + flags
         cmd.append(self._get_target(user))
 
-        cmd += self._format_command(command, user=user, allow_ssh_args=allow_ssh_args)
+        cmd.extend(command)
+
         if logged:
             try:
                 return nixops.util.logged_exec(cmd, self._logger, **kwargs)
@@ -362,31 +335,6 @@ class SSH(object):
                 raise SSHCommandFailed(err, res)
             else:
                 return res
-
-    def run_command_get_status(
-        self,
-        command: nixops.transports.types.Command,
-        user: str,
-        flags: List[str] = [],
-        timeout: Optional[int] = None,
-        logged: bool = True,
-        allow_ssh_args: bool = False,
-        **kwargs: Any
-    ) -> int:
-        assert kwargs.get("capture_stdout", False) is False
-        kwargs["capture_stdout"] = False
-        return cast(
-            int,
-            self.run_command(
-                command=command,
-                flags=flags,
-                timeout=timeout,
-                logged=logged,
-                allow_ssh_args=allow_ssh_args,
-                user=user,
-                **kwargs
-            ),
-        )
 
     def enable_compression(self) -> None:
         self._compress = True

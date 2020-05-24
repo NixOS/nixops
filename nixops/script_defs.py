@@ -793,9 +793,9 @@ def parse_machine(name, depl):
 def op_ssh(args):
     with deployment(args) as depl:
         (username, _, m) = parse_machine(args.machine, depl)
-        flags, command = m.ssh.split_openssh_args(args.args)
+        flags, command = m._transport._ssh.split_openssh_args(args.args)
         sys.exit(
-            m.ssh.run_command(
+            m._transport._ssh.run_command(
                 command,
                 flags=flags,
                 check=False,

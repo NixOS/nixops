@@ -145,7 +145,9 @@ class MachineState(
         # if not self.has_fast_connection:
         #     self.ssh.enable_compression()
 
-        self._transport.privilege_escalation_command = list(defn.privilege_escalation_command)
+        self._transport.privilege_escalation_command = list(
+            defn.privilege_escalation_command
+        )
         self.privilege_escalation_command = list(defn.privilege_escalation_command)
 
     def stop(self) -> None:
