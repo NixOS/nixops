@@ -795,7 +795,7 @@ def op_ssh(args):
         (username, _, m) = parse_machine(args.machine, depl)
         flags, command = m._transport._ssh.split_openssh_args(args.args)
         sys.exit(
-            m._transport._ssh.run_command(
+            m.run_command(
                 command,
                 flags=flags,
                 check=False,
@@ -817,10 +817,9 @@ def op_ssh_for_each(args):
                 ):
                     return None
 
-                raise NotImplementedError("Feature broken")
-                # return m.ssh.run_command_get_status(
-                #     args.args, allow_ssh_args=True, check=False, user=m.ssh_user
-                # )
+                return m._transport.run_command_get_status(
+                    args.args, allow_ssh_args=True, check=False, user=m.ssh_user
+                )
 
             results = results + nixops.parallel.run_tasks(
                 nr_workers=len(depl.machines) if args.parallel else 1,

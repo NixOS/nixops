@@ -112,17 +112,22 @@ class Transport:
         )
         return self._machine._logged_exec(cmdline)
 
-    def run_command(self, command, **kwargs):
+    def run_command(self, command, allow_ssh_args: bool = False, **kwargs):
+        if "flags" not in kwargs:
+            kwargs["flags"] = self._machine.get_ssh_flags()
+
+        if "user" not in kwargs:
+            kwargs["user"] = self._machine.ssh_user
+
         cmd = _format_command(
             command,
-            user=self._machine.ssh_user,
-            allow_ssh_args=False,
+            user=kwargs["user"],
+            allow_ssh_args=allow_ssh_args,
             privilege_escalation_command=self._machine.privilege_escalation_command,
         )
+
         return self._ssh.run_command(
             cmd,
-            flags=self._machine.get_ssh_flags(),
-            user=self._machine.ssh_user,
             **kwargs
         )
 
