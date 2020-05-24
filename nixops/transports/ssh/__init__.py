@@ -1,336 +1,100 @@
-# -*- coding: utf-8 -*-
-import atexit
-import os
-import subprocess
-import sys
-import time
-import weakref
-from tempfile import mkdtemp
-from typing import Dict, Any, Optional, Callable, List, Iterable, Tuple
-
+from typing import List
 import nixops.util
-from nixops.logger import MachineLogger
-from nixops.transports.exceptions import ConnectionFailed, CommandFailed
-
-
-Command = Iterable[str]
-
-
-__all__ = ["SSHConnectionFailed", "SSHCommandFailed", "SSH"]
-
-
-class SSHConnectionFailed(ConnectionFailed):
-    pass
-
-
-class SSHCommandFailed(CommandFailed):
-    pass
-
-
-class SSHMaster(object):
-    def __init__(
-        self,
-        target: str,
-        logger: MachineLogger,
-        ssh_flags: List[str] = [],
-        passwd: Optional[str] = None,
-        user: Optional[str] = None,
-        compress: bool = False,
-    ) -> None:
-        self._running: bool = False
-        self._tempdir: nixops.util.SelfDeletingDir = nixops.util.SelfDeletingDir(
-            mkdtemp(prefix="nixops-ssh-tmp")
-        )
-        self._askpass_helper: Optional[str] = None
-        self._control_socket: str = self._tempdir + "/master-socket"
-        self._ssh_target: str = target
-        pass_prompts: int = 0 if "-i" in ssh_flags and user is None else 3
-        kwargs: Dict[str, Any] = {}
-
-        if passwd is not None:
-            self._askpass_helper = self._make_askpass_helper()
-            newenv = dict(os.environ)
-            newenv.update(
-                {
-                    "DISPLAY": ":666",
-                    "SSH_ASKPASS": self._askpass_helper,
-                    "NIXOPS_SSH_PASSWORD": passwd,
-                }
-            )
-            kwargs["env"] = newenv
-            kwargs["stdin"] = nixops.util.devnull
-            kwargs["preexec_fn"] = os.setsid
-            pass_prompts = 1
-
-        cmd = (
-            [
-                "ssh",
-                "-x",
-                self._ssh_target,
-                "-S",
-                self._control_socket,
-                "-M",
-                "-N",
-                "-f",
-                "-oNumberOfPasswordPrompts={0}".format(pass_prompts),
-                "-oServerAliveInterval=60",
-                "-oControlPersist=600",
-            ]
-            + (["-C"] if compress else [])
-            + ssh_flags
-        )
-
-        res = nixops.util.logged_exec(cmd, logger, **kwargs).returncode
-        if res != 0:
-            raise SSHConnectionFailed(
-                "unable to start SSH master connection to " "‘{0}’".format(target)
-            )
-        self.opts = ["-oControlPath={0}".format(self._control_socket)]
-
-        timeout = 60.0
-        while not self.is_alive():
-            if timeout < 0:
-                raise SSHConnectionFailed(
-                    "could not establish an SSH master socket to "
-                    "‘{0}’ within 60 seconds".format(target)
-                )
-            time.sleep(0.1)
-            timeout -= 0.1
-
-        self._running = True
-
-        weakself = weakref.ref(self)
-
-        def maybe_shutdown() -> None:
-            realself = weakself()
-            if realself is not None:
-                realself.shutdown()
-
-        atexit.register(maybe_shutdown)
-
-    def is_alive(self) -> bool:
-        """
-        Check whether the control socket is still existing.
-        """
-        return os.path.exists(self._control_socket)
-
-    def _make_askpass_helper(self) -> str:
-        """
-        Create a SSH_ASKPASS helper script, which just outputs the contents of
-        the environment variable NIXOPS_SSH_PASSWORD.
-        """
-        path = os.path.join(self._tempdir, "nixops-askpass-helper")
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o700)
-        os.write(
-            fd,
-            """#!{0}
-import sys
 import os
-sys.stdout.write(os.environ['NIXOPS_SSH_PASSWORD'])""".format(
-                sys.executable
-            ).encode(),
-        )
-        os.close(fd)
-        return path
-
-    def shutdown(self) -> None:
-        """
-        Shutdown master process and clean up temporary files.
-        """
-        if not self._running:
-            return
-        self._running = False
-        subprocess.call(
-            ["ssh", self._ssh_target, "-S", self._control_socket, "-O", "exit"],
-            stderr=nixops.util.devnull,
-        )
-
-    def __del__(self) -> None:
-        self.shutdown()
+from .ssh import SSH
+from typing import Iterable
 
 
-class SSH(object):
-    def __init__(self, logger: MachineLogger):
-        """
-        Initialize a SSH object with the specified Logger instance, which will
-        be used to write SSH output to.
-        """
-        self._flag_fun: Callable[[], List[str]] = lambda: []
-        self._host_fun: Optional[Callable[[], str]] = None
-        self._passwd_fun: Callable[[], Optional[str]] = lambda: None
-        self._logger = logger
-        self._ssh_master: Optional[SSHMaster] = None
-        self._compress = False
-        self.privilege_escalation_command: List[str] = []
+__all__ = (
+    "ConnectionFailed",
+    "CommandFailed",
+    "Transport",
+)
 
-    def register_host_fun(self, host_fun: Callable[[], str]) -> None:
-        """
-        Register a function which returns the hostname or IP to connect to. The
-        function has to require no arguments.
-        """
-        self._host_fun = host_fun
 
-    def _get_target(self, user: str) -> str:
-        if self._host_fun is None:
-            raise AssertionError("don't know which SSH host to connect to")
-        return "{0}@{1}".format(user, self._host_fun())
+class SSHTransport:
 
-    def register_flag_fun(self, flag_fun: Callable[[], List[str]]) -> None:
-        """
-        Register a function that is used for obtaining additional SSH flags.
-        The function has to require no arguments and should return a list of
-        strings, each being a SSH flag/argument.
-        """
-        self._flag_fun = flag_fun
+    def __init__(self, machine):
+        self._machine = machine
 
-    def _get_flags(self) -> List[str]:
-        return self._flag_fun()
+        ssh = SSH(machine.logger)
+        ssh.register_flag_fun(machine.get_ssh_flags)
+        ssh.register_host_fun(machine.get_ssh_name)
+        ssh.register_passwd_fun(machine.get_ssh_password)
+        ssh.privilege_escalation_command = machine.privilege_escalation_command
 
-    def register_passwd_fun(self, passwd_fun: Callable[[], Optional[str]]) -> None:
-        """
-        Register a function that returns either a string or None and requires
-        no arguments. If the return value is a string, the returned string is
-        used for keyboard-interactive authentication, if it is None, no attempt
-        is made to inject a password.
-        """
-        self._passwd_fun = passwd_fun
-
-    def _get_passwd(self) -> Optional[str]:
-        return self._passwd_fun()
+        self._ssh = ssh
 
     def reset(self) -> None:
-        """
-        Reset SSH master connection.
-        """
-        if self._ssh_master is not None:
-            self._ssh_master.shutdown()
-            self._ssh_master = None
+        self._ssh.reset()
 
-    def get_master(
-        self, user: str, flags: List[str] = [], timeout: Optional[int] = None,
-    ) -> SSHMaster:
-        """
-        Start (if necessary) an SSH master connection to speed up subsequent
-        SSH sessions. Returns the SSHMaster instance on success.
-        """
-        flags = flags + self._get_flags()
-        if self._ssh_master is not None:
-            master = weakref.proxy(self._ssh_master)
-            if master.is_alive():
-                return master
-            else:
-                master.shutdown()
+    def _get_scp_name(self) -> str:
+        ssh_name = self._machine.get_ssh_name()
+        # ipv6 addresses have to be wrapped in brackets for scp
+        if ":" in ssh_name:
+            return "[%s]" % (ssh_name)
+        return ssh_name
 
-        tries = 5
-        if timeout is not None:
-            flags = flags + ["-o", "ConnectTimeout={0}".format(timeout)]
-            tries = 1
+    def _fmt_rsync_command(self, *args: str, recursive: bool = False) -> List[str]:
+        master = self._ssh.get_master(user=self._machine.ssh_user)
 
-        if self._host_fun is None:
-            raise AssertionError("don't know which SSH host to connect to")
-        elif self._host_fun() == "localhost":
-            tries = 1
+        ssh_cmdline: List[str] = ["ssh"] + self._machine.get_ssh_flags() + master.opts
+        cmdline = ["rsync", "-e", nixops.util.shlex_join(ssh_cmdline)]
 
-        sleep_time = 1
-        while True:
-            try:
-                self._ssh_master = SSHMaster(
-                    self._get_target(user),
-                    self._logger,
-                    flags,
-                    self._get_passwd(),
-                    user,
-                    compress=self._compress,
-                )
-                break
-            except Exception:
-                tries = tries - 1
-                if tries == 0:
-                    raise
-                msg = "could not connect to ‘{0}’, retrying in {1} seconds..."
-                self._logger.log(msg.format(self._get_target(user), sleep_time))
-                time.sleep(sleep_time)
-                sleep_time = sleep_time * 2
-                pass
+        if self._machine.ssh_user != "root":
+            cmdline.extend(
+                [
+                    "--rsync-path",
+                    nixops.util.shlex_join(
+                        self._ssh.privilege_escalation_command + ["rsync"]
+                    ),
+                ]
+            )
 
-        return weakref.proxy(self._ssh_master)
+        if recursive:
+            cmdline += ["-r"]
 
-    @classmethod
-    def split_openssh_args(self, args: Iterable[str]) -> Tuple[List[str], Command]:
-        """
-        Splits the specified list of arguments into a tuple consisting of the
-        list of flags and a list of strings for the actual command.
-        """
-        non_option_args = "bcDEeFIiLlmOopQRSWw"
-        flags = []
-        command = list(args)
-        while len(command) > 0:
-            arg = command.pop(0)
-            if arg == "--":
-                break
-            elif arg.startswith("-"):
-                if len(command) > 0 and arg[1] in non_option_args:
-                    flags.append(arg)
-                    if len(arg) == 2:
-                        flags.append(command.pop(0))
-                elif len(arg) > 2 and arg[1] != "-":
-                    flags.append(arg[:2])
-                    command.insert(0, "-" + arg[2:])
-                else:
-                    flags.append(arg)
-            else:
-                command.insert(0, arg)
-                break
-        return (flags, command)
+        cmdline.extend(args)
+
+        return cmdline
+
+    def upload_file(self, source: str, target: str, recursive: bool = False) -> None:
+        cmdline = self._fmt_rsync_command(
+            source,
+            self._machine.ssh_user + "@" + self._get_scp_name() + ":" + target,
+            recursive=recursive,
+        )
+        self._machine._logged_exec(cmdline)
+
+    def download_file(self, source: str, target: str, recursive: bool = False) -> None:
+        cmdline = self._fmt_rsync_command(
+            self._machine.ssh_user + "@" + self._get_scp_name() + ":" + source,
+            target,
+            recursive=recursive,
+        )
+        self._machine._logged_exec(cmdline)
 
     def run_command(
-        self,
-        command: Command,
-        user: str,
-        flags: List[str] = [],
-        timeout: Optional[int] = None,
-        logged: bool = True,
-        **kwargs: Any
+        self, command: Iterable[str], **kwargs
     ) -> nixops.util.ProcessResult:
-        """
-        Execute a 'command' on the current target host using SSH, passing
-        'flags' as additional arguments to SSH. The command can be either a
-        string or an iterable of strings, whereby if it's the latter, it will
-        be joined with spaces and properly shell-escaped.
+        return self._ssh.run_command(command, **kwargs)
 
-        The 'user' argument specifies the remote user to connect as. If unset
-        or None, the default is "root".
+    def copy_closure(self, path: str):
+        """Copy a closure to this machine."""
+        ssh = self._ssh
 
-        All keyword arguments except timeout and user are passed as-is to
-        nixops.util.logged_exec(), though if you set 'logged' to False, the
-        keyword arguments are passed as-is to subprocess.call() and the command
-        is executed interactively with no logging.
-
-        'timeout' specifies the SSH connection timeout.
-        """
-        master = self.get_master(flags=flags, timeout=timeout, user=user)
-        flags = flags + self._get_flags()
-        if logged:
-            flags.append("-x")
-        cmd = ["ssh"] + master.opts + flags
-        cmd.append(self._get_target(user))
-
-        cmd.extend(command)
-
-        if logged:
-            try:
-                return nixops.util.logged_exec(cmd, self._logger, **kwargs)
-            except nixops.util.CommandFailed as exc:
-                raise SSHCommandFailed(exc.message, exc.exitcode)
-        else:
-            check = kwargs.pop("check", True)
-            res = subprocess.call(cmd, **kwargs)
-            if check and res != 0:
-                msg = "command ‘{0}’ failed on host ‘{1}’"
-                err = msg.format(cmd, self._get_target(user))
-                raise SSHCommandFailed(err, res)
-            else:
-                return nixops.util.ProcessResult(returncode=res, stdout="")
-
-    def enable_compression(self) -> None:
-        self._compress = True
+        # Any remaining paths are copied from the local machine.
+        env = dict(os.environ)
+        env["NIX_SSHOPTS"] = " ".join(
+            ssh._get_flags() + ssh.get_master(user=self._machine.ssh_user).opts
+        )
+        self._machine._logged_exec(
+            [
+                "nix-copy-closure",
+                "--to",
+                ssh._get_target(user=self._machine.ssh_user),
+                path,
+            ]
+            + ([] if self._machine.has_fast_connection else ["--use-substitutes"]),
+            env=env,
+        )

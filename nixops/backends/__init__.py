@@ -121,7 +121,8 @@ class MachineState(
         super().__init__(depl, name, id)
         self._machine_pinged_this_time = False
 
-        self._transport = Transport(self)
+        from nixops.transports.ssh import SSHTransport
+        self._transport = SSHTransport(self)
 
         self._ssh_private_key_file: Optional[str] = None
         self.new_toplevel: Optional[str] = None
@@ -146,9 +147,6 @@ class MachineState(
         # if not self.has_fast_connection:
         #     self.ssh.enable_compression()
 
-        self._transport.privilege_escalation_command = list(
-            defn.privilege_escalation_command
-        )
         self.privilege_escalation_command = list(defn.privilege_escalation_command)
 
     def stop(self) -> None:
