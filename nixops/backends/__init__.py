@@ -6,7 +6,6 @@ from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar
 from nixops.monkey import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
-from nixops.transports.ssh import SSH
 import nixops.transports
 from nixops.state import RecordId
 import subprocess
@@ -121,13 +120,7 @@ class MachineState(
         super().__init__(depl, name, id)
         self._machine_pinged_this_time = False
 
-        ssh = SSH(self.logger)
-        ssh.register_flag_fun(self.get_ssh_flags)
-        ssh.register_host_fun(self.get_ssh_name)
-        ssh.register_passwd_fun(self.get_ssh_password)
-        ssh.privilege_escalation_command = self.privilege_escalation_command
-
-        self._transport = Transport(self, ssh, "root")
+        self._transport = Transport(self)
 
         self._ssh_private_key_file: Optional[str] = None
         self.new_toplevel: Optional[str] = None
