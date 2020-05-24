@@ -23,9 +23,23 @@
   # These dont work nicely in containers
   # TODO: Upstream into nixos/modules/virtualisation/docker-image.nix
   services.nscd.enable = lib.mkForce false;
+  system.nssModules = lib.mkForce [];
   networking.dhcpcd.enable = lib.mkForce false;
 
   services.journald.console = "/dev/console";
+
+  systemd.services."serial-getty@ttyS0".enable = false;
+  systemd.services."serial-getty@hvc0".enable = false;
+  systemd.services."getty@tty1".enable = false;
+  systemd.services."autovt@".enable = false;
+
+  systemd.services.firewall.enable = false;
+  systemd.services.systemd-resolved.enable = false;
+  systemd.services.systemd-udevd.enable = false;
+
+  security.sudo.wheelNeedsPassword = false;
+
+  systemd.enableEmergencyMode = false;
 
   # We are using a local Nix daemon
   environment.variables.NIX_REMOTE = lib.mkForce "";
@@ -46,6 +60,8 @@
     "sys-kernel-config.mount"
     "sys-kernel-debug.mount"
     "systemd-journald-audit.socket"
+    "rescue.service"
+    "rescue.target"
   ];
 
   environment.systemPackages = with pkgs; [
