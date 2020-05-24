@@ -112,7 +112,9 @@ class Transport:
         )
         return self._machine._logged_exec(cmdline)
 
-    def run_command(self, command, allow_ssh_args: bool = False, **kwargs):
+    def run_command(
+        self, command, allow_ssh_args: bool = False, **kwargs
+    ) -> Union[str, int]:
         if "flags" not in kwargs:
             kwargs["flags"] = self._machine.get_ssh_flags()
 
@@ -126,15 +128,7 @@ class Transport:
             privilege_escalation_command=self._machine.privilege_escalation_command,
         )
 
-        return self._ssh.run_command(
-            cmd,
-            **kwargs
-        )
-
-    def run_command_get_status(self, command, **kwargs) -> int:
-        assert kwargs.get("capture_stdout", False) is False
-        kwargs["capture_stdout"] = False
-        return cast(int, self.run_command(command=command, **kwargs),)
+        return self._ssh.run_command(cmd, **kwargs)
 
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
