@@ -10,6 +10,7 @@ import nixops.transports
 from nixops.state import RecordId
 import subprocess
 from nixops.transports import Transport
+from ..command import format_command as _format_command
 
 
 class KeyOptions(nixops.resources.ResourceOptions):
@@ -426,7 +427,7 @@ class MachineState(
     def _logged_exec(self, command, **kwargs) -> nixops.util.ProcessResult:
         return nixops.util.logged_exec(command, self.logger, **kwargs)
 
-    def run_command(self, command, **kwargs) -> nixops.util.ProcessResult:
+    def run_command(self, command, allow_ssh_args: bool = False, **kwargs) -> nixops.util.ProcessResult:
         """
         Execute a command on the machine via SSH.
 
@@ -438,7 +439,20 @@ class MachineState(
         if self.state == self.RESCUE:
             command = "export LANG= LC_ALL= LC_TIME=; " + command
 
-        return self._transport.run_command(command, **kwargs)
+        user: str
+        try:
+            user = kwargs.pop("user")
+        except KeyError:
+            user = self.ssh_user
+
+        cmd = _format_command(
+            command,
+            user=user,
+            allow_ssh_args=allow_ssh_args,
+            privilege_escalation_command=self.privilege_escalation_command,
+        )
+
+        return self._transport.run_command(cmd, user=user, **kwargs)
 
     def switch_to_configuration(
         self, method: str, sync: bool, command: Optional[str] = None

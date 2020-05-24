@@ -3,56 +3,19 @@ import nixops.util
 import os
 from .exceptions import ConnectionFailed, CommandFailed
 from .ssh import SSH
-from typing import Iterable, Union
-import shlex
+from typing import Iterable
 
 
 __all__ = (
     "ConnectionFailed",
     "CommandFailed",
     "Transport",
-    "Command",
 )
-
-
-Command = Union[str, Iterable[str]]
-
-
-def _format_command(
-    command: Command,
-    user: str,
-    allow_ssh_args: bool,
-    privilege_escalation_command: List[str],
-) -> Iterable[str]:
-    # Don't make assumptions about remote login shell
-    cmd: List[str] = ["bash", "-c"]
-
-    if isinstance(command, str):
-        if allow_ssh_args:
-            return shlex.split(command)
-        else:
-            cmd.append(command)
-    # iterable
-    elif allow_ssh_args:
-        return command
-    else:
-        cmd.append(
-            " ".join(["'{0}'".format(arg.replace("'", r"'\''")) for arg in command])
-        )
-
-    if user and user != "root":
-        cmd = privilege_escalation_command + cmd
-
-    return ["--", nixops.util.shlex_join(cmd)]
 
 
 class Transport:
 
-    has_fast_connection: bool
-    privilege_escalation_command: List[str]
-
     def __init__(self, machine):
-        self.has_fast_connection = False
         self._machine = machine
 
         ssh = SSH(machine.logger)
@@ -113,22 +76,9 @@ class Transport:
         self._machine._logged_exec(cmdline)
 
     def run_command(
-        self, command, allow_ssh_args: bool = False, **kwargs
+        self, command: Iterable[str], **kwargs
     ) -> nixops.util.ProcessResult:
-        if "flags" not in kwargs:
-            kwargs["flags"] = self._machine.get_ssh_flags()
-
-        if "user" not in kwargs:
-            kwargs["user"] = self._machine.ssh_user
-
-        cmd = _format_command(
-            command,
-            user=kwargs["user"],
-            allow_ssh_args=allow_ssh_args,
-            privilege_escalation_command=self._machine.privilege_escalation_command,
-        )
-
-        return self._ssh.run_command(cmd, **kwargs)
+        return self._ssh.run_command(command, **kwargs)
 
     def copy_closure_to(self, path):
         """Copy a closure to this machine."""
@@ -146,6 +96,6 @@ class Transport:
                 ssh._get_target(user=self._machine.ssh_user),
                 path,
             ]
-            + ([] if self.has_fast_connection else ["--use-substitutes"]),
+            + ([] if self._machine.has_fast_connection else ["--use-substitutes"]),
             env=env,
         )
