@@ -256,14 +256,14 @@ class SSH(object):
         return weakref.proxy(self._ssh_master)
 
     @classmethod
-    def split_openssh_args(self, args: Iterable[str]) -> Tuple[List[str], Command]:
+    def split_openssh_args(self, args: List[str]) -> Tuple[List[str], List[str]]:
         """
         Splits the specified list of arguments into a tuple consisting of the
         list of flags and a list of strings for the actual command.
         """
         non_option_args = "bcDEeFIiLlmOopQRSWw"
         flags = []
-        command = list(args)
+        command = args
         while len(command) > 0:
             arg = command.pop(0)
             if arg == "--":

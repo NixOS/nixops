@@ -94,6 +94,7 @@ class Transport(PlainProtocol):
         user: str,
         capture_stdout: bool = False,
         check: bool = False,
+        logged: bool = True,
     ) -> nixops.util.ProcessResult:
         pass
 

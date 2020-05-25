@@ -26,6 +26,8 @@ import nixops.ansi
 
 from nixops.plugins import get_plugin_manager
 
+from nixops.transports.ssh import SSH
+
 
 pm = get_plugin_manager()
 [
@@ -793,11 +795,17 @@ def parse_machine(name, depl):
 def op_ssh(args):
     with deployment(args) as depl:
         (username, _, m) = parse_machine(args.machine, depl)
-        flags, command = m._transport._ssh.split_openssh_args(args.args)
+        flags, command = SSH.split_openssh_args(args.args)
+
+        cmd: str = nixops.util.shlex_join(command)
+
+        if flags:
+            raise ValueError("SSH flags unsupported")
+
         sys.exit(
             m.run_command(
-                command,
-                flags=flags,
+                cmd,
+                # flags=flags,
                 check=False,
                 logged=False,
                 allow_ssh_args=True,
@@ -817,8 +825,9 @@ def op_ssh_for_each(args):
                 ):
                     return None
 
+                cmd: str = nixops.util.shlex_join(args.args)
                 return m.run_command(
-                    args.args, allow_ssh_args=True, check=False, user=m.ssh_user,
+                    cmd, allow_ssh_args=True, check=False, user=m.ssh_user,
                 ).returncode
 
             results = results + nixops.parallel.run_tasks(

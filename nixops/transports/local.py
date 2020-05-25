@@ -2,6 +2,7 @@ from nixops.command import format_command
 from nixops.backends import MachineState
 from typing import List
 import nixops.util
+import subprocess
 import getpass
 
 
@@ -48,13 +49,22 @@ class LocalTransport:
         user: str,
         capture_stdout: bool = False,
         check: bool = False,
+        logged: bool = True,
     ) -> nixops.util.ProcessResult:
-        return nixops.util.logged_exec(
-            command,
-            logger=self._machine.logger,
-            capture_stdout=capture_stdout,
-            check=check,
-        )
+        if logged:
+            return nixops.util.logged_exec(
+                command,
+                logger=self._machine.logger,
+                capture_stdout=capture_stdout,
+                check=check,
+            )
+        else:
+            stdout = subprocess.PIPE if capture_stdout else None
+            p = subprocess.run(command, check=check, stdout=stdout)
+            return nixops.util.ProcessResult(
+                returncode=p.returncode,
+                stdout="" if not p.stdout else p.stdout.decode(),
+            )
 
     def copy_closure(self, path: str) -> None:
         # copy_closure is a no-op on localhost
