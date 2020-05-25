@@ -3,7 +3,6 @@ from typing import List
 import nixops.util
 import os
 from .ssh import SSH
-from typing import Iterable
 
 
 __all__ = (
@@ -75,9 +74,19 @@ class SSHTransport:
         self._machine._logged_exec(cmdline)
 
     def run_command(
-        self, command: Iterable[str], **kwargs
+        self,
+        command: List[str],
+        user: str,
+        capture_stdout: bool = False,
+        check: bool = False,
     ) -> nixops.util.ProcessResult:
-        return self._ssh.run_command(command, **kwargs)
+        return self._ssh.run_command(
+            command,
+            user=user,
+            logger=self._machine.logger,
+            capture_stdout=capture_stdout,
+            check=check,
+        )
 
     def copy_closure(self, path: str):
         """Copy a closure to this machine."""

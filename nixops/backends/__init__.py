@@ -9,7 +9,6 @@ import nixops.resources
 from nixops.state import RecordId
 import subprocess
 from ..command import format_command as _format_command
-from typing import Iterable
 from typing_extensions import Protocol as PlainProtocol
 import nixops.util
 import nixops.transports.exceptions
@@ -86,7 +85,11 @@ class Transport(PlainProtocol):
         pass
 
     def run_command(
-        self, command: Iterable[str], **kwargs
+        self,
+        command: List[str],
+        user: str,
+        capture_stdout: bool = False,
+        check: bool = False,
     ) -> nixops.util.ProcessResult:
         pass
 
@@ -145,9 +148,12 @@ class MachineState(
         super().__init__(depl, name, id)
         self._machine_pinged_this_time = False
 
-        from nixops.transports.ssh import SSHTransport
+        from nixops.transports.local import LocalTransport
 
-        self._transport = SSHTransport(self)
+        self._transport = LocalTransport(self)
+
+        # from nixops.transports.noop import NoopTransport
+        # self._transport = NoopTransport(self)
 
         self._ssh_private_key_file: Optional[str] = None
         self.new_toplevel: Optional[str] = None
@@ -451,7 +457,7 @@ class MachineState(
         return nixops.util.logged_exec(command, self.logger, **kwargs)
 
     def run_command(
-        self, command, allow_ssh_args: bool = False, **kwargs
+        self, command: str, allow_ssh_args: bool = False, **kwargs
     ) -> nixops.util.ProcessResult:
         """
         Execute a command on the machine via SSH.

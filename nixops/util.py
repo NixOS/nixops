@@ -34,7 +34,6 @@ from typing import (
     Iterator,
     TypeVar,
     Generic,
-    Iterable,
 )
 from dataclasses import dataclass
 
@@ -42,7 +41,7 @@ from nixops.logger import MachineLogger
 from io import StringIO
 
 
-def shlex_join(split_command: Iterable[str]) -> str:
+def shlex_join(split_command: List[str]) -> str:
     """Backport of shlex.join from python 3.8"""
     return " ".join(shlex.quote(arg) for arg in split_command)
 
