@@ -117,7 +117,7 @@ class MachineState(
     _transport: Optional[Transport]
     transport_type: Type[Transport]
 
-    # The attr_proporty name is sshPinged for legacy reasons
+    # The attr_property name is sshPinged for legacy reasons
     machine_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
     _machine_pinged_this_time: bool = False
 
