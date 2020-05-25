@@ -2,7 +2,7 @@
 from __future__ import annotations
 import os
 import re
-from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar
+from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar, Dict
 from nixops.monkey import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
@@ -113,7 +113,7 @@ class MachineState(
         "hasFastConnection", False, bool
     )
 
-    _transport: Transport
+    _transport: Optional[Transport]
 
     # The attr_proporty name is sshPinged for legacy reasons
     machine_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
@@ -151,13 +151,6 @@ class MachineState(
     def __init__(self, depl, name: str, id: RecordId) -> None:
         super().__init__(depl, name, id)
         self._machine_pinged_this_time = False
-
-        from nixops.transports.ssh import SSHTransport
-        self._transport = SSHTransport(self)
-
-        # from nixops.transports.noop import NoopTransport
-        # self._transport = NoopTransport(self)
-
         self._ssh_private_key_file: Optional[str] = None
         self.new_toplevel: Optional[str] = None
 
@@ -176,6 +169,19 @@ class MachineState(
         self.ssh_options = defn.ssh_options
         self.has_fast_connection = defn.has_fast_connection
         self.provision_ssh_key = defn.provision_ssh_key
+
+        transport = "ssh"
+        # This spot is not the ideal place to put imports
+        # Tt's temporary until we have plugin hooks
+        self._transport: Transport
+        if transport == "ssh":
+            from nixops.transports.ssh import SSHTransport
+            self._transport = SSHTransport(self)
+        elif transport == "local":
+            from nixops.transports.local import LocalTransport
+            self._transport = LocalTransport(self)
+        else:
+            raise ValueError(f"Could not find transport '{transport}'")
 
         # TODO: Reimplement with pluggable transport
         # if not self.has_fast_connection:
