@@ -78,6 +78,10 @@ class Transport(PlainProtocol):
     def reset(self) -> None:
         pass
 
+    @property
+    def user(self) -> str:
+        pass
+
     def upload_file(self, source: str, target: str, recursive: bool = False) -> None:
         pass
 
@@ -474,7 +478,7 @@ class MachineState(
         try:
             user = kwargs.pop("user")
         except KeyError:
-            user = self.ssh_user
+            user = self._transport.user
 
         cmd = _format_command(
             command,

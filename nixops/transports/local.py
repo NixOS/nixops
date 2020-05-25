@@ -28,14 +28,18 @@ class LocalTransport:
     def reset(self) -> None:
         pass
 
+    @property
+    def user(self) -> str:
+        return getpass.getuser()
+
     def upload_file(self, source: str, target: str, recursive: bool = False) -> None:
         self.run_command(
-            _fmt_cp(self._machine, source, target, recursive), user=getpass.getuser()
+            _fmt_cp(self._machine, source, target, recursive), user=self.user,
         )
 
     def download_file(self, source: str, target: str, recursive: bool = False) -> None:
         self.run_command(
-            _fmt_cp(self._machine, source, target, recursive), user=getpass.getuser()
+            _fmt_cp(self._machine, source, target, recursive), user=self.user,
         )
 
     def run_command(
