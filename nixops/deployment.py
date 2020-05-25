@@ -31,6 +31,7 @@ from typing import (
     DefaultDict,
     Any,
     Tuple,
+    Generator,
     Union,
     cast,
 )
@@ -1677,9 +1678,11 @@ def is_machine_defn(r: nixops.resources.GenericResourceState) -> bool:
     return isinstance(r, nixops.backends.MachineDefinition)
 
 
-def _subclasses(cls: Any) -> List[Any]:
-    sub = cls.__subclasses__()
-    return [cls] if not sub else [g for s in sub for g in _subclasses(s)]
+def _subclasses(cls: Any) -> Generator[Any, None, None]:
+    yield cls
+    for sub in cls.__subclasses__():
+        yield sub
+        yield from _subclasses(sub)
 
 
 def _create_definition(
@@ -1688,7 +1691,12 @@ def _create_definition(
     """Create a resource definition object from the given XML representation of the machine's attributes."""
 
     for cls in _subclasses(nixops.resources.ResourceDefinition):
-        if type_name == cls.get_resource_type():
+        try:
+            resource_type = cls.get_resource_type()
+        except NotImplementedError:
+            continue
+
+        if type_name == resource_type:
             return cls(name, nixops.resources.ResourceEval(config))
 
     raise nixops.deployment.UnknownBackend(
@@ -1704,7 +1712,7 @@ def _create_state(depl: Deployment, type: str, name: str, id: int) -> Any:
             if type == cls.get_type():
                 return cls(depl, name, id)
         except NotImplementedError:
-            pass
+            continue
 
     raise nixops.deployment.UnknownBackend("unknown resource type ‘{0}’".format(type))
 
