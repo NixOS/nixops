@@ -22,6 +22,9 @@ class SSHTransport:
         ssh.register_passwd_fun(machine.get_ssh_password)
         ssh.privilege_escalation_command = machine.privilege_escalation_command
 
+        if not machine.has_fast_connection:
+            ssh.enable_compression()
+
         self._ssh = ssh
 
     @property

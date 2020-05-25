@@ -183,10 +183,6 @@ class MachineState(
         else:
             raise ValueError(f"Could not find transport '{transport}'")
 
-        # TODO: Reimplement with pluggable transport
-        # if not self.has_fast_connection:
-        #     self.ssh.enable_compression()
-
         self.privilege_escalation_command = list(defn.privilege_escalation_command)
 
     def stop(self) -> None:
