@@ -152,9 +152,8 @@ class MachineState(
         super().__init__(depl, name, id)
         self._machine_pinged_this_time = False
 
-        from nixops.transports.local import LocalTransport
-
-        self._transport = LocalTransport(self)
+        from nixops.transports.ssh import SSHTransport
+        self._transport = SSHTransport(self)
 
         # from nixops.transports.noop import NoopTransport
         # self._transport = NoopTransport(self)

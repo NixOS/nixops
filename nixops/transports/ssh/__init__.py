@@ -84,12 +84,9 @@ class SSHTransport:
         capture_stdout: bool = False,
         check: bool = False,
     ) -> nixops.util.ProcessResult:
+        command = ["--", nixops.util.shlex_join(command)]
         return self._ssh.run_command(
-            command,
-            user=user,
-            logger=self._machine.logger,
-            capture_stdout=capture_stdout,
-            check=check,
+            command, user=user, capture_stdout=capture_stdout, check=check,
         )
 
     def copy_closure(self, path: str):
@@ -102,12 +99,7 @@ class SSHTransport:
             ssh._get_flags() + ssh.get_master(user=self.user).opts
         )
         self._machine._logged_exec(
-            [
-                "nix-copy-closure",
-                "--to",
-                ssh._get_target(user=self.user),
-                path,
-            ]
+            ["nix-copy-closure", "--to", ssh._get_target(user=self.user), path,]
             + ([] if self._machine.has_fast_connection else ["--use-substitutes"]),
             env=env,
         )
