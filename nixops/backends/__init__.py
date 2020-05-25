@@ -2,7 +2,7 @@
 from __future__ import annotations
 import os
 import re
-from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar, Dict
+from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar, Type
 from nixops.monkey import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
@@ -114,6 +114,7 @@ class MachineState(
     )
 
     _transport: Optional[Transport]
+    transport_type: Type[Transport]
 
     # The attr_proporty name is sshPinged for legacy reasons
     machine_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
@@ -150,9 +151,18 @@ class MachineState(
 
     def __init__(self, depl, name: str, id: RecordId) -> None:
         super().__init__(depl, name, id)
+        self._transport: Optional[Transport] = None
         self._machine_pinged_this_time = False
         self._ssh_private_key_file: Optional[str] = None
         self.new_toplevel: Optional[str] = None
+
+        # Import here to avoid import loops
+        from nixops.transports.ssh import SSHTransport
+
+        if not hasattr(self, "transport_type"):
+            self.transport_type: Type[Transport] = SSHTransport
+
+        self._transport = self.transport_type(self)
 
     def prefix_definition(self, attr):
         return attr
@@ -162,6 +172,13 @@ class MachineState(
         state = self.state
         return state == self.STARTING or state == self.UP
 
+    @property
+    def transport(self) -> Transport:
+        transport = self._transport
+        if transport:
+            return transport
+        raise ValueError("Transport not yet initialized")
+
     def set_common_state(self, defn: MachineDefinitionType) -> None:
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
@@ -169,20 +186,6 @@ class MachineState(
         self.ssh_options = defn.ssh_options
         self.has_fast_connection = defn.has_fast_connection
         self.provision_ssh_key = defn.provision_ssh_key
-
-        transport = "ssh"
-        # This spot is not the ideal place to put imports
-        # Tt's temporary until we have plugin hooks
-        self._transport: Transport
-        if transport == "ssh":
-            from nixops.transports.ssh import SSHTransport
-            self._transport = SSHTransport(self)
-        elif transport == "local":
-            from nixops.transports.local import LocalTransport
-            self._transport = LocalTransport(self)
-        else:
-            raise ValueError(f"Could not find transport '{transport}'")
-
         self.privilege_escalation_command = list(defn.privilege_escalation_command)
 
     def stop(self) -> None:
@@ -304,7 +307,7 @@ class MachineState(
             reboot_command = "systemctl reboot"
         self.run_command(reboot_command, check=False)
         self.state = self.STARTING
-        self._transport.reset()
+        self.transport.reset()
 
     def reboot_sync(self, hard: bool = False) -> None:
         """Reboot this machine and wait until it's up again."""
@@ -479,7 +482,7 @@ class MachineState(
         try:
             user = kwargs.pop("user")
         except KeyError:
-            user = self._transport.user
+            user = self.transport.user
 
         cmd = _format_command(
             command,
@@ -488,7 +491,7 @@ class MachineState(
             privilege_escalation_command=self.privilege_escalation_command,
         )
 
-        return self._transport.run_command(cmd, user=user, **kwargs)
+        return self.transport.run_command(cmd, user=user, **kwargs)
 
     def switch_to_configuration(
         self, method: str, sync: bool, command: Optional[str] = None
@@ -507,10 +510,10 @@ class MachineState(
         return self.run_command(cmd, check=False).returncode
 
     def upload_file(self, source: str, target: str, recursive: bool = False):
-        return self._transport.upload_file(source, target, recursive)
+        return self.transport.upload_file(source, target, recursive)
 
     def download_file(self, source: str, target: str, recursive: bool = False):
-        return self._transport.download_file(source, target, recursive)
+        return self.transport.download_file(source, target, recursive)
 
     def get_console_output(self):
         return "(not available for this machine type)\n"

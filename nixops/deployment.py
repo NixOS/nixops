@@ -835,7 +835,7 @@ class Deployment:
             m.new_toplevel = os.path.realpath(configs_path + "/" + m.name)
             if not os.path.exists(m.new_toplevel):
                 raise Exception("can't find closure of machine ‘{0}’".format(m.name))
-            m._transport.copy_closure(m.new_toplevel)
+            m.transport.copy_closure(m.new_toplevel)
 
         nixops.parallel.run_tasks(
             nr_workers=max_concurrent_copy,
