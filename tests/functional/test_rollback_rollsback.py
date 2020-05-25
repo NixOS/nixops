@@ -3,7 +3,7 @@ from nose import tools
 
 from tests.functional import single_machine_test
 
-from nixops.ssh_util import SSHCommandFailed
+from nixops.transports.exceptions import CommandFailed
 
 parent_dir = path.dirname(__file__)
 
@@ -21,11 +21,11 @@ class TestRollbackRollsback(single_machine_test.SingleMachineTest):
 
     def run_check(self):
         self.depl.deploy()
-        with tools.assert_raises(SSHCommandFailed):
+        with tools.assert_raises(CommandFailed):
             self.check_command("hello")
         self.depl.nix_exprs = self.depl.nix_exprs + [has_hello_spec]
         self.depl.deploy()
         self.check_command("hello")
         self.depl.rollback(generation=1)
-        with tools.assert_raises(SSHCommandFailed):
+        with tools.assert_raises(CommandFailed):
             self.check_command("hello")
