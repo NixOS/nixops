@@ -1,3 +1,4 @@
+from nixops.backends import MachineState
 from typing import List
 import nixops.util
 import os
@@ -13,7 +14,7 @@ __all__ = (
 
 
 class SSHTransport:
-    def __init__(self, machine):
+    def __init__(self, machine: MachineState):
         self._machine = machine
 
         ssh = SSH(machine.logger)

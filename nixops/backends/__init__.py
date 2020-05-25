@@ -6,11 +6,13 @@ from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar
 from nixops.monkey import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
-import nixops.transports
 from nixops.state import RecordId
 import subprocess
-from nixops.transports import Transport
 from ..command import format_command as _format_command
+from typing import Iterable
+from typing_extensions import Protocol as PlainProtocol
+import nixops.util
+import nixops.transports.exceptions
 
 
 class KeyOptions(nixops.resources.ResourceOptions):
@@ -68,6 +70,28 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
 MachineDefinitionType = TypeVar(
     "MachineDefinitionType", bound="MachineDefinition", contravariant=True
 )
+
+
+class Transport(PlainProtocol):
+    def __init__(self, machine: MachineState):
+        pass
+
+    def reset(self) -> None:
+        pass
+
+    def upload_file(self, source: str, target: str, recursive: bool = False) -> None:
+        pass
+
+    def download_file(self, source: str, target: str, recursive: bool = False) -> None:
+        pass
+
+    def run_command(
+        self, command: Iterable[str], **kwargs
+    ) -> nixops.util.ProcessResult:
+        pass
+
+    def copy_closure(self, path: str) -> None:
+        pass
 
 
 @runtime_checkable
