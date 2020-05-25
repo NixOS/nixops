@@ -1,5 +1,5 @@
 from nixops.transports.local import LocalTransport
-from .none import NoneDefinition, NoneState
+from nixops.backends.none import NoneDefinition, NoneState
 from nixops.backends import Transport
 from typing import Type
 

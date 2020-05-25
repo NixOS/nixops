@@ -8,7 +8,7 @@ import nixops.util
 import nixops.resources
 from nixops.state import RecordId
 import subprocess
-from ..command import format_command as _format_command
+from nixops.command import format_command as _format_command
 from typing_extensions import Protocol as PlainProtocol
 import nixops.util
 import nixops.transports.exceptions

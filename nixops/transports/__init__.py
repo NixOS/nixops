@@ -1,4 +1,4 @@
-from .exceptions import ConnectionFailed, CommandFailed
+from nixops.transports.exceptions import ConnectionFailed, CommandFailed
 
 
 __all__ = (

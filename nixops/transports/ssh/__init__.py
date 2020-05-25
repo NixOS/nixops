@@ -2,7 +2,7 @@ from nixops.backends import MachineState
 from typing import List
 import nixops.util
 import os
-from .ssh import SSH
+from nixops.transports.ssh.ssh import SSH
 
 
 __all__ = (
