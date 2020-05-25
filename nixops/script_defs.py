@@ -802,7 +802,7 @@ def op_ssh(args):
                 logged=False,
                 allow_ssh_args=True,
                 user=username,
-            )
+            ).returncode
         )
 
 
