@@ -122,6 +122,7 @@ class MachineState(
         self._machine_pinged_this_time = False
 
         from nixops.transports.ssh import SSHTransport
+
         self._transport = SSHTransport(self)
 
         self._ssh_private_key_file: Optional[str] = None
@@ -161,8 +162,8 @@ class MachineState(
         """Get the load averages on the machine."""
         try:
             res = (
-                self.run_command("cat /proc/loadavg", capture_stdout=True, timeout=15).stdout
-                .rstrip()
+                self.run_command("cat /proc/loadavg", capture_stdout=True, timeout=15)
+                .stdout.rstrip()
                 .split(" ")
             )
             assert len(res) >= 3
@@ -425,7 +426,9 @@ class MachineState(
     def _logged_exec(self, command, **kwargs) -> nixops.util.ProcessResult:
         return nixops.util.logged_exec(command, self.logger, **kwargs)
 
-    def run_command(self, command, allow_ssh_args: bool = False, **kwargs) -> nixops.util.ProcessResult:
+    def run_command(
+        self, command, allow_ssh_args: bool = False, **kwargs
+    ) -> nixops.util.ProcessResult:
         """
         Execute a command on the machine via SSH.
 

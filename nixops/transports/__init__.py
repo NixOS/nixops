@@ -12,7 +12,6 @@ __all__ = (
 
 
 class Transport(Protocol):
-
     def __init__(self, machine):
         pass
 

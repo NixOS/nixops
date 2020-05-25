@@ -13,7 +13,6 @@ __all__ = (
 
 
 class SSHTransport:
-
     def __init__(self, machine):
         self._machine = machine
 
