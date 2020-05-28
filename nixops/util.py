@@ -152,6 +152,19 @@ class ImmutableValidatedObject:
             if inspect.isclass(ann) and issubclass(ann, ImmutableValidatedObject):
                 value = ann(**value)
 
+            # Support Sequence[ImmutableValidatedObject]
+            if isinstance(value, tuple) and not isinstance(ann, str):
+                new_value = []
+                for v in value:
+                    for subann in ann.__args__:
+                        if inspect.isclass(subann) and issubclass(
+                            subann, ImmutableValidatedObject
+                        ):
+                            new_value.append(subann(**v))
+                        else:
+                            new_value.append(v)
+                value = tuple(new_value)
+
             typeguard.check_type(key, value, ann)
 
             return value
