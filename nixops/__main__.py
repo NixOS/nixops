@@ -23,7 +23,7 @@ def setup_debugger() -> None:
 
 # Run check for --pdb as early as possible so it kicks in _before_ plugin loading
 # and other dynamic startup happens
-if __name__ == "__main__":
+if __name__.split(".")[-1] == "__main__":
     if "--pdb" in sys.argv:
         setup_debugger()
 
