@@ -1,7 +1,44 @@
+Release notes
+=============
+
+Release 2.0
+-----------
+
+- Removed NixOS Options
+
+  - ``deployment.autoLuks.*`` - moved to `nixos-modules-contrib`_.
+  - ``deployment.autoRaid0.*`` - moved to `nixos-modules-contrib`_.
+
+- Notable Files Removed
+
+  - ``nix/adhoc-cloud-vm.nix`` (`#1303`_, `#1312`_) - the included behavior was
+    not targeted to any specific use case or generic to support all
+    cloud VMs.
+
+
+  - ``nix/auto-luks.nix`` (`#1297`_, `#1312`_) - the module is now
+    nixos-modules-contrib_, since its behavior was not specific to
+    NixOps, and outside of the core feature set of NixOps.
+
+  - ``nix/auto-raid0.nix`` (`#1299`_, `#1312`_) - the module is now
+    nixos-modules-contrib_, since its behavior was not specific to
+    NixOps, and outside of the core feature set of NixOps.
+
+  - ``nixops/data/nixos-infect`` (`#1305`_, `#1312`_) - plugins needing
+    nixos-infect should include it themselves.
+
+.. _nixos-modules-contrib: https://github.com/nix-community/nixos-modules-contrib
+.. _#1297: https://github.com/NixOS/nixops/pull/1297
+.. _#1299: https://github.com/NixOS/nixops/pull/1299
+.. _#1303: https://github.com/NixOS/nixops/pull/1303
+.. _#1305: https://github.com/NixOS/nixops/pull/1305
+.. _#1312: https://github.com/NixOS/nixops/pull/1312
+
+
 .. _ssec-relnotes-1.7:
 
 Release 1.7 (April 17, 2019)
-============================
+----------------------------
 
 -  General
 
@@ -67,7 +104,7 @@ Bourdon, PsyanticY, Robert Hensing.
 .. _ssec-relnotes-1.6.1:
 
 Release 1.6.1 (Sep 14, 2018)
-============================
+----------------------------
 
 -  General
 
@@ -110,7 +147,7 @@ Bishop, Niklas Hambüchen, Rob Vermaas, Sergei Khoma.
 .. _ssec-relnotes-1.6:
 
 Release 1.6 (Mar 28, 2018)
-==========================
+--------------------------
 
 -  General
 
@@ -186,7 +223,7 @@ Vermaas, Samuel Leathers, Shea Levy, Tomasz Czyż, Vaibhav Sagar.
 .. _ssec-relnotes-1.5.2:
 
 Release 1.5.2 (Oct 29, 2017)
-============================
+----------------------------
 
 -  General
 
@@ -231,7 +268,7 @@ Bergmann, Nadrieril, Rob Vermaas, Vlad Ki.
 .. _ssec-relnotes-1.5.1:
 
 Release 1.5.1 (Jul 5, 2017)
-===========================
+---------------------------
 
 -  General
 
@@ -273,7 +310,7 @@ Vermaas, Sven Slootweg.
 .. _ssec-relnotes-1.5:
 
 Release 1.5 (Feb 16, 2017)
-==========================
+--------------------------
 
 -  General
 
@@ -351,7 +388,7 @@ Babayev, Susan Potter and Danylo Hlynskyi.
 .. _ssec-relnotes-1.4:
 
 Release 1.4 (Jul 11, 2016)
-==========================
+--------------------------
 
 -  General
 
@@ -427,7 +464,7 @@ Hlynskyi.
 .. _ssec-relnotes-1.3.1:
 
 Release 1.3.1 (January 14, 2016)
-================================
+--------------------------------
 
 -  General
 
@@ -500,7 +537,7 @@ O'Connor, Tristan Helmich and Yves Parès (Ywen)
 .. _ssec-relnotes-1.3:
 
 Release 1.3 (September 28, 2015)
-================================
+--------------------------------
 
 -  General
 
@@ -565,7 +602,7 @@ Trenton Strong, Trent Strong, Vladimir Kirillov, William Roe.
 .. _ssec-relnotes-1.2:
 
 Release 1.2 (April 30, 2014)
-============================
+----------------------------
 
 -  General
 
@@ -663,7 +700,7 @@ Vermaas, Shea Levy and Vladimir Kirillov.
 .. _ssec-relnotes-1.1.1:
 
 Release 1.1.1 (October 2, 2013)
-===============================
+-------------------------------
 
 This a minor bugfix release.
 
@@ -704,7 +741,7 @@ Dolstra, Rob Vermaas.
 .. _ssec-relnotes-1.1:
 
 Release 1.1 (September 9, 2013)
-===============================
+-------------------------------
 
 -  Backend for `Hetzner <http://hetzner.de>`__, a German data center
    provider. More information and a demo video can be found
@@ -733,7 +770,7 @@ Release 1.1 (September 9, 2013)
 .. _ssec-relnotes-1.0.1:
 
 Release 1.0.1 (July 11, 2013)
-=============================
+-----------------------------
 
 This is a minor bugfix release.
 
@@ -747,6 +784,6 @@ This is a minor bugfix release.
 .. _ssec-relnotes-1.0:
 
 Release 1.0 (June 18, 2013)
-===========================
+---------------------------
 
 Initial release.
