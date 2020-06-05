@@ -69,3 +69,8 @@ class PluginManager:
     def parser(parser, subparsers):
         for plugin in get_plugins():
             plugin.parser(parser, subparsers)
+
+    @staticmethod
+    def docs() -> Generator[Tuple[str, str], None, None]:
+        for plugin in get_plugins():
+            yield from plugin.docs()

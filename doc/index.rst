@@ -46,6 +46,8 @@ NixOps
 
    release-notes/index
 
+.. nixops_plugins_doc::
+
 Indices and tables
 ==================
 

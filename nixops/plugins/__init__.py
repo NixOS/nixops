@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from nixops.backends import MachineState
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Tuple
 
 from functools import lru_cache
 from typing import Generator
@@ -87,3 +87,9 @@ class Plugin:
         Extend the core nixops cli parser
         """
         pass
+
+    def docs(self) -> List[Tuple[str, str]]:
+        """ Extend docs
+        :return a list of tuples (plugin_name, doc_path)
+        """
+        return []

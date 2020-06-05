@@ -59,3 +59,38 @@ html_theme = "alabaster"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+
+def setup(app):
+    from nixops.plugins.manager import PluginManager
+    from sphinx.directives.other import TocTree  # type: ignore
+    from docutils.parsers.rst import Directive
+    from docutils import nodes
+
+    class NixopsPluginsDirective(Directive):
+        has_content = True
+
+        def run(self):
+            plugin_docs = list(PluginManager.docs())
+            if not plugin_docs:
+                return []
+
+            ret = [nodes.title("", "Plugins")]
+            for plugin_name, path in plugin_docs:
+                ret.extend(
+                    TocTree(
+                        name=plugin_name,
+                        arguments=[],
+                        options={"caption": plugin_name.capitalize(), "maxdepth": 2},
+                        content=[path],
+                        lineno=None,
+                        content_offset=None,
+                        block_text=None,
+                        state=self.state,
+                        state_machine=self.state_machine,
+                    ).run()
+                )
+
+            return ret
+
+    app.add_directive("nixops_plugins_doc", NixopsPluginsDirective)
