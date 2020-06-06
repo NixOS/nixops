@@ -1479,8 +1479,8 @@ class Deployment:
                     return
                 try:
                     for dep in m._wait_for:
-                        if dep._destroyed_event:
-                            dep._destroyed_event.wait()
+                        if dep._created_event:
+                            dep._created_event.wait()
                         # !!! Should we print a message here?
                         if dep._errored:
                             m._errored = True
