@@ -170,7 +170,7 @@ Release 1.6 (Mar 28, 2018)
    -  Allow changing security groups for instances that were deployed
       with a default VPC (no explicit subnetId/vpc)
 
-   -  Make sure EC2 keypair not destroyed when it is in use, instead
+   -  Make sure EC2 key pair not destroyed when it is in use, instead
       produce error.
 
    -  Support for separate Route53 resources.
@@ -714,9 +714,9 @@ This a minor bugfix release.
 -  On non-EC2 systems, NixOps will generate ECDSA SSH host key pairs
    instead of DSA from now on.
 
--  VirtualBox deployments use generated SSH host keypairs.
+-  VirtualBox deployments use generated SSH host key pairs.
 
--  For all machines which nixops generates an SSH host keypair for, it
+-  For all machines which nixops generates an SSH host key pair for, it
    will add the SSH public host key to the known_hosts configuration of
    all machines in the network.
 
