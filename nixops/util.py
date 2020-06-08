@@ -122,7 +122,7 @@ class ImmutableValidatedObject:
     """
     An immutable object that validates input types
 
-    It also converts nested dictonaries into new ImmutableValidatedObject
+    It also converts nested dictionaries into new ImmutableValidatedObject
     instances (or the annotated subclass).
     """
 
