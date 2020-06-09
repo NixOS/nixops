@@ -76,7 +76,7 @@ class NoneState(MachineState[NoneDefinition]):
 
         if not self.vm_id:
             if self.provision_ssh_key:
-                self.log_start("generating new SSH keypair... ")
+                self.log_start("generating new SSH key pair... ")
                 key_name = "NixOps client key for {0}".format(self.name)
                 self._ssh_private_key, self._ssh_public_key = create_key_pair(
                     key_name=key_name

@@ -159,7 +159,7 @@
 
     <itemizedlist>
       <listitem><para>Allow changing security groups for instances that were deployed with a default VPC (no explicit subnetId/vpc)</para></listitem>
-      <listitem><para>Make sure EC2 keypair not destroyed when it is in use, instead produce error.</para></listitem>
+      <listitem><para>Make sure EC2 key pair not destroyed when it is in use, instead produce error.</para></listitem>
       <listitem><para>Support for separate Route53 resources.</para></listitem>
       <listitem><para>Support CloudWatch metrics and alarms.</para></listitem>
       <listitem><para>Support updating IAM instance profile of an existing instance.</para></listitem>
@@ -760,10 +760,10 @@
   <listitem><para>On non-EC2 systems, NixOps will generate ECDSA SSH
   host key pairs instead of DSA from now on.</para></listitem>
 
-  <listitem><para>VirtualBox deployments use generated SSH host keypairs.
+  <listitem><para>VirtualBox deployments use generated SSH host key pairs.
   </para></listitem>
 
-  <listitem><para>For all machines which nixops generates an SSH host keypair for, it
+  <listitem><para>For all machines which nixops generates an SSH host key pair for, it
   will add the SSH public host key to the known_hosts configuration of all machines
   in the network.</para></listitem>
 
