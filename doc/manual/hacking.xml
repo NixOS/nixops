@@ -14,7 +14,7 @@ $ cd nixops
 
 <para>To build it and its dependencies:
 <screen>
-$ nix-build release.nix -A build.x86_64-linux
+$ nix-build
 </screen>
 The resulting NixOps can be run as
 <filename>./result/bin/nixops</filename>.</para>
@@ -23,7 +23,7 @@ The resulting NixOps can be run as
 environment variables (such as <envar>PYTHONPATH</envar>) are set up
 so that those dependencies can be found:
 <screen>
-$ nix-shell release.nix -A build.x86_64-linux --exclude tarball
+$ nix-shell
 $ echo $PYTHONPATH
 /nix/store/5dbidajmgrvskv7kj6bwrkza8szxkgar-python3-3.7.5/lib/python3.7/site-packages:<replaceable>...</replaceable>
 </screen>
@@ -52,12 +52,6 @@ linkend="sec-deploying-to-ec2"/>.)  To run a specific test, run
 To filter on which backends you want to run functional tests against, you can
 filter on one or more tags.
 
-
-There are also a few NixOS VM tests. These can be run as follows:
-
-<screen>
-$ nix-build release.nix -A tests.none_backend
-</screen>
 
 </para>
 
