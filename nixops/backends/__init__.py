@@ -2,7 +2,17 @@
 from __future__ import annotations
 import os
 import re
-from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar, Callable, Type
+from typing import (
+    Mapping,
+    Any,
+    List,
+    Optional,
+    Union,
+    Sequence,
+    TypeVar,
+    Callable,
+    Type,
+)
 from nixops.monkey import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
@@ -12,7 +22,6 @@ from nixops.command import format_command as _format_command
 from typing_extensions import Protocol as PlainProtocol
 import nixops.util
 import nixops.transports.exceptions
-=======
 import threading
 
 
@@ -317,9 +326,7 @@ class MachineState(
 
         def _worker():
             try:
-                self.ssh.run_command(
-                    ["true"], user=self.ssh_user, logged=False, connection_tries=1
-                )
+                self.run_command("true", logged=False)
             except Exception:
                 pass
             else:

@@ -294,7 +294,6 @@ class SSH(object):
         flags: List[str] = [],
         timeout: Optional[int] = None,
         logged: bool = True,
-        allow_ssh_args: bool = False,
         connection_tries: int = 5,
         **kwargs: Any
     ) -> nixops.util.ProcessResult:
@@ -332,6 +331,10 @@ class SSH(object):
                 raise SSHCommandFailed(exc.message, exc.exitcode)
         else:
             check = kwargs.pop("check", True)
+            try:
+                kwargs.pop("capture_stdout")
+            except KeyError:
+                pass
             res = subprocess.call(cmd, **kwargs)
             if check and res != 0:
                 msg = "command ‘{0}’ failed on host ‘{1}’"
