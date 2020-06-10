@@ -81,7 +81,7 @@ subparser.add_argument('--exclude', nargs='+', metavar='MACHINE-NAME', help='des
 subparser.add_argument('--wipe', action='store_true', help='securely wipe data on the machines')
 subparser.add_argument('--all', action='store_true', help='destroy all deployments')
 
-subparser = add_subparser(subparsers, 'delete-resources', help='deletes the resource from the local NixOPS state file.')
+subparser = add_subparser(subparsers, 'delete-resources', help='deletes the resource from the local NixOps state file.')
 subparser.set_defaults(op=op_delete_resources)
 subparser.add_argument('--include', nargs='+', metavar='RESOURCE-NAME', help='delete only the specified resources')
 subparser.add_argument('--exclude', nargs='+', metavar='RESOURCE-NAME', help='delete all resources except the specified resources')

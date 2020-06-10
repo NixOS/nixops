@@ -194,12 +194,12 @@ class ResourceState(object):
         if not self.depl.logger.confirm(
                 "are you sure you want to clear the state of {}? "
                 "this will only remove the resource from the local "
-                "NixOPS state and the resource may still exist outside "
-                "of the NixOPS database.".format(self.name)):
+                "NixOps state and the resource may still exist outside "
+                "of the NixOps database.".format(self.name)):
             return False
 
         self.logger.warn(
-            "removing resource {} from the local NixOPS database ...".format(self.name)
+            "removing resource {} from the local NixOps database ...".format(self.name)
         )
         return True
 
