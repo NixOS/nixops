@@ -2,6 +2,16 @@ NixOps
 ======
 .. toctree::
    :maxdepth: 1
+
+   introduction
+
+.. toctree::
+   :maxdepth: 1
+
+   overview
+
+.. toctree::
+   :maxdepth: 1
    :caption: User Guides:
 
    guides/deploy-without-root
