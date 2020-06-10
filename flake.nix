@@ -6,6 +6,23 @@
   outputs = { self, nixpkgs }: let
     pkgs = import nixpkgs { system = "x86_64-linux"; };
   in {
+    devShell.x86_64-linux = pkgs.mkShell {
+      buildInputs = [
+        (pkgs.poetry2nix.mkPoetryEnv {
+          projectDir = ./.;
+        })
+        pkgs.openssh
+        pkgs.poetry
+        pkgs.rsync  # Included by default on NixOS
+        pkgs.codespell
+        pkgs.nixFlakes
+      ];
+
+      shellHook = ''
+        export PATH=${builtins.toString ./scripts}:$PATH
+      '';
+    };
+
     defaultPackage.x86_64-linux = let
       overrides = import ./overrides.nix { inherit pkgs; };
 

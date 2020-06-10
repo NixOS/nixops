@@ -1,25 +1,3 @@
-{ pkgs ? import <nixpkgs> {} }:
-
-let
-
-  overrides = import ./overrides.nix { inherit pkgs; };
-
-in pkgs.mkShell {
-
-  buildInputs = [
-    (pkgs.poetry2nix.mkPoetryEnv {
-      projectDir = ./.;
-      overrides = pkgs.poetry2nix.overrides.withDefaults(overrides);
-    })
-    pkgs.openssh
-    pkgs.poetry
-    pkgs.rsync  # Included by default on NixOS
-    pkgs.codespell
-    pkgs.nixFlakes
-  ];
-
-  shellHook = ''
-    export PATH=${builtins.toString ./scripts}:$PATH
-  '';
-
-}
+(import (fetchTarball https://github.com/edolstra/flake-compat/archive/master.tar.gz) {
+  src = builtins.fetchGit ./.;
+}).shellNix
