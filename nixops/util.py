@@ -9,8 +9,6 @@ import copy
 import fcntl
 import base64
 import select
-import socket
-import struct
 import shutil
 import tempfile
 import subprocess
@@ -128,7 +126,7 @@ class ImmutableValidatedObject:
     """
     An immutable object that validates input types
 
-    It also converts nested dictonaries into new ImmutableValidatedObject
+    It also converts nested dictionaries into new ImmutableValidatedObject
     instances (or the annotated subclass).
     """
 
@@ -375,55 +373,54 @@ def make_non_blocking(fd: IO[Any]) -> None:
     fcntl.fcntl(fd, fcntl.F_SETFL, fcntl.fcntl(fd, fcntl.F_GETFL) | os.O_NONBLOCK)
 
 
-def ping_tcp_port(
-    host: str, port: int, timeout: int = 1, ensure_timeout: bool = False
+def wait_for_success(
+    fn: Callable,
+    timeout: Optional[int] = None,
+    callback: Optional[Callable[[], Any]] = None,
 ) -> bool:
-    """"
-    Return to True or False depending on being able to connect the specified host and port.
-    Raises exceptions which are not related to opening a socket to the target host.
-    """
-    infos = socket.getaddrinfo(host, port, 0, 0, socket.IPPROTO_TCP)
-    for info in infos:
-        s = socket.socket(info[0], info[1])
-        s.settimeout(timeout)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+    n = 0
+    while True:
         try:
-            s.connect(info[4])
-        except socket.timeout:
-            # try next address
-            continue
-        except EnvironmentError:
-            # Reset, Refused, Aborted, No route to host
-            if ensure_timeout:
-                time.sleep(timeout)
-            # continue with the next address
-            continue
+            fn()
+        except Exception:
+            pass
         else:
-            s.shutdown(socket.SHUT_RDWR)
             return True
+
+        n = n + 1
+        if timeout is not None and n >= timeout:
+            break
+
+        if callback:
+            callback()
+
+        time.sleep(1)
+
     return False
 
 
-def wait_for_tcp_port(
-    ip: str,
-    port: int,
-    timeout: int = -1,
-    open: bool = True,
+def wait_for_fail(
+    fn: Callable,
+    timeout: Optional[int] = None,
     callback: Optional[Callable[[], Any]] = None,
 ) -> bool:
-    """Wait until the specified TCP port is open or closed."""
     n = 0
     while True:
-        if ping_tcp_port(ip, port, ensure_timeout=True) == open:
+        try:
+            fn()
+        except Exception:
             return True
-        if not open:
-            time.sleep(1)
+
         n = n + 1
-        if timeout != -1 and n >= timeout:
+        if timeout is not None and n >= timeout:
             break
+
         if callback:
             callback()
-    raise Exception("timed out waiting for port {0} on ‘{1}’".format(port, ip))
+
+        time.sleep(1)
+
+    return False
 
 
 def _maybe_abspath(s: str) -> str:

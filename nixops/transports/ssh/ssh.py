@@ -207,7 +207,11 @@ class SSH(object):
             self._ssh_master = None
 
     def get_master(
-        self, user: str, flags: List[str] = [], timeout: Optional[int] = None,
+        self,
+        user: str,
+        flags: List[str] = [],
+        timeout: Optional[int] = None,
+        tries: int = 5,
     ) -> SSHMaster:
         """
         Start (if necessary) an SSH master connection to speed up subsequent
@@ -221,7 +225,7 @@ class SSH(object):
             else:
                 master.shutdown()
 
-        tries = 5
+        tries = tries
         if timeout is not None:
             flags = flags + ["-o", "ConnectTimeout={0}".format(timeout)]
             tries = 1
@@ -290,6 +294,8 @@ class SSH(object):
         flags: List[str] = [],
         timeout: Optional[int] = None,
         logged: bool = True,
+        allow_ssh_args: bool = False,
+        connection_tries: int = 5,
         **kwargs: Any
     ) -> nixops.util.ProcessResult:
         """
@@ -308,7 +314,9 @@ class SSH(object):
 
         'timeout' specifies the SSH connection timeout.
         """
-        master = self.get_master(flags=flags, timeout=timeout, user=user)
+        master = self.get_master(
+            flags=flags, timeout=timeout, user=user, tries=connection_tries
+        )
         flags = flags + self._get_flags()
         if logged:
             flags.append("-x")

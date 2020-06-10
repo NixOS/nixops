@@ -80,7 +80,7 @@ several nice properties:</para>
   takes care of this automatically.</para></listitem>
 
   <listitem><para>It can provision non-machine cloud resources such as
-  Amazon S3 buckets and EC2 keypairs.</para></listitem>
+  Amazon S3 buckets and EC2 key pairs.</para></listitem>
 
 </itemizedlist>
 

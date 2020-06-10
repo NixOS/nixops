@@ -76,7 +76,7 @@ class NoneState(MachineState[NoneDefinition]):
 
         if not self.vm_id:
             if self.provision_ssh_key:
-                self.log_start("generating new SSH keypair... ")
+                self.log_start("generating new SSH key pair... ")
                 key_name = "NixOps client key for {0}".format(self.name)
                 self._ssh_private_key, self._ssh_public_key = create_key_pair(
                     key_name=key_name
@@ -121,7 +121,7 @@ class NoneState(MachineState[NoneDefinition]):
             res.exists = False
             return
         res.exists = True
-        res.is_up = nixops.util.ping_tcp_port(self.target_host, self.ssh_port)
+        res.is_up = self.ping()
         if res.is_up:
             super()._check(res)
 

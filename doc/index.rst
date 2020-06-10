@@ -1,5 +1,14 @@
 NixOps
 ======
+.. toctree::
+   :maxdepth: 1
+
+   introduction
+
+.. toctree::
+   :maxdepth: 1
+
+   overview
 
 .. toctree::
    :maxdepth: 1
@@ -20,12 +29,16 @@ NixOps
    dev/writing-documentation
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
+   :caption: Python API:
+
+   python/index
+
+.. toctree::
+   :maxdepth: 2
    :caption: Release Notes
 
-   release-notes/2.0
-   release-notes/1.x
-
+   release-notes/index
 
 Indices and tables
 ==================
