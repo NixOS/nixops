@@ -17,7 +17,6 @@
         pkgs.poetry
         pkgs.rsync  # Included by default on NixOS
         pkgs.codespell
-        pkgs.nixFlakes
       ];
 
       shellHook = ''
