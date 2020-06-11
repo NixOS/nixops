@@ -8,7 +8,9 @@
   outputs = { self, nixpkgs, utils }: utils.lib.eachDefaultSystem (system: let
     pkgs = import nixpkgs { inherit system; };
 
-    sphinx = pkgs.python3.withPackages(p: [ p.sphinx ]);
+    pythonEnv = (pkgs.poetry2nix.mkPoetryEnv {
+      projectDir = ./.;
+    });
     linters.doc = pkgs.writers.writeBashBin "lint-docs" ''
       set -eux
       # When running it in the Nix sandbox, there is no git repository
@@ -20,16 +22,14 @@
           FILES=$(find .)
       fi
       echo "$FILES" | xargs ${pkgs.codespell}/bin/codespell -L keypair,iam,hda
-      ${sphinx}/bin/sphinx-build -M clean doc/ doc/_build
-      ${sphinx}/bin/sphinx-build -n doc/ doc/_build
+      ${pythonEnv}/bin/sphinx-build -M clean doc/ doc/_build
+      ${pythonEnv}/bin/sphinx-build -n doc/ doc/_build
       '';
 
   in {
     devShell = pkgs.mkShell {
       buildInputs = [
-        (pkgs.poetry2nix.mkPoetryEnv {
-          projectDir = ./.;
-        })
+        pythonEnv
         pkgs.openssh
         pkgs.poetry
         pkgs.rsync  # Included by default on NixOS
