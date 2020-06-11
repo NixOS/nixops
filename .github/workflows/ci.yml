@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -21,17 +23,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
         run: 'nix-shell --run true'
       - name: Build
-        run: 'nix-build --quiet release.nix -A nixops.x86_64-linux -I nixpkgs=channel:nixos-20.03'
+        run: 'nix-build'
   black:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -43,6 +49,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -54,6 +62,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -65,6 +75,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -76,6 +88,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -87,6 +101,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -98,6 +114,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
