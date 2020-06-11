@@ -860,6 +860,7 @@ class Deployment:
         always_activate: bool,
         dry_activate: bool,
         test: bool,
+        boot: bool,
         max_concurrent_activate: int,
     ) -> None:
         """Activate the new configuration on a machine."""
@@ -902,7 +903,7 @@ class Deployment:
 
                 m.send_keys()
 
-                if force_reboot or m.state == m.RESCUE:
+                if boot or force_reboot or m.state == m.RESCUE:
                     switch_method = "boot"
                 elif dry_activate:
                     switch_method = "dry-activate"
@@ -1144,6 +1145,7 @@ class Deployment:
         self,
         dry_run: bool = False,
         test: bool = False,
+        boot: bool = False,
         plan_only: bool = False,
         build_only: bool = False,
         create_only: bool = False,
@@ -1321,6 +1323,7 @@ class Deployment:
             always_activate=always_activate,
             dry_activate=dry_activate,
             test=test,
+            boot=boot,
             max_concurrent_activate=max_concurrent_activate,
         )
 
@@ -1449,6 +1452,7 @@ class Deployment:
             always_activate=True,
             dry_activate=False,
             test=False,
+            boot=False,
             max_concurrent_activate=max_concurrent_activate,
         )
 

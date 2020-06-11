@@ -17,7 +17,7 @@ base=origin/${GITHUB_BASE_REF:-master}
 
 git fetch origin
 
-echo "Checking base branch at %s, then PR at %s...\n" "$base" "$head"
+printf "Checking base branch at %s, then PR at %s...\n" "$base" "$head"
 
 git checkout "$base"
 nix-shell shell.nix --run "$scratch/run-ratchet.sh $scratch base"

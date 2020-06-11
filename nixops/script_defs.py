@@ -588,6 +588,7 @@ def op_deploy(args):
         depl.deploy(
             dry_run=args.dry_run,
             test=args.test,
+            boot=args.boot,
             build_only=args.build_only,
             plan_only=args.plan_only,
             create_only=args.create_only,

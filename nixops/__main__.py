@@ -210,6 +210,11 @@ subparser.add_argument(
     help="build and activate the new configuration; do not enable it in the bootloader. Rebooting the system will roll back automatically.",
 )
 subparser.add_argument(
+    "--boot",
+    action="store_true",
+    help="build the new configuration and enable it in the bootloader; do not activate it. Upon reboot, the system will use the new configuration.",
+)
+subparser.add_argument(
     "--repair", action="store_true", help="use --repair when calling nix-build (slow)"
 )
 subparser.add_argument(
