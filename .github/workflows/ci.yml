@@ -105,10 +105,11 @@ jobs:
           fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
+        # To use nixFlake in the next step
       - name: Prefetch shell.nix
         run: 'nix-shell --run true'
       - name: Restructured Text Lint
-        run: './ci/lint-docs.sh'
+        run: 'nix-shell --run "nix build .#checks.x86_64-linux.doc --experimental-features \"nix-command flakes\""'
   poetry-up-to-date:
     runs-on: ubuntu-latest
     steps:
