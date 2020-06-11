@@ -1,5 +1,6 @@
 { system ? builtins.currentSystem
 , networkExprs
+, flakeUri ? null
 , checkConfigurationOptions ? true
 , uuid
 , deploymentName
@@ -7,18 +8,22 @@
 , pluginNixExprs
 }:
 
-with import <nixpkgs> { inherit system; };
-with lib;
+let
+  # FIXME: don't rely on <nixpkgs>.
+  pkgs = import <nixpkgs> { inherit system; };
+  inherit (pkgs) lib;
 
-
-rec {
+in rec {
 
   importedPluginNixExprs = map
     (expr: import expr)
     pluginNixExprs;
-  pluginOptions = { imports = (foldl (a: e: a ++ e.options) [] importedPluginNixExprs); };
+  pluginOptions = { imports = (lib.foldl (a: e: a ++ e.options) [] importedPluginNixExprs); };
   pluginResources = map (e: e.resources) importedPluginNixExprs;
-  pluginDeploymentConfigExporters = (foldl (a: e: a ++ (e.config_exporters { inherit optionalAttrs pkgs; })) [] importedPluginNixExprs);
+  pluginDeploymentConfigExporters = (lib.foldl (a: e: a ++ (e.config_exporters {
+    inherit pkgs;
+    inherit (lib) optionalAttrs;
+  })) [] importedPluginNixExprs);
 
   networks =
     let
@@ -31,49 +36,60 @@ rec {
         startSet = map exprToKey networkExprs;
         operator = { key }: map exprToKey ((getNetworkFromExpr key).require or []);
       };
-    in map ({ key }: getNetworkFromExpr key) networkExprClosure;
+    in
+      map ({ key }: getNetworkFromExpr key) networkExprClosure
+      ++ lib.optional (flakeUri != null)
+        ((call (builtins.getFlake flakeUri).outputs.nixopsConfigurations.default) // { _file = "<${flakeUri}>"; });
 
   call = x: if builtins.isFunction x then x args else x;
 
-  network = zipAttrs networks;
+  network = lib.zipAttrs networks;
 
   defaults = network.defaults or [];
 
+  evalConfig =
+    if flakeUri != null
+    then
+      if network ? nixpkgs
+      then (lib.head (network.nixpkgs)).lib.nixosSystem
+      else throw "NixOps network must have a 'nixpkgs' attribute"
+    else import <nixpkgs/nixos/lib/eval-config.nix>;
+
   # Compute the definitions of the machines.
   nodes =
-    listToAttrs (map (machineName:
+    lib.listToAttrs (map (machineName:
       let
         # Get the configuration of this machine from each network
         # expression, attaching _file attributes so the NixOS module
         # system can give sensible error messages.
         modules =
-          concatMap (n: optional (hasAttr machineName n)
-            { imports = [(getAttr machineName n)]; inherit (n) _file; })
+          lib.concatMap (n: lib.optional (lib.hasAttr machineName n)
+            { imports = [(lib.getAttr machineName n)]; inherit (n) _file; })
           networks;
       in
       { name = machineName;
-        value = import <nixpkgs/nixos/lib/eval-config.nix> {
+        value = evalConfig {
           modules =
             modules ++
             defaults ++
             [ deploymentInfoModule ] ++
             [ { key = "nixops-stuff";
                 # Make NixOps's deployment.* options available.
-          imports = [ ./options.nix ./resource.nix pluginOptions ];
+                imports = [ ./options.nix ./resource.nix pluginOptions ];
                 # Provide a default hostname and deployment target equal
                 # to the attribute name of the machine in the model.
-                networking.hostName = mkOverride 900 machineName;
-                deployment.targetHost = mkOverride 900 machineName;
-                environment.checkConfigurationOptions = mkOverride 900 checkConfigurationOptions;
+                networking.hostName = lib.mkOverride 900 machineName;
+                deployment.targetHost = lib.mkOverride 900 machineName;
+                environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
               }
             ];
           extraArgs = { inherit nodes resources uuid deploymentName; name = machineName; };
         };
       }
-    ) (attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "_file" ])));
+    ) (lib.attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "nixpkgs" "_file" ])));
 
   # Compute the definitions of the non-machine resources.
-  resourcesByType = zipAttrs (network.resources or []);
+  resourcesByType = lib.zipAttrs (network.resources or []);
 
   deploymentInfoModule = {
     deployment = {
@@ -84,28 +100,31 @@ rec {
   };
 
   evalResources = mainModule: _resources:
-    mapAttrs (name: defs:
-      (builtins.removeAttrs (fixMergeModules
+    lib.mapAttrs (name: defs:
+      (builtins.removeAttrs (lib.fixMergeModules
         ([ mainModule deploymentInfoModule ./resource.nix ] ++ defs)
         { inherit pkgs uuid name resources; nodes = info.machines; }
       ).config) ["_module"]) _resources;
 
-  resources = foldl
-    (a: b: a // (b { inherit evalResources zipAttrs resourcesByType;}))
+  resources = lib.foldl
+    (a: b: a // (b {
+      inherit evalResources resourcesByType;
+      inherit (lib) zipAttrs;
+    }))
     {
-      sshKeyPairs = evalResources ./ssh-keypair.nix (zipAttrs resourcesByType.sshKeyPairs or []);
-      commandOutput = evalResources ./command-output.nix (zipAttrs resourcesByType.commandOutput or []);
-      machines = mapAttrs (n: v: v.config) nodes;
+      sshKeyPairs = evalResources ./ssh-keypair.nix (lib.zipAttrs resourcesByType.sshKeyPairs or []);
+      commandOutput = evalResources ./command-output.nix (lib.zipAttrs resourcesByType.commandOutput or []);
+      machines = lib.mapAttrs (n: v: v.config) nodes;
     }
     pluginResources;
 
   # check if there are duplicate elements in a sorted list
   noDups = l:
-    if length l > 1
+    if lib.length l > 1
     then
-      if (head l) == (head (tail l))
-      then throw "found resources with duplicate names: ${head l}"
-      else noDups (tail l)
+      if (lib.head l) == (lib.head (lib.tail l))
+      then throw "found resources with duplicate names: ${lib.head l}"
+      else noDups (lib.tail l)
     else true;
 
   # Phase 1: evaluate only the deployment attributes.
@@ -116,8 +135,8 @@ rec {
     in rec {
 
     machines =
-      flip mapAttrs nodes (n: v': let v = scrubOptionValue v'; in
-      foldr (a: b: a // b)
+      lib.flip lib.mapAttrs nodes (n: v': let v = lib.scrubOptionValue v'; in
+      lib.foldr (a: b: a // b)
         {
           inherit (v.config.deployment)
             targetEnv
@@ -132,7 +151,7 @@ rec {
             hasFastConnection
             provisionSSHKey
             ;
-          nixosRelease = v.config.system.nixos.release or v.config.system.nixosRelease or (removeSuffix v.config.system.nixosVersionSuffix v.config.system.nixosVersion);
+          nixosRelease = v.config.system.nixos.release or v.config.system.nixosRelease or (lib.removeSuffix v.config.system.nixosVersionSuffix v.config.system.nixosVersion);
           publicIPv4 = v.config.networking.publicIPv4;
         }
       (map
@@ -140,17 +159,17 @@ rec {
         pluginDeploymentConfigExporters
       ));
 
-    network = fold (as: bs: as // bs) {} (network'.network or []);
+    network = lib.fold (as: bs: as // bs) {} (network'.network or []);
 
     resources =
     let
       resource_referenced = list: check: recurse:
-          any id (map (value: (check value) ||
-                              ((isAttrs value) && (!(value ? _type) || recurse)
-                                               && (resource_referenced (attrValues value) check false)))
+          lib.any lib.id (map (value: (check value) ||
+                              ((lib.isAttrs value) && (!(value ? _type) || recurse)
+                                               && (resource_referenced (lib.attrValues value) check false)))
                       list);
 
-      flatten_resources = resources: flatten ( map attrValues (attrValues resources) );
+      flatten_resources = resources: lib.flatten ( map lib.attrValues (lib.attrValues resources) );
 
       resource_used = res_set: resource:
           resource_referenced
@@ -160,9 +179,9 @@ rec {
 
       resources_without_defaults = res_class: defaults: res_set:
         let
-          missing = filter (res: !(resource_used (removeAttrs res_set [res_class])
+          missing = lib.filter (res: !(resource_used (removeAttrs res_set [res_class])
                                                   res_set."${res_class}"."${res}"))
-                           (attrNames defaults);
+                           (lib.attrNames defaults);
         in
         res_set // { "${res_class}" = ( removeAttrs res_set."${res_class}" missing ); };
 
@@ -172,12 +191,12 @@ rec {
 
   # Phase 2: build complete machine configurations.
   machines = { names }:
-    let nodes' = filterAttrs (n: v: elem n names) nodes; in
-    runCommand "nixops-machines"
+    let nodes' = lib.filterAttrs (n: v: lib.elem n names) nodes; in
+    pkgs.runCommand "nixops-machines"
       { preferLocalBuild = true; }
       ''
         mkdir -p $out
-        ${toString (attrValues (mapAttrs (n: v: ''
+        ${toString (lib.attrValues (lib.mapAttrs (n: v: ''
           ln -s ${v.config.system.build.toplevel} $out/${n}
         '') nodes'))}
       '';
