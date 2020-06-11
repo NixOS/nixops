@@ -1,12 +1,14 @@
 {
   description = "NixOps: a tool for deploying to [NixOS](https://nixos.org) machines in a network or the cloud";
 
-  inputs.nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
-  outputs = { self, nixpkgs }: let
-    pkgs = import nixpkgs { system = "x86_64-linux"; };
+  inputs.utils.url = "github:numtide/flake-utils";
+
+  outputs = { self, nixpkgs, utils }: utils.lib.eachDefaultSystem (system: let
+    pkgs = import nixpkgs { inherit system; };
   in {
-    devShell.x86_64-linux = pkgs.mkShell {
+    devShell = pkgs.mkShell {
       buildInputs = [
         (pkgs.poetry2nix.mkPoetryEnv {
           projectDir = ./.;
@@ -23,7 +25,7 @@
       '';
     };
 
-    defaultPackage.x86_64-linux = let
+    defaultPackage = let
       overrides = import ./overrides.nix { inherit pkgs; };
 
     in pkgs.poetry2nix.mkPoetryApplication {
@@ -51,5 +53,5 @@
         make -C doc/manual install docdir=$out/share/doc/nixops mandir=$out/share/man
       '';
     };
-  };
+  });
 }
