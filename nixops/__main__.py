@@ -282,7 +282,7 @@ subparser.add_argument("--all", action="store_true", help="destroy all deploymen
 subparser = add_subparser(
     subparsers,
     "delete-resources",
-    help="deletes the resource from the local NixOPS state file.",
+    help="deletes the resource from the local NixOps state file.",
 )
 subparser.set_defaults(op=op_delete_resources)
 subparser.add_argument(
