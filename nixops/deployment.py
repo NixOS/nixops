@@ -1312,6 +1312,9 @@ class Deployment:
 
                         m.wait_for_ssh(check=check)
 
+                        for p in get_plugin_manager().hook.machine_hook():
+                            p.post_wait(m)
+
                 except Exception:
                     r._errored = True
                     raise
