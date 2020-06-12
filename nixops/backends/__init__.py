@@ -608,3 +608,8 @@ class CheckResult(object):
 
 
 GenericMachineState = MachineState[MachineDefinition]
+
+
+class MachinePlugin(Protocol):
+    def post_wait(self, m: MachineState) -> None:
+        pass
