@@ -9,21 +9,13 @@
 }:
 
 let
-  # FIXME: don't rely on <nixpkgs>.
-  pkgs = import <nixpkgs> { inherit system; };
-  inherit (pkgs) lib;
+  call = x: if builtins.isFunction x then x args else x;
 
-in rec {
+  # Copied from nixpkgs to avoid <nixpkgs> import
+  optional = cond: elem: if cond then [elem] else [];
 
-  importedPluginNixExprs = map
-    (expr: import expr)
-    pluginNixExprs;
-  pluginOptions = { imports = (lib.foldl (a: e: a ++ e.options) [] importedPluginNixExprs); };
-  pluginResources = map (e: e.resources) importedPluginNixExprs;
-  pluginDeploymentConfigExporters = (lib.foldl (a: e: a ++ (e.config_exporters {
-    inherit pkgs;
-    inherit (lib) optionalAttrs;
-  })) [] importedPluginNixExprs);
+  zipAttrs = set: builtins.listToAttrs (
+    map (name: { inherit name; value = builtins.catAttrs name set; }) (builtins.concatMap builtins.attrNames set));
 
   networks =
     let
@@ -38,22 +30,43 @@ in rec {
       };
     in
       map ({ key }: getNetworkFromExpr key) networkExprClosure
-      ++ lib.optional (flakeUri != null)
+      ++ optional (flakeUri != null)
         ((call (builtins.getFlake flakeUri).outputs.nixopsConfigurations.default) // { _file = "<${flakeUri}>"; });
 
-  call = x: if builtins.isFunction x then x args else x;
-
-  network = lib.zipAttrs networks;
-
-  defaults = network.defaults or [];
+  network = zipAttrs networks;
 
   evalConfig =
     if flakeUri != null
     then
       if network ? nixpkgs
-      then (lib.head (network.nixpkgs)).lib.nixosSystem
+      then (builtins.head (network.nixpkgs)).lib.nixosSystem
       else throw "NixOps network must have a 'nixpkgs' attribute"
     else import <nixpkgs/nixos/lib/eval-config.nix>;
+
+  pkgs = if flakeUri != null
+    then
+      if network ? nixpkgs
+      then (builtins.head network.nixpkgs).legacyPackages.${system}
+      else throw "NixOps network must have a 'nixpkgs' attribute"
+    else import <nixpkgs> { inherit system; };
+
+  inherit (pkgs) lib;
+
+in rec {
+
+  inherit networks network;
+
+  importedPluginNixExprs = map
+    (expr: import expr)
+    pluginNixExprs;
+  pluginOptions = { imports = (lib.foldl (a: e: a ++ e.options) [] importedPluginNixExprs); };
+  pluginResources = map (e: e.resources) importedPluginNixExprs;
+  pluginDeploymentConfigExporters = (lib.foldl (a: e: a ++ (e.config_exporters {
+    inherit pkgs;
+    inherit (lib) optionalAttrs;
+  })) [] importedPluginNixExprs);
+
+  defaults = network.defaults or [];
 
   # Compute the definitions of the machines.
   nodes =
