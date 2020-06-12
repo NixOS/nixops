@@ -47,6 +47,12 @@ backend2...> /dev/xvdb      153899044 192084 145889336   1% /tmp
 By default, the command is executed sequentially on each machine.  You
 can add the flag <option>-p</option> to execute it in parallel.</para>
 
+<para>You can copy extra files to and from individual machines using
+<literal>nixops scp --to <replaceable>machine</replaceable>
+<replaceable>sourcefile</replaceable>
+<replaceable>destfile</replaceable></literal> and the corresponding
+<literal>--from</literal> command.</para>
+
 </section>
 
 

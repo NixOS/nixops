@@ -1315,6 +1315,88 @@ $ nixops ssh-for-each -p reboot</screen>
 
 </refsection>
 
+<refsection><title>Command <option>nixops scp</option></title>
+
+<refsection><title>Synopsis</title>
+
+<cmdsynopsis>
+  <command>nixops scp</command>
+  <arg>
+    <group choice='req'>
+      <arg choice='plain'><option>--to</option></arg>
+      <arg choice='plain'><option>--from</option></arg>
+    </group>
+  </arg>
+  <arg choice='plain'>
+    <replaceable>machine</replaceable>
+  </arg>
+  <arg choice='plain'>
+    <replaceable>sourcepath</replaceable>
+  </arg>
+  <arg choice='plain'>
+    <replaceable>destpath</replaceable>
+  </arg>
+</cmdsynopsis>
+
+</refsection>
+
+<refsection><title>Description</title>
+
+<para>This command copies files to or from a specified machine in the deployment</para>
+
+</refsection>
+
+<refsection><title>Options</title>
+
+<variablelist>
+  <varlistentry><term><option>--to</option> / <option>--from</option></term>
+
+  <listitem><para>Choose whether to copy to or from the remote
+  machine.</para></listitem>
+  </varlistentry>
+
+  <varlistentry><term><replaceable>machine</replaceable></term>
+
+  <listitem><para>The name of the machine in the deployment to copy
+  to/from.</para></listitem>
+  </varlistentry>
+
+  <varlistentry><term><replaceable>sourcepath</replaceable></term>
+
+  <listitem><para>The path to the source file on the machine the file is being
+  copied from. This path may be on the local or remote machine depending on the
+  direction of the copy.</para></listitem>
+
+  </varlistentry>
+
+  <varlistentry><term><replaceable>destpath</replaceable></term>
+
+  <listitem><para>The path to the destination on the machine the file is being
+  copied to. This path may be on the local or remote machine depending on the
+  direction of the copy.</para></listitem>
+
+  </varlistentry>
+</variablelist>
+</refsection>
+
+<refsection><title>Examples</title>
+
+<para>To copy the file app.sqlite to the app server:
+
+<screen>
+$ nixops scp --to app app.sqlite /var/app/app.sqlite</screen>
+
+</para>
+
+<para>To retrieve a log file from the web server:
+
+<screen>
+$ nixops scp --from web /var/app/logs.txt weblogs.txt</screen>
+
+</para>
+</refsection>
+
+</refsection>
 
 <refsection><title>Command <option>nixops mount</option></title>
 
