@@ -30,3 +30,6 @@ def deployment_hook():
     """Load hooks at early NixOps startup"""
 
 
+@hookspec
+def machine_hook():
+    """Hook into various stages of a machine lifecycle"""
