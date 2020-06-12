@@ -789,7 +789,7 @@ def op_import(args):
             sys.stderr.write("added deployment ‘{0}’\n".format(uuid))
 
             if args.include_keys:
-                for m in depl.active.values():
+                for m in depl.active_machines.values():
                     if nixops.deployment.is_machine(m) and hasattr(
                         m, "public_host_key"
                     ):
@@ -854,7 +854,7 @@ def op_ssh_for_each(args):
 
             results = results + nixops.parallel.run_tasks(
                 nr_workers=len(depl.machines) if args.parallel else 1,
-                tasks=iter(depl.active.values()),
+                tasks=iter(depl.active_machines.values()),
                 worker_fun=worker,
             )
 
