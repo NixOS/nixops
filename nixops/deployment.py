@@ -1795,5 +1795,12 @@ def _load_modules_from(dir: str) -> None:
         importlib.import_module("nixops." + dir + "." + module[:-3])
 
 
+class DeploymentPlugin(Protocol):
+    def physical_spec(
+        self, d: Deployment
+    ) -> Dict[str, List[Dict[Tuple[str, ...], Any]]]:
+        return {}
+
+
 _load_modules_from("backends")
 _load_modules_from("resources")
