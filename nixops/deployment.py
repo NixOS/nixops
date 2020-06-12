@@ -649,7 +649,7 @@ class Deployment:
             do_machine(m)
 
         def emit_resource(r: nixops.resources.GenericResourceState) -> Any:
-            config = []
+            config: List[Dict[Tuple[str, ...], Any]] = []
             config.extend(attrs_per_resource[r.name])
             if is_machine(r):
                 # Sort the hosts by its canonical host names.
