@@ -584,6 +584,10 @@ class Deployment:
             m.name: set() for m in active_machines.values()
         }
 
+        for p in get_plugin_manager().hook.deployment_hook():
+            for name, attrs in p.physical_spec(self).items():
+                attrs_per_resource[name].extend(attrs)
+
         # Hostnames should be accumulated like this:
         #
         #   hosts[local_name][remote_ip] = [name1, name2, ...]
