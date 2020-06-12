@@ -23,3 +23,10 @@ def parser(parser, subparsers):
     """ Extend the core nixops cli parser
     :return a set of plugin parser extensions
     """
+
+
+@hookspec
+def deployment_hook():
+    """Load hooks at early NixOps startup"""
+
+
