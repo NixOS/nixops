@@ -41,14 +41,14 @@ let
       if network ? nixpkgs
       then (builtins.head (network.nixpkgs)).lib.nixosSystem
       else throw "NixOps network must have a 'nixpkgs' attribute"
-    else import <nixpkgs/nixos/lib/eval-config.nix>;
+    else import (pkgs.path + "/nixos/lib/eval-config.nix");
 
   pkgs = if flakeUri != null
     then
       if network ? nixpkgs
       then (builtins.head network.nixpkgs).legacyPackages.${system}
       else throw "NixOps network must have a 'nixpkgs' attribute"
-    else import <nixpkgs> { inherit system; };
+    else (builtins.head (network.network)).nixpkgs or (import <nixpkgs> { inherit system; });
 
   inherit (pkgs) lib;
 
@@ -82,6 +82,7 @@ in rec {
       in
       { name = machineName;
         value = evalConfig {
+          inherit pkgs;
           modules =
             modules ++
             defaults ++
@@ -172,7 +173,11 @@ in rec {
         pluginDeploymentConfigExporters
       ));
 
-    network = lib.fold (as: bs: as // bs) {} (network'.network or []);
+    network =
+      builtins.removeAttrs
+      (lib.fold (as: bs: as // bs) {} (network'.network or []))
+      [ "nixpkgs" ]  # Not serialisable
+      ;
 
     resources =
     let
