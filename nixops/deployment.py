@@ -19,6 +19,7 @@ import itertools
 import platform
 import time
 import importlib
+from typing_extensions import Protocol
 
 from functools import reduce
 from typing import (
