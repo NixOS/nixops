@@ -10,8 +10,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -23,8 +21,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -36,8 +32,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -49,8 +43,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -62,8 +54,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -75,8 +65,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -88,8 +76,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -101,8 +87,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
@@ -114,8 +98,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
       - name: Nix
         uses: cachix/install-nix-action@v8
       - name: Prefetch shell.nix
