@@ -144,7 +144,16 @@ class Deployment:
         return _filter_machines(self.resources)
 
     @property
-    def active(
+    def active(self) -> None:
+        """
+        Legacy alias for active_machines.
+        Return type is set to None to make mypy fail and let plugin authors
+        notice that they should not use this legacy name.
+        """
+        return self.active_machines  # type: ignore
+
+    @property
+    def active_machines(
         self,
     ) -> Dict[
         str, nixops.backends.GenericMachineState
@@ -567,7 +576,7 @@ class Deployment:
     def get_physical_spec(self) -> Any:
         """Compute the contents of the Nix expression specifying the computed physical deployment attributes"""
 
-        active_machines = self.active
+        active_machines = self.active_machines
         active_resources = self.active_resources
 
         attrs_per_resource: Dict[str, List[Dict[Tuple[str, ...], Any]]] = {
@@ -772,7 +781,9 @@ class Deployment:
         if DEBUG:
             print("generated physical spec:\n" + p, file=sys.stderr)
 
-        selected = [m for m in self.active.values() if should_do(m, include, exclude)]
+        selected = [
+            m for m in self.active_machines.values() if should_do(m, include, exclude)
+        ]
 
         names = [m.name for m in selected]
 
@@ -869,7 +880,7 @@ class Deployment:
 
         nixops.parallel.run_tasks(
             nr_workers=max_concurrent_copy,
-            tasks=iter(self.active.values()),
+            tasks=iter(self.active_machines.values()),
             worker_fun=worker,
         )
         self.logger.log(
@@ -998,7 +1009,7 @@ class Deployment:
 
         res = nixops.parallel.run_tasks(
             nr_workers=max_concurrent_activate,
-            tasks=iter(self.active.values()),
+            tasks=iter(self.active_machines.values()),
             worker_fun=worker,
         )
         failed = [x for x in res if x is not None]
@@ -1023,7 +1034,7 @@ class Deployment:
     ) -> Dict[str, Dict[str, Any]]:
         self.evaluate_active(include, exclude)  # unnecessary?
         machine_backups = {}
-        for m in self.active.values():
+        for m in self.active_machines.values():
             if should_do(m, include, exclude):
                 machine_backups[m.name] = m.get_backups()
 
@@ -1037,7 +1048,7 @@ class Deployment:
             backups[backup_id]["info"] = []
             backups[backup_id]["status"] = "complete"
             backup = backups[backup_id]
-            for m in self.active.values():
+            for m in self.active_machines.values():
                 if should_do(m, include, exclude):
                     if backup_id in machine_backups[m.name].keys():
                         backup["machines"][m.name] = machine_backups[m.name][backup_id]
@@ -1084,7 +1095,7 @@ class Deployment:
                 m.remove_backup(backup_id, keep_physical)
 
             nixops.parallel.run_tasks(
-                nr_workers=len(self.active),
+                nr_workers=len(self.active_machines),
                 tasks=iter(self.machines.values()),
                 worker_fun=worker,
             )
@@ -1108,7 +1119,7 @@ class Deployment:
             m.backup(self._machine_definition_for_required(m.name), backup_id, devices)
 
         nixops.parallel.run_tasks(
-            nr_workers=5, tasks=iter(self.active.values()), worker_fun=worker
+            nr_workers=5, tasks=iter(self.active_machines.values()), worker_fun=worker
         )
 
         return backup_id
@@ -1132,7 +1143,9 @@ class Deployment:
                 )
 
             nixops.parallel.run_tasks(
-                nr_workers=-1, tasks=iter(self.active.values()), worker_fun=worker
+                nr_workers=-1,
+                tasks=iter(self.active_machines.values()),
+                worker_fun=worker,
             )
             self.start_machines(include=include, exclude=exclude)
             self.logger.warn(
@@ -1558,7 +1571,7 @@ class Deployment:
             profile = self.create_profile()
             attrs = {
                 m.name: Call(RawValue("builtins.storePath"), m.cur_toplevel)
-                for m in self.active.values()
+                for m in self.active_machines.values()
                 if m.cur_toplevel
             }
             if (
@@ -1618,7 +1631,7 @@ class Deployment:
                 m.reboot(hard=hard)
 
         nixops.parallel.run_tasks(
-            nr_workers=-1, tasks=iter(self.active.values()), worker_fun=worker
+            nr_workers=-1, tasks=iter(self.active_machines.values()), worker_fun=worker
         )
 
     def stop_machines(self, include: List[str] = [], exclude: List[str] = []) -> None:
@@ -1630,7 +1643,7 @@ class Deployment:
             m.stop()
 
         nixops.parallel.run_tasks(
-            nr_workers=-1, tasks=iter(self.active.values()), worker_fun=worker
+            nr_workers=-1, tasks=iter(self.active_machines.values()), worker_fun=worker
         )
 
     def start_machines(self, include: List[str] = [], exclude: List[str] = []) -> None:
@@ -1642,7 +1655,7 @@ class Deployment:
             m.start()
 
         nixops.parallel.run_tasks(
-            nr_workers=-1, tasks=iter(self.active.values()), worker_fun=worker
+            nr_workers=-1, tasks=iter(self.active_machines.values()), worker_fun=worker
         )
 
     def is_valid_resource_name(self, name: str) -> bool:
@@ -1677,7 +1690,7 @@ class Deployment:
             m.send_keys()
 
         nixops.parallel.run_tasks(
-            nr_workers=-1, tasks=iter(self.active.values()), worker_fun=worker
+            nr_workers=-1, tasks=iter(self.active_machines.values()), worker_fun=worker
         )
 
 
