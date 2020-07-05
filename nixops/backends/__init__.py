@@ -280,6 +280,7 @@ class MachineState(
                     timeout=1,
                     logged=False,
                     connection_tries=1,
+                    ssh_quiet=True,
                 )
             except Exception:
                 return False
@@ -302,6 +303,7 @@ class MachineState(
         callback: Optional[Callable[[], Any]] = None,
     ) -> None:
         nixops.util.wait_for_success(self._ping, timeout=timeout, callback=callback)
+        self.ssh.reset()  # To avoid passing a stderr suppressed master conn forward
 
     def wait_for_down(
         self,
@@ -309,6 +311,7 @@ class MachineState(
         callback: Optional[Callable[[], Any]] = None,
     ) -> None:
         nixops.util.wait_for_fail(self._ping, timeout=timeout, callback=callback)
+        self.ssh.reset()  # To avoid passing a stderr suppressed master conn forward
 
     def reboot_sync(self, hard: bool = False) -> None:
         """Reboot this machine and wait until it's up again."""
