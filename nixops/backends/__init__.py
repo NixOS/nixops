@@ -275,10 +275,14 @@ class MachineState(
         def _worker():
             try:
                 self.ssh.run_command(
-                    ["true"], user=self.ssh_user, logged=False, connection_tries=1
+                    ["true"],
+                    user=self.ssh_user,
+                    timeout=1,
+                    logged=False,
+                    connection_tries=1,
                 )
             except Exception:
-                pass
+                return False
             else:
                 event.set()
 
