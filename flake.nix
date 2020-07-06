@@ -1,7 +1,7 @@
 {
   description = "NixOps: a tool for deploying to [NixOS](https://nixos.org) machines in a network or the cloud";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
   inputs.utils.url = "github:numtide/flake-utils";
 
