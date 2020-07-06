@@ -41,7 +41,7 @@ import nixops.logger
 import nixops.parallel
 from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
 from nixops.ansi import ansi_success
-from nixops.plugins import get_plugin_manager
+from nixops.plugins import get_plugins
 
 Definitions = Dict[str, nixops.resources.ResourceDefinition]
 
@@ -58,6 +58,13 @@ DEBUG = False
 
 
 TypedResource = TypeVar("TypedResource")
+
+
+def _get_extraexprs() -> List[str]:
+    extraexprs: List[str] = []
+    for plugin in get_plugins():
+        extraexprs.extend(plugin.nixexprs())
+    return extraexprs
 
 
 class Deployment:
@@ -386,9 +393,7 @@ class Deployment:
             self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
 
     def _nix_path_flags(self) -> List[str]:
-        extraexprs = [
-            path for paths in get_plugin_manager().hook.nixexprs() for path in paths
-        ]
+        extraexprs = _get_extraexprs()
 
         flags = (
             list(
@@ -409,9 +414,7 @@ class Deployment:
         args = {key: RawValue(val) for key, val in self.args.items()}
         exprs_ = [RawValue(x) if x[0] == "<" else x for x in exprs]
 
-        extraexprs = [
-            path for paths in get_plugin_manager().hook.nixexprs() for path in paths
-        ]
+        extraexprs = _get_extraexprs()
 
         flags.extend(
             [
@@ -613,8 +616,12 @@ class Deployment:
             m.name: set() for m in active_machines.values()
         }
 
-        for p in get_plugin_manager().hook.deployment_hook():
-            for name, attrs in p.physical_spec(self).items():
+        for plugin in get_plugins():
+            deployment_hooks = plugin.deployment_hooks()
+            if not deployment_hooks:
+                continue
+
+            for name, attrs in deployment_hooks.physical_spec(self).items():
                 attrs_per_resource[name].extend(attrs)
 
         # Hostnames should be accumulated like this:
@@ -1349,8 +1356,11 @@ class Deployment:
 
                         m.wait_for_ssh(check=check)
 
-                        for p in get_plugin_manager().hook.machine_hook():
-                            p.post_wait(m)
+                        for plugin in get_plugins():
+                            machine_hooks = plugin.machine_hooks()
+                            if not machine_hooks:
+                                continue
+                            machine_hooks.post_wait(m)
 
                 except Exception:
                     r._errored = True
@@ -1800,13 +1810,6 @@ def _load_modules_from(dir: str) -> None:
         if module[-3:] != ".py" or module == "__init__.py":
             continue
         importlib.import_module("nixops." + dir + "." + module[:-3])
-
-
-class DeploymentPlugin(Protocol):
-    def physical_spec(
-        self, d: Deployment
-    ) -> Dict[str, List[Dict[Tuple[str, ...], Any]]]:
-        return {}
 
 
 _load_modules_from("backends")
