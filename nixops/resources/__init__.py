@@ -12,7 +12,6 @@ from nixops.util import ImmutableMapping, ImmutableValidatedObject
 from nixops.logger import MachineLogger
 from typing_extensions import Literal
 
-
 if TYPE_CHECKING:
     import nixops.deployment
 
@@ -103,6 +102,12 @@ class ResourceState(Protocol[ResourceDefinitionType]):
     _created_event: Optional[Event] = None
     _destroyed_event: Optional[Event] = None
     _errored: Optional[bool] = None
+
+    # While this looks like a rookie mistake where the list is going  get shared
+    # across all class instances it's not... It's working around a Mypy crash.
+    #
+    # We're overriding this value in __init__.
+    # It's safe despite there being a shared list on the class level
     _wait_for: List["ResourceState"] = []
 
     depl: nixops.deployment.Deployment
@@ -110,6 +115,11 @@ class ResourceState(Protocol[ResourceDefinitionType]):
     logger: MachineLogger
 
     def __init__(self, depl: nixops.deployment.Deployment, name: str, id: RecordId):
+        # Override default class-level list.
+        # Previously this behaviour was missing and the _wait_for list was shared across all instances
+        # of ResourceState, resulting in a deadlock in resource destruction as they resource being
+        # destroyed had a reference to itself in the _wait_for list.
+        self._wait_for = []
         self.depl = depl
         self.name = name
         self.id = id
@@ -308,6 +318,7 @@ class ResourceState(Protocol[ResourceDefinitionType]):
 
 class DiffEngineResourceState(ResourceState):
     _reserved_keys: List[str] = []
+    _state: StateDict
 
     def __init__(self, depl, name, id):
         nixops.resources.ResourceState.__init__(self, depl, name, id)

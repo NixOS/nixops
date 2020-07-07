@@ -1,3 +1,4 @@
+from typing import Sequence
 import json
 from nixops.logger import Logger
 from io import StringIO
@@ -108,3 +109,9 @@ class TestUtilTest(unittest.TestCase):
         b = B(a, y=1)
         self.assertEqual(a.x, b.x)
         self.assertEqual(b.x, 1)
+
+        # Test Sequence[ImmutableValidatedObject]
+        class WithSequence(util.ImmutableValidatedObject):
+            subs: Sequence[SubResource]
+
+        WithSequence(subs=[SubResource(x=1), SubResource(x=2)])
