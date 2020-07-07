@@ -32,6 +32,7 @@ class SSHMaster(object):
         passwd: Optional[str] = None,
         user: Optional[str] = None,
         compress: bool = False,
+        ssh_quiet: Optional[bool] = False,
     ) -> None:
         self._running: bool = False
         self._tempdir: nixops.util.SelfDeletingDir = nixops.util.SelfDeletingDir(
@@ -57,6 +58,9 @@ class SSHMaster(object):
             kwargs["stdin"] = nixops.util.devnull
             kwargs["preexec_fn"] = os.setsid
             pass_prompts = 1
+
+        if ssh_quiet:
+            kwargs["capture_stderr"] = False
 
         cmd = (
             [
@@ -211,6 +215,7 @@ class SSH(object):
         flags: List[str] = [],
         timeout: Optional[int] = None,
         tries: int = 5,
+        ssh_quiet: Optional[bool] = False,
     ) -> SSHMaster:
         """
         Start (if necessary) an SSH master connection to speed up subsequent
@@ -244,6 +249,7 @@ class SSH(object):
                     self._get_passwd(),
                     user,
                     compress=self._compress,
+                    ssh_quiet=ssh_quiet,
                 )
                 break
             except Exception:
@@ -324,6 +330,7 @@ class SSH(object):
         logged: bool = True,
         allow_ssh_args: bool = False,
         connection_tries: int = 5,
+        ssh_quiet: Optional[bool] = False,
         **kwargs: Any
     ) -> Union[str, int]:
         """
@@ -344,9 +351,15 @@ class SSH(object):
         is executed interactively with no logging.
 
         'timeout' specifies the SSH connection timeout.
+        'ssh_quiet' spawns a master ssh session, if needed, with stderr suppressed
         """
+
         master = self.get_master(
-            flags=flags, timeout=timeout, user=user, tries=connection_tries
+            flags=flags,
+            timeout=timeout,
+            user=user,
+            tries=connection_tries,
+            ssh_quiet=True if ssh_quiet else False,
         )
         flags = flags + self._get_flags()
         if logged:

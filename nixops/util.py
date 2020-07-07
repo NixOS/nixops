@@ -35,6 +35,7 @@ from typing import (
     Iterable,
 )
 
+import nixops.util
 from nixops.logger import MachineLogger
 from io import StringIO
 
@@ -224,6 +225,7 @@ def logged_exec(  # noqa: C901
     logger: MachineLogger,
     check: bool = True,
     capture_stdout: bool = False,
+    capture_stderr: Optional[bool] = True,
     stdin: Optional[IO[Any]] = None,
     stdin_string: Optional[str] = None,
     env: Optional[Mapping[str, str]] = None,
@@ -259,7 +261,7 @@ def logged_exec(  # noqa: C901
             env=env,
             stdin=passed_stdin,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.PIPE if capture_stderr else nixops.util.devnull,
             preexec_fn=preexec_fn,
             text=True,
         )
@@ -271,7 +273,7 @@ def logged_exec(  # noqa: C901
             env=env,
             stdin=passed_stdin,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            stderr=subprocess.STDOUT if capture_stderr else nixops.util.devnull,
             preexec_fn=preexec_fn,
             text=True,
         )
