@@ -84,7 +84,7 @@ class MachineState(
     ssh: nixops.ssh_util.SSH
     ssh_pinged: bool = nixops.util.attr_property("sshPinged", False, bool)
     _ssh_pinged_this_time: bool = False
-    ssh_port: int = nixops.util.attr_property("targetPort", 22, int)
+    ssh_port: int = nixops.util.attr_property("targetPort", None, int)
     ssh_user: str = nixops.util.attr_property("targetUser", "root", str)
     ssh_options: List[str] = nixops.util.attr_property("sshOptions", [], "json")
     privilege_escalation_command: List[str] = nixops.util.attr_property(
@@ -415,9 +415,11 @@ class MachineState(
 
     def get_ssh_flags(self, scp=False) -> List[str]:
         if scp:
-            return ["-P", str(self.ssh_port)]
+            return ["-P", str(self.ssh_port)] if self.ssh_port is not None else []
         else:
-            return list(self.ssh_options) + ["-p", str(self.ssh_port)]
+            return list(self.ssh_options) + (
+                ["-p", str(self.ssh_port)] if self.ssh_port is not None else []
+            )
 
     def get_ssh_password(self):
         return None
