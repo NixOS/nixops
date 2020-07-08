@@ -4,6 +4,15 @@ with lib;
 
 let
   keyOptionsType = types.submodule ({ config, name, ... }: {
+    options.name = mkOption {
+       example = "secret.txt";
+       default = name;
+       type = types.str;
+       description = ''
+         The name of the key file.
+       '';
+     };
+
     options.text = mkOption {
       example = "super secret stuff";
       default = null;
@@ -77,7 +86,7 @@ let
 
     options.path = mkOption {
       type = types.path;
-      default = "${config.destDir}/${name}";
+      default = "${config.destDir}/${config.name}";
       internal = true;
       description = ''
         Path to the destination of the file, a shortcut to
@@ -182,6 +191,11 @@ in
                   (opts.text != null && opts.keyFile == null && opts.keyCommand == null) ||
                   (opts.text == null && opts.keyFile == null && opts.keyCommand != null);
       message = "Deployment key '${key}' must have either a 'text', 'keyCommand' or a 'keyFile' specified.";
+    })) ++ (flip mapAttrsToList config.deployment.keys (key: opts: let
+      dups = lib.attrNames (lib.filterAttrs (n: v: n != key && v.path == opts.path) config.deployment.keys);
+    in {
+      assertion = dups == [];
+      message = "Deployment key '${key}' has non-unique paths, duplicated in: ${lib.concatStringsSep ", " dups}.";
     }));
 
     system.activationScripts.nixops-keys =
@@ -228,7 +242,7 @@ in
           serviceConfig.RestartSec = "100ms";
           path = [ pkgs.inotifyTools ];
           preStart = ''
-            (while read f; do if [ "$f" = "${name}" ]; then break; fi; done \
+            (while read f; do if [ "$f" = "${keyCfg.name}" ]; then break; fi; done \
               < <(inotifywait -qm --format '%f' -e create,move ${keyCfg.destDir}) ) &
 
             if [[ -e "${keyCfg.path}" ]]; then

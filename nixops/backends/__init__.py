@@ -16,6 +16,8 @@ class KeyOptions(nixops.resources.ResourceOptions):
     text: Optional[str]
     keyFile: Optional[str]
     keyCommand: Optional[Sequence[str]]
+    name: str
+    path: str
     destDir: str
     user: str
     group: str
@@ -348,7 +350,7 @@ class MachineState(
             return
 
         for k, opts in self.get_keys().items():
-            self.log("uploading key ‘{0}’...".format(k))
+            self.log("uploading key ‘{0}’ to ‘{1}’...".format(k, opts["path"]))
             tmp = self.depl.tempdir + "/key-" + self.name
 
             destDir = opts["destDir"].rstrip("/")
@@ -379,10 +381,10 @@ class MachineState(
                     )
                 )
 
-            outfile = destDir + "/" + k
+            outfile = opts["path"]
             # We scp to a temporary file and then mv because scp is not atomic.
             # See https://github.com/NixOS/nixops/issues/762
-            tmp_outfile = destDir + "/." + k + ".tmp"
+            tmp_outfile = destDir + "/." + opts["name"] + ".tmp"
             outfile_esc = "'" + outfile.replace("'", r"'\''") + "'"
             tmp_outfile_esc = "'" + tmp_outfile.replace("'", r"'\''") + "'"
             self.run_command("rm -f " + outfile_esc + " " + tmp_outfile_esc)
