@@ -154,7 +154,7 @@ export HOME="/root"
 groupadd -r nixbld -g 30000
 seq 1 10 | xargs -I{} useradd -c "Nix build user {}" -d /var/empty -g nixbld -G nixbld -M -N -r -s `which nologin` nixbld{}
 
-curl https://nixos.org/nix/install | sh
+curl -L https://nixos.org/nix/install | sh
 
 source ~/.nix-profile/etc/profile.d/nix.sh
 
