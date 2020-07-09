@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from nixops.backends import MachineState
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 
 from functools import lru_cache
 from typing import Generator
@@ -33,7 +33,7 @@ class DeploymentHooks:
     Deployment level hooks
     """
 
-    def physical_spec(self, d) -> Dict[str, Dict]:
+    def physical_spec(self, d) -> Dict[str, Union[List[Dict], Dict]]:
         """
         Manipulate NixOS configurations for machines in deployment
 
