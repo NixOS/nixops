@@ -107,11 +107,15 @@ Important Notes
 
    .. code-block:: python
 
-     @nixops.plugins.hookimpl
-     def nixexprs():
-         return [
-             os.path.dirname(os.path.abspath(__file__)) + "/nix"
-         ]
+     from nixops.plugins import Plugin
+
+     class NeatCloudPlugin(Plugin):
+
+         @staticmethod
+         def nixexprs():
+             return [
+                 os.path.dirname(os.path.abspath(__file__)) + "/nix"
+             ]
 
 5. Resource subclasses must now work with Python objects instead of XML
 
@@ -261,7 +265,7 @@ return it in the appropriate plugin hook:
   from nixops.plugins import Plugin
   import nixops.plugins
 
-  class MyPlugin(Plugin):
+  class NeatCloudPlugin(Plugin):
 
       @staticmethod
       def nixexprs():
@@ -269,7 +273,7 @@ return it in the appropriate plugin hook:
 
   @nixops.plugins.hookimpl
   def plugin():
-      return MyPlugin()
+      return NeatCloudPlugin()
 
 
 
