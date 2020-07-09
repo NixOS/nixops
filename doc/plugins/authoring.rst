@@ -250,6 +250,29 @@ discover and load plugins. The glue which hooks things together is in
 NixOps implements a handful of hooks which your plugin can integrate
 with. See ``nixops/plugins/hookspec.py`` for a complete list.
 
+Defining a plugin
+-----------------
+
+To define a plugin you need to inherit from the `Plugin` base class and
+return it in the appropriate plugin hook:
+
+.. code-block:: python
+
+  from nixops.plugins import Plugin
+  import nixops.plugins
+
+  class MyPlugin(Plugin):
+
+      @staticmethod
+      def nixexprs():
+          return [ ]  # List of paths to nix expressions
+
+  @nixops.plugins.hookimpl
+  def plugin():
+      return MyPlugin()
+
+
+
 Developing NixOps and a plugin at the same time
 -----------------------------------------------
 
