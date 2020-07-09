@@ -56,6 +56,7 @@ class UnknownBackend(Exception):
 
 DEBUG = False
 
+NixosConfigurationType = List[Dict[Tuple[str, ...], Any]]
 
 TypedResource = TypeVar("TypedResource")
 
@@ -603,7 +604,7 @@ class Deployment:
         active_machines = self.active_machines
         active_resources = self.active_resources
 
-        attrs_per_resource: Dict[str, List[Dict[Tuple[str, ...], Any]]] = {
+        attrs_per_resource: Dict[str, NixosConfigurationType] = {
             m.name: [] for m in active_resources.values()
         }
         authorized_keys: Dict[str, List[str]] = {
@@ -690,7 +691,7 @@ class Deployment:
             do_machine(m)
 
         def emit_resource(r: nixops.resources.GenericResourceState) -> Any:
-            config: List[Dict[Tuple[str, ...], Any]] = []
+            config: NixosConfigurationType = []
             config.extend(attrs_per_resource[r.name])
             if is_machine(r):
                 # Sort the hosts by its canonical host names.
