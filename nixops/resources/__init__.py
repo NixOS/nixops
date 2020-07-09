@@ -27,6 +27,7 @@ class ResourceOptions(ImmutableValidatedObject):
 class ResourceDefinition:
     """Base class for NixOps resource definitions."""
 
+    resource_eval: ResourceEval
     config: ResourceOptions
 
     @classmethod
@@ -46,6 +47,7 @@ class ResourceDefinition:
                 '"config" type annotation must be a ResourceOptions subclass'
             )
 
+        self.resource_eval = config
         self.config = config_type(**config)
         self.name = name
 
