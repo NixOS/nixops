@@ -21,19 +21,14 @@ import logging.handlers
 import json
 import pipes
 from typing import Tuple, List, Optional, Union, Generator
-import importlib
 import nixops.ansi
 
-from nixops.plugins import get_plugin_manager, get_plugins
+from nixops.plugins.manager import PluginManager
+
+from nixops.plugins import get_plugin_manager
 
 
-def __load_plugins():
-    for plugin in get_plugins():
-        for mod in plugin.load():
-            importlib.import_module(mod)
-
-
-__load_plugins()
+PluginManager.load()
 
 
 @contextlib.contextmanager
@@ -1213,5 +1208,4 @@ def error(msg):
 
 
 def parser_plugin_hooks(parser, subparsers):
-    for plugin in get_plugins():
-        plugin.parser(parser=parser, subparsers=subparsers)
+    PluginManager.parser(parser, subparsers)

@@ -6,6 +6,7 @@ from typing import List, Dict, Optional, Union
 from functools import lru_cache
 from typing import Generator
 import pluggy
+import nixops
 
 
 hookimpl = pluggy.HookimplMarker("nixops")
@@ -33,7 +34,9 @@ class DeploymentHooks:
     Deployment level hooks
     """
 
-    def physical_spec(self, d) -> Dict[str, Union[List[Dict], Dict]]:
+    def physical_spec(
+        self, d: "nixops.deployment.Deployment"
+    ) -> Dict[str, Union[List[Dict], Dict]]:
         """
         Manipulate NixOS configurations for machines in deployment
 

@@ -39,9 +39,15 @@ from typing import (
 import nixops.backends
 import nixops.logger
 import nixops.parallel
+from nixops.plugins.manager import (
+    DeploymentHooksManager,
+    MachineHooksManager,
+    PluginManager,
+)
+
 from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
 from nixops.ansi import ansi_success
-from nixops.plugins import get_plugins
+
 
 Definitions = Dict[str, nixops.resources.ResourceDefinition]
 
@@ -59,13 +65,6 @@ DEBUG = False
 NixosConfigurationType = List[Dict[Tuple[str, ...], Any]]
 
 TypedResource = TypeVar("TypedResource")
-
-
-def _get_extraexprs() -> List[str]:
-    extraexprs: List[str] = []
-    for plugin in get_plugins():
-        extraexprs.extend(plugin.nixexprs())
-    return extraexprs
 
 
 class Deployment:
@@ -394,7 +393,7 @@ class Deployment:
             self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
 
     def _nix_path_flags(self) -> List[str]:
-        extraexprs = _get_extraexprs()
+        extraexprs = PluginManager.nixexprs()
 
         flags = (
             list(
@@ -415,7 +414,7 @@ class Deployment:
         args = {key: RawValue(val) for key, val in self.args.items()}
         exprs_ = [RawValue(x) if x[0] == "<" else x for x in exprs]
 
-        extraexprs = _get_extraexprs()
+        extraexprs = PluginManager.nixexprs()
 
         flags.extend(
             [
@@ -617,13 +616,8 @@ class Deployment:
             m.name: set() for m in active_machines.values()
         }
 
-        for plugin in get_plugins():
-            deployment_hooks = plugin.deployment_hooks()
-            if not deployment_hooks:
-                continue
-
-            for name, attrs in deployment_hooks.physical_spec(self).items():
-                attrs_per_resource[name].extend(attrs)
+        for name, attrs in DeploymentHooksManager.physical_spec(self).items():
+            attrs_per_resource[name].extend(attrs)
 
         # Hostnames should be accumulated like this:
         #
@@ -1357,11 +1351,7 @@ class Deployment:
 
                         m.wait_for_ssh(check=check)
 
-                        for plugin in get_plugins():
-                            machine_hooks = plugin.machine_hooks()
-                            if not machine_hooks:
-                                continue
-                            machine_hooks.post_wait(m)
+                        MachineHooksManager.post_wait(m)
 
                 except Exception:
                     r._errored = True
