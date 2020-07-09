@@ -70,7 +70,7 @@ Serving on http://127.0.0.1:5500
 and verify its lints before committing:
 
 ```
-nixops$ ./ci/lint-docs.sh
+nixops$ lint-docs
 ```
 
 ### Contributing
