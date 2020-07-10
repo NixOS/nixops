@@ -52,9 +52,13 @@ let
 
   inherit (pkgs) lib;
 
+  # Expose path to imported nixpkgs (currently only used to find version suffix)
+  nixpkgs = builtins.unsafeDiscardStringContext pkgs.path;
+
 in rec {
 
   inherit networks network;
+  inherit nixpkgs;
 
   importedPluginNixExprs = map
     (expr: import expr)
@@ -250,4 +254,5 @@ in rec {
   getNixOpsArgs = fs: lib.zipAttrs (lib.unique (lib.concatMap fileToArgs (getNixOpsExprs fs)));
 
   nixopsArguments = getNixOpsArgs networkExprs;
+
 }

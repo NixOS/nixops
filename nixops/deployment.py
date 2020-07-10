@@ -791,11 +791,9 @@ class Deployment:
         # Set the NixOS version suffix, if we're building from Git.
         # That way ‘nixos-version’ will show something useful on the
         # target machines.
-        nixos_path = subprocess.check_output(
-            ["nix-instantiate", "--find-file", "nixpkgs/nixos"]
-            + self._nix_path_flags(),
-            text=True,
-        ).rstrip()
+        #
+        # TODO: Implement flake compatible version
+        nixos_path = str(self.evaluate_config("nixpkgs"))
         get_version_script = nixos_path + "/modules/installer/tools/get-version-suffix"
         if os.path.exists(nixos_path + "/.git") and os.path.exists(get_version_script):
             self.nixos_version_suffix = subprocess.check_output(
