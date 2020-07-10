@@ -129,6 +129,12 @@ Each attribute is explained below:
   <listitem><para>If <literal>true</literal>, each deployment creates
   a new profile generation to able to run <command>nixops rollback</command>.
   Defaults to <literal>false</literal>.
+  </para>
+
+  <para>Note that the profiles are created on the system from which nixops is
+  executed. Even with <option>network.enableRollback</option> set to
+  <literal>false</literal> new profile generations are created on the remote
+  machines on <command>nixops deploy</command>.
   </para></listitem>
 
   </varlistentry>
