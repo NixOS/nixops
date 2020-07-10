@@ -38,6 +38,3 @@ class LockDriver(Protocol[LockOptions]):
     # the type definition allows adding new arguments later.
     def unlock(self, **kwargs) -> None:
         raise NotImplementedError
-
-
-lock_drivers: Dict[str, Type[LockDriver]] = {}
