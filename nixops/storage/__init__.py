@@ -51,9 +51,3 @@ class StorageBackend(Protocol[T]):
     # the type definition allows adding new arguments later.
     def uploadFromFile(self, path: str, **kwargs) -> None:
         raise NotImplementedError
-
-
-BackendRegistration = Dict[str, Type[StorageBackend]]
-
-
-storage_backends: Dict[str, Type[StorageBackend]] = {}

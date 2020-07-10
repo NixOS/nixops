@@ -30,8 +30,6 @@ from nixops.plugins.manager import PluginManager
 
 from nixops.plugins import get_plugin_manager
 from nixops.evaluation import eval_network
-from nixops.storage import storage_backends
-from nixops.locks import lock_drivers
 from nixops.backends import MachineDefinition
 
 
@@ -50,6 +48,7 @@ def deployment(args: Namespace) -> Generator[nixops.deployment.Deployment, None,
 def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None, None]:
     network_file: str = args.network_file
     network = eval_network(network_file)
+    storage_backends = PluginManager.storage_backends()
     storage_class: Optional[Type[StorageBackend]] = storage_backends.get(
         network.storage.provider
     )
@@ -64,6 +63,7 @@ def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None
 
     lock: LockDriver
     lock_class: Type[LockDriver]
+    lock_drivers = PluginManager.lock_drivers()
     try:
         lock_class = lock_drivers[network.lock.provider]
     except KeyError:

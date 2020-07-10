@@ -4,11 +4,12 @@ from nixops.backends import MachineState
 from typing import List, Dict, Generator, Tuple, Any, Set
 import importlib
 
-from nixops.storage import storage_backends
-from nixops.locks import lock_drivers
+from nixops.storage import StorageBackend
+from nixops.locks import LockDriver
 from . import get_plugins, MachineHooks, DeploymentHooks
 import nixops.ansi
 import nixops
+from typing import Type
 import sys
 
 
@@ -64,9 +65,6 @@ class PluginManager:
                     importlib.import_module(mod)
                 seen.add(mod)
 
-        cls.storage_backends()
-        cls.lock_drivers()
-
     @staticmethod
     def nixexprs() -> List[str]:
         nixexprs: List[str] = []
@@ -85,7 +83,9 @@ class PluginManager:
             yield from plugin.docs()
 
     @staticmethod
-    def storage_backends():
+    def storage_backends() -> Dict[str, Type[StorageBackend]]:
+        storage_backends: Dict[str, Type[StorageBackend]] = {}
+
         for plugin in get_plugins():
             for name, backend in plugin.storage_backends().items():
                 if name not in storage_backends:
@@ -97,8 +97,12 @@ class PluginManager:
                         )
                     )
 
+        return storage_backends
+
     @staticmethod
-    def lock_drivers():
+    def lock_drivers() -> Dict[str, Type[LockDriver]]:
+        lock_drivers: Dict[str, Type[LockDriver]] = {}
+
         for plugin in get_plugins():
             for name, driver in plugin.lock_drivers().items():
                 if name not in lock_drivers:
@@ -109,3 +113,5 @@ class PluginManager:
                             f"Two plugins tried to provide the '{name}' lock driver."
                         )
                     )
+
+        return lock_drivers
