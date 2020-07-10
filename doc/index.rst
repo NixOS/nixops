@@ -23,6 +23,12 @@ NixOps
    plugins/authoring
 
 .. toctree::
+   :maxdepth: 2
+   :caption: Manual:
+
+   manual/index
+
+.. toctree::
    :maxdepth: 1
    :caption: Developing NixOps:
 
