@@ -118,8 +118,11 @@ class MachineState(
     # machine was created.
     state_version: Optional[str] = nixops.util.attr_property("stateVersion", None, str)
 
+    defn: Optional[MachineDefinition] = None
+
     def __init__(self, depl, name: str, id: RecordId) -> None:
         super().__init__(depl, name, id)
+        self.defn = None
         self._ssh_pinged_this_time = False
         self.ssh = nixops.ssh_util.SSH(self.logger)
         self.ssh.register_flag_fun(self.get_ssh_flags)
@@ -138,6 +141,7 @@ class MachineState(
         return state == self.STARTING or state == self.UP
 
     def set_common_state(self, defn: MachineDefinitionType) -> None:
+        self.defn = defn
         self.keys = defn.keys
         self.ssh_port = defn.ssh_port
         self.ssh_user = defn.ssh_user

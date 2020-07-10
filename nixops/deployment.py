@@ -39,9 +39,15 @@ from typing import (
 import nixops.backends
 import nixops.logger
 import nixops.parallel
+from nixops.plugins.manager import (
+    DeploymentHooksManager,
+    MachineHooksManager,
+    PluginManager,
+)
+
 from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
 from nixops.ansi import ansi_success
-from nixops.plugins import get_plugin_manager
+
 
 Definitions = Dict[str, nixops.resources.ResourceDefinition]
 
@@ -56,6 +62,7 @@ class UnknownBackend(Exception):
 
 DEBUG = False
 
+NixosConfigurationType = List[Dict[Tuple[str, ...], Any]]
 
 TypedResource = TypeVar("TypedResource")
 
@@ -386,9 +393,7 @@ class Deployment:
             self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
 
     def _nix_path_flags(self) -> List[str]:
-        extraexprs = [
-            path for paths in get_plugin_manager().hook.nixexprs() for path in paths
-        ]
+        extraexprs = PluginManager.nixexprs()
 
         flags = (
             list(
@@ -409,9 +414,7 @@ class Deployment:
         args = {key: RawValue(val) for key, val in self.args.items()}
         exprs_ = [RawValue(x) if x[0] == "<" else x for x in exprs]
 
-        extraexprs = [
-            path for paths in get_plugin_manager().hook.nixexprs() for path in paths
-        ]
+        extraexprs = PluginManager.nixexprs()
 
         flags.extend(
             [
@@ -600,7 +603,7 @@ class Deployment:
         active_machines = self.active_machines
         active_resources = self.active_resources
 
-        attrs_per_resource: Dict[str, List[Dict[Tuple[str, ...], Any]]] = {
+        attrs_per_resource: Dict[str, NixosConfigurationType] = {
             m.name: [] for m in active_resources.values()
         }
         authorized_keys: Dict[str, List[str]] = {
@@ -612,6 +615,9 @@ class Deployment:
         trusted_interfaces: Dict[str, Set[str]] = {
             m.name: set() for m in active_machines.values()
         }
+
+        for name, attrs in DeploymentHooksManager.physical_spec(self).items():
+            attrs_per_resource[name].extend(attrs)
 
         # Hostnames should be accumulated like this:
         #
@@ -679,7 +685,7 @@ class Deployment:
             do_machine(m)
 
         def emit_resource(r: nixops.resources.GenericResourceState) -> Any:
-            config = []
+            config: NixosConfigurationType = []
             config.extend(attrs_per_resource[r.name])
             if is_machine(r):
                 # Sort the hosts by its canonical host names.
@@ -1344,6 +1350,8 @@ class Deployment:
                                 m.warn("cannot determine NixOS version")
 
                         m.wait_for_ssh(check=check)
+
+                        MachineHooksManager.post_wait(m)
 
                 except Exception:
                     r._errored = True

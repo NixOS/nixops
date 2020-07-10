@@ -1,3 +1,5 @@
+from . import Plugin
+
 import pluggy
 
 
@@ -5,21 +7,8 @@ hookspec = pluggy.HookspecMarker("nixops")
 
 
 @hookspec
-def load():
-    """ Load plugins (import)
-    :return a list of modules to import
+def plugin() -> Plugin:
     """
-
-
-@hookspec
-def nixexprs():
-    """ Get all the Nix expressions to load
-    :return a list of Nix expressions to import
+    Register a plugin base class
     """
-
-
-@hookspec
-def parser(parser, subparsers):
-    """ Extend the core nixops cli parser
-    :return a set of plugin parser extensions
-    """
+    pass

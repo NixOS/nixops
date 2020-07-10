@@ -21,17 +21,14 @@ import logging.handlers
 import json
 import pipes
 from typing import Tuple, List, Optional, Union, Generator
-import importlib
 import nixops.ansi
+
+from nixops.plugins.manager import PluginManager
 
 from nixops.plugins import get_plugin_manager
 
 
-pm = get_plugin_manager()
-[
-    [importlib.import_module(mod) for mod in pluginimports]
-    for pluginimports in pm.hook.load()
-]
+PluginManager.load()
 
 
 @contextlib.contextmanager
@@ -51,6 +48,8 @@ def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None
 
 
 def op_list_plugins(args):
+    pm = get_plugin_manager()
+
     if args.verbose:
         tbl = create_table([("Installed Plugins", "c"), ("Plugin Reference", "c")])
     else:
@@ -1209,4 +1208,4 @@ def error(msg):
 
 
 def parser_plugin_hooks(parser, subparsers):
-    pm.hook.parser(parser=parser, subparsers=subparsers)
+    PluginManager.parser(parser, subparsers)
