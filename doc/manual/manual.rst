@@ -1,7 +1,7 @@
 Command Reference
 =================
 
-.. _ch-options:
+:doc:`nixops`
 
 Configuration Options
 =====================
