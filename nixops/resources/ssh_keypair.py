@@ -9,6 +9,8 @@ import nixops.resources
 class SSHKeyPairDefinition(nixops.resources.ResourceDefinition):
     """Definition of an SSH key pair."""
 
+    config: nixops.resources.ResourceOptions
+
     @classmethod
     def get_type(cls):
         return "ssh-keypair"

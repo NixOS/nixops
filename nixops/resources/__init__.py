@@ -42,6 +42,17 @@ class ResourceDefinition:
 
     def __init__(self, name: str, config: ResourceEval):
         config_type = self.__annotations__.get("config", ResourceOptions)
+
+        if isinstance(config_type, str):
+            if config_type == "ResourceOptions":
+                raise TypeError(
+                    f'{self.__class__} is missing a "config" attribute, for example: `config: nixops.resources.ResourceOptions`, see https://nixops.readthedocs.io/en/latest/plugins/authoring.html'
+                )
+            else:
+                raise TypeError(
+                    f"{self.__class__}.config is not allowed to be a string"
+                )
+
         if not issubclass(config_type, ResourceOptions):
             raise TypeError(
                 '"config" type annotation must be a ResourceOptions subclass'
