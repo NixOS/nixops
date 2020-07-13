@@ -56,7 +56,7 @@ class PluginManager:
             for mod in plugin.load():
                 if mod not in seen:
                     importlib.import_module(mod)
-            seen.add(mod)
+                seen.add(mod)
 
     @staticmethod
     def nixexprs() -> List[str]:
