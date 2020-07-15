@@ -23,7 +23,7 @@ import logging.handlers
 import json
 from tempfile import TemporaryDirectory
 import pipes
-from typing import Tuple, List, Optional, Union, Generator, Type
+from typing import Tuple, List, Optional, Union, Generator, Type, Set
 import nixops.ansi
 
 from nixops.plugins.manager import PluginManager
@@ -32,6 +32,7 @@ from nixops.plugins import get_plugin_manager
 from nixops.evaluation import eval_network
 from nixops.storage import storage_backends
 from nixops.locks import lock_drivers
+from nixops.backends import MachineDefinition
 
 
 PluginManager.load()
@@ -149,13 +150,24 @@ def op_list_deployments(args):
             ]
         )
         for depl in sort_deployments(sf.get_all_deployments()):
+            depl.evaluate()
+
+            types: Set[str] = set()
+            n_machines: int = 0
+
+            for defn in (depl.definitions or {}).values():
+                if not isinstance(defn, MachineDefinition):
+                    continue
+                n_machines += 1
+                types.add(defn.get_type())
+
             tbl.add_row(
                 [
                     depl.uuid,
                     depl.name or "(none)",
                     depl.description,
-                    len(depl.machines),
-                    ", ".join(set(m.get_type() for m in depl.machines.values())),
+                    n_machines,
+                    ", ".join(types),
                 ]
             )
         print(tbl)
