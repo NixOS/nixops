@@ -14,3 +14,8 @@ class InternalPlugin(nixops.plugins.Plugin):
 
     def lock_drivers(self) -> Dict[str, Type[LockDriver]]:
         return {"noop": NoopLock}
+
+
+@nixops.plugins.hookimpl
+def plugin():
+    return InternalPlugin()
