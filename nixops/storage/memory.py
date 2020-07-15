@@ -28,7 +28,13 @@ class MemoryBackend(StorageBackend[MemoryBackendOptions]):
     # Note: no arguments will be passed over kwargs. Making it part of
     # the type definition allows adding new arguments later.
     def onOpen(self, sf: nixops.statefile.StateFile, **kwargs) -> None:
-        sf.create_deployment()
+        from nixops.script_defs import modify_deployment
+        from nixops.args import parser
+
+        depl = sf.create_deployment()
+        args = parser.parse_args()
+
+        modify_deployment(args, depl)
 
     # uploadFromFile: upload the new version of the state file
     # Note: no arguments will be passed over kwargs. Making it part of
