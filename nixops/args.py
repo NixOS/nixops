@@ -41,6 +41,7 @@ from nixops.script_defs import (
     op_copy_closure,
     op_list_plugins,
     parser_plugin_hooks,
+    op_unlock,
 )
 
 # Set up the parser.
@@ -651,5 +652,8 @@ subparser.add_argument(
     "--verbose", "-v", action="store_true", help="Provide extra plugin information"
 )
 subparser.add_argument("--debug", action="store_true", help="enable debug output")
+
+subparser = add_subparser(subparsers, "unlock", help="Force unlock the deployment lock")
+subparser.set_defaults(op=op_unlock)
 
 parser_plugin_hooks(parser, subparsers)

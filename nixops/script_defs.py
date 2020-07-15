@@ -29,7 +29,7 @@ import nixops.ansi
 from nixops.plugins.manager import PluginManager
 
 from nixops.plugins import get_plugin_manager
-from nixops.evaluation import eval_network
+from nixops.evaluation import eval_network, NetworkEval
 from nixops.backends import MachineDefinition
 
 
@@ -42,6 +42,26 @@ def deployment(args: Namespace) -> Generator[nixops.deployment.Deployment, None,
         depl = open_deployment(sf, args)
         depl.nix_exprs = [os.path.abspath(args.network_file)]
         yield depl
+
+
+def get_lock(network: NetworkEval) -> LockDriver:
+    lock: LockDriver
+    lock_class: Type[LockDriver]
+    lock_drivers = PluginManager.lock_drivers()
+    try:
+        lock_class = lock_drivers[network.lock.provider]
+    except KeyError:
+        sys.stderr.write(
+            nixops.ansi.ansi_warn(
+                f"The network requires the '{network.lock.provider}' lock driver, "
+                "but no plugin provides it.\n"
+            )
+        )
+        raise Exception("Missing lock driver plugin.")
+    else:
+        lock_class_options = lock_class.options(**network.lock.configuration)
+        lock = lock_class(lock_class_options)
+    return lock
 
 
 @contextlib.contextmanager
@@ -61,22 +81,7 @@ def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None
         )
         raise Exception("Missing storage provider plugin.")
 
-    lock: LockDriver
-    lock_class: Type[LockDriver]
-    lock_drivers = PluginManager.lock_drivers()
-    try:
-        lock_class = lock_drivers[network.lock.provider]
-    except KeyError:
-        sys.stderr.write(
-            nixops.ansi.ansi_warn(
-                f"The network requires the '{network.lock.provider}' lock driver, "
-                "but no plugin provides it.\n"
-            )
-        )
-        raise Exception("Missing lock driver plugin.")
-    else:
-        lock_class_options = lock_class.options(**network.lock.configuration)
-        lock = lock_class(lock_class_options)
+    lock = get_lock(network)
 
     storage_class_options = storage_class.options(**network.storage.configuration)
     storage: StorageBackend = storage_class(storage_class_options)
@@ -805,6 +810,13 @@ def op_export(args):
         for depl in depls:
             res[depl.uuid] = depl.export()
     print(json.dumps(res, indent=2, sort_keys=True, cls=nixops.util.NixopsEncoder))
+
+
+def op_unlock(args):
+    network_file: str = args.network_file
+    network = eval_network(network_file)
+    lock = get_lock(network)
+    lock.unlock()
 
 
 def op_import(args):
