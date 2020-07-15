@@ -1071,7 +1071,7 @@ def add_subparser(
         "--network",
         dest="network_file",
         metavar="FILE",
-        default=f"{os.getcwd()}/network.nix",
+        default=os.path.join(os.getcwd(), "network.nix"),
         help="path to a network.nix",
     )
     subparser.add_argument(
