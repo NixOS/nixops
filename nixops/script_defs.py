@@ -151,34 +151,16 @@ def modify_deployment(args, depl: nixops.deployment.Deployment):
     nix_exprs = args.nix_exprs
     templates = args.templates or []
 
-    if args.flake is None:
-        for i in templates:
-            nix_exprs.append("<nixops/templates/{0}.nix>".format(i))
-        if len(nix_exprs) == 0:
-            raise Exception(
-                "you must specify the path to a Nix expression and/or use ‘-t’"
-            )
-        depl.nix_exprs = [os.path.abspath(x) if x[0:1] != "<" else x for x in nix_exprs]
-        depl.nix_path = [
-            nixops.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])
-        ]
-    else:
-        if nix_exprs:
-            raise Exception(
-                "you cannot specify a Nix expression in conjunction with '--flake'"
-            )
-        if args.nix_path:
-            raise Exception(
-                "you cannot specify a Nix search path ('-I') in conjunction with '--flake'"
-            )
-        if len(templates) != 0:
-            raise Exception(
-                "you cannot specify a template ('-t') in conjunction with '--flake'"
-            )
-        # FIXME: should absolutize args.flake if it's a local path.
-        depl.flake_uri = args.flake
-        depl.nix_exprs = []
-        depl.nix_path = []
+    for i in templates:
+        nix_exprs.append("<nixops/templates/{0}.nix>".format(i))
+    if len(nix_exprs) == 0:
+        raise Exception(
+            "you must specify the path to a Nix expression and/or use ‘-t’"
+        )
+    depl.nix_exprs = [os.path.abspath(x) if x[0:1] != "<" else x for x in nix_exprs]
+    depl.nix_path = [
+        nixops.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])
+    ]
 
 
 def op_create(args):
@@ -344,14 +326,9 @@ def op_info(args):  # noqa: C901
                 print("Network UUID:", depl.uuid)
                 print("Network description:", depl.description)
 
-                if depl.flake_uri is None:
-                    print("Nix expressions:", " ".join(depl.nix_exprs))
-                    if depl.nix_path != []:
-                        print("Nix path:", " ".join(["-I " + x for x in depl.nix_path]))
-                else:
-                    print("Flake URI:", depl.flake_uri)
-                    if depl.cur_flake_uri is not None:
-                        print("Deployed flake URI:", depl.cur_flake_uri)
+                print("Nix expressions:", " ".join(depl.nix_exprs))
+                if depl.nix_path != []:
+                    print("Nix path:", " ".join(["-I " + x for x in depl.nix_path]))
 
                 if depl.rollback_enabled:
                     print("Nix profile:", depl.get_profile())
@@ -1138,12 +1115,6 @@ def add_common_modify_options(subparser: ArgumentParser):
         dest="templates",
         metavar="TEMPLATE",
         help="name of template to be used",
-    )
-    subparser.add_argument(
-        "--flake",
-        dest="flake",
-        metavar="FLAKE_URI",
-        help="URI of the flake that defines the network",
     )
 
 
