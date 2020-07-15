@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Mapping, Dict, Any, Type, TypeVar, TYPE_CHECKING
+from typing import Mapping, Any, Type, TypeVar, TYPE_CHECKING
 
 from typing_extensions import Protocol
 
