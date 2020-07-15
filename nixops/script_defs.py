@@ -197,10 +197,7 @@ def set_name(depl: nixops.deployment.Deployment, name: Optional[str]):
 
 def modify_deployment(args, depl: nixops.deployment.Deployment):
     nix_exprs = args.nix_exprs
-    templates = args.templates or []
 
-    for i in templates:
-        nix_exprs.append("<nixops/templates/{0}.nix>".format(i))
     if len(nix_exprs) == 0:
         raise Exception(
             "you must specify the path to a Nix expression and/or use ‘-t’"
@@ -1161,14 +1158,6 @@ def add_common_modify_options(subparser: ArgumentParser) -> None:
         nargs="*",
         metavar="NIX-FILE",
         help="Nix expression(s) defining the network",
-    )
-    subparser.add_argument(
-        "--template",
-        "-t",
-        action="append",
-        dest="templates",
-        metavar="TEMPLATE",
-        help="name of template to be used",
     )
 
 
