@@ -3,7 +3,6 @@ from nixops.script_defs import (
     add_subparser,
     op_list_deployments,
     op_create,
-    add_common_modify_options,
     op_modify,
     op_clone,
     op_delete,
@@ -63,14 +62,12 @@ subparser.set_defaults(op=op_create)
 subparser.add_argument(
     "--name", "-n", dest="name", metavar="NAME", help=SUPPRESS
 )  # obsolete, use -d instead
-add_common_modify_options(subparser)
 
 subparser = add_subparser(subparsers, "modify", help="modify an existing deployment")
 subparser.set_defaults(op=op_modify)
 subparser.add_argument(
     "--name", "-n", dest="name", metavar="NAME", help="new symbolic name of deployment"
 )
-add_common_modify_options(subparser)
 
 subparser = add_subparser(subparsers, "clone", help="clone an existing deployment")
 subparser.set_defaults(op=op_clone)

@@ -196,16 +196,12 @@ def set_name(depl: nixops.deployment.Deployment, name: Optional[str]):
 
 
 def modify_deployment(args, depl: nixops.deployment.Deployment):
-    nix_exprs = args.nix_exprs
+    nix_exprs = [args.network_file]
 
     if len(nix_exprs) == 0:
-        raise Exception(
-            "you must specify the path to a Nix expression and/or use ‘-t’"
-        )
+        raise Exception("you must specify the path to a Nix expression and/or use ‘-t’")
     depl.nix_exprs = [os.path.abspath(x) if x[0:1] != "<" else x for x in nix_exprs]
-    depl.nix_path = [
-        nixops.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])
-    ]
+    depl.nix_path = [nixops.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
 
 
 def op_create(args):
@@ -1150,15 +1146,6 @@ def add_subparser(
     )
 
     return subparser
-
-
-def add_common_modify_options(subparser: ArgumentParser) -> None:
-    subparser.add_argument(
-        "nix_exprs",
-        nargs="*",
-        metavar="NIX-FILE",
-        help="Nix expression(s) defining the network",
-    )
 
 
 def add_common_deployment_options(subparser: ArgumentParser) -> None:
