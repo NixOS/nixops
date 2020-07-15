@@ -1,4 +1,4 @@
-from typing import TypeVar, Type, Dict
+from typing import TypeVar, Type
 from typing_extensions import Protocol
 
 
