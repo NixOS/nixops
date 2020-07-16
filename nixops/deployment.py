@@ -548,7 +548,6 @@ class Deployment:
         machine_name: str,
         option_name: str,
         json: bool = False,
-        xml: bool = False,
         include_physical: bool = False,
     ) -> str:
         """Evaluate a single option of a single machine in the deployment specification."""
@@ -575,7 +574,6 @@ class Deployment:
                     "nodes.{0}.config.{1}".format(machine_name, option_name),
                 ]
                 + (["--json"] if json else [])
-                + (["--xml"] if xml else []),
                 stderr=self.logger.log_file,
                 text=True,
             )
