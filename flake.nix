@@ -38,7 +38,9 @@
       ] ++ (builtins.attrValues linters);
 
       shellHook = ''
-        export PATH=${builtins.toString ./scripts}:$PATH
+        git_root=$(${pkgs.git}/bin/git rev-parse --show-toplevel)
+        export PYTHONPATH=$git_root:$PYTHONPATH
+        export PATH=$git_root/scripts:$PATH
       '';
     };
 
