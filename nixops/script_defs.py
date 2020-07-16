@@ -29,7 +29,7 @@ import nixops.ansi
 from nixops.plugins.manager import PluginManager
 
 from nixops.plugins import get_plugin_manager
-from nixops.evaluation import eval_network, NetworkEval
+from nixops.evaluation import eval_network, NetworkEval, NixEvalError
 from nixops.backends import MachineDefinition
 
 
@@ -291,7 +291,7 @@ def op_info(args):  # noqa: C901
         if not args.no_eval:
             try:
                 depl.evaluate()
-            except nixops.deployment.NixEvalError:
+            except NixEvalError:
                 sys.stderr.write(
                     nixops.ansi.ansi_warn(
                         "warning: evaluation of the deployment specification failed; status info may be incorrect\n\n"
