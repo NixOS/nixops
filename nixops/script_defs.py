@@ -960,12 +960,12 @@ def op_show_option(args):
     with deployment(args) as depl:
         if args.include_physical:
             depl.evaluate()
-        sys.stdout.write(
+        json.dump(
             depl.evaluate_option_value(
-                args.machine,
-                args.option,
-                include_physical=args.include_physical,
-            )
+                args.machine, args.option, include_physical=args.include_physical,
+            ),
+            sys.stdout,
+            indent=2,
         )
 
 
