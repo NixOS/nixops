@@ -464,50 +464,10 @@ class Deployment:
 
     def evaluate_args(self) -> Any:
         """Evaluate the NixOps network expression's arguments."""
-        try:
-            out = subprocess.check_output(
-                ["nix-instantiate"]
-                + self.extra_nix_eval_flags
-                + self._eval_flags(self.nix_exprs)
-                + ["--eval-only", "--json", "--strict", "-A", "nixopsArguments"],
-                stderr=self.logger.log_file,
-                text=True,
-            )
-            if DEBUG:
-                print("JSON output of nix-instantiate:\n" + out, file=sys.stderr)
-            return json.loads(out)
-        except OSError as e:
-            raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
-        except subprocess.CalledProcessError:
-            raise NixEvalError
+        return self.eval(attr="nixopsArguments")
 
     def evaluate_config(self, attr) -> Dict:
-        try:
-            _json = subprocess.check_output(
-                ["nix-instantiate"]
-                + self.extra_nix_eval_flags
-                + self._eval_flags(self.nix_exprs)
-                + [
-                    "--eval-only",
-                    "--json",
-                    "--strict",
-                    "--arg",
-                    "checkConfigurationOptions",
-                    "false",
-                    "-A",
-                    attr,
-                ],
-                stderr=self.logger.log_file,
-                text=True,
-            )
-            if DEBUG:
-                print("JSON output of nix-instantiate:\n" + _json, file=sys.stderr)
-        except OSError as e:
-            raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
-        except subprocess.CalledProcessError:
-            raise NixEvalError
-
-        return json.loads(_json)
+        return self.eval(args={"checkConfigurationOptions": False,}, attr=attr)
 
     def evaluate_network(self, action: str = "") -> None:
         if not self.network_attr_eval:
@@ -543,41 +503,50 @@ class Deployment:
                 )
                 self.definitions[name] = defn
 
-    def evaluate_option_value(
+    def eval(
         self,
-        machine_name: str,
-        option_name: str,
+        args: Optional[Dict[str, Any]] = None,
+        attr: Optional[str] = None,
         include_physical: bool = False,
-    ) -> str:
-        """Evaluate a single option of a single machine in the deployment specification."""
+    ) -> Any:
+        argv: List[str] = (
+            ["nix-instantiate"]
+            + self.extra_nix_eval_flags
+            + self._eval_flags(self.nix_exprs)
+            + ["--eval-only", "--json", "--strict",]
+        )
 
-        exprs = self.nix_exprs
+        exprs = list(self.nix_exprs)
         if include_physical:
             phys_expr = self.tempdir + "/physical.nix"
             with open(phys_expr, "w") as f:
                 f.write(self.get_physical_spec())
             exprs.append(phys_expr)
 
+        if args:
+            for arg, value in args.items():
+                argv.extend(["--arg", arg, json.dumps(value)])
+
+        if attr:
+            argv.extend(["-A", attr])
+
         try:
-            return subprocess.check_output(
-                ["nix-instantiate"]
-                + self.extra_nix_eval_flags
-                + self._eval_flags(exprs)
-                + [
-                    "--eval-only",
-                    "--strict",
-                    "--arg",
-                    "checkConfigurationOptions",
-                    "false",
-                    "-A",
-                    "nodes.{0}.config.{1}".format(machine_name, option_name),
-                    "--json",
-                ]
-                stderr=self.logger.log_file,
-                text=True,
+            return json.loads(
+                subprocess.check_output(argv, stderr=self.logger.log_file, text=True,)
             )
+        except OSError as e:
+            raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
         except subprocess.CalledProcessError:
             raise NixEvalError
+
+    def evaluate_option_value(
+        self, machine_name: str, option_name: str, include_physical: bool = False,
+    ) -> Any:
+        """Evaluate a single option of a single machine in the deployment specification."""
+        return self.eval(
+            args={"checkConfigurationOptions": False,},
+            attr="nodes.{0}.config.{1}".format(machine_name, option_name),
+        )
 
     def get_arguments(self) -> Any:
         try:
