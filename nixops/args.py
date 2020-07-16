@@ -558,9 +558,6 @@ subparser.set_defaults(op=op_show_option)
 subparser.add_argument("machine", metavar="MACHINE", help="identifier of the machine")
 subparser.add_argument("option", metavar="OPTION", help="option name")
 subparser.add_argument(
-    "--json", action="store_true", help="print the option value in JSON format"
-)
-subparser.add_argument(
     "--include-physical",
     action="store_true",
     help="include the physical specification in the evaluation",

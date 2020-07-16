@@ -964,7 +964,6 @@ def op_show_option(args):
             depl.evaluate_option_value(
                 args.machine,
                 args.option,
-                json=args.json,
                 include_physical=args.include_physical,
             )
         )
