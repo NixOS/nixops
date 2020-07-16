@@ -4,7 +4,6 @@ from __future__ import annotations
 import sys
 import os.path
 import subprocess
-import json
 import tempfile
 import threading
 from collections import defaultdict
@@ -47,13 +46,10 @@ from nixops.plugins.manager import (
 
 from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
 from nixops.ansi import ansi_success
+import nixops.evaluation
 
 
 Definitions = Dict[str, nixops.resources.ResourceDefinition]
-
-
-class NixEvalError(Exception):
-    pass
 
 
 class UnknownBackend(Exception):
@@ -467,7 +463,7 @@ class Deployment:
         return self.eval(attr="nixopsArguments")
 
     def evaluate_config(self, attr) -> Dict:
-        return self.eval(args={"checkConfigurationOptions": False,}, attr=attr)
+        return self.eval(args={"checkConfigurationOptions": False}, attr=attr)
 
     def evaluate_network(self, action: str = "") -> None:
         if not self.network_attr_eval:
@@ -509,42 +505,29 @@ class Deployment:
         attr: Optional[str] = None,
         include_physical: bool = False,
     ) -> Any:
-        argv: List[str] = (
-            ["nix-instantiate"]
-            + self.extra_nix_eval_flags
-            + self._eval_flags(self.nix_exprs)
-            + ["--eval-only", "--json", "--strict",]
-        )
 
-        exprs = list(self.nix_exprs)
+        exprs: List[str] = list(self.nix_exprs)
         if include_physical:
             phys_expr = self.tempdir + "/physical.nix"
             with open(phys_expr, "w") as f:
                 f.write(self.get_physical_spec())
             exprs.append(phys_expr)
 
-        if args:
-            for arg, value in args.items():
-                argv.extend(["--arg", arg, json.dumps(value)])
+        eval_flags: List[str] = list(self.extra_nix_eval_flags) + list(
+            self._eval_flags(exprs)
+        )
+        stderr: Optional[TextIO] = self.logger.log_file
 
-        if attr:
-            argv.extend(["-A", attr])
-
-        try:
-            return json.loads(
-                subprocess.check_output(argv, stderr=self.logger.log_file, text=True,)
-            )
-        except OSError as e:
-            raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
-        except subprocess.CalledProcessError:
-            raise NixEvalError
+        return nixops.evaluation.eval(
+            eval_flags=eval_flags, args=args, attr=attr, stderr=stderr
+        )
 
     def evaluate_option_value(
         self, machine_name: str, option_name: str, include_physical: bool = False,
     ) -> Any:
         """Evaluate a single option of a single machine in the deployment specification."""
         return self.eval(
-            args={"checkConfigurationOptions": False,},
+            args={"checkConfigurationOptions": False},
             attr="nodes.{0}.config.{1}".format(machine_name, option_name),
         )
 

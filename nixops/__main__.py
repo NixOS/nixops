@@ -31,6 +31,7 @@ if __name__.split(".")[-1] == "__main__":
 
 from nixops.parallel import MultipleExceptions
 from nixops.script_defs import setup_logging
+from nixops.evaluation import NixEvalError
 from nixops.script_defs import error
 from nixops.args import parser
 import nixops
@@ -51,7 +52,7 @@ def main() -> None:
     try:
         nixops.deployment.DEBUG = args.debug
         args.op(args)
-    except nixops.deployment.NixEvalError:
+    except NixEvalError:
         error("evaluation of the deployment specification failed")
         sys.exit(1)
     except KeyboardInterrupt:

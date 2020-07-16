@@ -1,9 +1,13 @@
 import subprocess
 import typing
-from typing import Optional, Mapping, Any
+from typing import Optional, Mapping, Any, List, Dict, TextIO
 import json
 from nixops.util import ImmutableValidatedObject
 from nixops.exceptions import NixError
+
+
+class NixEvalError(NixError):
+    pass
 
 
 class MalformedNetworkError(NixError):
@@ -164,3 +168,28 @@ type. A valid network attribute looks like this:
         storage=storage_config,
         lock=lock_config,
     )
+
+
+def eval(
+    eval_flags: List[str],
+    args: Optional[Dict[str, Any]] = None,
+    attr: Optional[str] = None,
+    stderr: Optional[TextIO] = None,
+) -> Any:
+    argv: List[str] = (
+        ["nix-instantiate"] + eval_flags + ["--eval-only", "--json", "--strict"]
+    )
+
+    if args:
+        for arg, value in args.items():
+            argv.extend(["--arg", arg, json.dumps(value)])
+
+    if attr:
+        argv.extend(["-A", attr])
+
+    try:
+        return json.loads(subprocess.check_output(argv, stderr=stderr, text=True))
+    except OSError as e:
+        raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
+    except subprocess.CalledProcessError:
+        raise NixEvalError
