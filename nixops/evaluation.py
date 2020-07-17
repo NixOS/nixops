@@ -71,13 +71,12 @@ def eval(
     # Extend internal defaults
     nix_path: List[str] = [],
     # nix-instantiate args
+    nix_args: Dict[str, Any] = {},
     attr: Optional[str] = None,
     extra_flags: List[str] = [],
     # Non-propagated args
     stderr: Optional[TextIO] = None,
 ) -> Any:
-    # eval_flags:  = []
-
     argv: List[str] = (
         ["nix-instantiate", "--eval-only", "--json", "--strict"]
         + [os.path.join(get_expr_path(), "eval-machine-info.nix")]
@@ -99,6 +98,9 @@ def eval(
         + list(itertools.chain(*[["-I", x] for x in (nix_path + pluginNixExprs)]))
         + extra_flags
     )
+
+    for k, v in nix_args.items():
+        argv.extend(["--arg", k, py2nix(v, inline=True)])
 
     if attr:
         argv.extend(["-A", attr])

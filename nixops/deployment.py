@@ -445,7 +445,7 @@ class Deployment:
 
     def eval(
         self,
-        # args: Optional[Dict[str, Any]] = None,
+        nix_args: Dict[str, Any] = {},
         attr: Optional[str] = None,
         include_physical: bool = False,
         checkConfigurationOptions: bool = True,
@@ -468,6 +468,7 @@ class Deployment:
             # Extend defaults
             nix_path=self.extra_nix_path + self.nix_path,
             # nix-instantiate args
+            nix_args=nix_args,
             attr=attr,
             extra_flags=self.extra_nix_eval_flags,
             # Non-propagated args
@@ -480,6 +481,7 @@ class Deployment:
         """Evaluate a single option of a single machine in the deployment specification."""
         return self.eval(
             checkConfigurationOptions=False,
+            include_physical=include_physical,
             attr="nodes.{0}.config.{1}".format(machine_name, option_name),
         )
 
@@ -751,26 +753,24 @@ class Deployment:
             os.environ["NIX_CURRENT_LOAD"] = load_dir
 
         try:
-            # TODO: How can we unify this with evaluation?
-            # Probably use nixops.evaluation.eval(...) and "nix-store -r"
-            configs_path = subprocess.check_output(
-                ["nix-build"]
-                # self.extra_nix_flags +
-                # + self._eval_flags(self.nix_exprs + [phys_expr])
-                + [
-                    "--arg",
-                    "names",
-                    py2nix(names, inline=True),
-                    "-A",
-                    "machines",
-                    "-o",
-                    self.tempdir + "/configs",
-                ]
+            drv: str = self.eval(
+                include_physical=True,
+                nix_args={"names": names},
+                attr="machines.drvPath",
+            )
+
+            argv: List[str] = (
+                ["nix-store", "-r"]
+                + self.extra_nix_flags
                 + (["--dry-run"] if dry_run else [])
-                + (["--repair"] if repair else []),
-                stderr=self.logger.log_file,
-                text=True,
+                + (["--repair"] if repair else [])
+                + [drv]
+            )
+
+            configs_path = subprocess.check_output(
+                argv, text=True, stderr=self.logger.log_file,
             ).rstrip()
+
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
 
