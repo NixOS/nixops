@@ -43,34 +43,24 @@ class EvalResult(ImmutableValidatedObject):
     value: Any
 
 
-def eval(
-    eval_flags: List[str],
-    args: Optional[Dict[str, Any]] = None,
-    attr: Optional[str] = None,
-    stderr: Optional[TextIO] = None,
-) -> Any:
-    argv: List[str] = (
-        ["nix-instantiate"] + eval_flags + ["--eval-only", "--json", "--strict"]
-    )
-
-    if args:
-        for arg, value in args.items():
-            argv.extend(["--arg", arg, json.dumps(value)])
-
-    if attr:
-        argv.extend(["-A", attr])
-
-    try:
-        return json.loads(subprocess.check_output(argv, stderr=stderr, text=True))
-    except OSError as e:
-        raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
-    except subprocess.CalledProcessError:
-        raise NixEvalError
-
-
 def _eval_attr(attr, nix_expr: str) -> EvalResult:
-    result = eval(
-        eval_flags=[
+    p = subprocess.run(
+        [
+            "nix-instantiate",
+            "--eval-only",
+            "--json",
+            "--strict",
+            # Arg
+            "--arg",
+            "checkConfigurationOptions",
+            "false",
+            # Attr
+            "--argstr",
+            "attr",
+            attr,
+            "--arg",
+            "nix_expr",
+            nix_expr,
             "--expr",
             """
               { nix_expr, attr }:
@@ -82,9 +72,13 @@ def _eval_attr(attr, nix_expr: str) -> EvalResult:
               }
             """,
         ],
-        args={"checkConfigurationOptions": False, "attr": attr, "nix_expr": nix_expr},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
-    return EvalResult(**result)
+    if p.returncode != 0:
+        raise RuntimeError(p.stderr.decode())
+
+    return EvalResult(**json.loads(p.stdout))
 
 
 def eval_network(nix_expr: str) -> NetworkEval:
@@ -174,3 +168,28 @@ type. A valid network attribute looks like this:
         storage=storage_config,
         lock=lock_config,
     )
+
+
+def eval(
+    eval_flags: List[str],
+    args: Optional[Dict[str, Any]] = None,
+    attr: Optional[str] = None,
+    stderr: Optional[TextIO] = None,
+) -> Any:
+    argv: List[str] = (
+        ["nix-instantiate"] + eval_flags + ["--eval-only", "--json", "--strict"]
+    )
+
+    if args:
+        for arg, value in args.items():
+            argv.extend(["--arg", arg, json.dumps(value)])
+
+    if attr:
+        argv.extend(["-A", attr])
+
+    try:
+        return json.loads(subprocess.check_output(argv, stderr=stderr, text=True))
+    except OSError as e:
+        raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
+    except subprocess.CalledProcessError:
+        raise NixEvalError
