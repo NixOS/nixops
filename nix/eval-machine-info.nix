@@ -17,6 +17,8 @@ let
   zipAttrs = set: builtins.listToAttrs (
     map (name: { inherit name; value = builtins.catAttrs name set; }) (builtins.concatMap builtins.attrNames set));
 
+  flakeExpr = (builtins.getFlake flakeUri).outputs.nixopsConfigurations.default;
+
   networks =
     let
       getNetworkFromExpr = networkExpr:
@@ -31,7 +33,7 @@ let
     in
       map ({ key }: getNetworkFromExpr key) networkExprClosure
       ++ optional (flakeUri != null)
-        ((call (builtins.getFlake flakeUri).outputs.nixopsConfigurations.default) // { _file = "<${flakeUri}>"; });
+        ((call flakeExpr) // { _file = "<${flakeUri}>"; });
 
   network = zipAttrs networks;
 
@@ -260,6 +262,11 @@ in rec {
     in
       [ f ] ++ map getRequires requires;
 
+  exprToArgs = nixopsExpr: f:
+    if builtins.isFunction nixopsExpr then
+      map (a: { "${a}" = builtins.toString f; } ) (builtins.attrNames (builtins.functionArgs nixopsExpr))
+    else [];
+
   fileToArgs = f:
     let
       nixopsExpr = import f;
@@ -270,6 +277,8 @@ in rec {
 
   getNixOpsArgs = fs: lib.zipAttrs (lib.unique (lib.concatMap fileToArgs (getNixOpsExprs fs)));
 
-  nixopsArguments = getNixOpsArgs networkExprs;
+  nixopsArguments =
+    if flakeUri == null then getNixOpsArgs networkExprs
+    else lib.listToAttrs (builtins.map (a: {name = a; value = [ flakeUri ];}) (lib.attrNames (builtins.functionArgs flakeExpr)));
 
 }
