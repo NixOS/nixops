@@ -69,7 +69,6 @@ class Deployment:
     default_description = "Unnamed NixOps network"
 
     name: Optional[str] = nixops.util.attr_property("name", None)
-    nix_exprs = nixops.util.attr_property("nixExprs", [], "json")
     nix_path = nixops.util.attr_property("nixPath", [], "json")
     args: Dict[str, str] = nixops.util.attr_property("args", {}, "json")
     description = nixops.util.attr_property("description", default_description)
@@ -78,6 +77,8 @@ class Deployment:
 
     # internal variable to mark if network attribute of network has been evaluated (separately)
     network_attr_eval: bool = False
+
+    network_expr: nixops.evaluation.NetworkFile
 
     def __init__(
         self, statefile, uuid: str, log_file: TextIO = sys.stderr,
@@ -451,7 +452,7 @@ class Deployment:
         checkConfigurationOptions: bool = True,
     ) -> Any:
 
-        exprs: List[str] = list(self.nix_exprs)
+        exprs: List[str] = []
         if include_physical:
             phys_expr = self.tempdir + "/physical.nix"
             with open(phys_expr, "w") as f:
@@ -460,6 +461,7 @@ class Deployment:
 
         return nixops.evaluation.eval(
             # eval-machine-info args
+            networkExpr=self.network_expr,
             networkExprs=exprs,
             uuid=self.uuid,
             deploymentName=self.name or "",
