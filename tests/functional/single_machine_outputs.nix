@@ -1,4 +1,5 @@
 {
+  network = {};
   resources = {
     commandOutput.thing = {
       script = ''
@@ -8,7 +9,7 @@
     };
   };
   machine = {resources, pkgs, ...} : {
-    deployment.targetEnv = "libvirtd";
+    deployment.targetEnv = "none";
     environment.etc."test.txt".text = resources.commandOutput.thing.value;
   };
 }
