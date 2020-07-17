@@ -51,7 +51,7 @@ class EvalResult(ImmutableValidatedObject):
 @dataclass
 class NetworkFile:
     network: str
-    is_flake: bool
+    is_flake: bool = False
 
 
 def get_expr_path() -> str:
