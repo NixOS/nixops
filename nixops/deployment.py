@@ -130,6 +130,20 @@ class Deployment:
             )
         return self._tempdir
 
+    # def _get_cur_flake_uri(self):
+    #     assert self.flake_uri is not None
+    #     if self._cur_flake_uri is None:
+    #         out = json.loads(
+    #             subprocess.check_output(
+    #                 ["nix", "flake", "info", "--json", "--", self.flake_uri],
+    #                 stderr=self.logger.log_file,
+    #             )
+    #         )
+    #         self._cur_flake_uri = out["url"].replace(
+    #             "ref=HEAD&rev=0000000000000000000000000000000000000000&", ""
+    #         )  # FIXME
+    #     return self._cur_flake_uri
+
     @property
     def machines(self) -> Dict[str, nixops.backends.GenericMachineState]:
         return _filter_machines(self.resources)
@@ -435,6 +449,18 @@ class Deployment:
                 (self.expr_path + "/eval-machine-info.nix"),
             ]
         )
+
+        # if self.flake_uri is not None:
+        #     flags.extend(
+        #         [
+        #             # "--pure-eval", # FIXME
+        #             "--argstr",
+        #             "flakeUri",
+        #             self._get_cur_flake_uri(),
+        #             "--allowed-uris",
+        #             self.expr_path,
+        #         ]
+        #     )
 
         return flags
 
