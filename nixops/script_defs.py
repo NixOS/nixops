@@ -57,14 +57,19 @@ def get_network_file(args: Namespace) -> NetworkFile:
     if flake_exists:
         return NetworkFile(network=network_dir, is_flake=True)
 
-    raise ValueError("Unhandled error")
+    raise ValueError(f"Neither flake.nix nor network.nix exists in {network_dir}")
+
+
+def set_common_depl(depl: nixops.deployment.Deployment, args: Namespace):
+    network_file = get_network_file(args)
+    depl.network_expr = network_file
 
 
 @contextlib.contextmanager
 def deployment(args: Namespace) -> Generator[nixops.deployment.Deployment, None, None]:
     with network_state(args) as sf:
         depl = open_deployment(sf, args)
-        depl.network_expr = get_network_file(args)
+        set_common_depl(depl, args)
         yield depl
 
 
@@ -178,6 +183,7 @@ def op_list_deployments(args):
             ]
         )
         for depl in sort_deployments(sf.get_all_deployments()):
+            set_common_depl(depl, args)
             depl.evaluate()
 
             types: Set[str] = set()
@@ -236,7 +242,7 @@ def set_name(depl: nixops.deployment.Deployment, name: Optional[str]):
 
 
 def modify_deployment(args, depl: nixops.deployment.Deployment):
-    depl.network_expr = get_network_file(args)
+    set_common_depl(depl, args)
     depl.nix_path = [nixops.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
 
 
@@ -307,7 +313,7 @@ def op_info(args):  # noqa: C901
         return "Up-to-date"
 
     def do_eval(depl):
-        depl.network_expr = get_network_file(args)
+        set_common_depl(depl, args)
 
         if not args.no_eval:
             try:
@@ -806,8 +812,9 @@ def op_dump_nix_paths(args):
             return p[1]
 
     def nix_paths(depl) -> List[str]:
+        set_common_depl(depl, args)
         candidates = (
-            depl.nix_exprs
+            [depl.network_expr.network]
             + [strip_nix_path(p) for p in depl.nix_path]
             + [depl.configs_path]
         )
