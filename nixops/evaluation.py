@@ -65,7 +65,7 @@ def _eval_attr(attr, nix_expr: str) -> EvalResult:
             """
               { nix_expr, attr }:
               let
-                ret = (import nix_expr);
+                ret = let v = (import nix_expr); in if builtins.typeOf v == "lambda" then v {} else v;
               in {
                 exists = ret ? "${attr}";
                 value = ret."${attr}" or null;
