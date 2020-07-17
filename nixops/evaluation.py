@@ -1,9 +1,13 @@
+from nixops.nix_expr import RawValue, py2nix
 import subprocess
 import typing
 from typing import Optional, Mapping, Any, List, Dict, TextIO
 import json
 from nixops.util import ImmutableValidatedObject
 from nixops.exceptions import NixError
+import itertools
+import os.path
+import os
 
 
 class NixEvalError(NixError):
@@ -43,6 +47,71 @@ class EvalResult(ImmutableValidatedObject):
     value: Any
 
 
+def get_expr_path() -> str:
+    expr_path: str = os.path.realpath(
+        os.path.dirname(__file__) + "/../../../../share/nix/nixops"
+    )
+    if not os.path.exists(expr_path):
+        expr_path = os.path.realpath(
+            os.path.dirname(__file__) + "/../../../../../share/nix/nixops"
+        )
+    if not os.path.exists(expr_path):
+        expr_path = os.path.dirname(__file__) + "/../nix"
+    return expr_path
+
+
+def eval(
+    # eval-machine-info args
+    networkExprs: List[str],
+    uuid: str,
+    deploymentName: str,
+    args: Dict[str, str],
+    pluginNixExprs: List[str],
+    checkConfigurationOptions: bool = True,
+    # Extend internal defaults
+    nix_path: List[str] = [],
+    # nix-instantiate args
+    attr: Optional[str] = None,
+    extra_flags: List[str] = [],
+    # Non-propagated args
+    stderr: Optional[TextIO] = None,
+) -> Any:
+    # eval_flags:  = []
+
+    argv: List[str] = (
+        ["nix-instantiate", "--eval-only", "--json", "--strict"]
+        + [os.path.join(get_expr_path(), "eval-machine-info.nix")]
+        + ["-I", "nixops=" + get_expr_path()]
+        + [
+            "--arg",
+            "networkExprs",
+            py2nix([RawValue(x) if x[0] == "<" else x for x in networkExprs]),
+        ]
+        + [
+            "--arg",
+            "args",
+            py2nix({key: RawValue(val) for key, val in args.items()}, inline=True),
+        ]
+        + ["--argstr", "uuid", uuid]
+        + ["--argstr", "deploymentName", deploymentName]
+        + ["--arg", "pluginNixExprs", py2nix(pluginNixExprs)]
+        + ["--arg", "checkConfigurationOptions", json.dumps(checkConfigurationOptions)]
+        + list(itertools.chain(*[["-I", x] for x in (nix_path + pluginNixExprs)]))
+        + extra_flags
+    )
+
+    if attr:
+        argv.extend(["-A", attr])
+
+    try:
+        ret = subprocess.check_output(argv, stderr=stderr, text=True)
+        return json.loads(ret)
+    except OSError as e:
+        raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
+    except subprocess.CalledProcessError:
+        raise NixEvalError
+
+
 def _eval_attr(attr, nix_expr: str) -> EvalResult:
     p = subprocess.run(
         [
@@ -65,7 +134,9 @@ def _eval_attr(attr, nix_expr: str) -> EvalResult:
             """
               { nix_expr, attr }:
               let
-                ret = let v = (import nix_expr); in if builtins.typeOf v == "lambda" then v {} else v;
+                ret = let
+                  v = (import nix_expr);
+                in if builtins.typeOf v == "lambda" then v {} else v;
               in {
                 exists = ret ? "${attr}";
                 value = ret."${attr}" or null;
@@ -83,6 +154,7 @@ def _eval_attr(attr, nix_expr: str) -> EvalResult:
 
 def eval_network(nix_expr: str) -> NetworkEval:
     result = _eval_attr("network", nix_expr)
+
     if not result.exists:
         raise MalformedNetworkError(
             """
@@ -168,28 +240,3 @@ type. A valid network attribute looks like this:
         storage=storage_config,
         lock=lock_config,
     )
-
-
-def eval(
-    eval_flags: List[str],
-    args: Optional[Dict[str, Any]] = None,
-    attr: Optional[str] = None,
-    stderr: Optional[TextIO] = None,
-) -> Any:
-    argv: List[str] = (
-        ["nix-instantiate"] + eval_flags + ["--eval-only", "--json", "--strict"]
-    )
-
-    if args:
-        for arg, value in args.items():
-            argv.extend(["--arg", arg, json.dumps(value)])
-
-    if attr:
-        argv.extend(["-A", attr])
-
-    try:
-        return json.loads(subprocess.check_output(argv, stderr=stderr, text=True))
-    except OSError as e:
-        raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
-    except subprocess.CalledProcessError:
-        raise NixEvalError
