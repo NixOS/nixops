@@ -14,7 +14,6 @@ import getpass
 import traceback
 import glob
 import fcntl
-import itertools
 import platform
 import time
 import importlib
@@ -72,7 +71,7 @@ class Deployment:
     name: Optional[str] = nixops.util.attr_property("name", None)
     nix_exprs = nixops.util.attr_property("nixExprs", [], "json")
     nix_path = nixops.util.attr_property("nixPath", [], "json")
-    args = nixops.util.attr_property("args", {}, "json")
+    args: Dict[str, str] = nixops.util.attr_property("args", {}, "json")
     description = nixops.util.attr_property("description", default_description)
     configs_path = nixops.util.attr_property("configsPath", None)
     rollback_enabled: bool = nixops.util.attr_property("rollbackEnabled", False)
@@ -98,15 +97,7 @@ class Deployment:
 
         self._lock_file_path: Optional[str] = None
 
-        self.expr_path = os.path.realpath(
-            os.path.dirname(__file__) + "/../../../../share/nix/nixops"
-        )
-        if not os.path.exists(self.expr_path):
-            self.expr_path = os.path.realpath(
-                os.path.dirname(__file__) + "/../../../../../share/nix/nixops"
-            )
-        if not os.path.exists(self.expr_path):
-            self.expr_path = os.path.dirname(__file__) + "/../nix"
+        self.expr_path = nixops.evaluation.get_expr_path()
 
         self.resources: Dict[str, nixops.resources.GenericResourceState] = {}
         with self._db:
@@ -129,20 +120,6 @@ class Deployment:
                 tempfile.mkdtemp(prefix="nixops-tmp")
             )
         return self._tempdir
-
-    # def _get_cur_flake_uri(self):
-    #     assert self.flake_uri is not None
-    #     if self._cur_flake_uri is None:
-    #         out = json.loads(
-    #             subprocess.check_output(
-    #                 ["nix", "flake", "info", "--json", "--", self.flake_uri],
-    #                 stderr=self.logger.log_file,
-    #             )
-    #         )
-    #         self._cur_flake_uri = out["url"].replace(
-    #             "ref=HEAD&rev=0000000000000000000000000000000000000000&", ""
-    #         )  # FIXME
-    #     return self._cur_flake_uri
 
     @property
     def machines(self) -> Dict[str, nixops.backends.GenericMachineState]:
@@ -405,65 +382,6 @@ class Deployment:
             # Delete the deployment from the database.
             self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
 
-    def _nix_path_flags(self) -> List[str]:
-        extraexprs = PluginManager.nixexprs()
-
-        flags = (
-            list(
-                itertools.chain(
-                    *[
-                        ["-I", x]
-                        for x in (self.extra_nix_path + self.nix_path + extraexprs)
-                    ]
-                )
-            )
-            + self.extra_nix_flags
-        )
-        flags.extend(["-I", "nixops=" + self.expr_path])
-        return flags
-
-    def _eval_flags(self, exprs: List[str]) -> List[str]:
-        flags = self._nix_path_flags()
-        args = {key: RawValue(val) for key, val in self.args.items()}
-        exprs_ = [RawValue(x) if x[0] == "<" else x for x in exprs]
-
-        extraexprs = PluginManager.nixexprs()
-
-        flags.extend(
-            [
-                "--arg",
-                "networkExprs",
-                py2nix(exprs_, inline=True),
-                "--arg",
-                "args",
-                py2nix(args, inline=True),
-                "--argstr",
-                "uuid",
-                self.uuid,
-                "--argstr",
-                "deploymentName",
-                self.name if self.name else "",
-                "--arg",
-                "pluginNixExprs",
-                py2nix(extraexprs),
-                (self.expr_path + "/eval-machine-info.nix"),
-            ]
-        )
-
-        # if self.flake_uri is not None:
-        #     flags.extend(
-        #         [
-        #             # "--pure-eval", # FIXME
-        #             "--argstr",
-        #             "flakeUri",
-        #             self._get_cur_flake_uri(),
-        #             "--allowed-uris",
-        #             self.expr_path,
-        #         ]
-        #     )
-
-        return flags
-
     def set_arg(self, name: str, value: str) -> None:
         """Set a persistent argument to the deployment specification."""
         assert isinstance(name, str)
@@ -489,7 +407,7 @@ class Deployment:
         return self.eval(attr="nixopsArguments")
 
     def evaluate_config(self, attr) -> Dict:
-        return self.eval(args={"checkConfigurationOptions": False}, attr=attr)
+        return self.eval(checkConfigurationOptions=False, attr=attr)
 
     def evaluate_network(self, action: str = "") -> None:
         if not self.network_attr_eval:
@@ -527,9 +445,10 @@ class Deployment:
 
     def eval(
         self,
-        args: Optional[Dict[str, Any]] = None,
+        # args: Optional[Dict[str, Any]] = None,
         attr: Optional[str] = None,
         include_physical: bool = False,
+        checkConfigurationOptions: bool = True,
     ) -> Any:
 
         exprs: List[str] = list(self.nix_exprs)
@@ -539,13 +458,20 @@ class Deployment:
                 f.write(self.get_physical_spec())
             exprs.append(phys_expr)
 
-        eval_flags: List[str] = list(self.extra_nix_eval_flags) + list(
-            self._eval_flags(exprs)
-        )
-        stderr: Optional[TextIO] = self.logger.log_file
-
         return nixops.evaluation.eval(
-            eval_flags=eval_flags, args=args, attr=attr, stderr=stderr
+            # eval-machine-info args
+            networkExprs=exprs,
+            uuid=self.uuid,
+            deploymentName=self.name or "",
+            args=self.args,
+            pluginNixExprs=PluginManager.nixexprs(),
+            # Extend defaults
+            nix_path=self.extra_nix_path + self.nix_path,
+            # nix-instantiate args
+            attr=attr,
+            extra_flags=self.extra_nix_eval_flags,
+            # Non-propagated args
+            stderr=self.logger.log_file,
         )
 
     def evaluate_option_value(
@@ -553,7 +479,7 @@ class Deployment:
     ) -> Any:
         """Evaluate a single option of a single machine in the deployment specification."""
         return self.eval(
-            args={"checkConfigurationOptions": False},
+            checkConfigurationOptions=False,
             attr="nodes.{0}.config.{1}".format(machine_name, option_name),
         )
 
@@ -754,15 +680,18 @@ class Deployment:
 
         self.logger.log("building all machine configurations...")
 
-        # Set the NixOS version suffix, if we're building from Git.
-        # That way ‘nixos-version’ will show something useful on the
-        # target machines.
-        nixos_path = str(self.evaluate_config("nixpkgs"))
-        get_version_script = nixos_path + "/modules/installer/tools/get-version-suffix"
-        if os.path.exists(nixos_path + "/.git") and os.path.exists(get_version_script):
-            self.nixos_version_suffix = subprocess.check_output(
-                ["/bin/sh", get_version_script] + self._nix_path_flags(), text=True
-            ).rstrip()
+        # TODO: Use `lib.versionSuffix` from nixpkgs through an eval
+        # TODO: `lib.versionSuffix` doesn't really work for git repos, fix in nixpkgs.
+        #
+        # # Set the NixOS version suffix, if we're building from Git.
+        # # That way ‘nixos-version’ will show something useful on the
+        # # target machines.
+        # nixos_path = str(self.evaluate_config("nixpkgs"))
+        # get_version_script = nixos_path + "/modules/installer/tools/get-version-suffix"
+        # if os.path.exists(nixos_path + "/.git") and os.path.exists(get_version_script):
+        #     self.nixos_version_suffix = subprocess.check_output(
+        #         ["/bin/sh", get_version_script] + self._nix_path_flags(), text=True
+        #     ).rstrip()
 
         phys_expr = self.tempdir + "/physical.nix"
         p = self.get_physical_spec()
@@ -822,9 +751,12 @@ class Deployment:
             os.environ["NIX_CURRENT_LOAD"] = load_dir
 
         try:
+            # TODO: How can we unify this with evaluation?
+            # Probably use nixops.evaluation.eval(...) and "nix-store -r"
             configs_path = subprocess.check_output(
                 ["nix-build"]
-                + self._eval_flags(self.nix_exprs + [phys_expr])
+                # self.extra_nix_flags +
+                # + self._eval_flags(self.nix_exprs + [phys_expr])
                 + [
                     "--arg",
                     "names",
