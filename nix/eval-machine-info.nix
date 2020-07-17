@@ -1,5 +1,6 @@
 { system ? builtins.currentSystem
 , networkExprs
+, flakeUri ? null
 , checkConfigurationOptions ? true
 , uuid
 , deploymentName
@@ -28,13 +29,26 @@ let
         operator = { key }: map exprToKey ((getNetworkFromExpr key).require or []);
       };
     in
-      map ({ key }: getNetworkFromExpr key) networkExprClosure;
+      map ({ key }: getNetworkFromExpr key) networkExprClosure
+      ++ optional (flakeUri != null)
+        ((call (builtins.getFlake flakeUri).outputs.nixopsConfigurations.default) // { _file = "<${flakeUri}>"; });
 
   network = zipAttrs networks;
 
-  evalConfig = import (pkgs.path + "/nixos/lib/eval-config.nix");
+  evalConfig =
+    if flakeUri != null
+    then
+      if network ? nixpkgs
+      then (builtins.head (network.nixpkgs)).lib.nixosSystem
+      else throw "NixOps network must have a 'nixpkgs' attribute"
+    else import (pkgs.path + "/nixos/lib/eval-config.nix");
 
-  pkgs = (builtins.head (network.network)).nixpkgs or (import <nixpkgs> { inherit system; });
+  pkgs = if flakeUri != null
+    then
+      if network ? nixpkgs
+      then (builtins.head network.nixpkgs).legacyPackages.${system}
+      else throw "NixOps network must have a 'nixpkgs' attribute"
+    else (builtins.head (network.network)).nixpkgs or (import <nixpkgs> { inherit system; });
 
   inherit (pkgs) lib;
 
