@@ -65,8 +65,8 @@ def eval(
     networkExprs: List[str],
     uuid: str,
     deploymentName: str,
-    args: Dict[str, str],
-    pluginNixExprs: List[str],
+    args: Dict[str, str] = {},
+    pluginNixExprs: List[str] = [],
     checkConfigurationOptions: bool = True,
     # Extend internal defaults
     nix_path: List[str] = [],
@@ -114,50 +114,14 @@ def eval(
         raise NixEvalError
 
 
-def _eval_attr(attr, nix_expr: str) -> EvalResult:
-    p = subprocess.run(
-        [
-            "nix-instantiate",
-            "--eval-only",
-            "--json",
-            "--strict",
-            # Arg
-            "--arg",
-            "checkConfigurationOptions",
-            "false",
-            # Attr
-            "--argstr",
-            "attr",
-            attr,
-            "--arg",
-            "nix_expr",
-            nix_expr,
-            "--expr",
-            """
-              { nix_expr, attr }:
-              let
-                ret = let
-                  v = (import nix_expr);
-                in if builtins.typeOf v == "lambda" then v {} else v;
-              in {
-                exists = ret ? "${attr}";
-                value = ret."${attr}" or null;
-              }
-            """,
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    if p.returncode != 0:
-        raise RuntimeError(p.stderr.decode())
-
-    return EvalResult(**json.loads(p.stdout))
-
-
 def eval_network(nix_expr: str) -> NetworkEval:
-    result = _eval_attr("network", nix_expr)
 
-    if not result.exists:
+    try:
+        result = eval(networkExprs=[nix_expr], uuid="dummy", deploymentName="dummy", attr="info.network")
+    except Exception:
+        raise NixEvalError("No network attribute found")
+
+    if result.get("storage") is None:
         raise MalformedNetworkError(
             """
 TODO: improve this error to be less specific about conversion, and less
@@ -180,27 +144,7 @@ Upgrade steps:
             % nix_expr
         )
 
-    if not isinstance(result.value, dict):
-        raise MalformedNetworkError(
-            """
-TODO: improve this error to be less specific about conversion, and less
-about storage backends, and more about the construction of a network
-attribute value. link to docs about storage drivers and lock drivers.
-
-The network.nix has a `network` attribute set, but it is of the wrong
-type. A valid network attribute looks like this:
-
-  {
-    network = {
-      storage = {
-        /* storage driver details */
-      };
-    };
-  }
-"""
-        )
-
-    raw_eval = RawNetworkEval(**result.value)
+    raw_eval = RawNetworkEval(**result)
 
     storage: Mapping[str, Any] = raw_eval.storage or {}
     if len(storage) > 1:
