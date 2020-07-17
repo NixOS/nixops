@@ -29,18 +29,42 @@ import nixops.ansi
 from nixops.plugins.manager import PluginManager
 
 from nixops.plugins import get_plugin_manager
-from nixops.evaluation import eval_network, NetworkEval, NixEvalError
+from nixops.evaluation import eval_network, NetworkEval, NixEvalError, NetworkFile
 from nixops.backends import MachineDefinition
 
 
 PluginManager.load()
 
 
+def get_network_file(args: Namespace) -> NetworkFile:
+    network_dir = os.path.abspath(args.network_dir)
+
+    if not os.path.exists(network_dir):
+        raise ValueError("f{network_dir} does not exist")
+
+    classic_path = os.path.join(network_dir, "network.nix")
+    flake_path = os.path.join(network_dir, "flake.nix")
+
+    classic_exists = os.path.exists(classic_path)
+    flake_exists = os.path.exists(flake_path)
+
+    if all((flake_exists, classic_exists)):
+        raise ValueError("Both flake.nix and network.nix cannot coexist")
+
+    if classic_exists:
+        return NetworkFile(network=classic_path, is_flake=False)
+
+    if flake_exists:
+        return NetworkFile(network=network_dir, is_flake=True)
+
+    raise ValueError("Unhandled error")
+
+
 @contextlib.contextmanager
 def deployment(args: Namespace) -> Generator[nixops.deployment.Deployment, None, None]:
     with network_state(args) as sf:
         depl = open_deployment(sf, args)
-        depl.nix_exprs = [os.path.abspath(args.network_file)]
+        depl.network_expr = get_network_file(args)
         yield depl
 
 
@@ -66,8 +90,7 @@ def get_lock(network: NetworkEval) -> LockDriver:
 
 @contextlib.contextmanager
 def network_state(args: Namespace) -> Generator[nixops.statefile.StateFile, None, None]:
-    network_file: str = args.network_file
-    network = eval_network(network_file)
+    network = eval_network(get_network_file(args))
     storage_backends = PluginManager.storage_backends()
     storage_class: Optional[Type[StorageBackend]] = storage_backends.get(
         network.storage.provider
@@ -213,11 +236,7 @@ def set_name(depl: nixops.deployment.Deployment, name: Optional[str]):
 
 
 def modify_deployment(args, depl: nixops.deployment.Deployment):
-    nix_exprs = [args.network_file]
-
-    if len(nix_exprs) == 0:
-        raise Exception("you must specify the path to a Nix expression and/or use ‘-t’")
-    depl.nix_exprs = [os.path.abspath(x) if x[0:1] != "<" else x for x in nix_exprs]
+    depl.network_expr = get_network_file(args)
     depl.nix_path = [nixops.util.abs_nix_path(x) for x in sum(args.nix_path or [], [])]
 
 
@@ -288,6 +307,8 @@ def op_info(args):  # noqa: C901
         return "Up-to-date"
 
     def do_eval(depl):
+        depl.network_expr = get_network_file(args)
+
         if not args.no_eval:
             try:
                 depl.evaluate()
@@ -391,7 +412,7 @@ def op_info(args):  # noqa: C901
                 print("Network UUID:", depl.uuid)
                 print("Network description:", depl.description)
 
-                print("Nix expressions:", " ".join(depl.nix_exprs))
+                print("Nix expression:", get_network_file(args).network)
                 if depl.nix_path != []:
                     print("Nix path:", " ".join(["-I " + x for x in depl.nix_path]))
 
@@ -813,8 +834,7 @@ def op_export(args):
 
 
 def op_unlock(args):
-    network_file: str = args.network_file
-    network = eval_network(network_file)
+    network = eval_network(get_network_file(args))
     lock = get_lock(network)
     lock.unlock()
 
@@ -1033,7 +1053,9 @@ def op_edit(args):
         editor = os.environ.get("EDITOR")
         if not editor:
             raise Exception("the $EDITOR environment variable is not set")
-        os.system("$EDITOR " + " ".join([pipes.quote(x) for x in depl.nix_exprs]))
+        os.system(
+            "$EDITOR " + " ".join([pipes.quote(x) for x in depl.network_expr.network])
+        )
 
 
 def op_copy_closure(args):
@@ -1087,10 +1109,10 @@ def add_subparser(
     subparser = subparsers.add_parser(name, help=help)
     subparser.add_argument(
         "--network",
-        dest="network_file",
+        dest="network_dir",
         metavar="FILE",
-        default=os.path.join(os.getcwd(), "network.nix"),
-        help="path to a network.nix",
+        default=os.getcwd(),
+        help="path to a directory containing either network.nix or flake.nix",
     )
     subparser.add_argument(
         "--deployment",

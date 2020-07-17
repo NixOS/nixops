@@ -8,6 +8,7 @@ from nixops.exceptions import NixError
 import itertools
 import os.path
 import os
+from dataclasses import dataclass
 
 
 class NixEvalError(NixError):
@@ -47,6 +48,12 @@ class EvalResult(ImmutableValidatedObject):
     value: Any
 
 
+@dataclass
+class NetworkFile:
+    network: str
+    is_flake: bool
+
+
 def get_expr_path() -> str:
     expr_path: str = os.path.realpath(
         os.path.dirname(__file__) + "/../../../../share/nix/nixops"
@@ -62,9 +69,10 @@ def get_expr_path() -> str:
 
 def eval(
     # eval-machine-info args
-    networkExprs: List[str],
+    networkExpr: NetworkFile,  # Flake conditional
     uuid: str,
     deploymentName: str,
+    networkExprs: List[str] = [],
     args: Dict[str, str] = {},
     pluginNixExprs: List[str] = [],
     checkConfigurationOptions: bool = True,
@@ -77,14 +85,19 @@ def eval(
     # Non-propagated args
     stderr: Optional[TextIO] = None,
 ) -> Any:
+
+    exprs: List[str] = list(networkExprs)
+    if not networkExpr.is_flake:
+        exprs.append(networkExpr.network)
+
     argv: List[str] = (
-        ["nix-instantiate", "--eval-only", "--json", "--strict"]
+        ["nix-instantiate", "--eval-only", "--json", "--strict", "--show-trace"]
         + [os.path.join(get_expr_path(), "eval-machine-info.nix")]
         + ["-I", "nixops=" + get_expr_path()]
         + [
             "--arg",
             "networkExprs",
-            py2nix([RawValue(x) if x[0] == "<" else x for x in networkExprs]),
+            py2nix([RawValue(x) if x[0] == "<" else x for x in exprs]),
         ]
         + [
             "--arg",
@@ -105,6 +118,10 @@ def eval(
     if attr:
         argv.extend(["-A", attr])
 
+    if networkExpr.is_flake:
+        argv.extend(["--allowed-uris", get_expr_path()])
+        argv.extend(["--argstr", "flakeUri", networkExpr.network])
+
     try:
         ret = subprocess.check_output(argv, stderr=stderr, text=True)
         return json.loads(ret)
@@ -114,10 +131,14 @@ def eval(
         raise NixEvalError
 
 
-def eval_network(nix_expr: str) -> NetworkEval:
-
+def eval_network(nix_expr: NetworkFile) -> NetworkEval:
     try:
-        result = eval(networkExprs=[nix_expr], uuid="dummy", deploymentName="dummy", attr="info.network")
+        result = eval(
+            networkExpr=nix_expr,
+            uuid="dummy",
+            deploymentName="dummy",
+            attr="info.network",
+        )
     except Exception:
         raise NixEvalError("No network attribute found")
 
