@@ -5,7 +5,6 @@ from typing import List, Dict, Optional, Union, Tuple, Type
 
 from nixops.storage import StorageBackend
 from nixops.locks import LockDriver
-from functools import lru_cache
 from typing import Generator
 import pluggy
 import nixops
@@ -15,7 +14,6 @@ hookimpl = pluggy.HookimplMarker("nixops")
 """Marker to be imported and used in plugins (and for own implementations)"""
 
 
-@lru_cache()
 def get_plugin_manager():
     from . import hookspecs
 
