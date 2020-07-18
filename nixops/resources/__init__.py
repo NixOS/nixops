@@ -4,8 +4,19 @@ from __future__ import annotations
 import re
 import nixops.util
 from threading import Event
-from typing import List, Optional, Dict, Any, Type, TypeVar, Union, TYPE_CHECKING
 from nixops.monkey import Protocol, runtime_checkable
+from typing import (
+    List,
+    Optional,
+    Dict,
+    Any,
+    TypeVar,
+    Union,
+    TYPE_CHECKING,
+    Type,
+    Iterable,
+    Set,
+)
 from nixops.state import StateDict, RecordId
 from nixops.diff import Diff, Handler
 from nixops.util import ImmutableMapping, ImmutableValidatedObject
@@ -31,17 +42,19 @@ class ResourceDefinition:
     config: ResourceOptions
 
     @classmethod
-    def get_type(cls) -> str:
+    def get_type(cls: Type[ResourceDefinition]) -> str:
         """A resource type identifier that must match the corresponding ResourceState class"""
         raise NotImplementedError("get_type")
 
     @classmethod
-    def get_resource_type(cls):
+    def get_resource_type(cls: Type[ResourceDefinition]) -> str:
         """A resource type identifier corresponding to the resources.<type> attribute in the Nix expression"""
         return cls.get_type()
 
     def __init__(self, name: str, config: ResourceEval):
-        config_type = self.__annotations__.get("config", ResourceOptions)
+        config_type: Union[Type, str] = self.__annotations__.get(
+            "config", ResourceOptions
+        )
 
         if isinstance(config_type, str):
             if config_type == "ResourceOptions":
@@ -194,7 +207,7 @@ class ResourceState(Protocol[ResourceDefinitionType]):
             res["type"] = self.get_type()
             return res
 
-    def import_(self, attrs):
+    def import_(self, attrs: Dict):
         """Import the resource from another database"""
         with self.depl._db:
             for k, v in attrs.items():
@@ -203,22 +216,22 @@ class ResourceState(Protocol[ResourceDefinitionType]):
                 self._set_attr(k, v)
 
     # XXX: Deprecated, use self.logger.* instead!
-    def log(self, *args, **kwargs):
+    def log(self, *args, **kwargs) -> None:
         return self.logger.log(*args, **kwargs)
 
-    def log_end(self, *args, **kwargs):
+    def log_end(self, *args, **kwargs) -> None:
         return self.logger.log_end(*args, **kwargs)
 
-    def log_start(self, *args, **kwargs):
+    def log_start(self, *args, **kwargs) -> None:
         return self.logger.log_start(*args, **kwargs)
 
-    def log_continue(self, *args, **kwargs):
+    def log_continue(self, *args, **kwargs) -> None:
         return self.logger.log_continue(*args, **kwargs)
 
-    def warn(self, *args, **kwargs):
+    def warn(self, *args, **kwargs) -> None:
         return self.logger.warn(*args, **kwargs)
 
-    def success(self, *args, **kwargs):
+    def success(self, *args, **kwargs) -> None:
         return self.logger.success(*args, **kwargs)
 
     # XXX: End deprecated methods
@@ -270,11 +283,17 @@ class ResourceState(Protocol[ResourceDefinitionType]):
     def public_ipv4(self) -> Optional[str]:
         return None
 
-    def create_after(self, resources, defn):
+    def create_after(
+        self,
+        resources: Iterable[GenericResourceState],
+        defn: Optional[ResourceDefinition],
+    ) -> Set[GenericResourceState]:
         """Return a set of resources that should be created before this one."""
-        return {}
+        return set()
 
-    def destroy_before(self, resources):
+    def destroy_before(
+        self, resources: Iterable[GenericResourceState]
+    ) -> Set[GenericResourceState]:
         """Return a set of resources that should be destroyed after this one."""
         return self.create_after(resources, None)
 
@@ -284,7 +303,7 @@ class ResourceState(Protocol[ResourceDefinitionType]):
         check: bool,
         allow_reboot: bool,
         allow_recreate: bool,
-    ):
+    ) -> None:
         """Create or update the resource defined by ‘defn’."""
         raise NotImplementedError("create")
 
@@ -300,16 +319,16 @@ class ResourceState(Protocol[ResourceDefinitionType]):
     def _check(self):
         return True
 
-    def after_activation(self, defn):
+    def after_activation(self, defn: ResourceDefinition) -> None:
         """Actions to be performed after the network is activated"""
         return
 
-    def destroy(self, wipe=False):
+    def destroy(self, wipe: bool = False) -> bool:
         """Destroy this resource, if possible."""
         self.logger.warn("don't know how to destroy resource ‘{0}’".format(self.name))
         return False
 
-    def delete_resources(self):
+    def delete_resources(self) -> bool:
         """delete this resource state, if possible."""
         if not self.depl.logger.confirm(
             "are you sure you want to clear the state of {}? "
@@ -324,7 +343,7 @@ class ResourceState(Protocol[ResourceDefinitionType]):
         )
         return True
 
-    def next_charge_time(self):
+    def next_charge_time(self) -> Optional[int]:
         """Return the time (in Unix epoch) when this resource will next incur
         a financial charge (or None if unknown)."""
         return None
@@ -337,7 +356,7 @@ class DiffEngineResourceState(
     _reserved_keys: List[str] = []
     _state: StateDict
 
-    def __init__(self, depl, name, id):
+    def __init__(self, depl: "nixops.deployment.Deployment", name: str, id: RecordId):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
 
@@ -347,7 +366,7 @@ class DiffEngineResourceState(
         check: bool,
         allow_reboot: bool,
         allow_recreate: bool,
-    ):
+    ) -> None:
         # if --check is true check against the api and update the state
         # before firing up the diff engine in order to get the needed
         # handlers calls
@@ -358,12 +377,12 @@ class DiffEngineResourceState(
         for handler in diff_engine.plan():
             handler.handle(allow_recreate)
 
-    def plan(self, defn: ResourceDefinitionType):
+    def plan(self, defn: ResourceDefinitionType) -> None:
         if hasattr(self, "_state"):
             diff_engine = self.setup_diff_engine(defn)
             diff_engine.plan(show=True)
         else:
-            self.warn(
+            self.logger.warn(
                 "resource type {} doesn't implement a plan operation".format(
                     self.get_type()
                 )
