@@ -152,13 +152,6 @@ class ImmutableValidatedObject:
 
             if inspect.isclass(ann) and issubclass(ann, ImmutableValidatedObject):
                 value = ann(**value)
-            elif hasattr(ann, "__origin__") and ann.__origin__ == Union:
-                for arg in ann.__args__:
-                    if inspect.isclass(arg) and issubclass(
-                        arg, ImmutableValidatedObject
-                    ):
-                        value = arg(**value)
-                        break
 
             # Support Sequence[ImmutableValidatedObject]
             if isinstance(value, tuple) and not isinstance(ann, str):
@@ -381,7 +374,7 @@ def logged_exec(  # noqa: C901
     return stdout if capture_stdout else res
 
 
-def generate_random_string(length=256) -> str:
+def generate_random_string(length: int = 256) -> str:
     """Generate a base-64 encoded cryptographically strong random string."""
     s = os.urandom(length)
     assert len(s) == length
@@ -393,9 +386,9 @@ def make_non_blocking(fd: IO[Any]) -> None:
 
 
 def wait_for_success(
-    fn: Callable,
+    fn: Callable[[], None],
     timeout: Optional[int] = None,
-    callback: Optional[Callable[[], Any]] = None,
+    callback: Optional[Callable[[], None]] = None,
 ) -> bool:
     n = 0
     while True:
@@ -419,9 +412,9 @@ def wait_for_success(
 
 
 def wait_for_fail(
-    fn: Callable,
+    fn: Callable[[], None],
     timeout: Optional[int] = None,
-    callback: Optional[Callable[[], Any]] = None,
+    callback: Optional[Callable[[], None]] = None,
 ) -> bool:
     n = 0
     while True:
@@ -503,7 +496,7 @@ def attr_property(name: str, default: Any, type: Optional[Any] = str) -> Any:
 
 
 def create_key_pair(
-    key_name="NixOps auto-generated key", type="ed25519"
+    key_name: str = "NixOps auto-generated key", type: str = "ed25519"
 ) -> Tuple[str, str]:
     key_dir = tempfile.mkdtemp(prefix="nixops-key-tmp")
     res = subprocess.call(
@@ -541,7 +534,7 @@ class TeeStderr(StringIO):
     def __del__(self) -> None:
         sys.stderr = self.stderr
 
-    def write(self, data) -> int:
+    def write(self, data: str) -> int:
         ret = self.stderr.write(data)
         for line in data.split("\n"):
             self.logger.warning(line)
@@ -569,7 +562,7 @@ class TeeStdout(StringIO):
     def __del__(self) -> None:
         sys.stdout = self.stdout
 
-    def write(self, data) -> int:
+    def write(self, data: str) -> int:
         ret = self.stdout.write(data)
         for line in data.split("\n"):
             self.logger.info(line)
@@ -604,10 +597,6 @@ def which(program: str) -> str:
                 return exe_file
 
     raise Exception("program ‘{0}’ not found in \$PATH".format(program))  # noqa: W605
-
-
-def enum(**enums):
-    return type("Enum", (), enums)
 
 
 def write_file(path: str, contents: str) -> None:
