@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from nixops.backends import MachineState
+from nixops.backends import GenericMachineState
 from typing import List, Dict, Generator, Tuple, Any, Set
 import importlib
 from argparse import ArgumentParser, _SubParsersAction
@@ -35,7 +35,7 @@ class DeploymentHooksManager:
 
 class MachineHooksManager:
     @staticmethod
-    def post_wait(m: MachineState) -> None:
+    def post_wait(m: GenericMachineState) -> None:
         for hook in PluginManager.machine_hooks():
             hook.post_wait(m)
 
