@@ -55,7 +55,7 @@ class UnknownBackend(Exception):
     pass
 
 
-DEBUG = False
+DEBUG: bool = False
 
 NixosConfigurationType = List[Dict[Tuple[str, ...], Any]]
 
@@ -1221,8 +1221,10 @@ class Deployment:
                         # attribute, because the machine may have been
                         # booted from an older NixOS image.
                         if not m.state_version:
-                            os_release = m.run_command(
-                                "cat /etc/os-release", capture_stdout=True
+                            os_release = str(
+                                m.run_command(
+                                    "cat /etc/os-release", capture_stdout=True
+                                )
                             )
                             match = re.search(
                                 'VERSION_ID="([0-9]+\.[0-9]+).*"',  # noqa: W605
