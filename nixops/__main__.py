@@ -12,7 +12,9 @@ def setup_debugger() -> None:
     from types import TracebackType
     from typing import Type
 
-    def hook(_type: Type[BaseException], value: BaseException, tb: TracebackType):
+    def hook(
+        _type: Type[BaseException], value: BaseException, tb: TracebackType
+    ) -> None:
         if hasattr(sys, "ps1") or not sys.stderr.isatty():
             sys.__excepthook__(_type, value, tb)
         else:
