@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from nixops.backends import MachineState
+from nixops.backends import GenericMachineState
 from typing import List, Dict, Optional, Union, Tuple, Type
 from argparse import ArgumentParser, _SubParsersAction
 
@@ -47,7 +47,7 @@ class DeploymentHooks:
 
 
 class MachineHooks:
-    def post_wait(self, m: MachineState) -> None:
+    def post_wait(self, m: GenericMachineState) -> None:
         """
         Do action once SSH is available
         """
