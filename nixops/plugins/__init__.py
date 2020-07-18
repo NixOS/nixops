@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from nixops.backends import MachineState
 from typing import List, Dict, Optional, Union, Tuple, Type
+from argparse import ArgumentParser, _SubParsersAction
 
 from nixops.storage import StorageBackend
 from nixops.locks import LockDriver
@@ -14,7 +15,7 @@ hookimpl = pluggy.HookimplMarker("nixops")
 """Marker to be imported and used in plugins (and for own implementations)"""
 
 
-def get_plugin_manager():
+def get_plugin_manager() -> pluggy.PluginManager:
     from . import hookspecs
 
     pm = pluggy.PluginManager("nixops")
@@ -82,7 +83,7 @@ class Plugin:
         """
         return []
 
-    def parser(self, parser, subparsers):
+    def parser(self, parser: ArgumentParser, subparsers: _SubParsersAction) -> None:
         """
         Extend the core nixops cli parser
         """
