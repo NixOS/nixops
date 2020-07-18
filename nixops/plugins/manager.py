@@ -3,6 +3,7 @@ from __future__ import annotations
 from nixops.backends import MachineState
 from typing import List, Dict, Generator, Tuple, Any, Set
 import importlib
+from argparse import ArgumentParser, _SubParsersAction
 
 from nixops.storage import StorageBackend
 from nixops.locks import LockDriver
@@ -57,7 +58,7 @@ class PluginManager:
             yield machine_hooks
 
     @classmethod
-    def load(cls):
+    def load(cls) -> None:
         seen: Set[str] = set()
         for plugin in get_plugins():
             for mod in plugin.load():
@@ -73,7 +74,7 @@ class PluginManager:
         return nixexprs
 
     @staticmethod
-    def parser(parser, subparsers):
+    def parser(parser: ArgumentParser, subparsers: _SubParsersAction) -> None:
         for plugin in get_plugins():
             plugin.parser(parser, subparsers)
 
