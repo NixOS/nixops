@@ -18,7 +18,7 @@ import platform
 import time
 import importlib
 
-from functools import reduce
+from functools import reduce, lru_cache
 from typing import (
     Callable,
     Dict,
@@ -407,6 +407,7 @@ class Deployment:
         """Evaluate the NixOps network expression's arguments."""
         return self.eval(attr="nixopsArguments")
 
+    @lru_cache()
     def evaluate_config(self, attr) -> Dict:
         return self.eval(checkConfigurationOptions=False, attr=attr)
 
@@ -414,7 +415,7 @@ class Deployment:
         if not self.network_attr_eval:
             # Extract global deployment attributes.
             try:
-                config = self.evaluate_config("info.network")
+                config = self.evaluate_config("info")["network"]
             except Exception as e:
                 if action not in ("destroy", "delete"):
                     raise e
