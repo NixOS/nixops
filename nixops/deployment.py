@@ -65,6 +65,7 @@ DEBUG = False
 NixosConfigurationType = List[Dict[Tuple[str, ...], Any]]
 
 TypedResource = TypeVar("TypedResource")
+TypedDefinition = TypeVar("TypedDefinition")
 
 
 class Deployment:
@@ -195,6 +196,26 @@ class Deployment:
         if not isinstance(res, type):
             raise ValueError(f"{res} not of type {type}")
         return res
+
+    def get_generic_definition(
+        self, name: str, type_name: str
+    ) -> nixops.resources.ResourceDefinition:
+        defn = self._definitions().get(name, None)
+        if not defn:
+            raise Exception("definition ‘{0}’ does not exist".format(name))
+        if defn.get_type() != type_name:
+            raise Exception(
+                "definition ‘{0}’ is not of type ‘{1}’".format(name, type_name)
+            )
+        return defn
+
+    def get_typed_definition(
+        self, name: str, type_name: str, type: Type[TypedDefinition]
+    ) -> TypedDefinition:
+        defn = self.get_generic_definition(name, type_name)
+        if not isinstance(defn, type):
+            raise ValueError(f"{defn} not of type {type}")
+        return defn
 
     def get_machine(self, name: str, type: Type[TypedResource]) -> TypedResource:
         m = self.get_generic_machine(name)
