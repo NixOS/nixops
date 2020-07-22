@@ -2,12 +2,28 @@ from __future__ import annotations
 
 import itertools
 
-from typing import Any, AnyStr, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import (
+    Any,
+    AnyStr,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Generic,
+    TypeVar,
+    TYPE_CHECKING,
+)
 from nixops.logger import MachineLogger
 from nixops.state import StateDict
 
 if TYPE_CHECKING:
     import nixops.deployment
+
+# Note: redefined to avoid import loops
+ResourceDefinitionType = TypeVar(
+    "ResourceDefinitionType", bound="nixops.resources.ResourceDefinition"
+)
 
 
 class Handler:
@@ -42,7 +58,7 @@ class Handler:
         return self._keys
 
 
-class Diff:
+class Diff(Generic[ResourceDefinitionType]):
     """
     Diff engine main class which implements methods for doing diffs between
     the state/config and generating a plan: sequence of handlers to be executed.
@@ -56,12 +72,12 @@ class Diff:
         self,
         depl: nixops.deployment.Deployment,
         logger: MachineLogger,
-        config: Dict[str, Any],
+        defn: ResourceDefinitionType,
         state: StateDict,
         res_type: str,
     ) -> None:
         self.handlers: List[Handler] = []
-        self._definition = config
+        self._definition = defn.resource_eval
         self._state = state
         self._depl = depl
         self._type = res_type
@@ -130,8 +146,8 @@ class Diff:
         dependencies.
         """
         # TODO implement cycle detection
-        parent = {}  # type: Dict[Handler, Optional[Handler]]
-        sequence = []  # type: List[Handler]
+        parent: Dict[Handler, Optional[Handler]] = {}
+        sequence: List[Handler] = []
 
         def visit(handler: Handler) -> None:
             for v in handler.get_deps():
@@ -193,7 +209,9 @@ class Diff:
                 try:
                     d = getattr(res, k)
                 except AttributeError:
-                    d = res._state[k]
+                    # TODO res._state is private and should not be reached in to.
+                    # Make sure nixops-aws still works when fixing this.
+                    d = res._state[k]  # type: ignore
             return d
 
         d = self._definition.get(key, None)
