@@ -66,9 +66,7 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
         self.provision_ssh_key = config["provisionSSHKey"]
 
 
-MachineDefinitionType = TypeVar(
-    "MachineDefinitionType", bound="MachineDefinition", contravariant=True
-)
+MachineDefinitionType = TypeVar("MachineDefinitionType", bound="MachineDefinition")
 
 
 @runtime_checkable
