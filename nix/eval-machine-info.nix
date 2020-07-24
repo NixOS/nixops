@@ -41,24 +41,20 @@ let
       if network ? nixpkgs
       then (builtins.head (network.nixpkgs)).lib.nixosSystem
       else throw "NixOps network must have a 'nixpkgs' attribute"
-    else import (pkgs.path + "/nixos/lib/eval-config.nix");
+    else import <nixpkgs/nixos/lib/eval-config.nix>;
 
   pkgs = if flakeUri != null
     then
       if network ? nixpkgs
       then (builtins.head network.nixpkgs).legacyPackages.${system}
       else throw "NixOps network must have a 'nixpkgs' attribute"
-    else (builtins.head (network.network)).nixpkgs or (import <nixpkgs> { inherit system; });
+    else import <nixpkgs> { inherit system; };
 
   inherit (pkgs) lib;
-
-  # Expose path to imported nixpkgs (currently only used to find version suffix)
-  nixpkgs = builtins.unsafeDiscardStringContext pkgs.path;
 
 in rec {
 
   inherit networks network;
-  inherit nixpkgs;
 
   importedPluginNixExprs = map
     (expr: import expr)
@@ -86,7 +82,6 @@ in rec {
       in
       { name = machineName;
         value = evalConfig {
-          inherit pkgs;
           modules =
             modules ++
             defaults ++
@@ -177,11 +172,7 @@ in rec {
         pluginDeploymentConfigExporters
       ));
 
-    network =
-      builtins.removeAttrs
-      (lib.fold (as: bs: as // bs) {} (network'.network or []))
-      [ "nixpkgs" ]  # Not serialisable
-      ;
+    network = lib.fold (as: bs: as // bs) {} (network'.network or []);
 
     resources =
     let
@@ -254,5 +245,4 @@ in rec {
   getNixOpsArgs = fs: lib.zipAttrs (lib.unique (lib.concatMap fileToArgs (getNixOpsExprs fs)));
 
   nixopsArguments = getNixOpsArgs networkExprs;
-
 }
