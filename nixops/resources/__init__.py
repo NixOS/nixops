@@ -343,7 +343,7 @@ class DiffEngineResourceState(ResourceState):
         # handlers calls
         if check:
             self._check()
-        diff_engine = self.setup_diff_engine(config=defn.config)
+        diff_engine = self.setup_diff_engine(defn.config)
 
         for handler in diff_engine.plan():
             handler.handle(allow_recreate)
@@ -363,7 +363,7 @@ class DiffEngineResourceState(ResourceState):
         diff_engine = Diff(
             depl=self.depl,
             logger=self.logger,
-            config=config,
+            config=dict(config),
             state=self._state,
             res_type=self.get_type(),
         )
