@@ -96,7 +96,7 @@ class Diff:
         the diff between definition and state then return a sorted list
         of the handlers to be called to realize the diff.
         """
-        keys = list(self._state.keys()) + list(self._definition.keys())
+        keys = list(set(self._state.keys()) | set(self._definition.keys()))
         for k in keys:
             self.eval_resource_attr_diff(k)
         for k in self.get_keys():
@@ -177,7 +177,7 @@ class Diff:
             self._diff[key] = self.SET
         elif s is not None and d is None:
             self._diff[key] = self.UNSET
-        elif s is not None and d is None:
+        elif s is not None and d is not None:
             if s != d:
                 self._diff[key] = self.UPDATE
 
