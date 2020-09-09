@@ -4,8 +4,8 @@ from __future__ import annotations
 import re
 import nixops.util
 from threading import Event
-from typing import List, Optional, Dict, Any, TypeVar, Union, TYPE_CHECKING
-from nixops.monkey import Protocol
+from typing import List, Optional, Dict, Any, Type, TypeVar, Union, TYPE_CHECKING
+from nixops.monkey import Protocol, runtime_checkable
 from nixops.state import StateDict, RecordId
 from nixops.diff import Diff, Handler
 from nixops.util import ImmutableMapping, ImmutableValidatedObject
@@ -70,13 +70,14 @@ class ResourceDefinition:
         return self.get_type()
 
 
-ResourceDefinitionType = TypeVar(
-    "ResourceDefinitionType", bound="ResourceDefinition", contravariant=True
-)
+ResourceDefinitionType = TypeVar("ResourceDefinitionType", bound="ResourceDefinition")
 
 
+@runtime_checkable
 class ResourceState(Protocol[ResourceDefinitionType]):
     """Base class for NixOps resource state objects."""
+
+    definition_type: Type[ResourceDefinitionType]
 
     name: str
 
@@ -329,7 +330,10 @@ class ResourceState(Protocol[ResourceDefinitionType]):
         return None
 
 
-class DiffEngineResourceState(ResourceState):
+@runtime_checkable
+class DiffEngineResourceState(
+    ResourceState[ResourceDefinitionType], Protocol[ResourceDefinitionType]
+):
     _reserved_keys: List[str] = []
     _state: StateDict
 
@@ -337,20 +341,26 @@ class DiffEngineResourceState(ResourceState):
         nixops.resources.ResourceState.__init__(self, depl, name, id)
         self._state = StateDict(depl, id)
 
-    def create(self, defn, check, allow_reboot, allow_recreate):
+    def create(
+        self,
+        defn: ResourceDefinitionType,
+        check: bool,
+        allow_reboot: bool,
+        allow_recreate: bool,
+    ):
         # if --check is true check against the api and update the state
         # before firing up the diff engine in order to get the needed
         # handlers calls
         if check:
             self._check()
-        diff_engine = self.setup_diff_engine(defn.config)
+        diff_engine = self.setup_diff_engine(defn)
 
         for handler in diff_engine.plan():
             handler.handle(allow_recreate)
 
-    def plan(self, defn):
+    def plan(self, defn: ResourceDefinitionType):
         if hasattr(self, "_state"):
-            diff_engine = self.setup_diff_engine(defn.config)
+            diff_engine = self.setup_diff_engine(defn)
             diff_engine.plan(show=True)
         else:
             self.warn(
@@ -359,11 +369,11 @@ class DiffEngineResourceState(ResourceState):
                 )
             )
 
-    def setup_diff_engine(self, config):
+    def setup_diff_engine(self, defn: ResourceDefinitionType):
         diff_engine = Diff(
             depl=self.depl,
             logger=self.logger,
-            config=dict(config),
+            defn=defn,
             state=self._state,
             res_type=self.get_type(),
         )
@@ -376,11 +386,10 @@ class DiffEngineResourceState(ResourceState):
             getattr(self, h) for h in dir(self) if isinstance(getattr(self, h), Handler)
         ]
 
-    def get_defn(self):
-        if self.depl.definitions is not None and self.name in self.depl.definitions:
-            return self.depl.definitions[self.name].config
-        else:
-            return {}
+    def get_defn(self) -> ResourceDefinitionType:
+        return self.depl.get_typed_definition(
+            self.name, self.get_type(), self.definition_type
+        )
 
 
 GenericResourceState = ResourceState[ResourceDefinition]
