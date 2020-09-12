@@ -746,7 +746,7 @@ class Deployment(object):
                     if not allow_reboot and not force_reboot:
                         raise Exception("the new configuration requires a "
                                         "reboot to take effect (hint: use "
-                                        "‘--allow-reboot’)".format(m.name))
+                                        "‘--allow-reboot’)")
                     m.reboot_sync()
                     res = 0
                     # FIXME: should check which systemd services

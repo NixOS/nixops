@@ -1,4 +1,5 @@
 # NixOps
+**Warning**: Azure and GCE are likely broken, see `/nix/azure.nix:393` and `/nix/gce.nix:405` for details
 
 NixOps (formerly known as Charon) is a tool for deploying NixOS
 machines in a network or cloud.

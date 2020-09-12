@@ -389,9 +389,9 @@ in
 
     };
 
-    fileSystems = mkOption {
-      type = with types; loaOf (submodule fileSystemsOptions);
-    };
+    #fileSystems = mkOption {
+    #  type = with types; loaOf (submodule fileSystemsOptions);
+    #};
 
   };
 

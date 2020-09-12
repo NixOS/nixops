@@ -1095,7 +1095,7 @@ class AzureState(MachineState, ResourceState):
                     continue
 
                 self.log("restoring BLOB {0} from snapshot"
-                         .format(media_link, s_id))
+                         .format(media_link))
                 self.bs().copy_blob(blob["container"], blob["name"],
                                    "{0}?snapshot={1}"
                                    .format(media_link, s_id) )

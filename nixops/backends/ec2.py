@@ -349,7 +349,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
 
 
     def _wait_for_ip(self):
-        self.log_start("waiting for IP address... ".format(self.name))
+        self.log_start("waiting for IP address... ")
 
         def _instance_ip_ready(ins):
             ready = True
@@ -616,7 +616,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if (self.elastic_ipv4 or "") != elastic_ipv4 or (instance.ip_address != elastic_ipv4) or check:
             if elastic_ipv4 != "":
                 # wait until machine is in running state
-                self.log_start("waiting for machine to be in running state... ".format(self.name))
+                self.log_start("waiting for machine to be in running state... ")
                 while True:
                     self.log_continue("[{0}] ".format(instance.state))
                     if instance.state == "running":
@@ -1334,7 +1334,7 @@ class EC2State(MachineState, nixops.resources.ec2_common.EC2CommonState):
         if wipe:
             log.warn("wipe is not supported")
 
-        self.log_start("destroying EC2 machine... ".format(self.name))
+        self.log_start("destroying EC2 machine... ")
 
         # Find the instance, either by its ID or by its client token.
         # The latter allows us to destroy instances that were "leaked"

@@ -90,7 +90,7 @@ class VPCNetworkInterfaceAttachmentState(nixops.resources.DiffEngineResourceStat
                 self.log_continue(".")
                 time.sleep(1)
             else:
-                raise Exception("eni {} doesn't have any attachment {}".format(eni_id))
+                raise Exception("eni {} doesn't have any attachment".format(eni_id))
 
         self.log_end(" done")
 

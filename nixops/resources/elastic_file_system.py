@@ -93,7 +93,7 @@ class ElasticFileSystemState(nixops.resources.ResourceState, \
                             self.creation_token = None
                         break
                     if fs["LifeCycleState"] != "creating":
-                        raise Exception("Elastic File System ‘{0}’ is in unexpected state ‘{1}’".format(fs["LifeCycleState"]))
+                        raise Exception("Elastic File System ‘{0}’ is in unexpected state".format(fs["LifeCycleState"]))
 
                 self.log_continue(".")
                 time.sleep(1)
