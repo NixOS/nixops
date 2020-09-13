@@ -402,7 +402,7 @@ in
     };
 
     #fileSystems = mkOption {
-    #  type = with types; loaOf (submodule fileSystemsOptions);
+    #  type = with types; attrsOf (submodule fileSystemsOptions);
     #};
 
   };

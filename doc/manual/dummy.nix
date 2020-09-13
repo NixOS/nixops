@@ -13,7 +13,7 @@ with lib;
 
   options = {
     fileSystems = mkOption {
-      type = with types; loaOf (submodule {});
+      type = with types; attrsOf (submodule {});
       description = ''
         NixOps extends NixOS' <option>fileSystem</option> option to
         allow convenient attaching of EC2 volumes.
