@@ -2,4 +2,4 @@ language: nix
 before_script:
   - sudo mkdir -p /etc/nix && echo 'sandbox = true' | sudo tee /etc/nix/nix.conf
 script:
-  - nix-build --quiet release.nix -A build.x86_64-linux -I nixpkgs=channel:nixos-19.03
+  - nix-build --quiet release.nix -A build.x86_64-linux -I nixpkgs=channel:nixos-20.09
