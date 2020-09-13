@@ -20,7 +20,7 @@ in
 
     deployment.virtualbox.vmFlags = mkOption {
       default = [];
-      type = types.listOf types.string;
+      type = types.listOf types.str;
       description = ''
         Arbitrary string arguments to append to the modifyvm command.
       '';
