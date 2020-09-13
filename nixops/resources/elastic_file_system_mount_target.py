@@ -119,7 +119,7 @@ class ElasticFileSystemMountTargetState(nixops.resources.ResourceState, nixops.r
                         self.state = self.UP
                         break
                     if mt["LifeCycleState"] != "creating":
-                        raise Exception("Elastic File System mount target ‘{0}’ is in unexpected state".format(mt["LifeCycleState"]))
+                        raise Exception("Elastic File System mount target ‘{0}’ is in unexpected state ‘{1}’".format(mt["MountTargetId"], mt["LifeCycleState"]))
 
                 self.log_continue(".")
                 time.sleep(1)
