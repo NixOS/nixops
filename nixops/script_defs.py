@@ -992,20 +992,7 @@ def op_edit(args):
 def op_copy_closure(args):
     with deployment(args) as depl:
         (username, machine, m) = parse_machine(args.machine, depl)
-        env = dict(os.environ)
-        env["NIX_SSHOPTS"] = " ".join(m.get_ssh_flags())
-        res = nixops.util.logged_exec(
-            [
-                "nix",
-                "copy",
-                "--to",
-                "ssh://{}".format(m.get_ssh_name()),
-                args.storepath,
-            ],
-            m.logger,
-            env=env,
-        )
-        sys.exit(res)
+        m.copy_closure_to(args.storepath)
 
 
 # Set up logging of all commands and output
