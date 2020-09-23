@@ -61,6 +61,14 @@
       # TODO: Re-add manual build
     };
 
+    nixosOptions = pkgs.nixosOptionsDoc {
+      inherit (pkgs.lib.fixMergeModules [ ./nix/options.nix ] {
+        inherit pkgs;
+        name = "<name>";
+        uuid = "<uuid>";
+      }) options;
+    };
+
     checks.doc = pkgs.stdenv.mkDerivation {
       name = "lint-docs";
       # we use cleanPythonSources because the default gitignore
