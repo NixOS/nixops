@@ -1,21 +1,3 @@
-nixops
-1
-NixOps
-nixops
-deploy a set of NixOS machines
-nixops
---version
---help
-command
-arguments
---state
--s
-statefile
---deployment
--d
-uuid-or-name
---confirm
---debug
 Description
 ===========
 
