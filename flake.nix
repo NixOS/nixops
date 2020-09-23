@@ -71,27 +71,29 @@
 
     rstNixosOptions = let
       oneRstOption = name: value: ''
-        # ${name}
+        ${name}
+        ${pkgs.lib.concatStrings (builtins.genList (_: "-") (builtins.stringLength name))}
 
         ${value.description}
-
-        Type: ${value.type}
-
-        ${pkgs.lib.optionalString (value ? default) ''
-          Default:::
-            ${builtins.toJSON value.default}
-        ''}
 
         ${pkgs.lib.optionalString (value ? readOnly) ''
           Read Only
         ''}
 
+        :Type: ${value.type}
+
+        ${pkgs.lib.optionalString (value ? default) ''
+          :Default: ${builtins.toJSON value.default}
+        ''}
+
         ${pkgs.lib.optionalString (value ? example) ''
-          Example:::
-            ${builtins.toJSON value.example}
+          :Example: ${builtins.toJSON value.example}
         ''}
       '';
-      text = pkgs.lib.concatStringsSep "\n" (pkgs.lib.mapAttrsToList oneRstOption self.nixosOptions.${pkgs.system}.optionsNix);
+      text = ''
+        NixOps Options
+        ==============
+      '' + pkgs.lib.concatStringsSep "\n" (pkgs.lib.mapAttrsToList oneRstOption self.nixosOptions.${pkgs.system}.optionsNix);
     in pkgs.writeText "options.rst" text;
 
     checks.doc = pkgs.stdenv.mkDerivation {
