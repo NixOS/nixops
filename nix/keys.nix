@@ -19,13 +19,13 @@ let
       type = types.nullOr types.str;
       description = ''
         When non-null, this designates the text that the key should contain. So if
-        the key name is <replaceable>password</replaceable> and
-        <literal>foobar</literal> is set here, the contents of the file
-        <filename><replaceable>destDir</replaceable>/<replaceable>password</replaceable></filename>
-        will be <literal>foobar</literal>.
+        the key name is ``password`` and
+        ``foobar`` is set here, the contents of the file
+        ``destDir``/``password``
+        will be ``foobar``.
 
-        NOTE: Either <literal>text</literal>, <literal>keyCommand</literal> or
-        <literal>keyFile</literal> have to be set.
+        NOTE: Either ``text``, ``keyCommand`` or
+        ``keyFile`` have to be set.
       '';
     };
 
@@ -37,18 +37,18 @@ let
         When non-null, output of this command run on local machine will be
         deployed to the specified key on the target machine.  If the key name
         is
-        <replaceable>password</replaceable> and <literal>echo secrettoken</literal>
+        ``password`` and ``echo secrettoken``
         is set here, the contents of the file
-        <filename><replaceable>destDir</replaceable>/<replaceable>password</replaceable></filename>
-        deployed will equal the output of the command <literal>echo secrettoken</literal>.
+        ``destDir``/``password``
+        deployed will equal the output of the command ``echo secrettoken``.
 
         This option is especially useful when you don't want to store the secrets
         inside of your NixOps deployment but rather in a well-guarded place such as an
         encrypted file. Consider using nixpkgs.password-store as storage for
         such sensitive secrets.
 
-        NOTE: Either <literal>text</literal>, <literal>keyCommand</literal> or
-        <literal>keyFile</literal> have to be set.
+        NOTE: Either ``text``, ``keyCommand`` or
+        ``keyFile`` have to be set.
       '';
     };
     options.keyFile = mkOption {
@@ -58,17 +58,17 @@ let
       description = ''
         When non-null, contents of the specified file will be deployed to the
         specified key on the target machine.  If the key name is
-        <replaceable>password</replaceable> and <literal>/foo/bar</literal> is set
+        ``password`` and ``/foo/bar`` is set
         here, the contents of the file
-        <filename><replaceable>destDir</replaceable>/<replaceable>password</replaceable></filename>
-        deployed will be the same as local file <literal>/foo/bar</literal>.
+        ``destDir``/``password``
+        deployed will be the same as local file ``/foo/bar``.
 
         Since no serialization/deserialization of key contents is involved, there
         are no limits on that content: null bytes, invalid Unicode,
-        <literal>/dev/random</literal> output -- anything goes.
+        ``/dev/random`` output -- anything goes.
 
-        NOTE: Either <literal>text</literal>, <literal>keyCommand</literal> or
-        <literal>keyFile</literal> have to be set.
+        NOTE: Either ``text``, ``keyCommand`` or
+        ``keyFile`` have to be set.
       '';
     };
 
@@ -77,10 +77,10 @@ let
       type = types.path;
       description = ''
         When specified, this allows changing the destDir directory of the key
-        file from its default value of <filename>/run/keys</filename>.
+        file from its default value of ``/run/keys``.
 
         This directory will be created, its permissions changed to
-        <literal>0750</literal> and ownership to <literal>root:keys</literal>.
+        ``0750`` and ownership to ``root:keys``.
       '';
     };
 
@@ -90,10 +90,10 @@ let
       internal = true;
       description = ''
         Path to the destination of the file, a shortcut to
-        <literal>destDir</literal> + / + <literal>name</literal>
+        ``destDir`` + / + ``name``
 
-        Example: For key named <literal>foo</literal>,
-        this option would have the value <literal>/run/keys/foo</literal>.
+        Example: For key named ``foo``,
+        this option would have the value ``/run/keys/foo``.
       '';
     };
 
@@ -119,8 +119,7 @@ let
       type = types.str;
       description = ''
         The default permissions to set for the key file, needs to be in the
-        format accepted by <citerefentry><refentrytitle>chmod</refentrytitle>
-        <manvolnum>1</manvolnum></citerefentry>.
+        format accepted by ``chmod(1)``.
       '';
     };
   });
@@ -159,23 +158,21 @@ in
 
       description = ''
 
-        <para>The set of keys to be deployed to the machine.  Each attribute maps
+        The set of keys to be deployed to the machine.  Each attribute maps
         a key name to a file that can be accessed as
-        <filename><replaceable>destDir</replaceable>/<replaceable>name</replaceable></filename>,
-        where <literal>destDir</literal> defaults to
-        <filename>/run/keys</filename>.  Thus, <literal>{ password.text =
-        "foobar"; }</literal> causes a file
-        <filename><replaceable>destDir</replaceable>/password</filename> to be
-        created with contents <literal>foobar</literal>.  The directory
-        <filename><replaceable>destDir</replaceable></filename> is only
-        accessible to root and the <literal>keys</literal> group, so keep in mind
+        ``destDir``/``name``,
+        where ``destDir`` defaults to
+        ``/run/keys``.  Thus, ``{ password.text = "foobar"; }`` causes a file
+        ``destDir``/password`` to be
+        created with contents ``foobar``.  The directory ``destDir`` is only
+        accessible to root and the ``keys`` group, so keep in mind
         to add any users that need to have access to a particular key to this
-        group.</para>
+        group.
 
-        <para>Each key also gets a systemd service <literal><replaceable>name</replaceable>-key.service</literal>
+        Each key also gets a systemd service ``<name>-key.service``
         which is active while the key is present and inactive while the key
-        is absent.  Thus, <literal>{ password.text = "foobar"; }</literal> gets
-        a <literal>password-key.service</literal>.</para>
+        is absent.  Thus, ``{ password.text = "foobar"; }`` gets
+        a ``password-key.service``.
       '';
     };
 

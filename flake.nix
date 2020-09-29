@@ -61,6 +61,60 @@
       # TODO: Re-add manual build
     };
 
+    nixosOptions = pkgs.nixosOptionsDoc {
+      inherit (pkgs.lib.fixMergeModules [ ./nix/options.nix ] {
+        inherit pkgs;
+        name = "<name>";
+        uuid = "<uuid>";
+      }) options;
+    };
+
+    rstNixosOptions = let
+      oneRstOption = name: value: ''
+        ${name}
+        ${pkgs.lib.concatStrings (builtins.genList (_: "-") (builtins.stringLength name))}
+
+        ${value.description}
+
+        ${pkgs.lib.optionalString (value ? readOnly) ''
+          Read Only
+        ''}
+
+        :Type: ${value.type}
+
+        ${pkgs.lib.optionalString (value ? default) ''
+          :Default: ${builtins.toJSON value.default}
+        ''}
+
+        ${pkgs.lib.optionalString (value ? example) ''
+          :Example: ${builtins.toJSON value.example}
+        ''}
+      '';
+      text = ''
+        NixOps Options
+        ==============
+      '' + pkgs.lib.concatStringsSep "\n" (pkgs.lib.mapAttrsToList oneRstOption self.nixosOptions.${pkgs.system}.optionsNix);
+    in pkgs.writeText "options.rst" text;
+
+    docs = pkgs.stdenv.mkDerivation {
+      name = "nixops-docs";
+      # we use cleanPythonSources because the default gitignore
+      # implementation doesn't support the restricted evaluation
+      src = pkgs.poetry2nix.cleanPythonSources {
+        src = ./.;
+      };
+
+      buildPhase = ''
+        cp ${self.rstNixosOptions.${pkgs.system}} doc/manual/options.rst
+        ${pythonEnv}/bin/sphinx-build -M clean doc/ doc/_build
+        ${pythonEnv}/bin/sphinx-build -n doc/ doc/_build
+      '';
+
+      installPhase = ''
+        mv doc/_build $out
+      '';
+    };
+
     checks.doc = pkgs.stdenv.mkDerivation {
       name = "lint-docs";
       # we use cleanPythonSources because the default gitignore

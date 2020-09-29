@@ -36,7 +36,7 @@ in
         The username to be used by NixOps by SSH when connecting to the
         remote system.
       '';
-      # If <literal>targetUser</literal> is set to <literal>null</literal>
+      # If ``targetUser`` is set to ``null``
       # the username is set to the username of the user invoking
       # </literal>nixops</literal>.
     };
@@ -58,9 +58,9 @@ in
         NixOps will by default generate an SSH key, store the private key in its state file,
         and add the public key to the remote host.
 
-        Setting this option to <literal>false</literal> will disable this behaviour
+        Setting this option to ``false`` will disable this behaviour
         and rely on you to manage your own SSH keys by yourself and to ensure
-        that <command>ssh</command> has access to any keys it requires.
+        that ``ssh`` has access to any keys it requires.
       '';
     };
 
@@ -85,7 +85,7 @@ in
       default = [ "sudo" "-H" "--" ];
       description = ''
         A command to escalate to root privileges when using SSH as a non-root user.
-        This option is ignored if the <literal>targetUser</literal> option is set to <literal>root</literal>.
+        This option is ignored if the ``targetUser`` option is set to ``root``.
 
         The program and its options are executed verbatim without shell.
 
@@ -100,10 +100,10 @@ in
       description = ''
         Always run the activation script, no matter whether the configuration
         has changed (the default). This behaviour can be enforced even if it's
-        set to <literal>false</literal> using the command line option
-        <literal>--always-activate</literal> on deployment.
+        set to ``false`` using the command line option
+        ``--always-activate`` on deployment.
 
-        If this is set to <literal>false</literal>, activation is done only if
+        If this is set to ``false``, activation is done only if
         the new system profile doesn't match the previous one.
       '';
     };
@@ -121,13 +121,13 @@ in
       default = false;
       type = types.bool;
       description = ''
-        If set to <literal>true</literal>, whole closure will be copied using just `nix-copy-closure`.
+        If set to ``true``, whole closure will be copied using just `nix-copy-closure`.
 
-        If set to <literal>false</literal>, closure will be copied first using binary substitution.
+        If set to ``false``, closure will be copied first using binary substitution.
         Additionally, any missing derivations copied with `nix-copy-closure` will be done
-        using <literal>--gzip</literal> flag.
+        using ``--gzip`` flag.
 
-        Some backends set this value to <literal>true</literal>.
+        Some backends set this value to ``true``.
       '';
     };
 

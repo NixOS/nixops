@@ -110,6 +110,8 @@ jobs:
         run: 'nix-shell --run true'
       - name: Restructured Text Lint
         run: 'nix-shell --run "nix build .#checks.x86_64-linux.doc --experimental-features \"nix-command flakes\""'
+      - name: build
+        run: 'nix-build -A docs.x86_64-linux'
   poetry-up-to-date:
     runs-on: ubuntu-latest
     steps:

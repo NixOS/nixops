@@ -13,9 +13,9 @@ with lib;
       type = types.nullOr types.str;
       description = ''
         Text of a script which will produce a JSON value.
-        <warning>Warning: This uses shell features and is potentially dangerous.</warning>
-        Environment variables: 
-        <envar>$out</envar> is a temp directory available for use.
+        Warning: This uses shell features and is potentially dangerous.
+        Environment variables:
+        ``$out`` is a temp directory available for use.
         '';
     };
 
