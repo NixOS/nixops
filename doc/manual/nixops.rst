@@ -194,8 +194,7 @@ Options
 ``--deployment``; ``-d``
    Set the symbolic name of the new deployment to the given string. The
    name can be used to refer to the deployment by passing the option
-   ``-d
-       name`` or the environment variable ``NIXOPS_DEPLOYMENT=name`` to
+   ``-d name`` or the environment variable ``NIXOPS_DEPLOYMENT=name`` to
    subsequent NixOps invocations. This is typically more convenient than
    using the deployment’s UUID. However, names are not required to be
    unique; if you create multiple deployments with the same name, NixOps
@@ -395,8 +394,7 @@ Options
 
 ``--force-reboot``
    Reboot the machine to activate the new configuration (using
-   ``nixos-rebuild
-       boot``).
+   ``nixos-rebuild boot``).
 
 ``--allow-recreate``
    Recreate resources that have disappeared (e.g. destroyed through
@@ -616,9 +614,8 @@ deployment. For each machine, it prints:
 -  Its state, which is one of ``New`` (not deployed yet), ``Up``
    (created and up to date), ``Outdated`` (created but not up to date
    with the current configuration, e.g. due to use of the ``--exclude``
-   option to ``nixops
-     deploy``) and ``Obsolete`` (created but no longer present in the
-   configuration).
+   option to ``nixops deploy``) and ``Obsolete`` (created but no longer
+   present in the configuration).
 
 -  The type of the machine (i.e. the value of ``deployment.targetEnv``,
    such as ``ec2``). For EC2 machines, it also shows the machine’s
