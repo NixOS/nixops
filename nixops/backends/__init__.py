@@ -197,12 +197,18 @@ class MachineState(
             res.load = avg
 
             # Get the systemd units that are in a failed state or in progress.
+            # cat to inhibit color output.
             out = self.run_command(
-                "systemctl --all --full --no-legend", capture_stdout=True
+                "systemctl --all --full --no-legend | cat", capture_stdout=True
             ).split("\n")
             res.failed_units = []
             res.in_progress_units = []
-            for line in out:
+            for raw_line in out:
+                # All this string processing is fragile.
+                # NixOS 20.09 and later support systemctl --output json
+                # Alternatively, we *could* talk to DBus which has always been
+                # the first-class API.
+                line = raw_line.strip(" ●")
                 match = re.match("^([^ ]+) .* failed .*$", line)
                 if match:
                     res.failed_units.append(match.group(1))
