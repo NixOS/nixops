@@ -29,7 +29,7 @@ class StateDict(collections.MutableMapping):
                 )
             else:
                 v = value
-                if isinstance(value, list):
+                if isinstance(value, list) or isinstance(value, dict):
                     v = json.dumps(value, cls=nixops.util.NixopsEncoder)
                 c.execute(
                     "insert or replace into ResourceAttrs(machine, name, value) values (?, ?, ?)",
