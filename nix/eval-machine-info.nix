@@ -86,7 +86,6 @@ in rec {
       in
       { name = machineName;
         value = evalConfig {
-          inherit pkgs;
           modules =
             modules ++
             defaults ++
@@ -99,6 +98,8 @@ in rec {
                 networking.hostName = lib.mkOverride 900 machineName;
                 deployment.targetHost = lib.mkOverride 900 machineName;
                 environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
+
+                nixpkgs.system = lib.mkDefault system;
               }
             ];
           extraArgs = { inherit nodes resources uuid deploymentName; name = machineName; };
