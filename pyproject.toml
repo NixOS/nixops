@@ -8,7 +8,7 @@ include = ["nix/*.nix", "nixops/py.typed" ]
 
 [tool.poetry.dependencies]
 python = "^3.7"
-PrettyTable = "^0.7.2"
+PrettyTable = "^2.0.0"
 pluggy = "^0.13.1"
 typeguard = "^2.7.1"
 typing-extensions = "^3.7.4"
