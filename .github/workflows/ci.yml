@@ -96,6 +96,8 @@ jobs:
         run: 'nix-shell --run true'
       - name: Coverage
         run: './ci/check-tests.sh'
+        env:
+          NIX_PATH: "nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz"
   docs:
     runs-on: ubuntu-latest
     steps:
