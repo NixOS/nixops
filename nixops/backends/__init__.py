@@ -2,7 +2,17 @@
 from __future__ import annotations
 import os
 import re
-from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar, Callable
+from typing import (
+    Mapping,
+    Match,
+    Any,
+    List,
+    Optional,
+    Union,
+    Sequence,
+    TypeVar,
+    Callable,
+)
 from nixops.monkey import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
@@ -198,8 +208,10 @@ class MachineState(
 
             # Get the systemd units that are in a failed state or in progress.
             # cat to inhibit color output.
-            out = self.run_command(
-                "systemctl --all --full --no-legend | cat", capture_stdout=True
+            out: List[str] = str(
+                self.run_command(
+                    "systemctl --all --full --no-legend | cat", capture_stdout=True
+                )
             ).split("\n")
             res.failed_units = []
             res.in_progress_units = []
@@ -208,8 +220,8 @@ class MachineState(
                 # NixOS 20.09 and later support systemctl --output json
                 # Alternatively, we *could* talk to DBus which has always been
                 # the first-class API.
-                line = raw_line.strip(" ●")
-                match = re.match("^([^ ]+) .* failed .*$", line)
+                line: str = raw_line.strip(" ●")
+                match: Optional[Match[str]] = re.match("^([^ ]+) .* failed .*$", line)
                 if match:
                     res.failed_units.append(match.group(1))
 
