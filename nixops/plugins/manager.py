@@ -20,6 +20,8 @@ class DeploymentHooksManager:
 
         for hook in PluginManager.deployment_hooks():
             for name, attrs in hook.physical_spec(deployment).items():
+                if name not in attrs_per_resource:
+                    attrs_per_resource[name] = []
                 attrs_per_resource[name].extend(attrs)
 
         return attrs_per_resource
