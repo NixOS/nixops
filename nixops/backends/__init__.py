@@ -2,7 +2,17 @@
 from __future__ import annotations
 import os
 import re
-from typing import Mapping, Any, List, Optional, Union, Sequence, TypeVar, Callable
+from typing import (
+    Mapping,
+    Match,
+    Any,
+    List,
+    Optional,
+    Union,
+    Sequence,
+    TypeVar,
+    Callable,
+)
 from nixops.monkey import Protocol, runtime_checkable
 import nixops.util
 import nixops.resources
@@ -198,8 +208,10 @@ class MachineState(
 
             # Get the systemd units that are in a failed state or in progress.
             # cat to inhibit color output.
-            out = self.run_command(
-                "systemctl --all --full --no-legend | cat", capture_stdout=True
+            out: List[str] = str(
+                self.run_command(
+                    "systemctl --all --full --no-legend | cat", capture_stdout=True
+                )
             ).split("\n")
             res.failed_units = []
             res.in_progress_units = []
@@ -208,8 +220,8 @@ class MachineState(
                 # NixOS 20.09 and later support systemctl --output json
                 # Alternatively, we *could* talk to DBus which has always been
                 # the first-class API.
-                line = raw_line.strip(" ●")
-                match = re.match("^([^ ]+) .* failed .*$", line)
+                line: str = raw_line.strip(" ●")
+                match: Optional[Match[str]] = re.match("^([^ ]+) .* failed .*$", line)
                 if match:
                     res.failed_units.append(match.group(1))
 
@@ -224,22 +236,23 @@ class MachineState(
                 # /sys/kernel/config and /tmp. Systemd tries to mount these
                 # even when they don't exist.
                 match = re.match("^([^\.]+\.mount) .* inactive .*$", line)  # noqa: W605
-                if (
-                    match
-                    and not match.group(1).startswith("sys-")
-                    and not match.group(1).startswith("dev-")
-                    and not match.group(1) == "tmp.mount"
-                ):
-                    res.failed_units.append(match.group(1))
 
-                if match and match.group(1) == "tmp.mount":
-                    try:
-                        self.run_command(
-                            "cat /etc/fstab | cut -d' ' -f 2 | grep '^/tmp$' &> /dev/null"
-                        )
-                    except Exception:
-                        continue
-                    res.failed_units.append(match.group(1))
+                if match:
+                    unit = match.group(1)
+                    isSystemMount = unit.startswith("sys-") or unit.startswith("dev-")
+                    isBuiltinMount = unit == "tmp.mount" or unit == "home.mount"
+
+                    if not isSystemMount and not isBuiltinMount:
+                        res.failed_units.append(unit)
+
+                    if isBuiltinMount:
+                        try:
+                            self.run_command(
+                                "cat /etc/fstab | cut -d' ' -f 2 | grep '^/tmp$' &> /dev/null"
+                            )
+                        except Exception:
+                            continue
+                        res.failed_units.append(unit)
 
     def restore(self, defn, backup_id: Optional[str], devices: List[str] = []):
         """Restore persistent disks to a given backup, if possible."""
