@@ -4,11 +4,7 @@ specify multiple storage backends
 */
 {
   network = rec {
-    storage.s3 = {
-      bucket = "hi";
-      whatever = "there";
-    };
-
+    storage.memory = {};
     storage.legacy = {};
   };
 }
