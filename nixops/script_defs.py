@@ -42,14 +42,14 @@ def get_network_file(args: Namespace) -> NetworkFile:
     if not os.path.exists(network_dir):
         raise ValueError("f{network_dir} does not exist")
 
-    classic_path = os.path.join(network_dir, "network.nix")
+    classic_path = os.path.join(network_dir, "nixops.nix")
     flake_path = os.path.join(network_dir, "flake.nix")
 
     classic_exists: bool = os.path.exists(classic_path)
     flake_exists: bool = os.path.exists(flake_path)
 
     if all((flake_exists, classic_exists)):
-        raise ValueError("Both flake.nix and network.nix cannot coexist")
+        raise ValueError("Both flake.nix and nixops.nix cannot coexist")
 
     if classic_exists:
         return NetworkFile(network=classic_path, is_flake=False)
@@ -57,7 +57,7 @@ def get_network_file(args: Namespace) -> NetworkFile:
     if flake_exists:
         return NetworkFile(network=network_dir, is_flake=True)
 
-    raise ValueError(f"Neither flake.nix nor network.nix exists in {network_dir}")
+    raise ValueError(f"Neither flake.nix nor nixops.nix exists in {network_dir}")
 
 
 def set_common_depl(depl: nixops.deployment.Deployment, args: Namespace) -> None:
@@ -1132,7 +1132,7 @@ def add_subparser(
         dest="network_dir",
         metavar="FILE",
         default=os.getcwd(),
-        help="path to a directory containing either network.nix or flake.nix",
+        help="path to a directory containing either nixops.nix or flake.nix",
     )
     subparser.add_argument(
         "--deployment",
