@@ -46,7 +46,10 @@ class StateDict(collections.MutableMapping):
             row: Tuple[str] = c.fetchone()
             if row is not None:
                 try:
-                    return json.loads(row[0])
+                    v = json.loads(row[0])
+                    if isinstance(v, list):
+                        v = tuple(v)
+                    return v
                 except ValueError:
                     return row[0]
             raise KeyError("couldn't find key {} in the state file".format(key))
