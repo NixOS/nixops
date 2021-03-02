@@ -42,6 +42,11 @@
       '';
     };
 
+    defaultApp = {
+      type = "app";
+      program = "${self.defaultPackage."${system}"}/bin/nixops";
+    };
+
     defaultPackage = let
       overrides = import ./overrides.nix { inherit pkgs; };
 
