@@ -48,7 +48,10 @@ let
       if network ? nixpkgs
       then (builtins.head network.nixpkgs).legacyPackages.${system}
       else throw "NixOps network must have a 'nixpkgs' attribute"
-    else (builtins.head (network.network)).nixpkgs or (import <nixpkgs> { inherit system; });
+    else
+      if (network.network or []) == []
+      then import <nixpkgs> { inherit system; }
+      else (builtins.head network.network).nixpkgs or (import <nixpkgs> { inherit system; });
 
   inherit (pkgs) lib;
 
