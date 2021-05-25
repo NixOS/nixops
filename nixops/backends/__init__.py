@@ -592,7 +592,7 @@ class MachineState(
         )
         return self._logged_exec(cmdline)
 
-    def get_console_output(self):
+    def get_console_output(self) -> str:
         return "(not available for this machine type)\n"
 
 

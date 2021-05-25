@@ -98,6 +98,21 @@ jobs:
         run: './ci/check-tests.sh'
         env:
           NIX_PATH: "nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz"
+  coverage-darwin:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Nix
+        uses: cachix/install-nix-action@v12
+      - name: Prefetch shell.nix
+        run: "nix-shell --run true"
+      - name: Coverage
+        run: "./ci/check-tests.sh"
+        env:
+          NIX_PATH: "nixpkgs=https://github.com/NixOS/nixpkgs/archive/nixos-unstable.tar.gz"
   docs:
     runs-on: ubuntu-latest
     steps:
