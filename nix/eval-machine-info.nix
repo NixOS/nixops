@@ -44,11 +44,12 @@ let
     else import (pkgs.path + "/nixos/lib/eval-config.nix");
 
   pkgs = if flakeUri != null
-    then
-      if network ? nixpkgs
-      then (builtins.head network.nixpkgs).legacyPackages.${system}
-      else throw "NixOps network must have a 'nixpkgs' attribute"
-    else (builtins.head (network.network)).nixpkgs or (import <nixpkgs> { inherit system; });
+         then
+           if network ? nixpkgs
+           then (builtins.head network.nixpkgs).legacyPackages.${system}
+           else throw "NixOps network must have a 'nixpkgs' attribute"
+         else if network ? nixpkgs then (builtins.head (network.nixpkgs))
+         else (import <nixpkgs> { inherit system; });
 
   inherit (pkgs) lib;
 
