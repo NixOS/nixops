@@ -122,7 +122,7 @@ in rec {
     lib.mapAttrs (name: defs:
       (builtins.removeAttrs (lib.fixMergeModules
         ([ mainModule deploymentInfoModule ./resource.nix ] ++ defs)
-        { inherit pkgs uuid name resources; nodes = info.machines; }
+        { inherit pkgs uuid name resources nodes; }
       ).config) ["_module"]) _resources;
 
   resources = lib.foldl
