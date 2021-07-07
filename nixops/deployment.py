@@ -143,7 +143,7 @@ class Deployment:
         if self._cur_flake_uri is None:
             out = json.loads(
                 subprocess.check_output(
-                    ["nix", "flake", "info", "--json", "--", self.flake_uri],
+                    ["nix", "flake", "metadata", "--json", "--", self.flake_uri],
                     stderr=self.logger.log_file,
                 )
             )
