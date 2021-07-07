@@ -156,6 +156,8 @@ Upgrade steps:
       databasefile = "~/.nixops/deployments.nixops"
     }
 3. Rerun
+
+See https://nixops.readthedocs.io/en/latest/manual/migrating.html#state-location for more guidance.
 """
             % nix_expr.network
         )
