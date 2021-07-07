@@ -186,7 +186,9 @@ Add a key to a machine like so.
 This will create a file ``/run/keys/my-secret`` with the specified
 contents, ownership, and permissions.
 
-Among the key options, only ``text`` is required. The ``user`` and
+Only the contents of the secret is required.
+It can be specified using one of the options ``text``, ``keyFile``
+or ``keyCommand``. The ``user`` and
 ``group`` options both default to ``"root"``, and ``permissions``
 defaults to ``"0600"``.
 
