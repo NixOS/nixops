@@ -34,6 +34,57 @@ Release 2.0
 .. _#1305: https://github.com/NixOS/nixops/pull/1305
 .. _#1312: https://github.com/NixOS/nixops/pull/1312
 
+This release has contributions by:
+- Aaron Hall
+- Adam Höse
+- Adam Mccullough
+- Amine Chikhaoui
+- Andreas Rammhold
+- Andrey Golovizin
+- Antoine Eiche
+- Benjamin Hipple
+- Bernardo Meurer
+- Chaker Benhamed
+- Cole Helbling
+- David Kleuker
+- Davíð Steinn Geirsson
+- Domen Kožar
+- Eelco Dolstra
+- Florian Klink
+- Graham Christensen
+- Jean-baptiste Musso
+- Jeff Slight
+- Jleeuwes
+- John A. Lotoski
+- John Lotoski
+- Joseph Lucas
+- Lenz Weber
+- Lorenzo Manacorda
+- Luke Bentley-fox
+- Matthieu Coudron
+- Maximilian Bosch
+- Mazen.homrane
+- Michael Fellinger
+- Nathan Van Doorn
+- Niklas Hambüchen
+- Pascal Wittmann
+- Pixelkind
+- Psyanticy
+- Regnat
+- Robert Hensing
+- Ryan Mulligan
+- Samuel Leathers
+- Shay Bergmann
+- Tanner Doshier
+- Tewfik Ghariani
+- Tobias Pflug
+- Tom Bereknyei
+- Tomasz Rybarczyk
+- Victor Multun Collod
+- Vika
+- Vladimir Serov
+- Wout Mertens
+- Yc.s
 
 .. _ssec-relnotes-1.7:
 
