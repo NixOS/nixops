@@ -4,6 +4,18 @@ Release notes
 Release 2.0
 -----------
 
+- Code base has been migrated to Python 3.
+
+- Code base has been statically typed with Mypy.
+
+- Backends are now developed as separate plugins.
+
+- Poetry & Poetry2nix are used for packaging.
+
+- Separate state backends for storing state.
+
+- Major code cleanups.
+
 - Removed NixOS Options
 
   - ``deployment.autoLuks.*`` - moved to `nixos-modules-contrib`_.
@@ -27,12 +39,16 @@ Release 2.0
   - ``nixops/data/nixos-infect`` (`#1305`_, `#1312`_) - plugins needing
     nixos-infect should include it themselves.
 
+- Too many other features/fixes to count.
+  See `#1242`_ for more insight.
+
 .. _nixos-modules-contrib: https://github.com/nix-community/nixos-modules-contrib
 .. _#1297: https://github.com/NixOS/nixops/pull/1297
 .. _#1299: https://github.com/NixOS/nixops/pull/1299
 .. _#1303: https://github.com/NixOS/nixops/pull/1303
 .. _#1305: https://github.com/NixOS/nixops/pull/1305
 .. _#1312: https://github.com/NixOS/nixops/pull/1312
+.. _#1242: https://github.com/NixOS/nixops/issues/1242
 
 This release has contributions by:
 - Aaron Hall
