@@ -162,7 +162,7 @@ Upgrade steps:
     }
 3. Rerun
 """
-            % nix_expr
+            % nix_expr.network
         )
 
     raw_eval = RawNetworkEval(**result)
