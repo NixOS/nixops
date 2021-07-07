@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from nixops.backends import MachineState
-from typing import List, Dict, Optional, Union, Tuple
+from nixops.backends import GenericMachineState
+from typing import List, Dict, Optional, Union, Tuple, Type
+from argparse import ArgumentParser, _SubParsersAction
 
-from functools import lru_cache
+from nixops.storage import StorageBackend
+from nixops.locks import LockDriver
 from typing import Generator
 import pluggy
 import nixops
@@ -13,8 +15,7 @@ hookimpl = pluggy.HookimplMarker("nixops")
 """Marker to be imported and used in plugins (and for own implementations)"""
 
 
-@lru_cache()
-def get_plugin_manager():
+def get_plugin_manager() -> pluggy.PluginManager:
     from . import hookspecs
 
     pm = pluggy.PluginManager("nixops")
@@ -46,7 +47,7 @@ class DeploymentHooks:
 
 
 class MachineHooks:
-    def post_wait(self, m: MachineState) -> None:
+    def post_wait(self, m: GenericMachineState) -> None:
         """
         Do action once SSH is available
         """
@@ -82,7 +83,7 @@ class Plugin:
         """
         return []
 
-    def parser(self, parser, subparsers):
+    def parser(self, parser: ArgumentParser, subparsers: _SubParsersAction) -> None:
         """
         Extend the core nixops cli parser
         """
@@ -93,3 +94,12 @@ class Plugin:
         :return a list of tuples (plugin_name, doc_path)
         """
         return []
+
+    def lock_drivers(self) -> Dict[str, Type[LockDriver]]:
+        return {}
+
+    def storage_backends(self) -> Dict[str, Type[StorageBackend]]:
+        """ Extend the core nixops cli parser
+        :return a set of plugin parser extensions
+        """
+        return {}

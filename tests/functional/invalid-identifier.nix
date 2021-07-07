@@ -1,4 +1,4 @@
 {
+  network = {};
   "machine 1" = {};
 }
-

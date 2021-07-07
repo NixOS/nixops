@@ -1,6 +1,6 @@
 import functools
 import string
-from typing import Optional, Any, List
+from typing import Optional, Any, List, Union, Dict
 from textwrap import dedent
 
 __all__ = ["py2nix", "nix2py", "nixmerge", "expand_dict", "RawValue", "Function"]
@@ -36,19 +36,19 @@ class MultiLineRawValue(RawValue):
     def is_inlineable(self) -> bool:
         return False
 
-    def indent(self, level: int = 0, inline: bool = False, maxwidth: int = 80):
+    def indent(self, level: int = 0, inline: bool = False, maxwidth: int = 80) -> str:
         return "\n".join(["  " * level + value for value in self.values])
 
 
 class Function(object):
-    def __init__(self, head, body):
-        self.head = head
-        self.body = body
+    def __init__(self, head: Any, body: Any):
+        self.head: Any = head
+        self.body: Any = body
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "{0} {1}".format(self.head, self.body)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return (
             isinstance(other, Function)
             and other.head == self.head
@@ -57,27 +57,27 @@ class Function(object):
 
 
 class Call(object):
-    def __init__(self, fun, arg):
-        self.fun = fun
-        self.arg = arg
+    def __init__(self, fun: Any, arg: Any):
+        self.fun: Any = fun
+        self.arg: Any = arg
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "{0} {1}".format(self.fun, self.arg)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return (
             isinstance(other, Call) and other.fun == self.fun and other.arg == self.arg
         )
 
 
 class Container(object):
-    def __init__(self, prefix, children, suffix, inline_variant=None):
-        self.prefix = prefix
-        self.children = children
-        self.suffix = suffix
+    def __init__(self, prefix: str, children: List, suffix: str, inline_variant=None):
+        self.prefix: str = prefix
+        self.children: List = children
+        self.suffix: str = suffix
         self.inline_variant = inline_variant
 
-    def get_min_length(self) -> Optional[int]:
+    def get_min_length(self) -> int:
         """
         Return the minimum length of this container and all sub-containers.
         """
@@ -92,7 +92,7 @@ class Container(object):
     def is_inlineable(self) -> bool:
         return all([child.is_inlineable() for child in self.children])
 
-    def indent(self, level=0, inline=False, maxwidth=80) -> str:
+    def indent(self, level: int = 0, inline: bool = False, maxwidth: int = 80) -> str:
         if not self.is_inlineable():
             inline = False
         elif level * 2 + self.get_min_length() < maxwidth:
@@ -120,7 +120,9 @@ class Container(object):
         return ind + self.prefix + sep + lines + sep + suffix_ind + self.suffix
 
 
-def enclose_node(node, prefix="", suffix=""):
+def enclose_node(
+    node: Any, prefix: str = "", suffix: str = ""
+) -> Union[MultiLineRawValue, RawValue, Container]:
     if isinstance(node, MultiLineRawValue):
         new_values = list(node.values)
         new_values[0] = prefix + new_values[0]
@@ -139,14 +141,16 @@ def enclose_node(node, prefix="", suffix=""):
         )
 
 
-def _fold_string(value, rules):
-    def folder(val, rule):
+def _fold_string(value, rules) -> str:
+    def folder(val, rule) -> str:
         return val.replace(rule[0], rule[1])
 
     return functools.reduce(folder, rules, value)
 
 
-def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):  # noqa: C901
+def py2nix(  # noqa: C901
+    value: Any, initial_indentation: int = 0, maxwidth: int = 80, inline: bool = False
+):
     """
     Return the given value as a Nix expression string.
 
@@ -163,7 +167,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):  # noqa: C9
         else:
             return RawValue(str(node))
 
-    def _enc_str(node, for_attribute=False):
+    def _enc_str(node, for_attribute: bool = False):
         encoded = _fold_string(
             node,
             [
@@ -190,7 +194,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):  # noqa: C9
         else:
             return inline_variant
 
-    def _enc_list(nodes):
+    def _enc_list(nodes) -> Union[RawValue, Container]:
         if len(nodes) == 0:
             return RawValue("[]")
         pre, post = "[", "]"
@@ -280,7 +284,7 @@ def py2nix(value, initial_indentation=0, maxwidth=80, inline=False):  # noqa: C9
     return _enc(value).indent(initial_indentation, maxwidth=maxwidth, inline=inline)
 
 
-def expand_dict(unexpanded):
+def expand_dict(unexpanded) -> Dict:
     """
     Turns a dict containing tuples as keys into a set of nested dictionaries.
 
@@ -319,7 +323,7 @@ def nixmerge(expr1, expr2):
     elements if they otherwise would clash.
     """
 
-    def _merge_dicts(d1, d2):
+    def _merge_dicts(d1, d2) -> Dict:
         out = {}
         for key in set(d1.keys()).union(d2.keys()):
             if key in d1 and key in d2:
@@ -330,7 +334,7 @@ def nixmerge(expr1, expr2):
                 out[key] = d2[key]
         return out
 
-    def _merge(e1, e2):
+    def _merge(e1, e2) -> Union[Dict, List]:
         if isinstance(e1, dict) and isinstance(e2, dict):
             return _merge_dicts(e1, e2)
         elif isinstance(e1, list) and isinstance(e2, list):
@@ -348,7 +352,7 @@ def nixmerge(expr1, expr2):
     return _merge(expr1, expr2)
 
 
-def nix2py(source):
+def nix2py(source: str) -> MultiLineRawValue:
     """
     Dedent the given Nix source code and encode it into multiple raw values
     which are used as-is and only indentation will take place.

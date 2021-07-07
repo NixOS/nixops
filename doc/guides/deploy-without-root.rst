@@ -61,7 +61,7 @@ the next step.
 Configuring the NixOps Network
 ******************************
 
-Edit your network.nix to specify the machine's
+Edit your nixops.nix to specify the machine's
 ``deployment.targetUser``:
 
 .. code-block:: nix

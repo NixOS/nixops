@@ -20,6 +20,7 @@ import nixops.ssh_util
 from nixops.state import RecordId
 import subprocess
 import threading
+import nixops
 
 
 class KeyOptions(nixops.resources.ResourceOptions):
@@ -44,6 +45,7 @@ class MachineOptions(nixops.resources.ResourceOptions):
     targetUser: Optional[str]
     sshOptions: Sequence[str]
     privilegeEscalationCommand: Sequence[str]
+    provisionSSHKey: bool
 
 
 class MachineDefinition(nixops.resources.ResourceDefinition):
@@ -53,27 +55,28 @@ class MachineDefinition(nixops.resources.ResourceDefinition):
 
     ssh_port: int
     always_activate: bool
-    owners: List[str]
+    owners: Sequence[str]
     has_fast_connection: bool
     keys: Mapping[str, KeyOptions]
     ssh_user: str
-    ssh_options: List[str]
-    privilege_escalation_command: List[str]
+    ssh_options: Sequence[str]
+    privilege_escalation_command: Sequence[str]
     provision_ssh_key: bool
 
     def __init__(self, name: str, config: nixops.resources.ResourceEval):
         super().__init__(name, config)
-        self.ssh_port = config["targetPort"]
-        self.always_activate = config["alwaysActivate"]
-        self.owners = config["owners"]
-        self.has_fast_connection = config["hasFastConnection"]
+        self.ssh_port = self.config.targetPort
+        self.always_activate = self.config.alwaysActivate
+        self.owners = self.config.owners
+        self.has_fast_connection = self.config.hasFastConnection
+        # TODO: Extend MutableValidatedObject to handle this case
         self.keys = {k: KeyOptions(**v) for k, v in config["keys"].items()}
-        self.ssh_options = config["sshOptions"]
+        self.ssh_options = self.config.sshOptions
 
-        self.ssh_user = config["targetUser"]
+        self.ssh_user = self.config.targetUser or "root"
 
-        self.privilege_escalation_command = config["privilegeEscalationCommand"]
-        self.provision_ssh_key = config["provisionSSHKey"]
+        self.privilege_escalation_command = self.config.privilegeEscalationCommand
+        self.provision_ssh_key = self.config.provisionSSHKey
 
 
 MachineDefinitionType = TypeVar("MachineDefinitionType", bound="MachineDefinition")
@@ -96,7 +99,7 @@ class MachineState(
     _ssh_pinged_this_time: bool = False
     ssh_port: int = nixops.util.attr_property("targetPort", None, int)
     ssh_user: str = nixops.util.attr_property("targetUser", "root", str)
-    ssh_options: List[str] = nixops.util.attr_property("sshOptions", [], "json")
+    ssh_options: Sequence[str] = nixops.util.attr_property("sshOptions", [], "json")
     privilege_escalation_command: List[str] = nixops.util.attr_property(
         "privilegeEscalationCommand", [], "json"
     )
@@ -116,9 +119,6 @@ class MachineState(
     cur_toplevel: Optional[str] = nixops.util.attr_property("toplevel", None)
     new_toplevel: Optional[str]
 
-    # Immutable flake URI from which this machine was built.
-    cur_flake_uri: Optional[str] = nixops.util.attr_property("curFlakeUri", None)
-
     # Time (in Unix epoch) the instance was started, if known.
     start_time: Optional[int] = nixops.util.attr_property("startTime", None, int)
 
@@ -128,7 +128,9 @@ class MachineState(
 
     defn: Optional[MachineDefinition] = None
 
-    def __init__(self, depl, name: str, id: RecordId) -> None:
+    def __init__(
+        self, depl: "nixops.deployment.Deployment", name: str, id: RecordId
+    ) -> None:
         super().__init__(depl, name, id)
         self.defn = None
         self._ssh_pinged_this_time = False
@@ -164,17 +166,21 @@ class MachineState(
 
     def stop(self) -> None:
         """Stop this machine, if possible."""
-        self.warn("don't know how to stop machine ‘{0}’".format(self.name))
+        self.logger.warn("don't know how to stop machine ‘{0}’".format(self.name))
 
     def start(self) -> None:
         """Start this machine, if possible."""
         pass
 
-    def get_load_avg(self) -> Union[List[str], None]:
+    def get_load_avg(self) -> Optional[List[str]]:
         """Get the load averages on the machine."""
         try:
-            res = (
-                self.run_command("cat /proc/loadavg", capture_stdout=True, timeout=15)
+            res: List[str] = (
+                str(
+                    self.run_command(
+                        "cat /proc/loadavg", capture_stdout=True, timeout=15
+                    )
+                )
                 .rstrip()
                 .split(" ")
             )
@@ -193,18 +199,21 @@ class MachineState(
         self._check(res)
         return res
 
-    def _check(self, res):  # TODO -> None but supertype ResourceState -> True
+    def _check(self, res):
         avg = self.get_load_avg()
         if avg is None:
             if self.state == self.UP:
                 self.state = self.UNREACHABLE
             res.is_reachable = False
+            return False
         else:
             self.state = self.UP
             self.ssh_pinged = True
             self._ssh_pinged_this_time = True
             res.is_reachable = True
             res.load = avg
+
+            # Get the systemd units that are in a failed state or in progress.
 
             # Get the systemd units that are in a failed state or in progress.
             # cat to inhibit color output.
@@ -280,7 +289,7 @@ class MachineState(
 
     def reboot(self, hard: bool = False) -> None:
         """Reboot this machine."""
-        self.log("rebooting...")
+        self.logger.log("rebooting...")
         if self.state == self.RESCUE:
             # We're on non-NixOS here, so systemd might not be available.
             # The sleep is to prevent the reboot from causing the SSH
@@ -295,7 +304,7 @@ class MachineState(
     def ping(self) -> bool:
         event = threading.Event()
 
-        def _worker():
+        def _worker() -> bool:
             try:
                 self.ssh.run_command(
                     ["true"],
@@ -309,6 +318,7 @@ class MachineState(
                 return False
             else:
                 event.set()
+                return True
 
         t = threading.Thread(target=_worker)
         t.start()
@@ -339,18 +349,18 @@ class MachineState(
     def reboot_sync(self, hard: bool = False) -> None:
         """Reboot this machine and wait until it's up again."""
         self.reboot(hard=hard)
-        self.log_start("waiting for the machine to finish rebooting...")
+        self.logger.log_start("waiting for the machine to finish rebooting...")
 
         def progress_cb() -> None:
-            self.log_continue(".")
+            self.logger.log_continue(".")
 
         self.wait_for_down(callback=progress_cb)
 
-        self.log_continue("[down]")
+        self.logger.log_continue("[down]")
 
         self.wait_for_up(callback=progress_cb)
 
-        self.log_end("[up]")
+        self.logger.log_end("[up]")
         self.state = self.UP
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True
@@ -360,7 +370,9 @@ class MachineState(
         """
         Reboot machine into rescue system and wait until it is active.
         """
-        self.warn("machine ‘{0}’ doesn't have a rescue" " system.".format(self.name))
+        self.logger.warn(
+            "machine ‘{0}’ doesn't have a rescue" " system.".format(self.name)
+        )
 
     def send_keys(self) -> None:
         if self.state == self.RESCUE:
@@ -371,10 +383,10 @@ class MachineState(
             return
 
         for k, opts in self.get_keys().items():
-            self.log("uploading key ‘{0}’ to ‘{1}’...".format(k, opts["path"]))
+            self.logger.log("uploading key ‘{0}’ to ‘{1}’...".format(k, opts["path"]))
             tmp = self.depl.tempdir + "/key-" + self.name
 
-            destDir = opts["destDir"].rstrip("/")
+            destDir: str = opts["destDir"].rstrip("/")
             self.run_command(
                 (
                     "test -d '{0}' || ("
@@ -440,10 +452,10 @@ class MachineState(
     def get_keys(self):
         return self.keys
 
-    def get_ssh_name(self):
+    def get_ssh_name(self) -> str:
         assert False
 
-    def get_ssh_flags(self, scp=False) -> List[str]:
+    def get_ssh_flags(self, scp: bool = False) -> List[str]:
         if scp:
             return ["-P", str(self.ssh_port)] if self.ssh_port is not None else []
         else:
@@ -454,7 +466,7 @@ class MachineState(
     def get_ssh_password(self):
         return None
 
-    def get_ssh_for_copy_closure(self):
+    def get_ssh_for_copy_closure(self) -> nixops.ssh_util.SSH:
         return self.ssh
 
     @property
@@ -465,25 +477,25 @@ class MachineState(
     def private_ipv4(self) -> Optional[str]:
         return None
 
-    def address_to(self, r):
+    def address_to(self, r: nixops.resources.GenericResourceState) -> Optional[str]:
         """Return the IP address to be used to access resource "r" from this machine."""
         return r.public_ipv4
 
-    def wait_for_ssh(self, check=False):
+    def wait_for_ssh(self, check: bool = False) -> None:
         """Wait until the SSH port is open on this machine."""
         if self.ssh_pinged and (not check or self._ssh_pinged_this_time):
             return
-        self.log_start("waiting for SSH...")
+        self.logger.log_start("waiting for SSH...")
 
-        self.wait_for_up(callback=lambda: self.log_continue("."))
+        self.wait_for_up(callback=lambda: self.logger.log_continue("."))
 
-        self.log_end("")
+        self.logger.log_end("")
         if self.state != self.RESCUE:
             self.state = self.UP
         self.ssh_pinged = True
         self._ssh_pinged_this_time = True
 
-    def write_ssh_private_key(self, private_key) -> str:
+    def write_ssh_private_key(self, private_key: str) -> str:
         key_file = "{0}/id_nixops-{1}".format(self.depl.tempdir, self.name)
         with os.fdopen(os.open(key_file, os.O_CREAT | os.O_WRONLY, 0o600), "w") as f:
             f.write(private_key)
@@ -493,10 +505,10 @@ class MachineState(
     def get_ssh_private_key_file(self) -> Optional[str]:
         return None
 
-    def _logged_exec(self, command, **kwargs):
+    def _logged_exec(self, command: List[str], **kwargs) -> Union[str, int]:
         return nixops.util.logged_exec(command, self.logger, **kwargs)
 
-    def run_command(self, command, **kwargs):
+    def run_command(self, command, **kwargs) -> Union[str, int]:
         """
         Execute a command on the machine via SSH.
 
@@ -525,9 +537,9 @@ class MachineState(
         else:
             cmd += command
         cmd += " " + method
-        return self.run_command(cmd, check=False)
+        return int(self.run_command(cmd, check=False))
 
-    def copy_closure_to(self, path):
+    def copy_closure_to(self, path: str) -> None:
         """Copy a closure to this machine."""
 
         # !!! Implement copying between cloud machines, as in the Perl
@@ -576,7 +588,9 @@ class MachineState(
 
         return cmdline
 
-    def upload_file(self, source: str, target: str, recursive: bool = False):
+    def upload_file(
+        self, source: str, target: str, recursive: bool = False
+    ) -> Union[str, int]:
         cmdline = self._fmt_rsync_command(
             source,
             self.ssh_user + "@" + self._get_scp_name() + ":" + target,
@@ -584,7 +598,9 @@ class MachineState(
         )
         return self._logged_exec(cmdline)
 
-    def download_file(self, source: str, target: str, recursive: bool = False):
+    def download_file(
+        self, source: str, target: str, recursive: bool = False
+    ) -> Union[str, int]:
         cmdline = self._fmt_rsync_command(
             self.ssh_user + "@" + self._get_scp_name() + ":" + source,
             target,
@@ -592,7 +608,7 @@ class MachineState(
         )
         return self._logged_exec(cmdline)
 
-    def get_console_output(self):
+    def get_console_output(self) -> str:
         return "(not available for this machine type)\n"
 
 

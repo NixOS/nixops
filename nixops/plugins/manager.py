@@ -1,11 +1,17 @@
 from __future__ import annotations
 
-from nixops.backends import MachineState
+from nixops.backends import GenericMachineState
 from typing import List, Dict, Generator, Tuple, Any, Set
 import importlib
+from argparse import ArgumentParser, _SubParsersAction
 
+from nixops.storage import StorageBackend
+from nixops.locks import LockDriver
 from . import get_plugins, MachineHooks, DeploymentHooks
+import nixops.ansi
 import nixops
+from typing import Type
+import sys
 
 
 NixosConfigurationType = List[Dict[Tuple[str, ...], Any]]
@@ -29,7 +35,7 @@ class DeploymentHooksManager:
 
 class MachineHooksManager:
     @staticmethod
-    def post_wait(m: MachineState) -> None:
+    def post_wait(m: GenericMachineState) -> None:
         for hook in PluginManager.machine_hooks():
             hook.post_wait(m)
 
@@ -51,8 +57,8 @@ class PluginManager:
                 continue
             yield machine_hooks
 
-    @staticmethod
-    def load():
+    @classmethod
+    def load(cls) -> None:
         seen: Set[str] = set()
         for plugin in get_plugins():
             for mod in plugin.load():
@@ -68,7 +74,7 @@ class PluginManager:
         return nixexprs
 
     @staticmethod
-    def parser(parser, subparsers):
+    def parser(parser: ArgumentParser, subparsers: _SubParsersAction) -> None:
         for plugin in get_plugins():
             plugin.parser(parser, subparsers)
 
@@ -76,3 +82,37 @@ class PluginManager:
     def docs() -> Generator[Tuple[str, str], None, None]:
         for plugin in get_plugins():
             yield from plugin.docs()
+
+    @staticmethod
+    def storage_backends() -> Dict[str, Type[StorageBackend]]:
+        storage_backends: Dict[str, Type[StorageBackend]] = {}
+
+        for plugin in get_plugins():
+            for name, backend in plugin.storage_backends().items():
+                if name not in storage_backends:
+                    storage_backends[name] = backend
+                else:
+                    sys.stderr.write(
+                        nixops.ansi.ansi_warn(
+                            f"Two plugins tried to provide the '{name}' storage backend."
+                        )
+                    )
+
+        return storage_backends
+
+    @staticmethod
+    def lock_drivers() -> Dict[str, Type[LockDriver]]:
+        lock_drivers: Dict[str, Type[LockDriver]] = {}
+
+        for plugin in get_plugins():
+            for name, driver in plugin.lock_drivers().items():
+                if name not in lock_drivers:
+                    lock_drivers[name] = driver
+                else:
+                    sys.stderr.write(
+                        nixops.ansi.ansi_warn(
+                            f"Two plugins tried to provide the '{name}' lock driver."
+                        )
+                    )
+
+        return lock_drivers

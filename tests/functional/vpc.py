@@ -87,7 +87,7 @@ class TestVPC(generic_deployment_test.GenericDeploymentTest):
 
 
 CFG_VPC_MACHINE = (
-    "network.nix",
+    "nixops.nix",
     """
   {
       machine =

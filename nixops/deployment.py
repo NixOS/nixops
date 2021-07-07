@@ -4,7 +4,6 @@ from __future__ import annotations
 import sys
 import os.path
 import subprocess
-import json
 import tempfile
 import threading
 from collections import defaultdict
@@ -15,12 +14,11 @@ import getpass
 import traceback
 import glob
 import fcntl
-import itertools
 import platform
 import time
 import importlib
 
-from functools import reduce
+from functools import reduce, lru_cache
 from typing import (
     Callable,
     Dict,
@@ -47,20 +45,17 @@ from nixops.plugins.manager import (
 
 from nixops.nix_expr import RawValue, Function, Call, nixmerge, py2nix
 from nixops.ansi import ansi_success
+import nixops.evaluation
 
 
 Definitions = Dict[str, nixops.resources.ResourceDefinition]
-
-
-class NixEvalError(Exception):
-    pass
 
 
 class UnknownBackend(Exception):
     pass
 
 
-DEBUG = False
+DEBUG: bool = False
 
 NixosConfigurationType = List[Dict[Tuple[str, ...], Any]]
 
@@ -74,17 +69,16 @@ class Deployment:
     default_description = "Unnamed NixOps network"
 
     name: Optional[str] = nixops.util.attr_property("name", None)
-    nix_exprs = nixops.util.attr_property("nixExprs", [], "json")
     nix_path = nixops.util.attr_property("nixPath", [], "json")
-    flake_uri = nixops.util.attr_property("flakeUri", None)
-    cur_flake_uri = nixops.util.attr_property("curFlakeUri", None)
-    args = nixops.util.attr_property("args", {}, "json")
+    args: Dict[str, str] = nixops.util.attr_property("args", {}, "json")
     description = nixops.util.attr_property("description", default_description)
     configs_path = nixops.util.attr_property("configsPath", None)
     rollback_enabled: bool = nixops.util.attr_property("rollbackEnabled", False)
 
     # internal variable to mark if network attribute of network has been evaluated (separately)
     network_attr_eval: bool = False
+
+    network_expr: nixops.evaluation.NetworkFile
 
     def __init__(
         self, statefile, uuid: str, log_file: TextIO = sys.stderr,
@@ -104,15 +98,7 @@ class Deployment:
 
         self._lock_file_path: Optional[str] = None
 
-        self.expr_path = os.path.realpath(
-            os.path.dirname(__file__) + "/../../../../share/nix/nixops"
-        )
-        if not os.path.exists(self.expr_path):
-            self.expr_path = os.path.realpath(
-                os.path.dirname(__file__) + "/../../../../../share/nix/nixops"
-            )
-        if not os.path.exists(self.expr_path):
-            self.expr_path = os.path.dirname(__file__) + "/../nix"
+        self.expr_path = nixops.evaluation.get_expr_path()
 
         self.resources: Dict[str, nixops.resources.GenericResourceState] = {}
         with self._db:
@@ -128,8 +114,6 @@ class Deployment:
 
         self.definitions: Optional[Definitions] = None
 
-        self._cur_flake_uri: Optional[str] = None
-
     @property
     def tempdir(self) -> nixops.util.SelfDeletingDir:
         if not self._tempdir:
@@ -137,20 +121,6 @@ class Deployment:
                 tempfile.mkdtemp(prefix="nixops-tmp")
             )
         return self._tempdir
-
-    def _get_cur_flake_uri(self):
-        assert self.flake_uri is not None
-        if self._cur_flake_uri is None:
-            out = json.loads(
-                subprocess.check_output(
-                    ["nix", "flake", "metadata", "--json", "--", self.flake_uri],
-                    stderr=self.logger.log_file,
-                )
-            )
-            self._cur_flake_uri = out["url"].replace(
-                "ref=HEAD&rev=0000000000000000000000000000000000000000&", ""
-            )  # FIXME
-        return self._cur_flake_uri
 
     @property
     def machines(self) -> Dict[str, nixops.backends.GenericMachineState]:
@@ -413,65 +383,6 @@ class Deployment:
             # Delete the deployment from the database.
             self._db.execute("delete from Deployments where uuid = ?", (self.uuid,))
 
-    def _nix_path_flags(self) -> List[str]:
-        extraexprs = PluginManager.nixexprs()
-
-        flags = (
-            list(
-                itertools.chain(
-                    *[
-                        ["-I", x]
-                        for x in (self.extra_nix_path + self.nix_path + extraexprs)
-                    ]
-                )
-            )
-            + self.extra_nix_flags
-        )
-        flags.extend(["-I", "nixops=" + self.expr_path])
-        return flags
-
-    def _eval_flags(self, exprs: List[str]) -> List[str]:
-        flags = self._nix_path_flags()
-        args = {key: RawValue(val) for key, val in self.args.items()}
-        exprs_ = [RawValue(x) if x[0] == "<" else x for x in exprs]
-
-        extraexprs = PluginManager.nixexprs()
-
-        flags.extend(
-            [
-                "--arg",
-                "networkExprs",
-                py2nix(exprs_, inline=True),
-                "--arg",
-                "args",
-                py2nix(args, inline=True),
-                "--argstr",
-                "uuid",
-                self.uuid,
-                "--argstr",
-                "deploymentName",
-                self.name if self.name else "",
-                "--arg",
-                "pluginNixExprs",
-                py2nix(extraexprs),
-                (self.expr_path + "/eval-machine-info.nix"),
-            ]
-        )
-
-        if self.flake_uri is not None:
-            flags.extend(
-                [
-                    # "--pure-eval", # FIXME
-                    "--argstr",
-                    "flakeUri",
-                    self._get_cur_flake_uri(),
-                    "--allowed-uris",
-                    self.expr_path,
-                ]
-            )
-
-        return flags
-
     def set_arg(self, name: str, value: str) -> None:
         """Set a persistent argument to the deployment specification."""
         assert isinstance(name, str)
@@ -494,56 +405,17 @@ class Deployment:
 
     def evaluate_args(self) -> Any:
         """Evaluate the NixOps network expression's arguments."""
-        try:
-            out = subprocess.check_output(
-                ["nix-instantiate"]
-                + self.extra_nix_eval_flags
-                + self._eval_flags(self.nix_exprs)
-                + ["--eval-only", "--json", "--strict", "-A", "nixopsArguments"],
-                stderr=self.logger.log_file,
-                text=True,
-            )
-            if DEBUG:
-                print("JSON output of nix-instantiate:\n" + out, file=sys.stderr)
-            return json.loads(out)
-        except OSError as e:
-            raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
-        except subprocess.CalledProcessError:
-            raise NixEvalError
+        return self.eval(attr="nixopsArguments")
 
+    @lru_cache()
     def evaluate_config(self, attr) -> Dict:
-        try:
-            _json = subprocess.check_output(
-                ["nix-instantiate"]
-                + self.extra_nix_eval_flags
-                + self._eval_flags(self.nix_exprs)
-                + [
-                    "--eval-only",
-                    "--json",
-                    "--strict",
-                    "--arg",
-                    "checkConfigurationOptions",
-                    "false",
-                    "-A",
-                    attr,
-                ],
-                stderr=self.logger.log_file,
-                text=True,
-            )
-            if DEBUG:
-                print("JSON output of nix-instantiate:\n" + _json, file=sys.stderr)
-        except OSError as e:
-            raise Exception("unable to run ‘nix-instantiate’: {0}".format(e))
-        except subprocess.CalledProcessError:
-            raise NixEvalError
-
-        return json.loads(_json)
+        return self.eval(checkConfigurationOptions=False, attr=attr)
 
     def evaluate_network(self, action: str = "") -> None:
         if not self.network_attr_eval:
             # Extract global deployment attributes.
             try:
-                config = self.evaluate_config("info.network")
+                config = self.evaluate_config("info")["network"]
             except Exception as e:
                 if action not in ("destroy", "delete"):
                     raise e
@@ -573,44 +445,48 @@ class Deployment:
                 )
                 self.definitions[name] = defn
 
-    def evaluate_option_value(
+    def eval(
         self,
-        machine_name: str,
-        option_name: str,
-        json: bool = False,
-        xml: bool = False,
+        nix_args: Dict[str, Any] = {},
+        attr: Optional[str] = None,
         include_physical: bool = False,
-    ) -> str:
-        """Evaluate a single option of a single machine in the deployment specification."""
+        checkConfigurationOptions: bool = True,
+    ) -> Any:
 
-        exprs = self.nix_exprs
+        exprs: List[str] = []
         if include_physical:
             phys_expr = self.tempdir + "/physical.nix"
             with open(phys_expr, "w") as f:
                 f.write(self.get_physical_spec())
             exprs.append(phys_expr)
 
-        try:
-            return subprocess.check_output(
-                ["nix-instantiate"]
-                + self.extra_nix_eval_flags
-                + self._eval_flags(exprs)
-                + [
-                    "--eval-only",
-                    "--strict",
-                    "--arg",
-                    "checkConfigurationOptions",
-                    "false",
-                    "-A",
-                    "nodes.{0}.config.{1}".format(machine_name, option_name),
-                ]
-                + (["--json"] if json else [])
-                + (["--xml"] if xml else []),
-                stderr=self.logger.log_file,
-                text=True,
-            )
-        except subprocess.CalledProcessError:
-            raise NixEvalError
+        return nixops.evaluation.eval(
+            # eval-machine-info args
+            networkExpr=self.network_expr,
+            networkExprs=exprs,
+            uuid=self.uuid,
+            deploymentName=self.name or "",
+            args=self.args,
+            pluginNixExprs=PluginManager.nixexprs(),
+            # Extend defaults
+            nix_path=self.extra_nix_path + self.nix_path,
+            # nix-instantiate args
+            nix_args=nix_args,
+            attr=attr,
+            extra_flags=self.extra_nix_eval_flags,
+            # Non-propagated args
+            stderr=self.logger.log_file,
+        )
+
+    def evaluate_option_value(
+        self, machine_name: str, option_name: str, include_physical: bool = False,
+    ) -> Any:
+        """Evaluate a single option of a single machine in the deployment specification."""
+        return self.eval(
+            checkConfigurationOptions=False,
+            include_physical=include_physical,
+            attr="nodes.{0}.config.{1}".format(machine_name, option_name),
+        )
 
     def get_arguments(self) -> Any:
         try:
@@ -809,17 +685,18 @@ class Deployment:
 
         self.logger.log("building all machine configurations...")
 
-        # Set the NixOS version suffix, if we're building from Git.
-        # That way ‘nixos-version’ will show something useful on the
-        # target machines.
+        # TODO: Use `lib.versionSuffix` from nixpkgs through an eval
+        # TODO: `lib.versionSuffix` doesn't really work for git repos, fix in nixpkgs.
         #
-        # TODO: Implement flake compatible version
-        nixos_path = str(self.evaluate_config("nixpkgs"))
-        get_version_script = nixos_path + "/modules/installer/tools/get-version-suffix"
-        if os.path.exists(nixos_path + "/.git") and os.path.exists(get_version_script):
-            self.nixos_version_suffix = subprocess.check_output(
-                ["/bin/sh", get_version_script] + self._nix_path_flags(), text=True
-            ).rstrip()
+        # # Set the NixOS version suffix, if we're building from Git.
+        # # That way ‘nixos-version’ will show something useful on the
+        # # target machines.
+        # nixos_path = str(self.evaluate_config("nixpkgs"))
+        # get_version_script = nixos_path + "/modules/installer/tools/get-version-suffix"
+        # if os.path.exists(nixos_path + "/.git") and os.path.exists(get_version_script):
+        #     self.nixos_version_suffix = subprocess.check_output(
+        #         ["/bin/sh", get_version_script] + self._nix_path_flags(), text=True
+        #     ).rstrip()
 
         phys_expr = self.tempdir + "/physical.nix"
         p = self.get_physical_spec()
@@ -879,23 +756,24 @@ class Deployment:
             os.environ["NIX_CURRENT_LOAD"] = load_dir
 
         try:
-            configs_path = subprocess.check_output(
-                ["nix-build"]
-                + self._eval_flags(self.nix_exprs + [phys_expr])
-                + [
-                    "--arg",
-                    "names",
-                    py2nix(names, inline=True),
-                    "-A",
-                    "machines",
-                    "-o",
-                    self.tempdir + "/configs",
-                ]
+            drv: str = self.eval(
+                include_physical=True,
+                nix_args={"names": names},
+                attr="machines.drvPath",
+            )
+
+            argv: List[str] = (
+                ["nix-store", "-r"]
+                + self.extra_nix_flags
                 + (["--dry-run"] if dry_run else [])
-                + (["--repair"] if repair else []),
-                stderr=self.logger.log_file,
-                text=True,
+                + (["--repair"] if repair else [])
+                + [drv]
+            )
+
+            configs_path = subprocess.check_output(
+                argv, text=True, stderr=self.logger.log_file,
             ).rstrip()
+
         except subprocess.CalledProcessError:
             raise Exception("unable to build all machine configurations")
 
@@ -1011,10 +889,6 @@ class Deployment:
                 if dry_activate:
                     return None
 
-                self.cur_flake_uri = (
-                    self._get_cur_flake_uri() if self.flake_uri is not None else None
-                )
-
                 if res != 0 and res != 100:
                     raise Exception(
                         "unable to activate new configuration (exit code {})".format(
@@ -1041,9 +915,6 @@ class Deployment:
                 # configuration.
                 m.cur_configs_path = configs_path
                 m.cur_toplevel = m.new_toplevel
-                m.cur_flake_uri = (
-                    self._get_cur_flake_uri() if self.flake_uri is not None else None
-                )
 
             except Exception:
                 # This thread shouldn't throw an exception because
@@ -1351,8 +1222,10 @@ class Deployment:
                         # attribute, because the machine may have been
                         # booted from an older NixOS image.
                         if not m.state_version:
-                            os_release = m.run_command(
-                                "cat /etc/os-release", capture_stdout=True
+                            os_release = str(
+                                m.run_command(
+                                    "cat /etc/os-release", capture_stdout=True
+                                )
                             )
                             match = re.search(
                                 'VERSION_ID="([0-9]+\.[0-9]+).*"',  # noqa: W605
@@ -1554,8 +1427,6 @@ class Deployment:
             boot=False,
             max_concurrent_activate=max_concurrent_activate,
         )
-
-        self.cur_flake_uri = None
 
     def rollback(self, **kwargs: Any) -> None:
         with self._get_deployment_lock():

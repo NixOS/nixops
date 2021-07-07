@@ -1,0 +1,2 @@
+class NixError(Exception):
+    pass

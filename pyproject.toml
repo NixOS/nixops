@@ -25,6 +25,9 @@ livereload = "^2.6.1"
 sphinx = "^3.0.3"
 flake8 = "^3.8.1"
 
+[tool.poetry.plugins."nixops"]
+nixops = "nixops.plugin"
+
 [tool.poetry.scripts]
 nixops = 'nixops.__main__:main'
 charon = 'nixops.__main__:main'

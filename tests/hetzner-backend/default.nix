@@ -12,7 +12,7 @@ let
   rescueISO = import ./rescue-image.nix { inherit pkgs; };
   rescuePasswd = "abcd1234";
 
-  network = pkgs.writeText "network.nix" ''
+  network = pkgs.writeText "nixops.nix" ''
     let
       withCommonOptions = otherOpts: { config, ... }: {
         require = [
@@ -205,8 +205,8 @@ in makeTest {
     };
 
     subtest "create deployment", sub {
-      $coordinator->succeed("cp ${network} network.nix");
-      $coordinator->succeed("nixops create network.nix");
+      $coordinator->succeed("cp ${network} nixops.nix");
+      $coordinator->succeed("nixops create nixops.nix");
     };
 
     # Do deployment on one target at a time to avoid running out of memory.
