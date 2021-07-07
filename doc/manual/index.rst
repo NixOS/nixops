@@ -1,3 +1,8 @@
+Migrating from NixOps 1
+=================
+
+:doc:`migrating`
+
 Command Reference
 =================
 
