@@ -145,11 +145,6 @@ def eval_network(nix_expr: NetworkFile) -> NetworkEval:
     if result.get("storage") is None:
         raise MalformedNetworkError(
             """
-TODO: improve this error to be less specific about conversion, and less
-about storage backends, and more about the construction of a network
-attribute value. link to docs about storage drivers and lock drivers.
-
-
 WARNING: NixOps 1.0 -> 2.0 conversion step required
 
 NixOps 2.0 added support for multiple storage backends.
