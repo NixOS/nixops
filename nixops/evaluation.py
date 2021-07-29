@@ -153,8 +153,8 @@ Upgrade steps:
 1. Open %s
 2. Add:
     network.storage.legacy = {
-      databasefile = "~/.nixops/deployments.nixops"
-    }
+      databasefile = "~/.nixops/deployments.nixops";
+    };
 3. Rerun
 
 See https://nixops.readthedocs.io/en/latest/manual/migrating.html#state-location for more guidance.
