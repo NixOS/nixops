@@ -16,7 +16,7 @@ from any working directory with the ``--deployment (-d)`` parameter.
 NixOps 2 however requires a file relative to the invocation working directory.
 It needs to be called either ``nixops.nix`` for a traditional deployment or
 ``flake.nix`` for the as of yet experimental
-`flakes support <https://github.com/tweag/rfcs/blob/flakes/rfcs/0049-flakes.md>`.
+`flakes support <https://github.com/tweag/rfcs/blob/flakes/rfcs/0049-flakes.md>`_.
 
 .. _sec-state-location:
 
@@ -32,7 +32,8 @@ make a choice where to store this state.
 To implement the old behaviour of loading deployment state from the SQLite
 database located in ``~/.nixops`` add the following snippet to your deployment:
 
-::
+.. code-block:: nix
+
    {
      network = {
        storage.legacy = {};
@@ -41,7 +42,8 @@ database located in ``~/.nixops`` add the following snippet to your deployment:
 
 To implement a fire-and-forget strategy use this code snippet:
 
-::
+.. code-block:: nix
+
   {
     network = {
       storage.memory = {};
@@ -58,19 +60,28 @@ State migration
 Migrating to any non-legacy backend from a previous deployment requires a
 manual migration step.
 
-#. Start by configuring the legacy backend as such::
+1. Start by configuring the legacy backend as such
+
+.. code-block:: nix
+
    {
      network = {
        storage.legacy = {};
      };
    }
 
-#. Then export the current state::
-   nixops export > state.json
+2. Then export the current state
 
-#. Now go ahead and configure your desired state backend.
+::
 
-#. And finally import the old state::
-   nixops import < state.json
+   $ nixops export > state.json
 
-#. Make sure to remove ``state.json`` as it may contain deployment secrets.
+3. Now go ahead and configure your desired state backend.
+
+4. And finally import the old state
+
+::
+
+   $ nixops import < state.json
+
+5. Make sure to remove ``state.json`` as it may contain deployment secrets.
