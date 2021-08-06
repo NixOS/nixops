@@ -10,3 +10,6 @@ result
 tags
 tests/test.nixops*
 .mypy_cache/
+
+# ./live-docs.py
+mypy-html
