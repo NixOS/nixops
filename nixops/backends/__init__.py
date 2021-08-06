@@ -6,6 +6,7 @@ from typing import (
     Mapping,
     Match,
     Any,
+    Dict,
     List,
     Optional,
     Union,
@@ -453,15 +454,72 @@ class MachineState(
         return self.keys
 
     def get_ssh_name(self) -> str:
+        """
+        In ssh terminology, this is the "Host", which part of the "destination"
+        but not necessarily the same as the "Hostname".
+        The ssh config file can set Hostname for specific Hosts, effectively
+        rewriting the destination into the final hostname or ip.
+        """
         assert False
 
-    def get_ssh_flags(self, scp: bool = False) -> List[str]:
-        if scp:
-            return ["-P", str(self.ssh_port)] if self.ssh_port is not None else []
+    def get_ssh_host_keys(self) -> Optional[str]:
+        """
+        Return the public host key in known_hosts format or None if not known.
+        """
+        return None
+
+    def _get_ssh_ambient_options(self) -> Dict[str, str]:
+        proc = subprocess.Popen(
+            ["ssh", "-G", self.get_ssh_name()], stdout=subprocess.PIPE
+        )
+        opts: Dict[str, str] = {}
+        if proc.stdout is None:  # mostly for mypy; Popen won't do this to us.
+            return opts
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+
+            s = line.decode("utf-8").rstrip("\r\n").split(" ", 1)
+            if len(s) == 2:
+                opts[s[0].lower()] = s[1]
+
+        return opts
+
+    def get_known_hosts_file(self, *args, **kwargs) -> Optional[str]:
+        k = self.get_ssh_host_keys()
+        if k is not None:
+            return self.write_ssh_known_hosts(k)
         else:
-            return list(self.ssh_options) + (
-                ["-p", str(self.ssh_port)] if self.ssh_port is not None else []
-            )
+            return None
+
+    def get_ssh_flags(self, scp: bool = False) -> List[str]:
+        flags: List[str] = []
+
+        if self.ssh_port is not None:
+            flags = flags + ["-o", "Port=" + str(self.ssh_port)]
+
+        # We add our own public host key (if known) to GlobalKnownHostsFile.
+        # This way we don't override keys in ~/.ssh/known_hosts that some users
+        # may rely on. We don't set UserKnownHostsFile, because that file is
+        # supposed to be editable, whereas ours is generated and shouldn't be
+        # edited.
+        if self.get_ssh_host_keys() is not None:
+            ambient_gkhfs = self._get_ssh_ambient_options().get("globalknownhostsfile")
+            known_hosts_file = self.get_known_hosts_file()
+            if ambient_gkhfs is None:
+                ambient_gkhfss = []
+            else:
+                ambient_gkhfss = [ambient_gkhfs]
+
+            if known_hosts_file is not None:
+                flags = flags + [
+                    "-o",
+                    "GlobalKnownHostsFile="
+                    + " ".join(ambient_gkhfss + [known_hosts_file]),
+                ]
+
+        return flags
 
     def get_ssh_password(self):
         return None
@@ -504,6 +562,16 @@ class MachineState(
 
     def get_ssh_private_key_file(self) -> Optional[str]:
         return None
+
+    def write_ssh_known_hosts(self, known_hosts: str) -> str:
+        """
+        Write a temporary file for a known_hosts file containing this machine's
+        host public key.
+        """
+        file = "{0}/known_host_nixops-{1}".format(self.depl.tempdir, self.name)
+        with os.fdopen(os.open(file, os.O_CREAT | os.O_WRONLY, 0o600), "w") as f:
+            f.write(known_hosts)
+        return file
 
     def _logged_exec(self, command: List[str], **kwargs) -> Union[str, int]:
         return nixops.util.logged_exec(command, self.logger, **kwargs)
