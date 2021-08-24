@@ -123,7 +123,7 @@ def network_state(
         lock.lock(description=description, exclusive=writable)
         try:
             storage.fetchToFile(statefile)
-            state = nixops.statefile.StateFile(statefile)
+            state = nixops.statefile.StateFile(statefile, writable)
             try:
                 storage.onOpen(state)
 

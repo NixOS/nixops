@@ -8,7 +8,7 @@ class DatabaseUsingTest(object):
     _multiprocess_can_split_ = True
 
     def setup(self):
-        self.sf = nixops.statefile.StateFile(db_file)
+        self.sf = nixops.statefile.StateFile(db_file, writable=True)
 
     def teardown(self):
         self.sf.close()
