@@ -121,15 +121,17 @@ def network_state(
     with TemporaryDirectory("nixops") as statedir:
         statefile = statedir + "/state.nixops"
         lock.lock(description=description, exclusive=writable)
-        storage.fetchToFile(statefile)
-        state = nixops.statefile.StateFile(statefile)
         try:
-            storage.onOpen(state)
+            storage.fetchToFile(statefile)
+            state = nixops.statefile.StateFile(statefile)
+            try:
+                storage.onOpen(state)
 
-            yield state
+                yield state
+            finally:
+                state.close()
+                storage.uploadFromFile(statefile)
         finally:
-            state.close()
-            storage.uploadFromFile(statefile)
             lock.unlock()
 
 
