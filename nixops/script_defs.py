@@ -130,7 +130,8 @@ def network_state(
                 yield state
             finally:
                 state.close()
-                storage.uploadFromFile(statefile)
+                if writable:
+                    storage.uploadFromFile(statefile)
         finally:
             lock.unlock()
 
