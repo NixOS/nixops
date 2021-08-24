@@ -10,6 +10,7 @@ from types import TracebackType
 import re
 
 import nixops.deployment
+from nixops.locks import LockDriver
 
 
 class Connection(sqlite3.Connection):
@@ -84,9 +85,13 @@ class StateFile(object):
     """NixOps state file."""
 
     current_schema = 3
+    lock: Optional[LockDriver]
 
-    def __init__(self, db_file: str, writable: bool) -> None:
+    def __init__(
+        self, db_file: str, writable: bool, lock: Optional[LockDriver] = None
+    ) -> None:
         self.db_file: str = db_file
+        self.lock = lock
 
         if os.path.splitext(db_file)[1] not in [".nixops", ".charon"]:
             raise Exception(

@@ -123,7 +123,7 @@ def network_state(
         lock.lock(description=description, exclusive=writable)
         try:
             storage.fetchToFile(statefile)
-            state = nixops.statefile.StateFile(statefile, writable)
+            state = nixops.statefile.StateFile(statefile, writable, lock=lock)
             try:
                 storage.onOpen(state)
 
@@ -915,9 +915,17 @@ def parse_machine(
 
 
 def op_ssh(args: Namespace) -> None:
-    with deployment(args, False, activityDescription="nixops ssh") as depl:
+    with network_state(args, False, description="nixops ssh") as sf:
+        depl = open_deployment(sf, args)
+        set_common_depl(depl, args)
+
         (username, _, m) = parse_machine(args.machine, depl)
         flags, command = m.ssh.split_openssh_args(args.args)
+
+        # unlock early, to avoid blocking mutable operations (deploy etc) while
+        # an interactive session is active.
+        if sf.lock is not None:
+            sf.lock.unlock()
         sys.exit(
             m.ssh.run_command(
                 command,
