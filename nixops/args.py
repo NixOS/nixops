@@ -352,6 +352,13 @@ subparser.add_argument("machine", metavar="MACHINE", help="identifier of the mac
 subparser.add_argument(
     "args", metavar="SSH_ARGS", nargs=REMAINDER, help="SSH flags and/or command",
 )
+subparser.add_argument(
+    "--now",
+    dest="now",
+    default=False,
+    action="store_true",
+    help="do not acquire a lock before fetching the state",
+)
 
 subparser = add_subparser(
     subparsers, "ssh-for-each", help="execute a command on each machine via SSH"

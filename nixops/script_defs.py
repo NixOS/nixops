@@ -97,7 +97,7 @@ def get_lock(network: NetworkEval) -> LockDriver:
 
 @contextlib.contextmanager
 def network_state(
-    args: Namespace, writable: bool, description: str
+    args: Namespace, writable: bool, description: str, doLock: bool = True
 ) -> Generator[nixops.statefile.StateFile, None, None]:
     network = eval_network(get_network_file(args))
     storage_backends = PluginManager.storage_backends()
@@ -113,14 +113,19 @@ def network_state(
         )
         raise Exception("Missing storage provider plugin.")
 
-    lock = get_lock(network)
+    lock: Optional[LockDriver]
+    if doLock:
+        lock = get_lock(network)
+    else:
+        lock = None
 
     storage_class_options = storage_class.options(**network.storage.configuration)
     storage: StorageBackend = storage_class(storage_class_options)
 
     with TemporaryDirectory("nixops") as statedir:
         statefile = statedir + "/state.nixops"
-        lock.lock(description=description, exclusive=writable)
+        if lock is not None:
+            lock.lock(description=description, exclusive=writable)
         try:
             storage.fetchToFile(statefile)
             state = nixops.statefile.StateFile(statefile, writable, lock=lock)
@@ -133,7 +138,8 @@ def network_state(
                 if writable:
                     storage.uploadFromFile(statefile)
         finally:
-            lock.unlock()
+            if lock is not None:
+                lock.unlock()
 
 
 def op_list_plugins(args: Namespace) -> None:
@@ -915,7 +921,9 @@ def parse_machine(
 
 
 def op_ssh(args: Namespace) -> None:
-    with network_state(args, False, description="nixops ssh") as sf:
+    with network_state(
+        args, False, description="nixops ssh", doLock=not args.now
+    ) as sf:
         depl = open_deployment(sf, args)
         set_common_depl(depl, args)
 

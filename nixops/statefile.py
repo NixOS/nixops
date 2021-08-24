@@ -98,19 +98,22 @@ class StateFile(object):
                 "state file ‘{0}’ should have extension ‘.nixops’".format(db_file)
             )
 
-        query = ""
+        def connect(writable: bool):
+            query = ""
 
-        if not writable:
-            query = "?mode=ro"
+            if not writable:
+                query = "?mode=ro"
 
-        db = sqlite3.connect(
-            f"file://{db_file}{query}",
-            uri=True,
-            timeout=60,
-            check_same_thread=False,
-            factory=Connection,
-            isolation_level=None,
-        )
+            return sqlite3.connect(
+                f"file://{db_file}{query}",
+                uri=True,
+                timeout=60,
+                check_same_thread=False,
+                factory=Connection,
+                isolation_level=None,
+            )
+
+        db = connect(writable)
 
         db.execute("pragma journal_mode = wal")
         db.execute("pragma foreign_keys = 1")
@@ -130,22 +133,36 @@ class StateFile(object):
 
             if version == self.current_schema:
                 pass
-            elif version == 0:
-                self._create_schema(c)
-            elif version < self.current_schema:
-                if version <= 1:
-                    self._upgrade_1_to_2(c)
-                if version <= 2:
-                    self._upgrade_2_to_3(c)
-                c.execute(
-                    "update SchemaVersion set version = ?", (self.current_schema,)
-                )
             else:
-                raise Exception(
-                    "this NixOps version is too old to deal with schema version {0}".format(
-                        version
+                # If a schema update is necessary, we'll need to do so despite
+                # being in read only mode. This is ok, because the purpose of
+                # read only mode is to catch problems where we didn't request
+                # the appropriate level of locking. This still works, because
+                # the 'returned' db is still read only.
+                #
+                # IMPORTANT: schema upgrades must not touch anything outside the
+                #            db. Otherwise, it must reject to run when we're in
+                #            read-only mode.
+                #
+                mutableDb = connect(True)
+                c = mutableDb.cursor()
+                if version == 0:
+                    self._create_schema(c)
+                elif version < self.current_schema:
+                    if version <= 1:
+                        self._upgrade_1_to_2(c)
+                    if version <= 2:
+                        self._upgrade_2_to_3(c)
+                    c.execute(
+                        "update SchemaVersion set version = ?", (self.current_schema,)
                     )
-                )
+                else:
+                    raise Exception(
+                        "this NixOps version is too new to deal with schema version {0}".format(
+                            version
+                        )
+                    )
+                mutableDb.close()
 
         self._db: sqlite3.Connection = db
 
