@@ -15,7 +15,7 @@ from nixops.locks import LockInterface
 
 class Connection(sqlite3.Connection):
     def __init__(self, db_file: str, **kwargs: Any) -> None:
-        matchMaybe: Optional[re.Match] = re.fullmatch(
+        matchMaybe: Optional[re.Match[str]] = re.fullmatch(
             "(file://)?([^?]*)(\\?.*)?", db_file
         )
         file: str

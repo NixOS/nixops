@@ -17,7 +17,7 @@ class LockInterface(Protocol):
     # lock: acquire a lock.
     # Note: no arguments will be passed over kwargs. Making it part of
     # the type definition allows adding new arguments later.
-    def lock(self, **kwargs) -> None:
+    def lock(self, description: str, exclusive: bool, **kwargs) -> None:
         raise NotImplementedError
 
     # unlock: release the lock.
