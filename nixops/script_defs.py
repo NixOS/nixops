@@ -2,8 +2,8 @@
 
 from nixops.nix_expr import py2nix
 from nixops.parallel import run_tasks
-from nixops.storage import StorageBackend
-from nixops.locks import LockDriver
+from nixops.storage import StorageBackend, StorageInterface
+from nixops.locks import LockDriver, LockInterface
 
 import contextlib
 import nixops.statefile
@@ -75,8 +75,8 @@ def deployment(
         yield depl
 
 
-def get_lock(network: NetworkEval) -> LockDriver:
-    lock: LockDriver
+def get_lock(network: NetworkEval) -> LockInterface:
+    lock: LockInterface
     lock_class: Type[LockDriver]
     lock_drivers = PluginManager.lock_drivers()
     try:
@@ -113,14 +113,14 @@ def network_state(
         )
         raise Exception("Missing storage provider plugin.")
 
-    lock: Optional[LockDriver]
+    lock: Optional[LockInterface]
     if doLock:
         lock = get_lock(network)
     else:
         lock = None
 
     storage_class_options = storage_class.options(**network.storage.configuration)
-    storage: StorageBackend = storage_class(storage_class_options)
+    storage: StorageInterface = storage_class(storage_class_options)
 
     with TemporaryDirectory("nixops") as statedir:
         statefile = statedir + "/state.nixops"

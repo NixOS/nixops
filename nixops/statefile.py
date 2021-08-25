@@ -10,7 +10,7 @@ from types import TracebackType
 import re
 
 import nixops.deployment
-from nixops.locks import LockDriver
+from nixops.locks import LockInterface
 
 
 class Connection(sqlite3.Connection):
@@ -85,10 +85,10 @@ class StateFile(object):
     """NixOps state file."""
 
     current_schema = 3
-    lock: Optional[LockDriver]
+    lock: Optional[LockInterface]
 
     def __init__(
-        self, db_file: str, writable: bool, lock: Optional[LockDriver] = None
+        self, db_file: str, writable: bool, lock: Optional[LockInterface] = None
     ) -> None:
         self.db_file: str = db_file
         self.lock = lock
