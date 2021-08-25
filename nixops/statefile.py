@@ -15,13 +15,16 @@ from nixops.locks import LockInterface
 
 class Connection(sqlite3.Connection):
     def __init__(self, db_file: str, **kwargs: Any) -> None:
-        matchMaybe = re.fullmatch("(file://)?([^?]*)(\\?.*)?", db_file)
+        matchMaybe: Optional[re.Match] = re.fullmatch(
+            "(file://)?([^?]*)(\\?.*)?", db_file
+        )
+        file: str
         if matchMaybe is None:
             file = db_file
         else:
             file = matchMaybe.group(2)
 
-        db_exists = os.path.exists(file)
+        db_exists: bool = os.path.exists(file)
         if not db_exists:
             os.fdopen(os.open(file, os.O_WRONLY | os.O_CREAT, 0o600), "w").close()
         sqlite3.Connection.__init__(self, db_file, **kwargs)  # type: ignore
@@ -84,7 +87,7 @@ def get_default_state_file() -> str:
 class StateFile(object):
     """NixOps state file."""
 
-    current_schema = 3
+    current_schema: int = 3
     lock: Optional[LockInterface]
 
     def __init__(
@@ -98,8 +101,8 @@ class StateFile(object):
                 "state file ‘{0}’ should have extension ‘.nixops’".format(db_file)
             )
 
-        def connect(writable: bool):
-            query = ""
+        def connect(writable: bool) -> sqlite3.Connection:
+            query: str = ""
 
             if not writable:
                 query = "?mode=ro"
@@ -113,7 +116,7 @@ class StateFile(object):
                 isolation_level=None,
             )
 
-        db = connect(writable)
+        db: sqlite3.Connection = connect(writable)
 
         db.execute("pragma journal_mode = wal")
         db.execute("pragma foreign_keys = 1")
@@ -121,7 +124,7 @@ class StateFile(object):
         # FIXME: this is not actually transactional, because pysqlite (not
         # sqlite) does an implicit commit before "create table".
         with db:
-            c = db.cursor()
+            c: sqlite3.Cursor = db.cursor()
 
             # Get the schema version.
             version: int = 0  # new database
@@ -144,7 +147,7 @@ class StateFile(object):
                 #            db. Otherwise, it must reject to run when we're in
                 #            read-only mode.
                 #
-                mutableDb = connect(True)
+                mutableDb: sqlite3.Connection = connect(True)
                 c = mutableDb.cursor()
                 if version == 0:
                     self._create_schema(c)
