@@ -504,20 +504,10 @@ class MachineState(
         # may rely on. We don't set UserKnownHostsFile, because that file is
         # supposed to be editable, whereas ours is generated and shouldn't be
         # edited.
-        if self.get_ssh_host_keys() is not None:
-            ambient_gkhfs = self._get_ssh_ambient_options().get("globalknownhostsfile")
-            known_hosts_file = self.get_known_hosts_file()
-            if ambient_gkhfs is None:
-                ambient_gkhfss = []
-            else:
-                ambient_gkhfss = [ambient_gkhfs]
+        known_hosts_file = self.get_known_hosts_file()
 
-            if known_hosts_file is not None:
-                flags = flags + [
-                    "-o",
-                    "GlobalKnownHostsFile="
-                    + " ".join(ambient_gkhfss + [known_hosts_file]),
-                ]
+        if known_hosts_file is not None:
+            flags = flags + ["-o", "GlobalKnownHostsFile=" + known_hosts_file]
 
         return flags
 
@@ -566,8 +556,28 @@ class MachineState(
     def write_ssh_known_hosts(self, known_hosts: str) -> str:
         """
         Write a temporary file for a known_hosts file containing this machine's
-        host public key.
+        host public key and the global known hosts entries.
         """
+
+        # We copy the global known hosts files, because we can't pass multiple
+        # file names through NIX_SSHOPTS, because spaces are interpreted as
+        # option separators there.
+        ambientGlobalFilesStr = self._get_ssh_ambient_options().get(
+            "globalknownhostsfile"
+        )
+        if ambientGlobalFilesStr is None:
+            ambientGlobalFiles = []
+        else:
+            ambientGlobalFiles = ambientGlobalFilesStr.split()
+
+        for globalFile in ambientGlobalFiles:
+            if os.path.exists(globalFile):
+                with open(globalFile) as f:
+                    contents = f.read()
+                known_hosts = (
+                    known_hosts + f"\n\n# entries from {globalFile}\n" + contents
+                )
+
         file = "{0}/known_host_nixops-{1}".format(self.depl.tempdir, self.name)
         with os.fdopen(os.open(file, os.O_CREAT | os.O_WRONLY, 0o600), "w") as f:
             f.write(known_hosts)
