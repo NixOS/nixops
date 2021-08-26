@@ -493,7 +493,11 @@ def op_check(args: Namespace) -> None:  # noqa: C901
             else:
                 resources.append(m)
 
-    with one_or_all(args, writable=False, activityDescription="nixops check") as depls:
+    # TODO: writable=False?
+    # Historically, nixops check was allowed to write to the state file.
+    # With remote state however, this requires an exclusive lock, which may
+    # not be the best choice.
+    with one_or_all(args, writable=True, activityDescription="nixops check") as depls:
         for depl in depls:
             check(depl)
 
