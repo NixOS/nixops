@@ -469,22 +469,17 @@ class MachineState(
         return None
 
     def _get_ssh_ambient_options(self) -> Dict[str, str]:
-        proc = subprocess.Popen(
-            ["ssh", "-G", self.get_ssh_name()], stdout=subprocess.PIPE
-        )
-        opts: Dict[str, str] = {}
-        if proc.stdout is None:  # mostly for mypy; Popen won't do this to us.
+        with subprocess.Popen(
+            ["ssh", "-G", self.get_ssh_name()], stdout=subprocess.PIPE, text=True
+        ) as proc:
+            assert proc.stdout is not None
+            opts: Dict[str, str] = {}
+            for line in proc.stdout:
+                s = line.rstrip("\r\n").split(" ", 1)
+                if len(s) == 2:
+                    opts[s[0].lower()] = s[1]
+
             return opts
-        while True:
-            line = proc.stdout.readline()
-            if not line:
-                break
-
-            s = line.decode("utf-8").rstrip("\r\n").split(" ", 1)
-            if len(s) == 2:
-                opts[s[0].lower()] = s[1]
-
-        return opts
 
     def get_known_hosts_file(self, *args, **kwargs) -> Optional[str]:
         k = self.get_ssh_host_keys()
