@@ -61,20 +61,19 @@ subparser.set_defaults(op=op_list_deployments)
 subparser = add_subparser(subparsers, "create", help="create a new deployment")
 subparser.set_defaults(op=op_create)
 subparser.add_argument(
-    "--name", "-n", dest="name", metavar="NAME", help=SUPPRESS
+    "--name", dest="name", metavar="NAME", help=SUPPRESS
 )  # obsolete, use -d instead
 
 subparser = add_subparser(subparsers, "modify", help="modify an existing deployment")
 subparser.set_defaults(op=op_modify)
 subparser.add_argument(
-    "--name", "-n", dest="name", metavar="NAME", help="new symbolic name of deployment"
+    "--name", dest="name", metavar="NAME", help="new symbolic name of deployment"
 )
 
 subparser = add_subparser(subparsers, "clone", help="clone an existing deployment")
 subparser.set_defaults(op=op_clone)
 subparser.add_argument(
     "--name",
-    "-n",
     dest="name",
     metavar="NAME",
     help="symbolic name of the cloned deployment",
