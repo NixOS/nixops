@@ -30,6 +30,11 @@ $ nixops --version
 NixOps @version@
 ```
 
+**Note**: Currently NixOps only supports deploying from a Linux machine. macOS users should read
+[these](https://github.com/NixOS/nixops/issues/260)
+[open](https://github.com/NixOS/nixops/issues/560)
+[issues](https://github.com/NixOS/nixops/issues/1027).
+
 ### Building And Developing
 
 #### Building The Nix Package
