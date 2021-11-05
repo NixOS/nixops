@@ -146,21 +146,21 @@ class ImmutableValidatedObject:
                 continue
             anno.update(x.__annotations__)
 
-        def _transform_value(value: Any, value_type: Optional[Type]) -> Any:
+        def _transform_value(value: Any, target_type: Optional[Type]) -> Any:
             # Untyped, pass through
-            if not value_type:
+            if not target_type:
                 return value
 
             # Support ImmutableValidatedObject
             if (
                 isinstance(value, Mapping)
-                and inspect.isclass(value_type)
-                and issubclass(value_type, ImmutableValidatedObject)
+                and inspect.isclass(target_type)
+                and issubclass(target_type, ImmutableValidatedObject)
             ):
-                value = value_type(**value)
+                value = target_type(**value)
 
-            type_origin = typing.get_origin(value_type)  # type: ignore[attr-defined]
-            type_args = tuple(set(typing.get_args(value_type)) - {type(None)})  # type: ignore[attr-defined]
+            type_origin = typing.get_origin(target_type)  # type: ignore[attr-defined]
+            type_args = tuple(set(typing.get_args(target_type)) - {type(None)})  # type: ignore[attr-defined]
             if (
                 type_origin is not None
                 and len(type_args) == 1
@@ -176,7 +176,7 @@ class ImmutableValidatedObject:
                     if value is not None:
                         value = _transform_value(value, type_args[0])
 
-            typeguard.check_type(key, value, value_type)
+            typeguard.check_type(key, value, target_type)
 
             return value
 
