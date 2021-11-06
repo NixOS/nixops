@@ -7,7 +7,7 @@ from typing import Any, List, Iterator, AbstractSet, Tuple, NewType
 RecordId = NewType("RecordId", str)
 
 
-class StateDict(collections.MutableMapping):
+class StateDict(collections.abc.MutableMapping):
     """
        An implementation of a MutableMapping container providing
        a python dict like behavior for the NixOps state file.
