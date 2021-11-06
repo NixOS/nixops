@@ -1,9 +1,7 @@
-from nose import tools
-
-from tests.functional import single_machine_test
+from tests.functional.single_machine_test import SingleMachineTest
 
 
-class TestDeploysNixos(single_machine_test.SingleMachineTest):
+class TestDeploysNixos(SingleMachineTest):
     def run_check(self):
         self.depl.deploy()
         self.check_command("test -f /etc/NIXOS")

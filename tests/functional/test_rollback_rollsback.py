@@ -1,7 +1,8 @@
 from os import path
-from nose import tools
 
-from tests.functional import single_machine_test
+from pytest import raises
+
+from tests.functional.single_machine_test import SingleMachineTest
 
 from nixops.ssh_util import SSHCommandFailed
 
@@ -14,7 +15,7 @@ has_hello_spec = "%s/single_machine_has_hello.nix" % (parent_dir)
 rollback_spec = "%s/single_machine_rollback.nix" % (parent_dir)
 
 
-class TestRollbackRollsback(single_machine_test.SingleMachineTest):
+class TestRollbackRollsback(SingleMachineTest):
     _multiprocess_can_split_ = True
 
     def setup(self):
@@ -24,11 +25,11 @@ class TestRollbackRollsback(single_machine_test.SingleMachineTest):
 
     def run_check(self):
         self.depl.deploy()
-        with tools.assert_raises(SSHCommandFailed):
+        with raises(SSHCommandFailed):
             self.check_command("hello")
         self.depl.network_expr = NetworkFile(has_hello_spec)
         self.depl.deploy()
         self.check_command("hello")
         self.depl.rollback(generation=1)
-        with tools.assert_raises(SSHCommandFailed):
+        with raises(SSHCommandFailed):
             self.check_command("hello")
