@@ -75,7 +75,7 @@ class ResourceDefinition:
         self.config = config_type(**config)
         self.name = name
 
-        if not re.match("^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*$", self.name):  # noqa: W605
+        if not re.match(r"^[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*$", self.name):  # noqa: W605
             raise Exception("invalid resource name ‘{0}’".format(self.name))
 
     def show_type(self) -> str:

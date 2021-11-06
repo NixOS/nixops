@@ -1228,7 +1228,7 @@ class Deployment:
                                 )
                             )
                             match = re.search(
-                                'VERSION_ID="([0-9]+\.[0-9]+).*"',  # noqa: W605
+                                r'VERSION_ID="([0-9]+\.[0-9]+).*"',  # noqa: W605
                                 os_release,
                             )
                             if match:
@@ -1578,7 +1578,7 @@ class Deployment:
         )
 
     def is_valid_resource_name(self, name: str) -> bool:
-        p = re.compile("^[\w-]+$")  # noqa: W605
+        p = re.compile(r"^[\w-]+$")  # noqa: W605
         return not p.match(name) is None
 
     def rename(self, name: str, new_name: str) -> None:

@@ -261,7 +261,7 @@ def open_deployment(
 def set_name(depl: nixops.deployment.Deployment, name: Optional[str]) -> None:
     if not name:
         return
-    if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-\.]*$", name):  # noqa: W605
+    if not re.match(r"^[a-zA-Z_\-][a-zA-Z0-9_\-\.]*$", name):  # noqa: W605
         raise Exception("invalid deployment name ‘{0}’".format(name))
     depl.name = name
 

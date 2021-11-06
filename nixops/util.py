@@ -596,7 +596,7 @@ def which(program: str) -> str:
             if is_exe(exe_file):
                 return exe_file
 
-    raise Exception("program ‘{0}’ not found in \$PATH".format(program))  # noqa: W605
+    raise Exception(r"program ‘{0}’ not found in \$PATH".format(program))  # noqa: W605
 
 
 def write_file(path: str, contents: str) -> None:
@@ -614,7 +614,7 @@ def parse_nixos_version(s: str) -> List[str]:
 # nvme -> sd
 def device_name_to_boto_expected(string: str) -> str:
     """Transfoms device name to name, that boto expects."""
-    m = re.search("(.*)\/nvme(\d+)n1p?(\d+)?", string)  # noqa: W605
+    m = re.search(r"(.*)\/nvme(\d+)n1p?(\d+)?", string)  # noqa: W605
     if m is not None:
         device = m.group(2)
         device_ = int(device) - 1

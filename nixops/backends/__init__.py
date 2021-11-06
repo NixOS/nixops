@@ -245,7 +245,9 @@ class MachineState(
                 # that.  Hack: ignore special filesystems like
                 # /sys/kernel/config and /tmp. Systemd tries to mount these
                 # even when they don't exist.
-                match = re.match("^([^\.]+\.mount) .* inactive .*$", line)  # noqa: W605
+                match = re.match(
+                    r"^([^\.]+\.mount) .* inactive .*$", line
+                )  # noqa: W605
 
                 if match:
                     unit = match.group(1)
