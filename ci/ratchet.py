@@ -2,8 +2,6 @@ import sys
 import re
 from typing import Dict, Tuple, Optional, List, TextIO
 
-from pprint import pprint
-
 report: Dict[str, List[Optional[float]]] = {}
 
 extract_line = re.compile(
