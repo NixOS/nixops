@@ -19,7 +19,10 @@ mypy = "^0.770"
 black = "^19.10b0"
 # For mypy txt report
 lxml = "^4.5.0"
-
+# test
+pytest = "^6"
+pytest-xdist="1.34.0"
+pytest-cov = "^2.10.0"
 # docs
 livereload = "^2.6.1"
 sphinx = "^3.0.3"
@@ -31,6 +34,16 @@ nixops = "nixops.plugin"
 [tool.poetry.scripts]
 nixops = 'nixops.__main__:main'
 charon = 'nixops.__main__:main'
+
+[tool.pytest.ini_options]
+addopts = """
+  --cov=nixops
+  --cov-report html:html
+  --cov-report xml:coverage.xml
+  --cov-report term
+  --numprocesses=auto
+"""
+testpaths = [ "tests" ]
 
 [build-system]
 requires = ["poetry>=0.12"]
