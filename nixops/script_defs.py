@@ -981,7 +981,7 @@ def op_ssh_for_each(args: Namespace) -> None:
                 worker_fun=worker,
             )
 
-    sys.exit(max(results) if results != [] else 0)
+    sys.exit(max([r for r in results if r is not None]) if results != [] else 0)
 
 
 def scp_loc(user: str, ssh_name: str, remote: str, loc: str) -> str:

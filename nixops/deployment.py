@@ -716,7 +716,7 @@ class Deployment:
         if platform.system() != "Linux" and os.environ.get("NIX_REMOTE") != "daemon":
             if os.environ.get("NIX_REMOTE_SYSTEMS") is None:
                 remote_machines = []
-                for m in sorted(selected, key=lambda m: m.index):
+                for m in sorted(selected, key=lambda m: (m.index is None, m.index)):
                     key_file: Optional[str] = m.get_ssh_private_key_file()
                     if not key_file:
                         raise Exception(
