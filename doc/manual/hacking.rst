@@ -27,7 +27,7 @@ be found:
 
    $ nix-shell
    $ echo $PYTHONPATH
-   /nix/store/5dbidajmgrvskv7kj6bwrkza8szxkgar-python3-3.7.5/lib/python3.7/site-packages:...
+   /nix/store/34l1p57bn9jqdq2qvz269m9vkp1rsyq8-python3-3.9.6-env/lib/python3.9/site-packages:...
 
 You can then run NixOps in your source tree as follows:
 
@@ -39,7 +39,7 @@ To run the tests, do
 
 ::
 
-   $ python3 tests.py
+   $ pytest
 
 Note that some of the tests involve the creation of EC2 resources and
 thus cost money. You must set the environment variable EC2_ACCESS_KEY
