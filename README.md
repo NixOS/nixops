@@ -20,15 +20,13 @@ _NixOps_ is included in nixpkgs and can be executed in a shell as follows:
 $ nix-shell -p nixops
 ```
 
-**Note**: Currently channels only provide _NixOps_ <= 1.7. In order to run the _NixOps_ version from master you can clone this
-repository and execute `nix-shell`:
+or for a bleeding edge version, including many fixes relative to the 1.7 series,
 
 ```
-$ git clone https://github.com/NixOS/nixops
-$ nix-shell
-$ nixops --version
-NixOps @version@
+$ nix-shell -p nixopsUnstable
 ```
+
+You may need access to a Nix remote builder if your system does not support the deployment's `system` builds directly. MacOS users may use a virtual machine with NixOS for this purpose.
 
 ### Building And Developing
 
