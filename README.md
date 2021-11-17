@@ -28,6 +28,8 @@ $ nix-shell -p nixopsUnstable
 
 You may need access to a Nix remote builder if your system does not support the deployment's `system` builds directly. MacOS users may use a virtual machine with NixOS for this purpose.
 
+It is also possible to use cross-compilation with NixOps, by setting `nixpkgs.localSystem` and `nixpkgs.crossSystem`. A mix of remote, emulated and cross builds is also possible; see [this writeup on eno.space](https://eno.space/blog//2021/08/nixos-on-underpowered-devices).
+
 ### Building And Developing
 
 #### Building The Nix Package
