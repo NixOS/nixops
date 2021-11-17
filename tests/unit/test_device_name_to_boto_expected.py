@@ -6,7 +6,8 @@ from nixops.util import device_name_to_boto_expected
 class TestDeviceNameToBotoExpected(unittest.TestCase):
     def test_device_name_to_boto_expected(self):
         self.assertEqual(
-            device_name_to_boto_expected("/dev/sdf"), "/dev/sdf",
+            device_name_to_boto_expected("/dev/sdf"),
+            "/dev/sdf",
         )
         self.assertEqual(device_name_to_boto_expected("/dev/sdg"), "/dev/sdg")
         self.assertEqual(device_name_to_boto_expected("/dev/xvdf"), "/dev/sdf")

@@ -5,8 +5,7 @@ import os
 
 
 def setup_debugger() -> None:
-    """
-    """
+    """ """
     import traceback
     import pdb
     from types import TracebackType

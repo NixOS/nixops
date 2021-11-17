@@ -15,7 +15,7 @@ import subprocess
 import logging
 import atexit
 import re
-import typeguard
+import typeguard  # type: ignore
 import inspect
 import shlex
 from typing import (

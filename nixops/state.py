@@ -9,8 +9,8 @@ RecordId = NewType("RecordId", str)
 
 class StateDict(collections.abc.MutableMapping):
     """
-       An implementation of a MutableMapping container providing
-       a python dict like behavior for the NixOps state file.
+    An implementation of a MutableMapping container providing
+    a python dict like behavior for the NixOps state file.
     """
 
     # TODO implement __repr__ for convenience e.g debugging the structure

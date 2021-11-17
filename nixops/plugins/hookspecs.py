@@ -1,6 +1,6 @@
 from . import Plugin
 
-import pluggy
+import pluggy  # type: ignore
 
 
 hookspec = pluggy.HookspecMarker("nixops")
