@@ -7,7 +7,7 @@ from argparse import ArgumentParser, _SubParsersAction
 from nixops.storage import StorageBackend
 from nixops.locks import LockDriver
 from typing import Generator
-import pluggy
+import pluggy # type: ignore
 import nixops
 
 

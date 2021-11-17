@@ -9,6 +9,7 @@ import threading
 from collections import defaultdict
 import re
 from datetime import datetime, timedelta
+from nixops.resources import GenericResourceState
 import nixops.statefile
 import getpass
 import traceback
@@ -21,6 +22,7 @@ import importlib
 from functools import reduce, lru_cache
 from typing import (
     Callable,
+    ClassVar,
     Dict,
     Optional,
     TextIO,
@@ -79,6 +81,8 @@ class Deployment:
     network_attr_eval: bool = False
 
     network_expr: nixops.evaluation.NetworkFile
+
+    _statefile : nixops.statefile.StateFile
 
     def __init__(
         self, statefile, uuid: str, log_file: TextIO = sys.stderr,
@@ -409,7 +413,7 @@ class Deployment:
 
     @lru_cache()
     def evaluate_config(self, attr) -> Dict:
-        return self.eval(checkConfigurationOptions=False, attr=attr)
+        return self.eval(checkConfigurationOptions=False, attr=attr) # type: ignore
 
     def evaluate_network(self, action: str = "") -> None:
         if not self.network_attr_eval:
@@ -716,7 +720,7 @@ class Deployment:
         if platform.system() != "Linux" and os.environ.get("NIX_REMOTE") != "daemon":
             if os.environ.get("NIX_REMOTE_SYSTEMS") is None:
                 remote_machines = []
-                for m in sorted(selected, key=lambda m: m.index):
+                for m in sorted(selected, key=lambda m: m.get_index()):
                     key_file: Optional[str] = m.get_ssh_private_key_file()
                     if not key_file:
                         raise Exception(
@@ -1665,20 +1669,20 @@ def _create_definition(
 
     for cls in _subclasses(nixops.resources.ResourceDefinition):
         if type_name == cls.get_resource_type():
-            return cls(name, nixops.resources.ResourceEval(config))
+            return cls(name, nixops.resources.ResourceEval(config)) # type: ignore
 
     raise nixops.deployment.UnknownBackend(
         "unknown resource type ‘{0}’".format(type_name)
     )
 
 
-def _create_state(depl: Deployment, type: str, name: str, id: int) -> Any:
+def _create_state(depl: Deployment, type: str, name: str, id: int) -> GenericResourceState:
     """Create a resource state object of the desired type."""
 
     for cls in _subclasses(nixops.resources.ResourceState):
         try:
             if type == cls.get_type():
-                return cls(depl, name, id)
+                return cls(depl, name, id) # type: ignore
         except NotImplementedError:
             pass
 

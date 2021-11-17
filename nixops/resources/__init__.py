@@ -85,6 +85,16 @@ class ResourceDefinition:
 
 ResourceDefinitionType = TypeVar("ResourceDefinitionType", bound="ResourceDefinition")
 
+State = Union[
+        Literal[0],
+        Literal[1],
+        Literal[2],
+        Literal[3],
+        Literal[4],
+        Literal[5],
+        Literal[6],
+        Literal[7],
+    ]
 
 @runtime_checkable
 class ResourceState(Protocol[ResourceDefinitionType]):
@@ -110,16 +120,7 @@ class ResourceState(Protocol[ResourceDefinitionType]):
     UNREACHABLE: Literal[6] = 6  # machine should be up, but is unreachable
     RESCUE: Literal[7] = 7  # rescue system is active for the machine
 
-    state: Union[
-        Literal[0],
-        Literal[1],
-        Literal[2],
-        Literal[3],
-        Literal[4],
-        Literal[5],
-        Literal[6],
-        Literal[7],
-    ] = nixops.util.attr_property("state", UNKNOWN, int)
+    state: State = nixops.util.attr_property("state", UNKNOWN, int)
     index: Optional[int] = nixops.util.attr_property("index", None, int)
     obsolete: bool = nixops.util.attr_property("obsolete", False, bool)
 
@@ -347,6 +348,13 @@ class ResourceState(Protocol[ResourceDefinitionType]):
         """Return the time (in Unix epoch) when this resource will next incur
         a financial charge (or None if unknown)."""
         return None
+
+    # Is this necessary?
+    def get_index(self) -> int:
+        if self.index is None:
+            return -1
+        else:
+            return self.index
 
 
 @runtime_checkable

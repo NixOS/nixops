@@ -7,7 +7,7 @@ from nixops.locks import LockDriver
 
 import contextlib
 import nixops.statefile
-import prettytable
+import prettytable # type: ignore
 from argparse import ArgumentParser, _SubParsersAction, Namespace
 import os
 import pwd
@@ -924,7 +924,7 @@ def op_ssh(args: Namespace) -> None:
 
 
 def op_ssh_for_each(args: Namespace) -> None:
-    results: List[Optional[int]] = []
+    results: List[int] = []
     with one_or_all(args) as depls:
         for depl in depls:
 
@@ -938,11 +938,14 @@ def op_ssh_for_each(args: Namespace) -> None:
                     args.args, allow_ssh_args=True, check=False, user=m.ssh_user
                 )
 
-            results = results + nixops.parallel.run_tasks(
-                nr_workers=len(depl.machines) if args.parallel else 1,
-                tasks=iter(depl.active_machines.values()),
-                worker_fun=worker,
-            )
+            results += [   result
+                for result in nixops.parallel.run_tasks(
+                    nr_workers=len(depl.machines) if args.parallel else 1,
+                    tasks=iter(depl.active_machines.values()),
+                    worker_fun=worker,
+                )
+                if result is not None
+            ]
 
     sys.exit(max(results) if results != [] else 0)
 
