@@ -2,10 +2,35 @@ from typing import TypeVar, Type
 from typing_extensions import Protocol
 
 
+"""
+Interface to a lock driver.
+
+An implementation should inherit from LockDriver in order to for a plugin to be
+able to integrate it.
+"""
+
+
+# This separation was introduced to hide the LockOptions details from the
+# LockInterface type. It only matters for construction and clients don't have
+# to know about it.
+class LockInterface(Protocol):
+    # lock: acquire a lock.
+    # Note: no arguments will be passed over kwargs. Making it part of
+    # the type definition allows adding new arguments later.
+    def lock(self, description: str, exclusive: bool, **kwargs) -> None:
+        raise NotImplementedError
+
+    # unlock: release the lock.
+    # Note: no arguments will be passed over kwargs. Making it part of
+    # the type definition allows adding new arguments later.
+    def unlock(self, **kwargs) -> None:
+        raise NotImplementedError
+
+
 LockOptions = TypeVar("LockOptions")
 
 
-class LockDriver(Protocol[LockOptions]):
+class LockDriver(LockInterface, Protocol[LockOptions]):
     # Hack: Make T a mypy invariant. According to PEP-0544, a
     # Protocol[T] whose T is only used in function arguments and
     # returns is "de-facto covariant".
@@ -25,16 +50,4 @@ class LockDriver(Protocol[LockOptions]):
         pass
 
     def __init__(self, args: LockOptions) -> None:
-        raise NotImplementedError
-
-    # lock: acquire a lock.
-    # Note: no arguments will be passed over kwargs. Making it part of
-    # the type definition allows adding new arguments later.
-    def lock(self, **kwargs) -> None:
-        raise NotImplementedError
-
-    # unlock: release the lock.
-    # Note: no arguments will be passed over kwargs. Making it part of
-    # the type definition allows adding new arguments later.
-    def unlock(self, **kwargs) -> None:
         raise NotImplementedError

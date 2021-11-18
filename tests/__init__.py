@@ -11,7 +11,7 @@ db_file = "%s/test.nixops" % (path.dirname(__file__))
 
 
 def setup():
-    nixops.statefile.StateFile(db_file).close()
+    nixops.statefile.StateFile(db_file, writable=True).close()
 
 
 def destroy(sf, uuid):
@@ -30,7 +30,7 @@ def destroy(sf, uuid):
 
 
 def teardown():
-    sf = nixops.statefile.StateFile(db_file)
+    sf = nixops.statefile.StateFile(db_file, writable=True)
     uuids = sf.query_deployments()
     threads = []
     for uuid in uuids:

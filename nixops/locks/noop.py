@@ -19,5 +19,5 @@ class NoopLock(LockDriver[NoopLockOptions]):
     def unlock(self, **_kwargs) -> None:
         pass
 
-    def lock(self, **_kwargs) -> None:
+    def lock(self, description, exclusive, **_kwargs) -> None:
         pass

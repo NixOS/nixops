@@ -352,6 +352,12 @@ subparser.add_argument("machine", metavar="MACHINE", help="identifier of the mac
 subparser.add_argument(
     "args", metavar="SSH_ARGS", nargs=REMAINDER, help="SSH flags and/or command",
 )
+subparser.add_argument(
+    "--now",
+    dest="now",
+    action="store_true",
+    help="do not acquire a lock before fetching the state",
+)
 
 subparser = add_subparser(
     subparsers, "ssh-for-each", help="execute a command on each machine via SSH"
@@ -443,14 +449,12 @@ subparser.add_argument(
     "--freeze",
     dest="freeze_fs",
     action="store_true",
-    default=False,
     help="freeze filesystems for non-root filesystems that support this (e.g. xfs)",
 )
 subparser.add_argument(
     "--force",
     dest="force",
     action="store_true",
-    default=False,
     help="start new backup even if previous is still running",
 )
 subparser.add_argument(
@@ -478,17 +482,12 @@ subparser.add_argument(
     help="do not perform backup actions on the specified machines",
 )
 subparser.add_argument(
-    "--wait",
-    dest="wait",
-    action="store_true",
-    default=False,
-    help="wait until backup is finished",
+    "--wait", dest="wait", action="store_true", help="wait until backup is finished",
 )
 subparser.add_argument(
     "--latest",
     dest="latest",
     action="store_true",
-    default=False,
     help="show status of latest backup only",
 )
 
@@ -498,7 +497,6 @@ subparser.add_argument("backupid", metavar="BACKUP-ID", help="backup ID to remov
 subparser.add_argument(
     "--keep-physical",
     dest="keep_physical",
-    default=False,
     action="store_true",
     help="do not remove the physical backups, only remove backups from nixops state",
 )
@@ -518,7 +516,6 @@ subparser.add_argument(
 subparser.add_argument(
     "--keep-physical",
     dest="keep_physical",
-    default=False,
     action="store_true",
     help="do not remove the physical backups, only remove backups from nixops state",
 )

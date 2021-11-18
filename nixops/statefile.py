@@ -7,17 +7,28 @@ import sys
 import threading
 from typing import Any, Optional, List, Type
 from types import TracebackType
+import re
 
 import nixops.deployment
+from nixops.locks import LockInterface
 
 
 class Connection(sqlite3.Connection):
     def __init__(self, db_file: str, **kwargs: Any) -> None:
-        db_exists = os.path.exists(db_file)
+        matchMaybe: Optional[re.Match[str]] = re.fullmatch(
+            "(file://)?([^?]*)(\\?.*)?", db_file
+        )
+        file: str
+        if matchMaybe is None:
+            file = db_file
+        else:
+            file = matchMaybe.group(2)
+
+        db_exists: bool = os.path.exists(file)
         if not db_exists:
-            os.fdopen(os.open(db_file, os.O_WRONLY | os.O_CREAT, 0o600), "w").close()
+            os.fdopen(os.open(file, os.O_WRONLY | os.O_CREAT, 0o600), "w").close()
         sqlite3.Connection.__init__(self, db_file, **kwargs)  # type: ignore
-        self.db_file = db_file
+        self.db_file = file
         self.nesting = 0
         self.lock = threading.RLock()
 
@@ -76,22 +87,36 @@ def get_default_state_file() -> str:
 class StateFile(object):
     """NixOps state file."""
 
-    current_schema = 3
+    current_schema: int = 3
+    lock: Optional[LockInterface]
 
-    def __init__(self, db_file: str) -> None:
+    def __init__(
+        self, db_file: str, writable: bool, lock: Optional[LockInterface] = None
+    ) -> None:
         self.db_file: str = db_file
+        self.lock = lock
 
         if os.path.splitext(db_file)[1] not in [".nixops", ".charon"]:
             raise Exception(
                 "state file ‘{0}’ should have extension ‘.nixops’".format(db_file)
             )
-        db = sqlite3.connect(
-            db_file,
-            timeout=60,
-            check_same_thread=False,
-            factory=Connection,
-            isolation_level=None,
-        )
+
+        def connect(writable: bool) -> sqlite3.Connection:
+            query: str = ""
+
+            if not writable:
+                query = "?mode=ro"
+
+            return sqlite3.connect(
+                f"file://{db_file}{query}",
+                uri=True,
+                timeout=60,
+                check_same_thread=False,
+                factory=Connection,
+                isolation_level=None,
+            )
+
+        db: sqlite3.Connection = connect(writable)
 
         db.execute("pragma journal_mode = wal")
         db.execute("pragma foreign_keys = 1")
@@ -99,7 +124,7 @@ class StateFile(object):
         # FIXME: this is not actually transactional, because pysqlite (not
         # sqlite) does an implicit commit before "create table".
         with db:
-            c = db.cursor()
+            c: sqlite3.Cursor = db.cursor()
 
             # Get the schema version.
             version: int = 0  # new database
@@ -111,22 +136,36 @@ class StateFile(object):
 
             if version == self.current_schema:
                 pass
-            elif version == 0:
-                self._create_schema(c)
-            elif version < self.current_schema:
-                if version <= 1:
-                    self._upgrade_1_to_2(c)
-                if version <= 2:
-                    self._upgrade_2_to_3(c)
-                c.execute(
-                    "update SchemaVersion set version = ?", (self.current_schema,)
-                )
             else:
-                raise Exception(
-                    "this NixOps version is too old to deal with schema version {0}".format(
-                        version
+                # If a schema update is necessary, we'll need to do so despite
+                # being in read only mode. This is ok, because the purpose of
+                # read only mode is to catch problems where we didn't request
+                # the appropriate level of locking. This still works, because
+                # the 'returned' db is still read only.
+                #
+                # IMPORTANT: schema upgrades must not touch anything outside the
+                #            db. Otherwise, it must reject to run when we're in
+                #            read-only mode.
+                #
+                mutableDb: sqlite3.Connection = connect(True)
+                c = mutableDb.cursor()
+                if version == 0:
+                    self._create_schema(c)
+                elif version < self.current_schema:
+                    if version <= 1:
+                        self._upgrade_1_to_2(c)
+                    if version <= 2:
+                        self._upgrade_2_to_3(c)
+                    c.execute(
+                        "update SchemaVersion set version = ?", (self.current_schema,)
                     )
-                )
+                else:
+                    raise Exception(
+                        "this NixOps version is too new to deal with schema version {0}".format(
+                            version
+                        )
+                    )
+                mutableDb.close()
 
         self._db: sqlite3.Connection = db
 
