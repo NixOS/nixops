@@ -118,8 +118,11 @@ class StateFile(object):
 
         db: sqlite3.Connection = connect(writable)
 
-        db.execute("pragma journal_mode = wal")
-        db.execute("pragma foreign_keys = 1")
+        if writable:
+            # This pragma may need to write, but that's ok because it is only
+            # relevant when in writable mode.
+            db.execute("pragma journal_mode = wal")
+            db.execute("pragma foreign_keys = 1")
 
         # FIXME: this is not actually transactional, because pysqlite (not
         # sqlite) does an implicit commit before "create table".
