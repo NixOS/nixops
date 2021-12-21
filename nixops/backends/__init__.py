@@ -489,7 +489,7 @@ class MachineState(
             return None
 
     def get_ssh_flags(self, scp: bool = False) -> List[str]:
-        flags: List[str] = []
+        flags: List[str] = list(self.ssh_options)
 
         if self.ssh_port is not None:
             flags = flags + ["-o", "Port=" + str(self.ssh_port)]
