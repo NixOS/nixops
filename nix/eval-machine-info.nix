@@ -102,9 +102,10 @@ in rec {
                 environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
 
                 nixpkgs.system = lib.mkDefault system;
+
+                _module.args = { inherit nodes resources uuid deploymentName; name = machineName; };
               }
             ];
-          extraArgs = { inherit nodes resources uuid deploymentName; name = machineName; };
         };
       }
     ) (lib.attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "nixpkgs" "_file" ])));
