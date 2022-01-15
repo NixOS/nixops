@@ -111,7 +111,7 @@ class NoneState(MachineState[NoneDefinition]):
 
     def get_ssh_flags(self, *args, **kwargs) -> List[str]:
         super_state_flags = super(NoneState, self).get_ssh_flags(*args, **kwargs)
-        if self.vm_id and self.cur_toplevel and self._ssh_public_key_deployed:
+        if self.vm_id and self._ssh_public_key_deployed:
             key_file = self.get_ssh_private_key_file()
             flags = super_state_flags + [
                 "-o",
