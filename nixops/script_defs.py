@@ -40,7 +40,7 @@ def get_network_file(args: Namespace) -> NetworkFile:
     network_dir: str = os.path.abspath(args.network_dir)
 
     if not os.path.exists(network_dir):
-        raise ValueError("f{network_dir} does not exist")
+        raise ValueError(f"{network_dir} does not exist")
 
     classic_path = os.path.join(network_dir, "nixops.nix")
     flake_path = os.path.join(network_dir, "flake.nix")
