@@ -57,6 +57,16 @@ in
       '';
     };
 
+    deployment.bootstrapScript = mkOption {
+      type = types.nullOr types.lines;
+      default = null;
+      description = ''
+        This option specifies an optional bash script to be run on the target
+        before nix-specific operations are run. It only assumes `bash` to be
+        installed on the target.
+      '';
+    };
+
     deployment.targetPort = mkOption {
       type = types.int;
       description = ''
