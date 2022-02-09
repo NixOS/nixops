@@ -1004,6 +1004,8 @@ class Deployment(object):
 
         if build_only or dry_run: return
 
+        self.bootstrap_resources()
+
         # Copy the closures of the machine configurations to the
         # target machines.
         self.copy_closures(self.configs_path, include=include, exclude=exclude,
@@ -1229,6 +1231,18 @@ class Deployment(object):
 
         nixops.parallel.run_tasks(nr_workers=-1, tasks=self.active.itervalues(), worker_fun=worker)
 
+    def bootstrap_resources(self):
+
+        def worker(r):
+            if is_machine(r):
+                if r.bootstrap_script is not None:
+                    r.run_command(r.bootstrap_script)
+
+        nixops.parallel.run_tasks(
+            nr_workers=-1,
+            tasks=iter(self.active_resources.values()),
+            worker_fun=worker,
+        )
 
 def should_do(m, include, exclude):
     return should_do_n(m.name, include, exclude)
