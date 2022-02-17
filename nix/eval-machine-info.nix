@@ -122,22 +122,37 @@ in rec {
   };
 
   evalResources = mainModule: _resources:
-    lib.mapAttrs (name: defs:
-      (builtins.removeAttrs (lib.fixMergeModules
-        ([ mainModule deploymentInfoModule ./resource.nix ] ++ defs)
-        {
-          inherit pkgs uuid name resources;
+    lib.mapAttrs
+      (name: defs:
+        let
+          # Arguments fed to all modules
+          moduleArgs = {
+            _module.args = {
+              inherit pkgs uuid name resources;
 
-          # inherit nodes, essentially
-          nodes =
-            lib.mapAttrs (nodeName: node:
-              lib.mapAttrs
-                (key: lib.warn "Resource ${name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
-                info.machines.${nodeName}
-              // node)
-            nodes;
-        }
-      ).config) ["_module"]) _resources;
+              # inherit nodes, essentially
+              nodes =
+                lib.mapAttrs
+                  (nodeName: node:
+                    lib.mapAttrs
+                      (key: lib.warn "Resource ${name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
+                      info.machines.${nodeName}
+                    // node)
+                  nodes;
+            };
+            _module.check = false;
+          };
+          modules = [
+            moduleArgs
+            mainModule
+            deploymentInfoModule
+            ./resource.nix
+          ] ++ defs;
+        in
+          builtins.removeAttrs
+            (lib.evalModules { inherit modules; }).config
+            ["_module"])
+      _resources;
 
   newOpt = key: {
     nixosRelease = "config.system.nixos.release and make sure it is set properly";
