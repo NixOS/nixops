@@ -16,6 +16,10 @@ Release 2.0
 
 - Major code cleanups.
 
+- Now the network specification is using the module system from ``nixpkgs.lib``
+  - Now network specification files can import other files via ``imports``.
+  - We have a ``nodes.*`` option where we put every NixOS configuration for the configured nodes. We suggest to use it instead of defining nodes in the top level.
+
 - Removed NixOS Options
 
   - ``deployment.autoLuks.*`` - moved to `nixos-modules-contrib`_.
