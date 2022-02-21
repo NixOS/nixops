@@ -140,7 +140,6 @@ in rec {
                     // node)
                   nodes;
             };
-            _module.check = false;
           };
           modules = [
             moduleArgs
