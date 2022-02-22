@@ -70,11 +70,36 @@ rec {
           resources = mkOption {
             type = types.submoduleWith {
               modules = [{
-                # so what is this trying to do?
-                sshKeyPairs = evalResources ./ssh-keypair.nix (lib.zipAttrs resourcesByType.sshKeyPairs or [ ]);
-                commandOutput = evalResources ./command-output.nix (lib.zipAttrs resourcesByType.commandOutput or [ ]);
-                machines = config.nodes;
-                _module.check = false;
+                options = let
+                  resOpt = mainModule: mkOption {
+                    type = types.attrsOf (types.submodule (r:{
+                      _module.args = {
+                        inherit pkgs uuid;
+                        resources = r.config;
+                        # inherit nodes, essentially
+                        nodes =
+                          lib.mapAttrs
+                            (nodeName: node:
+                              lib.mapAttrs
+                                (key: lib.warn "Resource ${r.name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
+                                config.nodes.${nodeName})
+                            config.nodes;
+                      };
+                      imports = [
+                        mainModule
+                        deploymentInfoModule
+                        ./resource.nix
+                      ];
+                    }));
+                  };
+                in {
+                  sshKeyPairs = resOpt ./ssh-keypair.nix;
+                  commandOutput = resOpt ./command-output.nix;
+                };
+                config = {
+                  machines = config.nodes;
+                  _module.check = false;
+                };
               }] ++ pluginResources;
               specialArgs = {
                 inherit evalResources resourcesByType;
@@ -84,13 +109,13 @@ rec {
           };
           # Compute the definitions of the machines.
           nodes = mkOption {
-            type = types.attrsOf (types.submoduleWith {
+            type = types.attrsOf (import "${nixpkgs}/nixos/lib/eval-config.nix" {
+              inherit lib system;
               specialArgs = {
                 inherit uuid deploymentName;
                 inherit (config) nodes resources;
               } // config.network.nodesExtraArgs;
-              modules = (import "${nixpkgs}/nixos/modules/module-list.nix") ++
-                # Make NixOps's deployment.* options available.
+              modules = # Make NixOps's deployment.* options available.
                 pluginOptions ++
                 [
                   ./options.nix
@@ -108,7 +133,7 @@ rec {
                     nixpkgs.system = lib.mkDefault system;
                   })
                 ];
-            });
+            }).type;
           };
           defaults = mkOption {
             type = types.anything;
