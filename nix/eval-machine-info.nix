@@ -49,7 +49,7 @@ in
 rec {
   inherit nixpkgs;
 
-  netConfig = (lib.evalModules {
+  net = lib.evalModules {
     specialArgs = args;
     modules = baseMods lib ++ [
       ({ config, options, ... }: {
@@ -150,14 +150,16 @@ rec {
         };
       })
     ];
-  }).config;
+  };
 
-  inherit (netConfig) resources nodes;
-  defaults = [ netConfig.defaults ];
+  inherit (net.config) resources;
+  defaults = [ net.config.defaults ];
+  #TODO: take options and auter modules outputs for each node
+  nodes = lib.mapAttrs (n: v: {config = v;}) net.config.nodes;
 
   # for backward compatibility
-  network = lib.mapAttrs (n: v: [v]) netConfig;
-  networks = [ netConfig ];
+  network = lib.mapAttrs (n: v: [v]) net.config;
+  networks = [ net.config ];
 
   importedPluginNixExprs = map
     (expr: import expr)
