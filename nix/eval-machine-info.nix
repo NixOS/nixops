@@ -68,10 +68,12 @@ rec {
             };
           };
           resources = mkOption {
+            default = {};
             type = types.submoduleWith {
               modules = [{
                 options = let
                   resOpt = mainModule: mkOption {
+                    default = {};
                     type = types.attrsOf (types.submodule (r:{
                       _module.args = {
                         inherit pkgs uuid;
@@ -109,6 +111,7 @@ rec {
           };
           # Compute the definitions of the machines.
           nodes = mkOption {
+            description = "The NixOS configurations for the nodes in the network.";
             type = types.attrsOf (import "${nixpkgs}/nixos/lib/eval-config.nix" {
               inherit lib system;
               specialArgs = {
