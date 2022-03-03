@@ -592,9 +592,7 @@ class MachineState(
         # mainly operating in a chroot environment.
         if self.state == self.RESCUE:
             command = "export LANG= LC_ALL= LC_TIME=; " + command
-        return self.ssh.run_command(
-            command, flags=self.get_ssh_flags(), user=self.ssh_user, **kwargs
-        )
+        return self.ssh.run_command(command, user=self.ssh_user, **kwargs)
 
     def switch_to_configuration(
         self, method: str, sync: bool, command: Optional[str] = None
