@@ -40,7 +40,7 @@ let
 
   inherit (evalBoot.config) nixpkgs;
 
-  pkgs = nixpkgs.legacyPackages.${system} or import nixpkgs { inherit system; };
+  pkgs = nixpkgs.legacyPackages.${system} or (import nixpkgs { inherit system; });
   lib = nixpkgs.lib or pkgs.lib or libBoot;
   inherit (lib) mkOption types;
   inherit (builtins) removeAttrs;
