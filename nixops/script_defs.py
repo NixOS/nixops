@@ -128,7 +128,17 @@ def network_state(
             lock.lock(description=description, exclusive=writable)
         try:
             storage.fetchToFile(statefile)
-            state = nixops.statefile.StateFile(statefile, writable, lock=lock)
+            if writable:
+                state = nixops.statefile.StateFile(statefile, writable, lock=lock)
+            else:
+                # Non-mutating commands use the state file as their data
+                # structure, therefore requiring mutation to work.
+                # Changes *will* be lost, as tolerating racy writes will be
+                # even harder to debug than consistently discarding changes.
+                # TODO: Change the NixOps architecture to separate reading
+                #       and writing cleanly, so we can request a read-only
+                #       statefile here and 'guarantee' no loss of state changes.
+                state = nixops.statefile.StateFile(statefile, True, lock=lock)
             try:
                 storage.onOpen(state)
 
