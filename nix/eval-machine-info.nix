@@ -40,13 +40,11 @@ let
 
   inherit (evalBoot.config) nixpkgs;
 
-  pkgs = nixpkgs.legacyPackages.${system} or (import nixpkgs { inherit system; });
-  lib = nixpkgs.lib or pkgs.lib or libBoot;
-  inherit (lib) mkOption types;
-  inherit (builtins) removeAttrs;
+  pkgs = (builtins.tryEval nixpkgs.legacyPackages.${system}).value or (import nixpkgs { inherit system; });
+  lib = nixpkgs.lib or pkgs.lib or (builtins.tryEval (import "${nixpkgs}/lib")).value or libBoot;
 
-in
-rec {
+  inherit (lib) mkOption types;
+in rec {
   inherit nixpkgs;
 
   net = lib.evalModules {
@@ -104,7 +102,7 @@ rec {
                 };
               }] ++ pluginResources;
               specialArgs = {
-                inherit evalResources resourcesByType;
+                inherit evalResources resourcesByType lib;
                 inherit (lib) zipAttrs;
               };
             };
@@ -113,18 +111,18 @@ rec {
           nodes = mkOption {
             description = "The NixOS configurations for the nodes in the network.";
             type = types.attrsOf (import "${nixpkgs}/nixos/lib/eval-config.nix" {
-              inherit lib system;
               specialArgs = {
                 inherit uuid deploymentName;
                 inherit (config) nodes resources;
               } // config.network.nodesExtraArgs;
-              modules = # Make NixOps's deployment.* options available.
+              modules =
+                config.defaults ++
+                # Make NixOps's deployment.* options available.
                 pluginOptions ++
                 [
                   ./options.nix
                   ./resource.nix
                   deploymentInfoModule
-                  config.defaults
                   ({ name, ... }: rec{
                     _file = ./eval-machine-info.nix;
                     key = _file;
@@ -139,7 +137,13 @@ rec {
             }).type;
           };
           defaults = mkOption {
-            type = types.anything;
+            type = with lib; mkOptionType {#TODO: remove after merging https://github.com/NixOS/nixpkgs/pull/163617
+              name = "deferredModule";
+              description = "module";
+              check = t: isAttrs t || isFunction t || builtins.isPath t;
+              merge = loc: defs: map (def: lib.setDefaultModuleLocation "${showOption loc} from ${def.file}" def.value) defs;
+            };
+            # type = types.deferredModule;
             default = { };
             description = ''
               Extra NixOS options to add to all nodes.
@@ -157,8 +161,13 @@ rec {
 
   inherit (net.config) resources;
   defaults = [ net.config.defaults ];
-  #TODO: take options and auter modules outputs for each node
-  nodes = lib.mapAttrs (n: v: {config = v;}) net.config.nodes;
+  #TODO: take options and other modules outputs for each node
+  nodes =
+    lib.mapAttrs (n: v: {
+      config = v;
+      options = net.options.nodes.${n};
+      inherit (v.nixpkgs) pkgs;
+    }) net.config.nodes;
 
   # for backward compatibility
   network = lib.mapAttrs (n: v: [v]) net.config;
