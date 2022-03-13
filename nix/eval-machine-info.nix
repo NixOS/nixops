@@ -20,25 +20,24 @@ let
   nixpkgsBoot = toString <nixpkgs> ; # this will be replaced on install by nixops' nixpkgs input
   libBoot = import "${nixpkgsBoot}/lib";
 
-  specialArgs = lib: args // { inherit lib system; };
-  baseMods = lib: [
-    {
-      options.nixpkgs = lib.mkOption {
-        type = lib.types.path;
-        description = "Path to the nixpkgs instance used to buld the machines.";
-        defaultText = lib.literalDocBook "The 'nixpkgs' input to either the provided flake or nixops' own.";
-        default = flake.inputs.nixpkgs or nixpkgsBoot;
-      };
-    }
-    flakeExpr
-  ] ++ networkExprs;
+  evalModules = lib: modules: lib.evalModules {
+    specialArgs = args // { inherit lib system; };
+    modules = modules ++ networkExprs ++ [
+      flakeExpr
+      {
+        options.nixpkgs = lib.mkOption {
+          type = lib.types.path;
+          description = "Path to the nixpkgs instance used to buld the machines.";
+          defaultText = lib.literalDocBook "The 'nixpkgs' input to either the provided flake or nixops' own.";
+          default = flake.inputs.nixpkgs or nixpkgsBoot;
+        };
+      }
+    ];
+  };
 
-  inherit ((libBoot.evalModules {
-    specialArgs = specialArgs libBoot;
-    modules = baseMods libBoot ++ [{
-      _module.freeformType = with libBoot.types;attrsOf anything;
-    }];
-  }).config) nixpkgs;
+  inherit ((evalModules libBoot [{
+    _module.freeformType = with libBoot.types;attrsOf anything;
+  }]).config) nixpkgs;
 
   pkgs = nixpkgs.legacyPackages.${system} or (import nixpkgs { inherit system; });
   lib = nixpkgs.lib or pkgs.lib or (builtins.tryEval (import "${nixpkgs}/lib")).value or libBoot;
@@ -47,66 +46,64 @@ let
 in rec {
   inherit nixpkgs;
 
-  net = lib.evalModules {
-    specialArgs = specialArgs lib;
-    modules = baseMods lib ++ [
-      ./net.nix
-      ({config, ...}:{
-        options.resources = mkOption {
-          default = { };
-          type = types.submoduleWith {
-            modules = [(r:{
-              options =
-                let
-                  resOpt = mainModule: mkOption {
-                    default = { };
-                    type = types.attrsOf (types.submodule {
-                      _module.args = {
-                        inherit pkgs uuid;
-                        resources = r.config;
-                        # inherit nodes, essentially
-                        nodes =
-                          lib.mapAttrs
-                            (nodeName: node:
-                              lib.mapAttrs
-                                (key: lib.warn "Resource ${r.name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
-                                config.nodes.${nodeName})
-                            config.nodes;
-                      };
-                      imports = [
-                        mainModule
-                        deploymentInfoModule
-                        ./resource.nix
-                      ];
-                    });
-                  };
-                in
-                {
-                  sshKeyPairs = resOpt ./ssh-keypair.nix;
-                  commandOutput = resOpt ./command-output.nix;
+  net = evalModules lib [
+    ./net.nix
+    ({config, ...}:{
+      options.resources = mkOption {
+        default = { };
+        type = types.submoduleWith {
+          modules = [(r:{
+            options =
+              let
+                resOpt = mainModule: mkOption {
+                  default = { };
+                  type = types.attrsOf (types.submodule {
+                    _module.args = {
+                      inherit pkgs uuid;
+                      resources = r.config;
+                      # inherit nodes, essentially
+                      nodes =
+                        lib.mapAttrs
+                          (nodeName: node:
+                            lib.mapAttrs
+                              (key: lib.warn
+                                "Resource ${r.name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
+                              config.nodes.${nodeName})
+                          config.nodes;
+                    };
+                    imports = [
+                      mainModule
+                      deploymentInfoModule
+                      ./resource.nix
+                    ];
+                  });
                 };
-              config = {
-                machines = config.nodes;
-                _module.check = false;
+              in
+              {
+                sshKeyPairs = resOpt ./ssh-keypair.nix;
+                commandOutput = resOpt ./command-output.nix;
               };
-            })] ++ pluginResources;
-            specialArgs = {
-              inherit evalResources resourcesByType lib;
-              inherit (lib) zipAttrs;
+            config = {
+              machines = config.nodes;
+              _module.check = false;
             };
+          })] ++ pluginResources;
+          specialArgs = {
+            inherit evalResources resourcesByType lib;
+            inherit (lib) zipAttrs;
           };
         };
-      })
-      {
-        network.nodeExtraArgs = {
-          inherit uuid deploymentName;
-        };
-        defaults.environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
-        # Make NixOps's deployment.* options available.
-        defaults.imports = pluginOptions ++ [ deploymentInfoModule ];
-      }
-    ];
-  };
+      };
+    })
+    {
+      network.nodeExtraArgs = {
+        inherit uuid deploymentName;
+      };
+      defaults.environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
+      # Make NixOps's deployment.* options available.
+      defaults.imports = pluginOptions ++ [ deploymentInfoModule ];
+    }
+  ];
 
   # for backward compatibility
   network = lib.mapAttrs (n: v: [v]) net.config;
