@@ -1067,9 +1067,9 @@ Consider the following deployment specification (``servers.nix``):
 
 ::
 
-   { nrMachines, active }:
+   { nrMachines, active, lib }:
 
-   with import <nixpkgs/lib>;
+   with lib;
 
    let
 
@@ -1080,7 +1080,7 @@ Consider the following deployment specification (``servers.nix``):
          services.httpd.adminAddr = "foo@example.org";
        });
 
-   in listToAttrs (map makeMachine (range 1 nrMachines))
+   in { nodes = listToAttrs (map makeMachine (range 1 nrMachines)); }
 
 This specifies a network of nrMachines identical VirtualBox VMs that run
 the Apache web server if active is set. To create 10 machines without
