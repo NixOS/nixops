@@ -20,6 +20,7 @@ let
   nixpkgsBoot = toString <nixpkgs> ; # this will be replaced on install by nixops' nixpkgs input
   libBoot = import "${nixpkgsBoot}/lib";
 
+  specialArgs = lib: args // { inherit lib system; };
   baseMods = lib: [
     {
       options.nixpkgs = lib.mkOption {
@@ -33,7 +34,7 @@ let
   ] ++ networkExprs;
 
   inherit ((libBoot.evalModules {
-    specialArgs = args;
+    specialArgs = specialArgs libBoot;
     modules = baseMods libBoot ++ [{
       _module.freeformType = with libBoot.types;attrsOf anything;
     }];
@@ -41,52 +42,25 @@ let
 
   pkgs = nixpkgs.legacyPackages.${system} or (import nixpkgs { inherit system; });
   lib = nixpkgs.lib or pkgs.lib or (builtins.tryEval (import "${nixpkgs}/lib")).value or libBoot;
-
   inherit (lib) mkOption types;
 
-  deferredModule = with lib; mkOptionType {#TODO: remove after merging https://github.com/NixOS/nixpkgs/pull/163617
-    name = "deferredModule";
-    description = "module";
-    check = t: isAttrs t || isFunction t || builtins.isPath t;
-    merge = loc: defs: map (def: lib.setDefaultModuleLocation "${showOption loc} from ${def.file}" def.value) defs;
-  };
-  # inherit (types) deferredModule;
 in rec {
   inherit nixpkgs;
 
   net = lib.evalModules {
-    specialArgs = args;
+    specialArgs = specialArgs lib;
     modules = baseMods lib ++ [
-      ({ config, options, ... }: {
-        options = {
-          network = {
-            enableRollback = lib.mkEnableOption "network wide rollback";
-            description = mkOption {
-              type = types.str;
-              description = "A description of the entire network.";
-              default = "";
-            };
-            nodesExtraArgs = mkOption {
-              description = "Extra inputs to be passed to every node.";
-              type = with types;attrsOf anything;
-              default = {};
-            };
-            storage = mkOption {
-              description = "Configuring how to store the network state.";
-              default = {};
-              type = with types; submodule {
-                _module.freeformType = attrsOf anything;
-              };
-            };
-          };
-          resources = mkOption {
-            default = {};
-            type = types.submoduleWith {
-              modules = [{
-                options = let
+      ./net.nix
+      ({config, ...}:{
+        options.resources = mkOption {
+          default = { };
+          type = types.submoduleWith {
+            modules = [{
+              options =
+                let
                   resOpt = mainModule: mkOption {
-                    default = {};
-                    type = types.attrsOf (types.submodule (r:{
+                    default = { };
+                    type = types.attrsOf (types.submodule (r: {
                       _module.args = {
                         inherit pkgs uuid;
                         resources = r.config;
@@ -106,65 +80,31 @@ in rec {
                       ];
                     }));
                   };
-                in {
+                in
+                {
                   sshKeyPairs = resOpt ./ssh-keypair.nix;
                   commandOutput = resOpt ./command-output.nix;
                 };
-                config = {
-                  machines = config.nodes;
-                  _module.check = false;
-                };
-              }] ++ pluginResources;
-              specialArgs = {
-                inherit evalResources resourcesByType lib;
-                inherit (lib) zipAttrs;
+              config = {
+                machines = config.nodes;
+                _module.check = false;
               };
+            }] ++ pluginResources;
+            specialArgs = {
+              inherit evalResources resourcesByType lib;
+              inherit (lib) zipAttrs;
             };
           };
-          # Compute the definitions of the machines.
-          nodes = mkOption {
-            description = "The NixOS configurations for the nodes in the network.";
-            type = types.attrsOf (import "${nixpkgs}/nixos/lib/eval-config.nix" {
-              inherit system lib;
-              specialArgs = {
-                inherit uuid deploymentName;
-                inherit (config) nodes resources;
-              } // config.network.nodesExtraArgs;
-              modules =
-                config.defaults ++
-                # Make NixOps's deployment.* options available.
-                pluginOptions ++
-                [
-                  ./options.nix
-                  ./resource.nix
-                  deploymentInfoModule
-                  ({ name, ... }: rec{
-                    _file = ./eval-machine-info.nix;
-                    key = _file;
-                    # Provide a default hostname and deployment target equal
-                    # to the attribute name of the machine in the model.
-                    networking.hostName = lib.mkOverride 900 name;
-                    deployment.targetHost = lib.mkOverride 900 name;
-                    environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
-                  })
-                ];
-            }).type;
-          };
-          defaults = mkOption {
-            type = deferredModule;
-            default = { };
-            description = ''
-              Extra NixOS options to add to all nodes.
-            '';
-          };
         };
-        config.nodes = let
-          nodes = removeAttrs config (builtins.attrNames options);
-        in lib.mkIf ({} != nodes) (lib.mapAttrs (n: imports:#TODO: actual warning/assert module impl.
-          lib.warn "Please use nodes.${n} option instead of assigning machines to the config's top level"
-          { inherit imports; }) nodes);
       })
-      { _module.freeformType = types.attrsOf deferredModule; }
+      {
+        network.nodeExtraArgs = {
+          inherit uuid deploymentName;
+        };
+        defaults.environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
+        # Make NixOps's deployment.* options available.
+        defaults.imports = pluginOptions ++ [ deploymentInfoModule ];
+      }
     ];
   };
 
