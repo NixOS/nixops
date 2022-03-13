@@ -55,12 +55,12 @@ in rec {
         options.resources = mkOption {
           default = { };
           type = types.submoduleWith {
-            modules = [{
+            modules = [(r:{
               options =
                 let
                   resOpt = mainModule: mkOption {
                     default = { };
-                    type = types.attrsOf (types.submodule (r: {
+                    type = types.attrsOf (types.submodule {
                       _module.args = {
                         inherit pkgs uuid;
                         resources = r.config;
@@ -78,7 +78,7 @@ in rec {
                         deploymentInfoModule
                         ./resource.nix
                       ];
-                    }));
+                    });
                   };
                 in
                 {
@@ -89,7 +89,7 @@ in rec {
                 machines = config.nodes;
                 _module.check = false;
               };
-            }] ++ pluginResources;
+            })] ++ pluginResources;
             specialArgs = {
               inherit evalResources resourcesByType lib;
               inherit (lib) zipAttrs;

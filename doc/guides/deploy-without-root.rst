@@ -69,7 +69,7 @@ Edit your nixops.nix to specify the machine's
   {
     network.description = "Non-root deployment";
 
-    hermes =
+    nodes.hermes =
       { resources, ... }:
       {
         deployment.targetUser = "deployer";

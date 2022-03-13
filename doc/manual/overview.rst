@@ -18,7 +18,7 @@ and leave ``deployment.targetEnv`` undefined. See
 ::
 
    {
-     webserver =
+     nodes.webserver =
        { config, pkgs, ... }:
        { deployment.targetHost = "1.2.3.4";
        };
@@ -87,10 +87,13 @@ example:
        imports = [ ./common.nix ];
      };
 
-     machine = { ... }: {};
+     nodes.machine = { ... }: {};
    }
 
 Each attribute is explained below:
+
+``nodes.*``
+   Applies the given NixOS configuration to the corresponding node.
 
 ``defaults``
    Applies given NixOS module to all machines defined in the network.
@@ -118,7 +121,7 @@ Here is an example of a network with network arguments:
    { maintenance ? false
    }:
    {
-     machine =
+     nodes.machine =
        { config, pkgs, ... }:
        { services.httpd.enable = maintenance;
          ...
@@ -172,7 +175,7 @@ Add a key to a machine like so.
 ::
 
    {
-     machine =
+     nodes.machine =
        { config, pkgs, ... }:
        {
          deployment.keys.my-secret.text = "shhh this is a secret";
@@ -181,7 +184,7 @@ Add a key to a machine like so.
          deployment.keys.my-secret.permissions = "0640";
        };
    }
-       
+
 
 This will create a file ``/run/keys/my-secret`` with the specified
 contents, ownership, and permissions.
@@ -208,7 +211,7 @@ and otherwise inactive when the key is absent. See
 ::
 
    {
-     machine =
+     nodes.machine =
        { config, pkgs, ... }:
        {
          deployment.keys.my-secret.text = "shhh this is a secret";
@@ -223,7 +226,7 @@ and otherwise inactive when the key is absent. See
          };
        };
    }
-         
+
 
 These dependencies will ensure that the service is only started when the
 keys it requires are present. For example, after a reboot, the services
@@ -243,33 +246,34 @@ This is possible by using the extra NixOS module input ``nodes``.
 
    {
      network.description = "Gollum server and reverse proxy";
+     nodes = {
 
-     gollum =
-       { config, pkgs, ... }:
-       {
-         services.gollum = {
-           enable = true;
-           port = 40273;
-         };
-         networking.firewall.allowedTCPPorts = [ config.services.gollum.port ];
-       };
+      gollum =
+        { config, pkgs, ... }:
+        {
+          services.gollum = {
+            enable = true;
+            port = 40273;
+          };
+          networking.firewall.allowedTCPPorts = [ config.services.gollum.port ];
+        };
 
-     reverseproxy =
-       { config, pkgs, nodes, ... }:
-       let
-         gollumPort = nodes.gollum.config.services.gollum.port;
-       in
-       {
-         services.nginx = {
-           enable = true;
-           virtualHosts."wiki.example.net".locations."/" = {
-             proxyPass = "http://gollum:${toString gollumPort}";
-           };
-         };
-         networking.firewall.allowedTCPPorts = [ 80 ];
-       };
-   }
-       
+      reverseproxy =
+        { config, pkgs, nodes, ... }:
+        let
+          gollumPort = nodes.gollum.config.services.gollum.port;
+        in
+        {
+          services.nginx = {
+            enable = true;
+            virtualHosts."wiki.example.net".locations."/" = {
+              proxyPass = "http://gollum:${toString gollumPort}";
+            };
+          };
+          networking.firewall.allowedTCPPorts = [ 80 ];
+        };};
+   };
+
 
 Moving the port number to a different value is now without the risk of
 an inconsistent deployment.
