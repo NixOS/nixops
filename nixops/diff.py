@@ -119,12 +119,12 @@ class Diff(Generic[ResourceDefinitionType]):
             if show:
                 if self._diff[k] == self.SET:
                     self.logger.log(
-                        "will set attribute {0} to {1}".format(k, definition)
+                        "will set attribute {0} to {1} (was {3})".format(k, definition, self._state.get(k))
                     )
                 elif self._diff[k] == self.UPDATE:
                     self.logger.log(
-                        "{0} will be updated from {1} to {2}".format(
-                            k, self._state[k], definition
+                        "{0} will be updated from {1} to {2} (was {3})".format(
+                            k, self._state[k], definition, self._state.get(k)
                         )
                     )
                 else:

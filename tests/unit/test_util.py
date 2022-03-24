@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Sequence, Optional
 import json
 from nixops.logger import Logger
 from io import StringIO
@@ -115,3 +115,17 @@ class TestUtilTest(unittest.TestCase):
             subs: Sequence[SubResource]
 
         WithSequence(subs=[SubResource(x=1), SubResource(x=2)])
+
+        # Test Optional[ImmutableValidatedObject]
+        class WithOptional(util.ImmutableValidatedObject):
+            sub: Optional[SubResource]
+            sub_none: Optional[SubResource]
+            subs: Optional[Sequence[SubResource]]
+            subs_none: Optional[Sequence[SubResource]]
+
+        WithOptional(
+            sub=SubResource(x=0),
+            sub_none=None,
+            subs=[SubResource(x=1), SubResource(x=2)],
+            subs_none=None,
+        )
