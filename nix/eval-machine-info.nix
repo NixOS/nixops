@@ -87,11 +87,7 @@ in rec {
               machines = config.nodes;
               _module.check = false;
             };
-          })] ++ pluginResources;
-          specialArgs = {
-            inherit evalResources resourcesByType lib;
-            inherit (lib) zipAttrs;
-          };
+          })] ++ pluginResourceModules;
         };
       };
     })
@@ -141,37 +137,81 @@ in rec {
     };
   };
 
-  evalResources = mainModule: _resources:
-    lib.mapAttrs
-      (name: defs:
-        let
-          # Arguments fed to all modules
-          moduleArgs = {
-            _module.args = {
-              inherit pkgs uuid name resources;
+  defaultResourceModule  = {
+    imports = [
+      ./resource.nix
+      resourceModuleArgs
+      deploymentInfoModule
+    ];
+  };
 
-              # inherit nodes, essentially
-              nodes =
-                lib.mapAttrs
-                  (nodeName: node:
-                    lib.mapAttrs
-                      (key: lib.warn "Resource ${name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
-                      info.machines.${nodeName}
-                    // node)
-                  nodes;
-            };
-          };
+  pluginResourceModules = lib.lists.concatMap (lib.mapAttrsToList toResourceModule) pluginResourceLegacyReprs;
+
+  toResourceModule = k: { _type, resourceModule }:
+    {
+      options.${k} = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.submoduleWith {
           modules = [
-            moduleArgs
-            mainModule
-            deploymentInfoModule
-            ./resource.nix
-          ] ++ defs;
-        in
-          builtins.removeAttrs
-            (lib.evalModules { inherit modules; }).config
-            ["_module"])
-      _resources;
+            defaultResourceModule
+            resourceModule
+          ];
+        });
+        default = { /* no resources configured */ };
+      };
+    };
+
+  pluginResourceLegacyReprs =
+    (map
+      (f:
+        lib.mapAttrs
+          validateLegacyRepr
+          (f {
+            inherit evalResources resourcesByType lib;
+            inherit (lib) zipAttrs;
+          })
+      )
+      pluginResources
+    );
+
+  validateLegacyRepr = k: v:
+    if v._type or null == "legacyResourceRepresentation" then
+      v
+    else
+      throw
+      ''Legacy plugin resources are only supported if they follow the pattern:
+
+            resources = { evalResources, zipAttrs, resourcesByType, ... }: {
+              foos = evalResources ./foo.nix (zipAttrs resourcesByType.foos or []);
+              # ...
+            };
+
+        The resource ${k} did not follow that pattern. Please update the
+        corresponding plugin to declare the resource submodule directly instead.
+      '';
+
+  resourceModuleArgs = { name, ... }: {
+    _module.args = {
+      inherit pkgs uuid resources;
+
+      # inherit nodes, essentially
+      nodes =
+        lib.mapAttrs
+          (nodeName: node:
+            lib.mapAttrs
+              (key: lib.warn "Resource ${name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
+              info.machines.${nodeName}
+            // node)
+          nodes;
+    };
+  };
+
+  # NOTE: this is a legacy name. It does not invoke the module system,
+  #       but rather preserves one argument, so that it can be turned
+  #       into a proper submodule later.
+  evalResources = resourceModule: _: {
+    _type = "legacyResourceRepresentation";
+    inherit resourceModule;
+  };
 
   newOpt = key: {
     nixosRelease = "config.system.nixos.release and make sure it is set properly";
