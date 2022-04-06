@@ -82,7 +82,7 @@ in
       in
       lib.mkIf ({ } != nodes) (lib.mapAttrs
         (n: imports: #TODO: actual warning/assert module impl.
-          lib.warn "Please use nodes.${n} option instead of assigning machines to the config's top level"
+          lib.warn "Please write to `nodes.${n}' instead of a top-level `${n}' config."
             { inherit imports; })
         nodes);
     _module.freeformType = types.attrsOf deferredModule;
