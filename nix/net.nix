@@ -1,6 +1,6 @@
 { config, options, lib, system, ... }:
 let
-  inherit (lib) mkOption types;
+  inherit (lib) mkOption types mapAttrs warn;
   #TODO: remove after merging https://github.com/NixOS/nixpkgs/pull/163617
   deferredModule = with lib; mkOptionType {
     name = "deferredModule";
@@ -9,6 +9,15 @@ let
     merge = loc: defs: map (def: lib.setDefaultModuleLocation "${showOption loc} from ${def.file}" def.value) defs;
   };
   # inherit (types) deferredModule;
+
+  nodesConfigCompat = k: n:
+    n // {
+      config =
+        warn
+          "The module parameter `nodes.${lib.strings.escapeNixIdentifier k}.config' has been renamed to `nodes.${lib.strings.escapeNixIdentifier k}'"
+          n;
+      options = throw "nodes.<name>.options is not available anymore. You can access options information by writing a node-level module that extracts the options information and assigns it to a new option of your choosing.";
+    };
 in
 {
   options = {
@@ -38,7 +47,8 @@ in
       type = types.attrsOf (import "${config.nixpkgs}/nixos/lib/eval-config.nix" {
         inherit system lib;
         specialArgs = {
-          inherit (config) nodes resources;
+          inherit (config) resources;
+          nodes = mapAttrs nodesConfigCompat config.nodes;
         } // config.network.nodesExtraArgs;
         modules =
           config.defaults ++
