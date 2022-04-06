@@ -1,6 +1,7 @@
 { system ? builtins.currentSystem
 , networkExprs
 , flakeUri ? null
+, flake ? if flakeUri == null then null else builtins.getFlake flakeUri
 , checkConfigurationOptions ? true
 , uuid
 , deploymentName
@@ -14,7 +15,6 @@ let
   zipAttrs = set: builtins.listToAttrs (
     map (name: { inherit name; value = builtins.catAttrs name set; }) (builtins.concatMap builtins.attrNames set));
 
-  flake = builtins.getFlake flakeUri;
   flakeExpr = flake.outputs.nixopsConfigurations.default or { };
 
   nixpkgsBoot = toString <nixpkgs> ; # this will be replaced on install by nixops' nixpkgs input
