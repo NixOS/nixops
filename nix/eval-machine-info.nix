@@ -82,6 +82,7 @@ in rec {
               {
                 sshKeyPairs = resOpt ./ssh-keypair.nix;
                 commandOutput = resOpt ./command-output.nix;
+                machines = resOpt ./machine-resource.nix;
               };
             config = {
               machines = config.nodes;
