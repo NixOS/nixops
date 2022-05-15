@@ -40,6 +40,41 @@ in
           _module.freeformType = attrsOf anything;
         };
       };
+      resourcesDefaults = mkOption {
+        type = deferredModule;
+        internal = true;
+        default = { };
+        description = ''
+          Extra configurations to add to all resources.
+        '';
+      };
+    };
+    resources = mkOption {
+      default = { };
+      type = types.submoduleWith {
+        specialArgs.defineResource = name: mainModule: {
+          options.${name} = mkOption {
+            default = { };
+            type = types.attrsOf (types.submoduleWith {
+              modules = config.network.resourcesDefaults ++ [ mainModule ];
+            });
+          };
+        };
+        modules = [
+          ./resource.nix
+          ({ defineResource, ... }: {
+            imports = [
+              (defineResource "sshKeyPairs" ./ssh-keypair.nix)
+              (defineResource "commandOutput" ./command-output.nix)
+              (defineResource "machines" ./machine-resource.nix)
+            ];
+          })
+          {
+            machines = config.nodes;
+            _module.check = false;
+          }
+        ];
+      };
     };
     # Compute the definitions of the machines.
     nodes = mkOption {

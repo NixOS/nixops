@@ -447,6 +447,9 @@ class Deployment:
 
         # Extract info about other kinds of resources.
         for res_type, cfg in config["resources"].items():
+            # skip problematic resources entries
+            if res_type in ["deployment", "_name", "_type"]:
+                continue
             for name, y in cfg.items():
                 defn = _create_definition(
                     name, config["resources"][res_type][name], res_type

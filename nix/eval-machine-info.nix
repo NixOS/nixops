@@ -41,65 +41,25 @@ let
 
   pkgs = nixpkgs.legacyPackages.${system} or (import nixpkgs { inherit system; });
   lib = nixpkgs.lib or pkgs.lib or (builtins.tryEval (import "${nixpkgs}/lib")).value or libBoot;
-  inherit (lib) mkOption types;
 
 in rec {
   inherit nixpkgs;
 
   net = evalModules lib [
     ./net.nix
-    ({config, ...}:{
-      options.resources = mkOption {
-        default = { };
-        type = types.submoduleWith {
-          modules = [(r:{
-            options =
-              let
-                resOpt = mainModule: mkOption {
-                  default = { };
-                  type = types.attrsOf (types.submodule {
-                    _module.args = {
-                      inherit pkgs uuid;
-                      resources = r.config;
-                      # inherit nodes, essentially
-                      nodes =
-                        lib.mapAttrs
-                          (nodeName: node:
-                            lib.mapAttrs
-                              (key: lib.warn
-                                "Resource ${r.name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
-                              config.nodes.${nodeName})
-                          config.nodes;
-                    };
-                    imports = [
-                      mainModule
-                      deploymentInfoModule
-                      ./resource.nix
-                    ];
-                  });
-                };
-              in
-              {
-                sshKeyPairs = resOpt ./ssh-keypair.nix;
-                commandOutput = resOpt ./command-output.nix;
-                machines = resOpt ./machine-resource.nix;
-              };
-            config = {
-              machines = config.nodes;
-              _module.check = false;
-            };
-          })] ++ pluginResourceModules;
-        };
-      };
-    })
-    {
-      network.nodeExtraArgs = {
-        inherit uuid deploymentName;
-      };
+    ({ config, ... }: {
+      resources.imports = pluginResourceModules ++ [ deploymentInfoModule ];
+      network.resourcesDefaults.imports = [
+        (resourceModuleArgs_ rec{
+          inherit (config) nodes resources;
+          machines = nodes;
+        })
+      ];
+      network.nodeExtraArgs = { inherit uuid deploymentName; };
       defaults.environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
       # Make NixOps's deployment.* options available.
       defaults.imports = pluginOptions ++ [ deploymentInfoModule ];
-    }
+    })
   ];
 
   # for backward compatibility
@@ -190,7 +150,12 @@ in rec {
         corresponding plugin to declare the resource submodule directly instead.
       '';
 
-  resourceModuleArgs = { name, ... }: {
+  resourceModuleArgs = resourceModuleArgs_ {
+    inherit nodes resources;
+    inherit (info) machines;
+  };
+
+  resourceModuleArgs_ = { nodes, resources, machines }: { name, ... }: {
     _module.args = {
       inherit pkgs uuid resources;
 
@@ -200,7 +165,7 @@ in rec {
           (nodeName: node:
             lib.mapAttrs
               (key: lib.warn "Resource ${name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
-              info.machines.${nodeName}
+              machines.${nodeName}
             // node)
           nodes;
     };
@@ -263,7 +228,7 @@ in rec {
     network =
       builtins.removeAttrs
       (lib.fold (as: bs: as // bs) {} (network'.network or []))
-      [ "nixpkgs" ]  # Not serialisable
+      [ "nixpkgs" "resourcesDefaults" "nodesExtraArgs" ]  # Not serialisable
       ;
 
     resources =
