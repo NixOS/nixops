@@ -6,7 +6,7 @@ let
     name = "deferredModule";
     description = "module";
     check = t: isAttrs t || isFunction t || builtins.isPath t;
-    merge = loc: defs: map (def: lib.setDefaultModuleLocation "${showOption loc} from ${def.file}" def.value) defs;
+    merge = loc: defs: { imports = map (def: lib.setDefaultModuleLocation "${showOption loc} from ${def.file}" def.value) defs; };
   };
   # inherit (types) deferredModule;
 
@@ -56,7 +56,10 @@ in
           options.${name} = mkOption {
             default = { };
             type = types.attrsOf (types.submoduleWith {
-              modules = config.network.resourcesDefaults ++ [ mainModule ];
+              modules = [
+                config.network.resourcesDefaults
+                mainModule
+              ];
             });
           };
         };
@@ -68,11 +71,9 @@ in
               (defineResource "commandOutput" ./command-output.nix)
               (defineResource "machines" ./machine-resource.nix)
             ];
-          })
-          {
             machines = config.nodes;
             _module.check = false;
-          }
+          })
         ];
       };
     };
@@ -85,21 +86,20 @@ in
           inherit (config) resources;
           nodes = mapAttrs nodesConfigCompat config.nodes;
         } // config.network.nodesExtraArgs;
-        modules =
-          config.defaults ++
+        modules = [
+          config.defaults
           # Make NixOps's deployment.* options available.
-          [
-            ./options.nix
-            ./resource.nix
-            ({ name, ... }: rec{
-              _file = ./net.nix;
-              key = _file;
-              # Provide a default hostname and deployment target equal
-              # to the attribute name of the machine in the model.
-              networking.hostName = lib.mkOverride 900 name;
-              deployment.targetHost = lib.mkOverride 900 name;
-            })
-          ];
+          ./options.nix
+          ./resource.nix
+          ({ name, ... }: rec{
+            _file = ./net.nix;
+            key = _file;
+            # Provide a default hostname and deployment target equal
+            # to the attribute name of the machine in the model.
+            networking.hostName = lib.mkOverride 900 name;
+            deployment.targetHost = lib.mkOverride 900 name;
+          })
+        ];
       }).type;
     };
     defaults = mkOption {
@@ -116,9 +116,9 @@ in
         nodes = removeAttrs config (builtins.attrNames options);
       in
       lib.mkIf ({ } != nodes) (lib.mapAttrs
-        (n: imports: {
-          inherit imports;
-          warnings = [ "Please use nodes.${n} option instead of assigning machines to the config's top level" ];
+        (name: node: {
+          imports = [ node ];
+          warnings = [ "Please use nodes.${name} option instead of assigning machines to the config's top level" ];
         })
         nodes);
     _module.freeformType = types.attrsOf deferredModule;
