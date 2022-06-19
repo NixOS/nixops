@@ -66,7 +66,8 @@ in rec {
   network = lib.mapAttrs (n: v: [v]) net.config;
   networks = [ net.config ];
 
-  inherit (net.config) resources;
+  # skip problematic resources entries
+  resources = lib.attrsets.filterAttrs(n: v: lib.lists.all(e: e!=n)["deployment" "_name" "_type"]) net.config.resources;
   defaults = [ net.config.defaults ];
   nodes = #TODO: take options and other modules outputs for each node
     lib.mapAttrs (n: v: {
