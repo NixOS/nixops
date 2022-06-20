@@ -1,6 +1,7 @@
 import functools
+import re
 import string
-from typing import Optional, Any, List, Union, Dict
+from typing import Optional, Any, List, Tuple, Union, Dict
 from textwrap import dedent
 
 __all__ = ["py2nix", "nix2py", "nixmerge", "expand_dict", "RawValue", "Function"]
@@ -358,3 +359,61 @@ def nix2py(source: str) -> MultiLineRawValue:
     which are used as-is and only indentation will take place.
     """
     return MultiLineRawValue(dedent(source).strip().splitlines())
+
+
+# Regex to match nix string
+LITERAL_STRING_REGEX: str = r"\"(?:[^\"\\]|\\.)*\""
+# Regex to match nix string
+KEYWORD_REGEX: str = r"[a-zA-Z\_][a-zA-Z0-9\_\'\-]*"
+
+
+def _extract_key(path: str) -> Tuple[str, str]:
+    """
+    Extract a attribute key of a given path and return it normalize with the end
+    of the path.
+
+    Raise an ValueError if no keyword is found.
+    """
+    match_string: Optional[re.Match[str]] = re.search(
+        "^" + LITERAL_STRING_REGEX, path, re.DOTALL
+    )
+    if isinstance(match_string, re.Match):
+        # return the strin attribute
+        return (str(match_string.group()), path[len(match_string.group()) :])
+    match_keyword: Optional[re.Match] = re.search("^" + KEYWORD_REGEX, path)
+    if isinstance(match_keyword, re.Match):
+        # add comma to normalize names
+        return (f'"{match_keyword.group()}"', path[len(match_keyword.group()) :])
+    # only literal string and keywork can be key of set
+    raise ValueError("no attribute key found" + path)
+
+
+def nix_attribute2py_list(attribute: str) -> List[str]:
+    """
+    Extract a nix attribute path into a list path of key.
+    """
+    # attribute don't start with a "."
+    if attribute.startswith("."):
+        raise ValueError("flake attribute can't start with a '.'")
+
+    # list of the path word
+    keys: List[str] = []
+    # the path that will be shorten
+    path: str = attribute
+    # while we have word
+    while path:
+        # get next attribute key
+        key, path = _extract_key(path)
+        # add the new attribute key to the list
+        keys.append(key)
+        # if it's the end quit
+        if not path:
+            break
+        # check that every attribute key is speparated with a '.'
+        if not path.startswith("."):
+            raise ValueError("attribute keys must be separed by a '.': " + attribute)
+        # remove separating point
+        path = path[1:]
+
+    # return Every keys founds
+    return keys

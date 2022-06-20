@@ -1,6 +1,7 @@
 { system ? builtins.currentSystem
 , networkExprs
 , flakeReference ? null
+, flakeAttribute
 , checkConfigurationOptions ? true
 , uuid
 , deploymentName
@@ -9,6 +10,39 @@
 }:
 
 let
+  /* Return an attribute from nested attribute sets.
+     Example:
+       x = { a = { b = 3; }; }
+       attrByPath ["a" "b"] x
+       => 3
+       x = { a = { b = 3; }; }
+       attrByPath ["a" "c"] x
+       error: can't found `a.c` in the set
+  */
+  attrByPath = attrPath: e:
+    let
+      attrByPathRec  = attrPath: e:
+        # if it's the end return the element it's self
+        if attrPath == [] then
+          {inherit e; found = true;}
+        else
+          let attr = builtins.head attrPath; in
+          if e ? ${attr} then
+            attrByPathRec (builtins.tail attrPath) e.${attr}
+          else
+            {e=null; found = false;};
+          result = attrByPathRec attrPath e;
+      in
+        # Check result
+        if result.found then
+          # If found return the value
+          result.e
+        else
+          # Not found, Create the searching path
+          let path = builtins.concatStringsSep "." attrPath; in
+            # Throw an exception
+            throw "can't found `${path}` in the set";
+
   call = x: if builtins.isFunction x then x args else x;
 
   # Copied from nixpkgs to avoid <nixpkgs> import
@@ -17,7 +51,16 @@ let
   zipAttrs = set: builtins.listToAttrs (
     map (name: { inherit name; value = builtins.catAttrs name set; }) (builtins.concatMap builtins.attrNames set));
 
-  flakeExpr = (builtins.getFlake flakeUri).outputs.nixopsConfigurations.default;
+  # the flake expresion
+  flakeExpr =
+    let
+      # Get the flake config
+      flake = builtins.getFlake flakeReference;
+      # get the chosen deployement.
+      deploy = attrByPath flakeAttribute flake.outputs.nixopsConfigurations;
+    in
+      # Return the deployement found.
+      deploy;
 
   networks =
     let

@@ -1,7 +1,7 @@
 from nixops.nix_expr import RawValue, py2nix
 import subprocess
 import typing
-from typing import Optional, Mapping, Any, List, Dict, TextIO
+from typing import Optional, Mapping, Any, List, Dict, TextIO, Union
 import json
 from nixops.util import ImmutableValidatedObject
 from nixops.exceptions import NixError
@@ -51,7 +51,11 @@ class EvalResult(ImmutableValidatedObject):
 @dataclass
 class NetworkFile:
     network: str
-    is_flake: bool = False
+    attribute: Union[str, None] = None
+
+    @property
+    def is_flake(self) -> bool:
+        return self.attribute != None
 
 
 def get_expr_path() -> str:
@@ -121,6 +125,7 @@ def eval(
     if networkExpr.is_flake:
         argv.extend(["--allowed-uris", get_expr_path()])
         argv.extend(["--argstr", "flakeReference", networkExpr.network])
+        argv.extend(["--arg", "flakeAttribute", networkExpr.attribute or "null"])
 
     try:
         ret = subprocess.check_output(argv, stderr=stderr, text=True)
