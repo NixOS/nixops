@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from nixops.nix_expr import py2nix
+from pathlib import Path
+from urllib.parse import ParseResult, urlparse, unquote
+from nixops.nix_expr import nix_attribute2py_list, py2nix
 from nixops.parallel import run_tasks
 from nixops.storage import StorageBackend, StorageInterface
 from nixops.locks import LockDriver, LockInterface
@@ -37,27 +39,77 @@ PluginManager.load()
 
 
 def get_network_file(args: Namespace) -> NetworkFile:
-    network_dir: str = os.path.abspath(args.network_dir)
+    # Check that we don't try to build flake and classic nix at the same time
+    if args.network_dir != None and args.flake != None:
+        raise ValueError("Both --network and --flake can't be set simultany")
 
+    # We use flake.
+    if args.flake != None:
+        flake: str = args.flake
+        url: ParseResult = urlparse(flake)
+
+        # Get the attribute or default if there is none
+        quote_attribute = url.fragment if url.fragment else "default"
+        # Decode % encoded
+        attribute = unquote(quote_attribute)
+
+        path: str = url.path
+        # If it's a file or a directory get the absolute path
+        if url.scheme in ["file", "path", ""]:
+            # resolve it
+            path = str(Path(path).absolute())
+
+        # Create new url with absolute path and remove fragment (attribute)
+        url = ParseResult(url.scheme, url.netloc, path, url.params, url.query, "")
+
+        # Get the reference without the attribute
+        reference = url.geturl()
+
+        # split the path to pass it to the nix expression
+        attribute_list: List[str] = nix_attribute2py_list(attribute)
+        attribute_path: str = "[ " + " ".join(attribute_list) + " ]"
+
+        # create the network with the reference and the attribute
+        return NetworkFile(reference, attribute_path)
+
+    # we don't use flake.
+
+    # default value of network_dir is None in args but it's current working
+    # dirrectory
+    network_dir_name: str = os.getcwd() if args.network_dir == None else args.network_dir
+    # get real path
+    network_dir: str = os.path.abspath(network_dir_name)
+
+    # check that the folder exist
     if not os.path.exists(network_dir):
         raise ValueError(f"{network_dir} does not exist")
 
+    # path to the classic entry point file
     classic_path = os.path.join(network_dir, "nixops.nix")
+    # path to the flake entry point file
     flake_path = os.path.join(network_dir, "flake.nix")
 
+    # check existing
     classic_exists: bool = os.path.exists(classic_path)
     flake_exists: bool = os.path.exists(flake_path)
 
+    # don't decide for the user, raise an exception.
     if all((flake_exists, classic_exists)):
         raise ValueError("Both flake.nix and nixops.nix cannot coexist")
 
     if classic_exists:
-        return NetworkFile(network=classic_path, is_flake=False)
+        # just return the network with no flake
+        return NetworkFile(network=classic_path, attribute=None)
 
     if flake_exists:
-        return NetworkFile(network=network_dir, is_flake=True)
+        # return the flake path as network and the output attibute.
+        # TODO: depricate this version in favor of the --flake
+        return NetworkFile(network=network_dir, attribute='["default"]')
 
-    raise ValueError(f"Neither flake.nix nor nixops.nix exists in {network_dir}")
+    # it's nether a flake or a classic build.
+    raise ValueError(
+        f"Flake not provided and neither flake.nix nor nixops.nix exists in {network_dir}"
+    )
 
 
 def set_common_depl(depl: nixops.deployment.Deployment, args: Namespace) -> None:
@@ -1168,8 +1220,16 @@ def add_subparser(
         "--network",
         dest="network_dir",
         metavar="FILE",
-        default=os.getcwd(),
+        default=None,
         help="path to a directory containing either nixops.nix or flake.nix",
+    )
+    subparser.add_argument(
+        "--flake",
+        "-f",
+        dest="flake",
+        metavar="FLAKE_URI",
+        default=os.environ.get("NIXOPS_FLAKE", None),
+        help="the flake uri.",
     )
     subparser.add_argument(
         "--deployment",
