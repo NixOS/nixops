@@ -1,6 +1,6 @@
 { system ? builtins.currentSystem
 , networkExprs
-, flakeUri ? null
+, flakeReference ? null
 , checkConfigurationOptions ? true
 , uuid
 , deploymentName
@@ -32,20 +32,20 @@ let
       };
     in
       map ({ key }: getNetworkFromExpr key) networkExprClosure
-      ++ optional (flakeUri != null)
-        ((call flakeExpr) // { _file = "<${flakeUri}>"; });
+      ++ optional (flakeReference != null)
+        ((call flakeExpr) // { _file = "<${flakeReference}>"; });
 
   network = zipAttrs networks;
 
   evalConfig =
-    if flakeUri != null
+    if flakeReference != null
     then
       if network ? nixpkgs
       then (builtins.head (network.nixpkgs)).lib.nixosSystem
       else throw "NixOps network must have a 'nixpkgs' attribute"
     else import (pkgs.path + "/nixos/lib/eval-config.nix");
 
-  pkgs = if flakeUri != null
+  pkgs = if flakeReference != null
     then
       if network ? nixpkgs
       then (builtins.head network.nixpkgs).legacyPackages.${system}
@@ -293,7 +293,7 @@ in rec {
   getNixOpsArgs = fs: lib.zipAttrs (lib.unique (lib.concatMap fileToArgs (getNixOpsExprs fs)));
 
   nixopsArguments =
-    if flakeUri == null then getNixOpsArgs networkExprs
-    else lib.listToAttrs (builtins.map (a: {name = a; value = [ flakeUri ];}) (lib.attrNames (builtins.functionArgs flakeExpr)));
+    if flakeReference == null then getNixOpsArgs networkExprs
+    else lib.listToAttrs (builtins.map (a: {name = a; value = [ flakeReference ];}) (lib.attrNames (builtins.functionArgs flakeExpr)));
 
 }

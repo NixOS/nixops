@@ -120,7 +120,7 @@ def eval(
 
     if networkExpr.is_flake:
         argv.extend(["--allowed-uris", get_expr_path()])
-        argv.extend(["--argstr", "flakeUri", networkExpr.network])
+        argv.extend(["--argstr", "flakeReference", networkExpr.network])
 
     try:
         ret = subprocess.check_output(argv, stderr=stderr, text=True)
