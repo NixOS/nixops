@@ -40,6 +40,9 @@ database located in ``~/.nixops`` add the following snippet to your deployment:
      };
    }
 
+To use a different location than ``~/.nixops``, also export the environment
+variable ``$NIXOPS_STATE``. You can define that in your ``shell.nix``.
+
 To implement a fire-and-forget strategy use this code snippet:
 
 .. code-block:: nix
