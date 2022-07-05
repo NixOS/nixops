@@ -1169,6 +1169,7 @@ def setup_logging(args: Namespace) -> None:
 def add_subparser(
     subparsers: _SubParsersAction, name: str, help: str
 ) -> ArgumentParser:
+    subparser: ArgumentParser
     subparser = subparsers.add_parser(name, help=help)
     subparser.add_argument(
         "--network",

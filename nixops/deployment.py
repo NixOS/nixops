@@ -291,6 +291,8 @@ class Deployment:
             (self.uuid, name, type),
         )
         id = c.lastrowid
+        if id is None:
+            raise Exception("internal error: insert did not produce row id?")
         r = _create_state(self, type, name, id)
         self.resources[name] = r
         return r

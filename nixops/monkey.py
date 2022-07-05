@@ -34,6 +34,5 @@ if not TYPE_CHECKING:
     def runtime_checkable(f):
         return f
 
-
 else:
     from typing_extensions import Protocol, runtime_checkable

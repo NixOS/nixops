@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import os
+from typing import Optional
 
 
 def setup_debugger() -> None:
@@ -12,7 +13,7 @@ def setup_debugger() -> None:
     from typing import Type
 
     def hook(
-        _type: Type[BaseException], value: BaseException, tb: TracebackType
+        _type: Type[BaseException], value: BaseException, tb: Optional[TracebackType]
     ) -> None:
         if hasattr(sys, "ps1") or not sys.stderr.isatty():
             sys.__excepthook__(_type, value, tb)

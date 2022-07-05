@@ -2,7 +2,7 @@ import json
 import collections
 import sqlite3
 import nixops.util
-from typing import Any, List, Iterator, AbstractSet, Tuple, NewType
+from typing import Any, KeysView, List, Iterator, Tuple, NewType
 
 RecordId = NewType("RecordId", str)
 
@@ -62,7 +62,7 @@ class StateDict(collections.abc.MutableMapping):
                 (self.id, key),
             )
 
-    def keys(self) -> AbstractSet[str]:
+    def keys(self) -> KeysView[str]:
         # Generally the list of keys per ResourceAttrs is relatively small
         # so this should be also relatively fast.
         _keys = set()
@@ -72,7 +72,7 @@ class StateDict(collections.abc.MutableMapping):
             rows: List[Tuple[str]] = c.fetchall()
             for row in rows:
                 _keys.add(row[0])
-            return _keys
+            return _keys  # type: ignore
 
     def __iter__(self) -> Iterator[str]:
         return iter(self.keys())

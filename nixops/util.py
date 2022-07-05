@@ -157,7 +157,7 @@ class ImmutableValidatedObject:
             if isinstance(value, tuple) and not isinstance(ann, str):
                 new_value = []
                 for v in value:
-                    for subann in ann.__args__:
+                    for subann in ann.__args__:  # type: ignore
                         if inspect.isclass(subann) and issubclass(
                             subann, ImmutableValidatedObject
                         ):
