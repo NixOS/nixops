@@ -5,6 +5,7 @@ import os.path
 import sqlite3
 import sys
 import threading
+import time
 from typing import Any, Optional, List, Type
 from types import TracebackType
 import re
@@ -116,13 +117,31 @@ class StateFile(object):
                 isolation_level=None,
             )
 
-        db: sqlite3.Connection = connect(writable)
+        delay: float
+        delay = 1
+        db: sqlite3.Connection
+        for i in range(0, 10):
+            try:
+                db = connect(writable)
 
-        if writable:
-            # This pragma may need to write, but that's ok because it is only
-            # relevant when in writable mode.
-            db.execute("pragma journal_mode = wal")
-            db.execute("pragma foreign_keys = 1")
+                # This pragma may need to write, but that's ok because it is only
+                # relevant when in writable mode.
+                if writable:
+                    db.execute("pragma journal_mode = wal")
+                    db.execute("pragma foreign_keys = 1")
+                break
+            except sqlite3.OperationalError as e:
+                # This has only occurred in CI so far. This conditional has
+                # not been validated in practice yet.
+                if "database is locked" in str(e):
+                    sys.stderr.write(
+                        f"nixops: Local database is busy. Reopening in {delay}\n"
+                    )
+                    time.sleep(delay)
+                    delay = delay * 2
+                    continue
+                else:
+                    raise e
 
         # FIXME: this is not actually transactional, because pysqlite (not
         # sqlite) does an implicit commit before "create table".
