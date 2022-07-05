@@ -135,6 +135,11 @@
           ${linters.doc}/bin/lint-docs | tee $out
         '';
       };
-    };
+    } // utils.lib.flattenTree (
+      import ./integration-tests {
+        inherit pkgs;
+        nixops = self.defaultPackage.${system};
+      }
+    );
   });
 }
