@@ -123,7 +123,7 @@
     };
 
     checks.doc = pkgs.stdenv.mkDerivation {
-      name = "lint-docs";
+      name = "check-lint-docs";
       # we use cleanPythonSources because the default gitignore
       # implementation doesn't support the restricted evaluation
       src = pkgs.poetry2nix.cleanPythonSources {

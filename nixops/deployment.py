@@ -9,6 +9,7 @@ import threading
 from collections import defaultdict
 import re
 from datetime import datetime, timedelta
+from nixops.resources import GenericResourceState
 import nixops.statefile
 import getpass
 import traceback
@@ -80,8 +81,13 @@ class Deployment:
 
     network_expr: nixops.evaluation.NetworkFile
 
+    _statefile: nixops.statefile.StateFile
+
     def __init__(
-        self, statefile, uuid: str, log_file: TextIO = sys.stderr,
+        self,
+        statefile,
+        uuid: str,
+        log_file: TextIO = sys.stderr,
     ):
         self._statefile = statefile
         self._db: nixops.statefile.Connection = statefile._db
@@ -285,6 +291,8 @@ class Deployment:
             (self.uuid, name, type),
         )
         id = c.lastrowid
+        if id is None:
+            raise Exception("internal error: insert did not produce row id?")
         r = _create_state(self, type, name, id)
         self.resources[name] = r
         return r
@@ -409,7 +417,7 @@ class Deployment:
 
     @lru_cache()
     def evaluate_config(self, attr) -> Dict:
-        return self.eval(checkConfigurationOptions=False, attr=attr)
+        return self.eval(checkConfigurationOptions=False, attr=attr)  # type: ignore
 
     def evaluate_network(self, action: str = "") -> None:
         if not self.network_attr_eval:
@@ -479,7 +487,10 @@ class Deployment:
         )
 
     def evaluate_option_value(
-        self, machine_name: str, option_name: str, include_physical: bool = False,
+        self,
+        machine_name: str,
+        option_name: str,
+        include_physical: bool = False,
     ) -> Any:
         """Evaluate a single option of a single machine in the deployment specification."""
         return self.eval(
@@ -716,7 +727,7 @@ class Deployment:
         if platform.system() != "Linux" and os.environ.get("NIX_REMOTE") != "daemon":
             if os.environ.get("NIX_REMOTE_SYSTEMS") is None:
                 remote_machines = []
-                for m in sorted(selected, key=lambda m: m.index):
+                for m in sorted(selected, key=lambda m: m.get_index()):
                     key_file: Optional[str] = m.get_ssh_private_key_file()
                     if not key_file:
                         raise Exception(
@@ -771,7 +782,9 @@ class Deployment:
             )
 
             configs_path = subprocess.check_output(
-                argv, text=True, stderr=self.logger.log_file,
+                argv,
+                text=True,
+                stderr=self.logger.log_file,
             ).rstrip()
 
         except subprocess.CalledProcessError:
@@ -1228,7 +1241,7 @@ class Deployment:
                                 )
                             )
                             match = re.search(
-                                'VERSION_ID="([0-9]+\.[0-9]+).*"',  # noqa: W605
+                                r'VERSION_ID="([0-9]+\.[0-9]+).*"',  # noqa: W605
                                 os_release,
                             )
                             if match:
@@ -1578,7 +1591,7 @@ class Deployment:
         )
 
     def is_valid_resource_name(self, name: str) -> bool:
-        p = re.compile("^[\w-]+$")  # noqa: W605
+        p = re.compile(r"^[\w-]+$")  # noqa: W605
         return not p.match(name) is None
 
     def rename(self, name: str, new_name: str) -> None:
@@ -1642,11 +1655,7 @@ def is_machine(
 def _filter_machines(
     resources: Dict[str, nixops.resources.GenericResourceState]
 ) -> Dict[str, nixops.backends.GenericMachineState]:
-    return {
-        n: r  # type: ignore
-        for n, r in resources.items()
-        if is_machine(r)
-    }
+    return {n: r for n, r in resources.items() if is_machine(r)}  # type: ignore
 
 
 def is_machine_defn(r: nixops.resources.GenericResourceState) -> bool:
@@ -1665,20 +1674,22 @@ def _create_definition(
 
     for cls in _subclasses(nixops.resources.ResourceDefinition):
         if type_name == cls.get_resource_type():
-            return cls(name, nixops.resources.ResourceEval(config))
+            return cls(name, nixops.resources.ResourceEval(config))  # type: ignore
 
     raise nixops.deployment.UnknownBackend(
         "unknown resource type ‘{0}’".format(type_name)
     )
 
 
-def _create_state(depl: Deployment, type: str, name: str, id: int) -> Any:
+def _create_state(
+    depl: Deployment, type: str, name: str, id: int
+) -> GenericResourceState:
     """Create a resource state object of the desired type."""
 
     for cls in _subclasses(nixops.resources.ResourceState):
         try:
             if type == cls.get_type():
-                return cls(depl, name, id)
+                return cls(depl, name, id)  # type: ignore
         except NotImplementedError:
             pass
 

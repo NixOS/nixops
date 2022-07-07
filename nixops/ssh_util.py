@@ -225,7 +225,7 @@ class SSH(object):
         if self._ssh_master is not None:
             master = weakref.proxy(self._ssh_master)
             if master.is_alive():
-                return master
+                return master  # type: ignore
             else:
                 master.shutdown()
 
@@ -262,7 +262,7 @@ class SSH(object):
                 sleep_time = sleep_time * 2
                 pass
 
-        return weakref.proxy(self._ssh_master)
+        return weakref.proxy(self._ssh_master)  # type: ignore
 
     @classmethod
     def split_openssh_args(self, args: Iterable[str]) -> Tuple[List[str], Command]:
@@ -293,7 +293,10 @@ class SSH(object):
         return (flags, command)
 
     def _format_command(
-        self, command: Command, user: str, allow_ssh_args: bool,
+        self,
+        command: Command,
+        user: str,
+        allow_ssh_args: bool,
     ) -> Iterable[str]:
         """
         Helper method for run_command, which essentially prepares and properly

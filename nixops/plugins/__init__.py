@@ -7,7 +7,7 @@ from argparse import ArgumentParser, _SubParsersAction
 from nixops.storage import StorageBackend
 from nixops.locks import LockDriver
 from typing import Generator
-import pluggy
+import pluggy  # type: ignore
 import nixops
 
 
@@ -90,7 +90,7 @@ class Plugin:
         pass
 
     def docs(self) -> List[Tuple[str, str]]:
-        """ Extend docs
+        """Extend docs
         :return a list of tuples (plugin_name, doc_path)
         """
         return []
@@ -99,7 +99,7 @@ class Plugin:
         return {}
 
     def storage_backends(self) -> Dict[str, Type[StorageBackend]]:
-        """ Extend the core nixops cli parser
+        """Extend the core nixops cli parser
         :return a set of plugin parser extensions
         """
         return {}

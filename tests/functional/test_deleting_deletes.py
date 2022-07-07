@@ -1,11 +1,10 @@
-from nose import tools
-from nixops import deployment
-
-from tests.functional import single_machine_test
+from pytest import raises
+from tests.functional.single_machine_test import SingleMachineTest
 
 
-class TestDeletingDeletes(single_machine_test.SingleMachineTest):
+class TestDeletingDeletes(SingleMachineTest):
     def run_check(self):
         uuid = self.depl.uuid
         self.depl.delete()
-        tools.assert_raises(Exception, self.sf.open_deployment, (uuid,))
+        with raises(Exception):
+            self.sf.open_deployment(uuid)

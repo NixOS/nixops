@@ -350,7 +350,10 @@ subparser = add_subparser(
 subparser.set_defaults(op=op_ssh)
 subparser.add_argument("machine", metavar="MACHINE", help="identifier of the machine")
 subparser.add_argument(
-    "args", metavar="SSH_ARGS", nargs=REMAINDER, help="SSH flags and/or command",
+    "args",
+    metavar="SSH_ARGS",
+    nargs=REMAINDER,
+    help="SSH flags and/or command",
 )
 subparser.add_argument(
     "--now",
@@ -482,7 +485,10 @@ subparser.add_argument(
     help="do not perform backup actions on the specified machines",
 )
 subparser.add_argument(
-    "--wait", dest="wait", action="store_true", help="wait until backup is finished",
+    "--wait",
+    dest="wait",
+    action="store_true",
+    help="wait until backup is finished",
 )
 subparser.add_argument(
     "--latest",

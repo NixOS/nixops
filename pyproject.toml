@@ -7,23 +7,26 @@ license = "LGPL-3.0-only"
 include = ["nix/*.nix", "nixops/py.typed" ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.10"
 PrettyTable = "^0.7.2"
-pluggy = "^0.13.1"
+pluggy = "^1.0.0"
 typeguard = "^2.7.1"
 typing-extensions = "^3.7.4"
 
 [tool.poetry.dev-dependencies]
-nose = "^1.3.7"
-mypy = "^0.770"
-black = "^19.10b0"
+mypy = "^0.961"
+black = "^22.6.0"
 # For mypy txt report
 lxml = "^4.5.0"
-
+# test
+pytest = "^6"
+pytest-xdist="1.34.0"
+pytest-cov = "^2.10.0"
 # docs
 livereload = "^2.6.1"
-sphinx = "^3.0.3"
+sphinx = "^5.0.2"
 flake8 = "^3.8.1"
+jinja2 = "<3.1" # https://github.com/sphinx-doc/sphinx/issues/10291
 
 [tool.poetry.plugins."nixops"]
 nixops = "nixops.plugin"
@@ -32,6 +35,34 @@ nixops = "nixops.plugin"
 nixops = 'nixops.__main__:main'
 charon = 'nixops.__main__:main'
 
+
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
+
+[tool.pytest.ini_options]
+addopts = """
+  --cov=nixops
+  --cov-report html:html
+  --cov-report xml:coverage.xml
+  --cov-report term
+  --numprocesses=auto
+"""
+testpaths = [ "tests" ]
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+["tool.mypy-pytest.*"]
+ignore_missing_imports = true
+
+["tool.mypy-pluggy.*"]
+ignore_missing_imports = true
+
+["tool.mypy-hookspecs.*"]
+ignore_missing_imports = true
+
+["tool.mypy-prettytable.*"]
+ignore_missing_imports = true

@@ -1,12 +1,19 @@
+from abc import abstractmethod
 import functools
 import string
-from typing import Optional, Any, List, Union, Dict
+from typing import Iterable, Optional, Any, List, Tuple, Union, Dict
 from textwrap import dedent
 
 __all__ = ["py2nix", "nix2py", "nixmerge", "expand_dict", "RawValue", "Function"]
 
 
-class RawValue:
+class ValueLike:
+    @abstractmethod
+    def indent(self, level: int, inline: bool, maxwidth: int) -> str:
+        pass
+
+
+class RawValue(ValueLike):
     def __init__(self, value: str) -> None:
         self.value: str = value
 
@@ -71,7 +78,13 @@ class Call(object):
 
 
 class Container(object):
-    def __init__(self, prefix: str, children: List, suffix: str, inline_variant=None):
+    def __init__(
+        self,
+        prefix: str,
+        children: List,
+        suffix: str,
+        inline_variant: Optional[ValueLike] = None,
+    ):
         self.prefix: str = prefix
         self.children: List = children
         self.suffix: str = suffix
@@ -141,8 +154,8 @@ def enclose_node(
         )
 
 
-def _fold_string(value, rules) -> str:
-    def folder(val, rule) -> str:
+def _fold_string(value: str, rules: Iterable[Tuple[str, str]]) -> str:
+    def folder(val: str, rule: Tuple[str, str]) -> str:
         return val.replace(rule[0], rule[1])
 
     return functools.reduce(folder, rules, value)

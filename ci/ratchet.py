@@ -2,12 +2,10 @@ import sys
 import re
 from typing import Dict, Tuple, Optional, List, TextIO
 
-from pprint import pprint
-
 report: Dict[str, List[Optional[float]]] = {}
 
 extract_line = re.compile(
-    "^\|\s+(?P<module>[^\s]*)\s+\|\s+(?P<percent>\d\d?\.\d\d)% imprecise \|"
+    r"^\|\s+(?P<module>[^\s]*)\s+\|\s+(?P<percent>\d\d?\.\d\d)% imprecise \|"
 )
 
 

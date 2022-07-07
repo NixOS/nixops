@@ -1,5 +1,5 @@
 #!/usr/bin/env nix-shell
-#!nix-shell ./shell.nix -i python3
+# !nix-shell ./shell.nix -i python3
 
 from livereload import Server, shell
 

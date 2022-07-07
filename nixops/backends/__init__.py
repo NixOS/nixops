@@ -129,6 +129,8 @@ class MachineState(
 
     defn: Optional[MachineDefinition] = None
 
+    state: nixops.resources.State
+
     def __init__(
         self, depl: "nixops.deployment.Deployment", name: str, id: RecordId
     ) -> None:
@@ -149,7 +151,7 @@ class MachineState(
     @property
     def started(self) -> bool:
         state = self.state
-        return state == self.STARTING or state == self.UP
+        return state == self.STARTING or state == self.UP  # type: ignore
 
     def set_common_state(self, defn: MachineDefinitionType) -> None:
         self.defn = defn
@@ -245,7 +247,9 @@ class MachineState(
                 # that.  Hack: ignore special filesystems like
                 # /sys/kernel/config and /tmp. Systemd tries to mount these
                 # even when they don't exist.
-                match = re.match("^([^\.]+\.mount) .* inactive .*$", line)  # noqa: W605
+                match = re.match(
+                    r"^([^\.]+\.mount) .* inactive .*$", line
+                )  # noqa: W605
 
                 if match:
                     unit = match.group(1)

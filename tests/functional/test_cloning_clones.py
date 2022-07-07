@@ -1,11 +1,9 @@
-from nose import tools
-
-from tests.functional import single_machine_test
+from tests.functional.single_machine_test import SingleMachineTest
 
 
-class TestCloningClones(single_machine_test.SingleMachineTest):
+class TestCloningClones(SingleMachineTest):
     def run_check(self):
         depl = self.depl.clone()
-        tools.assert_equal(depl.network_expr.network, self.depl.network_expr.network)
-        tools.assert_equal(depl.nix_path, self.depl.nix_path)
-        tools.assert_equal(depl.args, self.depl.args)
+        assert depl.network_expr.network == self.depl.network_expr.network
+        assert depl.nix_path == self.depl.nix_path
+        assert depl.args == self.depl.args

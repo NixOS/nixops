@@ -17,7 +17,10 @@ class TestUtilTest(unittest.TestCase):
         msg = "hello"
 
         ret = util.logged_exec(
-            command=["cat"], logger=self.logger, stdin_string=msg, capture_stdout=True,
+            command=["cat"],
+            logger=self.logger,
+            stdin_string=msg,
+            capture_stdout=True,
         )
 
         self.assertEqual(ret, msg)
@@ -26,7 +29,9 @@ class TestUtilTest(unittest.TestCase):
         msg = "hello"
 
         ret = util.logged_exec(
-            command=["echo", msg], logger=self.logger, capture_stdout=True,
+            command=["echo", msg],
+            logger=self.logger,
+            capture_stdout=True,
         )
         if not isinstance(ret, str):
             raise ValueError("Wrong return type!")
@@ -56,7 +61,8 @@ class TestUtilTest(unittest.TestCase):
         dic = i["nested"]
         self.assertTrue(isinstance(dic, util.ImmutableMapping))
         self.assertEqual(
-            dic["x"], d["nested"]["x"],
+            dic["x"],
+            d["nested"]["x"],
         )
 
         dic_l = i["nested_in_list"][0]

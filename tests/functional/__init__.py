@@ -1,6 +1,4 @@
-import os
-from os import path
-import nixops.statefile
+from nixops.statefile import StateFile
 from tests import db_file
 
 
@@ -8,7 +6,7 @@ class DatabaseUsingTest(object):
     _multiprocess_can_split_ = True
 
     def setup(self):
-        self.sf = nixops.statefile.StateFile(db_file, writable=True)
+        self.sf = StateFile(db_file, writable=True)
 
     def teardown(self):
         self.sf.close()

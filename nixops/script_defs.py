@@ -7,7 +7,7 @@ from nixops.locks import LockDriver, LockInterface
 
 import contextlib
 import nixops.statefile
-import prettytable
+import prettytable  # type: ignore
 from argparse import ArgumentParser, _SubParsersAction, Namespace
 import os
 import pwd
@@ -261,7 +261,7 @@ def open_deployment(
 def set_name(depl: nixops.deployment.Deployment, name: Optional[str]) -> None:
     if not name:
         return
-    if not re.match("^[a-zA-Z_\-][a-zA-Z0-9_\-\.]*$", name):  # noqa: W605
+    if not re.match(r"^[a-zA-Z_\-][a-zA-Z0-9_\-\.]*$", name):  # noqa: W605
         raise Exception("invalid deployment name ‘{0}’".format(name))
     depl.name = name
 
@@ -525,7 +525,7 @@ def op_check(args: Namespace) -> None:  # noqa: C901
         def worker(m: nixops.backends.GenericMachineState) -> ResourceStatus:
             res = m.check()
 
-            unit_lines = []
+            unit_lines: List[str] = []
             if res.failed_units:
                 unit_lines.append(
                     "\n".join(
@@ -961,7 +961,6 @@ def op_ssh(args: Namespace) -> None:
 
 
 def op_ssh_for_each(args: Namespace) -> None:
-    results: List[Optional[int]] = []
     with one_or_all(args, False, "nixops ssh-for-each") as depls:
         for depl in depls:
 
@@ -975,13 +974,17 @@ def op_ssh_for_each(args: Namespace) -> None:
                     args.args, allow_ssh_args=True, check=False, user=m.ssh_user
                 )
 
-            results = results + nixops.parallel.run_tasks(
-                nr_workers=len(depl.machines) if args.parallel else 1,
-                tasks=iter(depl.active_machines.values()),
-                worker_fun=worker,
-            )
+            results: List[int] = [
+                result
+                for result in nixops.parallel.run_tasks(
+                    nr_workers=len(depl.machines) if args.parallel else 1,
+                    tasks=iter(depl.active_machines.values()),
+                    worker_fun=worker,
+                )
+                if result is not None
+            ]
 
-    sys.exit(max(results) if results != [] else 0)
+    sys.exit(max([r for r in results if r is not None]) if results != [] else 0)
 
 
 def scp_loc(user: str, ssh_name: str, remote: str, loc: str) -> str:
@@ -1037,7 +1040,9 @@ def op_show_option(args: Namespace) -> None:
             depl.evaluate()
         json.dump(
             depl.evaluate_option_value(
-                args.machine, args.option, include_physical=args.include_physical,
+                args.machine,
+                args.option,
+                include_physical=args.include_physical,
             ),
             sys.stdout,
             indent=2,
@@ -1046,7 +1051,8 @@ def op_show_option(args: Namespace) -> None:
 
 @contextlib.contextmanager
 def deployment_with_rollback(
-    args: Namespace, activityDescription: str,
+    args: Namespace,
+    activityDescription: str,
 ) -> Generator[nixops.deployment.Deployment, None, None]:
     with deployment(args, True, activityDescription) as depl:
         if not depl.rollback_enabled:
@@ -1163,6 +1169,7 @@ def setup_logging(args: Namespace) -> None:
 def add_subparser(
     subparsers: _SubParsersAction, name: str, help: str
 ) -> ArgumentParser:
+    subparser: ArgumentParser
     subparser = subparsers.add_parser(name, help=help)
     subparser.add_argument(
         "--network",
