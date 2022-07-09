@@ -1,0 +1,19 @@
+status = [
+  # Checks
+  #   listed as CI / x / (pull_request)
+  "parsing",
+  "build",
+  "black",
+  "mypy",
+  "flake8",
+  # Allowed to fail. Highlights possible increases in tech debt.
+  # "mypy-ratchet",
+  "coverage",
+  "docs",
+  "poetry-up-to-date",
+
+  # Run the VM tests after approval
+  "ci/hercules/onPush/default",
+  "ci/hercules/evaluation",
+]
+delete_merged_branches = true

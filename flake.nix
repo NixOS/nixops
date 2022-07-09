@@ -122,17 +122,28 @@
       '';
     };
 
-    checks.doc = pkgs.stdenv.mkDerivation {
-      name = "check-lint-docs";
-      # we use cleanPythonSources because the default gitignore
-      # implementation doesn't support the restricted evaluation
-      src = pkgs.poetry2nix.cleanPythonSources {
-        src = ./.;
+    checks = {
+      doc = pkgs.stdenv.mkDerivation {
+        name = "check-lint-docs";
+        # we use cleanPythonSources because the default gitignore
+        # implementation doesn't support the restricted evaluation
+        src = pkgs.poetry2nix.cleanPythonSources {
+          src = ./.;
+        };
+        dontBuild = true;
+        installPhase = ''
+          ${linters.doc}/bin/lint-docs | tee $out
+        '';
       };
-      dontBuild = true;
-      installPhase = ''
-        ${linters.doc}/bin/lint-docs | tee $out
-      '';
+    } // utils.lib.flattenTree (
+      import ./integration-tests {
+        inherit pkgs;
+        nixops = self.defaultPackage.${system};
+      }
+    );
+  }) // {
+    herculesCI = {
+      ciSystems = ["x86_64-linux"];
     };
-  });
+  };
 }
