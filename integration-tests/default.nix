@@ -1,6 +1,7 @@
 { pkgs, nixops }:
 let
   inherit (pkgs) lib;
+  inherit (lib) optionalAttrs;
 
   tests = {
     legacy = testLegacyNetwork;
@@ -100,4 +101,4 @@ let
     '';
 
 in
-tests
+optionalAttrs pkgs.stdenv.isLinux tests
