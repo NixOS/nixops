@@ -1,0 +1,19 @@
+status = [
+  "CI / parsing (pull_request)",
+  "CI / build (pull_request)",
+  "CI / black (pull_request)",
+  "CI / mypy (pull_request)",
+  "CI / flake8 (pull_request)",
+  # Allowed to fail. Highlights possible increases in tech debt.
+  # "CI / mypy-ratchet (pull_request)",
+  "CI / coverage (pull_request)",
+  "CI / docs (pull_request)",
+  "CI / poetry-up-to-date (pull_request)",
+
+  # Run the VM tests after approval
+  "ci/hercules/onPush/default",
+  "ci/hercules/evaluation",
+
+  "docs/readthedocs.org:nixops",
+]
+delete_merged_branches = true
