@@ -141,5 +141,9 @@
         nixops = self.defaultPackage.${system};
       }
     );
-  });
+  }) // {
+    herculesCI = {
+      ciSystems = ["x86_64-linux"];
+    };
+  };
 }
