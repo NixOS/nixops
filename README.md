@@ -54,7 +54,7 @@ $ nix-shell
 Inside the development shell the tests can be executed as follows:
 
 ```
-$ ./coverage-tests.py -a '!libvirtd,!gce,!ec2,!azure' -v
+$ pytest
 ```
 
 #### Documentation
