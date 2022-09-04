@@ -63,7 +63,7 @@ class ResourceDefinition:
                 )
             else:
                 raise TypeError(
-                    f"{self.__class__}.config's type annotation is not allowed to be a string, see: https://nixops.readthedocs.io/en/latest/plugins/authoring.html"
+                    f"{self.__class__}.config's type annotation is not allowed to be a string (or defined in a module using PEP 563 postponed annotations), see: https://nixops.readthedocs.io/en/latest/plugins/authoring.html"
                 )
 
         if not issubclass(config_type, ResourceOptions):
