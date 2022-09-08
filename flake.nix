@@ -1,8 +1,6 @@
 {
   description = "A tool for deploying NixOS machines in a network or cloud";
 
-  edition = 201909;
-
   inputs.nixpkgs.url = "nixpkgs/nixos-20.03";
 
   inputs.nixops-aws = {
