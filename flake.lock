@@ -2,9 +2,11 @@
   "nodes": {
     "nixops-aws": {
       "flake": false,
-      "locked": {
+      "info": {
         "lastModified": 1586700941,
-        "narHash": "sha256-9yh7iHMJ8F8wA4nwTjm8rcmceFM/6URHK/Q/AuCkdzE=",
+        "narHash": "sha256-9yh7iHMJ8F8wA4nwTjm8rcmceFM/6URHK/Q/AuCkdzE="
+      },
+      "locked": {
         "owner": "NixOS",
         "repo": "nixops-aws",
         "rev": "af97c16f179cd0df94a6fc3ef470092122253f60",
@@ -19,9 +21,11 @@
     },
     "nixops-hetzner": {
       "flake": false,
-      "locked": {
+      "info": {
         "lastModified": 1586701048,
-        "narHash": "sha256-q1QhsSp3N4nffnpUnGrF0Jg7VyLvi9JXiD82oxaM/Jg=",
+        "narHash": "sha256-q1QhsSp3N4nffnpUnGrF0Jg7VyLvi9JXiD82oxaM/Jg="
+      },
+      "locked": {
         "owner": "NixOS",
         "repo": "nixops-hetzner",
         "rev": "663b02618ece7a92a72da408a552528ee8dd354c",
@@ -35,17 +39,19 @@
       }
     },
     "nixpkgs": {
+      "info": {
+        "lastModified": 1586219474,
+        "narHash": "sha256-fvfrMnEA2lDnXvH/eInGV5i0sO/EGLVHa4pOek8VG78="
+      },
       "locked": {
-        "lastModified": 1662099760,
-        "narHash": "sha256-MdZLCTJPeHi/9fg6R9fiunyDwP3XHJqDd51zWWz9px0=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "67e45078141102f45eff1589a831aeaa3182b41e",
+        "rev": "29eddfc36d720dcc4822581175217543b387b1e8",
         "type": "github"
       },
       "original": {
         "id": "nixpkgs",
-        "ref": "nixos-22.05",
+        "ref": "nixos-20.03",
         "type": "indirect"
       }
     },
@@ -58,5 +64,5 @@
     }
   },
   "root": "root",
-  "version": 7
+  "version": 5
 }

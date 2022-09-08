@@ -1,7 +1,7 @@
 {
   description = "A tool for deploying NixOS machines in a network or cloud";
 
-  inputs.nixpkgs.url = "nixpkgs/nixos-22.05";
+  inputs.nixpkgs.url = "nixpkgs/nixos-20.03";
 
   inputs.nixops-aws = {
     url = github:NixOS/nixops-aws/flake;
@@ -105,7 +105,7 @@
 
           officialRelease = true; # hack
 
-          buildInputs = [ pkgs.git pkgs.libxslt pkgs.docbook_xsl_ns ];
+          buildInputs = [ pkgs.git pkgs.libxslt pkgs.docbook5_xsl ];
 
           postUnpack = ''
             # Clean up when building from a working tree.
