@@ -26,8 +26,8 @@
       ${pythonEnv}/bin/sphinx-build -n doc/ doc/_build
       '';
 
-  in {
-    devShell = pkgs.mkShell {
+  in rec {
+    devShells.default = pkgs.mkShell {
       buildInputs = [
         pythonEnv
         pkgs.openssh
@@ -44,12 +44,16 @@
       '';
     };
 
-    defaultApp = {
+    devShell = devShells.default;
+
+    apps.default = {
       type = "app";
       program = "${self.defaultPackage."${system}"}/bin/nixops";
     };
 
-    defaultPackage = let
+    defaultApp = apps.default;
+
+    packages.default = let
       overrides = import ./overrides.nix { inherit pkgs; };
 
     in pkgs.poetry2nix.mkPoetryApplication {
@@ -67,6 +71,8 @@
 
       # TODO: Re-add manual build
     };
+
+    defaultPackage = packages.default;
 
     nixosOptions = pkgs.nixosOptionsDoc {
       inherit (pkgs.lib.fixMergeModules [ ./nix/options.nix ] {
