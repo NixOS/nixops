@@ -237,7 +237,7 @@ in
           serviceConfig.TimeoutStartSec = "infinity";
           serviceConfig.Restart = "always";
           serviceConfig.RestartSec = "100ms";
-          path = [ pkgs.inotifyTools ];
+          path = [ pkgs.inotify-tools ];
           preStart = ''
             (while read f; do if [ "$f" = "${keyCfg.name}" ]; then break; fi; done \
               < <(inotifywait -qm --format '%f' -e create,move ${keyCfg.destDir}) ) &
