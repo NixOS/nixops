@@ -1,14 +1,7 @@
 { config, options, lib, system, ... }:
 let
   inherit (lib) mkOption types mapAttrs warn;
-  #TODO: remove after merging https://github.com/NixOS/nixpkgs/pull/163617
-  deferredModule = with lib; mkOptionType {
-    name = "deferredModule";
-    description = "module";
-    check = t: isAttrs t || isFunction t || builtins.isPath t;
-    merge = loc: defs: { imports = map (def: lib.setDefaultModuleLocation "${showOption loc} from ${def.file}" def.value) defs; };
-  };
-  # inherit (types) deferredModule;
+  inherit (types) deferredModule;
 
   nodesConfigCompat = k: n:
     n // {
