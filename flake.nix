@@ -83,6 +83,7 @@
     };
 
     rstNixosOptions = let
+      optionsNix = removeAttrs self.nixosOptions.${pkgs.system}.optionsNix [ "_module.args" ];
       oneRstOption = name: value: ''
         ${name}
         ${pkgs.lib.concatStrings (builtins.genList (_: "-") (builtins.stringLength name))}
@@ -106,7 +107,7 @@
       text = ''
         NixOps Options
         ==============
-      '' + pkgs.lib.concatStringsSep "\n" (pkgs.lib.mapAttrsToList oneRstOption self.nixosOptions.${pkgs.system}.optionsNix);
+      '' + pkgs.lib.concatStringsSep "\n" (pkgs.lib.mapAttrsToList oneRstOption optionsNix);
     in pkgs.writeText "options.rst" text;
 
     docs = pkgs.stdenv.mkDerivation {
