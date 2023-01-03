@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 # Automatic provisioning of SSH key pairs.
 from typing import Type, Dict, Optional
 
@@ -14,11 +12,11 @@ class SSHKeyPairDefinition(nixops.resources.ResourceDefinition):
     config: nixops.resources.ResourceOptions
 
     @classmethod
-    def get_type(cls: Type[SSHKeyPairDefinition]) -> str:
+    def get_type(cls: Type["SSHKeyPairDefinition"]) -> str:
         return "ssh-keypair"
 
     @classmethod
-    def get_resource_type(cls: Type[SSHKeyPairDefinition]) -> str:
+    def get_resource_type(cls: Type["SSHKeyPairDefinition"]) -> str:
         return "sshKeyPairs"
 
     def __init__(self, name: str, config: nixops.resources.ResourceEval):
@@ -38,7 +36,7 @@ class SSHKeyPairState(nixops.resources.ResourceState[SSHKeyPairDefinition]):
     private_key: Optional[str] = nixops.util.attr_property("privateKey", None)
 
     @classmethod
-    def get_type(cls: Type[SSHKeyPairState]) -> str:
+    def get_type(cls: Type["SSHKeyPairState"]) -> str:
         return "ssh-keypair"
 
     def __init__(self, depl: "nixops.deployment.Deployment", name: str, id: RecordId):
