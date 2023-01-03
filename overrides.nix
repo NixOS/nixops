@@ -6,4 +6,9 @@ self: super: {
       self.toml
     ];
   });
+  sphinx = super.sphinx.overridePythonAttrs (old: {
+    buildInputs = (old.buildInputs or [ ]) ++ [
+      self.flit-core
+    ];
+  });
 }

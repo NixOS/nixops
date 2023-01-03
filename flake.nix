@@ -10,6 +10,10 @@
 
     pythonEnv = (pkgs.poetry2nix.mkPoetryEnv {
       projectDir = ./.;
+      overrides = [
+        pkgs.poetry2nix.defaultPoetryOverrides
+        (import ./overrides.nix { inherit pkgs; })
+      ];
     });
     linters.doc = pkgs.writers.writeBashBin "lint-docs" ''
       set -eux
