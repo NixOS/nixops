@@ -1144,7 +1144,7 @@ Description
 -----------
 
 This command exports the state of the specified deployment, or all
-deployments if ``--all`` is given, as a JSON represention to standard
+deployments if ``--all`` is given, as a JSON representation to standard
 output. The deployment(s) can be imported into another state file using
 ``nixops import``.
 
