@@ -77,6 +77,8 @@ let
         deployer_do("cd ~/unicorn; nixops deploy --confirm")
 
         deployer_do("cd ~/unicorn; nixops ssh server 'hello | figlet'")
+
+        deployer_do("cd ~/unicorn; nixops check")
       '';
   });
 

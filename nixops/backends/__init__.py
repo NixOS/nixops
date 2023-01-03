@@ -253,7 +253,12 @@ class MachineState(
 
                 if match:
                     unit = match.group(1)
-                    isSystemMount = unit.startswith("sys-") or unit.startswith("dev-")
+
+                    isSystemMount = (
+                        unit.startswith("sys-")
+                        or unit.startswith("dev-")
+                        or unit == "run-initramfs.mount"
+                    )
                     isBuiltinMount = unit == "tmp.mount" or unit == "home.mount"
 
                     if not isSystemMount and not isBuiltinMount:
