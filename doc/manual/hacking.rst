@@ -41,14 +41,16 @@ To run the tests, do
 
    $ pytest
 
-Note that some of the tests involve the creation of EC2 resources and
-thus cost money. You must set the environment variable EC2_ACCESS_KEY
-and (optionally) EC2_SECRET_KEY. (If the latter is not set, it will be
-looked up in ``~/.ec2-keys`` or in ``~/.aws/credentials``, as described
-in `??? <#sec-deploying-to-ec2>`__.) To run a specific test, run
-``python3 tests.py
-test-name``, e.g. To filter on which backends you want to run functional
-tests against, you can filter on one or more tags.
+Can run specific tests by specifying the directory or file for the tests, like
+``pytest tests/functional``, or an individual test by its class/function name,
+like:
+
+::
+
+   $ pytest tests/functional/test_invalid_identifier.py::TestInvalidIdentifier::test_invalid_identifier_fails_evaluation
+
+For more ways of selecting tests, see the `pytest docs
+<https://docs.pytest.org/en/latest/how-to/usage.html#specifying-tests-selecting-tests>`_
 
 Some useful snippets to debug nixops: Logging
 
