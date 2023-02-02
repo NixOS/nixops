@@ -10,11 +10,6 @@
 }:
 
 let
-  call = x: if builtins.isFunction x then x args else x;
-
-  zipAttrs = set: builtins.listToAttrs (
-    map (name: { inherit name; value = builtins.catAttrs name set; }) (builtins.concatMap builtins.attrNames set));
-
   flakeExpr = flake.outputs.nixopsConfigurations.default or { };
 
   nixpkgsBoot = toString <nixpkgs> ; # this will be replaced on install by nixops' nixpkgs input
@@ -49,12 +44,10 @@ in rec {
     ./net.nix
     ({ config, ... }: {
       resources.imports = pluginResourceModules ++ [ deploymentInfoModule ];
-      network.resourcesDefaults.imports = [
-        (resourceModuleArgs_ rec{
-          inherit (config) nodes resources;
-          machines = nodes;
-        })
-      ];
+      network.resourcesDefaults = resourceModuleArgs_ rec{
+        inherit (config) nodes resources;
+        machines = nodes;
+      };
       network.nodeExtraArgs = { inherit uuid deploymentName; };
       defaults.environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
       # Make NixOps's deployment.* options available.
@@ -67,7 +60,7 @@ in rec {
   networks = [ net.config ];
 
   # skip problematic resources entries
-  resources = lib.attrsets.filterAttrs(n: v: lib.lists.all(e: e!=n)["deployment" "_name" "_type"]) net.config.resources;
+  resources = removeAttrs net.config.resources ["deployment" "_name" "_type"];
   defaults = [ net.config.defaults ];
   nodes = #TODO: take options and other modules outputs for each node
     lib.mapAttrs (n: v: {
@@ -76,36 +69,28 @@ in rec {
       inherit (v.nixpkgs) pkgs;
     }) net.config.nodes;
 
-  importedPluginNixExprs = map
-    (expr: import expr)
-    pluginNixExprs;
-  pluginOptions = lib.foldl (a: e: a ++ e.options) [ ] importedPluginNixExprs;
+  importedPluginNixExprs = map import pluginNixExprs;
+  pluginOptions = lib.lists.concatMap (e: e.options) importedPluginNixExprs;
   pluginResources = map (e: e.resources) importedPluginNixExprs;
-  pluginDeploymentConfigExporters = (lib.foldl
-    (a: e: a ++ (e.config_exporters {
-      inherit pkgs;
-      inherit (lib) optionalAttrs;
-    })) [ ]
-    importedPluginNixExprs);
+  pluginDeploymentConfigExporters = lib.lists.concatMap (e: e.config_exporters {
+    inherit pkgs;
+    inherit (lib) optionalAttrs;
+  }) importedPluginNixExprs;
 
   # Compute the definitions of the non-machine resources.
   resourcesByType = lib.zipAttrs (network.resources or []);
 
-  deploymentInfoModule = {
-    deployment = {
-      name = deploymentName;
-      arguments = args;
-      inherit uuid;
-    };
+  deploymentInfoModule.deployment = {
+    name = deploymentName;
+    arguments = args;
+    inherit uuid;
   };
 
-  defaultResourceModule  = {
-    imports = [
-      ./resource.nix
-      resourceModuleArgs
-      deploymentInfoModule
-    ];
-  };
+  defaultResourceModule.imports = [
+    ./resource.nix
+    resourceModuleArgs
+    deploymentInfoModule
+  ];
 
   pluginResourceModules = lib.lists.concatMap (lib.mapAttrsToList toResourceModule) pluginResourceLegacyReprs;
 
