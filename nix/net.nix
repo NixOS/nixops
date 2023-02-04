@@ -91,14 +91,6 @@ in
           # Make NixOps's deployment.* options available.
           ./options.nix
           ./resource.nix
-          ({ name, ... }: rec{
-            _file = ./net.nix;
-            key = _file;
-            # Provide a default hostname and deployment target equal
-            # to the attribute name of the machine in the model.
-            networking.hostName = lib.mkOverride 900 name;
-            deployment.targetHost = lib.mkOverride 900 name;
-          })
         ];
       }).type;
     };

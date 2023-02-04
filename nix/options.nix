@@ -1,4 +1,4 @@
-{ config, lib, ... }:
+{ name, config, lib, ... }:
 
 with lib;
 
@@ -167,6 +167,9 @@ in
 
     _type = "machine";
 
+    # Provide a default hostname and deployment target equal
+    # to the attribute name of the machine in the model.
+    networking.hostName = lib.mkOverride 900 name;
     deployment.targetHost = mkDefault config.networking.hostName;
     deployment.targetPort = mkDefault (head config.services.openssh.ports);
 
