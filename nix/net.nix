@@ -14,6 +14,11 @@ let
 in
 {
   options = {
+    nixpkgs = lib.mkOption {
+      type = types.path;
+      description = "Path to the nixpkgs instance used to buld the machines.";
+      defaultText = lib.literalDocBook "The 'nixpkgs' input to either the provided flake or nixops' own.";
+    };
     network = {
       enableRollback = lib.mkEnableOption "network wide rollback";
       description = mkOption {

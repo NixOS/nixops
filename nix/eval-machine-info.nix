@@ -12,48 +12,38 @@
 let
   flakeExpr = flake.outputs.nixopsConfigurations.default or { };
 
-  nixpkgsBoot = toString <nixpkgs> ; # this will be replaced on install by nixops' nixpkgs input
-  libBoot = import "${nixpkgsBoot}/lib";
+  nixpkgsBoot = <nixpkgs> ; # this will be replaced on install by nixops' nixpkgs input
+  libOf = nixpkgs: import /${nixpkgs}/lib;
+  libBoot = libOf nixpkgsBoot;
 
-  evalModules = lib: modules: lib.evalModules {
+  evalMod = lib: mod: lib.evalModules {
     specialArgs = args // { inherit lib system; };
-    modules = modules ++ networkExprs ++ [
-      flakeExpr
+    modules = networkExprs ++ [
+      ./net.nix mod flakeExpr
       {
-        options.nixpkgs = lib.mkOption {
-          type = lib.types.path;
-          description = "Path to the nixpkgs instance used to buld the machines.";
-          defaultText = lib.literalDocBook "The 'nixpkgs' input to either the provided flake or nixops' own.";
-          default = flake.inputs.nixpkgs or nixpkgsBoot;
-        };
+        nixpkgs = lib.mkDefault flake.inputs.nixpkgs or nixpkgsBoot;
+        network.nodeExtraArgs = { inherit uuid deploymentName; };
+        defaults.environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
       }
     ];
   };
 
-  inherit ((evalModules libBoot [{
-    _module.freeformType = with libBoot.types;attrsOf anything;
-  }]).config) nixpkgs;
-
+  inherit ((evalMod libBoot { _module.check = false; }).config) nixpkgs;
   pkgs = nixpkgs.legacyPackages.${system} or (import nixpkgs { inherit system; });
-  lib = nixpkgs.lib or pkgs.lib or (builtins.tryEval (import "${nixpkgs}/lib")).value or libBoot;
+  lib = nixpkgs.lib or pkgs.lib or (builtins.tryEval (libOf nixpkgs)).value or libBoot;
 
 in rec {
   inherit nixpkgs;
 
-  net = evalModules lib [
-    ./net.nix
-    ({ config, ... }: {
-      resources.imports = pluginResourceModules ++ [ deploymentInfoModule ];
-      network.resourcesDefaults = resourceModuleArgs_ rec{
-        inherit (config) nodes resources;
-        machines = nodes;
-      };
-      network.nodeExtraArgs = { inherit uuid deploymentName; };
-      defaults.environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
-      # Make NixOps's deployment.* options available.
-      defaults.imports = pluginOptions ++ [ deploymentInfoModule ];
-    })
-  ];
+  net = evalMod lib ({ config, ... }: {
+    resources.imports = pluginResourceModules ++ [ deploymentInfoModule ];
+    network.resourcesDefaults = resourceModuleArgs_ rec{
+      inherit (config) nodes resources;
+      machines = nodes;
+    };
+    # Make NixOps's deployment.* options available.
+    defaults.imports = pluginOptions ++ [ deploymentInfoModule ];
+  });
 
   # for backward compatibility
   network = lib.mapAttrs (n: v: [v]) net.config;
