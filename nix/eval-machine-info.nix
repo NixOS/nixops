@@ -21,6 +21,12 @@ let
     modules = networkExprs ++ [
       ./net.nix mod flakeExpr
       {
+        # Make NixOps's deployment.* options available.
+        deployment = {
+          name = deploymentName;
+          arguments = args;
+          inherit uuid;
+        };
         nixpkgs = lib.mkDefault flake.inputs.nixpkgs or nixpkgsBoot;
         network.nodeExtraArgs = { inherit uuid deploymentName; };
         defaults.environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
@@ -36,9 +42,8 @@ in rec {
   inherit nixpkgs;
 
   net = evalMod lib ({ config, ... }: {
-    resources.imports = pluginResourceModules ++ [ deploymentInfoModule ];
+    resources.imports = pluginResourceModules;
     network.resourcesDefaults = { name, ... }: {
-      imports = [ deploymentInfoModule ];
       _module.args = {
         inherit pkgs uuid;
         inherit (config) resources;
@@ -54,8 +59,7 @@ in rec {
             config.nodes;
       };
     };
-    # Make NixOps's deployment.* options available.
-    defaults.imports = pluginOptions ++ [ deploymentInfoModule ];
+    defaults.imports = pluginOptions;
   });
 
   # for backward compatibility
@@ -71,8 +75,9 @@ in rec {
 
   # ./resource.nix is imported in resource opt but does not define resource types
   # we have to remove those entries as they do not otherwise conform to the resource schema
-  resources = removeAttrs net.config.resources (lib.attrNames (import ./resource.nix {
-    name = ""; inherit lib; }).options);
+  resources =  removeAttrs net.config.resources (lib.concatMap
+    (e: lib.attrNames (import e { name = ""; inherit lib; }).options)
+    [ ./resource.nix ./default-deployment.nix ]);
 
   importedPluginNixExprs = map import pluginNixExprs;
   pluginOptions = lib.lists.concatMap (e: e.options) importedPluginNixExprs;
@@ -84,12 +89,6 @@ in rec {
 
   # Compute the definitions of the non-machine resources.
   resourcesByType = lib.zipAttrs (network.resources or []);
-
-  deploymentInfoModule.deployment = {
-    name = deploymentName;
-    arguments = args;
-    inherit uuid;
-  };
 
   pluginResourceModules = lib.lists.concatMap (lib.mapAttrsToList toResourceModule) pluginResourceLegacyReprs;
 

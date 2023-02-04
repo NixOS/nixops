@@ -11,8 +11,14 @@ let
           n;
       options = throw "nodes.<name>.options is not available anymore. You can access options information by writing a node-level module that extracts the options information and assigns it to a new option of your choosing.";
     };
+
+  deploymentDefault = {
+    imports = [ ./resource.nix ./default-deployment.nix ];
+    inherit (config) deployment;
+  };
 in
 {
+  imports = [ ./default-deployment.nix ];
   options = {
     nixpkgs = lib.mkOption {
       type = types.path;
@@ -55,7 +61,7 @@ in
             default = { };
             type = types.attrsOf (types.submoduleWith {
               modules = [
-                ./resource.nix
+                deploymentDefault
                 config.network.resourcesDefaults
                 mainModule
               ];
@@ -63,7 +69,7 @@ in
           };
         };
         modules = [
-          ./resource.nix
+          deploymentDefault
           ({ defineResource, ... }: {
             imports = [
               (defineResource "sshKeyPairs" ./ssh-keypair.nix)
@@ -91,7 +97,7 @@ in
           config.defaults
           # Make NixOps's deployment.* options available.
           ./options.nix
-          ./resource.nix
+          deploymentDefault
         ];
       }).type;
     };
