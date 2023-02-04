@@ -48,9 +48,6 @@ in rec {
   # for backward compatibility
   network = lib.mapAttrs (n: v: [v]) net.config;
   networks = [ net.config ];
-
-  # skip problematic resources entries
-  resources = removeAttrs net.config.resources ["deployment" "_name" "_type"];
   defaults = [ net.config.defaults ];
   nodes = #TODO: take options and other modules outputs for each node
     lib.mapAttrs (n: v: {
@@ -58,6 +55,11 @@ in rec {
       options = net.options.nodes.${n};
       inherit (v.nixpkgs) pkgs;
     }) net.config.nodes;
+
+  # ./resource.nix is imported in resource opt but does not define resource types
+  # we have to remove those entries as they do not otherwise conform to the resource schema
+  resources = removeAttrs net.config.resources (lib.attrNames (import ./resource.nix {
+    name = ""; inherit lib; }).options);
 
   importedPluginNixExprs = map import pluginNixExprs;
   pluginOptions = lib.lists.concatMap (e: e.options) importedPluginNixExprs;
