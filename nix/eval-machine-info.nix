@@ -40,27 +40,11 @@ let
 
 in rec {
   inherit nixpkgs;
-
-  net = evalMod lib ({ config, ... }: {
+  net = evalMod lib {
     resources.imports = pluginResourceModules;
-    network.resourcesDefaults = { name, ... }: {
-      _module.args = {
-        inherit pkgs uuid;
-        inherit (config) resources;
-
-        # inherit nodes, essentially
-        nodes =
-          lib.mapAttrs
-            (nodeName: node:
-              lib.mapAttrs
-                (key: lib.warn "Resource ${name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
-                config.nodes.${nodeName}
-              // node)
-            config.nodes;
-      };
-    };
+    network.resourcesDefaults._module.args = { inherit pkgs uuid; };
     defaults.imports = pluginOptions;
-  });
+  };
 
   # for backward compatibility
   network = lib.mapAttrs (n: v: [v]) net.config;
@@ -136,11 +120,6 @@ in rec {
     _type = "legacyResourceRepresentation";
     inherit resourceModule;
   };
-
-  newOpt = key: {
-    nixosRelease = "config.system.nixos.release and make sure it is set properly";
-    publicIPv4 = "config.networking.publicIPv4";
-  }.${key} or "config.deployment.${key}";
 
   # check if there are duplicate elements in a sorted list
   noDups = l:
