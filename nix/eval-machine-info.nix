@@ -37,9 +37,22 @@ in rec {
 
   net = evalMod lib ({ config, ... }: {
     resources.imports = pluginResourceModules ++ [ deploymentInfoModule ];
-    network.resourcesDefaults = resourceModuleArgs_ rec{
-      inherit (config) nodes resources;
-      machines = nodes;
+    network.resourcesDefaults = { name, ... }: {
+      imports = [ deploymentInfoModule ];
+      _module.args = {
+        inherit pkgs uuid;
+        inherit (config) resources;
+
+        # inherit nodes, essentially
+        nodes =
+          lib.mapAttrs
+            (nodeName: node:
+              lib.mapAttrs
+                (key: lib.warn "Resource ${name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
+                config.nodes.${nodeName}
+              // node)
+            config.nodes;
+      };
     };
     # Make NixOps's deployment.* options available.
     defaults.imports = pluginOptions ++ [ deploymentInfoModule ];
@@ -78,23 +91,12 @@ in rec {
     inherit uuid;
   };
 
-  defaultResourceModule.imports = [
-    ./resource.nix
-    resourceModuleArgs
-    deploymentInfoModule
-  ];
-
   pluginResourceModules = lib.lists.concatMap (lib.mapAttrsToList toResourceModule) pluginResourceLegacyReprs;
 
   toResourceModule = k: { _type, resourceModule }:
     {
       options.${k} = lib.mkOption {
-        type = lib.types.attrsOf (lib.types.submoduleWith {
-          modules = [
-            defaultResourceModule
-            resourceModule
-          ];
-        });
+        type = lib.types.attrsOf (lib.types.submodule resourceModule);
         default = { /* no resources configured */ };
       };
     };
@@ -127,27 +129,6 @@ in rec {
         The resource ${k} did not follow that pattern. Please update the
         corresponding plugin to declare the resource submodule directly instead.
       '';
-
-  resourceModuleArgs = resourceModuleArgs_ {
-    inherit nodes resources;
-    inherit (info) machines;
-  };
-
-  resourceModuleArgs_ = { nodes, resources, machines }: { name, ... }: {
-    _module.args = {
-      inherit pkgs uuid resources;
-
-      # inherit nodes, essentially
-      nodes =
-        lib.mapAttrs
-          (nodeName: node:
-            lib.mapAttrs
-              (key: lib.warn "Resource ${name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
-              machines.${nodeName}
-            // node)
-          nodes;
-    };
-  };
 
   # NOTE: this is a legacy name. It does not invoke the module system,
   #       but rather preserves one argument, so that it can be turned

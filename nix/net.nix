@@ -55,6 +55,7 @@ in
             default = { };
             type = types.attrsOf (types.submoduleWith {
               modules = [
+                ./resource.nix
                 config.network.resourcesDefaults
                 mainModule
               ];
