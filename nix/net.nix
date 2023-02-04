@@ -78,7 +78,9 @@ in
     # Compute the definitions of the machines.
     nodes = mkOption {
       description = "The NixOS configurations for the nodes in the network.";
-      type = types.attrsOf (import "${config.nixpkgs}/nixos/lib/eval-config.nix" {
+      default = { };
+      # on 1st eval nodes is not read and on 2nd lib is taken from config.nixpkgs
+      type = types.attrsOf (lib.nixosSystem or (import /${config.nixpkgs}/nixos/lib/eval-config.nix) {
         inherit system lib;
         specialArgs = {
           inherit (config) resources;
