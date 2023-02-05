@@ -22,7 +22,7 @@ in
   options = {
     nixpkgs = lib.mkOption {
       type = types.path;
-      description = "Path to the nixpkgs instance used to buld the machines.";
+      description = "Path to the nixpkgs instance used to build the machines.";
       defaultText = lib.literalDocBook "The 'nixpkgs' input to either the provided flake or nixops' own.";
     };
     network = {
