@@ -56,33 +56,30 @@ in
     resources = mkOption {
       default = { };
       type = types.submoduleWith {
-        specialArgs.defineResource = name: mainModule: {
-          options.${name} = mkOption {
+        specialArgs.defineResource = resName: resMod: {
+          options.${resName} = mkOption {
             default = { };
-            type = types.attrsOf (types.submoduleWith {
-              modules = [
+            type = types.attrsOf (types.submodule ({ name, ... }: {
+              imports=[
                 deploymentDefault
                 config.network.resourcesDefaults
-                mainModule
-                ({ name, ... }: {
-                  _module.args = {
-                    inherit (config) resources;
-                    # inherit nodes, essentially
-                    nodes =
-                      lib.mapAttrs
-                        (nodeName: node:
-                          lib.mapAttrs
-                            (key: lib.warn "Resource ${name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${{
-                              nixosRelease = "config.system.nixos.release and make sure it is set properly";
-                              publicIPv4 = "config.networking.publicIPv4";
-                            }.${key} or "config.deployment.${key}"}.")
-                            config.nodes.${nodeName}
-                          // node)
-                        config.nodes;
-                  };
-                })
+                resMod
               ];
-            });
+              _module.args = {
+                inherit (config) resources;
+                nodes = # inherit nodes, essentially
+                  lib.mapAttrs
+                    (nodeName: node:
+                      lib.mapAttrs
+                        (key: lib.warn "Resource ${name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${{
+                          nixosRelease = "config.system.nixos.release and make sure it is set properly";
+                          publicIPv4 = "config.networking.publicIPv4";
+                        }.${key} or "config.deployment.${key}"}.")
+                        config.nodes.${nodeName}
+                      // node)
+                    config.nodes;
+              };
+            }));
           };
         };
         modules = [
