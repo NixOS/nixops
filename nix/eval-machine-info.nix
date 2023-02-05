@@ -136,7 +136,7 @@ in rec {
     let
       network' = network;
       resources' = resources;
-    in rec {
+    in {
 
     machines =
       lib.flip lib.mapAttrs nodes (n: v': let v = lib.scrubOptionValue v'; in
@@ -169,31 +169,7 @@ in rec {
       [ "nixpkgs" "resourcesDefaults" "nodesExtraArgs" ]  # Not serialisable
       ;
 
-    resources =
-    let
-      resource_referenced = list: check: recurse:
-          lib.any lib.id (map (value: (check value) ||
-                              ((lib.isAttrs value) && (!(value ? _type) || recurse)
-                                               && (resource_referenced (lib.attrValues value) check false)))
-                      list);
-
-      flatten_resources = resources: lib.flatten ( map lib.attrValues (lib.attrValues resources) );
-
-      resource_used = res_set: resource:
-          resource_referenced
-              (flatten_resources res_set)
-              (value: value == resource )
-              true;
-
-      resources_without_defaults = res_class: defaults: res_set:
-        let
-          missing = lib.filter (res: !(resource_used (removeAttrs res_set [res_class])
-                                                  res_set."${res_class}"."${res}"))
-                           (lib.attrNames defaults);
-        in
-        res_set // { "${res_class}" = ( removeAttrs res_set."${res_class}" missing ); };
-
-    in (removeAttrs resources' [ "machines" ]);
+    resources = (removeAttrs resources' [ "machines" ]);
 
   };
 
