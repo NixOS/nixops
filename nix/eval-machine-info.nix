@@ -10,6 +10,7 @@
 }:
 
 let
+  importedPluginNixExprs = map import pluginNixExprs;
   flakeExpr = flake.outputs.nixopsConfigurations.default or { };
 
   nixpkgsBoot = <nixpkgs> ; # this will be replaced on install by nixops' nixpkgs input
@@ -21,15 +22,18 @@ let
     modules = networkExprs ++ [
       ./net.nix mod flakeExpr
       {
+        nixpkgs = lib.mkDefault flake.inputs.nixpkgs or nixpkgsBoot;
+        network.nodeExtraArgs = { inherit uuid deploymentName; };
         # Make NixOps's deployment.* options available.
         deployment = {
           name = deploymentName;
           arguments = args;
           inherit uuid;
         };
-        nixpkgs = lib.mkDefault flake.inputs.nixpkgs or nixpkgsBoot;
-        network.nodeExtraArgs = { inherit uuid deploymentName; };
-        defaults.environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
+        defaults = {
+          imports = lib.lists.concatMap (e: e.options) importedPluginNixExprs;
+          environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
+        };
       }
     ];
   };
@@ -43,7 +47,6 @@ in rec {
   net = evalMod lib {
     resources.imports = pluginResourceModules;
     network.resourcesDefaults._module.args = { inherit pkgs uuid; };
-    defaults.imports = pluginOptions;
   };
 
   # for backward compatibility
@@ -63,8 +66,6 @@ in rec {
     (e: lib.attrNames (import e { name = ""; inherit lib; }).options)
     [ ./resource.nix ./default-deployment.nix ]);
 
-  importedPluginNixExprs = map import pluginNixExprs;
-  pluginOptions = lib.lists.concatMap (e: e.options) importedPluginNixExprs;
   pluginResources = map (e: e.resources) importedPluginNixExprs;
   pluginDeploymentConfigExporters = lib.lists.concatMap (e: e.config_exporters {
     inherit pkgs;
