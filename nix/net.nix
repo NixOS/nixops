@@ -52,6 +52,11 @@ in
           Extra configurations to add to all resources.
         '';
       };
+      lock = mkOption {
+        # TBD
+        type = types.raw;
+        default = {};
+      };
     };
     resources = mkOption {
       default = { };
