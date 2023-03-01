@@ -147,6 +147,13 @@ in
           warnings = [ "Please use nodes.${name} option instead of assigning machines to the config's top level" ];
         })
         nodes);
+
+    # Provides compatibility for old style node definitions outside in the root,
+    # outside the `nodes` option.
+    # TODO: interpreting arbitrary _mistaken_ configs as machines leads to
+    #       obscure errors, so we should consider removing this backcompat
+    #       solution, or perhaps eagerly throw an appropriate error as soon as
+    #       we encounter an unknown key. The warning may not be encountered.
     _module.freeformType = types.attrsOf deferredModule;
   };
 }
