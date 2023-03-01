@@ -93,10 +93,18 @@ in
             imports = [
               (defineResource "sshKeyPairs" ./ssh-keypair.nix)
               (defineResource "commandOutput" ./command-output.nix)
-              (defineResource "machines" ./machine-resource.nix)
             ];
-            machines = config.nodes;
-            _module.check = false;
+            options.machines = lib.mkOption {
+              description = ''
+                An alias for the `nodes`.
+              '';
+              readOnly = true;
+              type = types.raw;
+            };
+            config = {
+              machines = config.nodes;
+              _module.check = false;
+            };
           })
         ];
       };
