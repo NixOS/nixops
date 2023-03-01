@@ -23,7 +23,7 @@ let
       ./net.nix mod flakeExpr
       {
         nixpkgs = lib.mkDefault flake.inputs.nixpkgs or nixpkgsBoot;
-        network.nodeExtraArgs = { inherit uuid deploymentName; };
+        network.nodesExtraArgs = { inherit uuid deploymentName; };
         # Make NixOps's deployment.* options available.
         deployment = {
           name = deploymentName;
