@@ -80,7 +80,12 @@ in rec {
   toResourceModule = k: { _type, resourceModule }:
     {
       options.${k} = lib.mkOption {
-        type = lib.types.attrsOf (lib.types.submodule resourceModule);
+        type = lib.types.attrsOf (lib.types.submoduleWith {
+          specialArgs = {
+            inherit resources uuid nodes;
+          };
+          modules = [ resourceModule ./resource.nix ];
+        });
         default = { /* no resources configured */ };
       };
     };
