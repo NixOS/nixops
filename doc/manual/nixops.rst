@@ -1080,7 +1080,7 @@ Consider the following deployment specification (``servers.nix``):
          services.httpd.adminAddr = "foo@example.org";
        });
 
-   in { nodes = listToAttrs (map makeMachine (range 1 nrMachines)); }
+   in { resources.machines = listToAttrs (map makeMachine (range 1 nrMachines)); }
 
 This specifies a network of nrMachines identical VirtualBox VMs that run
 the Apache web server if active is set. To create 10 machines without

@@ -18,7 +18,7 @@ Release 2.0
 
 - Now the network specification is using the module system from ``nixpkgs.lib``
   - Now network specification files can import other files via ``imports``.
-  - We have a ``nodes.*`` option where we put every NixOS configuration for the configured nodes. We suggest to use it instead of defining nodes in the top level.
+  - We have a ``resources.machines.*`` option where we put every NixOS configuration for the configured nodes. We suggest to use it instead of defining nodes in the top level.
 
 - Removed NixOS Options
 

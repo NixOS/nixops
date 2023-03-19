@@ -18,7 +18,7 @@ and leave ``deployment.targetEnv`` undefined. See
 ::
 
    {
-     nodes.webserver =
+     resources.machines.webserver =
        { config, pkgs, ... }:
        { deployment.targetHost = "1.2.3.4";
        };
@@ -87,12 +87,12 @@ example:
        imports = [ ./common.nix ];
      };
 
-     nodes.machine = { ... }: {};
+     resources.machines.machine = { ... }: {};
    }
 
 Each attribute is explained below:
 
-``nodes.*``
+``resources.machines.*``
    Applies the given NixOS configuration to the corresponding node.
 
 ``defaults``
@@ -121,7 +121,7 @@ Here is an example of a network with network arguments:
    { maintenance ? false
    }:
    {
-     nodes.machine =
+     resources.machines.machine =
        { config, pkgs, ... }:
        { services.httpd.enable = maintenance;
          ...
@@ -175,7 +175,7 @@ Add a key to a machine like so.
 ::
 
    {
-     nodes.machine =
+     resources.machines.machine =
        { config, pkgs, ... }:
        {
          deployment.keys.my-secret.text = "shhh this is a secret";
@@ -211,7 +211,7 @@ and otherwise inactive when the key is absent. See
 ::
 
    {
-     nodes.machine =
+     resources.machines.machine =
        { config, pkgs, ... }:
        {
          deployment.keys.my-secret.text = "shhh this is a secret";
@@ -246,7 +246,7 @@ This is possible by using the extra NixOS module input ``nodes``.
 
    {
      network.description = "Gollum server and reverse proxy";
-     nodes = {
+     resources.machines = {
 
       gollum =
         { config, pkgs, ... }:

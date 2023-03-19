@@ -23,7 +23,7 @@ let
       ./net.nix mod flakeExpr
       {
         nixpkgs = lib.mkDefault flake.inputs.nixpkgs or nixpkgsBoot;
-        network.nodesExtraArgs = { inherit uuid deploymentName; };
+        network.nodesExtraArgs = { inherit deploymentName; };
         # Make NixOps's deployment.* options available.
         deployment = {
           name = deploymentName;
@@ -46,19 +46,21 @@ in rec {
   inherit nixpkgs;
   net = evalMod lib {
     resources.imports = pluginResourceModules;
-    network.resourcesDefaults._module.args = { inherit pkgs uuid; };
+    network.resourcesDefaults._module.args.pkgs = lib.mkOptionDefault pkgs;
   };
 
   # for backward compatibility
-  network = lib.mapAttrs (n: v: [v]) net.config;
+  network = lib.mapAttrs (n: v: [ v ]) net.config;
   networks = [ net.config ];
   defaults = [ net.config.defaults ];
   nodes = #TODO: take options and other modules outputs for each node
-    lib.mapAttrs (n: v: {
+    lib.mapAttrs
+      (n: v: {
       config = v;
-      options = net.options.nodes.${n};
+        options = net.options.resources.machines.${n};
       inherit (v.nixpkgs) pkgs;
-    }) net.config.nodes;
+      })
+      net.config.resources.machines;
 
   # ./resource.nix is imported in resource opt but does not define resource types
   # we have to remove those entries as they do not otherwise conform to the resource schema
