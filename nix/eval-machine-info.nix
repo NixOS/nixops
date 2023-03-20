@@ -1,6 +1,7 @@
 { system ? builtins.currentSystem
 , networkExprs
 , flakeUri ? null
+, flake ? if flakeUri == null then null else builtins.getFlake flakeUri
 , checkConfigurationOptions ? true
 , uuid
 , deploymentName
@@ -9,166 +10,124 @@
 }:
 
 let
-  call = x: if builtins.isFunction x then x args else x;
+  importedPluginNixExprs = map import pluginNixExprs;
+  flakeExpr = flake.outputs.nixopsConfigurations.default or { };
 
-  # Copied from nixpkgs to avoid <nixpkgs> import
-  optional = cond: elem: if cond then [elem] else [];
+  nixpkgsBoot = <nixpkgs> ; # this will be replaced on install by nixops' nixpkgs input
+  libOf = nixpkgs: import /${nixpkgs}/lib;
+  libBoot = libOf nixpkgsBoot;
 
-  zipAttrs = set: builtins.listToAttrs (
-    map (name: { inherit name; value = builtins.catAttrs name set; }) (builtins.concatMap builtins.attrNames set));
-
-  flakeExpr = (builtins.getFlake flakeUri).outputs.nixopsConfigurations.default;
-
-  networks =
-    let
-      getNetworkFromExpr = networkExpr:
-        (call (import networkExpr)) // { _file = networkExpr; };
-
-      exprToKey = key: { key = toString key; };
-
-      networkExprClosure = builtins.genericClosure {
-        startSet = map exprToKey networkExprs;
-        operator = { key }: map exprToKey ((getNetworkFromExpr key).require or []);
-      };
-    in
-      map ({ key }: getNetworkFromExpr key) networkExprClosure
-      ++ optional (flakeUri != null)
-        ((call flakeExpr) // { _file = "<${flakeUri}>"; });
-
-  network = zipAttrs networks;
-
-  evalConfig =
-    if flakeUri != null
-    then
-      if network ? nixpkgs
-      then (builtins.head (network.nixpkgs)).lib.nixosSystem
-      else throw "NixOps network must have a 'nixpkgs' attribute"
-    else import (pkgs.path + "/nixos/lib/eval-config.nix");
-
-  pkgs = if flakeUri != null
-    then
-      if network ? nixpkgs
-      then (builtins.head network.nixpkgs).legacyPackages.${system}
-      else throw "NixOps network must have a 'nixpkgs' attribute"
-    else (builtins.head (network.network)).nixpkgs or (import <nixpkgs> { inherit system; });
-
-  inherit (pkgs) lib;
-
-  # Expose path to imported nixpkgs (currently only used to find version suffix)
-  nixpkgs = builtins.unsafeDiscardStringContext pkgs.path;
-
-in rec {
-
-  inherit networks network;
-  inherit nixpkgs;
-
-  importedPluginNixExprs = map
-    (expr: import expr)
-    pluginNixExprs;
-  pluginOptions = { imports = (lib.foldl (a: e: a ++ e.options) [] importedPluginNixExprs); };
-  pluginResources = map (e: e.resources) importedPluginNixExprs;
-  pluginDeploymentConfigExporters = (lib.foldl (a: e: a ++ (e.config_exporters {
-    inherit pkgs;
-    inherit (lib) optionalAttrs;
-  })) [] importedPluginNixExprs);
-
-  defaults = network.defaults or [];
-
-  # Compute the definitions of the machines.
-  nodes =
-    lib.listToAttrs (map (machineName:
-      let
-        # Get the configuration of this machine from each network
-        # expression, attaching _file attributes so the NixOS module
-        # system can give sensible error messages.
-        modules =
-          lib.concatMap (n: lib.optional (lib.hasAttr machineName n)
-            { imports = [(lib.getAttr machineName n)]; inherit (n) _file; })
-          networks;
-      in
-      { name = machineName;
-        value = evalConfig {
-          modules =
-            modules ++
-            defaults ++
-            [ deploymentInfoModule ] ++
-            [ { key = "nixops-stuff";
-                # Make NixOps's deployment.* options available.
-                imports = [ ./options.nix ./resource.nix pluginOptions ];
-                # Provide a default hostname and deployment target equal
-                # to the attribute name of the machine in the model.
-                networking.hostName = lib.mkOverride 900 machineName;
-                deployment.targetHost = lib.mkOverride 900 machineName;
-                environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
-
-                nixpkgs.system = lib.mkDefault system;
-
-                _module.args = { inherit nodes resources uuid deploymentName; name = machineName; };
-              }
-            ];
+  evalMod = lib: mod: lib.evalModules {
+    specialArgs = args // { inherit lib system; };
+    modules = networkExprs ++ [
+      ./net.nix mod flakeExpr
+      {
+        nixpkgs = lib.mkDefault flake.inputs.nixpkgs or nixpkgsBoot;
+        network.nodesExtraArgs = { inherit deploymentName; };
+        # Make NixOps's deployment.* options available.
+        deployment = {
+          name = deploymentName;
+          arguments = args;
+          inherit uuid;
+        };
+        defaults = {
+          imports = lib.lists.concatMap (e: e.options) importedPluginNixExprs;
+          environment.checkConfigurationOptions = lib.mkOverride 900 checkConfigurationOptions;
         };
       }
-    ) (lib.attrNames (removeAttrs network [ "network" "defaults" "resources" "require" "nixpkgs" "_file" ])));
+    ];
+  };
+
+  inherit ((evalMod libBoot { _module.check = false; }).config) nixpkgs;
+  pkgs = nixpkgs.legacyPackages.${system} or (import nixpkgs { inherit system; });
+  lib = nixpkgs.lib or pkgs.lib or (builtins.tryEval (libOf nixpkgs)).value or libBoot;
+
+in rec {
+  inherit nixpkgs;
+  net = evalMod lib {
+    resources.imports = pluginResourceModules;
+    network.resourcesDefaults._module.args.pkgs = lib.mkOptionDefault pkgs;
+  };
+
+  # for backward compatibility
+  network = lib.mapAttrs (n: v: [ v ]) net.config;
+  networks = [ net.config ];
+  defaults = [ net.config.defaults ];
+  nodes = #TODO: take options and other modules outputs for each node
+    lib.mapAttrs
+      (n: v: {
+      config = v;
+        options = net.options.resources.machines.${n};
+      inherit (v.nixpkgs) pkgs;
+      })
+      net.config.resources.machines;
+
+  # ./resource.nix is imported in resource opt but does not define resource types
+  # we have to remove those entries as they do not otherwise conform to the resource schema
+  resources =  removeAttrs net.config.resources (lib.concatMap
+    (e: lib.attrNames (import e { name = ""; inherit lib; }).options)
+    [ ./resource.nix ./default-deployment.nix ]);
+
+  pluginResources = map (e: e.resources) importedPluginNixExprs;
+  pluginDeploymentConfigExporters = lib.lists.concatMap (e: e.config_exporters {
+    inherit pkgs;
+    inherit (lib) optionalAttrs;
+  }) importedPluginNixExprs;
 
   # Compute the definitions of the non-machine resources.
   resourcesByType = lib.zipAttrs (network.resources or []);
 
-  deploymentInfoModule = {
-    deployment = {
-      name = deploymentName;
-      arguments = args;
-      inherit uuid;
-    };
-  };
+  pluginResourceModules = lib.lists.concatMap (lib.mapAttrsToList toResourceModule) pluginResourceLegacyReprs;
 
-  evalResources = mainModule: _resources:
-    lib.mapAttrs
-      (name: defs:
-        let
-          # Arguments fed to all modules
-          moduleArgs = {
-            _module.args = {
-              inherit pkgs uuid name resources;
-
-              # inherit nodes, essentially
-              nodes =
-                lib.mapAttrs
-                  (nodeName: node:
-                    lib.mapAttrs
-                      (key: lib.warn "Resource ${name} accesses nodes.${nodeName}.${key}, which is deprecated. Use the equivalent option instead: nodes.${nodeName}.${newOpt key}.")
-                      info.machines.${nodeName}
-                    // node)
-                  nodes;
-            };
-          };
-          modules = [
-            moduleArgs
-            mainModule
-            deploymentInfoModule
-            ./resource.nix
-          ] ++ defs;
-        in
-          builtins.removeAttrs
-            (lib.evalModules { inherit modules; }).config
-            ["_module"])
-      _resources;
-
-  newOpt = key: {
-    nixosRelease = "config.system.nixos.release and make sure it is set properly";
-    publicIPv4 = "config.networking.publicIPv4";
-  }.${key} or "config.deployment.${key}";
-
-  resources = lib.foldl
-    (a: b: a // (b {
-      inherit evalResources resourcesByType;
-      inherit (lib) zipAttrs;
-    }))
+  toResourceModule = k: { _type, resourceModule }:
     {
-      sshKeyPairs = evalResources ./ssh-keypair.nix (lib.zipAttrs resourcesByType.sshKeyPairs or []);
-      commandOutput = evalResources ./command-output.nix (lib.zipAttrs resourcesByType.commandOutput or []);
-      machines = lib.mapAttrs (n: v: v.config) nodes;
-    }
-    pluginResources;
+      options.${k} = lib.mkOption {
+        type = lib.types.attrsOf (lib.types.submoduleWith {
+          specialArgs = {
+            inherit resources uuid nodes;
+          };
+          modules = [ resourceModule ./resource.nix ];
+        });
+        default = { /* no resources configured */ };
+      };
+    };
+
+  pluginResourceLegacyReprs =
+    (map
+      (f:
+        lib.mapAttrs
+          validateLegacyRepr
+          (f {
+            inherit evalResources resourcesByType lib;
+            inherit (lib) zipAttrs;
+          })
+      )
+      pluginResources
+    );
+
+  validateLegacyRepr = k: v:
+    if v._type or null == "legacyResourceRepresentation" then
+      v
+    else
+      throw
+      ''Legacy plugin resources are only supported if they follow the pattern:
+
+            resources = { evalResources, zipAttrs, resourcesByType, ... }: {
+              foos = evalResources ./foo.nix (zipAttrs resourcesByType.foos or []);
+              # ...
+            };
+
+        The resource ${k} did not follow that pattern. Please update the
+        corresponding plugin to declare the resource submodule directly instead.
+      '';
+
+  # NOTE: this is a legacy name. It does not invoke the module system,
+  #       but rather preserves one argument, so that it can be turned
+  #       into a proper submodule later.
+  evalResources = resourceModule: _: {
+    _type = "legacyResourceRepresentation";
+    inherit resourceModule;
+  };
 
   # check if there are duplicate elements in a sorted list
   noDups = l:
@@ -184,7 +143,7 @@ in rec {
     let
       network' = network;
       resources' = resources;
-    in rec {
+    in {
 
     machines =
       lib.flip lib.mapAttrs nodes (n: v': let v = lib.scrubOptionValue v'; in
@@ -214,34 +173,10 @@ in rec {
     network =
       builtins.removeAttrs
       (lib.fold (as: bs: as // bs) {} (network'.network or []))
-      [ "nixpkgs" ]  # Not serialisable
+      [ "nixpkgs" "resourcesDefaults" "nodesExtraArgs" ]  # Not serialisable
       ;
 
-    resources =
-    let
-      resource_referenced = list: check: recurse:
-          lib.any lib.id (map (value: (check value) ||
-                              ((lib.isAttrs value) && (!(value ? _type) || recurse)
-                                               && (resource_referenced (lib.attrValues value) check false)))
-                      list);
-
-      flatten_resources = resources: lib.flatten ( map lib.attrValues (lib.attrValues resources) );
-
-      resource_used = res_set: resource:
-          resource_referenced
-              (flatten_resources res_set)
-              (value: value == resource )
-              true;
-
-      resources_without_defaults = res_class: defaults: res_set:
-        let
-          missing = lib.filter (res: !(resource_used (removeAttrs res_set [res_class])
-                                                  res_set."${res_class}"."${res}"))
-                           (lib.attrNames defaults);
-        in
-        res_set // { "${res_class}" = ( removeAttrs res_set."${res_class}" missing ); };
-
-    in (removeAttrs resources' [ "machines" ]);
+    resources = (removeAttrs resources' [ "machines" ]);
 
   };
 

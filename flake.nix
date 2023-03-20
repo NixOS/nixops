@@ -45,6 +45,7 @@
         git_root=$(${pkgs.git}/bin/git rev-parse --show-toplevel)
         export PYTHONPATH=$git_root:$PYTHONPATH
         export PATH=$git_root/scripts:$PATH
+        export NIX_PATH="nixpkgs=${toString nixpkgs}:$NIX_PATH"
       '';
     };
 
@@ -72,6 +73,10 @@
         pkgs.poetry2nix.defaultPoetryOverrides
         overrides
       ];
+
+      postPatch = ''
+        substituteInPlace nix/eval-machine-info.nix --replace "<nixpkgs>" "${toString nixpkgs}"
+      '';
 
       # TODO: Re-add manual build
     };

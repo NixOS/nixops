@@ -1,23 +1,8 @@
-{ config, lib, ... }:
-
+{ name, config, lib, ... }:
 with lib;
-
-let
-
-  cfg = config.deployment;
-
-in
-
 {
-
-  imports =
-    [
-      ./keys.nix
-    ];
-
-
+  imports = [ ./keys.nix ];
   options = {
-
     deployment.targetEnv = mkOption {
       default = "none";
       example = "ec2";
@@ -74,7 +59,7 @@ in
 
     deployment.sshOptions = mkOption {
       type = types.listOf types.str;
-      default = [];
+      default = [ ];
       description = ''
         Extra options passed to the OpenSSH client verbatim, and are not executed by a shell.
       '';
@@ -109,7 +94,7 @@ in
     };
 
     deployment.owners = mkOption {
-      default = [];
+      default = [ ];
       type = types.listOf types.str;
       description = ''
         List of email addresses of the owners of the machines. Used
@@ -167,6 +152,9 @@ in
 
     _type = "machine";
 
+    # Provide a default hostname and deployment target equal
+    # to the attribute name of the machine in the model.
+    networking.hostName = lib.mkOverride 900 name;
     deployment.targetHost = mkDefault config.networking.hostName;
     deployment.targetPort = mkDefault (head config.services.openssh.ports);
 
