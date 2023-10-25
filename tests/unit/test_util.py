@@ -3,6 +3,7 @@ import json
 from nixops.logger import Logger
 from io import StringIO
 import unittest
+import typeguard
 
 from nixops import util
 
@@ -85,7 +86,7 @@ class TestUtilTest(unittest.TestCase):
         self.assertTrue(isinstance(r.sub.x, int))
         self.assertEqual(r.sub.x, 1)
 
-        self.assertRaises(TypeError, lambda: SubResource(x="a string"))
+        self.assertRaises(typeguard.TypeCheckError, lambda: SubResource(x="a string"))
 
         def _assign():
             r = SubResource(x=1)
@@ -97,7 +98,7 @@ class TestUtilTest(unittest.TestCase):
         class MustRaise(util.ImmutableValidatedObject):
             fuzz: str
 
-        self.assertRaises(TypeError, lambda: MustRaise())
+        self.assertRaises(typeguard.TypeCheckError, lambda: MustRaise())
 
         class WithDefaults(util.ImmutableValidatedObject):
             x: int = 1

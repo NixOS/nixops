@@ -15,6 +15,7 @@ import subprocess
 import logging
 import atexit
 import re
+import typing
 import typeguard  # type: ignore
 import inspect
 import shlex
@@ -139,9 +140,7 @@ class ImmutableValidatedObject:
         # Support inheritance
         anno: Dict = {}
         for x in reversed(self.__class__.mro()):
-            if not hasattr(x, "__annotations__"):
-                continue
-            anno.update(x.__annotations__)
+            anno.update(typing.get_type_hints(x))
 
         def _transform_value(key: Any, value: Any) -> Any:
             ann = anno.get(key)
@@ -166,7 +165,7 @@ class ImmutableValidatedObject:
                             new_value.append(v)
                 value = tuple(new_value)
 
-            typeguard.check_type(key, value, ann)
+            typeguard.check_type(value, ann)
 
             return value
 

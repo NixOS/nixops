@@ -10,8 +10,8 @@ include = ["nix/*.nix", "nixops/py.typed" ]
 python = "^3.10"
 PrettyTable = "^0.7.2"
 pluggy = "^1.0.0"
-typeguard = "^2.7.1"
-typing-extensions = "^3.7.4"
+typeguard = "^4"
+typing-extensions = "^4"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.961"
