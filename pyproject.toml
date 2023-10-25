@@ -14,7 +14,7 @@ typeguard = "^4"
 typing-extensions = "^4"
 
 [tool.poetry.dev-dependencies]
-mypy = "^0.961"
+mypy = "^1"
 black = "^22.6.0"
 # For mypy txt report
 lxml = "^4.5.0"
