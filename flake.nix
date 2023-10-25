@@ -1,20 +1,20 @@
 {
   description = "NixOps: a tool for deploying to [NixOS](https://nixos.org) machines in a network or the cloud";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable-small";
+
+  inputs.poetry2nix.url = "github:nix-community/poetry2nix";
+  inputs.poetry2nix.inputs.nixpkgs.follows = "nixpkgs";
 
   inputs.utils.url = "github:numtide/flake-utils";
 
-  outputs = { self, nixpkgs, utils }: utils.lib.eachDefaultSystem (system: let
+  outputs = { self, nixpkgs, poetry2nix, utils }: utils.lib.eachDefaultSystem (system: let
     pkgs = import nixpkgs { inherit system; };
+    poetry2nix' = import poetry2nix { inherit pkgs; };
 
-    pythonEnv = (pkgs.poetry2nix.mkPoetryEnv {
+    pythonEnv = poetry2nix'.mkPoetryEnv {
       projectDir = ./.;
-      overrides = [
-        pkgs.poetry2nix.defaultPoetryOverrides
-        (import ./overrides.nix { inherit pkgs; })
-      ];
-    });
+    };
     linters.doc = pkgs.writers.writeBashBin "lint-docs" ''
       set -eux
       # When running it in the Nix sandbox, there is no git repository
@@ -57,20 +57,12 @@
 
     defaultApp = apps.default;
 
-    packages.default = let
-      overrides = import ./overrides.nix { inherit pkgs; };
-
-    in pkgs.poetry2nix.mkPoetryApplication {
+    packages.default = poetry2nix'.mkPoetryApplication {
       projectDir = ./.;
 
       propagatedBuildInputs = [
         pkgs.openssh
         pkgs.rsync
-      ];
-
-      overrides = [
-        pkgs.poetry2nix.defaultPoetryOverrides
-        overrides
       ];
 
       # TODO: Re-add manual build
@@ -118,7 +110,7 @@
       name = "nixops-docs";
       # we use cleanPythonSources because the default gitignore
       # implementation doesn't support the restricted evaluation
-      src = pkgs.poetry2nix.cleanPythonSources {
+      src = poetry2nix'.cleanPythonSources {
         src = ./.;
       };
 
@@ -138,7 +130,7 @@
         name = "check-lint-docs";
         # we use cleanPythonSources because the default gitignore
         # implementation doesn't support the restricted evaluation
-        src = pkgs.poetry2nix.cleanPythonSources {
+        src = poetry2nix'.cleanPythonSources {
           src = ./.;
         };
         dontBuild = true;
