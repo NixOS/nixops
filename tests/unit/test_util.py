@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Any, Sequence
 import json
 from nixops.logger import Logger
 from io import StringIO
@@ -49,7 +49,7 @@ class TestUtilTest(unittest.TestCase):
 
         # Assert that the shape of the immutable dict is the same as the input dict
 
-        i = util.ImmutableMapping(d)
+        i: util.ImmutableMapping[str, Any] = util.ImmutableMapping(d)
         self.assertEqual(d["foo"], i["foo"])
 
         tup = i["list"]
@@ -63,7 +63,7 @@ class TestUtilTest(unittest.TestCase):
         self.assertTrue(isinstance(dic, util.ImmutableMapping))
         self.assertEqual(
             dic["x"],
-            d["nested"]["x"],
+            d["nested"]["x"],  # type: ignore
         )
 
         dic_l = i["nested_in_list"][0]

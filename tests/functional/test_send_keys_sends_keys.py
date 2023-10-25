@@ -13,7 +13,7 @@ class TestSendKeysSendsKeys(SingleMachineTest):
 
     def setup_method(self):
         super(TestSendKeysSendsKeys, self).setup_method()
-        self.depl.nix_exprs = self.depl.nix_exprs + [
+        self.depl.nix_exprs = self.depl.nix_exprs + [  # type: ignore
             secret_key_spec,
             elsewhere_key_spec,
         ]

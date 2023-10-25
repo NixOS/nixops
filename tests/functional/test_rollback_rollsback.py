@@ -21,7 +21,7 @@ class TestRollbackRollsback(SingleMachineTest):
     def setup_method(self):
         super(TestRollbackRollsback, self).setup_method()
         self.depl.network_expr = NetworkFile(rollback_spec)
-        self.depl.nix_exprs = self.depl.nix_exprs + [rollback_spec]
+        self.depl.nix_exprs = self.depl.nix_exprs + [rollback_spec]  # type: ignore
 
     def run_check(self):
         self.depl.deploy()

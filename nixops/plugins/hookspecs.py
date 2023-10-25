@@ -11,3 +11,4 @@ def plugin() -> Plugin:
     """
     Register a plugin base class
     """
+    raise NotImplementedError

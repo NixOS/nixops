@@ -17,4 +17,4 @@ class TestSSHKeyPairResource(GenericDeploymentTest):
     def test_evaluate(self):
         self.depl.evaluate()
 
-        assert "ssh-key" in self.depl.definitions
+        assert self.depl.definitions and "ssh-key" in self.depl.definitions

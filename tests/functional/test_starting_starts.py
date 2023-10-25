@@ -6,6 +6,7 @@ class TestStartingStarts(SingleMachineTest):
         self.depl.deploy()
         self.depl.stop_machines()
         self.depl.start_machines()
+        assert self.depl.active
         m = list(self.depl.active.values())[0]
         m.check()
         assert m.state == m.UP
