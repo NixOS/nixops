@@ -12,8 +12,8 @@ logical_spec = "{0}/single_machine_logical_base.nix".format(parent_dir)
 class SingleMachineTest(GenericDeploymentTest):
     _multiprocess_can_split_ = True
 
-    def setup(self):
-        super(SingleMachineTest, self).setup()
+    def setup_method(self):
+        super(SingleMachineTest, self).setup_method()
         self.depl.network_expr = NetworkFile(logical_spec)
 
     def check_command(self, command):

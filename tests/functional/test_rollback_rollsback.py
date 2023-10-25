@@ -18,8 +18,8 @@ rollback_spec = "%s/single_machine_rollback.nix" % (parent_dir)
 class TestRollbackRollsback(SingleMachineTest):
     _multiprocess_can_split_ = True
 
-    def setup(self):
-        super(TestRollbackRollsback, self).setup()
+    def setup_method(self):
+        super(TestRollbackRollsback, self).setup_method()
         self.depl.network_expr = NetworkFile(rollback_spec)
         self.depl.nix_exprs = self.depl.nix_exprs + [rollback_spec]
 

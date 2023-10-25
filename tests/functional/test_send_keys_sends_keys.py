@@ -11,8 +11,8 @@ elsewhere_key_spec = "%s/single_machine_elsewhere_key.nix" % (parent_dir)
 class TestSendKeysSendsKeys(SingleMachineTest):
     _multiprocess_can_split_ = True
 
-    def setup(self):
-        super(TestSendKeysSendsKeys, self).setup()
+    def setup_method(self):
+        super(TestSendKeysSendsKeys, self).setup_method()
         self.depl.nix_exprs = self.depl.nix_exprs + [
             secret_key_spec,
             elsewhere_key_spec,

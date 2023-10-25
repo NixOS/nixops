@@ -12,8 +12,8 @@ logical_spec = "%s/invalid-identifier.nix" % (parent_dir)
 
 
 class TestInvalidIdentifier(GenericDeploymentTest):
-    def setup(self):
-        super(TestInvalidIdentifier, self).setup()
+    def setup_method(self):
+        super(TestInvalidIdentifier, self).setup_method()
         self.depl.network_expr = NetworkFile(logical_spec)
 
     def test_invalid_identifier_fails_evaluation(self):

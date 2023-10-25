@@ -10,8 +10,8 @@ ssh_key_pair_spec = "%s/ssh-key-pair-resource.nix" % (parent_dir)
 
 
 class TestSSHKeyPairResource(GenericDeploymentTest):
-    def setup(self):
-        super(TestSSHKeyPairResource, self).setup()
+    def setup_method(self):
+        super(TestSSHKeyPairResource, self).setup_method()
         self.depl.network_expr = NetworkFile(ssh_key_pair_spec)
 
     def test_evaluate(self):
