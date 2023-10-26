@@ -1,7 +1,7 @@
 from abc import abstractmethod
 import functools
 import string
-from typing import Iterable, Optional, Any, List, Tuple, Union, Dict
+from typing import Iterable, Optional, Any, List, Sequence, Tuple, Union, Dict
 from textwrap import dedent
 
 __all__ = ["py2nix", "nix2py", "nixmerge", "expand_dict", "RawValue", "Function"]
@@ -81,12 +81,12 @@ class Container(object):
     def __init__(
         self,
         prefix: str,
-        children: List,
+        children: Sequence[Union[RawValue, "Container"]],
         suffix: str,
         inline_variant: Optional[ValueLike] = None,
     ):
         self.prefix: str = prefix
-        self.children: List = children
+        self.children = children
         self.suffix: str = suffix
         self.inline_variant = inline_variant
 
@@ -99,7 +99,7 @@ class Container(object):
             + len(self.suffix)
             + 1
             + len(self.children)
-            + sum([child.get_min_length() for child in self.children])
+            + sum([child.get_min_length() or 0 for child in self.children])
         )
 
     def is_inlineable(self) -> bool:

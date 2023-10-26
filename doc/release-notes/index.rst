@@ -797,7 +797,7 @@ This a minor bugfix release.
    completed. Previously this was done before, but that could lead to
    volumes not being able to detach without needing to stop the machine.
 
--  Added a command-line option ``--repair`` as a convient way to pass this
+-  Added a command-line option ``--repair`` as a convenient way to pass this
    option, which allows repairing of broken or changed paths in the nix
    store, to nix-build calls that nixops performs. Note that this option
    only works in nix setups that run without the nix daemon.

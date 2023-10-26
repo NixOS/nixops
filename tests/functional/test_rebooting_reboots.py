@@ -10,6 +10,7 @@ class TestRebootingReboots(SingleMachineTest):
         self.depl.deploy()
         self.check_command("touch /run/not-rebooted")
         self.depl.reboot_machines(wait=True)
+        assert self.depl.active
         m = list(self.depl.active.values())[0]
         m.check()
         assert m.state == m.UP

@@ -1,8 +1,9 @@
-from typing import Sequence
+from typing import Any, Sequence
 import json
 from nixops.logger import Logger
 from io import StringIO
 import unittest
+import typeguard
 
 from nixops import util
 
@@ -48,7 +49,7 @@ class TestUtilTest(unittest.TestCase):
 
         # Assert that the shape of the immutable dict is the same as the input dict
 
-        i = util.ImmutableMapping(d)
+        i: util.ImmutableMapping[str, Any] = util.ImmutableMapping(d)
         self.assertEqual(d["foo"], i["foo"])
 
         tup = i["list"]
@@ -62,7 +63,7 @@ class TestUtilTest(unittest.TestCase):
         self.assertTrue(isinstance(dic, util.ImmutableMapping))
         self.assertEqual(
             dic["x"],
-            d["nested"]["x"],
+            d["nested"]["x"],  # type: ignore
         )
 
         dic_l = i["nested_in_list"][0]
@@ -85,7 +86,7 @@ class TestUtilTest(unittest.TestCase):
         self.assertTrue(isinstance(r.sub.x, int))
         self.assertEqual(r.sub.x, 1)
 
-        self.assertRaises(TypeError, lambda: SubResource(x="a string"))
+        self.assertRaises(typeguard.TypeCheckError, lambda: SubResource(x="a string"))
 
         def _assign():
             r = SubResource(x=1)
@@ -97,7 +98,7 @@ class TestUtilTest(unittest.TestCase):
         class MustRaise(util.ImmutableValidatedObject):
             fuzz: str
 
-        self.assertRaises(TypeError, lambda: MustRaise())
+        self.assertRaises(typeguard.TypeCheckError, lambda: MustRaise())
 
         class WithDefaults(util.ImmutableValidatedObject):
             x: int = 1
