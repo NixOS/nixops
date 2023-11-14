@@ -28,12 +28,12 @@ class KeyOptions(nixops.resources.ResourceOptions):
     text: Optional[str]
     keyFile: Optional[str]
     keyCommand: Optional[Sequence[str]]
-    name: str
-    path: str
-    destDir: str
-    user: str
-    group: str
-    permissions: str
+    name: Optional[str]
+    path: Optional[str]
+    destDir: Optional[str]
+    user: Optional[str]
+    group: Optional[str]
+    permissions: Optional[str]
 
 
 class MachineOptions(nixops.resources.ResourceOptions):
