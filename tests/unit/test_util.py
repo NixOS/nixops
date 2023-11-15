@@ -1,4 +1,4 @@
-from typing import Any, Sequence
+from typing import Any, Sequence, Mapping
 import json
 from nixops.logger import Logger
 from io import StringIO
@@ -121,4 +121,14 @@ class TestUtilTest(unittest.TestCase):
         class WithSequence(util.ImmutableValidatedObject):
             subs: Sequence[SubResource]
 
-        WithSequence(subs=[SubResource(x=1), SubResource(x=2)])
+        seq = WithSequence(subs=[{"x": 1}, {"x": 2}])
+        for i in seq.subs:
+            self.assertIsInstance(i, SubResource)
+
+        # Test Mapping[str, ImmutableValidatedObject]
+        class WithMapping(util.ImmutableValidatedObject):
+            mapping: Mapping[str, SubResource]
+
+        mapped = WithMapping(mapping={"aaa": {"x": 1}, "bbb": {"x": 2}})
+        for _, v in mapped.mapping.items():
+            self.assertIsInstance(v, SubResource)

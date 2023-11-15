@@ -17,8 +17,9 @@ import atexit
 import re
 import typing
 import typeguard  # type: ignore
-import inspect
 import shlex
+import collections.abc
+from inspect import isclass
 from typing import (
     Callable,
     List,
@@ -149,21 +150,33 @@ class ImmutableValidatedObject:
             if not ann:
                 return value
 
-            if inspect.isclass(ann) and issubclass(ann, ImmutableValidatedObject):
+            if isclass(ann) and issubclass(ann, ImmutableValidatedObject):
                 value = ann(**value)
 
-            # Support Sequence[ImmutableValidatedObject]
-            if isinstance(value, tuple) and not isinstance(ann, str):
-                new_value = []
-                for v in value:
-                    for subann in ann.__args__:  # type: ignore
-                        if inspect.isclass(subann) and issubclass(
-                            subann, ImmutableValidatedObject
-                        ):
-                            new_value.append(subann(**v))
-                        else:
-                            new_value.append(v)
-                value = tuple(new_value)
+            # Support containers of ImmutableValidatedObjects
+            match typing.get_origin(ann):
+
+                case collections.abc.Sequence:
+                    sequence: List = []
+                    for v in value:
+                        for subann in typing.get_args(ann):
+                            if isclass(subann) and issubclass(
+                                subann, ImmutableValidatedObject
+                            ):
+                                sequence.append(subann(**v))
+                            else:
+                                sequence.append(v)
+                    value = tuple(sequence)
+
+                case collections.abc.Mapping:
+                    _, value_ann = typing.get_args(ann)
+                    if isclass(value_ann) and issubclass(
+                        value_ann, ImmutableValidatedObject
+                    ):
+                        mapping: Dict = {}
+                        for k, v in value.items():
+                            mapping[k] = value_ann(**v)
+                        value = mapping
 
             typeguard.check_type(value, ann)
 
