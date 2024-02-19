@@ -625,7 +625,7 @@ def parse_nixos_version(s: str) -> List[str]:
 # xvd -> sd
 # nvme -> sd
 def device_name_to_boto_expected(string: str) -> str:
-    """Transfoms device name to name, that boto expects."""
+    """Transforms device name to name, that boto expects."""
     m = re.search(r"(.*)\/nvme(\d+)n1p?(\d+)?", string)  # noqa: W605
     if m is not None:
         device = m.group(2)
