@@ -16,6 +16,8 @@ Release 2.0
 
 - Major code cleanups.
 
+- Removed `nixops create <file>` file argument. Now it requires a `flake.nix` or `nixops.nix` file.
+
 - Removed NixOS Options
 
   - ``deployment.autoLuks.*`` - moved to `nixos-modules-contrib`_.
