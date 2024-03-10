@@ -3,11 +3,12 @@ import nixops.statefile
 import sys
 import os
 import os.path
+from typing import Optional
 from nixops.util import ImmutableValidatedObject
 
 
 class LegacyBackendOptions(ImmutableValidatedObject):
-    pass
+    databasefile: Optional[str]
 
 
 class LegacyBackend(StorageBackend[LegacyBackendOptions]):
@@ -18,7 +19,7 @@ class LegacyBackend(StorageBackend[LegacyBackendOptions]):
         return LegacyBackendOptions(**kwargs)
 
     def __init__(self, args: LegacyBackendOptions) -> None:
-        pass
+        self.args = args
 
     # fetchToFile: acquire a lock and download the state file to
     # the local disk. Note: no arguments will be passed over kwargs.
@@ -34,6 +35,9 @@ class LegacyBackend(StorageBackend[LegacyBackendOptions]):
         env_override = os.environ.get("NIXOPS_STATE", os.environ.get("CHARON_STATE"))
         if env_override is not None:
             return env_override
+
+        if self.args.databasefile is not None:
+            return self.args.databasefile
 
         home_dir = os.environ.get("HOME", "")
         charon_dir = f"{home_dir}/.charon"
