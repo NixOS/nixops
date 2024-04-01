@@ -4,7 +4,7 @@
 > NixOps is in low-maintenance mode and probably not suited for new projects. Use at your own risks.
 
 > [!Note]
-> An experimental rewrite of NixOps is happening under https://github.com/NixOps4/nixops
+> An experimental rewrite of NixOps is happening under https://github.com/nixops4/nixops4
 
 [![Test](https://github.com/NixOS/nixops/workflows/CI/badge.svg)](https://github.com/NixOS/nixops/actions)
 
