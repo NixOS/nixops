@@ -6,6 +6,19 @@ NixOps is a tool for deploying NixOS machines in a network or cloud.
 Common options
 ==============
 
+``--network``; ``-n``
+   Path to file that contains the NixOps network specification, or the
+   path to a directory containing it. By default, a file called
+   ``nixops.nix`` in the current working directory is used; if a
+   directory is specified, it is searched instead.
+
+``--flake``; ``-f``
+   Path to the flake file that contains the NixOps network
+   specification in ``outputs.nixopsConfigurations.default``, or the
+   path to a directory containing it. By default, a file called
+   ``flake.nix`` in the current working directory is used; if a
+   directory is specified, it is searched instead.
+
 ``--state``; ``-s``
    Path to the state file that contains the deployments. It defaults to
    the value of the NIXOPS_STATE environment variable, or
@@ -222,7 +235,6 @@ Synopsis
 nixops modify
 nixexprs
 --name
--n
 name
 -I
 path
@@ -241,9 +253,9 @@ from ``foo`` to ``bar``:
 
 ::
 
-   $ nixops modify -d foo -n bar expr3.nix expr4.nix
+   $ nixops modify -d foo --name bar expr3.nix expr4.nix
 
-Note that ``-d`` identifies the existing deployment, while ``-n``
+Note that ``-d`` identifies the existing deployment, while ``--name``
 specifies its new name.
 
 Command ``nixops clone``
@@ -254,7 +266,6 @@ Synopsis
 
 nixops clone
 --name
--n
 name
 Description
 -----------
@@ -273,7 +284,7 @@ To create a new deployment ``bar`` by cloning the deployment ``foo``:
 
 ::
 
-   $ nixops clone -d foo -n bar
+   $ nixops clone -d foo --name bar
 
 Command ``nixops delete``
 =========================
