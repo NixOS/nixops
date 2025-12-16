@@ -22,7 +22,7 @@ import logging
 import logging.handlers
 import json
 from tempfile import TemporaryDirectory
-import pipes
+import shlex
 from typing import Tuple, List, Optional, Union, Generator, Type, Set, Sequence
 import nixops.ansi
 
@@ -1117,7 +1117,7 @@ def op_edit(args: Namespace) -> None:
         if not editor:
             raise Exception("the $EDITOR environment variable is not set")
         os.system(
-            "$EDITOR " + " ".join([pipes.quote(x) for x in depl.network_expr.network])
+            "$EDITOR " + " ".join([shlex.quote(x) for x in depl.network_expr.network])
         )
 
 
