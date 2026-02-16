@@ -338,7 +338,7 @@ class Deployment:
         self,
     ) -> Any:  # FIXME: DeploymentLock is defined inside the function
         if self._lock_file_path is None:
-            lock_dir = os.environ.get("HOME", "") + "/.nixops/locks"
+            lock_dir = os.environ.get("NIXOPS_STATE", os.environ.get("HOME", "") + "/.nixops" ) + "/locks"
             if not os.path.exists(lock_dir):
                 os.makedirs(lock_dir, 0o700)
             self._lock_file_path = lock_dir + "/" + self.uuid
