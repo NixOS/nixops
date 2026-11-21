@@ -37,7 +37,7 @@
         pkgs.openssh
         pkgs.poetry
         pkgs.rsync  # Included by default on NixOS
-        pkgs.nixFlakes
+        pkgs.nix
         pkgs.codespell
       ] ++ (builtins.attrValues linters);
 
